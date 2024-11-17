@@ -123,7 +123,6 @@
       }
     }
   
-    onMount(fetchCases);
   </script>
   
   <Card.Root>
