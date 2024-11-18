@@ -87,7 +87,7 @@
                     <BaseKpi
                         title={view.title}
                         icon={view.icon}
-                        value={key === 'cases' ? $casesStore.length : key === 'tasks' ? $tasksStore.length : '0'}
+                        value={key === 'cases' ? $casesStore.length : key === 'tasks' ? $tasksStore.length : 0}
                         subtitle={key === activeView ? 'Click to hide' : 'Click to view'}
                         isActive={key === activeView}
                         isLoading={key === 'cases' ? $isLoadingStore : key === 'tasks' ? $isLoadingTasksStore : false}

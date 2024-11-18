@@ -39,9 +39,15 @@
         },
         { 
             field: 'status.status_name', 
-            headerName: 'Status', 
+            headerName: 'Status',
+            filter: 'agTextColumnFilter',
+            filterParams: {
+                maxNumConditions: 3,
+                textMatcher: ({ filterOption, value, filterText }: { filterOption: any, value: string, filterText: string }) => {
+                    return value === filterText;
+                }
+            },  
             sortable: true, 
-            filter: true,
             cellRenderer: (params: any) => {
                 return cellRendererFactory((target, p) => {
                     const status = p?.data?.status?.status_name;
@@ -58,12 +64,14 @@
 
     let quickFilters = [
         {
-            field: 'status',
+            field: 'status.status_name',
             label: 'Status',
             options: [
-                { value: 'pending', label: 'Pending' },
-                { value: 'in_progress', label: 'In Progress' },
-                { value: 'completed', label: 'Completed' }
+                { value: 'To do', label: 'To do' },
+                { value: 'In progress', label: 'In Progress' },
+                { value: 'Pending', label: 'Pending' },
+                { value: 'On hold', label: 'On hold' },
+                { value: 'Done', label: 'Done' },
             ]
         }
     ];

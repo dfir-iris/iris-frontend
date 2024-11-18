@@ -126,12 +126,6 @@
         applyFilters();
     }
 
-    function clearFilter(field: string) {
-        selectedFilters[field].clear();
-        selectedFilters = selectedFilters;
-        applyFilters();
-    }
-
     $: if (api && selectedFilters) {
         applyFilters();
     }
@@ -143,56 +137,61 @@
   </script>
   
   <div class="flex flex-col gap-4">
-    <div class="flex items-center space-x-2">
-        <Search class="h-4 w-4 text-muted-foreground" />
-        <Input
-            type="text"
-            bind:value={searchText}
-            placeholder="Search..."
-            class="h-8 w-[250px]"
-        />
-		{#each quickFilters as filter}
-			<DropdownMenu.Root>
-				<DropdownMenu.Trigger class="inline-flex items-center justify-center text-sm font-medium">
-                    <Button variant="outline" class="border-dashed flex items-center gap-2">
-                        <span>{filter.label}</span>
-                        {#if selectedFilters[filter.field]?.size > 0}
-                            <Separator orientation="vertical" class="h-4" />
-                            {#if selectedFilters[filter.field].size === 1}
-                                {#each Array.from(selectedFilters[filter.field]) as value}
-                                    <Badge variant="secondary" class="flex items-center gap-1">
-                                        {filter.options.find(o => o.value === value)?.label}
-                                        <button class="hover:bg-destructive/50 rounded-full p-0.5" on:click|stopPropagation={() => removeFilter(filter.field, value)}>
-                                            <X class="h-2 w-2" />
-                                        </button>
-                                    </Badge>
-                                {/each}
-                            {:else}
-                                <Badge>{selectedFilters[filter.field].size} selected</Badge>
-                            {/if}
-                        {/if}
-                    </Button>
-				</DropdownMenu.Trigger>
-				<DropdownMenu.Content>
-					<DropdownMenu.Label>{filter.label}</DropdownMenu.Label>
-					{#each filter.options as option}
-						<DropdownMenu.CheckboxItem
-							checked={selectedFilters[filter.field]?.has(option.value)}
-							onCheckedChange={() => toggleFilter(filter.field, option.value)}
-						>
-							{option.label}
-						</DropdownMenu.CheckboxItem>
-					{/each}
-				</DropdownMenu.Content>
-			</DropdownMenu.Root>
-		{/each}
-    </div>
-    
+	{#if rowData.length === 0}
+		<div class="text-center text-muted-foreground p-4">
+			No data available
+		</div>
+	{:else}
+		<div class="flex items-center space-x-2">
+			<Search class="h-4 w-4 text-muted-foreground" />
+			<Input
+				type="text"
+				bind:value={searchText}
+				placeholder="Search..."
+				class="h-8 w-[250px]"
+			/>
+			{#each quickFilters as filter}
+				<DropdownMenu.Root>
+					<DropdownMenu.Trigger class="inline-flex items-center justify-center text-sm font-medium">
+						<Button variant="outline" class="border-dashed flex items-center gap-2">
+							<span>{filter.label}</span>
+							{#if selectedFilters[filter.field]?.size > 0}
+								<Separator orientation="vertical" class="h-4" />
+								{#if selectedFilters[filter.field].size === 1}
+									{#each Array.from(selectedFilters[filter.field]) as value}
+										<Badge variant="secondary" class="flex items-center gap-1">
+											{filter.options.find(o => o.value === value)?.label}
+											<button class="hover:bg-destructive/50 rounded-full p-0.5" on:click|stopPropagation={() => removeFilter(filter.field, value)}>
+												<X class="h-2 w-2" />
+											</button>
+										</Badge>
+									{/each}
+								{:else}
+									<Badge>{selectedFilters[filter.field].size} selected</Badge>
+								{/if}
+							{/if}
+						</Button>
+					</DropdownMenu.Trigger>
+					<DropdownMenu.Content>
+						<DropdownMenu.Label>{filter.label}</DropdownMenu.Label>
+						{#each filter.options as option}
+							<DropdownMenu.CheckboxItem
+								checked={selectedFilters[filter.field]?.has(option.value)}
+								onCheckedChange={() => toggleFilter(filter.field, option.value)}
+							>
+								{option.label}
+							</DropdownMenu.CheckboxItem>
+						{/each}
+					</DropdownMenu.Content>
+				</DropdownMenu.Root>
+			{/each}
+		</div>
 		<div 
 			bind:this={gridRef}
 			class="{gridThemeClass} w-full"
 		>
 		</div>
+	{/if}
 	</div>
   
   <style>

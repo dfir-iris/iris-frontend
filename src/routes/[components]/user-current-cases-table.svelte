@@ -56,15 +56,21 @@
         field: 'state.state_name',
         headerName: 'State',
         sortable: true,
-        filter: true,
+        filter: 'agTextColumnFilter',
+        filterParams: {
+            maxNumConditions: 2,
+            textMatcher: ({ filterOption, value, filterText }: { filterOption: any, value: string, filterText: string }) => {
+                return value === filterText;
+            }
+        }, 
         cellRenderer: (params: any) => {
           return cellRendererFactory((target, p) => {
-            const state = p?.data?.state?.state_name;
+            const state_value = p?.data?.state?.state_name;
             mount(StateBadge, {
               target,
               props: {
-                state,
-              },
+                state: state_value,
+              } 
             });
           })(params);
         },
@@ -73,7 +79,13 @@
         field: 'severity.severity_name',
         headerName: 'Severity',
         sortable: true,
-        filter: true,
+        filter: 'agTextColumnFilter',
+        filterParams: {
+            maxNumConditions: 3,
+            textMatcher: ({ filterOption, value, filterText }: { filterOption: any, value: string, filterText: string }) => {
+                return value === filterText;
+            }
+        },
         cellRenderer: (params: any) => {
           return cellRendererFactory((target, p) => {
             const severity = p?.data?.severity?.severity_name;
@@ -95,9 +107,8 @@
         field: 'state.state_name',
         label: 'State',
         options: [
-                { value: 'High', label: 'High' },
-                { value: 'Medium', label: 'Medium' },
-                { value: 'Low', label: 'Low' }
+                { value: 'Open', label: 'Open' },
+                { value: 'Closed', label: 'Closed' }    
             ]
       },
       {
@@ -106,7 +117,7 @@
         options: [
                 { value: 'High', label: 'High' },
                 { value: 'Medium', label: 'Medium' },
-                { value: 'Low', label: 'Low' }
+                { value: 'Low', label: 'Low' }        
             ]
       },
     ];
@@ -145,9 +156,9 @@
         </div>
       {:else}
         <DataTable 
-        rowData={$casesStore} 
-        columnDefs={columnDefs} 
-        quickFilters={quickFilters}
+            rowData={$casesStore} 
+            columnDefs={columnDefs} 
+            quickFilters={quickFilters}
         />
       {/if}
     </Card.Content>
