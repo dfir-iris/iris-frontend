@@ -25,7 +25,10 @@
             mount(CellTitle, {
               target,
               props: {
-                params: p,
+                params: {
+                    title: p.data?.name,
+                    redirUrl: `/case?cid=${p.data?.case_id || 0}`,
+                },
               },
             });
           })(params);

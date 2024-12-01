@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Icons } from "$lib/components/ui/icons/index.js";
-    import { LoadingButton } from "$lib/components/ui/loading-button";
+  import { LoadingButton } from "$lib/components/ui/loading-button";
 	import { Input } from "$lib/components/ui/input/index.js";
 	import { Label } from "$lib/components/ui/label/index.js";
 	import { cn } from "$lib/utils.js";

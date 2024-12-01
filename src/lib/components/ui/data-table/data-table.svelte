@@ -138,7 +138,7 @@
   
   <div class="flex flex-col gap-4">
 	{#if rowData.length === 0}
-		<div class="text-center text-muted-foreground p-4">
+		<div class="text-center text-muted-foreground">
 			No data available
 		</div>
 	{:else}

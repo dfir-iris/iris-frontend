@@ -5,10 +5,15 @@
         Play,
         CheckCircle,
         HelpCircle,
-        Circle
+        Circle,
+		MergeIcon,
+	    Handshake,
+		BadgeAlert
     } from "lucide-svelte";
+    import * as Tooltip from "$lib/components/ui/tooltip";
 
-    export let status: 'Pending' | 'In progress' | 'Completed' | 'Unspecified' | 'To do';
+    export let icon_only: boolean = false;
+    export let status: 'Pending' | 'In progress' | 'Completed' | 'Unspecified' | 'To do' | 'Closed' | 'Merged' | 'Assigned' | 'New';
 
     const statusConfig = {
         Pending: {
@@ -23,9 +28,25 @@
             color: "bg-green-100 text-green-800 hover:bg-green-200",
             icon: CheckCircle
         },
+        Closed: {
+            color: "bg-green-100 text-green-800 hover:bg-green-200",
+            icon: CheckCircle
+        },
+        Merged: {
+            color: "bg-green-100 text-green-800 hover:bg-green-200",
+            icon: MergeIcon
+        },
         Unspecified: {
             color: "bg-gray-100 text-gray-800 hover:bg-gray-200",
             icon: HelpCircle
+        },
+        Assigned : {
+            color: "bg-green-100 text-green-800 hover:bg-green-200",
+            icon: Handshake
+        },
+        New : {
+            color: "bg-red-100 text-red-800 hover:bg-red-200",
+            icon: BadgeAlert
         },
         'To do': {
             color: "bg-gray-100 text-gray-800 hover:bg-gray-200",
@@ -38,7 +59,18 @@
     $: Icon = config.icon;
 </script>
 
-<Badge class="items-center gap-1 {config.color}">
-    <svelte:component this={Icon} class="h-3 w-3" />
-    {status}
-</Badge>
+{#if icon_only}
+    <Tooltip.Root openDelay={0} group>
+        <Tooltip.Trigger class="flex items-center gap-1">
+            <Badge class="items-center gap-1 {config.color}">
+                <svelte:component this={Icon} class="h-3 w-3" />
+            </Badge>        
+        </Tooltip.Trigger>
+        <Tooltip.Content>{status} status</Tooltip.Content>
+    </Tooltip.Root>
+{:else}
+    <Badge class="items-center gap-1 {config.color}">
+        <svelte:component this={Icon} class="h-3 w-3" />
+        {status}
+    </Badge>
+{/if}

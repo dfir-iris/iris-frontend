@@ -1,38 +1,40 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
     import { Button } from "$lib/components/ui/button";
-    import { ArrowUpRight } from 'lucide-svelte';
-  
-    // Correctly define the params property type
-    export let params;
+    import * as Tooltip from "$lib/components/ui/tooltip";
+
+      export let params;
     
-    // Destructure params to ensure valid access
-    $: name = params?.data.name ?? '';
-    $: caseId = params?.data.case_id ?? 0;
+    $: title = params?.title ?? '';
+    $: redirUrl = params?.redirUrl ?? '';
   
     // Handle button click for navigation
     function handleClick() {
-      if (caseId) {
-        goto(`/case?cid=${caseId}`);
+      if (redirUrl) {
+        goto(redirUrl);
       } else {
-        console.error("Invalid caseId provided:", caseId);
+        console.error("Invalid element provided:", redirUrl);
       }
     }
 
-  
     export function refresh(props: any): boolean {
       return false;
     }
   </script>
   
-  <div class="flex items-center gap-2">
-    <Button 
-        title="View case details"
-        variant="ghost"
-        size="icon"
-        on:click={handleClick}
-    >
-        <ArrowUpRight class="h-4 w-4" />
-    </Button>
-    <span>{name}</span>
+  <div class="flex items-center">
+    <Tooltip.Root openDelay={300}>
+        <Tooltip.Trigger>
+            <Button 
+                variant="dotted"
+                size="sm"
+                on:click={handleClick}
+            >
+                {title}
+            </Button>
+        </Tooltip.Trigger>
+        <Tooltip.Content>
+            Click to view details
+        </Tooltip.Content>
+    </Tooltip.Root>
   </div>

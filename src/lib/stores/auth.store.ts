@@ -26,6 +26,7 @@ const createAuthStore = () => {
     const store = {
         subscribe,
         setAuth: (response: LoginResponse) => {
+
             const newState = {
                 user: response,
                 isAuthenticated: true
@@ -36,7 +37,11 @@ const createAuthStore = () => {
             }
         },
         clearAuth: () => {
-            set({ user: null, isAuthenticated: false });
+            const newState = {
+                user: null,
+                isAuthenticated: false
+            };
+            set(newState);
             if (typeof window !== 'undefined') {
                 localStorage.removeItem('auth');
             }
@@ -50,3 +55,4 @@ export const auth = createAuthStore();
 
 // Create derived store for userName
 export const username = derived(auth, $auth => $auth?.user?.user_name ?? 'Loading...');
+export const current_user = derived(auth, $auth => $auth?.user ?? null);

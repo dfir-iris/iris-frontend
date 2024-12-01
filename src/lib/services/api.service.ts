@@ -1,7 +1,5 @@
 // src/lib/services/api.service.ts
-import { auth } from '$lib/stores/auth.store';
 import { goto } from '$app/navigation';
-import { get } from 'svelte/store';
 
 export class ApiService {
     private static baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -14,7 +12,6 @@ export class ApiService {
             'Accept': 'application/json',
             'Access-Control-Allow-Origin': '*',
             'Include-Credentials': 'true',
-            ...options.headers,
         };
 
         const response = await fetch(url, {
@@ -25,7 +22,7 @@ export class ApiService {
         });
 
         if (response.status === 401) {
-            auth.clearAuth();
+            //auth.clearAuth();
             const redirect = new URLSearchParams(window.location.search).get('redirect') || '/dashboard';
             goto(`/login?redirect=${encodeURIComponent(redirect)}`);
             throw new Error('Unauthorized');

@@ -2,6 +2,8 @@
 import { ApiService } from './api.service';
 import { goto } from '$app/navigation';
 import { auth } from '$lib/stores/auth.store';
+import { ENDPOINTS } from '$lib/constants/endpoints';
+import { get } from 'svelte/store';
 
 
 export interface LoginCredentials {
@@ -25,7 +27,7 @@ export interface LoginResponse {
 
 export class AuthService {
     static async login(credentials: LoginCredentials): Promise<LoginResponse> {
-        const response = await ApiService.post<LoginResponse>('/auth/login', credentials);
+        const response = await ApiService.post<LoginResponse>(ENDPOINTS.auth.login, credentials);
         auth.setAuth(response);
         
         // Handle redirect after login

@@ -10,13 +10,28 @@
     import { cellRendererFactory } from '$lib/components/ui/data-table/cell-renderer-factory';
     import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
     import { TimeFormatter } from '$lib/utils/time-formatter';
+    import CellTitle from '$lib/components/ui/data-table/cell-title.svelte';
     
     let columnDefs = [
         {
             field: 'task_title',
             headerName: 'Title',
             sortable: true,
-            filter: true
+            filter: true,
+            cellRenderer: (params: any) => {
+                return cellRendererFactory((target, p) => {
+                    p.data.redirUrl = `/case/tasks?cid=${p.data?.case_id || 0}`;
+                        mount(CellTitle, {
+                            target,
+                            props: {
+                                params: {
+                                    title: p.data?.task_title,
+                                    redirUrl: `/case/tasks?cid=${p.data?.task_id}&shared=${p.data?.task_id || 0}`,
+                                },
+                            },
+                        });
+                })(params);
+            }
         },
         {
             field: 'task_open_date',
@@ -35,7 +50,21 @@
             field: 'case.case_name', 
             headerName: 'Related Case', 
             sortable: true, 
-            filter: true 
+            filter: true,
+            cellRenderer: (params: any) => {
+                return cellRendererFactory((target, p) => {
+                    p.data.redirUrl = `/case?cid=${p.data?.case_id || 0}`;
+                    mount(CellTitle, {
+                        target,
+                        props: {
+                            params: {
+                                title: p.data?.case?.case_name,
+                                redirUrl: `/case?cid=${p.data?.case_id || 0}`,
+                            },
+                        },
+                    });
+                })(params);
+            }
         },
         { 
             field: 'status.status_name', 

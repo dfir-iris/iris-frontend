@@ -2,20 +2,19 @@
     import { onMount } from 'svelte';
     import { activeViewStore } from '$lib/stores/active-view.store';
     import * as Tabs from "$lib/components/ui/tabs/index.js";
-	import * as Card from "$lib/components/ui/card/index.js";
-    import Users from "lucide-svelte/icons/users";
-    import DollarSign from "lucide-svelte/icons/dollar-sign";
-    import CreditCard from "lucide-svelte/icons/credit-card";
-    import Activity from "lucide-svelte/icons/activity";
     import BaseKpi from '$lib/components/ui/card/card-base-kpi.svelte';
     import UserCurrentTasksTable from './[components]/user-current-tasks-table.svelte';
-    import { ClipboardCheck, Layers, ListTodo } from "lucide-svelte";
+    import { ClipboardCheck, Layers, ListTodo, BellRingIcon } from "lucide-svelte";
     import { casesStore, isLoadingStore } from '$lib/stores/cases.store';
     import { tasksStore, isLoadingTasksStore } from '$lib/stores/tasks.store';
     import { reviewsStore, isLoadingReviewsStore } from '$lib/stores/reviews.store';
+    import { alertsStore, isLoadingAlertsStore } from '$lib/stores/alerts.store';
     import CurrentUserCasesTable from './[components]/user-current-cases-table.svelte';
     import UserCurrentReviewsTable from './[components]/user-current-reviews-table.svelte';
+    import UserCurrentAlerts from './[components]/user-current-alerts.svelte';
     import { ApiService } from '$lib/services/api.service';
+    import { ENDPOINTS } from '$lib/constants/endpoints';
+    import { current_user } from '$lib/stores/auth.store';
 
 
     const views = {
@@ -34,23 +33,64 @@
             icon: ClipboardCheck,
             component: UserCurrentReviewsTable
         },
+        alerts: {
+            title: 'Attributes Alerts',
+            icon: BellRingIcon,
+            component:  UserCurrentAlerts
+        }
     };
-   
+
+    let activeTab = 'overview';
+
+    let userId: number;
+    current_user.subscribe(user => {
+        if (user) {
+            userId = user.id;
+        }
+    });
+
+
     async function loadInitialData() {
         isLoadingStore.set(true);
         isLoadingTasksStore.set(true);
         isLoadingReviewsStore.set(true);
-        
+        isLoadingAlertsStore.set(true);
+
+        let api_requests = [
+            ApiService.get(`${ENDPOINTS.user.cases.list}?cid=1&show_closed=false`),
+            ApiService.get(ENDPOINTS.user.tasks.list),
+            ApiService.get(ENDPOINTS.user.reviews.list),
+            ApiService.get(`${ENDPOINTS.alerts.filter}?custom_conditions=[{"field": "alert_owner_id","operator":"in","value":["${userId}"]},{"field": "alert_status_id","operator":"not_in","value":[6,8,7]}]`)
+        ];
+
         try {
-            const [casesResponse, tasksResponse, reviewsResponse] = await Promise.all([
-                ApiService.get('/user/cases/list?cid=1&show_closed=false'),
-                ApiService.get('/user/tasks/list'),
-                ApiService.get('/user/reviews/list')
-            ]);
-            
-            casesStore.set(casesResponse);
-            tasksStore.set(tasksResponse);
-            reviewsStore.set(reviewsResponse);
+            const results = await Promise.allSettled(api_requests);
+
+            results.forEach((result, index) => {
+                if (result.status === 'fulfilled') {
+                    switch (index) {
+                        case 0:
+                            casesStore.set(result.value);
+                            break;
+                        case 1:
+                            tasksStore.set(result.value);
+                            break;
+                        case 2:
+                            reviewsStore.set(result.value);
+                            break;
+                        case 3:
+                            alertsStore.set(result.value.alerts);
+                            break;
+                    }
+                } else {
+                    console.error(`Request ${index} failed:`, result.reason);
+                }
+            });
+
+            isLoadingStore.set(false);
+            isLoadingTasksStore.set(false);
+            isLoadingReviewsStore.set(false);
+            isLoadingAlertsStore.set(false);
 
         } catch (error) {
             console.error('Error loading initial data:', error);
@@ -58,6 +98,7 @@
             isLoadingStore.set(false);
             isLoadingTasksStore.set(false);
             isLoadingReviewsStore.set(false);
+            isLoadingAlertsStore.set(false);
         }
     }
 
@@ -67,18 +108,20 @@
         activeViewStore.set(activeView === key ? '' : key);
     }
 
-    function getKpiColor(count: number): string {
-        return count === 0 ? 'bg-green-50 dark:bg-green-950/30' : 'bg-orange-50 dark:bg-orange-950/30';
+    function handleTabChange(value: string) {
+        if (value === 'overview') {
+            activeViewStore.set('');
+        }
+        activeTab = value;
     }
 
     onMount(loadInitialData);
 </script>
 
 <div class="space-y-4">
-    <Tabs.Root value="overview" class="space-y-4">
+    <Tabs.Root value={activeTab} class="space-y-4" on:change={(e) => handleTabChange(e.detail.value)}>
         <Tabs.List>
             <Tabs.Trigger value="overview">Overview</Tabs.Trigger>
-            <Tabs.Trigger value="my_cases">Alerts</Tabs.Trigger>
             <Tabs.Trigger value="reports">Activities</Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="overview" class="space-y-4">
@@ -87,14 +130,11 @@
                     <BaseKpi
                         title={view.title}
                         icon={view.icon}
-                        value={key === 'cases' ? $casesStore.length : key === 'tasks' ? $tasksStore.length : 0}
+                        value={key === 'cases' ? $casesStore.length : key === 'tasks' ? $tasksStore.length : key === 'reviews' ? $reviewsStore.length : key === 'alerts' ? $alertsStore.alerts?.length : 0}
                         subtitle={key === activeView ? 'Click to hide' : 'Click to view'}
                         isActive={key === activeView}
-                        isLoading={key === 'cases' ? $isLoadingStore : key === 'tasks' ? $isLoadingTasksStore : false}
-                        bgColor={  key === 'tasks' ? getKpiColor($tasksStore.length) :
-                                    key === 'reviews' ? getKpiColor($reviewsStore.length) : ''}
+                        isLoading={key === 'cases' ? $isLoadingStore : key === 'tasks' ? $isLoadingTasksStore : key === 'reviews' ? $isLoadingReviewsStore : key === 'alerts' ? $isLoadingAlertsStore : false}
                         onClick={() => toggleView(key)}
-
                     />
                 {/each}
             </div>
@@ -102,58 +142,6 @@
             {#if activeView && views[activeView].component}
                 <svelte:component this={views[activeView].component} />
             {/if}
-        </Tabs.Content>
-        <Tabs.Content value="my_cases" class="space-y-4">
-            <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card.Root>
-                    <Card.Header
-                        class="flex flex-row items-center justify-between space-y-0 pb-2"
-                    >
-                        <Card.Title class="text-sm font-medium">Open cases</Card.Title>
-                        <DollarSign class="text-muted-foreground h-4 w-4" />
-                    </Card.Header>
-                    <Card.Content>
-                        <div class="text-2xl font-bold"></div>
-                        <p class="text-muted-foreground text-xs">+20.1% from last month</p>
-                    </Card.Content>
-                </Card.Root>
-                <Card.Root>
-                    <Card.Header
-                        class="flex flex-row items-center justify-between space-y-0 pb-2"
-                    >
-                        <Card.Title class="text-sm font-medium">Subscriptions</Card.Title>
-                        <Users class="text-muted-foreground h-4 w-4" />
-                    </Card.Header>
-                    <Card.Content>
-                        <div class="text-2xl font-bold">+2350</div>
-                        <p class="text-muted-foreground text-xs">+180.1% from last month</p>
-                    </Card.Content>
-                </Card.Root>
-                <Card.Root>
-                    <Card.Header
-                        class="flex flex-row items-center justify-between space-y-0 pb-2"
-                    >
-                        <Card.Title class="text-sm font-medium">Sales</Card.Title>
-                        <CreditCard class="text-muted-foreground h-4 w-4" />
-                    </Card.Header>
-                    <Card.Content>
-                        <div class="text-2xl font-bold">+12,234</div>
-                        <p class="text-muted-foreground text-xs">+19% from last month</p>
-                    </Card.Content>
-                </Card.Root>
-                <Card.Root>
-                    <Card.Header
-                        class="flex flex-row items-center justify-between space-y-0 pb-2"
-                    >
-                        <Card.Title class="text-sm font-medium">Active Now</Card.Title>
-                        <Activity class="text-muted-foreground h-4 w-4" />
-                    </Card.Header>
-                    <Card.Content>
-                        <div class="text-2xl font-bold">+573</div>
-                        <p class="text-muted-foreground text-xs">+201 since last hour</p>
-                    </Card.Content>
-                </Card.Root>
-            </div>
         </Tabs.Content>
     </Tabs.Root>
 </div>

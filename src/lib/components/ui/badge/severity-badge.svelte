@@ -7,9 +7,12 @@
         CircleDot,
         HelpCircle
     } from "lucide-svelte";
+    import * as Tooltip from "$lib/components/ui/tooltip";
 
     type Severity = 'Unspecified' | 'Low' | 'Medium' | 'High' | 'Critical';
     export let severity: Severity;
+    export let icon_only: boolean = false;
+
 
     const severityConfig = {
         Unspecified: {
@@ -31,6 +34,10 @@
         Critical: {
             color: "bg-red-100 text-red-800 hover:bg-red-200",
             icon: ShieldAlert
+        },
+        Informational: {
+            color: "bg-blue-100 text-blue-800 hover:bg-blue-200",
+            icon: CircleDot
         }
     };
 
@@ -38,7 +45,18 @@
     $: Icon = config.icon;
 </script>
 
-<Badge class="items-center gap-1 {config.color}">
-    <svelte:component this={Icon} class="h-3 w-3" />
-    {severity}
-</Badge>
+{#if icon_only}
+    <Tooltip.Root openDelay={0} group>
+        <Tooltip.Trigger class="flex items-center gap-1">
+            <Badge class="items-center gap-1 {config.color}">
+                <svelte:component this={Icon} class="h-3 w-3" />
+            </Badge>        
+        </Tooltip.Trigger>
+        <Tooltip.Content>{severity} severity</Tooltip.Content>
+    </Tooltip.Root>
+{:else}
+    <Badge class="items-center gap-1 {config.color}">
+        <svelte:component this={Icon} class="h-3 w-3" />
+        {severity}
+    </Badge>
+{/if}
