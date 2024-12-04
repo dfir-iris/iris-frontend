@@ -1,11 +1,6 @@
 import { ApiService } from '$lib/services/api.service';
+import type { UserInfo } from '$lib/stores/auth.store';
 import { redirect, type Handle } from '@sveltejs/kit';
-
-export interface UserInfo {
-	id: string
-	name: string
-	email: string
-}
 
 const AUTH_EXCLUDED_URLS = [
 	'/login'
@@ -25,6 +20,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// Attempt to get session
 	try {
 		const whoami: UserInfo = await ApiService.get('/auth/whoami')
+		console.log('Whoami', whoami)
 		event.locals.user = whoami
 	} catch (err) {
 		console.error(`Fetching session failed: ${err}`)

@@ -1,6 +1,14 @@
 // src/lib/stores/auth.store.ts
-import { writable, derived } from 'svelte/store';
+import { writable, derived, type Writable } from 'svelte/store';
 import type { LoginResponse } from '$lib/services/auth.service';
+
+export interface UserInfo {
+    id: string
+    name: string
+    email: string
+}
+
+export const authStore: Writable<UserInfo | null> = writable(null)
 
 interface AuthState {
     user: LoginResponse | null;
@@ -8,11 +16,11 @@ interface AuthState {
 }
 
 function loadInitialState(): AuthState {
-    if (typeof window === 'undefined') return { user: null,  isAuthenticated: false };
-    
+    if (typeof window === 'undefined') return { user: null, isAuthenticated: false };
+
     const saved = localStorage.getItem('auth');
     if (!saved) return { user: null, isAuthenticated: false };
-    
+
     try {
         return JSON.parse(saved);
     } catch {
@@ -22,7 +30,7 @@ function loadInitialState(): AuthState {
 
 const createAuthStore = () => {
     const { subscribe, set, update } = writable<AuthState>(loadInitialState());
-    
+
     const store = {
         subscribe,
         setAuth: (response: LoginResponse) => {
