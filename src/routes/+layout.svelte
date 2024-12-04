@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { authStore } from "$lib/stores/auth.store";
+  import { authUserStore } from "$lib/stores/auth.store";
   import "../app.css";
   import { ModeWatcher } from "mode-watcher";
 
   const { children, data } = $props();
 
   $effect.pre(() => {
-    authStore.set(data.user);
+    authUserStore.set(data.user);
     console.debug("UserInfo", data.user);
   });
 </script>
