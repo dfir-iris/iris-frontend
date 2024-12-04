@@ -1,5 +1,4 @@
 // src/lib/services/api.service.ts
-import { goto } from '$app/navigation';
 
 export class ApiService {
     private static baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -38,14 +37,14 @@ export class ApiService {
         });
     }
 
-    static async post<T>(endpoint: string, data: any): Promise<T> {
+    static async post<T>(endpoint: string, data: object): Promise<T> {
         return this.request<T>(endpoint, {
             method: 'POST',
             body: JSON.stringify(data),
         });
     }
 
-    static async put<T>(endpoint: string, data: any): Promise<T> {
+    static async put<T>(endpoint: string, data: object): Promise<T> {
         return this.request<T>(endpoint, {
             method: 'PUT',
             body: JSON.stringify(data),
