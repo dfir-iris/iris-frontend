@@ -1,9 +1,16 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import type { LayoutData } from "./$types";
-  import DashboardLayout from "$lib/layouts/dashboard-layout.svelte";
 
   let { data, children }: { data: LayoutData; children: Snippet } = $props();
 </script>
 
-{@render children()}
+<div class="flex flex-row">
+  <!-- Case sidebar -->
+  <!-- TODO -->
+
+  <!-- Case content -->
+  <div>
+    {@render children()}
+  </div>
+</div>
