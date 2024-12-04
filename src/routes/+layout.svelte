@@ -1,18 +1,12 @@
 <script lang="ts">
-    import '../app.css';
-    import { page } from '$app/stores';
-    import DashboardLayout from '$lib/layouts/dashboard-layout.svelte';
-	import { ModeWatcher } from "mode-watcher";
-    
-    $: isAuthPath = $page.url.pathname.startsWith('/login') || 
-                    $page.url.pathname.startsWith('/register');
+  import "../app.css";
+  import { ModeWatcher } from "mode-watcher";
+
+  const { children } = $props();
 </script>
 
-{#if isAuthPath}
-    <slot />
-{:else}
-	<ModeWatcher />
-    <DashboardLayout>
-        <slot />
-    </DashboardLayout>
-{/if}
+<!-- Light/dark scheme monitor -->
+<ModeWatcher />
+
+<!-- Render subroutes -->
+{@render children()}
