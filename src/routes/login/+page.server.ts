@@ -1,10 +1,8 @@
 import { ApiService } from '$lib/services/api.service';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions } from './$types';
+import { parse } from 'cookie';
 
-interface LoginResponse {
-    token: string
-}
 
 export const actions = {
     // Handle authenticating the user with the backend
@@ -14,16 +12,27 @@ export const actions = {
         const username = data.get('username')
 
         try {
-            const resp: LoginResponse = await ApiService.post('/auth/login', {
+            const resp = await ApiService.post('/auth/login', {
                 username: username,
                 password: data.get('password')
             })
             console.info(`User "${username}" logged in successfully.`)
-            cookies.set('token', resp.token, {
-                path: '/',
-                secure: true,
-                sameSite: 'strict'
-            })
+            const cookieHeader = resp.headers.get('set-cookie');
+            
+            // Get the session cookie and set it in the browser
+            if (cookieHeader) {
+                const parsedCookies = parse(cookieHeader);
+                const sessionCookie = parsedCookies['session'];
+                console.log('Session cookie:', sessionCookie)
+                if (sessionCookie) {
+                    cookies.set('session', sessionCookie, {
+                        path: '/',
+                        httpOnly: true,
+                        secure: true,
+                        sameSite: 'strict'
+                    });
+                }
+            }
         } catch (error) {
             console.error('User', username, 'sign in error: ', error.message)
             return fail(400, { error: 'Username or password is incorrect.', username })

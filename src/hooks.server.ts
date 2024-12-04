@@ -19,7 +19,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	// Get token
-	const token = event.cookies.get('token')
+	const token = event.cookies.get('session')
 	if (!token) {
 		console.error('No token found, redirecting to login')
 		throw redirect(301, `/login?redirect=${event.url.pathname}`)
@@ -28,7 +28,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// Attempt to get session
 	try {
-		const whoami: UserInfo = await ApiService.get('/auth/whoami')
+			const whoami: UserInfo = await ApiService.get('/auth/whoami', {
+				headers: {
+						Cookie: `session=${token}`
+				}
+		});		
 		console.log('Whoami', whoami)
 		event.locals.user = whoami
 	} catch (err) {
