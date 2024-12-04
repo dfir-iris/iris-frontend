@@ -1,6 +1,6 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 
-import type { UserInfo } from "./hooks.client";
+import type { UserInfo } from "$lib/stores/auth.store";
 
 // for information about these interfaces
 declare global {
