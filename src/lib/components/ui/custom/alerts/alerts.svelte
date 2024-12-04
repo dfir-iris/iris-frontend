@@ -11,23 +11,28 @@
 	import { RefreshCwIcon } from 'lucide-svelte';
 	import Separator from '$lib/components/ui/separator/separator.svelte';
 
-    export let endpoint_url = "";
-    export let do_fetch = true;
+    // export let endpoint_url = "";
+    // export let do_fetch = true;
+
+    export let alerts: any[];
+
+    onMount(() => {
+        console.log('Alerts:', alerts);
+        alertsStore.set(alerts);
+        isLoadingAlertsStore.set(false);
+    });
 
     async function fetchAlerts() {
         isLoadingAlertsStore.set(true);
         try {
-            const response = await ApiService.get(endpoint_url);
-            alertsStore.set(response.alerts);
+            const response = await fetch('/alerts');
+            const data = await response.json();
+            alertsStore.set(data.alerts);
         } catch (error) {
             console.error('Error fetching alerts:', error);
         } finally {
             isLoadingAlertsStore.set(false);
         }
-    }
-
-    if (do_fetch) {
-        onMount(fetchAlerts);
     }
 </script>
 
@@ -37,7 +42,6 @@
             variant="outline"
             class="ml-2"
             loading={$isLoadingAlertsStore}
-            on:click={fetchAlerts}
         >
             Refresh
         </LoadingButton>
