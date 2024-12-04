@@ -11,7 +11,8 @@
                 "id": "symbol-color",
                 "color": "terminal.ansiCyan"
             },
-            "problemMatcher": []
+            "problemMatcher": [],
+            "isBackground": true
         }
     ]
 }
