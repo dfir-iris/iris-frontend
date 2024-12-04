@@ -15,46 +15,26 @@ const config: Config = {
 		},
 		extend: {
 			colors: {
-        table: {
-                primary: {
-                  DEFAULT: "hsl(var(--table-primary) / <alpha-value>)",
-                  hover: "hsl(var(--table-primary-hover) / <alpha-value>)"
-                },
-                secondary: {
-                  DEFAULT: "hsl(var(--table-secondary) / <alpha-value>)",
-                  hover: "hsl(var(--table-secondary-hover) / <alpha-value>)"
-                },
-                row: {
-                  even: {
-                    DEFAULT: "hsl(var(--table-row-even) / <alpha-value>)",
-                    hover: "hsl(var(--table-row-even-hover) / <alpha-value>)"
-                  },
-                  odd: {
-                    DEFAULT: "hsl(var(--table-row-odd) / <alpha-value>)",
-                    hover: "hsl(var(--table-row-odd-hover) / <alpha-value>)"
-                  }
-                }
-              },
-        table: {
-                primary: {
-                  DEFAULT: "hsl(var(--table-primary) / <alpha-value>)",
-                  hover: "hsl(var(--table-primary-hover) / <alpha-value>)"
-                },
-                secondary: {
-                  DEFAULT: "hsl(var(--table-secondary) / <alpha-value>)",
-                  hover: "hsl(var(--table-secondary-hover) / <alpha-value>)"
-                },
-                row: {
-                  even: {
-                    DEFAULT: "hsl(var(--table-row-even) / <alpha-value>)",
-                    hover: "hsl(var(--table-row-even-hover) / <alpha-value>)"
-                  },
-                  odd: {
-                    DEFAULT: "hsl(var(--table-row-odd) / <alpha-value>)",
-                    hover: "hsl(var(--table-row-odd-hover) / <alpha-value>)"
-                  }
-                }
-              },
+				table: {
+					primary: {
+						DEFAULT: "hsl(var(--table-primary) / <alpha-value>)",
+						hover: "hsl(var(--table-primary-hover) / <alpha-value>)"
+					},
+					secondary: {
+						DEFAULT: "hsl(var(--table-secondary) / <alpha-value>)",
+						hover: "hsl(var(--table-secondary-hover) / <alpha-value>)"
+					},
+					row: {
+						even: {
+							DEFAULT: "hsl(var(--table-row-even) / <alpha-value>)",
+							hover: "hsl(var(--table-row-even-hover) / <alpha-value>)"
+						},
+						odd: {
+							DEFAULT: "hsl(var(--table-row-odd) / <alpha-value>)",
+							hover: "hsl(var(--table-row-odd-hover) / <alpha-value>)"
+						}
+					}
+				},
 				border: "hsl(var(--border) / <alpha-value>)",
 				input: "hsl(var(--input) / <alpha-value>)",
 				ring: "hsl(var(--ring) / <alpha-value>)",
@@ -99,7 +79,7 @@ const config: Config = {
 			},
 			backgroundImage: {
 				'primary-gradient': 'linear-gradient(-45deg, #05316A, #05316A)',
-			  },
+			},
 		}
 	},
 };
