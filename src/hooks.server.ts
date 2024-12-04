@@ -3,6 +3,7 @@ import type { UserInfo } from '$lib/stores/auth.store';
 import { redirect, type Handle } from '@sveltejs/kit';
 
 const AUTH_EXCLUDED_URLS = [
+	'/[fallback]',
 	'/login'
 ]
 
