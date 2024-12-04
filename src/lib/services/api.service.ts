@@ -6,7 +6,7 @@ export class ApiService {
 
     static async request<T>(endpoint: string, options: RequestInit): Promise<T> {
         const url = `${this.baseUrl}/api/v2${endpoint}`;
-        
+
         const headers = {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
@@ -22,9 +22,6 @@ export class ApiService {
         });
 
         if (response.status === 401) {
-            //auth.clearAuth();
-            const redirect = new URLSearchParams(window.location.search).get('redirect') || '/dashboard';
-            goto(`/login?redirect=${encodeURIComponent(redirect)}`);
             throw new Error('Unauthorized');
         }
 
