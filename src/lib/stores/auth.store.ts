@@ -8,7 +8,8 @@ export interface UserInfo {
     email: string
 }
 
-export const authStore: Writable<UserInfo | null> = writable(null)
+export const authTokenStore: Writable<string | null> = writable(null)
+export const authUserStore: Writable<UserInfo | null> = writable(null)
 
 interface AuthState {
     user: LoginResponse | null;

@@ -1,5 +1,5 @@
 import { ApiService } from '$lib/services/api.service';
-import type { UserInfo } from '$lib/stores/auth.store';
+import { authTokenStore, type UserInfo } from '$lib/stores/auth.store';
 import { redirect, type Handle } from '@sveltejs/kit';
 
 const AUTH_EXCLUDED_URLS = [
@@ -17,6 +17,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (AUTH_EXCLUDED_URLS.includes(event.url.pathname)) {
 		return resolve(event)
 	}
+
+	// Get token
+	const token = event.cookies.get('token')
+	if (!token) {
+		console.error('No token found, redirecting to login')
+		throw redirect(301, `/login?redirect=${event.url.pathname}`)
+	}
+	authTokenStore.set(token)
 
 	// Attempt to get session
 	try {

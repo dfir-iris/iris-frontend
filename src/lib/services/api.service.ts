@@ -1,5 +1,8 @@
 // src/lib/services/api.service.ts
 
+import { authTokenStore } from "$lib/stores/auth.store";
+import { get } from "svelte/store";
+
 export class ApiService {
     private static baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -11,6 +14,7 @@ export class ApiService {
             'Accept': 'application/json',
             'Access-Control-Allow-Origin': '*',
             'Include-Credentials': 'true',
+            'Authorization': `Bearer ${get(authTokenStore)}`
         };
 
         const response = await fetch(url, {
