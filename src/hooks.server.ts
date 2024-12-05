@@ -1,3 +1,4 @@
+// src/hooks.server.ts
 import { ApiService } from '$lib/services/api.service';
 import { authTokenStore, type UserInfo } from '$lib/stores/auth.store';
 import { redirect, type Handle } from '@sveltejs/kit';
@@ -27,7 +28,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// Attempt to get session
 	try {
-		const whoami: UserInfo = await ApiService.get('/auth/whoami', { sessionCookie });
+		const response = await ApiService.get('/auth/whoami', { sessionCookie });
+
+		const whoami: UserInfo = response.data;
 		console.log('Whoami', whoami)
 		event.locals.user = whoami
 	} catch (err) {

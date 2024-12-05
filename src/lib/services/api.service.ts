@@ -42,7 +42,11 @@ export class ApiService {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        return response.json();
+        const responseData = await response.json();
+        return {
+            headers: response.headers,
+            data: responseData
+        };
     }
 
     static async get<T>(endpoint: string, options: MethodOptions = {}): Promise<T> {
