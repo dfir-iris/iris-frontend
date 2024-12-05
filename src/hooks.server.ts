@@ -46,7 +46,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
 	if (request.url.startsWith('http://127.0.0.1')) {
-		
+		console.log(event);
 		console.debug('Adding session cookie to request for server')
 		request.headers.set('cookie', event.request.headers.get('cookie'));
 	}
