@@ -2,10 +2,14 @@
   import type { Snippet } from "svelte";
   import type { LayoutData } from "./$types";
   import DashboardLayout from "$lib/layouts/dashboard-layout.svelte";
+  import Topbar from "$lib/layouts/Topbar.svelte";
 
   let { data, children }: { data: LayoutData; children: Snippet } = $props();
 </script>
 
-<DashboardLayout {data}>
-  {@render children()}
-</DashboardLayout>
+<svelte:head>
+  <title>Dashboard | DFIR-IRIS</title>
+</svelte:head>
+
+<Topbar></Topbar>
+{@render children()}
