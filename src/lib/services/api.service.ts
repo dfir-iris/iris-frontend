@@ -1,4 +1,3 @@
-// src/lib/services/api.service.ts
 import { authTokenStore } from '$lib/stores/auth.store';
 import { get } from 'svelte/store';
 
@@ -15,19 +14,25 @@ interface MethodOptions {
 export class ApiService {
     private static baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
-    static async request<T>(endpoint: string, options: RequestOptions = { method: 'GET', options: {} },): Promise<T> {
+    static async request<T>(endpoint: string, options: RequestOptions = { method: 'GET', options: {} }, fetch_fn:  typeof fetch): Promise<T> {
         const url = `${this.baseUrl}/api/v2${endpoint}`;
-        const sessionCookie = get(authTokenStore) || options.options.sessionCookie
+        const sessionCookie = options.options.sessionCookie;
 
         // Default headers
         const headers = {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Cookie': "session=" + sessionCookie || ''
+            'Access-Control-Allow-Origin': '*'
         };
 
-        const response = await fetch(url, {
+        // If session cookie, add it (server side request)
+        if (sessionCookie) {
+            headers['Cookie'] = `session=${sessionCookie}`;
+        }
+        
+        const fetch_call = fetch_fn || fetch;
+
+        const response = await fetch_call(url, {
             ...options,
             credentials: 'include', // Send cookies automatically (optional depending on the environment)
             headers,
@@ -49,33 +54,33 @@ export class ApiService {
         };
     }
 
-    static async get<T>(endpoint: string, options: MethodOptions = {}): Promise<T> {
+    static async get<T>(endpoint: string, options: MethodOptions = {}, fetch_fn:  typeof fetch): Promise<T> {
         return this.request<T>(endpoint, {
             method: 'GET',
             options
-        });
+        }, fetch_fn);
     }
 
-    static async post<T>(endpoint: string, data: object, options: MethodOptions = {}): Promise<T> {
+    static async post<T>(endpoint: string, data: object, options: MethodOptions = {}, fetch_fn:  typeof fetch): Promise<T> {
         return this.request<T>(endpoint, {
             method: 'POST',
             body: JSON.stringify(data),
             options
-        });
+        }, fetch_fn);
     }
 
-    static async put<T>(endpoint: string, data: object, options: MethodOptions = {}): Promise<T> {
+    static async put<T>(endpoint: string, data: object, options: MethodOptions = {}, fetch_fn:  typeof fetch): Promise<T> {
         return this.request<T>(endpoint, {
             method: 'PUT',
             body: JSON.stringify(data),
             options
-        });
+        }, fetch_fn);
     }
 
-    static async delete<T>(endpoint: string, options: MethodOptions = {}): Promise<T> {
+    static async delete<T>(endpoint: string, options: MethodOptions = {}, fetch_fn:  typeof fetch): Promise<T> {
         return this.request<T>(endpoint, {
             method: 'DELETE',
             options
-        });
+        }, fetch_fn);
     }
 }

@@ -2,6 +2,8 @@
 import { ApiService } from '$lib/services/api.service';
 import { authTokenStore, type UserInfo } from '$lib/stores/auth.store';
 import { redirect, type Handle } from '@sveltejs/kit';
+import type { HandleFetch } from '@sveltejs/kit';
+
 
 const AUTH_EXCLUDED_URLS = [
 	'/[fallback]',
@@ -39,4 +41,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	return resolve(event);
+};
+
+
+export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
+	if (request.url.startsWith('http://127.0.0.1')) {
+		
+		console.debug('Adding session cookie to request for server')
+		request.headers.set('cookie', event.request.headers.get('cookie'));
+	}
+
+	return fetch(request);
 };

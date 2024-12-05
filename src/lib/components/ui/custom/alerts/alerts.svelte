@@ -9,6 +9,7 @@
     import { Skeleton } from "$lib/components/ui/skeleton";
     import LoadingButton from '$lib/components/ui/loading-button/loading-button.svelte';
     import Separator from '$lib/components/ui/separator/separator.svelte';
+	import { invalidate } from '$app/navigation';
 
     export let data: { alerts: any[] };
 
@@ -24,10 +25,8 @@
     async function fetchAlerts() {
         isLoadingAlertsStore.set(true);
         try {
-            // Re-fetch alerts from the backend (client-side fetch)
-            const response = await fetch('/alerts');
-            const data = await response.json();
-            alertsStore.set(data.alerts);
+            // Invalidate the data 
+            invalidate('app:alert_filter');
         } catch (error) {
             console.error('Error fetching alerts:', error);
         } finally {
