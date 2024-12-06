@@ -1,6 +1,9 @@
+// src/hooks.server.ts
 import { ApiService } from '$lib/services/api.service';
 import { authTokenStore, type UserInfo } from '$lib/stores/auth.store';
 import { redirect, type Handle } from '@sveltejs/kit';
+import type { HandleFetch } from '@sveltejs/kit';
+
 
 const AUTH_EXCLUDED_URLS = [
 	'/[fallback]',
@@ -27,7 +30,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// Attempt to get session
 	try {
-		const whoami: UserInfo = await ApiService.get('/auth/whoami', { sessionCookie });
+		const response = await ApiService.get('/auth/whoami', { sessionCookie });
+
+		const whoami: UserInfo = response.data;
 		console.log('Whoami', whoami)
 		event.locals.user = whoami
 	} catch (err) {
@@ -36,4 +41,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	return resolve(event);
+};
+
+
+export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
+	if (request.url.startsWith('http://127.0.0.1')) {
+		console.log(event);
+		console.debug('Adding session cookie to request for server')
+		request.headers.set('cookie', event.request.headers.get('cookie'));
+	}
+
+	return fetch(request);
 };

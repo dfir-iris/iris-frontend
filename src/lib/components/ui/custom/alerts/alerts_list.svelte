@@ -8,17 +8,6 @@
 
     export let items: any[];
 
-    function get_badge_variant_from_label(label: string) {
-        if (["work"].includes(label.toLowerCase())) {
-            return "default";
-        }
-
-        if (["personal"].includes(label.toLowerCase())) {
-            return "outline";
-        }
-
-        return "secondary";
-    }
 </script>
 
 <ScrollArea class="h-screen">

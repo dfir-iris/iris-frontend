@@ -60,6 +60,8 @@
         }
     }
 
+    export let data: any = [];
+
 </script>
 
 <Card.Root>
@@ -81,7 +83,7 @@
             </div>
         {:else}
             <DataTable 
-                rowData={$reviewsStore}
+                rowData={data}
                 {columnDefs}
                 {quickFilters}
             />

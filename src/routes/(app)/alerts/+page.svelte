@@ -1,7 +1,8 @@
 <script lang="ts">
+	import type { PageData } from './$types';
 	import Alert from '$lib/components/ui/custom/alerts/alerts.svelte';
 
-	export let data: { alerts: any[] };
+	let { data }: { data: PageData } = $props();
 
 </script>
 
