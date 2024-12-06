@@ -30,7 +30,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// Attempt to get session
 	try {
-		const response = await ApiService.get('/auth/whoami', { sessionCookie });
+		const response = await ApiService.get('/auth/whoami', { sessionCookie }, event.fetch);
 
 		const whoami: UserInfo = response.data;
 		console.log('Whoami', whoami)
