@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
     import { activeViewStore } from '$lib/stores/active-view.store';
     import * as Tabs from "$lib/components/ui/tabs/index.js";
     import BaseKpi from '$lib/components/ui/card/card-base-kpi.svelte';
@@ -15,7 +14,14 @@
     import { ApiService } from '$lib/services/api.service';
     import { ENDPOINTS } from '$lib/constants/endpoints';
     import { current_user } from '$lib/stores/auth.store';
+    import type { PageData } from './$types';
 
+	let { data }: { data: PageData } = $props();
+
+    let cases = data.cases || [];
+    let tasks = data.tasks || [];
+    let reviews = data.reviews || [];
+    let alerts = data.alerts || [];
 
     const views = {
         cases: {
@@ -40,7 +46,7 @@
         }
     };
 
-    let activeTab = 'overview';
+    let activeTab = $state('overview');
 
     let userId: number;
     current_user.subscribe(user => {
@@ -49,73 +55,18 @@
         }
     });
 
-
-    async function loadInitialData() {
-        isLoadingStore.set(true);
-        isLoadingTasksStore.set(true);
-        isLoadingReviewsStore.set(true);
-        isLoadingAlertsStore.set(true);
-
-        let api_requests = [
-            ApiService.get(`${ENDPOINTS.user.cases.list}?cid=1&show_closed=false`),
-            ApiService.get(ENDPOINTS.user.tasks.list),
-            ApiService.get(ENDPOINTS.user.reviews.list),
-            ApiService.get(`${ENDPOINTS.alerts.filter}?custom_conditions=[{"field": "alert_owner_id","operator":"in","value":["${userId}"]},{"field": "alert_status_id","operator":"not_in","value":[6,8,7]}]`)
-        ];
-
-        try {
-            const results = await Promise.allSettled(api_requests);
-
-            results.forEach((result, index) => {
-                if (result.status === 'fulfilled') {
-                    switch (index) {
-                        case 0:
-                            casesStore.set(result.value);
-                            break;
-                        case 1:
-                            tasksStore.set(result.value);
-                            break;
-                        case 2:
-                            reviewsStore.set(result.value);
-                            break;
-                        case 3:
-                            alertsStore.set(result.value.alerts);
-                            break;
-                    }
-                } else {
-                    console.error(`Request ${index} failed:`, result.reason);
-                }
-            });
-
-            isLoadingStore.set(false);
-            isLoadingTasksStore.set(false);
-            isLoadingReviewsStore.set(false);
-            isLoadingAlertsStore.set(false);
-
-        } catch (error) {
-            console.error('Error loading initial data:', error);
-        } finally {
-            isLoadingStore.set(false);
-            isLoadingTasksStore.set(false);
-            isLoadingReviewsStore.set(false);
-            isLoadingAlertsStore.set(false);
-        }
-    }
-
-    $: activeView = $activeViewStore;
-
     function toggleView(key: string) {
-        activeViewStore.set(activeView === key ? '' : key);
+        activeViewStore.set($activeViewStore === key ? '' : key);
     }
 
     function handleTabChange(value: string) {
         if (value === 'overview') {
-            activeViewStore.set('');
+            $activeViewStore.set('');
         }
         activeTab = value;
     }
 
-    onMount(loadInitialData);
+    
 </script>
 
 <div class="space-y-4">
@@ -130,18 +81,25 @@
                     <BaseKpi
                         title={view.title}
                         icon={view.icon}
-                        value={key === 'cases' ? $casesStore.length : key === 'tasks' ? $tasksStore.length : key === 'reviews' ? $reviewsStore.length : key === 'alerts' ? $alertsStore.alerts?.length : 0}
-                        subtitle={key === activeView ? 'Click to hide' : 'Click to view'}
-                        isActive={key === activeView}
+                        value={key === 'cases' ? cases.length : key === 'tasks' ? tasks.length : key === 'reviews' ? reviews.length : key === 'alerts' ? alerts?.length : 0}
+                        subtitle={key === $activeViewStore ? 'Click to hide' : 'Click to view'}
+                        isActive={key === $activeViewStore}
                         isLoading={key === 'cases' ? $isLoadingStore : key === 'tasks' ? $isLoadingTasksStore : key === 'reviews' ? $isLoadingReviewsStore : key === 'alerts' ? $isLoadingAlertsStore : false}
                         onClick={() => toggleView(key)}
                     />
                 {/each}
             </div>
         
-            {#if activeView && views[activeView].component}
-                <svelte:component this={views[activeView].component} />
+            {#if $activeViewStore === "cases"}
+                <CurrentUserCasesTable {...cases} />
+            {:else if $activeViewStore === "tasks"}
+                <UserCurrentTasksTable {...tasks} />
+            {:else if $activeViewStore === "reviews"}
+                <UserCurrentReviewsTable {...reviews} />
+            {:else if $activeViewStore === "alerts"}
+                <UserCurrentAlerts {...alerts} />
             {/if}
+            
         </Tabs.Content>
     </Tabs.Root>
 </div>

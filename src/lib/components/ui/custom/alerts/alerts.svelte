@@ -10,15 +10,15 @@
     import LoadingButton from '$lib/components/ui/loading-button/loading-button.svelte';
     import Separator from '$lib/components/ui/separator/separator.svelte';
 	import { invalidate } from '$app/navigation';
+    import type { PageData } from '../../../../$types';
 
-    export let data: { alerts: any[] };
+    let { data }: { data: PageData } = $props();
 
     // Destructure alerts from the page store's data
     let alerts = data.alerts;
 
     onMount(() => {
         console.log('Alerts:', alerts);
-        alertsStore.set(alerts);
         isLoadingAlertsStore.set(false);
     });
 
@@ -26,7 +26,9 @@
         isLoadingAlertsStore.set(true);
         try {
             // Invalidate the data 
-            invalidate('app:alert_filter');
+            invalidate('app:alert_filter').then(() => {
+                isLoadingAlertsStore.set(false);
+            });
         } catch (error) {
             console.error('Error fetching alerts:', error);
         } finally {

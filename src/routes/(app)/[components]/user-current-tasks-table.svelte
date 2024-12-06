@@ -11,7 +11,8 @@
     import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
     import { TimeFormatter } from '$lib/utils/time-formatter';
     import CellTitle from '$lib/components/ui/data-table/cell-title.svelte';
-    
+    import { invalidate } from '$app/navigation';
+
     let columnDefs = [
         {
             field: 'task_title',
@@ -105,24 +106,20 @@
         }
     ];
 
-    async function fetchTasks() {
-        isLoadingTasksStore.set(true);
-        try {
-            const response_data = await ApiService.get('/user/tasks/list');
-            tasksStore.set(response_data);
-        } catch (error) {
-            console.error('Error fetching tasks:', error);
-        } finally {
-            isLoadingTasksStore.set(false);
-        }
+    async function refreshTasks() {
+        invalidate('app:dashboard_main_data').then(() => {
+            isLoadingAlertsStore.set(false);
+        });
     }
+
+    export let data: any = [];
 
 </script>
 
 <Card.Root>
     <Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
         <Card.Title class="text-sm font-medium">Pending Tasks</Card.Title>
-        <Button variant="ghost" size="icon" on:click={fetchTasks}>
+        <Button variant="ghost" size="icon" >
             <RefreshCw class="h-4 w-4" />
         </Button>
     </Card.Header>
@@ -139,7 +136,7 @@
             </div>
         {:else}
             <DataTable 
-                rowData={$tasksStore} 
+                rowData={data} 
                 {columnDefs} 
                 {quickFilters}
             />

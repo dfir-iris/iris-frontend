@@ -12,6 +12,7 @@
     import { cellRendererFactory } from '$lib/components/ui/data-table/cell-renderer-factory';
     import { TimeFormatter } from '$lib/utils/time-formatter';
     import { casesStore, isLoadingStore } from '$lib/stores/cases.store';
+	import { invalidate } from '$app/navigation';
   
     let columnDefs = [
       {
@@ -127,15 +128,21 @@
   
     async function fetchCases() {
       isLoadingStore.set(true);
-      try {
-        const response_data = await ApiService.get('/user/cases/list?cid=1&show_closed=false');
-        casesStore.set(response_data);
-      } catch (error) {
-        console.error('Error fetching cases:', error);
-      } finally {
+      invalidate('/user/cases/list').then(() => {
         isLoadingStore.set(false);
-      }
+      });
+      
+      // try {
+      //   const response_data = await ApiService.get('/user/cases/list?cid=1&show_closed=false');
+      //   casesStore.set(response_data);
+      // } catch (error) {
+      //   console.error('Error fetching cases:', error);
+      // } finally {
+      //   isLoadingStore.set(false);
+      // }
     }
+
+    export let data: any = [];
   
   </script>
   
@@ -159,7 +166,7 @@
         </div>
       {:else}
         <DataTable 
-            rowData={$casesStore} 
+            rowData={data} 
             columnDefs={columnDefs} 
             quickFilters={quickFilters}
         />
