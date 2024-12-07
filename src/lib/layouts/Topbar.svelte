@@ -22,8 +22,6 @@
   } from "$lib/components/ui/dropdown-menu";
   import { authUserStore } from "$lib/stores/auth.store";
   import { mode, toggleMode } from "mode-watcher";
-
-  const { data } = $props();
 </script>
 
 <header
