@@ -9,7 +9,9 @@
 
 <svelte:head>
   <title>Dashboard | DFIR-IRIS</title>
-</svelte:head>
+</svelte:head>  
 
-<Topbar></Topbar>
-{@render children()}
+<div class="flex flex-col h-screen w-screen overflow-hidden">
+  <Topbar></Topbar>
+  {@render children()}
+</div>
