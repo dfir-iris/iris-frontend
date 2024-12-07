@@ -63,25 +63,25 @@
     </DropdownMenu>
 
     <!-- Menu items -->
-    <Button variant="ghost" class="gap-x-1.5">
+    <Button variant="ghost" class="gap-x-1.5" href="">
       <NotepadTextIcon size={20}></NotepadTextIcon> Notes
     </Button>
-    <Button variant="ghost" class="gap-x-1.5">
+    <Button variant="ghost" class="gap-x-1.5" href="">
       <ClipboardListIcon size={20}></ClipboardListIcon> Tasks
     </Button>
-    <Button variant="ghost" class="gap-x-1.5">
+    <Button variant="ghost" class="gap-x-1.5" href="">
       <RouterIcon size={20}></RouterIcon> Assets
     </Button>
-    <Button variant="ghost" class="gap-x-1.5">
+    <Button variant="ghost" class="gap-x-1.5" href="">
       <FlagIcon size={20}></FlagIcon> Indicators
     </Button>
-    <Button variant="ghost" class="gap-x-1.5">
+    <Button variant="ghost" class="gap-x-1.5" href="">
       <ChartGanttIcon size={20}></ChartGanttIcon> Timeline
     </Button>
-    <Button variant="ghost" class="gap-x-1.5">
+    <Button variant="ghost" class="gap-x-1.5" href="">
       <FileBadgeIcon size={20}></FileBadgeIcon> Evidence
     </Button>
-    <Button variant="ghost" class="gap-x-1.5">
+    <Button variant="ghost" class="gap-x-1.5" href="">
       <ActivityIcon size={20}></ActivityIcon> Activity
     </Button>
   </div>
