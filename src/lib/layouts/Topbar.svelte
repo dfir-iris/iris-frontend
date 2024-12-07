@@ -1,5 +1,7 @@
 <script>
   import {
+  BellIcon,
+    ClipboardList,
     LogOutIcon,
     MoonIcon,
     SearchIcon,
@@ -25,7 +27,7 @@
 </script>
 
 <header
-  class="sticky top-0 h-16 bg-primary-gradient flex flex-row items-center px-4 gap-x-2 shadow"
+  class="sticky top-0 h-16 bg-primary-gradient flex flex-row items-center px-4 shadow"
 >
   <!-- Logo -->
   <a href="/">
@@ -39,7 +41,7 @@
   <div class="ml-auto"></div>
 
   <!-- Search bar -->
-  <div class="relative group">
+  <div class="relative group pr-2">
     <Input type="text" placeholder="Search" class="bg-background pl-8"></Input>
     <SearchIcon
       size={20}
@@ -48,8 +50,42 @@
   </div>
 
   <!-- Tasks dropdown -->
+  <DropdownMenu>
+    <DropdownMenuTrigger>
+      <Button variant="ghost" class="px-2 text-gray-100"
+        ><ClipboardList /></Button
+      >
+    </DropdownMenuTrigger>
+    <DropdownMenuContent class="w-56">
+      <DropdownMenuLabel>
+        Tasks
+      </DropdownMenuLabel>
+
+      <DropdownMenuSeparator />
+      <DropdownMenuItem href="/tasks">
+        <span>View all</span>
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
 
   <!-- Alerts dropdown -->
+  <DropdownMenu>
+    <DropdownMenuTrigger>
+      <Button variant="ghost" class="px-2 text-gray-100"
+        ><BellIcon /></Button
+      >
+    </DropdownMenuTrigger>
+    <DropdownMenuContent class="w-56">
+      <DropdownMenuLabel>
+        Alerts
+      </DropdownMenuLabel>
+
+      <DropdownMenuSeparator />
+      <DropdownMenuItem href="/alerts">
+        <span>View all</span>
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
 
   <!-- User dropdown -->
   <DropdownMenu>
@@ -62,7 +98,7 @@
       <DropdownMenuLabel
         >{$authUserStore?.name || "My account"}</DropdownMenuLabel
       >
-      <DropdownMenuItem>
+      <DropdownMenuItem >
         <SlidersHorizontalIcon size={18} />
         <span>Preferences</span>
       </DropdownMenuItem>
