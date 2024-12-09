@@ -8,7 +8,7 @@ interface MethodOptions {
     sessionCookie?: string
 }
 
-interface RequestResponse<T> {
+export interface RequestResponse<T> {
     headers: object
     data: T
 }
