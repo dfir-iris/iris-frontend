@@ -5,7 +5,7 @@ import type { Actions } from './$types';
 
 export const actions = {
     // Handle authenticating the user with the backend
-    default: async ({ request,cookies, url }) => {
+    default: async ({ request, cookies, url }) => {
         const data = await request.formData();
         const redirectTo = url.searchParams.get('redirect')
         const username = data.get('username')
