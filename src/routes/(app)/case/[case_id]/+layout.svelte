@@ -22,6 +22,7 @@
 	import { Tabs, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -45,10 +46,20 @@
 	<title>Case #{data.case_id} | DFIR-IRIS</title>
 </svelte:head>
 
-{#await data.case then { data: caseData }}
+{#await data.case}
+	<div class="flex h-full flex-col overflow-hidden">
+		<div class="flex flex-col items-start gap-y-1 overflow-y-auto border-b p-4 shadow">
+			<div class="mb-2 flex w-full flex-col items-start">
+				<Skeleton class="mb-2 h-3 w-8"></Skeleton>
+				<Skeleton class="h-6 w-24"></Skeleton>
+				<Skeleton class="mt-4 h-8 w-1/2"></Skeleton>
+			</div>
+		</div>
+	</div>
+{:then { data: caseData }}
 	<div class="flex h-full flex-col overflow-hidden">
 		<!-- Case header -->
-		<div class="flex flex-col items-start gap-y-1 overflow-y-auto border-r p-4 shadow">
+		<div class="flex flex-col items-start gap-y-1 overflow-y-auto border-b p-4 shadow">
 			<div class="mb-2 flex w-full flex-row items-center">
 				<div>
 					<p class="text-sm font-medium text-secondary-foreground">#{data.case_id}</p>
