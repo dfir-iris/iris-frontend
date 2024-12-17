@@ -25,14 +25,14 @@
 </script>
 
 <header
-	class="sticky top-0 flex h-16 shrink-0 flex-row items-center bg-primary-gradient px-4 shadow"
+	class="sticky top-0 flex h-12 shrink-0 flex-row items-center bg-primary-gradient px-4 shadow"
 >
 	<!-- Logo -->
-	<a href="/">
+	<a href="/" class="ml-1">
 		<img src="/logo/logo-white-alone.png" alt="IRIS Logo" class="w-[30px] transition-all duration-300 mr-4" />
 	</a>
 	<nav class="flex items-center space-x-4 lg:space-x-6">
-		<a href="/" class="hover:text-secondary text-white text-sm font-medium transition-colors">
+		<a href="/" class="hover:text-primary text-white text-sm font-medium transition-colors">
 			Dashboard
 		</a>
 	

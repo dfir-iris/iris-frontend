@@ -4,28 +4,44 @@
     import * as Resizable  from "$lib/components/ui/resizable";
     import { page } from '$app/stores';
     import { ChevronDown, ChevronRight,
-        Settings, HelpCircle} from 'lucide-svelte'
+        Settings, HelpCircle,
+		PlusIcon,
+		NotepadTextIcon,
+		ClipboardListIcon,
+		RouterIcon,
+		FlagIcon} from 'lucide-svelte'
     import AlignJustify from 'lucide-svelte/icons/align-justify';
     import Users from "lucide-svelte/icons/users";
     import { cn } from "$lib/utils.js";
     import { ScrollArea } from "$lib/components/ui/scroll-area";
 
 
-    import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
+	import {
+		DropdownMenu,
+		DropdownMenuItem,
+		DropdownMenuTrigger,
+		DropdownMenuContent,
+		DropdownMenuLabel
+	} from '$lib/components/ui/dropdown-menu';
     import { setMode } from "mode-watcher";
     import { writable } from 'svelte/store';
     import { mainRoutes, investigationRoutes, followRoutes, settingsRoutes } from "$lib/constants/routes";
     import Nav from '$lib/layouts/nav-layout.svelte';
     import Separator from '$lib/components/ui/separator/separator.svelte';
+    import type { LayoutData } from './$types';
+	import type { Snippet } from 'svelte';
+	import CaseSwitcher from './case-switcher.svelte';
+
+
+    let { data, children }: { data: LayoutData; children: Snippet } = $props();
+
     
     //let isSidebarOpen = true
     let currentTime = new Date().toLocaleString()
 
-    $: pageTitle = $page.data.title || 'Dashboard';
-
-    export let defaultLayout = [80, 1000];
-	export let defaultCollapsed = false;
-	export let navCollapsedSize:5;
+    let defaultLayout = [80, 1000];
+	let defaultCollapsed = false;
+	let navCollapsedSize:5;
 
 	let isCollapsed = defaultCollapsed;
 
@@ -57,60 +73,12 @@
     }
   </script>
   
-  <header class="sticky top-0 z-50 border-b bg-primary-gradient backdrop-blur text-slate-50">
-    <div class="flex items-center">
-        <a href="/" >
-            <div class="flex items-center gap-2 ml-3">
-                <img 
-                    src="/logo/logo-white.png" 
-                    alt="IRIS Logo" 
-                    class={`transition-all duration-300 w-[100px]`}
-                />
-            </div>
-        </a>
-        <div class="ml-4">
-            <h2 class="text-lg">{pageTitle}</h2>
-        </div>
-        <div class="ml-auto">
-            <DropdownMenu.Root>
-                <DropdownMenu.Trigger>
-                    <Button variant="ghost" class="w-full justify-center gap-3">
-                        <div class="flex items-center gap-3">
-                            <!-- Avatar Circle -->
-                            <div class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground">
-                                {$username ? $username[0].toUpperCase() : 'U'}
-                            </div>
-                        </div>
-                    </Button>
-                </DropdownMenu.Trigger>
-                <!-- Rest of dropdown content stays the same -->
-                <DropdownMenu.Content>
-                    <DropdownMenu.Item on:click={() => switchMode()}>
-                        {$uiMode === 'Light' ? 'Dark' : 'Light'} mode
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Separator />
-                    <DropdownMenu.Item>
-                        <Users class="mr-2 h-4 w-4" />
-                        Profile
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item>
-                        <Settings class="mr-2 h-4 w-4" />
-                        Settings
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Separator />
-                    <DropdownMenu.Item>
-                        Log out
-                    </DropdownMenu.Item>
-                </DropdownMenu.Content>
-            </DropdownMenu.Root>
-        </div>
-    </div>
-</header>
+
   <div class="hidden md:block">
 	<Resizable.PaneGroup
 		direction="horizontal"
 		{onLayoutChange}
-		class="items-stretch h-full"
+		class="items-stretch"
 	>
 		<Resizable.Pane
 			defaultSize={defaultLayout[0]}
@@ -120,24 +88,61 @@
 			maxSize={20}
 			{onCollapse}
 			{onExpand}
+            class="bg-muted/40 rounded-r-lg"
 		>
-            <h2 class="mt-2 mb-2 px-4 text-lg font-semibold tracking-tight">General</h2>
-            <Nav {isCollapsed} routes={mainRoutes} />
-
+            <div class="mt-4 mb-2 px-4 text-lg font-semibold tracking-tight">
+                <DropdownMenu>
+                    <DropdownMenuTrigger class="w-fit">
+                        <Button variant="outline" class="!px-3 py-4">
+                            <PlusIcon size={22} /> Add item
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent class="w-56 shadow" align="end" side="left">
+                        <DropdownMenuLabel>What do you want to add?</DropdownMenuLabel>
+                        <DropdownMenuItem>
+                            <NotepadTextIcon size={20}></NotepadTextIcon>
+                            <span>Note</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                            <ClipboardListIcon size={20}></ClipboardListIcon>
+                            <span>Task</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                            <RouterIcon size={20}></RouterIcon>
+                            <span>Asset</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                            <FlagIcon size={20}></FlagIcon>
+                            <span>Indicator</span>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
             <h2 class="mt-4 mb-2 px-4 text-lg font-semibold tracking-tight">Investigation</h2>
             <Nav {isCollapsed} routes={investigationRoutes} />
 
             <h2 class="mt-4 mb-2 px-4 text-lg font-semibold tracking-tight">Tracking</h2>
             <Nav {isCollapsed} routes={followRoutes} />
 
-            <h2 class="mt-4 mb-2 px-4 text-lg font-semibold tracking-tight">Settings</h2>
-            <Nav {isCollapsed} routes={settingsRoutes} />
         </Resizable.Pane>
 		<Resizable.Handle withHandle />
 		<Resizable.Pane defaultSize={defaultLayout[1]} minSize={10}>
+            <div class="flex flex-col items-start gap-y-1 p-4">
+                <div class="mb-4 flex w-full flex-row items-center">
+                    <div>
+                        <h1 class="text-2xl ml-2 font-semibold">{data.case_name}</h1>
+                        <p class="text-sm ml-2 text-muted-foreground">Opened on {new Date(data.open_date).toLocaleString()} by {data.owner?.user_name}</p>
+                    </div>
+    
+                    <!-- Add to case control -->
+                    <div class="ml-auto">
+                        <CaseSwitcher />
+                    </div>
+                </div>
+            </div>
             <ScrollArea class="h-screen">
-                <main class="flex-1 p-6 bg-muted/40">
-                    <slot />
+                <main class="flex-1 p-6">
+                    {@render children()}
                 </main>
             </ScrollArea>
         </Resizable.Pane>
