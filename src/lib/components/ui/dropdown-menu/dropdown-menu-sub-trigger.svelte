@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { DropdownMenu as DropdownMenuPrimitive } from "bits-ui";
-	import ChevronRight from "svelte-radix/ChevronRight.svelte";
+	import { ChevronRight } from "lucide-svelte";
 	import { cn } from "$lib/utils.js";
 
 	type $$Props = DropdownMenuPrimitive.SubTriggerProps & {
