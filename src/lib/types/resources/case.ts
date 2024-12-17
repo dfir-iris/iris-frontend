@@ -15,8 +15,10 @@ export interface Case {
   /** Meta */
 
   case_name: string
+  name: string
   case_description: string
   case_customer: number
+  customer: string
 
   /** User references */
 

@@ -22,7 +22,6 @@
 	} from '$lib/components/ui/dropdown-menu';
 	import { authUserStore } from '$lib/stores/auth.store';
 	import { mode, toggleMode } from 'mode-watcher';
-	import CaseSwitcher from './case-switcher.svelte';
 </script>
 
 <header
@@ -30,9 +29,26 @@
 >
 	<!-- Logo -->
 	<a href="/">
-		<img src="/logo/logo-white.png" alt="IRIS Logo" class="w-[100px] transition-all duration-300" />
+		<img src="/logo/logo-white-alone.png" alt="IRIS Logo" class="w-[30px] transition-all duration-300 mr-4" />
 	</a>
-	<CaseSwitcher />
+	<nav class="flex items-center space-x-4 lg:space-x-6">
+		<a href="/" class="hover:text-secondary text-white text-sm font-medium transition-colors">
+			Dashboard
+		</a>
+	
+		<a
+			href="/case"
+			class="text-sm font-medium text-white transition-colors"
+		>
+			Case
+		</a>
+		<a
+			href="/alerts"
+			class="hover:text-secondary text-sm font-medium text-white transition-colors"
+		>
+			Alerts
+		</a>
+	</nav>
 	<div class="ml-auto"></div>
 
 	<!-- Search bar -->

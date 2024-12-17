@@ -23,6 +23,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import CaseSwitcher from '$lib/layouts/case-switcher.svelte';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -62,8 +63,7 @@
 		<div class="flex flex-col items-start gap-y-1 overflow-y-auto border-b p-4 shadow">
 			<div class="mb-2 flex w-full flex-row items-center">
 				<div>
-					<p class="text-sm font-medium text-secondary-foreground">#{data.case_id}</p>
-					<h1 class="text-2xl font-medium">{caseData.case_name.split(' - ', 2)[1]}</h1>
+					<CaseSwitcher />
 				</div>
 
 				<!-- Add to case control -->

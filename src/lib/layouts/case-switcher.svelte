@@ -8,96 +8,107 @@
 	import * as Dialog from "$lib/components/ui/dialog";
 	import { Button } from "$lib/components/ui/button";
 	import { CaretSort } from "svelte-radix";
+	import { onMount } from "svelte";
+	import { goto } from "$app/navigation";
 
-	// Writable stores for the fetched cases and the search query
-	let cases = writable([]);
+	type CaseContext = {
+    case_id: string;
+    name: string;
+    customer_name: string;
+    close_date: string | null;
+    access: string;
+  };
+
 	let searchQuery = writable("");
-	let showTeamDialog = false;
-	let open = false;
+  let showTeamDialog = false;
+  let open = false;
+  let selectedCase = writable<CaseContext | null>(null);
+	let cases = writable<CaseContext[]>([]);
 
+  export const load: PageLoad = async ({ fetch }) => {
+    const casesData = await ApiService.get("/context/search-cases", {}, fetch);
+    cases.set(casesData);
+    return { cases: casesData };
+  };
 
-	export const load: PageLoad = async ({ fetch }) => {
-		const cases = await ApiService.get("/context/search-cases", {}, fetch);
-		return { cases };
-	};
+  async function fetchCases(query = "") {
+    try {
+      const response = await ApiService.get(`/context/search-cases?q=${query}`);
+      cases.set(response.data);
+    } catch (error) {
+      console.error("Error fetching cases:", error);
+    }
+  }
 
-	// Fetch cases based on the query
-	async function fetchCases(query = "") {
-		try {
-			const response = await ApiService.get(`/context/search-cases?q=${query}`);
-			if (response.ok) {
-				const data = await response.json();
-				cases.set(data); // Update the store with fetched cases
-			} else {
-				console.error("Failed to fetch cases");
-			}
-		} catch (error) {
-			console.error("Error fetching cases:", error);
-		}
-	}
-
-	// Reactive search logic
 	$: $searchQuery, fetchCases($searchQuery);
 
-	// Redirect function to case overview
-	function redirectToCase(caseId: number) {
-		window.location.href = `/case/${caseId}/overview`;
-	}
+  function redirectToCase(caseId: string) {
+    goto(`/case/${caseId}/overview`);
+  }
+
+  function handleCaseSelect(case_data: CaseContext) {
+    selectedCase.set(case_data);
+    redirectToCase(case_data.case_id);
+  }
+
+  onMount(() => {
+    const url = new URL(window.location.href);
+    const pathSegments = url.pathname.split('/');
+    const caseId = pathSegments[2]; // Assuming the URL is like /case/xxx/yyy
+
+    if (caseId) {
+      cases.subscribe(casesList => {
+        const foundCase = casesList.find(case_data => case_data.case_id == caseId);
+        if (foundCase) {
+          selectedCase.set(foundCase);
+        }
+      });
+    }
+  });
 </script>
 
-
 <Dialog.Root bind:open={showTeamDialog}>
-	<Popover.Root bind:open={showTeamDialog}>
-		<Popover.Trigger asChild let:builder>
-			<Button
-				builders={[builder]}
-				variant="outline"
-				role="combobox"
-				aria-expanded={open}
-				aria-label="Select a case"
-				class="w-[300px] justify-between"
-			>
-				<span>Select a case...</span>
-				<CaretSort class="ml-auto h-4 w-4 shrink-0 opacity-50" />
-			</Button>
-		</Popover.Trigger>
+  <Popover.Root bind:open={showTeamDialog}>
+    <Popover.Trigger asChild let:builder>
+      <Button
+        builders={[builder]}
+        variant="outline"
+        role="combobox"
+        aria-expanded={open}
+        aria-label="Select a case"
+        class="w-[400px] justify-between"
+      >
+				<span>{ $selectedCase? $selectedCase.name : "No case selected"}</span>
+        <CaretSort class="ml-auto h-4 w-4 shrink-0 opacity-50" />
+      </Button>
+    </Popover.Trigger>
 
-		<Popover.Content class="w-[300px] p-0">
-			<Command.Root>
-				<div class="p-2">
-					<Input
-						type="text"
-						placeholder="Search cases..."
-						on:input={(e) => searchQuery.set(e.target.value)}
-						class="w-full"
-					/>
-				</div>
-				<Command.List>
-					<Command.Empty>No cases found.</Command.Empty>
-					{#await $cases then caseList}
-						{#each caseList as case_data}
-							<Command.Item
-								onSelect={() => {
-									redirectToCase(case_data.case_id);
-									closeAndRefocusTrigger(ids.trigger);
-								}}
-								class="flex justify-between items-center p-2 hover:bg-gray-100 cursor-pointer"
-							>
-								<div>
-									<div class="font-semibold">
-										{case_data.name} - {case_data.customer_name}
-									</div>
-									<div class="text-sm text-gray-500">
-										{case_data.close_date ? "Closed" : "Open"} | Access: {case_data.access}
-									</div>
-								</div>
-							</Command.Item>
-						{/each}
-					{:catch error}
-						<p class="text-red-500 p-2">Error loading cases: {error.message}</p>
-					{/await}
-				</Command.List>
-			</Command.Root>
-		</Popover.Content>
-	</Popover.Root>
+    <Popover.Content class="w-[400px] p-0">
+      <Command.Root>
+        <div class="p-2">
+          <Input
+            type="text"
+            placeholder="Search cases..."
+            on:input={(e) => searchQuery.set(e.target.value)}
+            class="w-full"
+          />
+        </div>
+        <Command.List>
+          <Command.Empty>No case selected</Command.Empty>
+          {#each $cases as case_data}
+            <Command.Item
+              onSelect={() => handleCaseSelect(case_data)}
+            >
+              <div>
+                <span>
+                  {case_data.name} - {case_data.customer_name}
+								</span>
+                 <Command.Shortcut>({case_data.close_date ? "Closed" : "Open"})</Command.Shortcut>
+              </div>
+            </Command.Item>
+          {/each}
+        </Command.List>
+      </Command.Root>
+    </Popover.Content>
+  </Popover.Root>
 </Dialog.Root>
