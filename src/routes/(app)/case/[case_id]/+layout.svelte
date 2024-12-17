@@ -4,7 +4,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import DashboardLayout from '$lib/layouts/dashboard-layout.svelte';
+	import CaseLayout from '$lib/layouts/case-layout.svelte';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -40,24 +40,9 @@
 	</div>
 {:then { data: caseData }}
 	<div class="flex h-full flex-col overflow-hidden">
-		<!-- Case header -->
-		<!-- <div class="flex flex-col items-start gap-y-1 p-4">
-			<div class="mb-4 flex w-full flex-row items-center">
-				<div>
-					<h1 class="text-2xl ml-2 font-semibold">{caseData.case_name}</h1>
-					<p class="text-sm ml-2 text-muted-foreground">Opened on {new Date(caseData.open_date).toLocaleString()} by {caseData.owner.user_name}</p>
-				</div>
-
-				<!-- Add to case control -->
-				<!-- <div class="ml-auto">
-					<CaseSwitcher />
-				</div>
-			</div>
-		</div> --> 
-
 		<!-- Case content -->
 		<div>
-			<DashboardLayout data={caseData} {children} />
+			<CaseLayout data={caseData} {children} />
 			{@render children()}
 		</div>
 	</div>
