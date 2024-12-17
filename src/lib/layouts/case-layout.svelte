@@ -6,7 +6,11 @@
 		NotepadTextIcon,
 		ClipboardListIcon,
 		RouterIcon,
-		FlagIcon} from 'lucide-svelte'
+		FlagIcon,
+		File,
+		CheckCheck,
+		Computer,
+		Biohazard} from 'lucide-svelte'
     import { ScrollArea } from "$lib/components/ui/scroll-area";
 
 
@@ -15,11 +19,12 @@
 		DropdownMenuItem,
 		DropdownMenuTrigger,
 		DropdownMenuContent,
-		DropdownMenuLabel
+		DropdownMenuLabel,
+        DropdownMenuSeparator
 	} from '$lib/components/ui/dropdown-menu';
     import { setMode } from "mode-watcher";
     import { writable } from 'svelte/store';
-    import { investigationRoutes, followRoutes } from "$lib/constants/routes";
+    import { investigationRoutes } from "$lib/constants/routes";
     import Nav from '$lib/layouts/nav-layout.svelte';
     import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
@@ -90,32 +95,30 @@
                             <PlusIcon size={22} /> Add item
                         </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent class="w-56 shadow" align="end" side="left">
-                        <DropdownMenuLabel>What do you want to add?</DropdownMenuLabel>
+                    <DropdownMenuContent class=" shadow" align="end" side="left">
+                        <DropdownMenuLabel>Add item to the case</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem>
-                            <NotepadTextIcon size={20}></NotepadTextIcon>
+                            <File class="mr-2 h-4 w-4" />
                             <span>Note</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem>
-                            <ClipboardListIcon size={20}></ClipboardListIcon>
+                            <CheckCheck class="mr-2 h-4 w-4" />
                             <span>Task</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem>
-                            <RouterIcon size={20}></RouterIcon>
+                            <Computer class="mr-2 h-4 w-4" />
                             <span>Asset</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem>
-                            <FlagIcon size={20}></FlagIcon>
-                            <span>Indicator</span>
+                            <Biohazard class="mr-2 h-4 w-4"  />
+                            <span>IOC</span>
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
             <h2 class="mt-4 mb-2 px-4 text-lg font-semibold tracking-tight">Investigation</h2>
             <Nav {isCollapsed} routes={investigationRoutes} />
-
-            <h2 class="mt-4 mb-2 px-4 text-lg font-semibold tracking-tight">Tracking</h2>
-            <Nav {isCollapsed} routes={followRoutes} />
 
         </Resizable.Pane>
 		<Resizable.Handle withHandle />
