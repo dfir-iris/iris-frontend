@@ -1,18 +1,12 @@
 <script lang="ts">
-    import { username } from '$lib/stores/auth.store';
     import { Button } from "$lib/components/ui/button";
     import * as Resizable  from "$lib/components/ui/resizable";
-    import { page } from '$app/stores';
-    import { ChevronDown, ChevronRight,
-        Settings, HelpCircle,
+    import { 
 		PlusIcon,
 		NotepadTextIcon,
 		ClipboardListIcon,
 		RouterIcon,
 		FlagIcon} from 'lucide-svelte'
-    import AlignJustify from 'lucide-svelte/icons/align-justify';
-    import Users from "lucide-svelte/icons/users";
-    import { cn } from "$lib/utils.js";
     import { ScrollArea } from "$lib/components/ui/scroll-area";
 
 
@@ -25,9 +19,8 @@
 	} from '$lib/components/ui/dropdown-menu';
     import { setMode } from "mode-watcher";
     import { writable } from 'svelte/store';
-    import { mainRoutes, investigationRoutes, followRoutes, settingsRoutes } from "$lib/constants/routes";
+    import { investigationRoutes, followRoutes } from "$lib/constants/routes";
     import Nav from '$lib/layouts/nav-layout.svelte';
-    import Separator from '$lib/components/ui/separator/separator.svelte';
     import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
 	import CaseSwitcher from './case-switcher.svelte';
@@ -43,7 +36,7 @@
 	let defaultCollapsed = false;
 	let navCollapsedSize:5;
 
-	let isCollapsed = defaultCollapsed;
+	let isCollapsed = $state(defaultCollapsed);
 
 	function onLayoutChange(sizes: number[]) {
 		document.cookie = `PaneForge:layout=${JSON.stringify(sizes)}`;
