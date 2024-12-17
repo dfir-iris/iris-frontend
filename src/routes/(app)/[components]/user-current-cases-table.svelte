@@ -28,7 +28,7 @@
               props: {
                 params: {
                     title: p.data?.name,
-                    redirUrl: `/case?cid=${p.data?.case_id || 0}`,
+                    redirUrl: `/case/${p.data?.case_id || 0}`,
                 },
               },
             });

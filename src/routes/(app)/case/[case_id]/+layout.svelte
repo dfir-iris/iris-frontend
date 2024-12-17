@@ -61,16 +61,36 @@
 	<div class="flex h-full flex-col overflow-hidden">
 		<!-- Case header -->
 		<div class="flex flex-col items-start gap-y-1 overflow-y-auto border-b p-4 shadow">
-			<div class="mb-2 flex w-full flex-row items-center">
+			<div class="mb-4 flex w-full flex-row items-center">
 				<div>
-					<CaseSwitcher />
+					<h1 class="text-2xl ml-2 font-semibold">{caseData.case_name}</h1>
+					<p class="text-sm ml-2 text-muted-foreground">Opened on {new Date(caseData.open_date).toLocaleString()} by {caseData.owner.user_name}</p>
 				</div>
 
 				<!-- Add to case control -->
 				<div class="ml-auto">
+					<CaseSwitcher />
+				</div>
+			</div>
+
+			<div class="mb-2 flex w-full flex-row items-center">
+				<!-- Tabs -->
+				<Tabs bind:value={currentTab} class="w-[400px]">
+					<TabsList>
+						<TabsTrigger value="overview">Overview</TabsTrigger>
+						<TabsTrigger value="notes">Notes</TabsTrigger>
+						<TabsTrigger value="assets">Assets</TabsTrigger>
+						<TabsTrigger value="evidence">Evidence</TabsTrigger>
+						<TabsTrigger value="indicators">Indicators</TabsTrigger>
+						<TabsTrigger value="timeline">Timeline</TabsTrigger>
+						<TabsTrigger value="activity">Activity</TabsTrigger>
+					</TabsList>
+				</Tabs>
+
+				<div class="ml-auto">
 					<DropdownMenu>
 						<DropdownMenuTrigger class="!w-fit">
-							<Button variant="default" class="gap-x-1.5 rounded-full !px-3 py-4">
+							<Button variant="default" class="gap-x-1.5 !px-3 py-4">
 								<PlusIcon size={22} /> Add to Case
 							</Button>
 						</DropdownMenuTrigger>
@@ -96,19 +116,6 @@
 					</DropdownMenu>
 				</div>
 			</div>
-
-			<!-- Tabs -->
-			<Tabs bind:value={currentTab} class="w-[400px]">
-				<TabsList>
-					<TabsTrigger value="overview">Overview</TabsTrigger>
-					<TabsTrigger value="notes">Notes</TabsTrigger>
-					<TabsTrigger value="assets">Assets</TabsTrigger>
-					<TabsTrigger value="evidence">Evidence</TabsTrigger>
-					<TabsTrigger value="indicators">Indicators</TabsTrigger>
-					<TabsTrigger value="timeline">Timeline</TabsTrigger>
-					<TabsTrigger value="activity">Activity</TabsTrigger>
-				</TabsList>
-			</Tabs>
 		</div>
 
 		<!-- Case content -->

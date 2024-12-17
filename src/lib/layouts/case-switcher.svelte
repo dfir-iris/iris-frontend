@@ -22,7 +22,6 @@
 	let searchQuery = writable("");
   let showTeamDialog = false;
   let open = false;
-  let selectedCase = writable<CaseContext | null>(null);
 	let cases = writable<CaseContext[]>([]);
 
   export const load: PageLoad = async ({ fetch }) => {
@@ -47,24 +46,8 @@
   }
 
   function handleCaseSelect(case_data: CaseContext) {
-    selectedCase.set(case_data);
     redirectToCase(case_data.case_id);
   }
-
-  onMount(() => {
-    const url = new URL(window.location.href);
-    const pathSegments = url.pathname.split('/');
-    const caseId = pathSegments[2]; // Assuming the URL is like /case/xxx/yyy
-
-    if (caseId) {
-      cases.subscribe(casesList => {
-        const foundCase = casesList.find(case_data => case_data.case_id == caseId);
-        if (foundCase) {
-          selectedCase.set(foundCase);
-        }
-      });
-    }
-  });
 </script>
 
 <Dialog.Root bind:open={showTeamDialog}>
@@ -78,7 +61,7 @@
         aria-label="Select a case"
         class="w-[400px] justify-between"
       >
-				<span>{ $selectedCase? $selectedCase.name : "No case selected"}</span>
+				<span>Switch case</span>
         <CaretSort class="ml-auto h-4 w-4 shrink-0 opacity-50" />
       </Button>
     </Popover.Trigger>
