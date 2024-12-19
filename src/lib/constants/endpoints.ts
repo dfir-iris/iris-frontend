@@ -1,19 +1,20 @@
 export const ENDPOINTS = {
-    user: {
+    dashboard: {
         cases: {
-            list: `/user/cases/list`,
+            list: `/dashboard/cases/list`,
         },
         tasks: {
-            list:`/user/tasks/list`,
+            list: `/dashboard/tasks/list`,
         },
         reviews: {
-            list: `/user/reviews/list`
+            list: `/dashboard/reviews/list`
         }
     },
     case: {
         assets: {
-            list: (case_id: number) => `/case/${case_id}/assets`,
-        }
+            list: (caseId: number) => `/case/${caseId}/assets`,
+        },
+        getById: (caseId: number) => `/cases/${caseId}`
     },
     alerts: {
         filter: `/alerts/filter`,
