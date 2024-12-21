@@ -2,6 +2,7 @@ import Root from "./table.svelte";
 import Body from "./table-body.svelte";
 import Caption from "./table-caption.svelte";
 import Cell from "./table-cell.svelte";
+import LinkCell from "./table-link-cell.svelte";
 import Footer from "./table-footer.svelte";
 import Head from "./table-head.svelte";
 import Header from "./table-header.svelte";
@@ -12,6 +13,7 @@ export {
 	Body,
 	Caption,
 	Cell,
+	LinkCell,
 	Footer,
 	Head,
 	Header,
@@ -21,6 +23,7 @@ export {
 	Body as TableBody,
 	Caption as TableCaption,
 	Cell as TableCell,
+	LinkCell as TableLinkCell,
 	Footer as TableFooter,
 	Head as TableHead,
 	Header as TableHeader,
