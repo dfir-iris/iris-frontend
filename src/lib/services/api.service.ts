@@ -1,3 +1,5 @@
+import { error } from "@sveltejs/kit";
+
 interface RequestOptions {
     method: string,
     body?: string,
@@ -42,11 +44,11 @@ export class ApiService {
         });
 
         if (response.status === 401) {
-            throw new Error('Unauthorized');
+            error(401, 'Unauthorized');
         }
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            error(400, `API call failed: ${response.status} -- ${response.text}`);
         }
 
         const responseData = await response.json();
@@ -56,14 +58,14 @@ export class ApiService {
         };
     }
 
-    static async get<T>(endpoint: string, options: MethodOptions = {}, fetch_fn: typeof fetch): Promise<T> {
+    static async get<T>(endpoint: string, options: MethodOptions = {}, fetch_fn: typeof fetch) {
         return this.request<T>(endpoint, {
             method: 'GET',
             options
         }, fetch_fn);
     }
 
-    static async post<T>(endpoint: string, data: object, options: MethodOptions = {}, fetch_fn: typeof fetch): Promise<T> {
+    static async post<T>(endpoint: string, data: object, options: MethodOptions = {}, fetch_fn: typeof fetch) {
         return this.request<T>(endpoint, {
             method: 'POST',
             body: JSON.stringify(data),
@@ -71,7 +73,7 @@ export class ApiService {
         }, fetch_fn);
     }
 
-    static async put<T>(endpoint: string, data: object, options: MethodOptions = {}, fetch_fn: typeof fetch): Promise<T> {
+    static async put<T>(endpoint: string, data: object, options: MethodOptions = {}, fetch_fn: typeof fetch) {
         return this.request<T>(endpoint, {
             method: 'PUT',
             body: JSON.stringify(data),
@@ -79,7 +81,7 @@ export class ApiService {
         }, fetch_fn);
     }
 
-    static async delete<T>(endpoint: string, options: MethodOptions = {}, fetch_fn: typeof fetch): Promise<T> {
+    static async delete<T>(endpoint: string, options: MethodOptions = {}, fetch_fn: typeof fetch) {
         return this.request<T>(endpoint, {
             method: 'DELETE',
             options
