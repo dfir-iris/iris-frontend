@@ -3,7 +3,6 @@
 	import { Button } from '$lib/components/ui/button';
 	import { RefreshCw } from 'lucide-svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
-	import DataTable from '$lib/components/ui/data-table/data-table.svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import CellTitle from '$lib/components/ui/data-table/cell-title.svelte';
 	import SeverityBadge from '$lib/components/ui/badge/severity-badge.svelte';
@@ -14,6 +13,8 @@
 
 	import type { Case } from '$lib/types/resources/case';
 	import type { RequestResponse } from '$lib/services/api.service';
+	import DataTable from '$lib/components/ui/data-table-tanstack/data-table.svelte';
+	import CasesDataTable from '$lib/components/common/cases-data-table.svelte';
 
 	let {
 		cases
@@ -150,18 +151,23 @@
 	];
 </script>
 
-<Card.Root>
+<Card.Root class=" overflow-clip">
 	<Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
-		<Card.Title class="text-sm font-medium">Owned Cases</Card.Title>
-		<Button variant="ghost" size="icon" on:click={() => invalidate('cases')}>
-			<RefreshCw class="h-4 w-4" />
-		</Button>
+		<Card.Title class="text-lg font-medium">Owned Cases</Card.Title>
+		{#await cases then cases}
+			<Button variant="ghost" size="icon" on:click={() => invalidate(cases.url)}>
+				<RefreshCw class="h-4 w-4" />
+			</Button>
+		{/await}
 	</Card.Header>
-	<Card.Content class="items-center justify-between pb-2">
+	<Card.Content class="items-center justify-between p-0">
 		{#await cases}
-			<div class="space-y-2">
+			<!-- Loading state -->
+			<div class="space-y-2 p-4">
 				{#each Array(5) as _}
-					<div class="grid grid-cols-3 gap-4">
+					<div class="grid grid-cols-5 gap-4">
+						<Skeleton class="h-8" />
+						<Skeleton class="h-8" />
 						<Skeleton class="h-8" />
 						<Skeleton class="h-8" />
 						<Skeleton class="h-8" />
@@ -169,7 +175,9 @@
 				{/each}
 			</div>
 		{:then cases}
-			<DataTable rowData={cases.data} {columnDefs} {quickFilters} />
+			<!-- Actual results in tables -->
+			<CasesDataTable {cases} />
+			<!-- <DataTable rowData={cases.data} {columnDefs} {quickFilters} /> -->
 		{/await}
 	</Card.Content>
 </Card.Root>
