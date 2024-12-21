@@ -12,7 +12,8 @@ interface MethodOptions {
 
 export interface RequestResponse<T> {
     headers: object
-    data: T
+    data: T,
+    url: string
 }
 
 export class ApiService {
@@ -54,7 +55,8 @@ export class ApiService {
         const responseData = await response.json();
         return {
             headers: response.headers,
-            data: responseData
+            data: responseData,
+            url
         };
     }
 
