@@ -13,7 +13,7 @@ export class TimeFormatter {
 
     static format(date: string, config: TimeFormatterConfig = {}) {
         const { timezone, format, locale } = { ...this.defaultConfig, ...config };
-        
+
         const formatOptions: Intl.DateTimeFormatOptions = {
             timeZone: timezone,
             dateStyle: format,
@@ -23,3 +23,12 @@ export class TimeFormatter {
         return new Intl.DateTimeFormat(locale, formatOptions).format(new Date(date));
     }
 }
+
+
+const mediumDateTimeFormat = new Intl.DateTimeFormat(undefined, {
+    'dateStyle': 'medium',
+    'timeStyle': 'short'
+})
+
+
+export const mediumDateTimeFormatter = (value: Date | number) => mediumDateTimeFormat.format(value)
