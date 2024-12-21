@@ -1,11 +1,13 @@
 <script lang="ts">
 	import * as Card from '$lib/components/ui/card';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { CircleFadingArrowUp, CircleCheckBig } from 'lucide-svelte';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 
+	import { CircleFadingArrowUp, CircleCheckBig } from 'lucide-svelte';
+	import { type Icon as IconType } from 'lucide-svelte';
+
 	export let title: string;
-	export let icon;
+	export let icon: typeof IconType;
 	export let value: number;
 	export let subtitle: string = '';
 	export let isActive: boolean = false;
@@ -21,8 +23,9 @@
 >
 	<Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
 		<Card.Title class="text-sm font-medium">{title}</Card.Title>
-		<svelte:component this={icon} class="h-4 w-4 text-muted-foreground" />
+		<svelte:component this={icon} class="!h-6 !w-6 text-muted-foreground" />
 	</Card.Header>
+
 	<Card.Content>
 		{#if isLoading}
 			<Skeleton class="h-8 w-[100px]" />
