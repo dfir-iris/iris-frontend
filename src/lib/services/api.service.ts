@@ -27,7 +27,8 @@ export class ApiService {
         const headers = {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'Access-Control-Allow-Origin': '*'
+            'Access-Control-Allow-Origin': '*',
+            'Cookie': ''
         };
 
         // If session cookie, add it (server side request)
