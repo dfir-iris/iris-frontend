@@ -17,7 +17,8 @@
 	"devDependencies": {
 		"@internationalized/date": "^3.6.0",
 		"@melt-ui/svelte": "^0.86.2",
-		"@playwright/test": "^1.45.3",
+		"@playwright/test": "^1.45.3",	
+		"@tanstack/svelte-table": "npm:tanstack-table-8-svelte-5@^0.1",
 		"@sveltejs/adapter-auto": "^3.3.1",
 		"@sveltejs/kit": "^2.0.0",
 		"@sveltejs/vite-plugin-svelte": "^5.0.1",
@@ -54,7 +55,7 @@
 	"dependencies": {
 		"@sveltejs/adapter-node": "^5.2.9",
 		"@sveltejs/adapter-static": "^3.0.6",
-		"ag-grid-community": "^32.3.3",
+		"ag-grid-community": "^33.0.3",
 		"fast-sort": "^3.4.1",
 		"fast-xml-parser": "^4.5.0",
 		"mode-watcher": "^0.5.0",
