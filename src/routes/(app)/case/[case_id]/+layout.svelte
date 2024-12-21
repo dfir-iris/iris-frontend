@@ -14,18 +14,18 @@
 	$effect.pre(() => {
 		const urlSplit = $page.url.pathname.split('/');
 		const tab = urlSplit[urlSplit.length - 1];
-		currentTab = tab == data.case_id ? 'overview' : tab;
+		currentTab = tab == data.caseId ? 'overview' : tab;
 	});
 
 	// Set the URL to the value of currentTab when it changes
 	$effect(() => {
 		if (!currentTab) return;
-		goto(`/case/${data.case_id}/${currentTab}`);
+		goto(`/case/${data.caseId}/${currentTab}`);
 	});
 </script>
 
 <svelte:head>
-	<title>Case #{data.case_id} | IRIS </title>
+	<title>Case #{data.caseId} | IRIS</title>
 </svelte:head>
 
 {#await data.case}
