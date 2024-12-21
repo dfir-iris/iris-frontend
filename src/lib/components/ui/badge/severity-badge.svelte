@@ -4,7 +4,7 @@
 	import * as Tooltip from '$lib/components/ui/tooltip';
 
 	type Severity = 'Unspecified' | 'Low' | 'Medium' | 'High' | 'Critical';
-	export let severity: Severity;
+	export let severity: Severity | string;
 	export let icon_only: boolean = false;
 
 	const severityConfig = {
