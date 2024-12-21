@@ -157,7 +157,7 @@
 			</div>
 
 			{#if $activeViewStore === 'cases'}
-				<CurrentUserCasesTable {...cases} />
+				<CurrentUserCasesTable cases={data.cases} />
 			{:else if $activeViewStore === 'tasks'}
 				<UserCurrentTasksTable {...tasks} />
 			{:else if $activeViewStore === 'reviews'}
