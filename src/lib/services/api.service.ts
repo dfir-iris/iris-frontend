@@ -50,7 +50,8 @@ export class ApiService {
         }
 
         if (!response.ok) {
-            error(400, `API call failed: ${response.status} -- ${response.text}`);
+            const text = await response.text()
+            error(400, `API call failed: ${response.status} -- ${text}`);
         }
 
         const responseData = await response.json();
