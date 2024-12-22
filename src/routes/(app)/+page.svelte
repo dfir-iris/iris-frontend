@@ -85,7 +85,7 @@
 
 <div class="space-y-4 p-8 pt-6">
 	<div class="flex items-center justify-between space-y-2">
-		<h2 class="text-3xl font-bold tracking-tight">Dashboard</h2>
+		<h1 class="">Dashboard</h1>
 		<div class="flex items-center space-x-2"></div>
 	</div>
 	<Tabs.Root value={activeTab} class="space-y-4" on:change={(e) => handleTabChange(e.detail.value)}>
