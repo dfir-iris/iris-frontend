@@ -112,10 +112,31 @@
 	body {
 		@apply bg-background text-foreground;
 	}
+
+	/** 
+		Typography
+	*/
+
+	h1 {
+		@apply text-3xl font-bold tracking-tight;
+	}
+
+	h2 {
+		@apply text-xl font-bold tracking-tight;
+	}
+
+	h3 {
+		@apply text-lg font-medium tracking-tight;
+	}
+
+	h4 {
+		@apply text-base font-medium tracking-tight text-muted-foreground;
+	}
 }
 
 .lucide {
 	stroke-width: 1.5px;
 	width: 22px;
 	height: 22px;
+	flex-shrink: 0;
 }
