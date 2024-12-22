@@ -4,7 +4,7 @@
 	import * as Tooltip from '$lib/components/ui/tooltip';
 
 	type Severity = 'Unspecified' | 'Low' | 'Medium' | 'High' | 'Critical';
-	export let severity: Severity | string;
+	export let severity: Severity;
 	export let icon_only: boolean = false;
 
 	const severityConfig = {
@@ -35,21 +35,17 @@
 	};
 
 	$: config = severityConfig[severity] || severityConfig.Unspecified;
-	$: Icon = config.icon;
 </script>
 
 {#if icon_only}
 	<Tooltip.Root openDelay={0} group>
 		<Tooltip.Trigger class="flex items-center gap-1">
-			<Badge class="items-center gap-1 {config.color}">
-				<svelte:component this={Icon} class="h-3 w-3" />
-			</Badge>
+			<Badge class="items-center gap-1 {config.color}" icon={config.icon}></Badge>
 		</Tooltip.Trigger>
 		<Tooltip.Content>{severity} severity</Tooltip.Content>
 	</Tooltip.Root>
 {:else}
-	<Badge class="items-center gap-1 {config.color}">
-		<svelte:component this={Icon} class="h-3 w-3" />
+	<Badge class="items-center gap-1 {config.color}" icon={config.icon}>
 		{severity}
 	</Badge>
 {/if}

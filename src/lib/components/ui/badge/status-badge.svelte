@@ -22,8 +22,7 @@
 		| 'Closed'
 		| 'Merged'
 		| 'Assigned'
-		| 'New'
-		| string;
+		| 'New';
 
 	const statusConfig = {
 		Pending: {
@@ -65,22 +64,17 @@
 	};
 
 	$: config = statusConfig[status] || statusConfig.Unspecified;
-	$: status = status;
-	$: Icon = config.icon;
 </script>
 
 {#if icon_only}
 	<Tooltip.Root openDelay={0} group>
 		<Tooltip.Trigger class="flex items-center gap-1">
-			<Badge class="items-center gap-1 {config.color}">
-				<svelte:component this={Icon} class="h-3 w-3" />
-			</Badge>
+			<Badge class="items-center gap-1 {config.color}" icon={config.icon}></Badge>
 		</Tooltip.Trigger>
 		<Tooltip.Content>{status} status</Tooltip.Content>
 	</Tooltip.Root>
 {:else}
-	<Badge class="items-center gap-1 {config.color}">
-		<svelte:component this={Icon} class="h-3 w-3" />
+	<Badge class="items-center gap-1 {config.color}" icon={config.icon}>
 		{status}
 	</Badge>
 {/if}
