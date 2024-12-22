@@ -13,13 +13,13 @@
 
 <DropdownMenu>
 	<!-- Add item btn -->
-	<DropdownMenuTrigger class="w-fit py-3">
+	<DropdownMenuTrigger class="w-fit {isCollapsed ? '' : ''}">
 		{#if isCollapsed}
-			<Button variant="default" class="gap-x-1 px-2">
+			<Button variant="outline" class="gap-x-1 px-2">
 				<PlusIcon size={24} />
 			</Button>
 		{:else}
-			<Button variant="default" class="gap-x-1 px-4 py-5">
+			<Button variant="outline" class="gap-x-1 px-4 py-5">
 				<PlusIcon size={24} /> Add Item
 			</Button>
 		{/if}

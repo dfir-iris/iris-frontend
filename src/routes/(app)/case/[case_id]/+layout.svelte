@@ -22,6 +22,8 @@
 	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 
+	import CaseSwitcher from '$lib/layouts/case-switcher.svelte';
+
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
 	let sidenavCollapsed = $state(false);
@@ -49,10 +51,11 @@
 		<div
 			class="flex h-full {sidenavCollapsed
 				? 'w-14 gap-y-4'
-				: 'w-1/5 gap-y-2'} flex-col overflow-clip border-r bg-muted/20 px-2 py-4 transition-[width]"
+				: 'w-72 gap-y-3'} flex-col overflow-clip border-r bg-muted/20 px-2 py-4 transition-[width]"
 		>
 			<!-- Case info -->
 			{#if !sidenavCollapsed}
+				<CaseSwitcher />
 				<div class="px-2">
 					<p class="text-sm">#{data.caseId}</p>
 					<h2>{caseData.case_name.split(' - ', 2)[1]}</h2>
@@ -101,7 +104,7 @@
 		</div>
 
 		<!-- MARK: Case content -->
-		<div class="flex flex-col">
+		<div class="flex h-full w-full flex-col overflow-y-auto">
 			{@render children()}
 		</div>
 	</div>

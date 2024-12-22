@@ -10,6 +10,7 @@
 	import { CaretSort } from 'svelte-radix';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { ChevronsDownUpIcon } from 'lucide-svelte';
 
 	type CaseContext = {
 		case_id: string;
@@ -59,10 +60,10 @@
 				role="combobox"
 				aria-expanded={open}
 				aria-label="Select a case"
-				class="w-[400px] justify-between"
+				class="justify-between"
 			>
 				<span>Switch case</span>
-				<CaretSort class="ml-auto h-4 w-4 shrink-0 opacity-50" />
+				<ChevronsDownUpIcon class="ml-auto !h-4 !w-4 shrink-0 opacity-50" />
 			</Button>
 		</Popover.Trigger>
 
