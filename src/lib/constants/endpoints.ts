@@ -14,7 +14,8 @@ export const ENDPOINTS = {
         assets: {
             list: (caseId: number) => `/case/${caseId}/assets`,
         },
-        getById: (caseId: number) => `/cases/${caseId}`
+        getById: (caseId: number) => `/cases/${caseId}`,
+        list: `/cases/list`,
     },
     alerts: {
         filter: `/alerts/filter`,
