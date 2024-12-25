@@ -7,8 +7,6 @@
 	import * as Popover from '$lib/components/ui/popover';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
-	import { CaretSort } from 'svelte-radix';
-	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { ChevronsDownUpIcon } from 'lucide-svelte';
 
