@@ -9,7 +9,7 @@
 	import { setContext, type Snippet } from 'svelte';
 	import { writable } from 'svelte/store';
 	import { TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '../table';
-	import type { RequestResponse } from '$lib/services/api.service';
+	import type { Paginated, RequestResponse } from '$lib/services/api.service';
 	import { Button } from '../button';
 	import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-svelte';
 
@@ -30,12 +30,13 @@
 		columns
 	});
 
-	const rerender = async (requestResponse: Promise<RequestResponse<any>>) => {
+	const rerender = async (requestResponse: any[]) => {
 		const response = await requestResponse;
+		console.log(response);
 		options.update((options) => ({
 			...options,
 			columns,
-			data: response.data
+			data: response
 		}));
 	};
 
@@ -51,14 +52,14 @@
 	setContext('table', table);
 </script>
 
-<div class="{className} relative w-full overflow-auto">
-	<table class="w-full caption-bottom rounded-lg">
+<div class="{className} relative h-full w-full overflow-hidden">
+	<table class="w-full rounded-lg">
 		<!-- Header -->
 		<TableHeader>
 			{#each $table.getHeaderGroups() as headerGroup}
 				<TableRow>
 					{#each headerGroup.headers as header}
-						<TableHead>
+						<TableHead class="border-b">
 							{#if !header.isPlaceholder}
 								{@const Cell = flexRender(header.column.columnDef.header, header.getContext())}
 								<Cell />
@@ -70,7 +71,7 @@
 		</TableHeader>
 
 		<!-- Body -->
-		<TableBody>
+		<TableBody class="overflow-y-auto pb-2">
 			{#each $table.getRowModel().rows as row}
 				<TableRow>
 					{#each row.getVisibleCells() as cell}
@@ -81,27 +82,26 @@
 					{/each}
 				</TableRow>
 			{/each}
+			<TableRow class="h-10"></TableRow>
 		</TableBody>
 
 		<!-- Footer -->
-		<TableFooter>
-			<TableRow>
-				<td colspan={columns.length} class="h-10 border-t">
-					<div class="flex w-full flex-row items-center justify-end gap-1 text-black">
-						<!-- Show pagination if there is a page set -->
-						{#if page}
-							<Button
-								disabled={page <= 1}
-								on:click={() => (page ? (page -= 1) : null)}
-								variant="ghost"><ChevronLeftIcon /></Button
-							>
-							<span class="text-base">{page}</span>
-							<Button on:click={() => (page ? (page += 1) : null)} variant="ghost"
-								><ChevronRightIcon /></Button
-							>
-						{/if}
-					</div>
-				</td>
+		<TableFooter class="absolute bottom-0 left-0 h-10 w-full">
+			<TableRow class="inline-block h-full w-full ">
+				<div class="flex w-full flex-row items-center justify-end gap-1 border-t text-black">
+					<!-- Show pagination if there is a page set -->
+					{#if page}
+						<Button
+							disabled={page <= 1}
+							on:click={() => (page ? (page -= 1) : null)}
+							variant="ghost"><ChevronLeftIcon /></Button
+						>
+						<span class="text-base">{page}</span>
+						<Button on:click={() => (page ? (page += 1) : null)} variant="ghost"
+							><ChevronRightIcon /></Button
+						>
+					{/if}
+				</div>
 			</TableRow>
 		</TableFooter>
 	</table>

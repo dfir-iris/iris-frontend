@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { RequestResponse } from '$lib/services/api.service';
+	import type { Paginated, RequestResponse } from '$lib/services/api.service';
 	import type { Case } from '$lib/types/resources/case';
 	import { renderComponent, type ColumnDef } from '@tanstack/svelte-table';
 	import DataTable from '../ui/data-table-tanstack/data-table.svelte';
@@ -7,12 +7,13 @@
 	import StatusBadge from '../ui/badge/status-badge.svelte';
 	import SeverityBadge from '../ui/badge/severity-badge.svelte';
 	import { LinkCell } from '../ui/table';
+	import Skeleton from '../ui/skeleton/skeleton.svelte';
 
 	let {
 		cases,
 		class: className = ''
 	}: {
-		cases: Promise<RequestResponse<Case[]>> | RequestResponse<Case[]>;
+		cases: Promise<RequestResponse<Paginated<Case>>>;
 		class?: string;
 	} = $props();
 
@@ -45,17 +46,57 @@
 			accessorKey: 'state.state_name',
 			header: 'State',
 			cell: (cell) => {
-				return renderComponent(StatusBadge, { status: `${cell.getValue() || 'Unknown'}` });
+				const status = (cell.getValue() || 'Unknown') as
+					| 'Pending'
+					| 'In progress'
+					| 'Completed'
+					| 'Unspecified'
+					| 'To do'
+					| 'Closed'
+					| 'Merged'
+					| 'Assigned'
+					| 'New'; // should make this a const?
+				return renderComponent(StatusBadge, { status: status });
 			}
 		},
 		{
 			accessorKey: 'severity.severity_name',
 			header: 'Severity',
 			cell: (cell) => {
-				return renderComponent(SeverityBadge, { severity: `${cell.getValue() || 'Unknown'}` });
+				const severity = (cell.getValue() || 'Unknown') as
+					| 'Unspecified'
+					| 'Low'
+					| 'Medium'
+					| 'High'
+					| 'Critical';
+				return renderComponent(SeverityBadge, { severity: severity });
 			}
 		}
 	];
 </script>
 
-<DataTable {columns} data={cases} page={1}></DataTable>
+<div class="{className} flex overflow-hidden rounded border bg-card pt-1">
+	{#await cases}
+		<!-- Loading state -->
+		<div class="space-y-2 overflow-clip p-4">
+			<div class="grid grid-cols-5 gap-4 border-b">
+				<Skeleton class="h-6" />
+				<Skeleton class="h-6" />
+				<Skeleton class="h-6" />
+				<Skeleton class="h-6" />
+				<Skeleton class="h-6" />
+			</div>
+			{#each Array(10) as _}
+				<div class="grid grid-cols-5 gap-4">
+					<Skeleton class="h-8" />
+					<Skeleton class="h-8" />
+					<Skeleton class="h-8" />
+					<Skeleton class="h-8" />
+					<Skeleton class="h-8" />
+				</div>
+			{/each}
+		</div>
+	{:then { data }}
+		<DataTable {columns} data={data.results} page={data.current_page}></DataTable>
+	{/await}
+</div>
