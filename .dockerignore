@@ -3,3 +3,4 @@ build
 .vscode
 e2e
 node_modules
+src/lib/services/mocks

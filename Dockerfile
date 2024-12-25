@@ -1,6 +1,9 @@
 # Build layer -----------------------------------------------------------------
 FROM node:lts AS build
 
+# Disable mock
+ENV PUBLIC_USE_MOCK_API_DATA=false
+
 # Set the working directory
 WORKDIR /app
 
