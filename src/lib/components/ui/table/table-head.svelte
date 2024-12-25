@@ -1,17 +1,26 @@
 <script lang="ts">
-	import type { HTMLThAttributes } from 'svelte/elements';
 	import { cn } from '$lib/utils.js';
 	import Button from '../button/button.svelte';
-	import { SortAscIcon, SortDescIcon } from 'lucide-svelte';
+	import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, FilterIcon } from 'lucide-svelte';
+	import type { Snippet } from 'svelte';
 
-	type $$Props = HTMLThAttributes;
-
-	let className: $$Props['class'] = undefined;
-	export { className as class };
-
-	// Sorting properties
-	export let sortDirection: string | 'asc' | 'desc' | undefined = undefined;
-	export let toggleSort = undefined;
+	// Props
+	let {
+		class: className,
+		sortDirection,
+		toggleSort = () => {
+			sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+		},
+		toggleFilter = () => {},
+		children,
+		...restProps
+	}: {
+		class: string;
+		sortDirection?: 'asc' | 'desc';
+		toggleSort?: () => void;
+		toggleFilter?: () => void;
+		children: Snippet;
+	} = $props();
 </script>
 
 <th
@@ -19,16 +28,28 @@
 		'h-10 px-2 text-left align-middle font-medium text-muted-foreground first:pl-6 last:pr-6 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
 		className
 	)}
-	{...$$restProps}
+	{...restProps}
 >
 	<div class="flex w-full flex-row items-center">
-		<div class="mr-auto"><slot /></div>
+		<div class="mr-auto">{@render children()}</div>
+
+		<!-- Filtering control -->
+		{#if toggleFilter}
+			<Button on:click={toggleFilter} variant="ghost" class="top-0 h-fit p-1">
+				<FilterIcon class="h-4 w-4 !stroke-2" />
+			</Button>
+		{/if}
 
 		<!-- Sorting control -->
 		{#if toggleSort}
 			<Button on:click={toggleSort} variant="ghost" class="top-0 h-fit p-1">
-				{@const SortIcon = sortDirection === 'asc' ? SortAscIcon : SortDescIcon}
-				<SortIcon class="!h-4 !w-4" />
+				{@const SortIcon =
+					sortDirection === 'asc'
+						? ArrowUpIcon
+						: sortDirection === 'desc'
+							? ArrowDownIcon
+							: ArrowUpDownIcon}
+				<SortIcon class="h-4 w-4 !stroke-2" />
 			</Button>
 		{/if}
 	</div>
