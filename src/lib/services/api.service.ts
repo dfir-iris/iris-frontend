@@ -19,6 +19,14 @@ export interface RequestResponse<T> {
     url: string
 }
 
+export interface Paginated<T> {
+    total: number,
+    results: T[],
+    last_page: number | null,
+    current_page: number,
+    next_page: number | null
+}
+
 export class ApiService {
     private static baseUrl = browser ? env.PUBLIC_EXTERNAL_API_URL : env.PUBLIC_INTERNAL_API_URL;
 
