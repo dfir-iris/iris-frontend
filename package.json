@@ -63,6 +63,7 @@
 		"svelte-radix": "^2.0.1"
 	},
 	"overrides": {
-		"cookie": "^0.7.0"
+		"cookie": "^0.7.0",
+		"svelte": "^5.0.0"
 	}
 }
