@@ -22,9 +22,12 @@ FROM node:22-alpine
 # Set working directory
 WORKDIR /app
 
-# Copy built resources
-COPY --from=build /app/build ./
+# Install prod dependencies
 COPY package*.json ./
+RUN npm ci --omit=dev
+
+# Copy built app
+COPY --from=build /app/build ./
 
 # Expose the port the app runs on
 EXPOSE 3000
