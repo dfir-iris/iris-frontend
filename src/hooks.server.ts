@@ -1,8 +1,9 @@
 // src/hooks.server.ts
+import { PUBLIC_USE_MOCK_API_DATA } from '$env/static/public';
 import { ApiService } from '$lib/services/api.service';
-import { authTokenStore, type UserInfo } from '$lib/stores/auth.store';
-import { redirect, type Handle } from '@sveltejs/kit';
-import type { HandleFetch } from '@sveltejs/kit';
+import type { UserInfo } from '$lib/stores/auth.store';
+import { redirect } from '@sveltejs/kit';
+import type { HandleFetch, Handle } from '@sveltejs/kit';
 
 
 const AUTH_EXCLUDED_URLS = [
@@ -21,6 +22,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return resolve(event)
 	}
 
+	// Disable auth check when mocking
+	if (PUBLIC_USE_MOCK_API_DATA == "true") {
+		console.warn("Ignoring auth check due to mock data enabled")
+		return resolve(event)
+	}
+
 	// Get session cookie
 	const sessionCookie = event.cookies.get('session')
 	if (!sessionCookie) {
@@ -30,7 +37,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// Attempt to get session
 	try {
-		const response = await ApiService.get('/auth/whoami', { sessionCookie }, event.fetch);
+		const response = await ApiService.get<UserInfo>('/auth/whoami', { sessionCookie }, event.fetch);
 
 		const whoami: UserInfo = response.data;
 		console.log('Whoami', whoami)

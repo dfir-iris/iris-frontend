@@ -1,4 +1,7 @@
 import { error } from "@sveltejs/kit";
+import { env } from '$env/dynamic/public'
+import { PUBLIC_USE_MOCK_API_DATA } from '$env/static/public';
+import { browser } from "$app/environment";
 
 interface RequestOptions {
     method: string,
@@ -11,17 +14,22 @@ interface MethodOptions {
 }
 
 export interface RequestResponse<T> {
-    headers: object
+    headers: Headers
     data: T,
     url: string
 }
 
 export class ApiService {
-    private static baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+    private static baseUrl = browser ? env.PUBLIC_EXTERNAL_API_URL : env.PUBLIC_INTERNAL_API_URL;
 
-    static async request<T>(endpoint: string, options: RequestOptions = { method: 'GET', options: {} }, fetch_fn: typeof fetch): Promise<RequestResponse<T>> {
+    static async request<T>(endpoint: string, options: RequestOptions = { method: 'GET', options: {} }, fetch_fn: typeof fetch = fetch): Promise<RequestResponse<T>> {
         const url = `${this.baseUrl}/api/v2${endpoint}`;
         const sessionCookie = options.options.sessionCookie;
+
+        // Handle if mock data in use
+        if (PUBLIC_USE_MOCK_API_DATA == "true") {
+            return this.mockRequest(endpoint)
+        }
 
         // Default headers
         const headers = {
@@ -36,8 +44,8 @@ export class ApiService {
             headers['Cookie'] = `session=${sessionCookie}`;
         }
 
+        // Use fetch method to call endpoint
         const fetch_call = fetch_fn || fetch;
-
         const response = await fetch_call(url, {
             ...options,
             credentials: 'include', // Send cookies automatically (optional depending on the environment)
@@ -45,15 +53,18 @@ export class ApiService {
             mode: 'cors',
         });
 
+        // Handle if API replies with unauthorized
         if (response.status === 401) {
             error(401, 'Unauthorized');
         }
 
+        // Other error handling
         if (!response.ok) {
             const text = await response.text()
             error(400, `API call failed: ${response.status} -- ${text}`);
         }
 
+        // Parse JSON and return it with other request meta to caller
         const responseData = await response.json();
         return {
             headers: response.headers,
@@ -62,14 +73,31 @@ export class ApiService {
         };
     }
 
-    static async get<T>(endpoint: string, options: MethodOptions = {}, fetch_fn: typeof fetch) {
+    static async mockRequest<T>(endpoint: string): Promise<RequestResponse<T>> {
+        try {
+            endpoint = endpoint.replaceAll('/', '_')
+            endpoint = endpoint.split('?', 1)[0]
+            console.info(`Mocking ${endpoint}...`)
+            const module = await import(`./mocks/${endpoint}.json`);
+            return {
+                headers: new Headers(),
+                data: module.default as T,
+                url: `mock${endpoint}`
+            };
+        } catch (e) {
+            console.error(e)
+            error(404, `Mock data not found for endpoint: ${endpoint}`);
+        }
+    }
+
+    static async get<T>(endpoint: string, options: MethodOptions = {}, fetch_fn?: typeof fetch) {
         return this.request<T>(endpoint, {
             method: 'GET',
             options
         }, fetch_fn);
     }
 
-    static async post<T>(endpoint: string, data: object, options: MethodOptions = {}, fetch_fn: typeof fetch) {
+    static async post<T>(endpoint: string, data: object, options: MethodOptions = {}, fetch_fn?: typeof fetch) {
         return this.request<T>(endpoint, {
             method: 'POST',
             body: JSON.stringify(data),
@@ -77,7 +105,7 @@ export class ApiService {
         }, fetch_fn);
     }
 
-    static async put<T>(endpoint: string, data: object, options: MethodOptions = {}, fetch_fn: typeof fetch) {
+    static async put<T>(endpoint: string, data: object, options: MethodOptions = {}, fetch_fn?: typeof fetch) {
         return this.request<T>(endpoint, {
             method: 'PUT',
             body: JSON.stringify(data),
@@ -85,7 +113,7 @@ export class ApiService {
         }, fetch_fn);
     }
 
-    static async delete<T>(endpoint: string, options: MethodOptions = {}, fetch_fn: typeof fetch) {
+    static async delete<T>(endpoint: string, options: MethodOptions = {}, fetch_fn?: typeof fetch) {
         return this.request<T>(endpoint, {
             method: 'DELETE',
             options

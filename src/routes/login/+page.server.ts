@@ -30,7 +30,7 @@ export const actions = {
                 });
             }
         } catch (error) {
-            console.error('User', username, 'sign in error: ', error.message)
+            console.error('User', username, 'sign in error: ', error)
             return fail(400, { error: 'Username or password is incorrect.', username })
         }
 
