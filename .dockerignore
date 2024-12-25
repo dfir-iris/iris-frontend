@@ -1,0 +1,5 @@
+build
+.svelte-kit
+.vscode
+e2e
+node_modules
