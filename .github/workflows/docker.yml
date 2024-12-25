@@ -32,8 +32,10 @@ jobs:
           push: false
           load: true
           tags: ${{github.repository}}:${{github.sha}}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Get Docker image size
+      - name: Get Docker image sizec
         run: |
           size=$(docker image ls --format "{{.Size}}" ${{github.repository}}:${{github.sha}})
           echo "Image size: $size"
