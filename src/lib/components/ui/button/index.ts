@@ -13,7 +13,7 @@ const buttonVariants = tv({
 				"border-input bg-background hover:bg-accent hover:text-accent-foreground border shadow-sm",
 			secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-sm",
 			ghost: "hover:bg-accent hover:text-accent-foreground",
-			link: "text-inherit underline-offset-4 hover:underline",
+			link: "text-inherit underline-offset-4 hover:underline !px-2",
 			dotted: "border border-dashed border-input bg-background hover:bg-accent hover:text-accent-foreground"
 		},
 		size: {
