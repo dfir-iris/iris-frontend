@@ -12,6 +12,6 @@
 </script>
 
 <div class="group relative">
-	<Input bind:value type="text" {placeholder} class="bg-background pl-8"></Input>
+	<Input bind:value type="text" {placeholder} class="bg-background pl-8 dark:bg-muted"></Input>
 	<SearchIcon class="absolute left-2 top-2 !h-5 !w-5 opacity-70 group-focus-within:opacity-100" />
 </div>

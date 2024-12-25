@@ -88,7 +88,9 @@
 		<!-- Footer -->
 		<TableFooter class="absolute bottom-0 left-0 h-10 w-full">
 			<TableRow class="inline-block h-full w-full ">
-				<div class="flex w-full flex-row items-center justify-end gap-1 border-t text-black">
+				<div
+					class="flex w-full flex-row items-center justify-end gap-1 border-t text-foreground dark:text-foreground"
+				>
 					<!-- Show pagination if there is a page set -->
 					{#if page}
 						<Button

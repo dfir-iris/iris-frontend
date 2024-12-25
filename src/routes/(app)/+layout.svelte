@@ -10,7 +10,7 @@
 	<title>Dashboard | DFIR-IRIS</title>
 </svelte:head>
 
-<div class="flex h-screen w-screen flex-col overflow-hidden bg-muted">
+<div class="flex h-screen w-screen flex-col overflow-hidden bg-muted dark:bg-background">
 	<Topbar></Topbar>
 	{@render children()}
 </div>
