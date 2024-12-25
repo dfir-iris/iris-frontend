@@ -50,8 +50,10 @@
 
 	<!-- Tasks dropdown -->
 	<DropdownMenu>
-		<DropdownMenuTrigger>
-			<Button variant="ghost" class="px-2 text-gray-100"><ClipboardList /></Button>
+		<DropdownMenuTrigger asChild let:builder>
+			<Button builders={[builder]} variant="ghost" class="px-2 text-gray-100"
+				><ClipboardList /></Button
+			>
 		</DropdownMenuTrigger>
 		<DropdownMenuContent class="w-56">
 			<DropdownMenuLabel>Tasks</DropdownMenuLabel>
@@ -65,8 +67,8 @@
 
 	<!-- Alerts dropdown -->
 	<DropdownMenu>
-		<DropdownMenuTrigger>
-			<Button variant="ghost" class="px-2 text-gray-100"><BellIcon /></Button>
+		<DropdownMenuTrigger asChild let:builder>
+			<Button builders={[builder]} variant="ghost" class="px-2 text-gray-100"><BellIcon /></Button>
 		</DropdownMenuTrigger>
 		<DropdownMenuContent class="w-56">
 			<DropdownMenuLabel>Alerts</DropdownMenuLabel>
@@ -80,8 +82,10 @@
 
 	<!-- User dropdown -->
 	<DropdownMenu>
-		<DropdownMenuTrigger>
-			<Button variant="ghost" class="px-2 text-gray-100"><UserRoundIcon /></Button>
+		<DropdownMenuTrigger asChild let:builder>
+			<Button builders={[builder]} variant="ghost" class="px-2 text-gray-100"
+				><UserRoundIcon /></Button
+			>
 		</DropdownMenuTrigger>
 		<DropdownMenuContent class="w-56">
 			<DropdownMenuLabel>{$authUserStore?.name || 'My account'}</DropdownMenuLabel>
