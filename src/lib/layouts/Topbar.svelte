@@ -37,6 +37,7 @@
 	</a>
 	<nav class="flex items-center text-white">
 		<Button variant="link" href="/">Dashboard</Button>
+		<Button variant="link" href="/activities">Activities</Button>
 		<Button variant="link" href="/cases">Cases</Button>
 		<Button variant="link" href="/alerts">Alerts</Button>
 	</nav>
