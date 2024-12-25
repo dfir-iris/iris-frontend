@@ -17,7 +17,7 @@
 
 <Card.Root
 	class="cursor-pointer transition-all hover:scale-105 {isActive
-		? 'border-primary/20 bg-muted shadow-md'
+		? 'border-primary/20 bg-muted/10 text-foreground shadow-md'
 		: ''}"
 	on:click={onClick}
 >
