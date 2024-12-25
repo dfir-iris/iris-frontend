@@ -29,25 +29,16 @@
 >
 	<!-- Logo -->
 	<a href="/" class="ml-1">
-		<img src="/logo/logo-white-alone.png" alt="IRIS Logo" class="w-[30px] transition-all duration-300 mr-4" />
+		<img
+			src="/logo/logo-white-alone.png"
+			alt="IRIS Logo"
+			class="mr-4 w-[30px] transition-all duration-300"
+		/>
 	</a>
-	<nav class="flex items-center space-x-4 lg:space-x-6">
-		<a href="/" class="hover:text-primary text-white text-sm font-medium transition-colors">
-			Dashboard
-		</a>
-	
-		<a
-			href="/case"
-			class="text-sm font-medium text-white transition-colors"
-		>
-			Case
-		</a>
-		<a
-			href="/alerts"
-			class="hover:text-secondary text-sm font-medium text-white transition-colors"
-		>
-			Alerts
-		</a>
+	<nav class="flex items-center text-white">
+		<Button variant="link" href="/">Dashboard</Button>
+		<Button variant="link" href="/cases">Cases</Button>
+		<Button variant="link" href="/alerts">Alerts</Button>
 	</nav>
 	<div class="ml-auto"></div>
 
