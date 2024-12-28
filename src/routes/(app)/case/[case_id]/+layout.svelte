@@ -73,9 +73,6 @@
 			<CaseAddDropdown isCollapsed={sidenavCollapsed}></CaseAddDropdown>
 
 			<!-- Investigation links -->
-			{#if !sidenavCollapsed}
-				<h4 class="px-3">Investigation</h4>
-			{/if}
 			<div class="flex flex-col {sidenavCollapsed ? 'gap-y-1' : ''}">
 				<SidenavIconButton icon={FileTextIcon} label="Summary" href={baseUrl}></SidenavIconButton>
 				<SidenavIconButton icon={NotebookIcon} label="Notes" href="{baseUrl}/notes"
