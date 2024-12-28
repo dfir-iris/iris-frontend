@@ -14,15 +14,5 @@
 <div class="flex w-full flex-col border-b bg-muted/20 p-4">
 	{#await data.case}
 		loader
-	{:then { data: caseData }}
-		<p>Customer #{caseData.case_customer}</p>
-		<h1>{caseData.case_name}</h1>
-		<div class="flex flex-row gap-x-2 py-2">
-			<StatusBadge status="In progress"></StatusBadge>
-			<SeverityBadge severity="High"></SeverityBadge>
-			<Badge icon={TagIcon}>tag1</Badge>
-			<Badge icon={TagIcon}>tag2</Badge>
-			<Badge icon={TagIcon}>tag3</Badge>
-		</div>
 	{/await}
 </div>

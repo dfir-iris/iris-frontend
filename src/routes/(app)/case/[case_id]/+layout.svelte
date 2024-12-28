@@ -23,6 +23,8 @@
 	import { Button } from '$lib/components/ui/button';
 
 	import CaseSwitcher from '$lib/layouts/case-switcher.svelte';
+	import SeverityBadge from '$lib/components/ui/badge/severity-badge.svelte';
+	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -46,7 +48,7 @@
 	</div>
 {:then { data: caseData }}
 	{@const baseUrl = `/case/${data.caseId}`}
-	<div class="flex h-full flex-row overflow-hidden">
+	<div class="flex h-full flex-row overflow-hidden bg-background">
 		<!-- Case navigation -->
 		<div
 			class="flex h-full {sidenavCollapsed
@@ -55,11 +57,16 @@
 		>
 			<!-- Case info -->
 			{#if !sidenavCollapsed}
-				<CaseSwitcher />
-				<div class="px-2">
+				<div class="px-1">
 					<p class="text-sm">#{data.caseId}</p>
-					<h2>{caseData.case_name.split(' - ', 2)[1]}</h2>
+					<h2>{caseData.name?.split(' - ', 2)[1]}</h2>
 				</div>
+				<div class="flex flex-row gap-x-2">
+					<StatusBadge status="In progress"></StatusBadge>
+					<SeverityBadge severity="High"></SeverityBadge>
+				</div>
+			{:else}
+				<p class="text-center text-sm">#{data.caseId}</p>
 			{/if}
 
 			<!-- Add to case dropdown -->
@@ -104,7 +111,7 @@
 		</div>
 
 		<!-- MARK: Case content -->
-		<div class="flex h-full w-full flex-col overflow-y-auto">
+		<div class="flex h-full w-full flex-col overflow-y-auto bg-muted">
 			{@render children()}
 		</div>
 	</div>

@@ -13,13 +13,13 @@
 
 <DropdownMenu>
 	<!-- Add item btn -->
-	<DropdownMenuTrigger class="w-fit {isCollapsed ? '' : ''}">
+	<DropdownMenuTrigger class="w-full {isCollapsed ? '' : ''}" asChild let:builder>
 		{#if isCollapsed}
-			<Button variant="outline" class="gap-x-1 px-2">
+			<Button builders={[builder]} variant="outline" class="gap-x-1 px-4">
 				<PlusIcon size={24} />
 			</Button>
 		{:else}
-			<Button variant="outline" class="gap-x-1 px-4 py-5">
+			<Button builders={[builder]} variant="outline" class="gap-x-1 px-4 py-5">
 				<PlusIcon size={24} /> Add Item
 			</Button>
 		{/if}

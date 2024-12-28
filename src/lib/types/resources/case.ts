@@ -1,9 +1,4 @@
-interface Owner {
-  id: number
-  user_name: string
-  user_login: string
-  user_email: string
-}
+import type { UserInfo } from "$lib/stores/auth.store"
 
 export interface Case {
   /** Identifiers */
@@ -14,16 +9,20 @@ export interface Case {
 
   /** Meta */
 
-  case_name: string
+  /** Case name */
   name: string
-  case_description: string
+
+  /** Case description */
+  description: string
   case_customer: number
-  customer: string
+  client_id: number
 
   /** User references */
 
   user_id: number | null
-  owner: Owner
+  user: UserInfo
+  owner_id: number | null
+  owner: UserInfo
 
   /** Review */
 

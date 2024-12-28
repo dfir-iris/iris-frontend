@@ -25,11 +25,11 @@
 <!-- Sidenav item itself -->
 <Button variant={active ? 'default' : 'ghost'} {href} class="justify-start overflow-clip px-2">
 	<Tooltip>
-		<TooltipTrigger asChild>
-			<BtnIcon class="mr-2 !h-6 !w-6 !stroke-[1.75]" />
+		<TooltipTrigger>
+			<BtnIcon class="mr-2 !h-5 !w-5 !stroke-[1.75] pl-0.5" />
 		</TooltipTrigger>
 		<!-- Tooltip -->
-		<TooltipContent align="center" side="top"><p>{label}</p></TooltipContent>
+		<TooltipContent align="center" side="right"><p>{label}</p></TooltipContent>
 	</Tooltip>
 	<span class="w-full">{label}</span>
 
