@@ -36,7 +36,7 @@
 			class="mr-4 w-[30px] transition-all duration-300"
 		/>
 	</a>
-	<nav class="flex items-center text-white">
+	<nav class="flex items-center gap-x-4 text-white">
 		<Button variant="link" href="/">Dashboard</Button>
 		<Button variant="link" href="/activities">Activities</Button>
 		<TopbarCasesDropdown />
