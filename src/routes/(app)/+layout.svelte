@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
-	import Topbar from '$lib/layouts/Topbar.svelte';
+	import Topbar from '$lib/components/navigation/Topbar.svelte';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 </script>
