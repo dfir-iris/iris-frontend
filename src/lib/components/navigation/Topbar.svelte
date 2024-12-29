@@ -22,6 +22,7 @@
 	} from '$lib/components/ui/dropdown-menu';
 	import { authUserStore } from '$lib/stores/auth.store';
 	import { mode, toggleMode } from 'mode-watcher';
+	import TopbarCasesDropdown from './TopbarCasesDropdown.svelte';
 </script>
 
 <header
@@ -38,7 +39,7 @@
 	<nav class="flex items-center text-white">
 		<Button variant="link" href="/">Dashboard</Button>
 		<Button variant="link" href="/activities">Activities</Button>
-		<Button variant="link" href="/cases">Cases</Button>
+		<TopbarCasesDropdown />
 		<Button variant="link" href="/alerts">Alerts</Button>
 	</nav>
 	<div class="ml-auto"></div>
