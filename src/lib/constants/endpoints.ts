@@ -15,9 +15,10 @@ export const ENDPOINTS = {
             list: (caseId: number | string) => `/case/${caseId}/assets`,
         },
         notes: {
-            list: (caseId: number | string) => `/cases/${caseId}/notes`
+            list: (caseId: number | string) => `/case/${caseId}/notes`,
+            getById: (noteId: number | string) => `/note/${noteId}`,
         },
-        getById: (caseId: number | string) => `/cases/${caseId}`,
+        getById: (caseId: number | string) => `/case/${caseId}`,
         list: `/cases/list`,
     },
     alerts: {

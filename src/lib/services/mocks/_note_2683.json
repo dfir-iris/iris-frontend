@@ -1,0 +1,36 @@
+{
+  "directory": {
+    "id": 1512,
+    "name": "New folder",
+    "parent_id": null,
+    "case_id": 1532
+  },
+  "note_id": 2683,
+  "note_uuid": "526bd462-158f-4a7e-825f-53b414058966",
+  "note_title": "2023-12-01 Deprecation Notice",
+  "note_content": "\n\nLorem ipsum",
+  "note_user": 11,
+  "note_creationdate": "2024-12-29T13:32:33.768214",
+  "note_lastupdate": "2024-12-29T13:32:33.768219",
+  "note_case_id": 1532,
+  "custom_attributes": null,
+  "directory_id": 1512,
+  "modification_history": {
+    "1735479153.770061": {
+      "user": "adm_1",
+      "user_id": 11,
+      "action": "created note"
+    },
+    "1735479177.839016": {
+      "user": "adm_1",
+      "user_id": 11,
+      "action": "updated note"
+    },
+    "1735479178.116662": {
+      "user": "adm_1",
+      "user_id": 11,
+      "action": "updated note"
+    }
+  },
+  "comments": []
+}
