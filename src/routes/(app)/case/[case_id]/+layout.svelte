@@ -31,7 +31,7 @@
 
 	let sidenavCollapsed = $state(browser && localStorage.getItem('caseSidenavCollapsed') === 'true');
 	$effect(() => {
-		localStorage.setItem('caseSidenavCollapsed', sidenavCollapsed);
+		localStorage.setItem('caseSidenavCollapsed', `${sidenavCollapsed}`);
 	});
 </script>
 
