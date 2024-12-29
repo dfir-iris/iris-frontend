@@ -25,10 +25,14 @@
 	import CaseSwitcher from '$lib/layouts/case-switcher.svelte';
 	import SeverityBadge from '$lib/components/ui/badge/severity-badge.svelte';
 	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
+	import { browser } from '$app/environment';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
-	let sidenavCollapsed = $state(false);
+	let sidenavCollapsed = $state(browser && localStorage.getItem('caseSidenavCollapsed') === 'true');
+	$effect(() => {
+		localStorage.setItem('caseSidenavCollapsed', sidenavCollapsed);
+	});
 </script>
 
 <svelte:head>
