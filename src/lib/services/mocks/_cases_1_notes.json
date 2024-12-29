@@ -1,0 +1,47 @@
+{
+  "total": 0,
+  "results": [
+    {
+      "id": 1512,
+      "name": "Vendor Notices",
+      "note_count": 1,
+      "subdirectories": [
+        {
+          "id": 1523,
+          "name": "Vendor A",
+          "note_count": 1,
+          "subdirectories": [],
+          "notes": [
+            {
+              "id": 2683,
+              "title": "2023-12-01 Deprecation Notice"
+            }
+          ]
+        }
+      ],
+      "notes": [
+        {
+          "id": 2682,
+          "title": "New note"
+        }
+      ]
+    },
+    {
+      "id": 1532,
+      "name": "New folder",
+      "note_count": 0,
+      "subdirectories": [],
+      "notes": []
+    },
+    {
+      "id": 1533,
+      "name": "New folder",
+      "note_count": 0,
+      "subdirectories": [],
+      "notes": []
+    }
+  ],
+  "last_page": 0,
+  "current_page": 1,
+  "next_page": null
+}

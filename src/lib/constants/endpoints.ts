@@ -12,14 +12,17 @@ export const ENDPOINTS = {
     },
     case: {
         assets: {
-            list: (caseId: number) => `/case/${caseId}/assets`,
+            list: (caseId: number | string) => `/case/${caseId}/assets`,
         },
-        getById: (caseId: number) => `/cases/${caseId}`,
+        notes: {
+            list: (caseId: number | string) => `/cases/${caseId}/notes`
+        },
+        getById: (caseId: number | string) => `/cases/${caseId}`,
         list: `/cases/list`,
     },
     alerts: {
         filter: `/alerts/filter`,
-        details: (alertId: string) => `/alerts/${alertId}`,
+        details: (alertId: string | string) => `/alerts/${alertId}`,
     },
     auth: {
         login: `/auth/login`,
