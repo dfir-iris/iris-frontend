@@ -2,6 +2,7 @@ import { error } from "@sveltejs/kit";
 import { env } from '$env/dynamic/public'
 import { PUBLIC_USE_MOCK_API_DATA } from '$env/static/public';
 import { browser } from "$app/environment";
+import { randomDelay } from "$lib/utils/mock";
 
 interface RequestOptions {
     method: string,
@@ -86,7 +87,11 @@ export class ApiService {
             endpoint = endpoint.replaceAll('/', '_')
             endpoint = endpoint.split('?', 1)[0]
             console.info(`Mocking ${endpoint}...`)
+            setTimeout(() => {
+
+            })
             const module = await import(`./mocks/${endpoint}.json`);
+            await randomDelay()
             return {
                 headers: new Headers(),
                 data: module.default as T,
