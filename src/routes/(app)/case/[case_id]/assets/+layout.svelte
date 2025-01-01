@@ -28,7 +28,18 @@
 
 		<!-- Sidebar items -->
 		{#await data.assets}
-			<Skeleton></Skeleton>
+			{#each Array(5) as _}
+				<div class="space-y-1.5 rounded border bg-background p-3 text-sm shadow">
+					<div class="flex flex-row gap-x-1">
+						<Skeleton class="h-6 w-1/2 shrink-0"></Skeleton>
+						<div class="w-full"></div>
+						<Skeleton class="h-6 w-16"></Skeleton>
+						<Skeleton class="h-6 w-16"></Skeleton>
+					</div>
+					<Skeleton class="h-4 w-1/2 shrink-0"></Skeleton>
+					<Skeleton class="h-4 w-1/3 shrink-0"></Skeleton>
+				</div>
+			{/each}
 		{:then { data: assets }}
 			{#each assets.results as asset}
 				<div class="rounded border bg-background p-3 text-sm shadow">
