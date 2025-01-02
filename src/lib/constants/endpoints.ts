@@ -13,6 +13,7 @@ export const ENDPOINTS = {
     case: {
         assets: {
             list: (caseId: number | string) => `/case/${caseId}/assets`,
+            getById: (assetId: number | string) => `/asset/${assetId}`,
         },
         notes: {
             list: (caseId: number | string) => `/case/${caseId}/notes`,
