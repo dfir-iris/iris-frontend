@@ -72,7 +72,7 @@
 	</div>
 
 	<div class="flex h-full w-full flex-col gap-y-2 overflow-y-auto p-12">
-		<div class="flex h-full w-full flex-col rounded border bg-background shadow">
+		<div class="flex h-full w-full flex-col">
 			{@render children()}
 		</div>
 	</div>
