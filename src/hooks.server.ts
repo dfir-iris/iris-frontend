@@ -3,7 +3,8 @@ import { PUBLIC_USE_MOCK_API_DATA } from '$env/static/public';
 import { ApiService } from '$lib/services/api.service';
 import type { UserInfo } from '$lib/stores/auth.store';
 import { redirect } from '@sveltejs/kit';
-import type { HandleFetch, Handle } from '@sveltejs/kit';
+import type { Handle } from '@sveltejs/kit';
+
 
 
 const AUTH_EXCLUDED_URLS = [
@@ -52,11 +53,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 
 export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
-	if (request.url.startsWith('http://127.0.0.1')) {
-		console.log(event);
-		console.debug('Adding session cookie to request for server')
-		request.headers.set('cookie', event.request.headers.get('cookie'));
-	}
 
-	return fetch(request);
+	request.headers.set('cookie', event.request.headers.get('cookie'));
+
+	try {
+		const response = await fetch(request);
+		return response;
+	} catch (err) {
+		console.error(`Fetching session failed: ${err}`)
+	}
 };

@@ -33,7 +33,7 @@
   "case_id": 1,
   "soc_id": "soc_id_demo",
   "client_id": 1,
-  "name": "#1 - Initial Demo",
+  "name": "#1 - Initial Demo and a super long title just to check how it looks",
   "description": "This is a demonstration.",
   "open_date": "2024-11-30",
   "close_date": null,

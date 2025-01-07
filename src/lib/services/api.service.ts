@@ -44,8 +44,7 @@ export class ApiService {
         const headers = {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Cookie': ''
+            'Access-Control-Allow-Origin': '*'
         };
 
         // If session cookie, add it (server side request)
@@ -55,12 +54,19 @@ export class ApiService {
 
         // Use fetch method to call endpoint
         const fetch_call = fetch_fn || fetch;
-        const response = await fetch_call(url, {
-            ...options,
-            credentials: 'include', // Send cookies automatically (optional depending on the environment)
-            headers,
-            mode: 'cors',
-        });
+        let response: Promise<Response> = null;
+
+        try {
+            response = await fetch_call(url, {
+                ...options,
+                credentials: 'include', // Send cookies automatically (optional depending on the environment)
+                headers,
+                mode: 'cors',
+            });
+        } catch (err) {
+            console.error(`Fetching session failed: ${err}`)
+        }
+
 
         // Handle if API replies with unauthorized
         if (response.status === 401) {
