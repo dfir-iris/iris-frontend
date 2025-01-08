@@ -54,7 +54,7 @@ export class ApiService {
 
         // Use fetch method to call endpoint
         const fetch_call = fetch_fn || fetch;
-        let response: Promise<Response> = null;
+        let response: Response | null = null;
 
         try {
             response = await fetch_call(url, {
@@ -65,12 +65,18 @@ export class ApiService {
             });
         } catch (err) {
             console.error(`Fetching session failed: ${err}`)
+            error(500, 'Fetching session failed: ${err}')
         }
 
 
         // Handle if API replies with unauthorized
         if (response.status === 401) {
             error(401, 'Unauthorized');
+        }
+
+        // If endpoint is 404, fallback to mocked request
+        if (response.status === 404) {
+            return this.mockRequest(endpoint)
         }
 
         // Other error handling
