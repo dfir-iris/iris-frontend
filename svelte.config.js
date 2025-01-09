@@ -9,8 +9,11 @@ const config = {
 
 	kit: {
 		adapter: adapter({
-			precompress: true
-		})
+			precompress: true,
+		}),
+		csrf: {
+			checkOrigin: process.env.NODE_ENV === 'development' ? false : true
+		}
 	}
 };
 
