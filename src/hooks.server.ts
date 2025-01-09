@@ -4,7 +4,7 @@ import { ApiService } from '$lib/services/api.service';
 import type { UserInfo } from '$lib/stores/auth.store';
 import { redirect } from '@sveltejs/kit';
 import type { Handle } from '@sveltejs/kit';
-
+import { browser } from "$app/environment";
 
 
 const AUTH_EXCLUDED_URLS = [
@@ -54,12 +54,18 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
 
-	request.headers.set('cookie', event.request.headers.get('cookie'));
+	// If we are in SSR, we need to pass the cookie to the fetch request
+	// so that the session can be maintained 
+	// So check if the request is coming from the server
+	// and if so, pass the cookie to the fetch request
+	if (!browser) {
+		request.headers.set('cookie', event.request.headers.get('cookie'));
+	}
 
 	try {
 		const response = await fetch(request);
 		return response;
 	} catch (err) {
-		console.error(`Fetching session failed: ${err}`)
+		console.error(`Fetch request failed: ${err}`)
 	}
 };
