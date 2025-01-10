@@ -1,5 +1,10 @@
 name: Playwright Tests
 
+env:
+  PUBLIC_EXTERNAL_API_URL: http://localhost:8080
+  PUBLIC_INTERNAL_API_URL: http://localhost:8080
+  PUBLIC_USE_MOCK_API_DATA: true
+
 on:
   push:
     branches:
