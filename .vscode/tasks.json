@@ -13,6 +13,29 @@
             },
             "problemMatcher": [],
             "isBackground": true
+        },
+        {
+            "label": "build frontend",
+            "type": "shell",
+            "command": "npm run build",
+            "icon": {
+                "id": "package",
+                "color": "terminal.ansiGreen"
+            },
+            "problemMatcher": [],
+        },
+        {
+            "label": "preview frontend build",
+            "type": "shell",
+            "command": "npm run preview",
+            "icon": {
+                "id": "go-to-search",
+                "color": "terminal.ansiGreen"
+            },
+            "problemMatcher": [],
+            "dependsOn": [
+                "build frontend"
+            ]
         }
     ]
 }
