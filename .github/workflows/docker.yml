@@ -35,7 +35,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Get Docker image sizec
+      - name: Get Docker image size
         run: |
           size=$(docker image ls --format "{{.Size}}" ${{github.repository}}:${{github.sha}})
           echo "Image size: $size"
