@@ -1,18 +1,6 @@
-# sv
+# DFIR IRIS Frontend
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
-
-## Creating a project
-
-If you're seeing this, you've probably already done this step. Congrats!
-
-```bash
-# create a new project in the current directory
-npx sv create
-
-# create a new project in my-app
-npx sv create my-app
-```
+Welcome to the DFIR-IRIS Frontend project. It is built with SvelteKit.
 
 ## Developing
 
@@ -35,4 +23,11 @@ npm run build
 
 You can preview the production build with `npm run preview`.
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+## Testing
+
+To test this app:
+
+1. Vitest: `npm run test`
+2. Playwright: `npm run test:e2e`
+   * You may need to run `npx playwright install` before to install browsers.
+
