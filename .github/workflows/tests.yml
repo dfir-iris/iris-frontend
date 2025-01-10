@@ -28,6 +28,12 @@ jobs:
       - name: Install dependencies
         run: npm clean-install
 
+      - name: Build frontend
+        run: npm run build
+
+      - name: Run built frontend
+        run: npm run preview &
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
