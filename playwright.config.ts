@@ -8,4 +8,5 @@ export default defineConfig({
     viewport: { width: 1280, height: 720 },
     ignoreHTTPSErrors: true,
   },
+  reporter: process.env.CI ? 'junit' : 'list',
 });
