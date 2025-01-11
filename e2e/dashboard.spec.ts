@@ -9,11 +9,12 @@ test('test dashboard populates', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Owned Cases' })).toBeVisible();
   await expect(page).toHaveURL(/#cases/);
   await expect(page.locator('.p-6 > .flex').first()).toBeVisible();
+  await expect(page.locator('div').filter({ hasText: 'Owned Cases' }).nth(4)).toBeVisible();
 
   // hide the owned cases by clicking
-  await page.locator('.p-6').first().click();
+  await page.getByText('2 Click to hide').click();
   await expect(page).toHaveURL(/#/);
-  await expect(page.getByRole('heading', { name: 'Owned Cases' })).not.toBeVisible();
+  await expect(page.locator('div').filter({ hasText: 'Owned Cases' }).nth(4)).not.toBeVisible();
 
   // show owned cases by clicking again
   await page.locator('.p-6').first().click();
