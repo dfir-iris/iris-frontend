@@ -5,6 +5,7 @@ import type { PageLoad } from './$types';
 
 export const load = (async ({ params }) => {
   return {
+    assetId: params.asset_id,
     asset: ApiService.get<Asset>(ENDPOINTS.case.assets.getById(params.asset_id))
   };
 }) satisfies PageLoad;

@@ -21,7 +21,9 @@
   "asset_info": "",
   "asset_compromise_status_id": 0,
   "asset_type_id": 9,
-  "asset_tags": "",
+  "asset_tags": [
+    "privileged"
+  ],
   "case_id": 1541,
   "date_added": "2024-12-27T11:22:02.393375",
   "date_update": "2024-12-27T11:22:02.393382",
