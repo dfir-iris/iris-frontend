@@ -37,7 +37,14 @@ export class ApiService {
 
         // Handle if mock data in use
         if (PUBLIC_USE_MOCK_API_DATA == "true") {
-            return this.mockRequest(endpoint)
+            let getMocked;
+            try {
+                getMocked = this.mockRequest(endpoint)
+            } catch {
+                error(404, `Mock data not found for endpoint: ${endpoint}`);
+            } finally {
+                return getMocked;
+            }
         }
 
         // Default headers
@@ -94,7 +101,7 @@ export class ApiService {
         };
     }
 
-    static async mockRequest<T>(endpoint: string): Promise<RequestResponse<T>> {
+    static async mockRequest<T>(endpoint: string): Promise<RequestResponse<T> | undefined> {
         try {
             endpoint = endpoint.replaceAll('/', '_')
             endpoint = endpoint.split('?', 1)[0]
@@ -111,7 +118,7 @@ export class ApiService {
             };
         } catch (e) {
             console.error(e)
-            error(404, `Mock data not found for endpoint: ${endpoint}`);
+            return
         }
     }
 
