@@ -1,0 +1,34 @@
+{
+  "asset_name": "pc2",
+  "asset_enrichment": null,
+  "asset_type": {
+    "asset_name": "Windows - Computer",
+    "asset_description": "Standard Windows Computer",
+    "asset_icon_compromised": "ioc_windows_desktop.png",
+    "asset_icon_not_compromised": "windows_desktop.png",
+    "asset_id": 9
+  },
+  "alerts": [],
+  "analysis_status": {
+    "id": 1,
+    "name": "Unspecified"
+  },
+  "asset_id": 13846,
+  "asset_uuid": "bb2cb49d-896c-4123-bb41-6fd82bbb3280",
+  "asset_description": "accounting workstation",
+  "asset_domain": "pc2.org.internal",
+  "asset_ip": "",
+  "asset_info": "",
+  "asset_compromise_status_id": 0,
+  "asset_type_id": 9,
+  "asset_tags": "",
+  "case_id": 1541,
+  "date_added": "2024-12-27T11:22:02.393375",
+  "date_update": "2024-12-27T11:22:02.393382",
+  "user_id": 11,
+  "analysis_status_id": 1,
+  "custom_attributes": {},
+  "modification_history": null,
+  "ioc_links": null,
+  "link": []
+}
