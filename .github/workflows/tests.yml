@@ -30,29 +30,48 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Get installed Playwright version
+        id: playwright-version
+        run: echo "PLAYWRIGHT_VERSION=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")" >> $GITHUB_ENV
+
+      # Cache npm dependencies
       - name: Cache npm dependencies
         uses: actions/cache@v2
         with:
           path: '~/.npm'
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-node-
+            ${{ runner.os }}-node
 
+      # Cache playwright dependencies
+      - name: Cache playwright binaries
+        uses: actions/cache@v3
+        id: playwright-cache
+        with:
+          path: |
+            ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ env.PLAYWRIGHT_VERSION }}
+
+      # Install dependencies
       - name: Install dependencies
         run: npm clean-install
 
+      - name: Install Playwright Browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps
+
+      # Build & run frontend
       - name: Build frontend
         run: npm run build
 
       - name: Run built frontend
         run: npm run preview &
 
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps
-
+      # Run tests
       - name: Run Playwright tests
         run: npm run test:e2e
 
+      # Publish tests
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
