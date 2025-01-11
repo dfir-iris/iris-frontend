@@ -9,4 +9,10 @@ export default defineConfig({
     ignoreHTTPSErrors: true,
   },
   reporter: process.env.CI ? 'junit' : 'list',
+  webServer: {
+    command: 'npm run dev',
+    port: 5173,
+    reuseExistingServer: true,
+    // url: '/'
+  }
 });

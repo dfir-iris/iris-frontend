@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test('test dashboard populates', async ({ page }) => {
-  await page.goto('http://localhost:4173');
+  await page.goto('');
   await expect(page.getByRole('banner')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
 
