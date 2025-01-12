@@ -36,11 +36,14 @@
 			class="mr-4 w-[30px] transition-all duration-300"
 		/>
 	</a>
+
+	<!-- Links -->
 	<nav class="flex items-center gap-x-4 text-white">
 		<Button variant="link" href="/">Dashboard</Button>
 		<Button variant="link" href="/activities">Activities</Button>
 		<TopbarCasesDropdown />
 		<Button variant="link" href="/alerts">Alerts</Button>
+		<Button variant="link" href="/customers">Customers</Button>
 	</nav>
 	<div class="ml-auto"></div>
 
@@ -105,7 +108,7 @@
 				{/if}
 			</DropdownMenuItem>
 			<DropdownMenuSeparator />
-			<DropdownMenuItem>
+			<DropdownMenuItem href="/settings">
 				<SettingsIcon size={18} />
 				<span>Manage IRIS</span>
 			</DropdownMenuItem>
