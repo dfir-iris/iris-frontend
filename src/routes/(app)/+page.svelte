@@ -48,7 +48,7 @@
 			<BaseKpi
 				title="Current Cases"
 				icon={LayersIcon}
-				value={cases.results.length}
+				value={cases.data.length}
 				isActive={activeTab === hashName}
 				subtitle={activeTab === hashName ? 'Click to hide' : 'Click to view'}
 				onClick={() => toggleView(hashName)}

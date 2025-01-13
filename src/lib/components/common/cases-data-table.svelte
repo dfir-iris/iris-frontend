@@ -20,7 +20,7 @@
 	// Columns configuration
 	const columns: ColumnDef<Case>[] = [
 		{
-			accessorKey: 'name',
+			accessorKey: 'case_name',
 			header: () => 'Title',
 			cell: (cell) => {
 				console.log(cell.row.original);
@@ -97,6 +97,6 @@
 			{/each}
 		</div>
 	{:then { data }}
-		<DataTable {columns} data={data.results} page={data.current_page}></DataTable>
+		<DataTable {columns} data={data.data} page={data.current_page}></DataTable>
 	{/await}
 </div>

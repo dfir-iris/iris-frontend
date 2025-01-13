@@ -10,13 +10,6 @@ export default defineConfig({
 
 	server: {
     host: '0.0.0.0',
-    port: 5173,
-		proxy: {
-      '/api/v2': {
-        target: 'http://app:8000',
-        changeOrigin: true,
-        secure: false,
-      },
-    },
+    port: 5173
   },
 });

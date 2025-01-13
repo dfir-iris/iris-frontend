@@ -23,7 +23,7 @@ export interface RequestResponse<T> {
 
 export interface Paginated<T> {
     total: number,
-    results: T[],
+    data: T[],
     last_page: number | null,
     current_page: number,
     next_page: number | null

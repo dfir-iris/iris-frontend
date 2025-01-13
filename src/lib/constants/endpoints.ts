@@ -37,7 +37,7 @@ export const ENDPOINTS = {
             getById: (noteId: number | string) => `/note/${noteId}`,
         },
         getById: (caseId: number | string) => `/case/${caseId}`,
-        list: (params: CaseQueryParams) => buildUrl('/cases', params),
+        list: `/cases`,
     },
     alerts: {
         filter: `/alerts/filter`,
