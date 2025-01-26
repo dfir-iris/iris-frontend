@@ -1,3 +1,5 @@
+import type { CaseQueryParams } from "$lib/types/resources/case"
+
 /** Builds and formats an API endpoint with URL params. */
 const buildUrl = (endpoint: string, params: Record<string, string | string[] | number | number[] | boolean>) => {
     for (const [k, v] of Object(params).entries()) {
@@ -35,7 +37,7 @@ export const ENDPOINTS = {
             getById: (noteId: number | string) => `/note/${noteId}`,
         },
         getById: (caseId: number | string) => `/case/${caseId}`,
-        list: `/cases/list`,
+        list: (params: CaseQueryParams) => buildUrl('/api/v2/cases', params),
     },
     alerts: {
         filter: `/alerts/filter`,
