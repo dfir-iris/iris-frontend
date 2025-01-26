@@ -56,11 +56,12 @@ export class ApiService {
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'Access-Control-Allow-Origin': '*'
+            'Access-Control-Allow-Origin': '*',
         };
 
         // If session cookie, add it (server side request)
         if (sessionCookie) {
+            headers['Authorization'] = `${sessionCookie}`
             headers['Cookie'] = `session=${sessionCookie}`;
         }
 
@@ -83,6 +84,7 @@ export class ApiService {
 
         // Handle if API replies with unauthorized
         if (response.status === 401) {
+            console.error(`Unauthorized: ${endpoint}`)
             error(401, 'Unauthorized');
         }
 
