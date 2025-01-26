@@ -3,10 +3,8 @@
 	import type { LayoutData } from './$types';
 	import {
 		BiohazardIcon,
-		BlocksIcon,
 		BookDashedIcon,
 		BookIcon,
-		BriefcaseIcon,
 		ComputerIcon,
 		DatabaseBackupIcon,
 		FileLock2Icon,
@@ -48,7 +46,6 @@
 		<div class="my-2"></div>
 
 		<!-- Templates -->
-
 		{@render link(BookDashedIcon, 'Case Templates', '/cases/templates')}
 		{@render link(NotepadTextDashed, 'Report Templates', '/reports-templates')}
 
