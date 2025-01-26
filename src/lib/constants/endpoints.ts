@@ -2,7 +2,7 @@ import type { CaseQueryParams } from "$lib/types/resources/case"
 
 /** Builds and formats an API endpoint with URL params. */
 const buildUrl = (endpoint: string, params: Record<string, string | string[] | number | number[] | boolean>) => {
-    for (const [k, v] of Object(params).entries()) {
+    for (const [k, v] of Object.entries(params)) {
         // Convert arrays to string separated with commas
         if (Array.isArray(v)) {
             params[k] = v.join(',')
@@ -37,7 +37,7 @@ export const ENDPOINTS = {
             getById: (noteId: number | string) => `/note/${noteId}`,
         },
         getById: (caseId: number | string) => `/case/${caseId}`,
-        list: (params: CaseQueryParams) => buildUrl('/api/v2/cases', params),
+        list: (params: CaseQueryParams) => buildUrl('/cases', params),
     },
     alerts: {
         filter: `/alerts/filter`,
