@@ -5,7 +5,7 @@ import type { Actions } from './$types';
 
 export const actions = {
     // Handle authenticating the user with the backend
-    default: async ({ request, cookies, url }) => {
+    default: async ({ request, cookies, url, fetch }) => {
         const data = await request.formData();
         const redirectTo = url.searchParams.get('redirect')
         const username = data.get('username')
@@ -15,7 +15,7 @@ export const actions = {
             const response = await ApiService.post('/auth/login', {
                 username: username,
                 password: data.get('password')
-            });
+            }, { fetch });
 
             // Assuming the response contains a `Set-Cookie` header for the session
             const sessionCookie = response.headers.get('set-cookie');

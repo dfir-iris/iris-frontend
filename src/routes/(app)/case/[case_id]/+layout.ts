@@ -7,6 +7,6 @@ export const load = (async ({ params, fetch }) => {
   const caseId = parseInt(params.case_id)
   return {
     caseId: caseId,
-    case: ApiService.get<Case>(ENDPOINTS.case.getById(caseId), {}, fetch)
+    case: ApiService.get<Case>(ENDPOINTS.case.getById(caseId), { fetch })
   };
 }) satisfies LayoutLoad;

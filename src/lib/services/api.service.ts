@@ -11,7 +11,8 @@ interface RequestOptions {
 }
 
 interface MethodOptions {
-    sessionCookie?: string
+    sessionCookie?: string,
+    fetch?: typeof fetch
 }
 
 export interface RequestResponse<T> {
@@ -39,16 +40,20 @@ export class ApiService {
         if (PUBLIC_USE_MOCK_API_DATA == "true") {
             let getMocked;
             try {
-                getMocked = this.mockRequest(endpoint)
+                getMocked = await this.mockRequest<T>(endpoint)
             } catch {
-                error(404, `Mock data not found for endpoint: ${endpoint}`);
-            } finally {
-                return getMocked;
+                return error(404, `Mock data not found for endpoint: ${endpoint}`);
             }
+
+            if (getMocked === undefined) {
+                return error(404, `Mock data not found for endpoint: ${endpoint}`);
+            }
+
+            return getMocked;
         }
 
         // Default headers
-        const headers = {
+        const headers: Record<string, string> = {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'Access-Control-Allow-Origin': '*'
@@ -72,7 +77,7 @@ export class ApiService {
             });
         } catch (err) {
             console.error(`Fetching session failed: ${err}`)
-            error(500, 'Fetching session failed: ${err}')
+            error(500, `Fetching session failed: ${err}`)
         }
 
 
@@ -83,12 +88,13 @@ export class ApiService {
 
         // If endpoint is 404, fallback to mocked request
         if (response.status === 404) {
-            return this.mockRequest(endpoint)
+            return this.mockRequest<T>(endpoint)
         }
 
         // Other error handling
         if (!response.ok) {
             const text = await response.text()
+            console.error(`API call failed: ${response.status} -- ${text}`)
             error(400, `API call failed: ${response.status} -- ${text}`);
         }
 
@@ -106,11 +112,8 @@ export class ApiService {
             endpoint = endpoint.replaceAll('/', '_')
             endpoint = endpoint.split('?', 1)[0]
             console.info(`Mocking ${endpoint}...`)
-            setTimeout(() => {
-
-            })
             const module = await import(`./mocks/${endpoint}.json`);
-            await randomDelay()
+            await randomDelay()  // simulates loading latency
             return {
                 headers: new Headers(),
                 data: module.default as T,
@@ -122,33 +125,33 @@ export class ApiService {
         }
     }
 
-    static async get<T>(endpoint: string, options: MethodOptions = {}, fetch_fn?: typeof fetch) {
+    static async get<T>(endpoint: string, options: MethodOptions = {}) {
         return this.request<T>(endpoint, {
             method: 'GET',
             options
-        }, fetch_fn);
+        }, options?.fetch);
     }
 
-    static async post<T>(endpoint: string, data: object, options: MethodOptions = {}, fetch_fn?: typeof fetch) {
+    static async post<T>(endpoint: string, data: object, options: MethodOptions = {}) {
         return this.request<T>(endpoint, {
             method: 'POST',
             body: JSON.stringify(data),
             options
-        }, fetch_fn);
+        }, options?.fetch);
     }
 
-    static async put<T>(endpoint: string, data: object, options: MethodOptions = {}, fetch_fn?: typeof fetch) {
+    static async put<T>(endpoint: string, data: object, options: MethodOptions = {}) {
         return this.request<T>(endpoint, {
             method: 'PUT',
             body: JSON.stringify(data),
             options
-        }, fetch_fn);
+        }, options?.fetch);
     }
 
-    static async delete<T>(endpoint: string, options: MethodOptions = {}, fetch_fn?: typeof fetch) {
+    static async delete<T>(endpoint: string, options: MethodOptions = {}) {
         return this.request<T>(endpoint, {
             method: 'DELETE',
             options
-        }, fetch_fn);
+        }, options?.fetch);
     }
 }
