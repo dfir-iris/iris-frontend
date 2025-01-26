@@ -28,14 +28,14 @@ export interface LoginResponse {
 export class AuthService {
     static async login(credentials: LoginCredentials): Promise<LoginResponse> {
         const response = await ApiService.post<LoginResponse>(ENDPOINTS.auth.login, credentials);
-        auth.setAuth(response);
-        
+        auth.setAuth(response.data);
+
         // Handle redirect after login
         const params = new URLSearchParams(window.location.search);
         const redirect = params.get('redirect') || '/dashboard';
         goto(redirect);
-        
-        return response;
+
+        return response.data;
     }
 
     static async logout(): Promise<void> {
