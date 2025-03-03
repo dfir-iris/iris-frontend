@@ -48,7 +48,19 @@ export const handle: Handle = async ({ event, resolve }) => {
 		throw redirect(301, `/login?redirect=${event.url.pathname}`)
 	}
 
-	return resolve(event);
+	try {
+		return await resolve(event);
+	} catch (error) {
+    console.error('Caught error in handle:', error);
+		throw error;
+
+  //   // Option 2: do a redirect
+  //   // throw redirect(302, '/some-error-page');
+
+  //   // Option 3: return a custom response
+  //   return new Response('Something went wrong', { status: 500 });
+  // }
+	
 };
 
 
