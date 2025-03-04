@@ -36,11 +36,11 @@ export const ENDPOINTS = {
             list: (caseId: number | string) => `/case/${caseId}/notes`,
             getById: (noteId: number | string) => `/note/${noteId}`,
         },
-        getById: (caseId: number | string) => `/case/${caseId}`,
+        getById: (caseId: number | string) => `/cases/${caseId}`,
         list: `/cases`,
     },
     alerts: {
-        filter: `/alerts/filter`,
+        filter: `/alerts`,
         details: (alertId: string | string) => `/alerts/${alertId}`,
     },
     auth: {

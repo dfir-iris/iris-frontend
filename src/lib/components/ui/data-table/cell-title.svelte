@@ -23,12 +23,14 @@
 </script>
 
 <div class="flex items-center">
-	<Tooltip.Root openDelay={300}>
-		<Tooltip.Trigger>
-			<Button variant="dotted" size="sm" on:click={handleClick}>
-				{title}
-			</Button>
-		</Tooltip.Trigger>
-		<Tooltip.Content>Click to view details</Tooltip.Content>
-	</Tooltip.Root>
+	<Tooltip.Provider>
+		<Tooltip.Root openDelay={300}>
+			<Tooltip.Trigger>
+				<Button variant="dotted" size="sm" on:click={handleClick}>
+					{title}
+				</Button>
+			</Tooltip.Trigger>
+			<Tooltip.Content>Click to view details</Tooltip.Content>
+		</Tooltip.Root>
+	</Tooltip.Provider>
 </div>

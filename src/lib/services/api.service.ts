@@ -33,8 +33,7 @@ export class ApiService {
     private static baseUrl = browser ? env.PUBLIC_EXTERNAL_API_URL : env.PUBLIC_INTERNAL_API_URL;
 
     static async request<T>(endpoint: string, options: RequestOptions = { method: 'GET', options: {} }, fetch_fn: typeof fetch = fetch): Promise<RequestResponse<T>> {
-        const url = `${this.baseUrl}/api/v2${endpoint}`;
-        const sessionCookie = options.options.sessionCookie;
+        const url = `/api/v2${endpoint}`;
 
         // Handle if mock data in use
         if (PUBLIC_USE_MOCK_API_DATA == "true") {
@@ -55,18 +54,22 @@ export class ApiService {
         // Default headers
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            'Accept': 'application/json'
         };
 
-        // If session cookie, add it (server side request)
-        if (sessionCookie) {
-            headers['Authorization'] = `${sessionCookie}`
-            headers['Cookie'] = `session=${sessionCookie}`;
-        }
+        // Debug
+        // console.log('------------------')
+        // console.log('Browser:', browser)
+        // console.log('Fetching:', endpoint)
+        // console.log('URL:', url);
+        // console.log('Options:', options);
+        // console.log('Headers:', headers);
+        
+        let fetch_call = fetch;
+        if (fetch_fn) {
+            fetch_call = fetch_fn;
+        } 
 
-        // Use fetch method to call endpoint
-        const fetch_call = fetch_fn || fetch;
         let response: Response | null = null;
 
         try {
@@ -81,7 +84,6 @@ export class ApiService {
             error(500, `Fetching session failed: ${err}`)
         }
 
-
         // Handle if API replies with unauthorized
         if (response.status === 401) {
             console.error(`Unauthorized: ${endpoint}`)
@@ -90,6 +92,7 @@ export class ApiService {
 
         // If endpoint is 404, fallback to mocked request
         if (response.status === 404) {
+            console.error(`Endpoint not found: ${endpoint} - mocking...`)
             return this.mockRequest<T>(endpoint)
         }
 
@@ -101,12 +104,18 @@ export class ApiService {
         }
 
         // Parse JSON and return it with other request meta to caller
-        const responseData = await response.json();
-        return {
-            headers: response.headers,
-            data: responseData,
-            url
-        };
+        try {
+            const responseData = await response.json();
+            return {
+                headers: response.headers,
+                data: responseData,
+                url
+            };
+
+        } catch (err) {
+            console.error(`Failed to parse JSON: ${err}`)
+            error(400, `Failed to parse JSON: ${err}`);
+        }
     }
 
     static async mockRequest<T>(endpoint: string): Promise<RequestResponse<T> | undefined> {

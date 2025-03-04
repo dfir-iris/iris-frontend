@@ -55,8 +55,8 @@
 
 	<!-- Tasks dropdown -->
 	<DropdownMenu>
-		<DropdownMenuTrigger asChild let:builder>
-			<Button builders={[builder]} variant="ghost" class="px-2 text-gray-100"
+		<DropdownMenuTrigger asChild >
+			<Button variant="ghost" class="px-2 text-gray-100"
 				><ClipboardList /></Button
 			>
 		</DropdownMenuTrigger>
@@ -72,8 +72,8 @@
 
 	<!-- Alerts dropdown -->
 	<DropdownMenu>
-		<DropdownMenuTrigger asChild let:builder>
-			<Button builders={[builder]} variant="ghost" class="px-2 text-gray-100"><BellIcon /></Button>
+		<DropdownMenuTrigger asChild>
+			<Button variant="ghost" class="px-2 text-gray-100"><BellIcon /></Button>
 		</DropdownMenuTrigger>
 		<DropdownMenuContent class="w-56">
 			<DropdownMenuLabel>Alerts</DropdownMenuLabel>
@@ -87,8 +87,8 @@
 
 	<!-- User dropdown -->
 	<DropdownMenu>
-		<DropdownMenuTrigger asChild let:builder>
-			<Button builders={[builder]} variant="ghost" class="px-2 text-gray-100"
+		<DropdownMenuTrigger asChild >
+			<Button variant="ghost" class="px-2 text-gray-100"
 				><UserRoundIcon /></Button
 			>
 		</DropdownMenuTrigger>

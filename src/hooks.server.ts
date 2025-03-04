@@ -3,8 +3,9 @@ import { PUBLIC_USE_MOCK_API_DATA } from '$env/static/public';
 import { ApiService } from '$lib/services/api.service';
 import type { UserInfo } from '$lib/stores/auth.store';
 import { redirect } from '@sveltejs/kit';
-import type { Handle } from '@sveltejs/kit';
+import type { Handle, HandleFetch } from '@sveltejs/kit';
 import { browser } from "$app/environment";
+import { env } from '$env/dynamic/public'
 
 
 const AUTH_EXCLUDED_URLS = [
@@ -16,7 +17,9 @@ const AUTH_EXCLUDED_URLS = [
  * Fetches current auth state, returning it as a events.local
  */
 export const handle: Handle = async ({ event, resolve }) => {
-	console.debug(`Hook handling "${event.url.pathname}"`)
+	if (event.url.pathname !== '/') {
+		console.debug(`Hook handling "${event.url.pathname}"`)
+	}
 
 	// Exclude certain URLs from auth check
 	if (AUTH_EXCLUDED_URLS.includes(event.url.pathname)) {
@@ -30,54 +33,75 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	// Get session cookie
-	const sessionCookie = event.cookies.get('session')
-	if (!sessionCookie) {
+	const sessionCookie = event.cookies.get('session') 
+	if (!sessionCookie && browser) {
 		console.error('No session cookie found, redirecting to login')
-		throw redirect(301, `/login?redirect=${event.url.pathname}`)
+		return redirect(301, `/login?redirect=${event.url.pathname}`)
 	}
 
-	// Attempt to get session
-	try {
-		const response = await ApiService.get<UserInfo>('/auth/whoami', { sessionCookie }, event.fetch);
-
-		const whoami: UserInfo = response.data;
-		console.log('Whoami', whoami)
-		event.locals.user = whoami
-	} catch (err) {
-		console.error(`Fetching session failed: ${err}`)
-		throw redirect(301, `/login?redirect=${event.url.pathname}`)
+	if (!sessionCookie && event.url.pathname == '/' && event.request.headers.get('user-agent')?.includes('curl')) {
+		return new Response('healthcheck ok', { status: 200 });
 	}
 
+	//
+	// We hand up in a loop if we do this here - also this is done too many times
+	//
+	// if (!event.locals.user) {
+	// 	// Attempt to get session
+	// 	try {
+	// 		const response = await ApiService.get<UserInfo>('/auth/whoami', { fetch: event.fetch });
+
+	// 		const whoami: UserInfo = response.data;
+	// 		console.log('Whoami', whoami)
+	// 		event.locals.user = whoami
+	// 	} catch (err) {
+	// 		console.error(`Fetching session failed: ${err}`)
+	// 		return redirect(301, `/login?redirect=${event.url.pathname}`)
+	// 	}
+	// }
+
 	try {
-		return await resolve(event);
+		return resolve(event);
 	} catch (error) {
     console.error('Caught error in handle:', error);
-		throw error;
 
-  //   // Option 2: do a redirect
-  //   // throw redirect(302, '/some-error-page');
-
-  //   // Option 3: return a custom response
-  //   return new Response('Something went wrong', { status: 500 });
-  // }
-	
+  	return new Response('Something went wrong', { status: 500 });
+	}
 };
 
 
 export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
-
-	// If we are in SSR, we need to pass the cookie to the fetch request
-	// so that the session can be maintained 
-	// So check if the request is coming from the server
-	// and if so, pass the cookie to the fetch request
-	if (!browser) {
-		request.headers.set('cookie', event.request.headers.get('cookie'));
-	}
-
-	try {
-		const response = await fetch(request);
-		return response;
-	} catch (err) {
-		console.error(`Fetch request failed: ${err}`)
-	}
+  if (!browser) {
+		console.log('Handling fetch from SSR:', request.url)
+    // Forward the cookie header from the incoming request
+    const cookie = event.request.headers.get('cookie');
+    if (cookie) {
+      request.headers.set('cookie', cookie);
+    }
+    // Also forward the Origin header from the incoming request
+    const origin = event.request.headers.get('origin');
+    if (origin) {
+      request.headers.set('origin', origin);
+    }
+		const hopByHopHeaders = [
+      'connection',
+      'keep-alive',
+      'proxy-authenticate',
+      'proxy-authorization',
+      'te',
+      'trailer',
+      'transfer-encoding',
+      'upgrade'
+    ];
+    hopByHopHeaders.forEach(header => {
+      request.headers.delete(header);
+    });
+  }
+  try {
+    return await fetch(request);
+  } catch (err) {
+    console.error(`Fetch request failed: ${err}`);
+    throw err;
+  }
 };
+// src/hooks.server.ts

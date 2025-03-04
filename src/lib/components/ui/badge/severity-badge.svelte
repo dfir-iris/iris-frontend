@@ -38,12 +38,14 @@
 </script>
 
 {#if icon_only}
-	<Tooltip.Root openDelay={0} group>
-		<Tooltip.Trigger class="flex items-center gap-1">
-			<Badge class="items-center gap-1 {config.color}" icon={config.icon}></Badge>
-		</Tooltip.Trigger>
-		<Tooltip.Content>{severity} severity</Tooltip.Content>
-	</Tooltip.Root>
+	<Tooltip.Provider>
+		<Tooltip.Root openDelay={0} group>
+			<Tooltip.Trigger class="flex items-center gap-1">
+				<Badge class="items-center gap-1 {config.color}" icon={config.icon}></Badge>
+			</Tooltip.Trigger>
+			<Tooltip.Content>{severity} severity</Tooltip.Content>
+		</Tooltip.Root>
+	</Tooltip.Provider>
 {:else}
 	<Badge class="items-center gap-1 {config.color}" icon={config.icon}>
 		{severity}

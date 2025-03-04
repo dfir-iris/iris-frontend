@@ -13,8 +13,8 @@
 </script>
 
 <DropdownMenu>
-	<DropdownMenuTrigger asChild let:builder>
-		<Button builders={[builder]} variant="link" class="text-gray-100">Cases</Button>
+	<DropdownMenuTrigger asChild>
+		<Button variant="link" class="text-gray-100">Cases</Button>
 	</DropdownMenuTrigger>
 	<DropdownMenuContent class="w-56" align="start">
 		<div class="px-1 py-1">

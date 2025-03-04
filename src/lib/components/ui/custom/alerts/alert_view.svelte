@@ -145,21 +145,23 @@
 							</span>
 
 							<div class="flex items-center gap-2 mt-4 text-sm">
-								<Tooltip.Root openDelay={0} group>
-									<Tooltip.Trigger class="flex items-center gap-1">
-										<Icons.AlarmClock size="16" />
-										<span>{new Date(alert.alert_source_event_time).toLocaleString()}</span>
-									</Tooltip.Trigger>
-									<Tooltip.Content>Alert source event date</Tooltip.Content>
-								</Tooltip.Root>
-								<span class="mx-2">|</span>
-								<Tooltip.Root openDelay={0} group>
-									<Tooltip.Trigger class="flex items-center gap-1">
-										<Icons.Calendar size="16" />
-										<span>{new Date(alert.alert_creation_time).toLocaleString()}</span>
-									</Tooltip.Trigger>
-									<Tooltip.Content>Alert creation date</Tooltip.Content>
-								</Tooltip.Root>
+								<Tooltip.Provider>
+									<Tooltip.Root openDelay={0} group>
+										<Tooltip.Trigger class="flex items-center gap-1">
+											<Icons.AlarmClock size="16" />
+											<span>{new Date(alert.alert_source_event_time).toLocaleString()}</span>
+										</Tooltip.Trigger>
+										<Tooltip.Content>Alert source event date</Tooltip.Content>
+									</Tooltip.Root>
+									<span class="mx-2">|</span>
+									<Tooltip.Root openDelay={0} group>
+										<Tooltip.Trigger class="flex items-center gap-1">
+											<Icons.Calendar size="16" />
+											<span>{new Date(alert.alert_creation_time).toLocaleString()}</span>
+										</Tooltip.Trigger>
+										<Tooltip.Content>Alert creation date</Tooltip.Content>
+									</Tooltip.Root>
+								</Tooltip.Provider>
 							</div>
 						</div>
 

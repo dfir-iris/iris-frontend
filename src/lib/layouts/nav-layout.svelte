@@ -19,33 +19,35 @@
 	>
 		{#each routes as route}
 			{#if isCollapsed}
-				<Tooltip.Root openDelay={0}>
-					<Tooltip.Trigger asChild let:builder>
-						<Button
-							href={route.href}
-							builders={[builder]}
-							variant={route.variant}
-							size="icon"
-							class={cn(
-								'size-9',
-								isRouteActive(route.href) ? 'te bg-primary-gradient' : '',
-								route.variant === 'default' &&
-									'dark:bg-muted dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-white'
-							)}
-						>
-							<svelte:component this={route.icon} class="size-4" aria-hidden="true" />
-							<span class="sr-only">{route.title}</span>
-						</Button>
-					</Tooltip.Trigger>
-					<Tooltip.Content side="right" class="flex items-center gap-4">
-						{route.title}
-						{#if route.label}
-							<span class="ml-auto text-muted-foreground">
-								{route.label}
-							</span>
-						{/if}
-					</Tooltip.Content>
-				</Tooltip.Root>
+			<Tooltip.Provider>
+					<Tooltip.Root openDelay={0}>
+						<Tooltip.Trigger asChild let:builder>
+							<Button
+								href={route.href}
+								builders={[builder]}
+								variant={route.variant}
+								size="icon"
+								class={cn(
+									'size-9',
+									isRouteActive(route.href) ? 'te bg-primary-gradient' : '',
+									route.variant === 'default' &&
+										'dark:bg-muted dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-white'
+								)}
+							>
+								<svelte:component this={route.icon} class="size-4" aria-hidden="true" />
+								<span class="sr-only">{route.title}</span>
+							</Button>
+						</Tooltip.Trigger>
+						<Tooltip.Content side="right" class="flex items-center gap-4">
+							{route.title}
+							{#if route.label}
+								<span class="ml-auto text-muted-foreground">
+									{route.label}
+								</span>
+							{/if}
+						</Tooltip.Content>
+					</Tooltip.Root>
+				</Tooltip.Provider>
 			{:else}
 				<Button
 					href={route.href}

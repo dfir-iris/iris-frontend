@@ -33,18 +33,20 @@
 		{:else}
 			<div class="flex items-center gap-2">
 				<span class="text-2xl font-bold">{value > 0 ? value : 'All clear'}</span>
-				<Tooltip.Root>
-					<Tooltip.Trigger>
-						{#if value > 0}
-							<CircleFadingArrowUp class="h-4 w-4 text-orange-500 transition-colors" />
-						{:else}
-							<CircleCheckBig class="h-4 w-4 text-green-500 transition-colors" />
-						{/if}
-					</Tooltip.Trigger>
-					<Tooltip.Content>
-						{value > 0 ? 'Requires attention' : 'All clear'}
-					</Tooltip.Content>
-				</Tooltip.Root>
+				<Tooltip.Provider>
+					<Tooltip.Root>
+						<Tooltip.Trigger>
+							{#if value > 0}
+								<CircleFadingArrowUp class="h-4 w-4 text-orange-500 transition-colors" />
+							{:else}
+								<CircleCheckBig class="h-4 w-4 text-green-500 transition-colors" />
+							{/if}
+						</Tooltip.Trigger>
+						<Tooltip.Content>
+							{value > 0 ? 'Requires attention' : 'All clear'}
+						</Tooltip.Content>
+					</Tooltip.Root>
+				</Tooltip.Provider>
 			</div>
 			{#if subtitle && value > 0}
 				<p class="text-xs text-muted-foreground">{subtitle}</p>
