@@ -21,7 +21,9 @@
 	export type BadgeVariant = VariantProps<typeof badgeVariants>["variant"];
 </script>
 
+
 <script lang="ts">
+	import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "$lib/components/ui/tooltip";
 	import type { WithElementRef } from "bits-ui";
 	import type { HTMLAnchorAttributes } from "svelte/elements";
 	import { cn } from "$lib/utils.js";
@@ -31,19 +33,28 @@
 		href,
 		class: className,
 		variant = "default",
+		tooltip,
 		children,
 		...restProps
 	}: WithElementRef<HTMLAnchorAttributes> & {
 		variant?: BadgeVariant;
+		tooltip?: string;
 	} = $props();
 </script>
 
-<svelte:element
-	this={href ? "a" : "span"}
-	bind:this={ref}
-	{href}
-	class={cn(badgeVariants({ variant }), className)}
-	{...restProps}
->
-	{@render children?.()}
-</svelte:element>
+<TooltipProvider>
+	<Tooltip>
+		<TooltipTrigger class="cursor-default">
+			<svelte:element
+				this={href ? "a" : "span"}
+				bind:this={ref}
+				{href}
+				class={cn(badgeVariants({ variant }), className)}
+				{...restProps}
+			>
+				{@render children?.()}
+			</svelte:element>
+		</TooltipTrigger>
+		<TooltipContent align="center" side="right"><p>{tooltip}</p></TooltipContent>
+		</Tooltip>
+	</TooltipProvider>
