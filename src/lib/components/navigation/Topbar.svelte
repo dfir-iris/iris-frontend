@@ -39,11 +39,11 @@
 
 	<!-- Links -->
 	<nav class="flex items-center gap-x-4 text-white">
-		<Button variant="link" href="/">Dashboard</Button>
-		<Button variant="link" href="/activities">Activities</Button>
+		<Button  href="/">Dashboard</Button>
+		<Button  href="/activities">Activities</Button>
 		<TopbarCasesDropdown />
-		<Button variant="link" href="/alerts">Alerts</Button>
-		<Button variant="link" href="/customers">Customers</Button>
+		<Button href="/alerts">Alerts</Button>
+		<Button href="/customers">Customers</Button>
 	</nav>
 	<div class="ml-auto"></div>
 
