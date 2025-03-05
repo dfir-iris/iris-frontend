@@ -22,13 +22,14 @@
 			<CardContent class="flex flex-col items-start gap-y-4">
 				<div class="flex w-full flex-row items-center gap-x-2">
 					<ComputerIcon class="h-8 w-8"></ComputerIcon>
-					<h1>{assetData.asset_name}</h1>
-					<div class="w-full"></div>
+					<h1 class="flex-grow">{assetData.asset_name}</h1>
 					<Button variant="default">Edit</Button>
 				</div>
-				{#each assetData.asset_tags as tag}
-					<Badge icon={TagIcon}>{tag}</Badge>
-				{/each}
+				<div class="flex w-full flex-row items-center gap-x-2">
+					{#each assetData.asset_tags.split(',') as tag}
+						<Badge icon={TagIcon}>{tag}</Badge>
+					{/each}
+				</div>
 				<Tabs>
 					<TabsList class="border">
 						<TabsTrigger value="details">Details</TabsTrigger>
