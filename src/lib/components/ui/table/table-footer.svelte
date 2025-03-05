@@ -1,16 +1,13 @@
 <script lang="ts">
-	import type { HTMLAttributes } from "svelte/elements";
-	import type { WithElementRef } from "bits-ui";
-	import { cn } from "$lib/utils.js";
+	import type { HTMLAttributes } from 'svelte/elements';
+	import { cn } from '$lib/utils.js';
 
-	let {
-		ref = $bindable(null),
-		class: className,
-		children,
-		...restProps
-	}: WithElementRef<HTMLAttributes<HTMLTableSectionElement>> = $props();
+	type $$Props = HTMLAttributes<HTMLTableSectionElement>;
+
+	let className: $$Props['class'] = undefined;
+	export { className as class };
 </script>
 
-<tfoot bind:this={ref} class={cn("bg-muted/50 font-medium", className)} {...restProps}>
-	{@render children?.()}
+<tfoot class={cn('bg-muted/50 font-medium text-primary-foreground', className)} {...$$restProps}>
+	<slot />
 </tfoot>

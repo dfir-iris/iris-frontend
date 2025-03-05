@@ -116,7 +116,7 @@
 
 	async function refreshTasks() {
 		invalidate('app:dashboard_main_data').then(() => {
-			isLoadingAlertsStore.set(false);
+			isLoadingTasksStore.set(false);
 		});
 	}
 

@@ -19,7 +19,7 @@
 	class="cursor-pointer transition-all hover:scale-105 {isActive
 		? 'border-primary/20 bg-muted/10 text-foreground shadow-md'
 		: ''}"
-	on:click={onClick}
+	onclick={onClick}
 >
 	<Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
 		<Card.Title class="text-sm font-medium">{title}</Card.Title>

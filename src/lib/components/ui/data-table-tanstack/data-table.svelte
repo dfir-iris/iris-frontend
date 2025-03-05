@@ -95,11 +95,11 @@
 					{#if page}
 						<Button
 							disabled={page <= 1}
-							on:click={() => (page ? (page -= 1) : null)}
+							onclick={() => (page ? (page -= 1) : null)}
 							variant="ghost"><ChevronLeftIcon /></Button
 						>
 						<span class="text-base">{page}</span>
-						<Button on:click={() => (page ? (page += 1) : null)} variant="ghost"
+						<Button onclick={() => (page ? (page += 1) : null)} variant="ghost"
 							><ChevronRightIcon /></Button
 						>
 					{/if}
