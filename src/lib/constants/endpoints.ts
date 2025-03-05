@@ -30,7 +30,7 @@ export const ENDPOINTS = {
     case: {
         assets: {
             list: (caseId: number | string) => `/cases/${caseId}/assets`,
-            getById: (caseId: number | string, assetId: number | string) => `/cases/${caseId}/asset/${assetId}`,
+            getById: (caseId: number | string, assetId: number | string) => `/cases/${caseId}/assets/${assetId}`,
         },
         notes: {
             list: (caseId: number | string) => `/case/${caseId}/notes`,
