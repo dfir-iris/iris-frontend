@@ -16,7 +16,7 @@
     variant={variant}
     size={size}
     class={cn(className)}
-    on:click
+    onclick
     {...rest}
 >
     {#if loading}

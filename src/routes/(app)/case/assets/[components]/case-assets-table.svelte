@@ -87,7 +87,7 @@
 <Card.Root>
 	<Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
 		<Card.Title>Assets</Card.Title>
-		<Button variant="ghost" size="icon" on:click={fetchAssets}>
+		<Button variant="ghost" size="icon" onclick={fetchAssets}>
 			<RefreshCw class="h-4 w-4" />
 		</Button>
 	</Card.Header>

@@ -39,7 +39,7 @@
 			}
 		},
 		{
-			accessorKey: 'client.customer_name',
+			accessorKey: 'case_customer.customer_name',
 			header: 'Client'
 		},
 		{

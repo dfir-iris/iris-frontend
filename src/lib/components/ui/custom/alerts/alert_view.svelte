@@ -61,7 +61,7 @@
 								</DropdownMenu.Trigger>
 								<DropdownMenu.Content>
 									{#each statuses as value}
-										<DropdownMenu.Item on:click={() => setStatus(value)}>
+										<DropdownMenu.Item onclick={() => setStatus(value)}>
 											<StatusBadge status={value}/>
 										</DropdownMenu.Item>
 									{/each}

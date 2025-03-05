@@ -66,7 +66,7 @@
 <Card.Root>
 	<Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
 		<Card.Title class="text-sm font-medium">Pending Reviews</Card.Title>
-		<Button variant="ghost" size="icon" on:click={loadInitialData}>
+		<Button variant="ghost" size="icon" onclick={loadInitialData}>
 			<RefreshCw class="h-4 w-4" />
 		</Button>
 	</Card.Header>

@@ -26,7 +26,7 @@
 	<Tooltip.Provider>
 		<Tooltip.Root openDelay={300}>
 			<Tooltip.Trigger>
-				<Button variant="dotted" size="sm" on:click={handleClick}>
+				<Button variant="dotted" size="sm" onclick={handleClick}>
 					{title}
 				</Button>
 			</Tooltip.Trigger>

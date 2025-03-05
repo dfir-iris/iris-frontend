@@ -104,7 +104,7 @@
 	{#if activeTab === 'cases'}
 		<CurrentUserCasesTable cases={data.cases} />
 	{:else if activeTab === 'tasks'}
-		<UserCurrentTasksTable {...tasks} />
+		<UserCurrentTasksTable data={data.tasks} />
 	{:else if activeTab === 'reviews'}
 		<UserCurrentReviewsTable {...reviews} />
 	{:else if activeTab === 'alerts'}

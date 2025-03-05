@@ -18,7 +18,7 @@
                     "hover:bg-accent flex flex-col items-start gap-2 rounded-lg border p-3 text-left text-sm transition-all",
                     $alertsStore.selected?.alert_id === item.alert_id ? "bg-accent" : ""
                 )}
-                on:click={() => alertsStore.setAlert(item.alert_id)}
+                onclick={() => alertsStore.setAlert(item.alert_id)}
             	>
 				<div class="flex w-full flex-col gap-1">
 					<div class="flex items-center">

@@ -19,7 +19,7 @@
 	<Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
 		<Card.Title class="text-lg font-medium">Owned Cases</Card.Title>
 		{#await cases then cases}
-			<Button variant="ghost" size="icon" on:click={() => invalidate(cases.url)}>
+			<Button variant="ghost" size="icon" onclick={() => invalidate(cases.url)}>
 				<RefreshCw class="h-4 w-4" />
 			</Button>
 		{/await}
