@@ -71,9 +71,7 @@
 		{/await}
 	</div>
 
-	<div class="flex h-full w-full flex-col gap-y-2 overflow-y-auto p-12">
-		<div class="flex h-full w-full flex-col">
+	<div class="flex h-full w-full flex-col gap-y-2 overflow-y-auto p-4">
 			{@render children()}
-		</div>
 	</div>
 </div>

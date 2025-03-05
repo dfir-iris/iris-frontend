@@ -24,13 +24,14 @@
 					<ComputerIcon class="h-8 w-8"></ComputerIcon>
 					<h1 class="flex-grow">{assetData.asset_name}</h1>
 					<Button variant="default">Edit</Button>
+					<Button variant="destructive">Delete</Button>
 				</div>
 				<div class="flex w-full flex-row items-center gap-x-2">
 					{#each assetData.asset_tags.split(',') as tag}
 						<Badge icon={TagIcon}>{tag}</Badge>
 					{/each}
 				</div>
-				<Tabs>
+				<Tabs value="details">
 					<TabsList class="border">
 						<TabsTrigger value="details">Details</TabsTrigger>
 						<TabsTrigger value="alerts">Alerts</TabsTrigger>
