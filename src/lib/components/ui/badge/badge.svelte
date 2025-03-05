@@ -21,14 +21,19 @@
 	export type BadgeVariant = VariantProps<typeof badgeVariants>["variant"];
 </script>
 
-
 <script lang="ts">
+	import type { SvelteComponent } from "svelte";
+	// Define a type alias for any Svelte component constructor
+	type ComponentType = new (...args: any) => SvelteComponent;
+
 	import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "$lib/components/ui/tooltip";
 	import type { WithElementRef } from "bits-ui";
 	import type { HTMLAnchorAttributes } from "svelte/elements";
 	import { cn } from "$lib/utils.js";
 
+	// Destructure props and rename "icon" to "Icon" (uppercase) for dynamic rendering.
 	let {
+		icon: Icon = null,
 		ref = $bindable(null),
 		href,
 		class: className,
@@ -39,6 +44,8 @@
 	}: WithElementRef<HTMLAnchorAttributes> & {
 		variant?: BadgeVariant;
 		tooltip?: string;
+		// Use the ComponentType alias to type the icon prop
+		icon?: ComponentType;
 	} = $props();
 </script>
 
@@ -52,9 +59,16 @@
 				class={cn(badgeVariants({ variant }), className)}
 				{...restProps}
 			>
+				{#if Icon}
+					<span class="mr-1">
+						<Icon class="h-3.5 w-3.5"/>
+					</span>
+				{/if}
 				{@render children?.()}
 			</svelte:element>
 		</TooltipTrigger>
-		<TooltipContent align="center" side="right"><p>{tooltip}</p></TooltipContent>
-		</Tooltip>
-	</TooltipProvider>
+		<TooltipContent align="center" side="right">
+			<p>{tooltip}</p>
+		</TooltipContent>
+	</Tooltip>
+</TooltipProvider>
