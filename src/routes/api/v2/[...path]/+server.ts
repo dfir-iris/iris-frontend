@@ -45,8 +45,9 @@ async function proxyRequest(event: RequestEvent) {
     // Forward request body only if it's not a GET/HEAD
     body: request.method !== 'GET' && request.method !== 'HEAD'
       ? request.body
-      : undefined
-    // You might also set `credentials: 'include'` if you want to forward cookies
+      : undefined,
+    credentials: 'include',
+    duplex: 'half'
   });
 
   // Return the backend’s response to the user

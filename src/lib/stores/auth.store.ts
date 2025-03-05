@@ -1,67 +1,74 @@
-// src/lib/stores/auth.store.ts
-import { writable, derived, type Writable } from 'svelte/store';
+import { writable, derived, get, type Writable } from 'svelte/store';
 import type { LoginResponse } from '$lib/services/auth.service';
+import { ApiService } from '$lib/services/api.service';
+import { redirect } from '@sveltejs/kit';
+
 
 export interface UserInfo {
-    id: string
-    name: string
-    email: string
+	id: string;
+	name: string;
+	email: string;
 }
 
-export const authTokenStore: Writable<string | null> = writable(null)
 export const authUserStore: Writable<UserInfo | null> = writable(null)
 
 interface AuthState {
-    user: LoginResponse | null;
-    isAuthenticated: boolean;
+	user: LoginResponse | null;
+	isAuthenticated: boolean;
 }
 
 function loadInitialState(): AuthState {
-    if (typeof window === 'undefined') return { user: null, isAuthenticated: false };
-
-    const saved = localStorage.getItem('auth');
-    if (!saved) return { user: null, isAuthenticated: false };
-
-    try {
-        return JSON.parse(saved);
-    } catch {
-        return { user: null, isAuthenticated: false };
-    }
+	// Always start with no authenticated user
+	return { user: null, isAuthenticated: false };
 }
 
 const createAuthStore = () => {
-    const { subscribe, set, update } = writable<AuthState>(loadInitialState());
+	const { subscribe, set, update } = writable<AuthState>(loadInitialState());
 
-    const store = {
-        subscribe,
-        setAuth: (response: LoginResponse) => {
+	const store = {
+		subscribe,
+		setAuth: (response: LoginResponse) => {
+			const newState: AuthState = {
+				user: response,
+				isAuthenticated: true
+			};
+			set(newState);
+		},
+		clearAuth: () => {
+			const newState: AuthState = {
+				user: null,
+				isAuthenticated: false
+			};
+			set(newState);
+		},
 
-            const newState = {
-                user: response,
-                isAuthenticated: true
-            };
-            set(newState);
-            if (typeof window !== 'undefined') {
-                localStorage.setItem('auth', JSON.stringify(newState));
-            }
-        },
-        clearAuth: () => {
-            const newState = {
-                user: null,
-                isAuthenticated: false
-            };
-            set(newState);
-            if (typeof window !== 'undefined') {
-                localStorage.removeItem('auth');
-            }
-        }
-    };
+		loadAuth: async (
+            fetchFn: typeof fetch, 
+            redirectOnFailure = false
+        ): Promise<LoginResponse | null> => {
+			const current = get(store);
+			if (current.user) return current.user;
 
-    return store;
+			try {
+				const response = await ApiService.get('/auth/whoami', { fetch: fetchFn });
+				store.setAuth(response.data);
+				return response.data;
+			} catch (error) {
+				console.error('loadAuth failed:', error);
+				store.clearAuth();
+                if (redirectOnFailure) {
+					throw redirect(302, '/login');
+				}
+				return null;
+			}
+		}
+	};
+
+	return store;
 };
 
 export const auth = createAuthStore();
 
-// Create derived store for userName
-export const username = derived(auth, $auth => $auth?.user?.user_name ?? 'Loading...');
-export const current_user = derived(auth, $auth => $auth?.user ?? null);
+// Derived stores for user name and full user info
+export const username = derived(auth, $auth => $auth.user?.user_name ?? 'Loading...');
+export const current_user = derived(auth, $auth => $auth.user ?? null);

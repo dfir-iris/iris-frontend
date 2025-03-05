@@ -28,6 +28,7 @@ export interface LoginResponse {
 export class AuthService {
     static async login(credentials: LoginCredentials): Promise<LoginResponse> {
         const response = await ApiService.post<LoginResponse>(ENDPOINTS.auth.login, credentials);
+        console.log(response)
         auth.setAuth(response.data);
 
         // Handle redirect after login

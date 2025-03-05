@@ -16,7 +16,8 @@ interface MethodOptions {
 }
 
 export interface RequestResponse<T> {
-    headers: Headers
+    headers: Headers,
+    status: number,
     data: T,
     url: string
 }
@@ -80,8 +81,8 @@ export class ApiService {
                 mode: 'cors',
             });
         } catch (err) {
-            console.error(`Fetching session failed: ${err}`)
-            error(500, `Fetching session failed: ${err}`)
+            console.error(`Fetching ${endpoint} failed: ${err}`)
+            error(500, `Fetching ${endpoint} failed: ${err}`)
         }
 
         // Handle if API replies with unauthorized
@@ -109,6 +110,7 @@ export class ApiService {
             return {
                 headers: response.headers,
                 data: responseData,
+                status: response.status,
                 url
             };
 
@@ -128,6 +130,7 @@ export class ApiService {
             return {
                 headers: new Headers(),
                 data: module.default as T,
+                status: 200,
                 url: `mock${endpoint}`
             };
         } catch (e) {

@@ -2,6 +2,7 @@
 import { ApiService } from '$lib/services/api.service';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions } from './$types';
+import { auth } from '$lib/stores/auth.store';
 
 export const actions = {
     // Handle authenticating the user with the backend
@@ -29,6 +30,16 @@ export const actions = {
                     secure: true
                 });
             }
+
+            console.log(response);
+
+            if (response.status !== 200) {
+                return fail(response.status, { error: 'Username or password is incorrect.', username })
+            }
+
+            // Set the user in the auth store
+            auth.setAuth(response.data);
+
         } catch (error) {
             console.error('User', username, 'sign in error: ', error)
             return fail(400, { error: 'Username or password is incorrect.', username })
