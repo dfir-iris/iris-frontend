@@ -41,7 +41,7 @@
 				</div>
 			{/each}
 		{:then { data: assets }}
-			{#each assets.results as asset}
+			{#each assets.data as asset}
 				<div class="rounded border bg-background p-3 text-sm shadow">
 					<div class="flex flex-row gap-x-1">
 						<!-- Asset name & address -->
