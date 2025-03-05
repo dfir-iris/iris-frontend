@@ -39,11 +39,11 @@
 
 	<!-- Links -->
 	<nav class="flex items-center gap-x-4 text-white">
-		<Button  href="/">Dashboard</Button>
-		<Button  href="/activities">Activities</Button>
+		<Button variant="ghost" href="/">Dashboard</Button>
+		<Button variant="ghost" href="/activities">Activities</Button>
 		<TopbarCasesDropdown />
-		<Button href="/alerts">Alerts</Button>
-		<Button href="/customers">Customers</Button>
+		<Button variant="ghost" href="/alerts">Alerts</Button>
+		<Button variant="ghost" href="/customers">Customers</Button>
 	</nav>
 	<div class="ml-auto"></div>
 
@@ -55,7 +55,7 @@
 
 	<!-- Tasks dropdown -->
 	<DropdownMenu>
-		<DropdownMenuTrigger asChild >
+		<DropdownMenuTrigger >
 			<Button variant="ghost" class="px-2 text-gray-100"
 				><ClipboardList /></Button
 			>
@@ -64,30 +64,34 @@
 			<DropdownMenuLabel>Tasks</DropdownMenuLabel>
 
 			<DropdownMenuSeparator />
-			<DropdownMenuItem href="/tasks">
-				<span>View all</span>
-			</DropdownMenuItem>
+			<a href="/tasks">
+				<DropdownMenuItem>
+					<span>View all</span>
+				</DropdownMenuItem>
+			</a>
 		</DropdownMenuContent>
 	</DropdownMenu>
 
 	<!-- Alerts dropdown -->
 	<DropdownMenu>
-		<DropdownMenuTrigger asChild>
+		<DropdownMenuTrigger>
 			<Button variant="ghost" class="px-2 text-gray-100"><BellIcon /></Button>
 		</DropdownMenuTrigger>
 		<DropdownMenuContent class="w-56">
 			<DropdownMenuLabel>Alerts</DropdownMenuLabel>
 
 			<DropdownMenuSeparator />
-			<DropdownMenuItem href="/alerts">
-				<span>View all</span>
-			</DropdownMenuItem>
+			<a href="/alerts">
+				<DropdownMenuItem>
+					<span>View all</span>
+				</DropdownMenuItem>
+			</a>
 		</DropdownMenuContent>
 	</DropdownMenu>
 
 	<!-- User dropdown -->
 	<DropdownMenu>
-		<DropdownMenuTrigger asChild >
+		<DropdownMenuTrigger>
 			<Button variant="ghost" class="px-2 text-gray-100"
 				><UserRoundIcon /></Button
 			>
@@ -98,7 +102,7 @@
 				<SlidersHorizontalIcon size={18} />
 				<span>Preferences</span>
 			</DropdownMenuItem>
-			<DropdownMenuItem on:click={toggleMode}>
+			<DropdownMenuItem onSelect={toggleMode}>
 				{#if $mode == 'light'}
 					<MoonIcon size={18} />
 					<span>Dark mode</span>
@@ -108,10 +112,12 @@
 				{/if}
 			</DropdownMenuItem>
 			<DropdownMenuSeparator />
-			<DropdownMenuItem href="/settings">
-				<SettingsIcon size={18} />
-				<span>Manage IRIS</span>
-			</DropdownMenuItem>
+			<a href="/settings">
+				<DropdownMenuItem>
+					<SettingsIcon size={18} />
+					<span>Manage IRIS</span>
+				</DropdownMenuItem>
+			</a>
 			<DropdownMenuSeparator />
 			<DropdownMenuItem>
 				<LogOutIcon size={18} />
