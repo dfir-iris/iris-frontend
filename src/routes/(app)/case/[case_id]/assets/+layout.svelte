@@ -13,6 +13,7 @@
 	import type { Asset } from '$lib/types/resources/asset';
 	import type { Paginated } from '$lib/services/api.service';
 	import { TooltipProvider, TooltipTrigger, Tooltip, TooltipContent } from '$lib/components/ui/tooltip';
+	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
 	
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
@@ -246,10 +247,12 @@
 								>{asset.asset_tags?.length || '0'}</Badge
 							>
 						</div>
-						<p class="w-full text-muted-foreground">
+						<p class="w-full text-muted-foreground group">
 							{asset.asset_type?.asset_name || asset.asset_type_id}
 							<span class="text-xs font-mono"
-							>({ `${asset.asset_ip}` || asset.asset_domain || 'no address'})</span>
+							>({ `${asset.asset_ip}` || asset.asset_domain || 'no address'})
+							<ClipboardCopy value={`${asset.asset_ip}` || asset.asset_domain || 'no address'} size={2} copyText='Copy info' />
+						</span>
 						</p>
 					</div>
 				{/each}

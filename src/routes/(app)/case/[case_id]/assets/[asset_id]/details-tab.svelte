@@ -8,19 +8,14 @@
 		NetworkIcon,
 		FileTextIcon,
 		CheckCircleIcon,
-		CopyIcon
 	} from 'lucide-svelte';
-	import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '$lib/components/ui/tooltip';
-	import Button from '$lib/components/ui/button/button.svelte';
+	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
 
 
 	let { asset }: { asset: Asset } = $props();
 	
 	let descriptionHtml = marked(asset.asset_description || 'No description provided');
 
-	function copyToClipboard(text: string) {
-		navigator.clipboard.writeText(text.toString());
-	}
 	
 </script>
 
@@ -83,23 +78,7 @@
 				<div class="flex items-center gap-1">
 					<p class="font-semibold text-foreground break-all">{value}</p>
 					{#if value && value.toString().length > 0 && value !== 'N/A'}
-					<TooltipProvider>
-						<Tooltip>
-							<TooltipTrigger>
-								<Button 
-									variant="ghost" 
-									size="icon" 
-									class="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" 
-									onclick={() => copyToClipboard(value)}
-								>
-									<CopyIcon class="h-3.5 w-3.5" />
-								</Button>
-							</TooltipTrigger>
-							<TooltipContent>
-								<p class="text-xs">Copy to clipboard</p>
-							</TooltipContent>
-						</Tooltip>
-					</TooltipProvider>
+						<ClipboardCopy value={value}/>
 					{/if}
 				</div>
 				{#if hint}
