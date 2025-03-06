@@ -20,17 +20,20 @@
 	import DetailsTab from './details-tab.svelte';
 	import HistoryTab from './history-tab.svelte';
 	import { fade, fly } from 'svelte/transition';
-	import { quintOut } from 'svelte/easing';
 
 	let { data }: { data: PageData } = $props();
 	$inspect(data);
+
+	function formatDate(dateString: string) {
+		return new Date(dateString).toLocaleString();
+	}
 	
 	let activeTab = $state('details');
 </script>
 
 <div class="py-6">
 	{#await data.asset}
-		<div class="space-y-4" transition:fade={{ duration: 200 }}>
+		<div class="space-y-4">
 			<Skeleton class="h-12 w-48 rounded-lg"></Skeleton>
 			<Card>
 				<CardContent class="p-8">
@@ -53,16 +56,15 @@
 		{@const assetData = getAssetReq?.data}
 		{#if assetData}
 			<div>
-				<Card class="border-0 shadow-lg overflow-hidden mb-6">
-					<div class="bg-gradient-to-r from-primary/10 to-primary/5 p-6">
+				<Card class="border-0 shadow-lg overflow-hidden mb-5">
+					<div class="p-4">
 						<div class="flex flex-col md:flex-row items-start md:items-center gap-4">
 							<div class="bg-primary/10 p-3 rounded-lg text-primary">
 								<ComputerIcon class="h-8 w-8" />
 							</div>
 							<div class="flex-grow">
-								<h1 class="text-2xl font-bold">{assetData.asset_name}</h1>
+								<h2 class="text-2xl font-bold">{assetData.asset_name}</h2>
 								<p class="text-muted-foreground">{assetData.asset_type?.asset_name || 'Unknown Type'}</p>
-								<p class="text-muted-foreground text-xs">#{assetData.asset_id || 'Unknown ID'} - #{assetData.asset_uuid || 'Unknown ID'}</p>
 							</div>
 							<div class="flex gap-2 mt-4 md:mt-0 w-full md:w-auto">
 								<Button variant="outline" size="sm" class="flex items-center gap-1">
@@ -131,6 +133,16 @@
 							</div>
 						</Tabs>
 					</CardContent>
+				</Card>
+
+				<Card class="border-0 shadow-lg overflow-hidden mt-3">
+					<div class="p-6">
+						<div class="flex flex-col md:flex-row items-start md:items-center gap-4">
+							<div class="flex-grow text-xs">
+								<p class="text-muted-foreground">Added on {formatDate(assetData.date_added)} - Last updated on {formatDate(assetData.date_update)} - ID #{assetData.asset_id || 'Unknown ID'} - UUID #{assetData.asset_uuid || 'Unknown ID'}</p>
+							</div>
+						</div>
+					</div>
 				</Card>
 			</div>
 		{:else}

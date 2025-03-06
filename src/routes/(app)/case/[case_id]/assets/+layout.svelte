@@ -42,7 +42,10 @@
 			{/each}
 		{:then { data: assets }}
 			{#each assets.data as asset}
-				<div class="rounded-xl border bg-background p-3 text-sm shadow">
+				<div class="rounded-xl border p-3 text-sm shadow {page.params.asset_id === asset.asset_id.toString()
+				? 'bg-accent text-accent-foreground'
+				: 'bg-background'
+		}">
 					<div class="flex flex-row gap-x-1">
 						<!-- Asset name & address -->
 						<a

@@ -4,22 +4,24 @@
 	import { 
 		ServerIcon, 
 		GlobeIcon, 
-		CalendarIcon, 
-		UserIcon,
 		TagIcon,
 		NetworkIcon,
 		FileTextIcon,
-		AlertCircleIcon,
-		CheckCircleIcon
+		CheckCircleIcon,
+		CopyIcon
 	} from 'lucide-svelte';
+	import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '$lib/components/ui/tooltip';
+	import Button from '$lib/components/ui/button/button.svelte';
+
 
 	let { asset }: { asset: Asset } = $props();
 	
 	let descriptionHtml = marked(asset.asset_description || 'No description provided');
-	
-	function formatDate(dateString: string) {
-		return new Date(dateString).toLocaleString();
+
+	function copyToClipboard(text: string) {
+		navigator.clipboard.writeText(text.toString());
 	}
+	
 </script>
 
 <div class="space-y-8 p-1">
@@ -34,9 +36,6 @@
 			{@render fieldWithIcon('Asset Name', asset.asset_name, ServerIcon)}
 			{@render fieldWithIcon('Asset Type', asset.asset_type.asset_name, TagIcon, asset.asset_type.asset_description)}
 			{@render fieldWithIcon('Analysis Status', asset.analysis_status.name, CheckCircleIcon)}
-			{@render fieldWithIcon('Date Added', formatDate(asset.date_added), CalendarIcon)}
-			{@render fieldWithIcon('Last Updated', formatDate(asset.date_update), CalendarIcon)}
-			{@render fieldWithIcon('Added By', `User ID: ${asset.user_id}`, UserIcon)}
 		</div>
 	</section>
 
@@ -74,14 +73,35 @@
 	
 
 {#snippet fieldWithIcon(label: string, value: string | number, Icon, hint: string | null = null)}
-	<div class="bg-card/40 p-4 rounded-lg">
+	<div class="group bg-card/40 p-4 rounded-lg">
 		<div class="flex items-start gap-3">
 			<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
 				<Icon class="h-4 w-4" />
 			</div>
-			<div>
+			<div class="min-w-0 flex-1">				
 				<p class="text-sm font-medium text-muted-foreground">{label}</p>
-				<p class="font-semibold text-foreground">{value || 'N/A'}</p>
+				<div class="flex items-center gap-1">
+					<p class="font-semibold text-foreground break-all">{value}</p>
+					{#if value && value.toString().length > 0 && value !== 'N/A'}
+					<TooltipProvider>
+						<Tooltip>
+							<TooltipTrigger>
+								<Button 
+									variant="ghost" 
+									size="icon" 
+									class="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" 
+									onclick={() => copyToClipboard(value)}
+								>
+									<CopyIcon class="h-3.5 w-3.5" />
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>
+								<p class="text-xs">Copy to clipboard</p>
+							</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+					{/if}
+				</div>
 				{#if hint}
 					<p class="text-xs text-muted-foreground mt-1">{hint}</p>
 				{/if}
