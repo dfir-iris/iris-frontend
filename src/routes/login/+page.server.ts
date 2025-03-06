@@ -12,6 +12,7 @@ export const actions = {
         const username = data.get('username')
 
         try {
+            console.log('User', username, 'signing in...')
             // Send login request to the backend
             const response = await ApiService.post('/auth/login', {
                 username: username,

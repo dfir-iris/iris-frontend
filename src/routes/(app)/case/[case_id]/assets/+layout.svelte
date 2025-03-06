@@ -42,11 +42,11 @@
 			{/each}
 		{:then { data: assets }}
 			{#each assets.data as asset}
-				<div class="rounded border bg-background p-3 text-sm shadow">
+				<div class="rounded-xl border bg-background p-3 text-sm shadow">
 					<div class="flex flex-row gap-x-1">
 						<!-- Asset name & address -->
 						<a
-							class="w-full justify-start text-base underline"
+							class="w-full justify-start text-base font-semibold"
 							href="/case/{page.params.case_id}/assets/{asset.asset_id}"
 							>{asset.asset_name}
 							<small class="font-mono"
