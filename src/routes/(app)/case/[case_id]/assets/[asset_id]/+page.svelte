@@ -80,7 +80,7 @@
 					</div>
 				</Card>
 
-				<Card class="border shadow-md">
+				<Card class="border shadow-md overflow-hidden">
 					<CardContent class="p-0">
 						<Tabs bind:value={activeTab} class="w-full">
 							<div class="border-b">
@@ -135,15 +135,13 @@
 					</CardContent>
 				</Card>
 
-				<Card class="border-0 shadow-lg overflow-hidden mt-3">
-					<div class="p-6">
+					<div class="py-6 px-2">
 						<div class="flex flex-col md:flex-row items-start md:items-center gap-4">
 							<div class="flex-grow text-xs">
 								<p class="text-muted-foreground">Added on {formatDate(assetData.date_added)} - Last updated on {formatDate(assetData.date_update)} - ID #{assetData.asset_id || 'Unknown ID'} - UUID #{assetData.asset_uuid || 'Unknown ID'}</p>
 							</div>
 						</div>
 					</div>
-				</Card>
 			</div>
 		{:else}
 			<div in:fade>

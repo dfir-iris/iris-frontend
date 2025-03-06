@@ -6,6 +6,6 @@ import type { LayoutLoad } from './$types';
 
 export const load = (async ({ fetch, params }) => {
   return {
-    assets: ApiService.get<Paginated<Asset>>(ENDPOINTS.case.assets.list(params.case_id), {fetch: fetch})
+    data: ApiService.get<Paginated<Asset>>(ENDPOINTS.case.assets.list(params.case_id), {fetch: fetch})
   };
 }) satisfies LayoutLoad;

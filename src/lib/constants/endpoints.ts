@@ -15,6 +15,15 @@ const buildUrl = (endpoint: string, params: Record<string, string | string[] | n
     return `${endpoint}?${urlParams.toString()}`
 }
 
+function buildParameters(parameters: Record<string, any>) {
+    if (!parameters) {
+        return ''
+    }
+    return `?${Object.keys(parameters).map((key) => {
+        return `${key}=${parameters[key]}`
+    }).join('&')}`
+}
+
 export const ENDPOINTS = {
     dashboard: {
         cases: {
@@ -29,7 +38,7 @@ export const ENDPOINTS = {
     },
     case: {
         assets: {
-            list: (caseId: number | string) => `/cases/${caseId}/assets`,
+            list: (caseId: number | string, parameters: object) => `/cases/${caseId}/assets${buildParameters(parameters)}`,
             getById: (caseId: number | string, assetId: number | string) => `/cases/${caseId}/assets/${assetId}`,
         },
         notes: {
