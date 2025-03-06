@@ -31,7 +31,7 @@
 	let activeTab = $state('details');
 </script>
 
-<div class="py-6">
+<div class="py-2">
 	{#await data.asset}
 		<div class="space-y-4">
 			<Skeleton class="h-12 w-48 rounded-lg"></Skeleton>

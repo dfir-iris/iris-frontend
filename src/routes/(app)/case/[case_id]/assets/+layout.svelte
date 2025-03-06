@@ -2,7 +2,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import Searchbar from '$lib/components/ui/searchbar/searchbar.svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { BiohazardIcon, FilterIcon, PlusIcon, RefreshCwIcon, TagIcon } from 'lucide-svelte';
+	import { ShieldAlert, BiohazardIcon, FilterIcon, PlusIcon, RefreshCwIcon, TagIcon } from 'lucide-svelte';
 	import type { LayoutData } from './$types';
 	import { Badge } from '$lib/components/ui/badge';
 	import { page } from '$app/state';
@@ -12,6 +12,7 @@
 	import { ApiService } from '$lib/services/api.service';
 	import type { Asset } from '$lib/types/resources/asset';
 	import type { Paginated } from '$lib/services/api.service';
+	import { TooltipProvider, TooltipTrigger, Tooltip, TooltipContent } from '$lib/components/ui/tooltip';
 	
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
@@ -160,7 +161,7 @@
 		<div class="flex flex-row items-center gap-x-2">
 			<div class="flex flex-col">
 				<h2 class="w-full">Assets</h2>
-				<span class="text-sm text-muted-foreground">{totalAssets} total</span>
+				<span class="text-sm text-muted-foreground">Showing {assets.length} of {totalAssets} assets</span>
 			</div>
 			<div class="flex-grow"></div>
 			<Button variant="outline" size="icon" class="shrink-0">
@@ -201,7 +202,7 @@
 						to bottom,
 						transparent,
 						black var(--top-fade-stop, 3%),
-						black var(--bottom-fade-stop, 96%),
+						black var(--bottom-fade-stop, 98%),
 						transparent
 					);
 					mask-image: var(--mask-image-content);
@@ -223,6 +224,20 @@
 								>{asset.asset_name}
 							</a>
 
+							{#if asset.asset_compromise_status_id === 1}
+									<TooltipProvider>
+										<Tooltip delayDuration={100}>
+											<TooltipTrigger class="cursor-default">
+												<div class="animate-pulse">
+													<ShieldAlert size={18} class="text-red-500" />
+												</div>
+											</TooltipTrigger>
+											<TooltipContent>												
+													<p class="text-xs">Compromised</p>
+											</TooltipContent>
+										</Tooltip>
+									</TooltipProvider>
+							{/if}
 							<!-- Counter badges of iocs/tags -->
 							<Badge tooltip="IOCs" icon={BiohazardIcon} variant="secondary"
 								>{asset.ioc_links?.length || '0'}</Badge
@@ -234,7 +249,7 @@
 						<p class="w-full text-muted-foreground">
 							{asset.asset_type?.asset_name || asset.asset_type_id}
 							<span class="text-xs font-mono"
-							>({asset.asset_ip || asset.asset_domain || 'no address'})</span>
+							>({ `${asset.asset_ip}` || asset.asset_domain || 'no address'})</span>
 						</p>
 					</div>
 				{/each}
