@@ -29,6 +29,8 @@
 	let observer: IntersectionObserver | null = null;
 	let loadMoreTrigger: HTMLDivElement | null = null;
 	let scrollContainer = $state<HTMLDivElement | null>(null);
+	let searchTerm = $state('');
+	let searchDebounceTimer: number;
 	
 	// Initialize with data from the server
 	$effect(() => {
@@ -46,14 +48,35 @@
 		}
 	});
 
+	// Function to build custom conditions for search
+	function buildSearchConditions(term: string) {
+		if (!term) return [];
+		return [
+			{ field: "asset_name", operator: "like", value: term },
+			{ field: "asset_ip", operator: "like", value: term },
+			{ field: "asset_domain", operator: "like", value: term },
+			{ field: "asset_description", operator: "like", value: term }
+		];
+	}
+
 	// Refresh assets function - compatible with Svelte 5
-	async function refreshAssets() {
+	async function refreshAssets(pageNumber = 1) {
 		if (isRefreshing) return;
 		
 		isRefreshing = true;
 		try {
+			const customConditions = buildSearchConditions(searchTerm);
+			const params: Record<string, any> = { 
+				page: pageNumber, 
+				per_page: 10
+			};
+
+			if (customConditions.length > 0) {
+				params.custom_conditions = JSON.stringify(customConditions);
+			}
+
 			const result = await ApiService.get<Paginated<Asset>>(
-				ENDPOINTS.case.assets.list(page.params.case_id, { page: 1, per_page: 10 }),
+				ENDPOINTS.case.assets.list(page.params.case_id, params),
 				{ fetch }
 			);
 			
@@ -79,8 +102,18 @@
 		
 		isLoading = true;
 		try {
+			const customConditions = buildSearchConditions(searchTerm);
+			const params: Record<string, any> = { 
+				page: currentPage + 1, 
+				per_page: 10
+			};
+
+			if (customConditions.length > 0) {
+				params.custom_conditions = JSON.stringify(customConditions);
+			}
+
 			const result = await ApiService.get<Paginated<Asset>>(
-				ENDPOINTS.case.assets.list(page.params.case_id, { page: currentPage + 1, per_page: 10 }),
+				ENDPOINTS.case.assets.list(page.params.case_id, params),
 				{ fetch }
 			);
 			
@@ -94,6 +127,16 @@
 			isLoading = false;
 		}
 	}
+
+	$effect(() => {
+		console.log('Search term changed:', searchTerm); // Add this line for debugging
+		clearTimeout(searchDebounceTimer);
+		searchDebounceTimer = setTimeout(() => {
+			refreshAssets(1);
+		}, 300) as unknown as number; 
+	});
+
+	
 	
 	// Setup intersection observer
 	function setupObserver() {
@@ -149,10 +192,11 @@
 
 	// Handle scroll events for blur effect
 	function handleScroll() {
-		const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
-		const scrollPercentage = scrollTop / (scrollHeight - clientHeight);
-
-		scrollContainer.style.setProperty('--scroll-percentage', scrollPercentage.toString());
+		if (scrollContainer) {
+			const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+			const scrollPercentage = scrollTop / (scrollHeight - clientHeight);
+			scrollContainer.style.setProperty('--scroll-percentage', scrollPercentage.toString());
+		}
 	}
 </script>
 
@@ -177,7 +221,7 @@
 				Add
 			</Button>
 		</div>
-		<Searchbar placeholder="Search assets" />
+		<Searchbar placeholder="Search assets" bind:value={searchTerm} />
 
 		<!-- Sidebar items -->
 		{#if assets.length === 0 && (isLoading || isRefreshing)}
