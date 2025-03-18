@@ -129,7 +129,7 @@
 	}
 
 	$effect(() => {
-		console.log('Search term changed:', searchTerm); // Add this line for debugging
+		console.log('Search term changed:', searchTerm); 
 		clearTimeout(searchDebounceTimer);
 		searchDebounceTimer = setTimeout(() => {
 			refreshAssets(1);
