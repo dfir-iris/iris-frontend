@@ -14,7 +14,7 @@
 	import type { Paginated } from '$lib/services/api.service';
 	import { TooltipProvider, TooltipTrigger, Tooltip, TooltipContent } from '$lib/components/ui/tooltip';
 	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
-	
+	import * as Resizable from "$lib/components/ui/resizable/index.js";
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 	
@@ -135,8 +135,6 @@
 			refreshAssets(1);
 		}, 300) as unknown as number; 
 	});
-
-	
 	
 	// Setup intersection observer
 	function setupObserver() {
@@ -198,136 +196,145 @@
 			scrollContainer.style.setProperty('--scroll-percentage', scrollPercentage.toString());
 		}
 	}
+
+	// Default min/max sizes for the sidebar
+	const defaultSidebarSize = 33; // 33% of the container
+	const minSidebarSize = 20; // 20% of the container
+	const maxSidebarSize = 60; // 60% of the container
 </script>
 
-<div class="flex h-full flex-row">
-	<div class="flex h-full w-1/3 shrink-0 flex-col gap-y-3 border-r bg-background/50 p-6">
-		<!-- Top of sidebar with asset count -->
-		<div class="flex flex-row items-center gap-x-2">
-			<div class="flex flex-col">
-				<h2 class="w-full">Assets</h2>
-				<span class="text-sm text-muted-foreground">Showing {assets.length} of {totalAssets} assets</span>
-			</div>
-			<div class="flex-grow"></div>
-			<Button variant="outline" size="icon" class="shrink-0">
-				<FilterIcon size={20}></FilterIcon>
-			</Button>
-			<Button variant="outline" onclick={refreshAssets} disabled={isRefreshing}>
-				<RefreshCwIcon size={20} class={isRefreshing ? 'animate-spin' : ''} />
-				Refresh
-			</Button>
-			<Button>
-				<PlusIcon size={20}></PlusIcon>
-				Add
-			</Button>
-		</div>
-		<Searchbar placeholder="Search assets" bind:value={searchTerm} />
-
-		<!-- Sidebar items -->
-		{#if assets.length === 0 && (isLoading || isRefreshing)}
-			{#each Array(5) as _}
-				<div class="space-y-1.5 rounded border bg-background p-3 text-sm shadow">
-					<div class="flex flex-row gap-x-1">
-						<Skeleton class="h-6 w-1/2 shrink-0"></Skeleton>
-						<div class="w-full"></div>
-						<Skeleton class="h-6 w-16"></Skeleton>
-						<Skeleton class="h-6 w-16"></Skeleton>
-					</div>
-					<Skeleton class="h-4 w-1/2 shrink-0"></Skeleton>
-					<Skeleton class="h-4 w-1/3 shrink-0"></Skeleton>
+<div class="flex h-full w-full">
+	<Resizable.PaneGroup direction="horizontal" class="h-full w-full">
+		<Resizable.Pane defaultSize={defaultSidebarSize} minSize={minSidebarSize} maxSize={maxSidebarSize} class="flex h-full flex-col gap-y-3 border-r bg-background/50 p-6">
+			<!-- Top of sidebar with asset count -->
+			<div class="flex flex-row items-center gap-x-2">
+				<div class="flex flex-col">
+					<h2 class="w-full">Assets</h2>
+					<span class="text-sm text-muted-foreground">Showing {assets.length} of {totalAssets} assets</span>
 				</div>
-			{/each}
-		{:else}
-			<div 
-				bind:this={scrollContainer}
-				onscroll={handleScroll}
-				class="flex flex-col px-3 gap-y-3 overflow-y-auto max-h-[calc(100vh-200px)] relative scroll-smooth"
-				style="
-					--mask-image-content: linear-gradient(
-						to bottom,
-						transparent,
-						black var(--top-fade-stop, 3%),
-						black var(--bottom-fade-stop, 98%),
-						transparent
-					);
-					mask-image: var(--mask-image-content);
-					-webkit-mask-image: var(--mask-image-content);
-				"
-			>
-				<div class="sticky top-0 h-8 bg-gradient-to-b from-background to-transparent pointer-events-none"></div>
-				{#each assets as asset}
-					<div class="rounded-xl border p-3 text-sm shadow transition-all duration-200 ease-in-out hover:scale-[1.02] hover:shadow-md {
-						page.params.asset_id === asset.asset_id.toString()
-							? 'bg-accent text-accent-foreground'
-							: 'bg-background hover:bg-background/80'
-					}">
-						<div class="flex flex-row gap-x-1">
-							<!-- Asset name & address -->
-							<a
-								class="w-full justify-start text-base font-semibold"
-								href="/case/{page.params.case_id}/assets/{asset.asset_id}"
-								>{asset.asset_name}
-							</a>
+				<div class="flex-grow"></div>
+				<Button variant="outline" size="icon" class="shrink-0">
+					<FilterIcon size={20}></FilterIcon>
+				</Button>
+				<Button variant="outline" onclick={refreshAssets} disabled={isRefreshing}>
+					<RefreshCwIcon size={20} class={isRefreshing ? 'animate-spin' : ''} />
+					Refresh
+				</Button>
+				<Button>
+					<PlusIcon size={20}></PlusIcon>
+					Add
+				</Button>
+			</div>
+			<Searchbar placeholder="Search assets" bind:value={searchTerm} />
 
-							{#if asset.asset_compromise_status_id === 1}
-									<TooltipProvider>
-										<Tooltip delayDuration={100}>
-											<TooltipTrigger class="cursor-default">
-												<div class="animate-pulse">
-													<ShieldAlert size={18} class="text-red-500" />
-												</div>
-											</TooltipTrigger>
-											<TooltipContent>												
-													<p class="text-xs">Compromised</p>
-											</TooltipContent>
-										</Tooltip>
-									</TooltipProvider>
-							{/if}
-							<!-- Counter badges of iocs/tags -->
-							<Badge tooltip="IOCs" icon={BiohazardIcon} variant="secondary"
-								>{asset.ioc_links?.length || '0'}</Badge
-							>
-							<Badge tooltip="Tags" icon={TagIcon} variant="secondary"
-								>{asset.asset_tags?.length || '0'}</Badge
-							>
+			<!-- Sidebar items -->
+			{#if assets.length === 0 && (isLoading || isRefreshing)}
+				{#each Array(5) as _}
+					<div class="space-y-1.5 rounded border bg-background p-3 text-sm shadow">
+						<div class="flex flex-row gap-x-1">
+							<Skeleton class="h-6 w-1/2 shrink-0"></Skeleton>
+							<div class="w-full"></div>
+							<Skeleton class="h-6 w-16"></Skeleton>
+							<Skeleton class="h-6 w-16"></Skeleton>
 						</div>
-						<p class="w-full text-muted-foreground group">
-							{asset.asset_type?.asset_name || asset.asset_type_id}
-							<span class="text-xs font-mono"
-							>({ `${asset.asset_ip}` || asset.asset_domain || 'no address'})
-							<ClipboardCopy value={`${asset.asset_ip}` || asset.asset_domain || 'no address'} size={2} copyText='Copy info' />
-						</span>
-						</p>
+						<Skeleton class="h-4 w-1/2 shrink-0"></Skeleton>
+						<Skeleton class="h-4 w-1/3 shrink-0"></Skeleton>
 					</div>
 				{/each}
-				
-				<!-- Infinite scroll trigger element -->
-				<div use:handleTriggerRef class="h-20 w-full flex items-center justify-center">
-					{#if isLoading && !isRefreshing}
-						<div class="flex justify-center py-4">
-							<Skeleton class="h-8 w-8 rounded-full" />
+			{:else}
+				<div 
+					bind:this={scrollContainer}
+					onscroll={handleScroll}
+					class="flex flex-col px-3 gap-y-3 overflow-y-auto max-h-[calc(100vh-200px)] relative scroll-smooth"
+					style="
+						--mask-image-content: linear-gradient(
+							to bottom,
+							transparent,
+							black var(--top-fade-stop, 3%),
+							black var(--bottom-fade-stop, 98%),
+							transparent
+						);
+						mask-image: var(--mask-image-content);
+						-webkit-mask-image: var(--mask-image-content);
+					"
+				>
+					<div class="sticky top-0 h-8 bg-gradient-to-b from-background to-transparent pointer-events-none"></div>
+					{#each assets as asset}
+						<div class="rounded-xl border p-3 text-sm shadow transition-all duration-200 ease-in-out hover:scale-[1.02] hover:shadow-md {
+							page.params.asset_id === asset.asset_id.toString()
+								? 'bg-accent text-accent-foreground'
+								: 'bg-background hover:bg-background/80'
+						}">
+							<div class="flex flex-row gap-x-1">
+								<!-- Asset name & address -->
+								<a
+									class="w-full justify-start text-base font-semibold"
+									href="/case/{page.params.case_id}/assets/{asset.asset_id}"
+									>{asset.asset_name}
+								</a>
+
+								{#if asset.asset_compromise_status_id === 1}
+										<TooltipProvider>
+											<Tooltip delayDuration={100}>
+												<TooltipTrigger class="cursor-default">
+													<div class="animate-pulse">
+														<ShieldAlert size={18} class="text-red-500" />
+													</div>
+												</TooltipTrigger>
+												<TooltipContent>												
+														<p class="text-xs">Compromised</p>
+												</TooltipContent>
+											</Tooltip>
+										</TooltipProvider>
+								{/if}
+								<!-- Counter badges of iocs/tags -->
+								<Badge tooltip="IOCs" icon={BiohazardIcon} variant="secondary"
+									>{asset.ioc_links?.length || '0'}</Badge
+								>
+								<Badge tooltip="Tags" icon={TagIcon} variant="secondary"
+									>{asset.asset_tags?.length || '0'}</Badge
+								>
+							</div>
+							<p class="w-full text-muted-foreground group">
+								{asset.asset_type?.asset_name || asset.asset_type_id}
+								<span class="text-xs font-mono"
+								>({ `${asset.asset_ip}` || asset.asset_domain || 'no address'})
+								<ClipboardCopy value={`${asset.asset_ip}` || asset.asset_domain || 'no address'} size={2} copyText='Copy info' />
+							</span>
+							</p>
 						</div>
-					{:else if nextPage !== null}
+					{/each}
+					
+					<!-- Infinite scroll trigger element -->
+					<div use:handleTriggerRef class="h-20 w-full flex items-center justify-center">
+						{#if isLoading && !isRefreshing}
+							<div class="flex justify-center py-4">
+								<Skeleton class="h-8 w-8 rounded-full" />
+							</div>
+						{:else if nextPage !== null}
+							<div class="text-center text-sm text-muted-foreground py-2">
+								Scroll for more
+							</div>
+						{/if}
+					</div>
+					
+					<!-- End of list message -->
+					{#if nextPage === null && assets.length > 0}
 						<div class="text-center text-sm text-muted-foreground py-2">
-							Scroll for more
+							End of assets list
 						</div>
 					{/if}
+					<div class="sticky bottom-0 h-8 bg-gradient-to-t from-background to-transparent pointer-events-none"></div>
 				</div>
-				
-				<!-- End of list message -->
-				{#if nextPage === null && assets.length > 0}
-					<div class="text-center text-sm text-muted-foreground py-2">
-						End of assets list
-					</div>
-				{/if}
-				<div class="sticky bottom-0 h-8 bg-gradient-to-t from-background to-transparent pointer-events-none"></div>
-			</div>
-		{/if}
-	</div>
-
-	<div class="flex h-full w-full flex-col gap-y-2 overflow-y-auto p-4">
-		{@render children()}
-	</div>
+			{/if}
+		</Resizable.Pane>
+		
+		<Resizable.Handle withHandle class="bg-muted hover:bg-muted-foreground/20" />
+		
+		<Resizable.Pane class="flex h-full flex-col gap-y-2 overflow-y-auto p-4">
+			{@render children()}
+		</Resizable.Pane>
+	</Resizable.PaneGroup>
 </div>
 
 <style>
@@ -349,5 +356,39 @@
 		background-color: rgba(155, 155, 155, 0.5);
 		border-radius: 10px;
 		border: transparent;
+	}
+
+	/* Resizable handle styling */
+	:global(.resizable-handle) {
+		position: relative;
+	}
+
+	:global(.resizable-handle[data-resize-handle-active]) {
+		background-color: var(--muted-foreground);
+	}
+
+	:global(.resizable-handle-with-handle) {
+		position: relative;
+		width: 2px;
+		transition: background-color 0.2s;
+	}
+
+	:global(.resizable-handle-with-handle::before) {
+		content: "";
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		width: 4px;
+		height: 24px;
+		border-radius: 2px;
+		background-color: var(--muted-foreground);
+		opacity: 0.5;
+		transition: opacity 0.2s;
+	}
+
+	:global(.resizable-handle-with-handle:hover::before),
+	:global(.resizable-handle-with-handle[data-resize-handle-active]::before) {
+		opacity: 1;
 	}
 </style>

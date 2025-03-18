@@ -52,12 +52,7 @@
 	<div class="flex h-full flex-col overflow-hidden bg-background">
 		<!-- Case Topbar with owner name -->
 		<CaseTopbar 
-			caseId={data.caseId} 
-			caseName={caseName} 
-			severity={caseData.severity.severity_name}
-			status={caseData.state?.state_name || 'Unknown'}
-			tags={caseData.tags.map((tag) => tag.tag_title)}
-			ownerName={caseData.owner?.user_name || ''}
+			caseData={caseData}
 		/>
 		
 		<div class="flex h-full flex-row overflow-hidden">

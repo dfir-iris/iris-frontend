@@ -36,7 +36,6 @@ export interface Case {
   case_id: number
   case_uuid: string
   case_soc_id: string
-  case_customer_id: number
 
   /** Meta */
 
