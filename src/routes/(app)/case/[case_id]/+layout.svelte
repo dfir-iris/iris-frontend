@@ -63,7 +63,7 @@
 			{#if !sidenavCollapsed}
 				<div class="px-1">
 					<p class="text-sm">#{data.caseId}</p>
-					<h2>{caseData.name?.split(' - ', 2)[1]}</h2>
+					<h2>{caseData.case_name?.split(' - ', 2)[1]}</h2>
 				</div>
 				<div class="flex flex-row gap-x-2">
 					<StatusBadge status="In progress"></StatusBadge>
@@ -99,7 +99,7 @@
 
 			<!-- Collapse -->
 			<Button
-				on:click={() => (sidenavCollapsed = !sidenavCollapsed)}
+				onclick={() => (sidenavCollapsed = !sidenavCollapsed)}
 				variant="outline"
 				class="ml-auto mr-2 mt-auto px-2"
 			>
