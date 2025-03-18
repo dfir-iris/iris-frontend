@@ -125,10 +125,10 @@
 		<SeverityBadge severity={severity} />
 		
 		<!-- Case Add Dropdown -->
-		<CaseAddDropdown inTopbar={true} buttonClass="h-8" />
+		<CaseAddDropdown buttonClass="h-8" />
 		
 		<DropdownMenu>
-			<DropdownMenuTrigger asChild>
+			<DropdownMenuTrigger>
 				<Button variant="ghost" size="icon" class="h-8 w-8">
 					<MoreHorizontal size={18} />
 					<span class="sr-only">Case menu</span>

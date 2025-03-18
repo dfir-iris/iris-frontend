@@ -2,7 +2,34 @@
 	import { Button } from '$lib/components/ui/button';
 	import Searchbar from '$lib/components/ui/searchbar/searchbar.svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { ShieldAlert, BiohazardIcon, FilterIcon, PlusIcon, RefreshCwIcon, TagIcon } from 'lucide-svelte';
+	import { 
+		ShieldAlert, 
+		BiohazardIcon, 
+		FilterIcon, 
+		PlusIcon, 
+		RefreshCwIcon, 
+		TagIcon, 
+		Server, 
+		Globe, 
+		Laptop, 
+		Copy,
+		CheckCheck,
+		Network,
+		Shield,
+		Database,
+		HardDrive,
+		Smartphone,
+		Printer,
+		Router,
+		Cpu,
+		Cloud,
+		Users,
+		Mail,
+		FileText,
+		Lock,
+		Cog,
+		HelpCircle
+	} from 'lucide-svelte';
 	import type { LayoutData } from './$types';
 	import { Badge } from '$lib/components/ui/badge';
 	import { page } from '$app/state';
@@ -15,6 +42,7 @@
 	import { TooltipProvider, TooltipTrigger, Tooltip, TooltipContent } from '$lib/components/ui/tooltip';
 	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
 	import * as Resizable from "$lib/components/ui/resizable/index.js";
+	import { spring } from 'svelte/motion';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 	
@@ -31,6 +59,73 @@
 	let scrollContainer = $state<HTMLDivElement | null>(null);
 	let searchTerm = $state('');
 	let searchDebounceTimer: number;
+	
+	// Clipboard state
+	let copiedStates = $state<Record<string, Record<string, boolean>>>({});
+	
+	// Copy to clipboard function
+	function copyToClipboard(assetId: string, field: string, value: string) {
+		if (!value) return;
+		
+		navigator.clipboard.writeText(value).then(() => {
+			// Set copied state for this specific field of this asset
+			if (!copiedStates[assetId]) {
+				copiedStates[assetId] = {};
+			}
+			copiedStates[assetId][field] = true;
+			
+			// Reset after 2 seconds
+			setTimeout(() => {
+				if (copiedStates[assetId]) {
+					copiedStates[assetId][field] = false;
+				}
+			}, 2000);
+		});
+	}
+
+	// Asset type to icon mapping
+	const assetTypeIcons = {
+		server: Server,
+		domain: Globe,
+		website: Globe,
+		workstation: Laptop,
+		network: Network,
+		firewall: Shield,
+		database: Database,
+		storage: HardDrive,
+		mobile: Smartphone,
+		printer: Printer,
+		router: Router,
+		switch: Router,
+		iot: Cpu,
+		cloud: Cloud,
+		account: Users,
+		email: Mail,
+		document: FileText,
+		application: Cog,
+		security: Lock,
+		// Add more mappings as needed
+	};
+	
+	// Get asset type icon
+	function getAssetTypeIcon(asset: Asset) {
+		const typeName = asset.asset_type?.asset_name?.toLowerCase() || '';
+		
+		// Check for exact matches first
+		if (typeName in assetTypeIcons) {
+			return assetTypeIcons[typeName as keyof typeof assetTypeIcons];
+		}
+		
+		// Check for partial matches
+		for (const [key, value] of Object.entries(assetTypeIcons)) {
+			if (typeName.includes(key)) {
+				return value;
+			}
+		}
+		
+		// Fallback to a generic icon for unknown types
+		return HelpCircle;
+	}
 	
 	// Initialize with data from the server
 	$effect(() => {
@@ -260,20 +355,67 @@
 				>
 					<div class="sticky top-0 h-8 bg-gradient-to-b from-background to-transparent pointer-events-none"></div>
 					{#each assets as asset}
-						<div class="rounded-xl border p-3 text-sm shadow transition-all duration-200 ease-in-out hover:scale-[1.02] hover:shadow-md {
-							page.params.asset_id === asset.asset_id.toString()
-								? 'bg-accent text-accent-foreground'
+						{@const isSelected = page.params.asset_id === asset.asset_id.toString()}
+						{@const AssetTypeIcon = getAssetTypeIcon(asset)}
+						{@const hasIocs = asset.ioc_links?.length > 0}
+						{@const hasTags = asset.asset_tags?.length > 0}
+						{@const assetIp = asset.asset_ip || ''}
+						{@const assetDomain = asset.asset_domain || ''}
+						
+						<div class="rounded-xl border p-4 text-sm shadow transition-all duration-200 ease-in-out hover:scale-[1.01] hover:shadow-md {
+							isSelected
+								? 'bg-accent text-accent-foreground border-primary/30'
 								: 'bg-background hover:bg-background/80'
 						}">
-							<div class="flex flex-row gap-x-1">
-								<!-- Asset name & address -->
-								<a
-									class="w-full justify-start text-base font-semibold"
-									href="/case/{page.params.case_id}/assets/{asset.asset_id}"
-									>{asset.asset_name}
-								</a>
-
-								{#if asset.asset_compromise_status_id === 1}
+							<!-- Asset header with name and status -->
+							<div class="flex items-center justify-between mb-2">
+								<div class="flex items-center gap-2 w-full overflow-hidden">
+									<div class={`flex h-8 w-8 items-center justify-center rounded-full ${isSelected ? 'bg-primary/20' : 'bg-muted'}`}>
+										{#if asset.asset_compromise_status_id === 1}
+											<div class="animate-pulse">
+												<AssetTypeIcon size={16} class={'text-red-500'} />
+											</div>
+										{:else}
+											<AssetTypeIcon size={16} class={isSelected ? 'text-primary' : 'text-muted-foreground'} />
+										{/if}
+									</div>
+									
+									<div class="flex-1 min-w-0">
+										<div class="flex items-center gap-1">
+											<a
+												class="truncate text-base font-semibold hover:underline"
+												href="/case/{page.params.case_id}/assets/{asset.asset_id}"
+											>{asset.asset_name}</a>
+											
+											<TooltipProvider>
+												<Tooltip delayDuration={100}>
+													<TooltipTrigger>
+														<button 
+															class="opacity-0 group-hover:opacity-100 hover:text-primary transition-opacity"
+															onclick={() => copyToClipboard(asset.asset_id.toString(), 'name', asset.asset_name)}
+														>
+															{#if copiedStates[asset.asset_id]?.name}
+																<CheckCheck size={14} />
+															{:else}
+																<Copy size={14} />
+															{/if}
+														</button>
+													</TooltipTrigger>
+													<TooltipContent side="right">
+														<p class="text-xs">{copiedStates[asset.asset_id]?.name ? 'Copied!' : 'Copy asset name'}</p>
+													</TooltipContent>
+												</Tooltip>
+											</TooltipProvider>
+										</div>
+										
+										<div class="text-xs text-muted-foreground truncate">
+											{asset.asset_type?.asset_name || asset.asset_type_id || 'Unknown type'}
+										</div>
+									</div>
+								</div>
+								
+								<div class="flex items-center gap-1 flex-shrink-0">
+									{#if asset.asset_compromise_status_id === 1}
 										<TooltipProvider>
 											<Tooltip delayDuration={100}>
 												<TooltipTrigger class="cursor-default">
@@ -282,26 +424,82 @@
 													</div>
 												</TooltipTrigger>
 												<TooltipContent>												
-														<p class="text-xs">Compromised</p>
+													<p class="text-xs">Compromised</p>
 												</TooltipContent>
 											</Tooltip>
 										</TooltipProvider>
-								{/if}
-								<!-- Counter badges of iocs/tags -->
-								<Badge tooltip="IOCs" icon={BiohazardIcon} variant="secondary"
-									>{asset.ioc_links?.length || '0'}</Badge
-								>
-								<Badge tooltip="Tags" icon={TagIcon} variant="secondary"
-									>{asset.asset_tags?.length || '0'}</Badge
-								>
+									{/if}
+									
+									{#if hasIocs}
+										<Badge tooltip="IOCs" icon={BiohazardIcon} variant="secondary">{asset.ioc_links.length}</Badge>
+									{/if}
+									
+									{#if hasTags}
+										<Badge tooltip="Tags" icon={TagIcon} variant="secondary">{Array.isArray(asset.asset_tags) ? asset.asset_tags.length : (asset.asset_tags?.split(',').length - 1 || 0)}</Badge>
+									{/if}
+								</div>
 							</div>
-							<p class="w-full text-muted-foreground group">
-								{asset.asset_type?.asset_name || asset.asset_type_id}
-								<span class="text-xs font-mono"
-								>({ `${asset.asset_ip}` || asset.asset_domain || 'no address'})
-								<ClipboardCopy value={`${asset.asset_ip}` || asset.asset_domain || 'no address'} size={2} copyText='Copy info' />
-							</span>
-							</p>
+							
+							<!-- Asset details (IP/Domain) -->
+							<div class="flex flex-col gap-1 mt-1 group">
+								{#if assetIp}
+									<div class="flex items-center gap-1 text-xs font-mono text-muted-foreground">
+										<span class="text-xs font-normal text-muted-foreground">IP:</span>
+										<span class="truncate">{assetIp}</span>
+										
+										<TooltipProvider>
+											<Tooltip delayDuration={100}>
+												<TooltipTrigger>
+													<button 
+														class="opacity-0 group-hover:opacity-100 hover:text-primary transition-opacity ml-1"
+														onclick={() => copyToClipboard(asset.asset_id.toString(), 'ip', assetIp)}
+													>
+														{#if copiedStates[asset.asset_id]?.ip}
+															<CheckCheck size={14} />
+														{:else}
+															<Copy size={14} />
+														{/if}
+													</button>
+												</TooltipTrigger>
+												<TooltipContent side="right">
+													<p class="text-xs">{copiedStates[asset.asset_id]?.ip ? 'Copied!' : 'Copy IP address'}</p>
+												</TooltipContent>
+											</Tooltip>
+										</TooltipProvider>
+									</div>
+								{/if}
+								
+								{#if assetDomain}
+									<div class="flex items-center gap-1 text-xs font-mono text-muted-foreground">
+										<span class="text-xs font-normal text-muted-foreground">Domain:</span>
+										<span class="truncate">{assetDomain}</span>
+										
+										<TooltipProvider>
+											<Tooltip delayDuration={100}>
+												<TooltipTrigger>
+													<button 
+														class="opacity-0 group-hover:opacity-100 hover:text-primary transition-opacity ml-1"
+														onclick={() => copyToClipboard(asset.asset_id.toString(), 'domain', assetDomain)}
+													>
+														{#if copiedStates[asset.asset_id]?.domain}
+															<CheckCheck size={14} />
+														{:else}
+															<Copy size={14} />
+														{/if}
+													</button>
+												</TooltipTrigger>
+												<TooltipContent side="right">
+													<p class="text-xs">{copiedStates[asset.asset_id]?.domain ? 'Copied!' : 'Copy domain'}</p>
+												</TooltipContent>
+											</Tooltip>
+										</TooltipProvider>
+									</div>
+								{/if}
+								
+								{#if !assetIp && !assetDomain}
+									<div class="text-xs italic text-muted-foreground">No address information</div>
+								{/if}
+							</div>
 						</div>
 					{/each}
 					
