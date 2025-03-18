@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Building2, Clock, FileDigit, Hash, MoreHorizontal, Tag, UserRound } from 'lucide-svelte';
+	import { Building2, Clock, FileDigit, Hash, MoreHorizontal, Tag, UserRound, Shield, AlertTriangle, Activity, HashIcon } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import {
 		DropdownMenu,
@@ -30,52 +30,84 @@
 			formattedDate = caseData.open_date;
 		}
 	}
+
+	// Determine case icon based on severity
+	let CaseIcon = Shield;
+	let caseIconColor = 'text-blue-500';
+	let caseIconBg = 'bg-blue-100';
+	let iconRingColor = 'ring-blue-300';
+	let isHighSeverity = false;
+
+	if (severity.toLowerCase() === 'critical' || severity.toLowerCase() === 'high') {
+		CaseIcon = Shield;
+		caseIconColor = 'text-red-500';
+		caseIconBg = 'bg-red-50';
+		iconRingColor = 'ring-red-300';
+		isHighSeverity = true;
+	} else if (severity.toLowerCase() === 'medium') {
+		CaseIcon = Activity;
+		caseIconColor = 'text-amber-500';
+		caseIconBg = 'bg-amber-50';
+		iconRingColor = 'ring-amber-300';
+	}
 </script>
 
 <div class="flex h-auto min-h-16 w-full flex-col border-b bg-background px-4 py-2 shadow-sm md:flex-row md:items-center md:justify-between">
-	<div class="flex flex-col overflow-hidden">
-		<!-- Case ID and Name -->
-		<div class="flex items-center gap-2">
-			<div class="flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-sm font-medium">
-				<Hash size={14} />
-				<span>{caseData.case_id}</span>
+	<div class="flex items-start gap-3 md:items-center">
+		<!-- Case Icon Badge -->
+		<div class="relative flex-shrink-0">
+			<div class={`flex h-10 w-10 items-center justify-center rounded-full ${caseIconBg} ring-2 ${iconRingColor} ${isHighSeverity ? 'shadow-glow-red' : ''}`}>
+				<svelte:component this={CaseIcon} size={20} class={caseIconColor} />
 			</div>
-			<h2 class="truncate text-lg font-semibold">{caseData.case_name.split(' - ')[1]}</h2>
 		</div>
-		
-		<!-- Additional case information -->
-		<div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
-			{#if caseData.case_customer?.customer_name}
-				<div class="flex items-center gap-1">
-					<Building2 size={12} />
-					<span class="font-medium">{caseData.case_customer.customer_name}</span>
-				</div>
-			{/if}
-			
-			{#if caseData.case_soc_id}
-				<div class="flex items-center gap-1">
-					<FileDigit size={12} />
-					<span>SOC #{caseData.case_soc_id}</span>
-				</div>
-			{/if}
-			
-			<Separator orientation="vertical"/>
-			
-			{#if caseData.owner?.user_name}
-				<div class="flex items-center gap-1">
-					<UserRound size={12} />
-					<span>Owned by {caseData.owner.user_name}</span>
-				</div>
-			{/if}
 
-      <Separator orientation="vertical"/>
+		<div class="flex flex-col overflow-hidden ml-1">
+			<!-- Case Name -->
+			<div class="flex items-center gap-2">
+				<h2 class="truncate text-lg font-semibold">{caseData.case_name.split(' - ')[1]}</h2>
+			</div>
 			
-			{#if formattedDate}
-				<div class="flex items-center gap-1">
-					<Clock size={12} />
-					<span>Opened {formattedDate}</span>
-				</div>
-			{/if}
+			<!-- Additional case information -->
+			<div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+        {#if caseData.case_id}
+          <div class="flex items-center gap-1">
+            <HashIcon size={12} />
+            <span class="font-medium">{caseData.case_id}</span>
+          </div>
+        {/if}
+
+				{#if caseData.case_customer?.customer_name}
+					<div class="flex items-center gap-1">
+						<Building2 size={12} />
+						<span class="font-medium">{caseData.case_customer.customer_name}</span>
+					</div>
+				{/if}
+				
+				{#if caseData.case_soc_id}
+					<div class="flex items-center gap-1">
+						<FileDigit size={12} />
+						<span>SOC #{caseData.case_soc_id}</span>
+					</div>
+				{/if}
+				
+				<Separator orientation="vertical"/>
+				
+				{#if caseData.owner?.user_name}
+					<div class="flex items-center gap-1">
+						<UserRound size={12} />
+						<span>Owned by {caseData.owner.user_name}</span>
+					</div>
+				{/if}
+
+				<Separator orientation="vertical"/>
+				
+				{#if formattedDate}
+					<div class="flex items-center gap-1">
+						<Clock size={12} />
+						<span>Opened {formattedDate}</span>
+					</div>
+				{/if}
+			</div>
 		</div>
 	</div>
 
@@ -116,3 +148,10 @@
 		</DropdownMenu>
 	</div>
 </div>
+
+<style>
+	/* Static glow effect for high severity cases */
+	.shadow-glow-red {
+		box-shadow: 0 0 8px 2px rgba(220, 38, 38, 0.3);
+	}
+</style>
