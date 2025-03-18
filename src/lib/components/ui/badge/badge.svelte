@@ -67,7 +67,7 @@
 				{@render children?.()}
 			</svelte:element>
 		</TooltipTrigger>
-		<TooltipContent align="center" side="right">
+		<TooltipContent align="center" side="bottom">
 			<p>{tooltip}</p>
 		</TooltipContent>
 	</Tooltip>

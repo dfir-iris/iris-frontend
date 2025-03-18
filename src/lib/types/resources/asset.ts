@@ -29,6 +29,6 @@ export interface Asset {
   analysis_status_id: number;
   custom_attributes: Record<string, Record<string, string>>;
   modification_history: object | null;
-  ioc_links: object[] | null;
+  iocs: number[] | null;
   link: object[];
 }

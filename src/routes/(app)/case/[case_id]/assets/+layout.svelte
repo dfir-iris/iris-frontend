@@ -42,6 +42,7 @@
 	import { TooltipProvider, TooltipTrigger, Tooltip, TooltipContent } from '$lib/components/ui/tooltip';
 	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
 	import * as Resizable from "$lib/components/ui/resizable/index.js";
+	import { goto } from '$app/navigation';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 	
@@ -335,37 +336,46 @@
 					{#each assets as asset}
 						{@const isSelected = page.params.asset_id === asset.asset_id.toString()}
 						{@const AssetTypeIcon = getAssetTypeIcon(asset)}
-						{@const hasIocs = asset.ioc_links?.length > 0}
-						{@const hasTags = asset.asset_tags?.length > 0}
+						{@const hasIocs = (asset.iocs ?? []).length > 0}
+						{@const hasTags = asset.asset_tags.split(',')?.length - 1> 0}
 						{@const assetIp = asset.asset_ip || ''}
 						{@const assetDomain = asset.asset_domain || ''}
+						{@const isCompromised = asset.asset_compromise_status_id === 1}
 						
-						<div class="rounded-xl border p-4 text-sm shadow transition-all duration-200 ease-in-out hover:scale-[1.01] hover:shadow-md {
-							isSelected
-								? 'bg-accent text-accent-foreground border-primary/30'
-								: 'bg-background hover:bg-background/80'
-						}">
+						<button type="button" 
+							class="w-full text-left rounded-xl border p-4 text-sm shadow transition-all duration-200 ease-in-out hover:scale-[1.01] hover:shadow-md group {
+								isSelected
+									? 'bg-accent text-accent-foreground border-primary/30'
+									: 'bg-background hover:bg-background/80'
+							}"
+							onclick={() => goto(`/case/${page.params.case_id}/assets/${asset.asset_id}`)}
+							aria-label={`View details for asset ${asset.asset_name}`}
+						>
 							<!-- Asset header with name and status -->
 							<div class="flex items-center justify-between mb-2">
 								<div class="flex items-center gap-2 w-full overflow-hidden">
-									<div class={`flex h-8 w-8 items-center justify-center rounded-full ${isSelected ? 'bg-primary/20' : 'bg-muted'}`}>
-										{#if asset.asset_compromise_status_id === 1}
-											<div class="animate-pulse">
-												<AssetTypeIcon size={16} class={'text-red-500'} />
-											</div>
-										{:else}
-											<AssetTypeIcon size={16} class={isSelected ? 'text-primary' : 'text-muted-foreground'} />
-										{/if}
+									<div 
+										class={`flex h-8 w-8 items-center justify-center rounded-full ${
+											isSelected ? 'bg-primary/20' : 'bg-muted'
+										}`}
+									>
+										<AssetTypeIcon
+											size={16} 
+											class={isCompromised ? 'text-red-500' : (isSelected ? 'text-primary' : 'text-muted-foreground')} 
+										/>
 									</div>
 									
 									<div class="flex-1 min-w-0">
-										<div class="flex items-center gap-1">
-											<a
-												class="truncate text-base font-semibold hover:underline"
-												href="/case/{page.params.case_id}/assets/{asset.asset_id}"
-											>{asset.asset_name}</a>
+										<div class="flex items-center gap-1 group">
+											<span class="truncate text-base font-semibold">
+												{asset.asset_name}
+											</span>
 											
-											<ClipboardCopy value={asset.asset_id.toString()} />
+											<ClipboardCopy 
+												value={asset.asset_name} 
+												tooltipText="Copy asset name" 
+												className="ml-1 opacity-0 group-hover:opacity-100"
+											/>
 										</div>
 										
 										<div class="text-xs text-muted-foreground truncate">
@@ -374,56 +384,58 @@
 									</div>
 								</div>
 								
-								<div class="flex items-center gap-1 flex-shrink-0">
-									{#if asset.asset_compromise_status_id === 1}
-										<TooltipProvider>
-											<Tooltip delayDuration={100}>
-												<TooltipTrigger class="cursor-default">
-													<div class="animate-pulse">
-														<ShieldAlert size={18} class="text-red-500" />
-													</div>
-												</TooltipTrigger>
-												<TooltipContent>												
-													<p class="text-xs">Compromised</p>
-												</TooltipContent>
-											</Tooltip>
-										</TooltipProvider>
-									{/if}
-									
+								<div class="flex items-center gap-1 flex-shrink-0 ml-2">
 									{#if hasIocs}
-										<Badge tooltip="IOCs" icon={BiohazardIcon} variant="secondary">{asset.ioc_links.length}</Badge>
+										<Badge tooltip="Contains IOCs" icon={BiohazardIcon} variant="secondary">{asset.iocs?.length}</Badge>
 									{/if}
 									
-									{#if hasTags}
-										<Badge tooltip="Tags" icon={TagIcon} variant="secondary">{Array.isArray(asset.asset_tags) ? asset.asset_tags.length : (asset.asset_tags?.split(',').length - 1 || 0)}</Badge>
-									{/if}
+									{#if isCompromised}
+										<Badge variant="destructive">Compromised</Badge>
+									{/if}									
 								</div>
 							</div>
 							
 							<!-- Asset details (IP/Domain) -->
-							<div class="flex flex-col gap-1 mt-1 group">
+							<div class="flex flex-col gap-1 mt-1">
 								{#if assetIp}
-									<div class="flex items-center gap-1 text-xs font-mono text-muted-foreground">
+									<div class="flex items-center gap-1 text-xs font-mono text-muted-foreground group">
 										<span class="text-xs font-normal text-muted-foreground">IP:</span>
 										<span class="truncate">{assetIp}</span>
-										<ClipboardCopy value={asset.asset_ip} />
+										<ClipboardCopy 
+											value={assetIp} 
+											className="opacity-0 group-hover:opacity-100 ml-1"
+										/>
 									</div>
 								{/if}
 								
 								{#if assetDomain}
-									<div class="flex items-center gap-1 text-xs font-mono text-muted-foreground">
+									<div class="flex items-center gap-1 text-xs font-mono text-muted-foreground group">
 										<span class="text-xs font-normal text-muted-foreground">Domain:</span>
 										<span class="truncate">{assetDomain}</span>
-										
-										<ClipboardCopy value={asset.asset_domain} />
+										<ClipboardCopy 
+											value={assetDomain} 
+											className="opacity-0 group-hover:opacity-100 ml-1"
+										/>
 									</div>
 								{/if}
 								
 								{#if !assetIp && !assetDomain}
 									<div class="text-xs italic text-muted-foreground">No address information</div>
 								{/if}
+
+								{#if hasTags}
+									<div class="flex flex-wrap gap-1 text-xs text-muted-foreground mt-1">
+										{#each asset.asset_tags.split(',') as tag}
+											<Badge 
+												class="text-muted-foreground text-xs" 
+												icon={TagIcon} 
+												variant="secondary"
+												><span class="">{tag}</span></Badge>
+										{/each}
+									</div>
+								{/if}
 							</div>
-						</div>
+						</button>
 					{/each}
 					
 					<!-- Infinite scroll trigger element -->
@@ -512,4 +524,5 @@
 	:global(.resizable-handle-with-handle[data-resize-handle-active]::before) {
 		opacity: 1;
 	}
+
 </style>

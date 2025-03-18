@@ -2,7 +2,6 @@
 	import { Copy, CheckCheck } from 'lucide-svelte';
 	import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '$lib/components/ui/tooltip';
 	import { cn } from '$lib/utils';
-	import { tick } from 'svelte';
 	import { onDestroy } from 'svelte';
 
 	// Props using runes mode
@@ -16,67 +15,21 @@
 		alwaysVisible = false,
 		stopPropagation = true,
 		disabled = false
-	} = $props<{
-		/**
-		 * The value to copy to clipboard
-		 */
-		value?: string;
-		
-		/**
-		 * The text to show in the tooltip
-		 */
-		tooltipText?: string;
-		
-		/**
-		 * The text to show in the tooltip after copying
-		 */
-		copiedText?: string;
-		
-		/**
-		 * The size of the icon
-		 */
-		size?: number;
-		
-		/**
-		 * The position of the tooltip
-		 */
-		tooltipPosition?: 'top' | 'right' | 'bottom' | 'left';
-		
-		/**
-		 * Additional classes for the button
-		 */
-		className?: string;
-		
-		/**
-		 * Whether the button should be visible by default
-		 */
-		alwaysVisible?: boolean;
-		
-		/**
-		 * Whether to stop propagation of the click event
-		 */
-		stopPropagation?: boolean;
-		
-		/**
-		 * Whether the button is disabled
-		 */
-		disabled?: boolean;
-	}>();
+	} = $props();
 
 	// State
 	let copied = $state(false);
 	let timeoutId: ReturnType<typeof setTimeout>;
 
 	// Copy function
-	async function copyToClipboard(e: MouseEvent) {
+	function copyToClipboard(e: MouseEvent) {
 		if (disabled || !value) return;
 		
 		if (stopPropagation) {
 			e.stopPropagation();
 		}
 		
-		try {
-			await navigator.clipboard.writeText(value);
+		navigator.clipboard.writeText(value).then(() => {
 			copied = true;
 			
 			// Clear any existing timeout
@@ -86,9 +39,9 @@
 			timeoutId = setTimeout(() => {
 				copied = false;
 			}, 2000);
-		} catch (error) {
+		}).catch(error => {
 			console.error('Failed to copy:', error);
-		}
+		});
 	}
 
 	// Clean up on destroy
@@ -99,7 +52,7 @@
 
 <TooltipProvider>
 	<Tooltip delayDuration={100}>
-		<TooltipTrigger asChild>
+		<TooltipTrigger>
 			<button 
 				class={cn(
 					"inline-flex items-center justify-center rounded-sm p-0.5 hover:text-primary transition-all",
@@ -107,7 +60,7 @@
 					disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
 					className
 				)}
-				on:click={copyToClipboard}
+				onclick={copyToClipboard}
 				disabled={disabled}
 				aria-label={tooltipText}
 			>
