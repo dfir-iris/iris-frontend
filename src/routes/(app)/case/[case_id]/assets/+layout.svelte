@@ -42,7 +42,6 @@
 	import { TooltipProvider, TooltipTrigger, Tooltip, TooltipContent } from '$lib/components/ui/tooltip';
 	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
 	import * as Resizable from "$lib/components/ui/resizable/index.js";
-	import { spring } from 'svelte/motion';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 	
@@ -60,28 +59,7 @@
 	let searchTerm = $state('');
 	let searchDebounceTimer: number;
 	
-	// Clipboard state
-	let copiedStates = $state<Record<string, Record<string, boolean>>>({});
-	
-	// Copy to clipboard function
-	function copyToClipboard(assetId: string, field: string, value: string) {
-		if (!value) return;
-		
-		navigator.clipboard.writeText(value).then(() => {
-			// Set copied state for this specific field of this asset
-			if (!copiedStates[assetId]) {
-				copiedStates[assetId] = {};
-			}
-			copiedStates[assetId][field] = true;
-			
-			// Reset after 2 seconds
-			setTimeout(() => {
-				if (copiedStates[assetId]) {
-					copiedStates[assetId][field] = false;
-				}
-			}, 2000);
-		});
-	}
+
 
 	// Asset type to icon mapping
 	const assetTypeIcons = {
@@ -387,25 +365,7 @@
 												href="/case/{page.params.case_id}/assets/{asset.asset_id}"
 											>{asset.asset_name}</a>
 											
-											<TooltipProvider>
-												<Tooltip delayDuration={100}>
-													<TooltipTrigger>
-														<button 
-															class="opacity-0 group-hover:opacity-100 hover:text-primary transition-opacity"
-															onclick={() => copyToClipboard(asset.asset_id.toString(), 'name', asset.asset_name)}
-														>
-															{#if copiedStates[asset.asset_id]?.name}
-																<CheckCheck size={14} />
-															{:else}
-																<Copy size={14} />
-															{/if}
-														</button>
-													</TooltipTrigger>
-													<TooltipContent side="right">
-														<p class="text-xs">{copiedStates[asset.asset_id]?.name ? 'Copied!' : 'Copy asset name'}</p>
-													</TooltipContent>
-												</Tooltip>
-											</TooltipProvider>
+											<ClipboardCopy value={asset.asset_id.toString()} />
 										</div>
 										
 										<div class="text-xs text-muted-foreground truncate">
@@ -446,26 +406,7 @@
 									<div class="flex items-center gap-1 text-xs font-mono text-muted-foreground">
 										<span class="text-xs font-normal text-muted-foreground">IP:</span>
 										<span class="truncate">{assetIp}</span>
-										
-										<TooltipProvider>
-											<Tooltip delayDuration={100}>
-												<TooltipTrigger>
-													<button 
-														class="opacity-0 group-hover:opacity-100 hover:text-primary transition-opacity ml-1"
-														onclick={() => copyToClipboard(asset.asset_id.toString(), 'ip', assetIp)}
-													>
-														{#if copiedStates[asset.asset_id]?.ip}
-															<CheckCheck size={14} />
-														{:else}
-															<Copy size={14} />
-														{/if}
-													</button>
-												</TooltipTrigger>
-												<TooltipContent side="right">
-													<p class="text-xs">{copiedStates[asset.asset_id]?.ip ? 'Copied!' : 'Copy IP address'}</p>
-												</TooltipContent>
-											</Tooltip>
-										</TooltipProvider>
+										<ClipboardCopy value={asset.asset_ip} />
 									</div>
 								{/if}
 								
@@ -474,25 +415,7 @@
 										<span class="text-xs font-normal text-muted-foreground">Domain:</span>
 										<span class="truncate">{assetDomain}</span>
 										
-										<TooltipProvider>
-											<Tooltip delayDuration={100}>
-												<TooltipTrigger>
-													<button 
-														class="opacity-0 group-hover:opacity-100 hover:text-primary transition-opacity ml-1"
-														onclick={() => copyToClipboard(asset.asset_id.toString(), 'domain', assetDomain)}
-													>
-														{#if copiedStates[asset.asset_id]?.domain}
-															<CheckCheck size={14} />
-														{:else}
-															<Copy size={14} />
-														{/if}
-													</button>
-												</TooltipTrigger>
-												<TooltipContent side="right">
-													<p class="text-xs">{copiedStates[asset.asset_id]?.domain ? 'Copied!' : 'Copy domain'}</p>
-												</TooltipContent>
-											</Tooltip>
-										</TooltipProvider>
+										<ClipboardCopy value={asset.asset_domain} />
 									</div>
 								{/if}
 								
