@@ -10,6 +10,22 @@ export interface CaseState {
   state_name: string
 }
 
+export interface Severity {
+  severity_id: number
+  severity_name: string
+  severity_description: string
+}
+
+export interface CustomerInfo {
+  customer_id: number
+  customer_name: string
+  customer_description: string
+}
+
+export interface Tags {
+  tag_title: string,
+  tag_id: number
+}
 
 /**
  * MARK: Case -----------------------------------------------------------------
@@ -26,7 +42,9 @@ export interface Case {
 
   case_name: string
   case_description: string
-  client_id: number
+  case_customer_id: number
+  case_customer: CustomerInfo
+  tags: Tags[]
 
   /** User references */
 
@@ -45,6 +63,7 @@ export interface Case {
   status_id: number
   classification_id: number | null
   severity_id: number
+  severity: Severity
 
   /** Timings */
 

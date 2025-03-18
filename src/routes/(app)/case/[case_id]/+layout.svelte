@@ -3,8 +3,6 @@
 
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
-	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import SidenavIconButton from '$lib/components/navigation/SidenavIconButton.svelte';
 	import {
@@ -22,7 +20,6 @@
 	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 
-	import CaseSwitcher from '$lib/layouts/case-switcher.svelte';
 	import { browser } from '$app/environment';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
