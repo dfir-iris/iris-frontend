@@ -128,7 +128,7 @@
 			<h2 class="text-lg font-semibold">General Information</h2>
 		</div>
 		
-		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
 			{#if isEditing && editData}
 				<div class="group bg-card/40 p-4 rounded-lg">
 					<div class="flex items-start gap-3">
