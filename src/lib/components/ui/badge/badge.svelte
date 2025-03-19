@@ -10,6 +10,8 @@
 					"bg-secondary text-secondary-foreground hover:bg-secondary/80 border-transparent",
 				destructive:
 					"bg-destructive text-destructive-foreground hover:bg-destructive/80 border-transparent shadow",
+				compromised:
+					"bg-red-700 text-red-50 hover:bg-red-600 border-transparent",
 				outline: "text-foreground",
 			},
 		},
@@ -49,26 +51,46 @@
 	} = $props();
 </script>
 
-<TooltipProvider>
-	<Tooltip>
-		<TooltipTrigger class="cursor-default">
-			<svelte:element
-				this={href ? "a" : "span"}
-				bind:this={ref}
-				{href}
-				class={cn(badgeVariants({ variant }), className)}
-				{...restProps}
-			>
-				{#if Icon}
-					<span class="mr-1">
-						<Icon class="h-3.5 w-3.5"/>
-					</span>
-				{/if}
-				{@render children?.()}
-			</svelte:element>
-		</TooltipTrigger>
-		<TooltipContent align="center" side="bottom">
-			<p>{tooltip}</p>
-		</TooltipContent>
-	</Tooltip>
-</TooltipProvider>
+{#if tooltip}
+
+	<TooltipProvider>
+		<Tooltip>
+			<TooltipTrigger class="cursor-default">
+				<svelte:element
+					this={href ? "a" : "span"}
+					bind:this={ref}
+					{href}
+					class={cn(badgeVariants({ variant }), className)}
+					{...restProps}
+				>
+					{#if Icon}
+						<span class="mr-1">
+							<Icon class="h-3.5 w-3.5"/>
+						</span>
+					{/if}
+					{@render children?.()}
+				</svelte:element>
+			</TooltipTrigger>
+			<TooltipContent align="center" side="bottom">
+				<p>{tooltip}</p>
+			</TooltipContent>
+		</Tooltip>
+	</TooltipProvider>
+
+{:else}
+
+	<svelte:element
+		this={href ? "a" : "span"}
+		bind:this={ref}
+		{href}
+		class={cn(badgeVariants({ variant }), className)}
+		{...restProps}
+	>
+		{#if Icon}
+			<span class="">
+				<Icon class="h-3.5 w-3.5"/>
+			</span>
+		{/if}
+		{@render children?.()}
+	</svelte:element>
+{/if}
