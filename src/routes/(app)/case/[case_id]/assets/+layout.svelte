@@ -17,11 +17,14 @@
 	import type { Paginated } from '$lib/services/api.service';
 	import * as Resizable from "$lib/components/ui/resizable/index.js";
 	import AssetCard from '$lib/components/common/assets/AssetCard.svelte';
+	import { assetsStore } from '$lib/stores/assets.store';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 	
 	// State for infinite scrolling
 	let assets = $state<Asset[]>([]);
+	let displayAssets = $state<Asset[]>([]);
+	let storeAssets = $state<Record<string, Asset>>({});
 	let totalAssets = $state(0);
 	let currentPage = $state(1);
 	let nextPage = $state<number | null>(null);
@@ -33,16 +36,64 @@
 	let scrollContainer = $state<HTMLDivElement | null>(null);
 	let searchTerm = $state('');
 	let searchDebounceTimer: number;
+	let refreshCounter = $state(0); // Add a counter to force reactivity
+	
+	// Subscribe to the assets store
+	const unsubscribe = assetsStore.subscribe(updatedStoreAssets => {
+		console.log('Store updated:', Object.keys(updatedStoreAssets).length);
+		storeAssets = updatedStoreAssets;
+		
+		// Only update displayAssets if we have assets loaded
+		if (assets.length > 0) {
+			// Create a new array with updated assets from the store
+			const updatedAssets = assets.map(asset => {
+				const assetId = asset.asset_id.toString();
+				const storeAsset = storeAssets[assetId];
+				
+				// If we have this asset in the store, use it, otherwise use the original
+				if (storeAsset) {
+					// Log what's being updated for debugging
+					if (JSON.stringify(asset) !== JSON.stringify(storeAsset)) {
+						console.log('Asset updated in list:', assetId, {
+							original: asset,
+							updated: storeAsset,
+							diff: {
+								name: asset.asset_name !== storeAsset.asset_name,
+								ip: asset.asset_ip !== storeAsset.asset_ip,
+								domain: asset.asset_domain !== storeAsset.asset_domain,
+								compromise: asset.asset_compromise_status_id !== storeAsset.asset_compromise_status_id
+							}
+						});
+					}
+					return storeAsset;
+				}
+				return asset;
+			});
+			
+			// Force reactivity by creating a new array
+			displayAssets = [...updatedAssets];
+		}
+	});
+	
+	// Clean up subscription on component destruction
+	onDestroy(() => {
+		unsubscribe();
+	});
 	
 	// Initialize with data from the server
 	$effect(() => {
 		if (data.data) {
 			data.data.then((result) => {
-				assets = result.data.data;
+				// Force reactivity by creating new arrays
+				assets = [...result.data.data];
+				displayAssets = [...assets]; // Initialize display assets
 				totalAssets = result.data.total;
 				currentPage = result.data.current_page;
 				nextPage = result.data.next_page;
 				lastPage = result.data.last_page;
+				
+				// Add assets to the store
+				assetsStore.setAssets(assets);
 				
 				// Setup observer after initial data is loaded
 				setupObserver();
@@ -82,15 +133,22 @@
 				{ fetch }
 			);
 			
-			// Reset state with fresh data
-			assets = result.data.data;
+			// Reset state with fresh data - force reactivity with new arrays
+			assets = [...result.data.data];
+			displayAssets = [...assets]; // Update display assets
 			totalAssets = result.data.total;
 			currentPage = result.data.current_page;
 			nextPage = result.data.next_page;
 			lastPage = result.data.last_page;
+			refreshCounter++; // Increment counter to force reactivity
+			
+			// Update the store with new assets
+			assetsStore.setAssets(assets);
 			
 			// Re-setup observer after refresh
 			setupObserver();
+			
+			console.log('Assets refreshed:', assets.length, 'Display assets:', displayAssets.length);
 		} catch (error) {
 			console.error('Failed to refresh assets:', error);
 		} finally {
@@ -119,10 +177,19 @@
 				{ fetch }
 			);
 			
-			assets = [...assets, ...result.data.data];
+			const newAssets = result.data.data;
+			// Force reactivity with new arrays
+			assets = [...assets, ...newAssets];
+			displayAssets = [...displayAssets, ...newAssets]; // Update display assets
 			currentPage = result.data.current_page;
 			nextPage = result.data.next_page;
 			lastPage = result.data.last_page;
+			refreshCounter++; // Increment counter to force reactivity
+			
+			// Add new assets to the store
+			assetsStore.setAssets(newAssets);
+			
+			console.log('More assets loaded:', assets.length, 'Display assets:', displayAssets.length);
 		} catch (error) {
 			console.error('Failed to load more assets:', error);
 		} finally {
@@ -130,12 +197,19 @@
 		}
 	}
 
+	// Watch for search term changes
 	$effect(() => {
 		console.log('Search term changed:', searchTerm); 
 		clearTimeout(searchDebounceTimer);
 		searchDebounceTimer = setTimeout(() => {
 			refreshAssets(1);
 		}, 300) as unknown as number; 
+	});
+	
+	// Watch for refresh counter changes to force reactivity
+	$effect(() => {
+		console.log('Refresh counter changed:', refreshCounter);
+		// This effect is just to make sure the component reacts to refreshCounter changes
 	});
 	
 	// Setup intersection observer
@@ -212,13 +286,13 @@
 			<div class="flex flex-row items-center gap-x-2">
 				<div class="flex flex-col">
 					<h2 class="w-full">Assets</h2>
-					<span class="text-sm text-muted-foreground">Showing {assets.length} of {totalAssets} assets</span>
+					<span class="text-sm text-muted-foreground">Showing {displayAssets.length} of {totalAssets} assets</span>
 				</div>
 				<div class="flex-grow"></div>
 				<Button variant="outline" size="icon" class="shrink-0">
 					<FilterIcon size={20}></FilterIcon>
 				</Button>
-				<Button variant="outline" onclick={refreshAssets} disabled={isRefreshing}>
+				<Button variant="outline" onclick={() => refreshAssets(1)} disabled={isRefreshing}>
 					<RefreshCwIcon size={20} class={isRefreshing ? 'animate-spin' : ''} />
 					Refresh
 				</Button>
@@ -230,9 +304,9 @@
 			<Searchbar placeholder="Search assets" bind:value={searchTerm} />
 
 			<!-- Sidebar items -->
-			{#if assets.length === 0 && (isLoading || isRefreshing)}
+			{#if displayAssets.length === 0 && (isLoading || isRefreshing)}
 				{#each Array(5) as _}
-					<div class="space-y-1.5 rounded border bg-background p-3 text-sm shadow">
+					<div class="card-custom space-y-1.5 rounded-lg border p-3 text-sm shadow">
 						<div class="flex flex-row gap-x-1">
 							<Skeleton class="h-6 w-1/2 shrink-0"></Skeleton>
 							<div class="w-full"></div>
@@ -262,10 +336,12 @@
 				>
 					<div class="sticky top-0 h-8 bg-gradient-to-b from-background to-transparent pointer-events-none"></div>
 					
-					{#each assets as asset}
-						{@const isSelected = page.params.asset_id === asset.asset_id.toString()}
-						<AssetCard {asset} {isSelected} />
-					{/each}
+					{#key refreshCounter}
+						{#each displayAssets as asset (asset.asset_id)}
+							{@const isSelected = page.params.asset_id === asset.asset_id.toString()}
+							<AssetCard {asset} {isSelected} />
+						{/each}
+					{/key}
 					
 					<!-- Infinite scroll trigger element -->
 					<div use:handleTriggerRef class="h-20 w-full flex items-center justify-center">
@@ -281,7 +357,7 @@
 					</div>
 					
 					<!-- End of list message -->
-					{#if nextPage === null && assets.length > 0}
+					{#if nextPage === null && displayAssets.length > 0}
 						<div class="text-center text-sm text-muted-foreground py-2">
 							End of assets list
 						</div>

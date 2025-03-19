@@ -1,13 +1,11 @@
 <script lang="ts">
 	import ErrorAlert from '$lib/components/ui/alert/ErrorAlert.svelte';
-	import { Badge } from '$lib/components/ui/badge';
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
 	import { Button } from '$lib/components/ui/button';
 	import { 
 		ComputerIcon, 
-		TagIcon, 
 		AlertTriangleIcon, 
 		NetworkIcon, 
 		HistoryIcon, 
@@ -25,11 +23,10 @@
 	import { Toaster } from '$lib/components/ui/toast';
 	import { AssetService } from '$lib/services/asset.service';
 	import { toast } from '$lib/components/ui/toast';
-	import { Input } from '$lib/components/ui/input';
 	import type { Asset } from '$lib/types/resources/asset';
-	import { goto } from '$app/navigation';
 	import { assetTypes } from '$lib/stores/asset-types.store';
 	import { analysisStatuses } from '$lib/stores/analysis-status.store';
+	import { assetsStore } from '$lib/stores/assets.store';
 
 	let { data } = $props<{ data: PageData }>();
 	$inspect(data);
@@ -54,7 +51,8 @@
 		asset_ip: '',
 		asset_domain: '',
 		asset_type_id: undefined,
-		analysis_status_id: undefined
+		analysis_status_id: undefined,
+		asset_compromise_status_id: undefined
 	});
 	
 	// This state will be used to update the UI directly
@@ -90,7 +88,8 @@
 			asset_ip: displayAssetData.asset_ip || '',
 			asset_domain: displayAssetData.asset_domain || '',
 			asset_type_id: displayAssetData.asset_type?.id,
-			analysis_status_id: displayAssetData.analysis_status?.id
+			analysis_status_id: displayAssetData.analysis_status?.id,
+			asset_compromise_status_id: displayAssetData.asset_compromise_status_id || 3 
 		};
 		
 		isEditing = true;
@@ -107,41 +106,49 @@
 		isSaving = true;
 		
 		try {
-			const response = await AssetService.updateAsset(
-				data.caseId, 
-				displayAssetData.asset_id.toString(), 
-				editData
-			);
+			const assetId = displayAssetData.asset_id.toString();
 			
-			// Update both the display asset data and the data in the awaited promise result
-			// This will update all UI elements that use either data source
-			displayAssetData = { 
-				...displayAssetData, 
-				...editData,
-				date_update: new Date().toISOString() // Update the last modified date
+			// Create a complete updated asset object
+			const updatedAssetData = {
+				...displayAssetData,  // Start with all existing data
+				...editData,          // Apply our edits
+				date_update: new Date().toISOString()
 			};
 			
-			// Force a refresh of the page data to ensure all components see the updated data
-			// We do this by refreshing the current page
-			if (response?.data) {
-				// If we got back data from the API, use that to ensure complete consistency
-				displayAssetData = {
-					...displayAssetData,
-					...response.data
-				};
-			}
-			
-			// Update the resolved asset data in the promise result
-			if (data.asset.then) {
-				const originalAssetResponse = await data.asset;
-				if (originalAssetResponse && originalAssetResponse.data) {
-					originalAssetResponse.data = {
-						...originalAssetResponse.data,
-						...editData,
-						date_update: new Date().toISOString()
-					};
+			// If we're updating the asset type or analysis status, make sure the objects are preserved
+			if (editData.asset_type_id && displayAssetData.asset_type) {
+				const assetType = $assetTypes.find(t => t.id === editData.asset_type_id);
+				if (assetType) {
+					updatedAssetData.asset_type = assetType;
 				}
 			}
+			
+			if (editData.analysis_status_id && displayAssetData.analysis_status) {
+				const analysisStatus = $analysisStatuses.find(s => s.id === editData.analysis_status_id);
+				if (analysisStatus) {
+					updatedAssetData.analysis_status = analysisStatus;
+				}
+			}
+			
+			// Send the update to the API
+			const response = await AssetService.updateAsset(
+				data.caseId, 
+				assetId, 
+				editData  // Only send the changed fields to the API
+			);
+			
+			// If we got a response, use it to update our data
+			if (response?.data) {
+				// Merge the response data with our updated data to ensure we have everything
+				Object.assign(updatedAssetData, response.data);
+			}
+			
+			// Update the local display data
+			displayAssetData = updatedAssetData;
+			
+			// Update the asset in the store with the complete asset object
+			console.log('Updating asset in store from page:', assetId, updatedAssetData);
+			assetsStore.updateAsset(assetId, updatedAssetData);
 			
 			toast({
 				title: "Asset updated",
@@ -326,5 +333,4 @@
 		{/if}
 	{/await}
 	
-	<Toaster />
 </div>

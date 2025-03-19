@@ -20,19 +20,12 @@
     HelpCircle,
     BiohazardIcon,
     TagIcon,
-    CheckCircle2Icon,
-    ClockIcon,
-    AlertCircleIcon,
-    XCircleIcon,
-    PlayIcon,
-    HelpCircleIcon
   } from 'lucide-svelte';
   import { Badge } from '$lib/components/ui/badge';
   import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
   import type { Asset } from '$lib/types/resources/asset';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-	import StateBadge from '$lib/components/ui/badge/state-badge.svelte';
 	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
 
   export let asset: Asset;
@@ -84,12 +77,11 @@
 
   // Computed properties
   const AssetTypeIcon = getAssetTypeIcon(asset);
-  const hasIocs = (asset.iocs ?? []).length > 0;
-  const hasTags = asset.asset_tags?.split(',')?.length > 0;
-  const assetIp = asset.asset_ip || '';
-  const assetDomain = asset.asset_domain || '';
-  const isCompromised = asset.asset_compromise_status_id === 1;
-
+  $: hasIocs = (asset.iocs ?? []).length > 0;
+  $: hasTags = asset.asset_tags?.split(',')?.length > 0;
+  $: assetIp = asset.asset_ip || '';
+  $: assetDomain = asset.asset_domain || '';
+  $: isCompromised = asset.asset_compromise_status_id === 1;
   // Function to get status icon
 
 

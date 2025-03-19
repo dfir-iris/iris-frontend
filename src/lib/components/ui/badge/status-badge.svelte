@@ -8,7 +8,10 @@
 		Circle,
 		MergeIcon,
 		Handshake,
-		BadgeAlert
+		BadgeAlert,
+
+		CircleAlert
+
 	} from 'lucide-svelte';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 
@@ -24,6 +27,7 @@
 		| 'Assigned'
 		| 'New'
 		| 'Started'
+		| 'Cancelled'
 		| 'Done' = 'Unspecified';
 
 		export let prefix: string = '';
@@ -72,6 +76,14 @@
 		'To do': {
 			color: 'bg-gray-100 text-gray-800 hover:bg-gray-200',
 			icon: Circle
+		},
+		'To be done': {
+			color: 'bg-orange-100 text-orange-800 hover:bg-orange-200',
+			icon: CircleAlert
+		},
+		Canceled: {
+			color: 'bg-red-100 text-red-800 hover:bg-red-200',
+			icon: BadgeAlert
 		}
 	};
 

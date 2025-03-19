@@ -64,10 +64,11 @@
 		--popover: 222.2 84% 4.9%;
 		--popover-foreground: 210 40% 98%;
 
-		--card: 222.2 84% 4.9%;
-		--card-foreground: 210 40% 98%;
+    --card: 224 71% 4%;
+    --card-foreground: 210 40% 98%;
 
 		--border: 217.2 32.6% 17.5%;
+
 		--input: 217.2 32.6% 17.5%;
 
 		--primary: 210 40% 98%;
@@ -137,4 +138,30 @@
 .lucide {
 	stroke-width: 1.5px;
 	flex-shrink: 0;
+}
+
+/* Custom card styling for dark mode */
+.dark .card-custom,
+.dark .bg-card\/40,
+.dark .bg-card\/50,
+.dark .bg-card {
+  @apply bg-[#151823] border-[#2a2f42] border-opacity-80;
+}
+
+/* Custom border styling for dark mode */
+.dark .border {
+  @apply border-[#2a2f42] border-opacity-80;
+}
+
+/* Custom background for dark mode */
+.dark .bg-background {
+  @apply  border-[#3a3f52];
+}
+
+/* Custom hover effects for cards in dark mode */
+.dark .card-custom:hover,
+.dark .bg-card\/40:hover,
+.dark .bg-card\/50:hover,
+.dark .bg-card:hover {
+  @apply border-[#3a3f52];
 }

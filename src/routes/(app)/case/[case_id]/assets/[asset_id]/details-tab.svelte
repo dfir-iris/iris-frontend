@@ -7,7 +7,8 @@
 		TagIcon,
 		NetworkIcon,
 		FileTextIcon,
-		CheckCircleIcon
+		CheckCircleIcon,
+		ShieldIcon
 	} from 'lucide-svelte';
 	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
 	import { Input } from '$lib/components/ui/input';
@@ -16,6 +17,8 @@
 	import { analysisStatuses } from '$lib/stores/analysis-status.store';
 	import { page } from '$app/state';
 	import { AnalysisStatus } from '$lib/components/common/analysis-status';
+	import { CompromiseStatus } from '$lib/components/common/compromise-status';
+	import { assetsStore } from '$lib/stores/assets.store';
 
 	let { 
 		asset, 
@@ -32,6 +35,7 @@
 			asset_domain: string;
 			asset_type_id?: number;
 			analysis_status_id?: number;
+			asset_compromise_status_id?: number;
 		};
 		onUpdateEditData?: (field: string, value: string | number) => void;
 	}>();
@@ -53,7 +57,7 @@
 		}
 	});
 	
-	// Make sure editData has the asset_type_id and analysis_status_id fields
+	// Make sure editData has all required fields
 	$effect(() => {
 		if (isEditing && editData && storesInitialized) {
 			if (editData.asset_type_id === undefined && asset.asset_type) {
@@ -63,19 +67,56 @@
 			if (editData.analysis_status_id === undefined && asset.analysis_status) {
 				onUpdateEditData('analysis_status_id', asset.analysis_status.id);
 			}
+			
+			if (editData.asset_compromise_status_id === undefined) {
+				onUpdateEditData('asset_compromise_status_id', asset.asset_compromise_status_id || 3);
+			}
 		}
 	});
 	
-	function updateField(field: string, value: string | number) {
-		onUpdateEditData(field, value);
-	}
-	
-	function handleStatusChange(newStatus) {
+	function handleStatusChange(newStatus: any) {
 		// Update the asset data locally
 		asset = { 
 			...asset, 
 			analysis_status: newStatus
 		};
+	}
+	
+	function handleCompromiseStatusChange(newStatus: any) {
+		// Update the asset data locally
+		asset = { 
+			...asset, 
+			asset_compromise_status_id: newStatus.id
+		};
+	}
+
+	// Function to update a specific field
+	function updateField(field, value) {
+		if (!isEditing || !asset || !onUpdateEditData) return;
+		
+		// Create an update object with just the changed field
+		const update = { [field]: value };
+		
+		// Call the parent's onUpdate function
+		onUpdateEditData(field, value);
+		
+		// If we have the asset ID, also update the store directly for immediate UI updates
+		if (asset.asset_id) {
+			const assetId = asset.asset_id.toString();
+			const existingAsset = assetsStore.getAsset(assetId);
+			
+			if (existingAsset) {
+				// Create a new asset object with the updated field
+				const updatedAsset = {
+					...existingAsset,
+					...update
+				};
+				
+				// Update the store
+				console.log(`Updating ${field} in store from details-tab:`, assetId, updatedAsset);
+				assetsStore.updateAsset(assetId, updatedAsset);
+			}
+		}
 	}
 </script>
 
@@ -143,7 +184,28 @@
 								<AnalysisStatus 
 									isEditing={true}
 									editValue={editData.analysis_status_id}
+									status={asset.analysis_status}
 									onEditValueChange={(value) => updateField('analysis_status_id', value)}
+								/>
+							</div>
+						</div>
+					</div>
+				</div>
+				
+				<!-- Compromise Status (Edit Mode) -->
+				<div class="group bg-card/40 p-4 rounded-lg">
+					<div class="flex items-start gap-3">
+						<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
+							<ShieldIcon class="h-4 w-4" />
+						</div>
+						<div class="min-w-0 flex-1">				
+							<p class="text-sm font-medium text-muted-foreground">Compromise Status</p>
+							<div class="mt-1">
+								<CompromiseStatus 
+									isEditing={true}
+									editValue={editData.asset_compromise_status_id}
+									status={asset.asset_compromise_status_id || 3}
+									onEditValueChange={(value) => updateField('asset_compromise_status_id', value)}
 								/>
 							</div>
 						</div>
@@ -167,6 +229,26 @@
 									caseId={page.params.case_id}
 									assetId={asset.asset_id.toString()}
 									onStatusChange={handleStatusChange}
+								/>
+							</div>
+						</div>
+					</div>
+				</div>
+				
+				<!-- Compromise Status with click-to-change functionality -->
+				<div class="group bg-card/40 p-4 rounded-lg">
+					<div class="flex items-start gap-3">
+						<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
+							<ShieldIcon class="h-4 w-4" />
+						</div>
+						<div class="min-w-0 flex-1">				
+							<p class="text-sm font-medium text-muted-foreground">Compromise Status</p>
+							<div class="mt-1">
+								<CompromiseStatus 
+									status={asset.asset_compromise_status_id || 3} 
+									caseId={page.params.case_id}
+									assetId={asset.asset_id.toString()}
+									onStatusChange={handleCompromiseStatusChange}
 								/>
 							</div>
 						</div>
