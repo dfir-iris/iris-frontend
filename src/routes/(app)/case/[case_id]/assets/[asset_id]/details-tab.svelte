@@ -24,7 +24,7 @@
 		asset, 
 		isEditing = false, 
 		editData,
-		onUpdateEditData = (field, value) => {}
+		onUpdateEditData = (field: string, value: string | number) => {}
 	} = $props<{ 
 		asset: Asset;
 		isEditing?: boolean;
@@ -91,7 +91,7 @@
 	}
 
 	// Function to update a specific field
-	function updateField(field, value) {
+	function updateField(field: string, value: string | number) {
 		if (!isEditing || !asset || !onUpdateEditData) return;
 		
 		// Create an update object with just the changed field
@@ -139,7 +139,11 @@
 							<p class="text-sm font-medium text-muted-foreground">Asset Name</p>
 							<Input 
 								value={editData.asset_name} 
-								onchange={(e) => updateField('asset_name', e.target.value)}
+								onchange={(e) => {
+									if (e.target) {
+										updateField('asset_name', (e.target as HTMLInputElement).value);
+									}
+								}}
 								class="mt-1" 
 							/>
 						</div>
@@ -155,7 +159,7 @@
 							<p class="text-sm font-medium text-muted-foreground">Asset Type</p>
 							<select 
 								value={editData.asset_type_id} 
-								onchange={(e) => updateField('asset_type_id', parseInt(e.target.value))}
+								onchange={(e) => updateField('asset_type_id', parseInt((e.target as HTMLSelectElement).value))}
 								class="mt-1 w-full px-3 py-2 bg-background border border-input rounded-md text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
 							>
 								<option value="" disabled>Select asset type</option>
@@ -269,7 +273,7 @@
 			<div class="bg-card/40 p-4 rounded-lg">
 				<Textarea 
 					value={editData.asset_description}
-					onchange={(e) => updateField('asset_description', e.target.value)}
+					onchange={(e) => updateField('asset_description', (e.target as HTMLTextAreaElement).value)}
 					placeholder="Provide a detailed description of this asset"
 					rows={5}
 					class="w-full"
@@ -307,7 +311,7 @@
 							<p class="text-sm font-medium text-muted-foreground">IP Address</p>
 							<Input 
 								value={editData.asset_ip}
-								onchange={(e) => updateField('asset_ip', e.target.value)}
+								onchange={(e) => updateField('asset_ip', (e.target as HTMLInputElement).value)}
 								class="mt-1" 
 								placeholder="e.g. 192.168.1.1" 
 							/>
@@ -324,7 +328,7 @@
 							<p class="text-sm font-medium text-muted-foreground">Domain</p>
 							<Input 
 								value={editData.asset_domain}
-								onchange={(e) => updateField('asset_domain', e.target.value)}
+								onchange={(e) => updateField('asset_domain', (e.target as HTMLInputElement).value)}
 								class="mt-1" 
 								placeholder="e.g. example.com" 
 							/>
@@ -340,7 +344,7 @@
 </div>
 	
 
-{#snippet fieldWithIcon(label: string, value: string | number, Icon, hint: string | null = null)}
+{#snippet fieldWithIcon(label: string, value: string | number, Icon: any, hint: string | null = null)}
 	<div class="group bg-card/40 p-4 rounded-lg">
 		<div class="flex items-start gap-3">
 			<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
@@ -351,7 +355,7 @@
 				<div class="flex items-center gap-1">
 					<p class="font-semibold text-foreground break-all">{value}</p>
 					{#if value && value.toString().length > 0 && value !== 'N/A'}
-						<ClipboardCopy value={value}/>
+						<ClipboardCopy value={value.toString()}/>
 					{/if}
 				</div>
 				{#if hint}
