@@ -1,0 +1,32 @@
+{
+    "total": 6,
+    "last_page": 1,
+    "current_page": 1,
+    "next_page": null,
+    "data": [
+        {
+          "id": 1,
+          "name": "Unspecified"
+        },
+        {
+          "id": 2,
+          "name": "To be done"
+        },
+        {
+          "id": 3,
+          "name": "Started"
+        },
+        {
+          "id": 4,
+          "name": "Pending"
+        },
+        {
+          "id": 5,
+          "name": "Canceled"
+        },
+        {
+          "id": 6,
+          "name": "Done"
+        }
+      ]
+}

@@ -94,7 +94,13 @@ export class ApiService {
         // If endpoint is 404, fallback to mocked request
         if (response.status === 404) {
             console.error(`Endpoint not found: ${endpoint} - mocking...`)
-            return this.mockRequest<T>(endpoint)
+            let getMocked;
+            try {
+                getMocked = await this.mockRequest<T>(endpoint)
+            } catch {
+                return error(404, `Mock data not found for endpoint: ${endpoint}`);
+            }
+            return getMocked;
         }
 
         // Other error handling

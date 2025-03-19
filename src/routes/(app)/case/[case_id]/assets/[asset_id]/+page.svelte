@@ -28,6 +28,8 @@
 	import { Input } from '$lib/components/ui/input';
 	import type { Asset } from '$lib/types/resources/asset';
 	import { goto } from '$app/navigation';
+	import { assetTypes } from '$lib/stores/asset-types.store';
+	import { analysisStatuses } from '$lib/stores/analysis-status.store';
 
 	let { data } = $props<{ data: PageData }>();
 	$inspect(data);
@@ -35,6 +37,12 @@
 	function formatDate(dateString: string) {
 		return new Date(dateString).toLocaleString();
 	}
+
+	$effect(() => {
+		// Fetch the stores data once
+		assetTypes.fetch();
+		analysisStatuses.fetch();
+	});
 	
 	let activeTab = $state('details');
 	let isEditing = $state(false);
@@ -44,7 +52,9 @@
 		asset_name: '',
 		asset_description: '',
 		asset_ip: '',
-		asset_domain: ''
+		asset_domain: '',
+		asset_type_id: undefined,
+		analysis_status_id: undefined
 	});
 	
 	// This state will be used to update the UI directly
@@ -78,7 +88,9 @@
 			asset_name: displayAssetData.asset_name,
 			asset_description: displayAssetData.asset_description || '',
 			asset_ip: displayAssetData.asset_ip || '',
-			asset_domain: displayAssetData.asset_domain || ''
+			asset_domain: displayAssetData.asset_domain || '',
+			asset_type_id: displayAssetData.asset_type?.id,
+			analysis_status_id: displayAssetData.analysis_status?.id
 		};
 		
 		isEditing = true;

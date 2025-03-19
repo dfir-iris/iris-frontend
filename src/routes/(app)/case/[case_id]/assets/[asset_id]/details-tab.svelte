@@ -12,6 +12,10 @@
 	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import { assetTypes } from '$lib/stores/asset-types.store';
+	import { analysisStatuses } from '$lib/stores/analysis-status.store';
+	import { page } from '$app/state';
+	import { AnalysisStatus } from '$lib/components/common/analysis-status';
 
 	let { 
 		asset, 
@@ -26,14 +30,52 @@
 			asset_description: string;
 			asset_ip: string;
 			asset_domain: string;
+			asset_type_id?: number;
+			analysis_status_id?: number;
 		};
-		onUpdateEditData?: (field: string, value: string) => void;
+		onUpdateEditData?: (field: string, value: string | number) => void;
 	}>();
 	
 	let descriptionHtml = $derived(marked(asset.asset_description || 'No description provided'));
 	
-	function updateField(field: string, value: string) {
+	// Initialize stores only once when the component mounts
+	let storesInitialized = $state(false);
+	
+	$effect(() => {
+		if (!storesInitialized) {
+			// Use Promise.all to fetch both in parallel
+			Promise.all([
+				assetTypes.fetch(),
+				analysisStatuses.fetch()
+			]).then(() => {
+				storesInitialized = true;
+			});
+		}
+	});
+	
+	// Make sure editData has the asset_type_id and analysis_status_id fields
+	$effect(() => {
+		if (isEditing && editData && storesInitialized) {
+			if (editData.asset_type_id === undefined && asset.asset_type) {
+				onUpdateEditData('asset_type_id', asset.asset_type.id);
+			}
+			
+			if (editData.analysis_status_id === undefined && asset.analysis_status) {
+				onUpdateEditData('analysis_status_id', asset.analysis_status.id);
+			}
+		}
+	});
+	
+	function updateField(field: string, value: string | number) {
 		onUpdateEditData(field, value);
+	}
+	
+	function handleStatusChange(newStatus) {
+		// Update the asset data locally
+		asset = { 
+			...asset, 
+			analysis_status: newStatus
+		};
 	}
 </script>
 
@@ -62,12 +104,75 @@
 						</div>
 					</div>
 				</div>
+				
+				<div class="group bg-card/40 p-4 rounded-lg">
+					<div class="flex items-start gap-3">
+						<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
+							<TagIcon class="h-4 w-4" />
+						</div>
+						<div class="min-w-0 flex-1">				
+							<p class="text-sm font-medium text-muted-foreground">Asset Type</p>
+							<select 
+								value={editData.asset_type_id} 
+								onchange={(e) => updateField('asset_type_id', parseInt(e.target.value))}
+								class="mt-1 w-full px-3 py-2 bg-background border border-input rounded-md text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+							>
+								<option value="" disabled>Select asset type</option>
+								{#each $assetTypes as type}
+									<option value={type.id}>{type.asset_name}</option>
+								{/each}
+							</select>
+							{#if editData.asset_type_id}
+								{@const selectedType = $assetTypes.find(t => t.id === editData.asset_type_id)}
+								{#if selectedType?.asset_description}
+									<p class="text-xs text-muted-foreground mt-1">{selectedType.asset_description}</p>
+								{/if}
+							{/if}
+						</div>
+					</div>
+				</div>
+				
+				<div class="group bg-card/40 p-4 rounded-lg">
+					<div class="flex items-start gap-3">
+						<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
+							<CheckCircleIcon class="h-4 w-4" />
+						</div>
+						<div class="min-w-0 flex-1">				
+							<p class="text-sm font-medium text-muted-foreground">Analysis Status</p>
+							<div class="mt-1">
+								<AnalysisStatus 
+									isEditing={true}
+									editValue={editData.analysis_status_id}
+									onEditValueChange={(value) => updateField('analysis_status_id', value)}
+								/>
+							</div>
+						</div>
+					</div>
+				</div>
 			{:else}
 				{@render fieldWithIcon('Asset Name', asset.asset_name, ServerIcon)}
+				{@render fieldWithIcon('Asset Type', asset.asset_type?.asset_name, TagIcon, asset.asset_type?.asset_description)}
+				
+				<!-- Analysis Status with click-to-change functionality -->
+				<div class="group bg-card/40 p-4 rounded-lg">
+					<div class="flex items-start gap-3">
+						<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
+							<CheckCircleIcon class="h-4 w-4" />
+						</div>
+						<div class="min-w-0 flex-1">				
+							<p class="text-sm font-medium text-muted-foreground">Analysis Status</p>
+							<div class="mt-1">
+								<AnalysisStatus 
+									status={asset.analysis_status}
+									caseId={page.params.case_id}
+									assetId={asset.asset_id.toString()}
+									onStatusChange={handleStatusChange}
+								/>
+							</div>
+						</div>
+					</div>
+				</div>
 			{/if}
-			
-			{@render fieldWithIcon('Asset Type', asset.asset_type.asset_name, TagIcon, asset.asset_type.asset_description)}
-			{@render fieldWithIcon('Analysis Status', asset.analysis_status.name, CheckCircleIcon)}
 		</div>
 	</section>
 
