@@ -38,6 +38,19 @@
 	let searchDebounceTimer: number;
 	let refreshCounter = $state(0); // Add a counter to force reactivity
 	
+	// Function to deduplicate assets by ID
+	function deduplicateAssets(assetList: Asset[]): Asset[] {
+		const seen = new Set<string>();
+		return assetList.filter(asset => {
+			const id = asset.asset_id.toString();
+			if (seen.has(id)) {
+				return false;
+			}
+			seen.add(id);
+			return true;
+		});
+	}
+	
 	// Subscribe to the assets store
 	const unsubscribe = assetsStore.subscribe(updatedStoreAssets => {
 		console.log('Store updated:', Object.keys(updatedStoreAssets).length);
@@ -84,8 +97,8 @@
 	$effect(() => {
 		if (data.data) {
 			data.data.then((result) => {
-				// Force reactivity by creating new arrays
-				assets = [...result.data.data];
+				// Force reactivity by creating new arrays and deduplicate
+				assets = deduplicateAssets([...result.data.data]);
 				displayAssets = [...assets]; // Initialize display assets
 				totalAssets = result.data.total;
 				currentPage = result.data.current_page;
@@ -108,7 +121,8 @@
 			{ field: "asset_name", operator: "like", value: term },
 			{ field: "asset_ip", operator: "like", value: term },
 			{ field: "asset_domain", operator: "like", value: term },
-			{ field: "asset_description", operator: "like", value: term }
+			{ field: "asset_description", operator: "like", value: term },
+			{ field: "asset_type.asset_name", operator: "like", value: term }
 		];
 	}
 
@@ -133,8 +147,8 @@
 				{ fetch }
 			);
 			
-			// Reset state with fresh data - force reactivity with new arrays
-			assets = [...result.data.data];
+			// Reset state with fresh data - force reactivity with new arrays and deduplicate
+			assets = deduplicateAssets([...result.data.data]);
 			displayAssets = [...assets]; // Update display assets
 			totalAssets = result.data.total;
 			currentPage = result.data.current_page;
@@ -177,10 +191,15 @@
 				{ fetch }
 			);
 			
-			const newAssets = result.data.data;
+			// Deduplicate new assets
+			const newAssets = deduplicateAssets([...result.data.data]);
+			
+			// Deduplicate combined assets (existing + new)
+			const combinedAssets = deduplicateAssets([...assets, ...newAssets]);
+			
 			// Force reactivity with new arrays
-			assets = [...assets, ...newAssets];
-			displayAssets = [...displayAssets, ...newAssets]; // Update display assets
+			assets = combinedAssets;
+			displayAssets = [...assets]; // Update display assets
 			currentPage = result.data.current_page;
 			nextPage = result.data.next_page;
 			lastPage = result.data.last_page;
@@ -337,7 +356,7 @@
 					<div class="sticky top-0 h-8 bg-gradient-to-b from-background to-transparent pointer-events-none"></div>
 					
 					{#key refreshCounter}
-						{#each displayAssets as asset (asset.asset_id)}
+						{#each displayAssets as asset, index (asset.asset_id + '-' + index)}
 							{@const isSelected = page.params.asset_id === asset.asset_id.toString()}
 							<AssetCard {asset} {isSelected} />
 						{/each}

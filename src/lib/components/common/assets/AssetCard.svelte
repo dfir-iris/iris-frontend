@@ -78,7 +78,7 @@
   // Computed properties
   const AssetTypeIcon = getAssetTypeIcon(asset);
   $: hasIocs = (asset.iocs ?? []).length > 0;
-  $: hasTags = asset.asset_tags?.split(',')?.length > 0;
+  $: hasTags = asset.asset_tags?.split(',')?.length - 1 > 0;
   $: assetIp = asset.asset_ip || '';
   $: assetDomain = asset.asset_domain || '';
   $: isCompromised = asset.asset_compromise_status_id === 1;
@@ -92,7 +92,7 @@
 </script>
 
 <button type="button" 
-  class="w-full text-left rounded-xl border p-4 text-sm shadow transition-all duration-200 ease-in-out hover:scale-[1.01] hover:shadow-md group {
+  class="w-full text-left rounded-xl border p-3 text-sm shadow transition-all duration-200 ease-in-out hover:scale-[1.01] hover:shadow-md group {
     isSelected
       ? 'bg-accent text-accent-foreground border-primary/30'
       : 'bg-background hover:bg-background/80'
@@ -101,7 +101,7 @@
   aria-label={`View details for asset ${asset.asset_name}`}
 >
   <!-- Asset header with name and status -->
-  <div class="flex items-center justify-between mb-2">
+  <div class="flex items-center justify-between mb-4">
     <div class="flex items-center gap-2 w-full overflow-hidden">
       <div 
         class={`flex h-8 w-8 items-center justify-center rounded-full ${
@@ -154,7 +154,7 @@
   </div>
   
   <!-- Asset details (IP/Domain) -->
-  <div class="flex flex-col gap-2 mt-3">
+  <div class="flex flex-col">
     <div class="flex flex-wrap gap-2">
       {#if assetIp}
         <div class="inline-flex items-center gap-1 bg-muted/50 px-2 py-1 rounded-md text-xs font-mono group">
@@ -191,7 +191,7 @@
               class="text-muted-foreground text-xs" 
               icon={TagIcon} 
               variant="secondary"
-            ><span class="">{tag}</span></Badge>
+            ><span class="ml-2">{tag}</span></Badge>
           {/if}
         {/each}
       </div>
