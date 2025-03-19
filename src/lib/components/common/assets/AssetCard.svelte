@@ -56,8 +56,7 @@
   };
   
   // Get asset type icon
-  function getAssetTypeIcon(asset: Asset) {
-    const typeName = asset.asset_type?.asset_name?.toLowerCase() || '';
+  function getAssetTypeIcon(typeName: string) {
     
     // Check for exact matches first
     if (typeName in assetTypeIcons) {
@@ -76,7 +75,7 @@
   }
 
   // Computed properties
-  const AssetTypeIcon = getAssetTypeIcon(asset);
+  $: AssetTypeIcon = getAssetTypeIcon(asset.asset_type?.asset_name.toLowerCase() || '');  
   $: hasIocs = (asset.iocs ?? []).length > 0;
   $: hasTags = asset.asset_tags?.split(',')?.length - 1 > 0;
   $: assetIp = asset.asset_ip || '';

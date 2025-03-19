@@ -4,11 +4,11 @@
 	import { 
 		ServerIcon, 
 		GlobeIcon, 
-		TagIcon,
 		NetworkIcon,
 		FileTextIcon,
 		CheckCircleIcon,
-		ShieldIcon
+		ShieldIcon,
+		ComponentIcon
 	} from 'lucide-svelte';
 	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
 	import { Input } from '$lib/components/ui/input';
@@ -153,7 +153,7 @@
 				<div class="group bg-card/40 p-4 rounded-lg">
 					<div class="flex items-start gap-3">
 						<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
-							<TagIcon class="h-4 w-4" />
+							<ComponentIcon class="h-4 w-4" />
 						</div>
 						<div class="min-w-0 flex-1">				
 							<p class="text-sm font-medium text-muted-foreground">Asset Type</p>
@@ -164,14 +164,11 @@
 							>
 								<option value="" disabled>Select asset type</option>
 								{#each $assetTypes as type}
-									<option value={type.id}>{type.asset_name}</option>
+									<option value={type.asset_id}>{type.asset_name}</option>
 								{/each}
 							</select>
 							{#if editData.asset_type_id}
 								{@const selectedType = $assetTypes.find(t => t.id === editData.asset_type_id)}
-								{#if selectedType?.asset_description}
-									<p class="text-xs text-muted-foreground mt-1">{selectedType.asset_description}</p>
-								{/if}
 							{/if}
 						</div>
 					</div>
@@ -217,7 +214,7 @@
 				</div>
 			{:else}
 				{@render fieldWithIcon('Asset Name', asset.asset_name, ServerIcon)}
-				{@render fieldWithIcon('Asset Type', asset.asset_type?.asset_name, TagIcon, asset.asset_type?.asset_description)}
+				{@render fieldWithIcon('Asset Type', asset.asset_type?.asset_name, ComponentIcon)}
 				
 				<!-- Analysis Status with click-to-change functionality -->
 				<div class="group bg-card/40 p-4 rounded-lg">
@@ -337,7 +334,7 @@
 				</div>
 			{:else}
 				{@render fieldWithIcon('IP Address', asset.asset_ip || 'N/A', NetworkIcon)}
-				{@render fieldWithIcon('Domain', asset.asset_domain, GlobeIcon)}
+				{@render fieldWithIcon('Domain', asset.asset_domain || 'N/A', GlobeIcon)}
 			{/if}
 		</div>
 	</section>
