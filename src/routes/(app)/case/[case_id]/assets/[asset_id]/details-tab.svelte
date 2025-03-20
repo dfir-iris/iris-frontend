@@ -22,7 +22,6 @@
 	import { assetsStore } from '$lib/stores/assets.store';
 	import { TagInput, TagDisplay } from '$lib/components/common/tag';
 	import type { Tag } from '$lib/stores/tags.store';
-	import { tagsStore } from '$lib/stores/tags.store';
 
 	let { 
 		asset, 

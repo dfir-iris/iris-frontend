@@ -130,11 +130,6 @@
     <div class="flex items-center gap-2">
       <ShieldAlertIcon class="h-5 w-5 text-primary" />
       <h2 class="text-xl font-semibold">Indicators of Compromise</h2>
-      {#if !isLoading && filteredIocs.length > 0}
-        <Badge variant="outline" class="ml-2">
-          {filteredIocs.length} {filteredIocs.length === 1 ? 'IOC' : 'IOCs'}
-        </Badge>
-      {/if}
     </div>
     
     <div class="relative w-full sm:w-64 md:w-80">
@@ -219,7 +214,7 @@
             </Badge>
           </h3>
           
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-1 gap-4">
             {#each typeIocs as ioc (ioc.ioc_id)}
               <IOCCard {ioc} />
             {/each}
