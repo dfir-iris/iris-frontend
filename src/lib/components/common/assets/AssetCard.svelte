@@ -91,7 +91,7 @@
 </script>
 
 <button type="button" 
-  class="w-full text-left rounded-xl border p-3 text-sm shadow transition-all duration-200 ease-in-out hover:scale-[1.01] hover:shadow-md group {
+  class="w-full text-left rounded-xl border p-3 text-sm shadow transition-all duration-200 ease-in-out hover:bg-accent/80 hover:shadow-md group {
     isSelected
       ? 'bg-accent text-accent-foreground border-primary/30'
       : 'bg-background hover:bg-background/80'
