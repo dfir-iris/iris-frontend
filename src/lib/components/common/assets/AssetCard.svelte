@@ -27,6 +27,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
 	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
+	import TagDisplay from '../tag/TagDisplay.svelte';
 
   export let asset: Asset;
   export let isSelected: boolean = false;
@@ -179,16 +180,11 @@
     </div>
     
     {#if hasTags}
-      <div class="flex flex-wrap gap-1 text-xs text-muted-foreground mt-1">
-        {#each asset.asset_tags.split(',') as tag}
-          {#if tag.trim()}
-            <Badge 
-              class="text-muted-foreground text-xs" 
-              icon={TagIcon} 
-              variant="secondary"
-            ><span class="ml-2">{tag}</span></Badge>
-          {/if}
-        {/each}
+      <div class="flex flex-wrap gap-1 text-xs mt-1">
+        <TagDisplay 
+          tags={asset.asset_tags} 
+          size="default"
+        />
       </div>
     {/if}
   </div>

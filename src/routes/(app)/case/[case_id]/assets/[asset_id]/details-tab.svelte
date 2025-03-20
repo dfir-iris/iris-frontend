@@ -344,12 +344,7 @@
 		</div>
 	</section>
 
-	<section>
-		<div class="flex items-center gap-2 mb-4 border-b pb-2">
-			<HashIcon class="h-5 w-5 text-primary" />
-			<h2 class="text-lg font-semibold">Tags</h2>
-		</div>
-		
+	<section>		
 		<div class="grid grid-cols-1">
 			<div class="bg-card/40 p-4 rounded-lg">
 				{#if isEditing}
@@ -365,8 +360,6 @@
 							tags={asset.asset_tags} 
 							size="default"
 						/>
-					{:else}
-						<p class="text-muted-foreground italic">No tags</p>
 					{/if}
 				{/if}
 			</div>

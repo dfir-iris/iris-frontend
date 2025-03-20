@@ -298,7 +298,7 @@
 							</div>
 						</div>
 					</Card>
-					<ScrollArea class="h-[calc(100vh-220px)] mt-5">
+					<ScrollArea class="h-[calc(100vh-220px)] mt-5 rounded-lg">
 						<Card class="border shadow-md overflow-hidden">
 							<CardContent class="p-0">
 								<Tabs bind:value={activeTab} class="w-full">
