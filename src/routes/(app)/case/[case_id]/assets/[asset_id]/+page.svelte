@@ -7,18 +7,21 @@
 	import { 
 		ComputerIcon, 
 		AlertTriangleIcon, 
-		NetworkIcon, 
 		HistoryIcon, 
 		ShieldAlertIcon,
 		EditIcon,
 		Trash2Icon,
 		InfoIcon,
 		SaveIcon,
-		XIcon
+		XIcon,
+
+		CalendarRange
+
 	} from 'lucide-svelte';
 	import type { PageData } from './$types';
 	import DetailsTab from './details-tab.svelte';
 	import HistoryTab from './history-tab.svelte';
+	import IOCsTab from './ioc-tab.svelte';
 	import { fade } from 'svelte/transition';
 	import { AssetService } from '$lib/services/asset.service';
 	import { toast } from '$lib/components/ui/toast';
@@ -421,15 +424,20 @@
 										value="graph" 
 										class="flex items-center gap-2 py-4 px-6 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
 									>
-										<NetworkIcon class="h-4 w-4" />
-										<span>Graph</span>
+										<CalendarRange class="h-4 w-4" />
+										<span>Timeline</span>
 									</TabsTrigger>
 									<TabsTrigger 
-										value="iocs" 
-										class="flex items-center gap-2 py-4 px-6 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+										value="ioc" 
+										class="flex items-center gap-2 py-4 px-6 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none relative"
 									>
 										<ShieldAlertIcon class="h-4 w-4" />
 										<span>IOCs</span>
+										{#if displayAssetData?.iocs?.length}
+											<span class="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 text-[10px] font-medium leading-none data-[state=active]:bg-primary/20 data-[state=active]:text-primary bg-muted text-muted-foreground rounded-sm px-1 transition-colors">
+												{displayAssetData.iocs.length}
+											</span>
+										{/if}
 									</TabsTrigger>
 									<TabsTrigger 
 										value="history" 
@@ -452,9 +460,13 @@
 										onAssetChange={handleAssetChange}
 									/>
 								</TabsContent>
+								<TabsContent value="ioc">
+									<IOCsTab asset={displayAssetData} />
+								</TabsContent>
 								<TabsContent value="history">
 									<HistoryTab asset={displayAssetData} />
 								</TabsContent>
+
 							</div>
 						</Tabs>
 					</CardContent>

@@ -53,7 +53,6 @@
 	
 	// Subscribe to the assets store
 	const unsubscribe = assetsStore.subscribe(updatedStoreAssets => {
-		console.log('Store updated:', Object.keys(updatedStoreAssets).length);
 		storeAssets = updatedStoreAssets;
 		
 		// Only update displayAssets if we have assets loaded
@@ -65,19 +64,6 @@
 				
 				// If we have this asset in the store, use it, otherwise use the original
 				if (storeAsset) {
-					// Log what's being updated for debugging
-					if (JSON.stringify(asset) !== JSON.stringify(storeAsset)) {
-						console.log('Asset updated in list:', assetId, {
-							original: asset,
-							updated: storeAsset,
-							diff: {
-								name: asset.asset_name !== storeAsset.asset_name,
-								ip: asset.asset_ip !== storeAsset.asset_ip,
-								domain: asset.asset_domain !== storeAsset.asset_domain,
-								compromise: asset.asset_compromise_status_id !== storeAsset.asset_compromise_status_id
-							}
-						});
-					}
 					return storeAsset;
 				}
 				return asset;
@@ -228,7 +214,6 @@
 	
 	// Watch for refresh counter changes to force reactivity
 	$effect(() => {
-		console.log('Refresh counter changed:', refreshCounter);
 		// This effect is just to make sure the component reacts to refreshCounter changes
 	});
 	
