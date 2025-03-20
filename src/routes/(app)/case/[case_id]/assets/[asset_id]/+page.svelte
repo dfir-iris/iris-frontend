@@ -46,6 +46,9 @@
 	let activeTab = $state('details');
 	let isEditing = $state(false);
 	let isSaving = $state(false);
+	let isLoading = $state(false);
+	let hasError = $state(false);
+	let shouldShowLoading = $state(false);
 	
 	// Keep track of tags separately to ensure they're properly updated
 	let currentTags = $state<Tag[]>([]);
@@ -77,6 +80,17 @@
 	$effect(() => {
 		(async () => {
 			try {
+				// Set loading state
+				isLoading = true;
+				
+				// Start a timer to show loading state only if it takes longer than 150ms
+				const loadingTimer = setTimeout(() => {
+					if (isLoading) {
+						shouldShowLoading = true;
+					}
+				}, 150);
+				
+				// Fetch the asset data
 				const assetResponse = await data.asset;
 				displayAssetData = assetResponse?.data;
 				
@@ -84,14 +98,51 @@
 				if (displayAssetData?.asset_tags) {
 					currentTags = tagsStore.normalizeTags(displayAssetData.asset_tags);
 				}
+				
+				hasError = false;
+				
+				// Clear the timer if it hasn't fired yet
+				clearTimeout(loadingTimer);
 			} catch (error) {
 				console.error('Error resolving asset data:', error);
+				hasError = true;
+			} finally {
+				// Set loading to false
+				isLoading = false;
+				// If we've already shown the loading state, add a small delay before hiding it
+				if (shouldShowLoading) {
+					setTimeout(() => {
+						shouldShowLoading = false;
+					}, 50);
+				} else {
+					shouldShowLoading = false;
+				}
 			}
 		})();
 	});
 	
-	function handleUpdateEditData(field: string, value: string | number) {
-		editData[field] = value;
+	function handleUpdateEditData(field: string, value: string | number | Tag[]) {
+		console.log(`Updating ${field} with:`, value);
+		
+		// Handle tags specifically
+		if (field === 'asset_tags') {
+			if (Array.isArray(value)) {
+				// Store the Tag objects for later use
+				currentTags = [...value];
+				// Convert tag array to string format for the API
+				editData.asset_tags = value.map(tag => tag.tag_title).join(',');
+				console.log('Updated tags array:', currentTags);
+				console.log('Updated asset_tags string:', editData.asset_tags);
+			} else if (typeof value === 'string') {
+				// If we received a string, normalize it to tags and then back to a string
+				currentTags = tagsStore.stringToTags(value);
+				editData.asset_tags = value;
+				console.log('Updated tags from string:', currentTags);
+			}
+		} else {
+			// Handle other fields normally
+			editData[field] = value;
+		}
 	}
 	
 	function startEditing() {
@@ -127,6 +178,12 @@
 	
 	function cancelEditing() {
 		isEditing = false;
+		// Reset currentTags to match the original asset
+		if (displayAssetData?.asset_tags) {
+			currentTags = tagsStore.normalizeTags(displayAssetData.asset_tags);
+		} else {
+			currentTags = [];
+		}
 	}
 	
 	async function saveChanges() {
@@ -136,7 +193,14 @@
 		
 		try {
 			const assetId = displayAssetData.asset_id.toString();
-						
+			
+			// Ensure asset_tags is up to date with currentTags
+			if (currentTags.length > 0) {
+				editData.asset_tags = currentTags.map(tag => tag.tag_title).join(',');
+				console.log('Final tags before saving:', currentTags);
+				console.log('Final asset_tags string before saving:', editData.asset_tags);
+			}
+			
 			// Create a complete updated asset object
 			const updatedAssetData = {
 				...displayAssetData,  // Start with all existing data
@@ -161,6 +225,7 @@
 			
 			// Ensure tags are properly set in the updated asset data
 			updatedAssetData.asset_tags = editData.asset_tags;
+			updatedAssetData.tags = currentTags;
 			
 			// Create a payload with only the fields we want to update
 			const updatePayload = {
@@ -171,7 +236,7 @@
 				asset_type_id: editData.asset_type_id,
 				analysis_status_id: editData.analysis_status_id,
 				asset_compromise_status_id: editData.asset_compromise_status_id,
-				asset_tags: editData.asset_tags
+				asset_tags: editData.asset_tags  // Send the comma-separated string
 			};
 			
 			console.log('Sending update payload:', updatePayload);
@@ -180,13 +245,21 @@
 			const response = await AssetService.updateAsset(
 				data.caseId, 
 				assetId, 
-				updatePayload
+				updatePayload  // Send our explicit payload
 			);
 			
 			// If we got a response, use it to update our data
 			if (response?.data) {
 				// Merge the response data with our updated data to ensure we have everything
 				Object.assign(updatedAssetData, response.data);
+				
+				// Make sure tags are preserved even if the API response doesn't include them
+				if (!response.data.asset_tags && editData.asset_tags) {
+					updatedAssetData.asset_tags = editData.asset_tags;
+				}
+				if (!response.data.tags && currentTags.length > 0) {
+					updatedAssetData.tags = currentTags;
+				}
 			}
 			
 			// Update the local display data
@@ -218,9 +291,11 @@
 </script>
 
 <div class="">
-	{#await data.asset}
+	{#if shouldShowLoading}
 		<div class="space-y-4">
-			<Skeleton class="h-12 w-48 rounded-lg"></Skeleton>
+			<Card class="border-0 shadow-lg overflow-hidden">
+				<Skeleton class="h-12 w-48 rounded-lg"></Skeleton>
+			</Card>
 			<Card>
 				<CardContent class="p-8">
 					<div class="flex items-center gap-4 mb-6">
@@ -228,7 +303,7 @@
 						<Skeleton class="h-8 w-64"></Skeleton>
 					</div>
 					<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-						{#each Array(6) as _}
+						{#each Array(12) as _}
 							<div class="space-y-2">
 								<Skeleton class="h-4 w-24"></Skeleton>
 								<Skeleton class="h-6 w-full"></Skeleton>
@@ -238,145 +313,149 @@
 				</CardContent>
 			</Card>
 		</div>
-	{:then getAssetReq}
-		{@const assetData = displayAssetData || getAssetReq?.data}
-		{#if assetData}
-			<div>
-					<Card class="border-0 shadow-lg overflow-hidden">
-						<div class="p-4">
-							<div class="flex flex-col md:flex-row items-start md:items-center gap-4">
-								<div class="bg-primary/10 p-3 rounded-lg text-primary">
-									<ComputerIcon class="h-8 w-8" />
-								</div>
-								<div class="flex-grow">
-										<h2 class="text-2xl font-bold">{assetData.asset_name}</h2>
-										<p class="text-muted-foreground">{assetData.asset_type?.asset_name || 'Unknown Type'}</p>
-								</div>
-								<div class="flex gap-2 mt-4 md:mt-0 w-full md:w-auto">
-									{#if isEditing}
-										<Button 
-											variant="outline" 
-											size="sm" 
-											onclick={cancelEditing}
-											class="flex items-center gap-1" 
-											disabled={isSaving}
-										>
-											<XIcon class="h-4 w-4" />
-											<span>Cancel</span>
-										</Button>
-										<Button 
-											variant="default" 
-											size="sm" 
-											onclick={saveChanges}
-											class="flex items-center gap-1" 
-											disabled={isSaving}
-										>
-											{#if isSaving}
-												<span class="animate-spin">⟳</span>
-												<span>Saving...</span>
-											{:else}
-												<SaveIcon class="h-4 w-4" />
-												<span>Save</span>
-											{/if}
-										</Button>
+	{:else if hasError}
+		<div in:fade>
+			<ErrorAlert>
+				<div class="flex items-center gap-2">
+					<AlertTriangleIcon class="h-5 w-5" />
+					<span>There was a problem loading asset #{data.assetId}!</span>
+				</div>
+			</ErrorAlert>
+		</div>
+	{:else if displayAssetData}
+		<div in:fade={{ duration: 150 }}>
+			<Card class="border-0 shadow-lg overflow-hidden">
+				<div class="p-4">
+					<div class="flex flex-col md:flex-row items-start md:items-center gap-4">
+						<div class="bg-primary/10 p-3 rounded-lg text-primary">
+							<ComputerIcon class="h-8 w-8" />
+						</div>
+						<div class="flex-grow">
+								<h2 class="text-2xl font-bold">{displayAssetData.asset_name}</h2>
+								<p class="text-muted-foreground">{displayAssetData.asset_type?.asset_name || 'Unknown Type'}</p>
+						</div>
+						<div class="flex gap-2 mt-4 md:mt-0 w-full md:w-auto">
+							{#if isEditing}
+								<Button 
+									variant="outline" 
+									size="sm" 
+									onclick={cancelEditing}
+									class="flex items-center gap-1" 
+									disabled={isSaving}
+								>
+									<XIcon class="h-4 w-4" />
+									<span>Cancel</span>
+								</Button>
+								<Button 
+									variant="default" 
+									size="sm" 
+									onclick={saveChanges}
+									class="flex items-center gap-1" 
+									disabled={isSaving}
+								>
+									{#if isSaving}
+										<span class="animate-spin">⟳</span>
+										<span>Saving...</span>
 									{:else}
-										<Button 
-											variant="outline" 
-											size="sm" 
-											onclick={startEditing}
-											class="flex items-center gap-1"
-										>
-											<EditIcon class="h-4 w-4" />
-											<span>Edit</span>
-										</Button>
-										<Button variant="destructive" size="sm" class="flex items-center gap-1">
-											<Trash2Icon class="h-4 w-4" />
-											<span>Delete</span>
-										</Button>
+										<SaveIcon class="h-4 w-4" />
+										<span>Save</span>
 									{/if}
-								</div>
-							</div>
+								</Button>
+							{:else}
+								<Button 
+									variant="outline" 
+									size="sm" 
+									onclick={startEditing}
+									class="flex items-center gap-1"
+								>
+									<EditIcon class="h-4 w-4" />
+									<span>Edit</span>
+								</Button>
+								<Button variant="destructive" size="sm" class="flex items-center gap-1">
+									<Trash2Icon class="h-4 w-4" />
+									<span>Delete</span>
+								</Button>
+							{/if}
 						</div>
-					</Card>
-					<ScrollArea class="h-[calc(100vh-220px)] mt-5 rounded-lg">
-						<Card class="border shadow-md overflow-hidden">
-							<CardContent class="p-0">
-								<Tabs bind:value={activeTab} class="w-full">
-									<div class="border-b">
-										<TabsList class="p-0 h-auto bg-transparent border-0 w-full rounded-none">
-											<TabsTrigger 
-												value="details" 
-												class="flex items-center gap-2 py-4 px-6 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-											>
-												<InfoIcon class="h-4 w-4" />
-												<span>Details</span>
-											</TabsTrigger>
-											<TabsTrigger 
-												value="alerts" 
-												class="flex items-center gap-2 py-4 px-6 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-											>
-												<AlertTriangleIcon class="h-4 w-4" />
-												<span>Alerts</span>
-											</TabsTrigger>
-											<TabsTrigger 
-												value="graph" 
-												class="flex items-center gap-2 py-4 px-6 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-											>
-												<NetworkIcon class="h-4 w-4" />
-												<span>Graph</span>
-											</TabsTrigger>
-											<TabsTrigger 
-												value="iocs" 
-												class="flex items-center gap-2 py-4 px-6 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-											>
-												<ShieldAlertIcon class="h-4 w-4" />
-												<span>IOCs</span>
-											</TabsTrigger>
-											<TabsTrigger 
-												value="history" 
-												class="flex items-center gap-2 py-4 px-6 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-											>
-												<HistoryIcon class="h-4 w-4" />
-												<span>History</span>
-											</TabsTrigger>
-										</TabsList>
-									</div>
-									
-									<div class="p-6">
-										<TabsContent value="details">
-											<DetailsTab 
-												asset={assetData}
-												isEditing={isEditing}
-												editData={editData}
-												onUpdateEditData={handleUpdateEditData}
-											/>
-										</TabsContent>
-										<TabsContent value="history">
-											<HistoryTab asset={assetData} />
-										</TabsContent>
-									</div>
-								</Tabs>
-							</CardContent>
-						</Card>
-						<div class="py-6 px-2">
-							<div class="flex flex-col md:flex-row items-start md:items-center gap-4">
-								<div class="flex-grow text-xs">
-									<p class="text-muted-foreground">Added on {formatDate(assetData.date_added)} - Last updated on {formatDate(assetData.date_update)} - ID #{assetData.asset_id || 'Unknown ID'} - UUID #{assetData.asset_uuid || 'Unknown ID'}</p>
-								</div>
-							</div>
-						</div>
-			</ScrollArea>
-			</div>
-		{:else}
-			<div in:fade>
-				<ErrorAlert>
-					<div class="flex items-center gap-2">
-						<AlertTriangleIcon class="h-5 w-5" />
-						<span>There was a problem loading asset #{data.assetId}!</span>
 					</div>
-				</ErrorAlert>
-			</div>
-		{/if}
-	{/await}
-	
+				</div>
+			</Card>
+			<ScrollArea class="h-[calc(100vh-220px)] mt-5 rounded-lg">
+				<Card class="border shadow-md overflow-hidden">
+					<CardContent class="p-0">
+						<Tabs bind:value={activeTab} class="w-full">
+							<div class="border-b">
+								<TabsList class="p-0 h-auto bg-transparent border-0 w-full rounded-none">
+									<TabsTrigger 
+										value="details" 
+										class="flex items-center gap-2 py-4 px-6 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+									>
+										<InfoIcon class="h-4 w-4" />
+										<span>Details</span>
+									</TabsTrigger>
+									<TabsTrigger 
+										value="alerts" 
+										class="flex items-center gap-2 py-4 px-6 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+									>
+										<AlertTriangleIcon class="h-4 w-4" />
+										<span>Alerts</span>
+									</TabsTrigger>
+									<TabsTrigger 
+										value="graph" 
+										class="flex items-center gap-2 py-4 px-6 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+									>
+										<NetworkIcon class="h-4 w-4" />
+										<span>Graph</span>
+									</TabsTrigger>
+									<TabsTrigger 
+										value="iocs" 
+										class="flex items-center gap-2 py-4 px-6 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+									>
+										<ShieldAlertIcon class="h-4 w-4" />
+										<span>IOCs</span>
+									</TabsTrigger>
+									<TabsTrigger 
+										value="history" 
+										class="flex items-center gap-2 py-4 px-6 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+									>
+										<HistoryIcon class="h-4 w-4" />
+										<span>History</span>
+									</TabsTrigger>
+								</TabsList>
+							</div>
+							
+							<div class="p-6">
+								<TabsContent value="details">
+									<DetailsTab 
+										asset={displayAssetData}
+										isEditing={isEditing}
+										editData={editData}
+										onUpdateEditData={handleUpdateEditData}
+										currentTags={currentTags}
+									/>
+								</TabsContent>
+								<TabsContent value="history">
+									<HistoryTab asset={displayAssetData} />
+								</TabsContent>
+							</div>
+						</Tabs>
+					</CardContent>
+				</Card>
+				<div class="py-6 px-2">
+					<div class="flex flex-col md:flex-row items-start md:items-center gap-4">
+						<div class="flex-grow text-xs">
+							<p class="text-muted-foreground">Added on {formatDate(displayAssetData.date_added)} - Last updated on {formatDate(displayAssetData.date_update)} - ID #{displayAssetData.asset_id || 'Unknown ID'} - UUID #{displayAssetData.asset_uuid || 'Unknown ID'}</p>
+						</div>
+					</div>
+				</div>
+			</ScrollArea>
+		</div>
+	{:else if isLoading && !shouldShowLoading}
+		<!-- Invisible placeholder while loading but not showing loading UI -->
+		<div class="invisible">
+			<Card class="border-0 shadow-lg overflow-hidden">
+				<div class="p-4 h-[68px]"></div>
+			</Card>
+		</div>
+	{/if}
 </div>
