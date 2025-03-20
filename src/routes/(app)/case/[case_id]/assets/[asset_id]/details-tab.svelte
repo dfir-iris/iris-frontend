@@ -8,7 +8,8 @@
 		FileTextIcon,
 		CheckCircleIcon,
 		ShieldIcon,
-		ComponentIcon
+		ComponentIcon,
+		HashIcon
 	} from 'lucide-svelte';
 	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
 	import { Input } from '$lib/components/ui/input';
@@ -19,12 +20,15 @@
 	import { AnalysisStatus } from '$lib/components/common/analysis-status';
 	import { CompromiseStatus } from '$lib/components/common/compromise-status';
 	import { assetsStore } from '$lib/stores/assets.store';
+	import { TagInput, TagDisplay } from '$lib/components/common/tag';
+	import type { Tag } from '$lib/stores/tags.store';
+	import { tagsStore } from '$lib/stores/tags.store';
 
 	let { 
 		asset, 
 		isEditing = false, 
 		editData,
-		onUpdateEditData = (field: string, value: string | number) => {}
+		onUpdateEditData = (field: string, value: string | number | Tag[]) => {},
 	} = $props<{ 
 		asset: Asset;
 		isEditing?: boolean;
@@ -36,8 +40,10 @@
 			asset_type_id?: number;
 			analysis_status_id?: number;
 			asset_compromise_status_id?: number;
+			asset_tags?: string;
 		};
-		onUpdateEditData?: (field: string, value: string | number) => void;
+		onUpdateEditData?: (field: string, value: string | number | Tag[]) => void;
+		currentTags?: Tag[];
 	}>();
 	
 	let descriptionHtml = $derived(marked(asset.asset_description || 'No description provided'));
@@ -80,8 +86,7 @@
 			...asset, 
 			analysis_status: newStatus
 		};
-	}
-	
+	}	
 	function handleCompromiseStatusChange(newStatus: any) {
 		// Update the asset data locally
 		asset = { 
@@ -338,6 +343,36 @@
 			{/if}
 		</div>
 	</section>
+
+	<section>
+		<div class="flex items-center gap-2 mb-4 border-b pb-2">
+			<HashIcon class="h-5 w-5 text-primary" />
+			<h2 class="text-lg font-semibold">Tags</h2>
+		</div>
+		
+		<div class="grid grid-cols-1">
+			<div class="bg-card/40 p-4 rounded-lg">
+				{#if isEditing}
+					<TagInput 
+						bind:tags={editData.asset_tags} 
+						outputFormat="string"
+						placeholder="Add tags..."
+					/>
+					<p class="text-xs text-muted-foreground mt-2">Press Enter or comma to add a tag</p>
+				{:else}
+					{#if asset.asset_tags}
+						<TagDisplay 
+							tags={asset.asset_tags} 
+							size="default"
+						/>
+					{:else}
+						<p class="text-muted-foreground italic">No tags</p>
+					{/if}
+				{/if}
+			</div>
+		</div>
+	</section>
+
 </div>
 	
 

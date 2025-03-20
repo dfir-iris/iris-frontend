@@ -100,7 +100,7 @@
   aria-label={`View details for asset ${asset.asset_name}`}
 >
   <!-- Asset header with name and status -->
-  <div class="flex items-center justify-between mb-4">
+  <div class="flex items-center justify-between ">
     <div class="flex items-center gap-2 w-full overflow-hidden">
       <div 
         class={`flex h-8 w-8 items-center justify-center rounded-full ${
@@ -153,35 +153,31 @@
   </div>
   
   <!-- Asset details (IP/Domain) -->
-  <div class="flex flex-col">
+  <div class="flex flex-col mt-2">
     <div class="flex flex-wrap gap-2">
       {#if assetIp}
-        <div class="inline-flex items-center gap-1 bg-muted/50 px-2 py-1 rounded-md text-xs font-mono group">
+        <div class="inline-flex items-center gap-1 border border-dashed px-2 py-1 rounded-md text-xs font-mono group">
           <Network class="h-3 w-3 text-muted-foreground" />
           <span class="truncate">{assetIp}</span>
           <ClipboardCopy 
-            value={assetIp} 
-            className="opacity-0 group-hover:opacity-100 ml-1"
+          value={assetIp} 
+          className="ml-1 hidden group-hover:inline-block"
           />
         </div>
       {/if}
       
       {#if assetDomain}
-        <div class="inline-flex items-center gap-1 bg-muted/50 px-2 py-1 rounded-md text-xs font-mono group">
+        <div class="inline-flex items-center gap-1 border border-dashed px-2 py-1 rounded-md text-xs font-mono group">
           <Globe class="h-3 w-3 text-muted-foreground" />
           <span class="truncate">{assetDomain}</span>
           <ClipboardCopy 
-            value={assetDomain} 
-            className="opacity-0 group-hover:opacity-100 ml-1"
+          value={assetDomain} 
+          className="ml-1 hidden group-hover:inline-block"
           />
         </div>
       {/if}
     </div>
     
-    {#if !assetIp && !assetDomain}
-      <div class="text-xs italic text-muted-foreground">No address information</div>
-    {/if}
-
     {#if hasTags}
       <div class="flex flex-wrap gap-1 text-xs text-muted-foreground mt-1">
         {#each asset.asset_tags.split(',') as tag}
