@@ -24,7 +24,7 @@
 		<button 
 			type="button"
 			class="absolute right-2 top-2 !h-5 !w-5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-			on:click={clearSearch}
+			onclick={clearSearch}
 			aria-label="Clear search"
 		>
 			<XIcon class="!h-5 !w-5" />

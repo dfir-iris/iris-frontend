@@ -29,6 +29,8 @@
 		isEditing = false, 
 		editData,
 		onUpdateEditData = (field: string, value: string | number | Tag[]) => {},
+		currentTags = [],
+		onAssetChange = (updatedAsset: Partial<Asset>) => {}
 	} = $props<{ 
 		asset: Asset;
 		isEditing?: boolean;
@@ -44,6 +46,7 @@
 		};
 		onUpdateEditData?: (field: string, value: string | number | Tag[]) => void;
 		currentTags?: Tag[];
+		onAssetChange?: (updatedAsset: Partial<Asset>) => void;
 	}>();
 	
 	let descriptionHtml = $derived(marked(asset.asset_description || 'No description provided'));
@@ -81,18 +84,27 @@
 	});
 	
 	function handleStatusChange(newStatus: any) {
-		// Update the asset data locally
-		asset = { 
-			...asset, 
+		// Instead of directly modifying asset, call the callback
+		onAssetChange({ 
 			analysis_status: newStatus
-		};
-	}	
+		});
+	}
+	
+	function handleTagsChange(newTags: Tag[]) {
+		console.log('Tags changed in details-tab:', newTags);
+		// Make sure we're passing an array of Tag objects
+		if (Array.isArray(newTags)) {
+			onUpdateEditData('asset_tags', newTags);
+		} else {
+			console.error('Expected array of tags but got:', newTags);
+		}
+	}
+	
 	function handleCompromiseStatusChange(newStatus: any) {
-		// Update the asset data locally
-		asset = { 
-			...asset, 
+		// Instead of directly modifying asset, call the callback
+		onAssetChange({ 
 			asset_compromise_status_id: newStatus.id
-		};
+		});
 	}
 
 	// Function to update a specific field
@@ -346,24 +358,27 @@
 
 	<section>		
 		<div class="grid grid-cols-1">
-			<div class="bg-card/40 p-4 rounded-lg">
+			<div class="bg-card/40  rounded-lg">
 				{#if isEditing}
 					<TagInput 
-						bind:tags={editData.asset_tags} 
-						outputFormat="string"
+						tags={currentTags} 
+						outputFormat="array"
+						onchange={handleTagsChange}
 						placeholder="Add tags..."
+						maxTags={20}
 					/>
 					<p class="text-xs text-muted-foreground mt-2">Press Enter or comma to add a tag</p>
 				{:else}
-					{#if asset.asset_tags}
+					{#if asset.asset_tags || asset.tags}
 						<TagDisplay 
-							tags={asset.asset_tags} 
+							tags={asset.asset_tags || asset.tags || []} 
 							size="default"
 						/>
+					{:else}
+						<p class="text-muted-foreground italic">No tags</p>
 					{/if}
 				{/if}
 			</div>
-		</div>
 	</section>
 
 </div>

@@ -121,6 +121,23 @@
 		})();
 	});
 	
+	// Add a function to handle asset changes from the details tab
+	function handleAssetChange(updatedAsset: Partial<Asset>) {
+		if (!displayAssetData) return;
+		
+		// Create a new asset object with the updated fields
+		displayAssetData = { 
+			...displayAssetData, 
+			...updatedAsset
+		};
+		
+		// If we have the asset ID, also update the store
+		if (displayAssetData.asset_id) {
+			const assetId = displayAssetData.asset_id.toString();
+			assetsStore.updateAsset(assetId, displayAssetData);
+		}
+	}
+	
 	function handleUpdateEditData(field: string, value: string | number | Tag[]) {
 		console.log(`Updating ${field} with:`, value);
 		
@@ -432,6 +449,7 @@
 										editData={editData}
 										onUpdateEditData={handleUpdateEditData}
 										currentTags={currentTags}
+										onAssetChange={handleAssetChange}
 									/>
 								</TabsContent>
 								<TabsContent value="history">

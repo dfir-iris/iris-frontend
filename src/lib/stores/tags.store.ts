@@ -27,8 +27,9 @@ function createTagsStore() {
   };
 
   const { subscribe, set, update } = writable<TagsState>(initialState);
-
-  return {
+  
+  // Create a reference to the store functions for use in utility methods
+  const tagsStore = {
     subscribe,
     
     // Fetch tag suggestions based on search term
@@ -50,9 +51,10 @@ function createTagsStore() {
         if (searchTerm && searchTerm.trim()) {
           queryParams.append('tag_title', searchTerm.trim());
         } else {
+          // If no search term, just return empty results without making an API call
           update(state => ({
             ...state,
-            suggestions: response.data.data,
+            suggestions: [], // Don't use response here since it doesn't exist yet
             isLoading: false
           }));
           return [];
@@ -115,6 +117,8 @@ function createTagsStore() {
       return input || [];
     }
   };
+  
+  return tagsStore;
 }
 
 export const tagsStore = createTagsStore();

@@ -11,7 +11,8 @@
     placeholder = 'Add tags...',
     maxTags = 10,
     className = '',
-    outputFormat = 'array'
+    outputFormat = 'array',
+    onchange = undefined
   }: {
     tags: TagInput;
     disabled?: boolean;
@@ -180,7 +181,9 @@
     }
     
     // Call the onchange handler with the updated tags
-    onchange(internalTags);
+    if (onchange) {
+      onchange(internalTags);
+    }
   }
   
   // Handle keyboard navigation

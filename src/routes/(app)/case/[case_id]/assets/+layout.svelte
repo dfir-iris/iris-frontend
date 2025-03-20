@@ -122,6 +122,7 @@
 			{ field: "asset_ip", operator: "like", value: term },
 			{ field: "asset_domain", operator: "like", value: term },
 			{ field: "asset_description", operator: "like", value: term },
+			{ field: "asset_tags", operator: "like", value: term },
 			{ field: "asset_type.asset_name", operator: "like", value: term }
 		];
 	}

@@ -76,8 +76,5 @@
       +{moreCount} more
     </div>
   {/if}
-  
-  {#if normalizedTags.length === 0}
-    <div class="text-sm text-muted-foreground">No tags</div>
-  {/if}
+
 </div>

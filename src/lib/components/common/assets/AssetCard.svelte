@@ -78,7 +78,7 @@
   // Computed properties
   $: AssetTypeIcon = getAssetTypeIcon(asset.asset_type?.asset_name.toLowerCase() || '');  
   $: hasIocs = (asset.iocs ?? []).length > 0;
-  $: hasTags = asset.asset_tags?.split(',')?.length - 1 > 0;
+  $: hasTags = asset.asset_tags?.split(',')?.length - 1 >= 0;
   $: assetIp = asset.asset_ip || '';
   $: assetDomain = asset.asset_domain || '';
   $: isCompromised = asset.asset_compromise_status_id === 1;
@@ -92,7 +92,7 @@
 </script>
 
 <button type="button" 
-  class="w-full text-left rounded-xl border p-3 text-sm shadow transition-all duration-200 ease-in-out hover:bg-accent/80 hover:shadow-md group {
+  class="w-full text-left rounded-xl border p-3 text-sm shadow transition-all duration-200 ease-in-out hover:bg-accent/100 group {
     isSelected
       ? 'bg-accent text-accent-foreground border-primary/30'
       : 'bg-background hover:bg-background/80'
