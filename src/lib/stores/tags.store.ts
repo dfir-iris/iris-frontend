@@ -49,6 +49,13 @@ function createTagsStore() {
         // Add search term if provided
         if (searchTerm && searchTerm.trim()) {
           queryParams.append('tag_title', searchTerm.trim());
+        } else {
+          update(state => ({
+            ...state,
+            suggestions: response.data.data,
+            isLoading: false
+          }));
+          return [];
         }
         
         // Append query parameters to URL

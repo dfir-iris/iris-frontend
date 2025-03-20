@@ -86,9 +86,6 @@
       debounceTimer = setTimeout(() => {
         if (inputValue.trim()) {
           fetchSuggestions(inputValue);
-        } else {
-          // Even with empty input, fetch some default suggestions
-          fetchSuggestions('');
         }
       }, 300);
     }
@@ -160,11 +157,7 @@
       // Focus the input after adding a tag
       await tick();
       inputElement?.focus();
-      
-      // Fetch new suggestions after a short delay
-      setTimeout(() => {
-        fetchSuggestions('');
-      }, 100);
+    
     }
   }
   
