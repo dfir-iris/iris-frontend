@@ -25,14 +25,15 @@ function createAssetsStore() {
     },
     
     // Update a single asset
-    updateAsset: (assetId: string, updatedAsset: Asset) => {
+    updateAsset: (assetId: string | number, updatedAsset: Asset) => {
       update(store => {
         // If the asset already exists in the store, merge it with the new data
         const existingAsset = store[assetId];
         const mergedAsset = existingAsset 
           ? { ...existingAsset, ...updatedAsset }
           : { ...updatedAsset };
-          
+        
+          console.log('mergedAsset', mergedAsset);
         return {
           ...store,
           [assetId]: mergedAsset

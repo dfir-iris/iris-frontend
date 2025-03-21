@@ -9,9 +9,11 @@
   import type { IOC } from '$lib/types/resources/ioc';
   import { Badge } from '$lib/components/ui/badge';
   import { cn } from '$lib/utils';
+	import { AssetService } from '$lib/services/asset.service';
+	import { toast } from '$lib/stores/toast.store';
   
   // Props
-  let { caseId, assetId }: { caseId: number, assetId: number } = $props();
+  let { caseId, assetId, hasRefreshed = $bindable()}: { caseId: number, assetId: number, hasRefreshed: boolean } = $props();
   
   // Local state
   let showIOCDropdown = $state(false);
@@ -114,14 +116,27 @@
         // Create a new asset object with the updated field
         const updatedAsset = {
           ...existingAsset,
-          iocs: [...(existingAsset.iocs || []), ioc.id]
+          iocs: [...(existingAsset.iocs || []), { ioc_id: ioc.ioc_id}]
         };
         
-        // Update the asset in the store and API
-        assetsStore.updateAsset(assetId, updatedAsset);
+        const response = await AssetService.updateAsset(caseId, assetId, {
+          ioc_links: updatedAsset.iocs.map(ioc => ioc.ioc_id)
+        });
+
+        if (response?.data) {
+          assetsStore.updateAsset(assetId, response.data);
+          hasRefreshed = true;
+        }
         
         // Close the dropdown
         showIOCDropdown = false;
+
+        // Show a success toast
+        toast({
+          title: 'IOC linked',
+          description: 'The IOC has been successfully linked to the asset.',
+          variant: 'success'
+        });
       }
     } catch (err) {
       console.error('Error linking IOC:', err);

@@ -166,7 +166,6 @@
 	}
 	
 	function startEditing() {
-		console.log('Start editing called');
 		if (!displayAssetData) {
 			console.error('Asset data not available');
 			return;
@@ -193,7 +192,6 @@
 		
 		isEditing = true;
 		console.log('Editing mode enabled', editData);
-		console.log('Current tags:', currentTags);
 	}
 	
 	function cancelEditing() {
@@ -217,8 +215,6 @@
 			// Ensure asset_tags is up to date with currentTags
 			if (currentTags.length > 0) {
 				editData.asset_tags = currentTags.map(tag => tag.tag_title).join(',');
-				console.log('Final tags before saving:', currentTags);
-				console.log('Final asset_tags string before saving:', editData.asset_tags);
 			}
 			
 			// Create a complete updated asset object
@@ -258,9 +254,7 @@
 				asset_compromise_status_id: editData.asset_compromise_status_id,
 				asset_tags: editData.asset_tags  // Send the comma-separated string
 			};
-			
-			console.log('Sending update payload:', updatePayload);
-			
+						
 			// Send the update to the API
 			const response = await AssetService.updateAsset(
 				data.caseId, 
@@ -461,7 +455,7 @@
 									/>
 								</TabsContent>
 								<TabsContent value="ioc">
-									<IOCsTab asset={displayAssetData} />
+									<IOCsTab bind:asset={displayAssetData} />
 								</TabsContent>
 								<TabsContent value="history">
 									<HistoryTab asset={displayAssetData} />
