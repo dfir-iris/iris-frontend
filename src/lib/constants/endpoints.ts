@@ -47,7 +47,7 @@ export const ENDPOINTS = {
             getById: (noteId: number | string) => `/note/${noteId}`,
         },
         ioc: {
-            list: (caseId: number | string, parameters: object) => `/cases/${caseId}/iocs${buildParameters(parameters)}`,
+            list: (caseId: number | string, parameters: object = {}) => `/cases/${caseId}/iocs${buildParameters(parameters)}`,
             getById: (caseId: number | string, iocId: number | string) => `/cases/${caseId}/iocs/${iocId}`,
         },
         getById: (caseId: number | string) => `/cases/${caseId}`,

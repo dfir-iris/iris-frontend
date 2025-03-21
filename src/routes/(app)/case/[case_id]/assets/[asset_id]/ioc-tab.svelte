@@ -20,6 +20,7 @@
   import type { Asset } from '$lib/types/resources/asset';
   import type { IOC } from '$lib/types/resources/ioc';
   import { ENDPOINTS } from '$lib/constants/endpoints';
+	import IocLinkButton from '$lib/components/common/ioc/IOCLinkButton.svelte';
 
   let { asset }: { asset: Asset } = $props();
   
@@ -126,24 +127,28 @@
 </script>
 
 <div class="space-y-6">
-  <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+  <header class="flex flex-col sm:flex-row sm:items-center gap-4">
     <div class="flex items-center gap-2">
       <ShieldAlertIcon class="h-5 w-5 text-primary" />
       <h2 class="text-xl font-semibold">Indicators of Compromise</h2>
     </div>
-    
-    <div class="relative w-full sm:w-64 md:w-80">
-      <SearchIcon class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-      <Input 
-        type="search" 
-        placeholder="Search IOCs..." 
-        class="pl-9 w-full"
-        value={searchQuery}
-        oninput={handleSearch}
-        disabled={isLoading || iocs.length === 0}
-      />
+  
+    <div class="flex w-full sm:w-auto sm:ml-auto gap-2 justify-end">
+      <div class="relative w-full sm:w-64 md:w-80">
+        <SearchIcon class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input 
+          type="search" 
+          placeholder="Search IOCs..." 
+          class="pl-9 w-full"
+          value={searchQuery}
+          oninput={handleSearch}
+          disabled={isLoading || iocs.length === 0}
+        />
+      </div>
+      <IocLinkButton assetId={asset.asset_id} caseId={asset.case_id} />
     </div>
   </header>
+  
   
   {#if isLoading}
     <div class="space-y-4">
@@ -209,9 +214,9 @@
         <section in:slide={{ duration: 300 }}>
           <h3 class="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2 border-b pb-1">
             <span>{typeName}</span>
-            <Badge variant="outline" class="text-xs font-normal">
+            <span class="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 text-[10px] font-medium leading-none data-[state=active]:bg-primary/20 data-[state=active]:text-primary bg-muted text-muted-foreground rounded-sm px-1 transition-colors">
               {typeIocs.length}
-            </Badge>
+            </span>
           </h3>
           
           <div class="grid grid-cols-1 md:grid-cols-1 gap-4">
