@@ -6,4 +6,8 @@ export class AssetService {
   static async updateAsset(caseId: string | number, assetId: string | number, assetData: Partial<Asset>) {
     return ApiService.put(ENDPOINTS.case.assets.update(caseId, assetId), assetData);
   }
+
+  static async addAsset(caseId: string | number, assetData: Partial<Asset>) {
+    return ApiService.post(ENDPOINTS.case.assets.add(caseId), assetData);
+  }
 }

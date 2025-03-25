@@ -18,6 +18,7 @@
 	import * as Resizable from "$lib/components/ui/resizable/index.js";
 	import AssetCard from '$lib/components/common/assets/AssetCard.svelte';
 	import { assetsStore } from '$lib/stores/assets.store';
+	import AddAssetButton from '$lib/components/common/assets/add-asset-button.svelte';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 	
@@ -301,10 +302,7 @@
 					<RefreshCwIcon size={20} class={isRefreshing ? 'animate-spin' : ''} />
 					Refresh
 				</Button>
-				<Button>
-					<PlusIcon size={20}></PlusIcon>
-					Add
-				</Button>
+				<AddAssetButton />
 			</div>
 			<Searchbar placeholder="Search assets" bind:value={searchTerm} />
 

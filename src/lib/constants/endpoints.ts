@@ -41,6 +41,7 @@ export const ENDPOINTS = {
             list: (caseId: number | string, parameters: object) => `/cases/${caseId}/assets${buildParameters(parameters)}`,
             getById: (caseId: number | string, assetId: number | string) => `/cases/${caseId}/assets/${assetId}`,
             update: (caseId: number | string, assetId: number | string) => `/cases/${caseId}/assets/${assetId}`,
+            add: (caseId: number | string) => `/cases/${caseId}/assets`
         },
         notes: {
             list: (caseId: number | string) => `/case/${caseId}/notes`,

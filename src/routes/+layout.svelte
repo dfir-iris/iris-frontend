@@ -3,6 +3,8 @@
   import "../app.css";
   import { ModeWatcher, mode } from "mode-watcher";
   import { Toaster } from '$lib/components/ui/toast';
+  import { handleSessionExpiration } from '$lib/utils/session-handler';
+
 
   const { children, data } = $props();
 
@@ -17,6 +19,16 @@
     } else {
       document.body.classList.remove("dark");
     }
+
+    const handleSessionEvent = () => {
+      handleSessionExpiration();
+    };
+    
+    window.addEventListener('session-expired', handleSessionEvent);
+    
+    return () => {
+      window.removeEventListener('session-expired', handleSessionEvent);
+    };
   });
 </script>
 

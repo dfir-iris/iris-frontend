@@ -40,6 +40,16 @@ function createAssetsStore() {
         };
       });
     },
+
+    addAsset: (assetData: Asset) => {
+      update(store => {
+        const assetId = assetData.asset_id.toString();
+        return {
+          ...store,
+          [assetId]: { ...assetData }
+        };
+      })
+    },
     
     // Get an asset by ID
     getAsset: (assetId: string) => {
