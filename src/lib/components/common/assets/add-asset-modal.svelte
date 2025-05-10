@@ -15,7 +15,6 @@
   import { Input } from '$lib/components/ui/input';
   import { Textarea } from '$lib/components/ui/textarea';
   import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '$lib/components/ui/dialog';
-  import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
   import { Card, CardContent } from '$lib/components/ui/card';
   import { Label } from '$lib/components/ui/label';
   import { TagInput } from '$lib/components/common/tag';
@@ -42,7 +41,6 @@
   }>();
 
   // State
-  let activeTab = $state('details');
   let isSubmitting = $state(false);
   let currentTags = $state<Tag[]>([]);
   let selectedIOCs = $state<IOC[]>([]);
@@ -89,7 +87,6 @@
     selectedIOCs = [];
     searchQuery = '';
     searchResults = [];
-    activeTab = 'details';
   }
 
   // Handle tag changes
@@ -181,11 +178,11 @@
       };
 
       // Call the AssetService.add method
-      const response = await AssetService.add(caseId, payload);
+      const response = await AssetService.addAsset(caseId, payload);
       
       if (response?.data) {
         // Add the new asset to the store
-        assetsStore.addAsset(response.data);
+        assetsStore.addAsset(response.data as Asset);
         
         // Show success message
         toast({
@@ -223,263 +220,253 @@
       </DialogDescription>
     </DialogHeader>
     
-    <Tabs bind:value={activeTab} class="flex-1 overflow-hidden flex flex-col">
-      <TabsList class="w-full justify-start border-b rounded-none px-0 h-auto bg-transparent">
-        <TabsTrigger 
-          value="details" 
-          class="flex items-center gap-2 py-3 px-5 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-        >
-          <InfoIcon class="h-4 w-4" />
-          <span>Details</span>
-        </TabsTrigger>
-        <TabsTrigger 
-          value="ioc" 
-          class="flex items-center gap-2 py-3 px-5 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none relative"
-        >
-          <ShieldAlertIcon class="h-4 w-4" />
-          <span>Link IOCs</span>
-          {#if selectedIOCs.length > 0}
-            <Badge variant="secondary" class="ml-1.5 h-5 min-w-5 px-1 text-xs">
-              {selectedIOCs.length}
-            </Badge>
-          {/if}
-        </TabsTrigger>
-      </TabsList>
-      
-      <div class="flex-1 overflow-y-auto py-4">
-        <TabsContent value="details" class="m-0 p-1 h-full">
-          <div class="space-y-6">
-            <!-- General Information -->
-            <section>
-              <div class="flex items-center gap-2 mb-4">
-                <ServerIcon class="h-5 w-5 text-primary" />
-                <h2 class="text-lg font-semibold">General Information</h2>
-              </div>
-              
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="space-y-2">
-                  <Label for="asset_name" class="font-medium">Asset Name <span class="text-destructive">*</span></Label>
-                  <Input 
-                    id="asset_name" 
-                    bind:value={assetData.asset_name} 
-                    placeholder="Enter asset name" 
-                    required
-                  />
-                </div>
-                
-                <div class="space-y-2">
-                  <Label for="asset_type" class="font-medium">Asset Type <span class="text-destructive">*</span></Label>
-                  <Select type="single" value={assetData.asset_type_id?.toString()} required>
-                    <SelectTrigger id="asset_type">
-                    Select asset type 
-                    </SelectTrigger>
-                    <SelectContent>
-                      {#each $assetTypes as type}
-                        <SelectItem value={type.asset_id.toString()}>{type.asset_name}</SelectItem>
-                      {/each}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div class="space-y-2">
-                  <Label for="analysis_status" class="font-medium">Analysis Status</Label>
-                  <Select type="single" value={assetData.analysis_status_id?.toString()} onValueChange={value => assetData.analysis_status_id = parseInt(value)}>
-                    <SelectTrigger id="analysis_status" aria-label="Select analysis status">
-                    </SelectTrigger>
-                    <SelectContent>
-                      {#each $analysisStatuses as status}
-                        <SelectItem value={status.id.toString()}>{status.name}</SelectItem>
-                      {/each}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div class="space-y-2">
-                  <Label for="compromise_status" class="font-medium">Compromise Status</Label>
-                  <Select type="single" bind:value={assetData.asset_compromise_status_id}>
-                    <SelectTrigger id="compromise_status">
-                      Select compromise status
-                    </SelectTrigger>
-                    <SelectContent>
-                      {#each Object.entries(COMPROMISE_STATUS) as [statusId, statusName]}
-                        <SelectItem value={statusId}>{statusName}</SelectItem>
-                      {/each}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </section>
-            
-            <!-- Network Information -->
-            <section>
-              <div class="flex items-center gap-2 mb-4">
-                <NetworkIcon class="h-5 w-5 text-primary" />
-                <h2 class="text-lg font-semibold">Network Information</h2>
-              </div>
-              
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="space-y-2">
-                  <Label for="asset_ip" class="font-medium">IP Address</Label>
-                  <Input 
-                    id="asset_ip" 
-                    bind:value={assetData.asset_ip} 
-                    placeholder="e.g. 192.168.1.1" 
-                  />
-                </div>
-                
-                <div class="space-y-2">
-                  <Label for="asset_domain" class="font-medium">Domain</Label>
-                  <Input 
-                    id="asset_domain" 
-                    bind:value={assetData.asset_domain} 
-                    placeholder="e.g. example.com" 
-                  />
-                </div>
-              </div>
-            </section>
-            
-            <!-- Description -->
-            <section>
-              <div class="flex items-center gap-2 mb-4">
-                <FileTextIcon class="h-5 w-5 text-primary" />
-                <h2 class="text-lg font-semibold">Description</h2>
-              </div>
-              
-              <div class="space-y-2">
-                <Textarea 
-                  bind:value={assetData.asset_description}
-                  placeholder="Provide a detailed description of this asset"
-                  rows={5}
-                  class="w-full"
-                />
-                <p class="text-xs text-muted-foreground">Markdown formatting is supported</p>
-              </div>
-            </section>
-            
-            <!-- Tags -->
-            <section>
-              <div class="flex items-center gap-2 mb-4">
-                <ComponentIcon class="h-5 w-5 text-primary" />
-                <h2 class="text-lg font-semibold">Tags</h2>
-              </div>
-              
-              <div class="space-y-2">
-                <TagInput 
-                  tags={currentTags} 
-                  outputFormat="array"
-                  onchange={handleTagsChange}
-                  placeholder="Add tags..."
-                  maxTags={20}
-                />
-                <p class="text-xs text-muted-foreground">Press Enter or comma to add a tag</p>
-              </div>
-            </section>
+    <div class="flex-1 overflow-y-auto py-4 ">
+      <div class="space-y-6 max-w-[95%] mx-auto">
+        <!-- General Information -->
+        <section>
+          <div class="flex items-center gap-2 mb-4">
+            <ServerIcon class="h-5 w-5 text-primary" />
+            <h2 class="text-lg font-semibold">General Information</h2>
           </div>
-        </TabsContent>
-        
-        <TabsContent value="ioc" class="m-0 p-0 h-full">
-          <div class="space-y-6">
-            <div class="flex items-center gap-2 mb-4">
-              <ShieldAlertIcon class="h-5 w-5 text-primary" />
-              <h2 class="text-lg font-semibold">Link Indicators of Compromise</h2>
-            </div>
-            
-            <!-- Search IOCs -->
-            <div class="relative">
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-2">
+              <Label for="asset_name" class="font-medium">Asset Name <span class="text-destructive">*</span></Label>
               <Input 
-                type="search" 
-                placeholder="Search for IOCs by value, type, or description..." 
-                value={searchQuery}
-                oninput={handleSearchInput}
-                class="w-full"
+                id="asset_name" 
+                bind:value={assetData.asset_name} 
+                placeholder="Enter asset name" 
+                required
               />
-              {#if isSearching}
-                <div class="absolute right-3 top-1/2 -translate-y-1/2">
-                  <div class="animate-spin h-4 w-4">⟳</div>
-                </div>
-              {/if}
             </div>
             
-            <!-- Selected IOCs -->
-            {#if selectedIOCs.length > 0}
-              <div>
-                <h3 class="text-sm font-medium mb-2">Selected IOCs ({selectedIOCs.length})</h3>
-                <div class="flex flex-wrap gap-2 mb-4">
-                  {#each selectedIOCs as ioc (ioc.ioc_id)}
-                    <Badge variant="secondary" class="flex items-center gap-1 py-1.5 pl-2 pr-1">
-                      <span class="text-xs">{ioc.ioc_value}</span>
-                      <button 
-                        onclick={() => toggleIOCSelection(ioc)}
-                        class="ml-1 h-4 w-4 rounded-full bg-muted-foreground/20 hover:bg-destructive/20 flex items-center justify-center"
-                      >
-                        <XIcon class="h-3 w-3" />
-                      </button>
-                    </Badge>
+            <div class="space-y-2">
+              <Label for="asset_type" class="font-medium">Asset Type <span class="text-destructive">*</span></Label>
+              <Select 
+                type="single" 
+                value={assetData.asset_type_id?.toString()} 
+                onValueChange={value => assetData.asset_type_id = parseInt(value)}
+                required
+              >
+                <SelectTrigger id="asset_type">
+                  {assetData.asset_type_id ? 
+                    $assetTypes.find(t => t.asset_id === assetData.asset_type_id)?.asset_name || 'Select asset type' : 
+                    'Select asset type'}
+                </SelectTrigger>
+                <SelectContent>
+                  {#each $assetTypes as type}
+                    <SelectItem value={type.asset_id.toString()}>{type.asset_name}</SelectItem>
                   {/each}
-                </div>
-                <Separator class="my-4" />
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div class="space-y-2">
+              <Label for="analysis_status" class="font-medium">Analysis Status</Label>
+              <Select 
+                type="single" 
+                value={assetData.analysis_status_id?.toString()} 
+                onValueChange={value => assetData.analysis_status_id = parseInt(value)}
+              >
+                <SelectTrigger id="analysis_status" aria-label="Select analysis status">
+                  {assetData.analysis_status_id ? 
+                    $analysisStatuses.find(s => s.id === assetData.analysis_status_id)?.name || 'Select analysis status' : 
+                    'Select analysis status'}
+                </SelectTrigger>
+                <SelectContent>
+                  {#each $analysisStatuses as status}
+                    <SelectItem value={status.id.toString()}>{status.name}</SelectItem>
+                  {/each}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div class="space-y-2">
+              <Label for="compromise_status" class="font-medium">Compromise Status</Label>
+              <Select 
+                type="single" 
+                value={assetData.asset_compromise_status_id.toString()} 
+                onValueChange={value => assetData.asset_compromise_status_id = parseInt(value)}
+              >
+                <SelectTrigger id="compromise_status">
+                  {COMPROMISE_STATUS[assetData.asset_compromise_status_id as keyof typeof COMPROMISE_STATUS] || 'Select compromise status'}
+                </SelectTrigger>
+                <SelectContent>
+                  {#each Object.entries(COMPROMISE_STATUS) as [statusId, statusName]}
+                    <SelectItem value={statusId}>{statusName}</SelectItem>
+                  {/each}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </section>
+        
+        <!-- Network Information -->
+        <section>
+          <div class="flex items-center gap-2 mb-4">
+            <NetworkIcon class="h-5 w-5 text-primary" />
+            <h2 class="text-lg font-semibold">Network Information</h2>
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-2">
+              <Label for="asset_ip" class="font-medium">IP Address</Label>
+              <Input 
+                id="asset_ip" 
+                bind:value={assetData.asset_ip} 
+                placeholder="e.g. 192.168.1.1" 
+              />
+            </div>
+            
+            <div class="space-y-2">
+              <Label for="asset_domain" class="font-medium">Domain</Label>
+              <Input 
+                id="asset_domain" 
+                bind:value={assetData.asset_domain} 
+                placeholder="e.g. example.com" 
+              />
+            </div>
+          </div>
+        </section>
+        
+        <!-- Description -->
+        <section>
+          <div class="flex items-center gap-2 mb-4">
+            <FileTextIcon class="h-5 w-5 text-primary" />
+            <h2 class="text-lg font-semibold">Description</h2>
+          </div>
+          
+          <div class="space-y-2">
+            <Textarea 
+              bind:value={assetData.asset_description}
+              placeholder="Provide a detailed description of this asset"
+              rows={5}
+              class="w-full"
+            />
+            <p class="text-xs text-muted-foreground">Markdown formatting is supported</p>
+          </div>
+        </section>
+        
+        <!-- Tags -->
+        <section>
+          <div class="flex items-center gap-2 mb-4">
+            <ComponentIcon class="h-5 w-5 text-primary" />
+            <h2 class="text-lg font-semibold">Tags</h2>
+          </div>
+          
+          <div class="space-y-2">
+            <TagInput 
+              tags={currentTags} 
+              outputFormat="array"
+              onchange={handleTagsChange}
+              placeholder="Add tags..."
+              maxTags={20}
+            />
+            <p class="text-xs text-muted-foreground">Press Enter or comma to add a tag</p>
+          </div>
+        </section>
+
+        <!-- IOCs Section -->
+        <section>
+          <div class="flex items-center gap-2 mb-4">
+            <ShieldAlertIcon class="h-5 w-5 text-primary" />
+            <h2 class="text-lg font-semibold">Link Indicators of Compromise</h2>
+          </div>
+
+          <!-- Selected IOCs -->
+          {#if selectedIOCs.length > 0}
+            <div class="mb-4">
+              <h3 class="text-sm font-medium mb-2">Selected IOCs ({selectedIOCs.length})</h3>
+              <div class="flex flex-wrap gap-2 mb-4">
+                {#each selectedIOCs as ioc (ioc.ioc_id)}
+                  <Badge variant="secondary" class="flex items-center gap-1 py-1.5 pl-2 pr-1">
+                    <span class="text-xs">{ioc.ioc_value}</span>
+                    <button 
+                      onclick={() => toggleIOCSelection(ioc)}
+                      class="ml-1 h-4 w-4 rounded-full bg-muted-foreground/20 hover:bg-destructive/20 flex items-center justify-center"
+                    >
+                      <XIcon class="h-3 w-3" />
+                    </button>
+                  </Badge>
+                {/each}
+              </div>
+              <Separator class="my-4" />
+            </div>
+          {/if}
+
+          <!-- Search IOCs -->
+          <div class="relative mb-4">
+            <Input 
+              type="search" 
+              placeholder="Search for IOCs by value, type, or description..." 
+              value={searchQuery}
+              oninput={handleSearchInput}
+              class="w-full"
+            />
+            {#if isSearching}
+              <div class="absolute right-3 top-1/2 -translate-y-1/2">
+                <div class="animate-spin h-4 w-4">⟳</div>
               </div>
             {/if}
-            
-            <!-- Search Results -->
-            <div>
-              {#if searchQuery && !isSearching && searchResults.length === 0}
-                <div class="text-center py-8 bg-muted/30 rounded-lg border border-dashed">
-                  <AlertTriangleIcon class="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                  <p class="text-muted-foreground">No IOCs found matching "{searchQuery}"</p>
-                </div>
-              {:else if searchResults.length > 0}
-                <div class="space-y-3">
-                  {#each searchResults as ioc (ioc.ioc_id)}
-                    <Card class={isIOCSelected(ioc) ? 'border-primary/50 bg-primary/5' : ''}>
-                      <CardContent class="p-4 flex items-start justify-between">
-                        <div class="flex-1">
-                          <div class="flex items-center gap-2">
-                            <Badge variant="outline" class="px-2 py-0.5 text-xs">
-                              {ioc.ioc_type.type_name}
-                            </Badge>
-                            <h4 class="font-medium">{ioc.ioc_value}</h4>
-                          </div>
-                          {#if ioc.ioc_description}
-                            <p class="text-sm text-muted-foreground mt-1 line-clamp-2">
-                              {ioc.ioc_description}
-                            </p>
-                          {/if}
-                        </div>
-                        <Button 
-                          variant={isIOCSelected(ioc) ? "default" : "outline"} 
-                          size="sm"
-                          onclick={() => toggleIOCSelection(ioc)}
-                          class="ml-4 shrink-0"
-                        >
-                          {#if isIOCSelected(ioc)}
-                            <CheckIcon class="h-4 w-4 mr-1" /> Selected
-                          {:else}
-                            <PlusIcon class="h-4 w-4 mr-1" /> Select
-                          {/if}
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  {/each}
-                </div>
-              {:else if !searchQuery}
-                <div class="text-center py-8 bg-muted/30 rounded-lg border border-dashed">
-                  <ShieldAlertIcon class="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                  <p class="text-muted-foreground">Search for IOCs to link to this asset</p>
-                </div>
-              {/if}
-            </div>
           </div>
-        </TabsContent>
+
+          <!-- Search Results -->
+          <div>
+            {#if searchQuery && !isSearching && searchResults.length === 0}
+              <div class="text-center py-4 bg-muted/30 rounded-lg border border-dashed">
+                <AlertTriangleIcon class="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                <p class="text-muted-foreground">No IOCs found matching "{searchQuery}"</p>
+              </div>
+            {:else if searchResults.length > 0}
+              <div class="space-y-2 max-h-[300px] overflow-y-auto">
+                {#each searchResults as ioc (ioc.ioc_id)}
+                  <Card class={isIOCSelected(ioc) ? 'border-primary/50 bg-primary/5' : ''}>
+                    <CardContent class="p-3 flex items-start justify-between">
+                      <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                          <Badge variant="outline" class="px-2 py-0.5 text-xs">
+                            {ioc.ioc_type.type_name}
+                          </Badge>
+                          <h4 class="font-medium">{ioc.ioc_value}</h4>
+                        </div>
+                        {#if ioc.ioc_description}
+                          <p class="text-sm text-muted-foreground mt-1 line-clamp-2">
+                            {ioc.ioc_description}
+                          </p>
+                        {/if}
+                      </div>
+                      <Button 
+                        variant={isIOCSelected(ioc) ? "default" : "outline"} 
+                        size="sm"
+                        onclick={() => toggleIOCSelection(ioc)}
+                        class="ml-4 shrink-0"
+                      >
+                        {#if isIOCSelected(ioc)}
+                          <CheckIcon class="h-4 w-4 mr-1" /> Selected
+                        {:else}
+                          <PlusIcon class="h-4 w-4 mr-1" /> Select
+                        {/if}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                {/each}
+              </div>
+            {:else if !searchQuery}
+              <div class="text-center py-4 bg-muted/30 rounded-lg border border-dashed">
+                <ShieldAlertIcon class="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                <p class="text-muted-foreground">Search for IOCs to link to this asset</p>
+              </div>
+            {/if}
+          </div>
+        </section>
       </div>
-    </Tabs>
-    
+    </div>
+
     <DialogFooter class="flex items-center justify-between pt-2">
       <div class="text-sm text-muted-foreground">
-        {#if activeTab === 'details'}
-          <span class="text-destructive">*</span> Required fields
-        {:else if activeTab === 'ioc'}
-          {selectedIOCs.length} IOCs selected
+        <span class="text-destructive">*</span> Required fields
+        {#if selectedIOCs.length > 0}
+          · {selectedIOCs.length} IOCs selected
         {/if}
       </div>
       <div class="flex gap-2">

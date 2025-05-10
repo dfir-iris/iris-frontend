@@ -7,12 +7,18 @@ declare global {
 	namespace App {
 		// interface Error {}
 		interface Locals {
-			user: UserInfo
+			user?: import('$lib/stores/auth.store').UserInfo;
 		}
 		// interface PageData {}
-		// interface PageState {}
 		// interface Platform {}
 	}
+}
+
+// Add environment variable types
+declare namespace NodeJS {
+  interface ProcessEnv {
+    PUBLIC_API_BASE_URL: string;
+  }
 }
 
 export { };
