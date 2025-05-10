@@ -93,6 +93,10 @@
 				assetId, 
 				{ asset_compromise_status_id: statusId }
 			);
+
+			if (!response.ok) {
+				throw new Error('Failed to update asset status');
+			}
 			
 			// Find the new status in the options
 			const newStatus = compromiseStatuses.find(s => s.id === statusId);

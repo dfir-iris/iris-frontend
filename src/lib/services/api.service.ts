@@ -118,6 +118,9 @@ export class ApiService {
           fetchHeaders.set("Authorization", `Bearer ${accessToken}`);
         }
       }
+      if (!headers['Authorization']) {
+        fetchHeaders.set("Authorization", `Bearer ${auth.getAccessToken()}`);
+      }
       console.log(`Request Headers:`, Object.fromEntries(fetchHeaders.entries()));
 
 

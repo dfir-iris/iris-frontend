@@ -1,13 +1,6 @@
 // src/hooks.server.ts
-import { PUBLIC_USE_MOCK_API_DATA } from '$env/static/public';
-import { ApiService } from '$lib/services/api.service';
-import type { UserInfo } from '$lib/stores/auth.store';
-import { redirect } from '@sveltejs/kit';
 import type { Handle, HandleFetch } from '@sveltejs/kit';
-import { browser } from "$app/environment";
-import { env } from '$env/dynamic/public';
 import { API_BASE_URL } from '$lib/config/api.config';
-import { generateCSP, cspObjectToString } from '$lib/config/csp.config';
 import { createForwardingRequest } from '$lib/utils/request-forwarding';
 import { DEV } from 'esm-env';
 
@@ -64,32 +57,41 @@ export const handle: Handle = async ({ event, resolve }) => {
     
     try {
       // For POST requests, we need to handle the body specially
-      if (event.request.method === 'POST') {
+      if (['POST', 'PUT', 'PATCH'].includes(event.request.method)) {
         // Clone the request to read its body
         const clonedRequest = event.request.clone();
         const text = await clonedRequest.text();
-        console.log(`Raw request body: ${text}`);
         
         let bodyObj;
         try {
           bodyObj = JSON.parse(text);
-          console.log(`Parsed body: ${JSON.stringify(bodyObj)}`);
         } catch (e) {
           console.error(`Failed to parse body as JSON: ${e}`);
           bodyObj = { data: text };
         }
+
+        // Check if the headers contain a Content-Type
+        const contentType = event.request.headers.get('Content-Type');
+        if (contentType) {
+          // If the Content-Type is not application/json, we need to set it
+          if (!contentType.includes('application/json')) {
+            event.request.headers.set('Content-Type', 'application/json');
+          }
+        }
+        // If the request body is not JSON, we need to set it
+        if (typeof bodyObj !== 'object') {
+          event.request.headers.set('Content-Type', 'application/json');
+          bodyObj = { data: bodyObj };
+        }
         
         // Directly create a new fetch request with stringified JSON and proper headers
         const response = await fetch(apiUrl, {
-          method: 'POST',
+          method: event.request.method,
           headers: {
-            'Content-Type': 'application/json'
+            ...sanitizeHeaders(event.request.headers),
           },
           body: JSON.stringify(bodyObj)
         });
-        
-        console.log(`Response from ${apiUrl}: ${response.status}`);
-        console.log(`Response headers: ${JSON.stringify([...response.headers.entries()])}`);
         
         // Handle response
         let responseData;
@@ -99,9 +101,7 @@ export const handle: Handle = async ({ event, resolve }) => {
           } else {
             responseData = await response.text();
           }
-          
-          console.log(`Response data: ${JSON.stringify(responseData)}`);
-          
+                    
           // If this was a login request and it was successful, perform redirection
           if (event.url.pathname === '/auth/login' && response.status === 200) {
             // Store the tokens in cookies if they exist in the response
@@ -130,10 +130,18 @@ export const handle: Handle = async ({ event, resolve }) => {
                 });
               }
               
-              // Set successful login flag for redirection
+              // Set successful login flag for redirection, redirect to the original URL
+              const redirectUrl = event.url.searchParams.get('redirect') || '/';
+              // Ensure the redirect URL is safe
+              let safeRedirectUrl = new URL(redirectUrl, event.url.origin);
+              if (!safeRedirectUrl.pathname.startsWith('/')) {
+                console.error(`Unsafe redirect URL: ${redirectUrl}`);
+                safeRedirectUrl = new URL('/', event.url.origin);
+              }
+
               return new Response(JSON.stringify({
                 success: true,
-                redirect: '/',
+                redirect: safeRedirectUrl.toString(),
                 ...responseData
               }), {
                 status: 200,
@@ -172,8 +180,7 @@ export const handle: Handle = async ({ event, resolve }) => {
         const response = await fetch(apiUrl, {
           method: event.request.method,
           headers: {
-            ...headers,
-            'Content-Type': 'application/json'
+            ...headers          
           }
         });
         
@@ -186,8 +193,6 @@ export const handle: Handle = async ({ event, resolve }) => {
         } else {
           responseData = await response.text();
         }
-
-        console.log(`Response data: ${JSON.stringify(responseData)}`);
         
         // Create a new response with the data
         return new Response(JSON.stringify(responseData), {
@@ -267,7 +272,7 @@ export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
 		console.log(`Forwarding API request from ${request.url} to ${apiUrl}`);
 		
 		// Get authorization header from cookies if not already set in the request
-		let authHeader = request.headers.get('authorization');
+		let authHeader = request.headers.get('Authorization');
 		if (!authHeader) {
 			const accessToken = event.cookies.get('access_token');
 			if (accessToken) {

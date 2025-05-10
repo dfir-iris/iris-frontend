@@ -261,6 +261,10 @@
 				assetId, 
 				updatePayload  // Send our explicit payload
 			);
+
+			if (!response.ok) {
+				throw new Error(response.data?.message || `Unknown error. ${response.status}`);
+			}
 			
 			// If we got a response, use it to update our data
 			if (response?.data) {
@@ -294,7 +298,7 @@
 			console.error('Error updating asset:', error);
 			toast({
 				title: "Update failed",
-				description: "There was a problem updating the asset details.",
+				description: `There was a problem updating the asset details.${error.message ? ` Error: ${error.message}` : ''}`,
 				variant: "destructive"
 			});
 		} finally {
