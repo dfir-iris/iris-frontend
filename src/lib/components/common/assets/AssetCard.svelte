@@ -19,15 +19,18 @@
     Cog,
     HelpCircle,
     BiohazardIcon,
-    TagIcon,
+    ChevronDown,
+    ChevronUp
   } from 'lucide-svelte';
   import { Badge } from '$lib/components/ui/badge';
+  import { Button } from '$lib/components/ui/button';
   import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
   import type { Asset } from '$lib/types/resources/asset';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
-	import TagDisplay from '../tag/TagDisplay.svelte';
+  import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
+  import TagDisplay from '../tag/TagDisplay.svelte';
+  import { marked } from 'marked';
 
   export let asset: Asset;
   export let isSelected: boolean = false;
@@ -82,8 +85,17 @@
   $: assetIp = asset.asset_ip || '';
   $: assetDomain = asset.asset_domain || '';
   $: isCompromised = asset.asset_compromise_status_id === 1;
-  // Function to get status icon
-
+  $: assetDescription = asset.asset_description || '';
+  $: parsedDescription = assetDescription ? marked(assetDescription) : '';
+  
+  // State for description expansion
+  let isDescriptionExpanded = false;
+  
+  // Toggle description expansion
+  function toggleDescription(e) {
+    e.stopPropagation(); // Prevent card click
+    isDescriptionExpanded = !isDescriptionExpanded;
+  }
 
   // Handle click to navigate to asset details
   function handleClick() {
@@ -101,7 +113,7 @@
   aria-label={`View details for asset ${asset.asset_name}`}
 >
   <!-- Asset header with name and status -->
-  <div class="flex items-center justify-between ">
+  <div class="flex items-center justify-between">
     <div class="flex items-center gap-2 w-full overflow-hidden">
       <div 
         class={`flex h-8 w-8 items-center justify-center rounded-full ${
@@ -149,38 +161,65 @@
       {#if hasIocs}
         <Badge tooltip="Contains IOCs" icon={BiohazardIcon} variant="secondary">{asset.iocs?.length}</Badge>
       {/if}
-      
     </div>
   </div>
   
-  <!-- Asset details (IP/Domain) -->
-  <div class="flex flex-col mt-2">
-    <div class="flex flex-wrap gap-2">
-      {#if assetIp}
-        <div class="inline-flex items-center gap-1 border border-dashed px-2 py-1 rounded-md text-xs font-mono group">
-          <Network class="h-3 w-3 text-muted-foreground" />
-          <span class="truncate">{assetIp}</span>
-          <ClipboardCopy 
-          value={assetIp} 
-          className="ml-1 hidden group-hover:inline-block"
-          />
-        </div>
-      {/if}
+  <!-- Asset Description (if available) -->
+  {#if assetDescription}
+    <div class="mt-3 mb-2 bg-muted/30 rounded-lg p-2">      
+      <div 
+        class={`prose prose-sm max-w-none text-xs overflow-hidden transition-all duration-200 ${
+          isDescriptionExpanded ? 'max-h-64 overflow-y-auto' : 'max-h-16'
+        }`}
+      >
+        {@html parsedDescription}
+      </div>
       
-      {#if assetDomain}
-        <div class="inline-flex items-center gap-1 border border-dashed px-2 py-1 rounded-md text-xs font-mono group">
-          <Globe class="h-3 w-3 text-muted-foreground" />
-          <span class="truncate">{assetDomain}</span>
-          <ClipboardCopy 
-          value={assetDomain} 
-          className="ml-1 hidden group-hover:inline-block"
-          />
-        </div>
+      {#if !isDescriptionExpanded && assetDescription.length > 100}
+        <Button 
+          variant="link"
+          type="button"
+          class="text-xs text-primary hover:underline mt-1"
+          onclick={toggleDescription}
+        >
+          Show more
+      </Button>
       {/if}
     </div>
+  {/if}
+  
+  <!-- Asset details (IP/Domain and Tags) -->
+  <div class="flex flex-col mt-4">
+    <!-- IP and Domain section -->
+    {#if assetIp || assetDomain}
+      <div class="flex flex-wrap gap-2 mb-2">
+        {#if assetIp}
+          <div class="inline-flex items-center gap-1 border border-dashed px-2 py-1 rounded-md text-xs font-mono group">
+            <Network class="h-3 w-3 text-muted-foreground" />
+            <span class="truncate">{assetIp}</span>
+            <ClipboardCopy 
+              value={assetIp} 
+              className="ml-1 hidden group-hover:inline-block"
+            />
+          </div>
+        {/if}
+        
+        {#if assetDomain}
+          <div class="inline-flex items-center gap-1 border border-dashed px-2 py-1 rounded-md text-xs font-mono group">
+            <Globe class="h-3 w-3 text-muted-foreground" />
+            <span class="truncate">{assetDomain}</span>
+            <ClipboardCopy 
+              value={assetDomain} 
+              className="ml-1 hidden group-hover:inline-block"
+            />
+          </div>
+        {/if}
+      </div>
+    {/if}
     
+    <!-- Tags section -->
     {#if hasTags}
-      <div class="flex flex-wrap gap-1 text-xs mt-1">
+      <div class="flex flex-wrap gap-1 text-xs">
         <TagDisplay 
           tags={asset.asset_tags} 
           size="default"
@@ -189,3 +228,38 @@
     {/if}
   </div>
 </button>
+
+<style>
+  /* Ensure proper styling for the markdown content */
+  :global(.prose) {
+    @apply text-foreground;
+  }
+  
+  :global(.prose a) {
+    @apply text-primary hover:underline;
+  }
+  
+  :global(.prose p) {
+    @apply my-1;
+  }
+  
+  :global(.prose ul, .prose ol) {
+    @apply pl-5 my-1;
+  }
+  
+  :global(.prose li) {
+    @apply my-0.5;
+  }
+  
+  :global(.prose h1, .prose h2, .prose h3, .prose h4) {
+    @apply font-semibold my-2;
+  }
+  
+  :global(.prose code) {
+    @apply bg-muted/70 px-1 py-0.5 rounded text-xs font-mono;
+  }
+  
+  :global(.prose pre) {
+    @apply bg-muted/70 p-2 rounded my-2 overflow-x-auto;
+  }
+</style>

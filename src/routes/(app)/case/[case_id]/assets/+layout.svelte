@@ -4,7 +4,6 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { 
 		FilterIcon, 
-		PlusIcon, 
 		RefreshCwIcon
 	} from 'lucide-svelte';
 	import type { LayoutData } from './$types';
