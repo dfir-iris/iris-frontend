@@ -177,7 +177,7 @@
 							onclick={() => changeCompromiseStatus(statusOption.id)}
 						>
 							<div class={`w-full flex items-center gap-2 ${typeof status === 'object' && statusOption.id === status.id ? 'font-bold' : ''}`}>
-								<div class={`flex items-center gap-1 ${getStatusColor(statusOption.name)}`}>
+								<div class={`flex items-center gap-1 ${getStatusColor(statusOption.name)} rounded-md px-2 py-1`}>
 									<svelte:component this={getStatusIcon(statusOption.name)} class="h-3.5 w-3.5" />
 									<span>{statusOption.name}</span>
 								</div>
