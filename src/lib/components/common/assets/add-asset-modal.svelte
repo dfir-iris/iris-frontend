@@ -48,6 +48,7 @@
   let searchResults = $state<IOC[]>([]);
   let isSearching = $state(false);
   let searchDebounceTimer: number;
+  let fieldErrors = $state<Record<string, string[]>>({});
 
   // Form data
   let assetData = $state({
@@ -87,6 +88,7 @@
     selectedIOCs = [];
     searchQuery = '';
     searchResults = [];
+    fieldErrors = {};
   }
 
   // Handle tag changes
@@ -168,6 +170,8 @@
     }
 
     isSubmitting = true;
+    fieldErrors = {};
+    
     try {
       const caseId = page.params.case_id;
       
@@ -180,7 +184,7 @@
       // Call the AssetService.add method
       const response = await AssetService.addAsset(caseId, payload);
       
-      if (response?.data) {
+      if (response?.ok) {
         // Add the new asset to the store
         assetsStore.addAsset(response.data as Asset);
         
@@ -194,6 +198,19 @@
         // Close the modal and reset form
         open = false;
         resetForm();
+      } else {
+        // Handle the field-specific error response according to the format:
+        // {"message":"Data error","data":{"asset_type_id":["Missing data for required field."]}}
+        if (response?.data?.data) {
+          fieldErrors = response.data.data;
+        } else {
+          toast({
+            title: "Error",
+            description: response?.data?.message || "Failed to add asset. Please try again.",
+            variant: "destructive"
+          });
+        }
+        console.error('Error adding asset:', response?.data);
       }
     } catch (error) {
       console.error('Error adding asset:', error);
@@ -237,7 +254,11 @@
                 bind:value={assetData.asset_name} 
                 placeholder="Enter asset name" 
                 required
+                class={fieldErrors.asset_name ? "border-destructive" : ""}
               />
+              {#if fieldErrors.asset_name}
+                <p class="text-xs text-destructive">{fieldErrors.asset_name[0]}</p>
+              {/if}
             </div>
             
             <div class="space-y-2">
@@ -247,8 +268,9 @@
                 value={assetData.asset_type_id?.toString()} 
                 onValueChange={value => assetData.asset_type_id = parseInt(value)}
                 required
+                class={fieldErrors.asset_type_id ? "border-destructive" : ""}
               >
-                <SelectTrigger id="asset_type">
+                <SelectTrigger id="asset_type" class={fieldErrors.asset_type_id ? "border-destructive" : ""}>
                   {assetData.asset_type_id ? 
                     $assetTypes.find(t => t.asset_id === assetData.asset_type_id)?.asset_name || 'Select asset type' : 
                     'Select asset type'}
@@ -259,6 +281,9 @@
                   {/each}
                 </SelectContent>
               </Select>
+              {#if fieldErrors.asset_type_id}
+                <p class="text-xs text-destructive">{fieldErrors.asset_type_id[0]}</p>
+              {/if}
             </div>
             
             <div class="space-y-2">
@@ -268,7 +293,11 @@
                 value={assetData.analysis_status_id?.toString()} 
                 onValueChange={value => assetData.analysis_status_id = parseInt(value)}
               >
-                <SelectTrigger id="analysis_status" aria-label="Select analysis status">
+                <SelectTrigger 
+                  id="analysis_status" 
+                  aria-label="Select analysis status"
+                  class={fieldErrors.analysis_status_id ? "border-destructive" : ""}
+                >
                   {assetData.analysis_status_id ? 
                     $analysisStatuses.find(s => s.id === assetData.analysis_status_id)?.name || 'Select analysis status' : 
                     'Select analysis status'}
@@ -279,6 +308,9 @@
                   {/each}
                 </SelectContent>
               </Select>
+              {#if fieldErrors.analysis_status_id}
+                <p class="text-xs text-destructive">{fieldErrors.analysis_status_id[0]}</p>
+              {/if}
             </div>
             
             <div class="space-y-2">
@@ -288,7 +320,10 @@
                 value={assetData.asset_compromise_status_id.toString()} 
                 onValueChange={value => assetData.asset_compromise_status_id = parseInt(value)}
               >
-                <SelectTrigger id="compromise_status">
+                <SelectTrigger 
+                  id="compromise_status"
+                  class={fieldErrors.asset_compromise_status_id ? "border-destructive" : ""}
+                >
                   {COMPROMISE_STATUS[assetData.asset_compromise_status_id as keyof typeof COMPROMISE_STATUS] || 'Select compromise status'}
                 </SelectTrigger>
                 <SelectContent>
@@ -297,6 +332,9 @@
                   {/each}
                 </SelectContent>
               </Select>
+              {#if fieldErrors.asset_compromise_status_id}
+                <p class="text-xs text-destructive">{fieldErrors.asset_compromise_status_id[0]}</p>
+              {/if}
             </div>
           </div>
         </section>
@@ -315,7 +353,11 @@
                 id="asset_ip" 
                 bind:value={assetData.asset_ip} 
                 placeholder="e.g. 192.168.1.1" 
+                class={fieldErrors.asset_ip ? "border-destructive" : ""}
               />
+              {#if fieldErrors.asset_ip}
+                <p class="text-xs text-destructive">{fieldErrors.asset_ip[0]}</p>
+              {/if}
             </div>
             
             <div class="space-y-2">
@@ -324,7 +366,11 @@
                 id="asset_domain" 
                 bind:value={assetData.asset_domain} 
                 placeholder="e.g. example.com" 
+                class={fieldErrors.asset_domain ? "border-destructive" : ""}
               />
+              {#if fieldErrors.asset_domain}
+                <p class="text-xs text-destructive">{fieldErrors.asset_domain[0]}</p>
+              {/if}
             </div>
           </div>
         </section>
@@ -341,9 +387,13 @@
               bind:value={assetData.asset_description}
               placeholder="Provide a detailed description of this asset"
               rows={5}
-              class="w-full"
+              class={`w-full ${fieldErrors.asset_description ? "border-destructive" : ""}`}
             />
-            <p class="text-xs text-muted-foreground">Markdown formatting is supported</p>
+            {#if fieldErrors.asset_description}
+              <p class="text-xs text-destructive">{fieldErrors.asset_description[0]}</p>
+            {:else}
+              <p class="text-xs text-muted-foreground">Markdown formatting is supported</p>
+            {/if}
           </div>
         </section>
         
@@ -361,10 +411,31 @@
               onchange={handleTagsChange}
               placeholder="Add tags..."
               maxTags={20}
+              class={fieldErrors.asset_tags ? "border-destructive" : ""}
             />
-            <p class="text-xs text-muted-foreground">Press Enter or comma to add a tag</p>
+            {#if fieldErrors.asset_tags}
+              <p class="text-xs text-destructive">{fieldErrors.asset_tags[0]}</p>
+            {:else}
+              <p class="text-xs text-muted-foreground">Press Enter or comma to add a tag</p>
+            {/if}
           </div>
         </section>
+
+        <!-- Show error if we have errors for fields not explicitly handled above -->
+        {#if Object.keys(fieldErrors).some(key => 
+          !['asset_name', 'asset_type_id', 'analysis_status_id', 'asset_compromise_status_id', 
+            'asset_ip', 'asset_domain', 'asset_description', 'asset_tags'].includes(key))}
+          <div class="bg-destructive/10 p-3 rounded border border-destructive">
+            <h3 class="text-sm font-medium text-destructive mb-1">Additional Validation Errors</h3>
+            <ul class="list-disc pl-5 text-xs">
+              {#each Object.entries(fieldErrors).filter(([key]) => 
+                !['asset_name', 'asset_type_id', 'analysis_status_id', 'asset_compromise_status_id', 
+                  'asset_ip', 'asset_domain', 'asset_description', 'asset_tags'].includes(key)) as [field, messages]}
+                <li><strong>{field}:</strong> {messages.join(', ')}</li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
 
         <!-- IOCs Section -->
         <section>

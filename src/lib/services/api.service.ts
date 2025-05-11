@@ -104,7 +104,6 @@ export class ApiService {
 
       // Add authentication token if available
       if (!headers['Authorization'] && !skipTokenRefresh) {
-        console.log(`Adding auth token to request...`);
         console.log(auth.isTokenExpired(), auth.isRefreshTokenExpired());
         // Check if token refresh is needed
         if (auth.isTokenExpired() && !auth.isRefreshTokenExpired()) {
@@ -113,7 +112,6 @@ export class ApiService {
         }
         
         const accessToken = auth.getAccessToken();
-        console.log(`Access token: ${accessToken}`);
         if (accessToken) {
           fetchHeaders.set("Authorization", `Bearer ${accessToken}`);
         }
@@ -121,8 +119,6 @@ export class ApiService {
       if (!headers['Authorization']) {
         fetchHeaders.set("Authorization", `Bearer ${auth.getAccessToken()}`);
       }
-      console.log(`Request Headers:`, Object.fromEntries(fetchHeaders.entries()));
-
 
       // Add body if we have data
       if (data) {
@@ -169,6 +165,26 @@ export class ApiService {
           responseBody, 
           Date.now() - startTime
         );
+
+        // Check for 404 Not Found response
+        if (response.status === 404) {
+          console.log(`404 response received for ${url}, attempting to use mock data...`);
+          // Extract the endpoint from the URL to use with mockRequest
+          const endpoint = absoluteUrl ? url : url;
+          const mockResponse = await ApiService.mockRequest<T>(endpoint);
+          
+          // If mock data is available, return it instead
+          if (mockResponse) {
+            console.log(`Mock data found for ${endpoint}`, mockResponse);
+            return {
+              data: mockResponse.data,
+              status: 200, // Override with success status
+              headers: mockResponse.headers,
+              ok: true
+            };
+          }
+          // If no mock data, continue with the original 404 response
+        }
 
         // Check for unauthorized access (401)
         if (response.status === 401 && !skipAuthRedirect && !skipTokenRefresh) {

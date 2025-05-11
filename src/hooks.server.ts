@@ -50,8 +50,8 @@ export const handle: Handle = async ({ event, resolve }) => {
   if (event.url.pathname.startsWith('/api/v2/') || event.url.pathname.startsWith('/auth/')){
     // Map the frontend auth endpoint to the correct backend endpoint without duplicating /api/v2/
     const apiUrl = event.url.pathname.startsWith('/auth/') 
-      ? `${API_BASE_URL}/auth/${event.url.pathname.replace('/auth/', '')}` 
-      : `${API_BASE_URL.replace('/api/v2', '')}${event.url.pathname}`;
+      ? `${API_BASE_URL}/auth/${event.url.pathname.replace('/auth/', '')}${event.url.search}` 
+      : `${API_BASE_URL.replace('/api/v2', '')}${event.url.pathname}${event.url.search}`;
     
     console.log(`Proxying ${event.request.method} request to ${apiUrl}`);
     
