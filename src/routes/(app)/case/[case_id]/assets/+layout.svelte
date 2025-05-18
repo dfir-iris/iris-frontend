@@ -4,7 +4,8 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { 
 		FilterIcon, 
-		RefreshCwIcon
+		RefreshCwIcon,
+		XIcon
 	} from 'lucide-svelte';
 	import type { LayoutData } from './$types';
 	import { page } from '$app/state';
@@ -18,6 +19,8 @@
 	import AssetCard from '$lib/components/common/assets/AssetCard.svelte';
 	import { assetsStore } from '$lib/stores/assets.store';
 	import AddAssetButton from '$lib/components/common/assets/add-asset-button.svelte';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import { Badge } from '$lib/components/ui/badge';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 	
@@ -37,6 +40,19 @@
 	let searchTerm = $state('');
 	let searchDebounceTimer: number;
 	let refreshCounter = $state(0); // Add a counter to force reactivity
+	
+	// Filter state
+	let showFilterDropdown = $state(false);
+	let selectedFilters = $state<string[]>([]);
+	
+	// Filter options
+	const filterOptions = [
+		{ id: 'compromised', label: 'Compromised Assets', field: 'asset_compromise_status_id', value: 1, operator: 'eq' },
+		{ id: 'non_compromised', label: 'Non Compromised Assets', field: 'asset_compromise_status_id', value: 1, operator: 'not' },
+		{ id: 'analysis_done', label: 'Analysis Done', field: 'analysis_status_id', value: 6, operator: 'eq'  },
+		{ id: 'analysis_started', label: 'Analysis Started', field: 'analysis_status_id', value: 3, operator: 'eq' },
+		{ id: 'analysis_todo', label: 'Analysis To Be done', field: 'analysis_status_id', value: 2, operator: 'eq' },
+	];
 	
 	// Function to deduplicate assets by ID
 	function deduplicateAssets(assetList: Asset[]): Asset[] {
@@ -100,17 +116,31 @@
 		}
 	});
 
-	// Function to build custom conditions for search
+	// Function to build custom conditions for search and filters
 	function buildSearchConditions(term: string) {
-		if (!term) return [];
-		return [
-			{ field: "asset_name", operator: "like", value: term },
-			{ field: "asset_ip", operator: "like", value: term },
-			{ field: "asset_domain", operator: "like", value: term },
-			{ field: "asset_description", operator: "like", value: term },
-			{ field: "asset_tags", operator: "like", value: term },
-			{ field: "asset_type.asset_name", operator: "like", value: term }
-		];
+		const conditions = [];
+		
+		// Add search term conditions if provided
+		if (term) {
+			conditions.push(
+				{ field: "asset_name", operator: "like", value: term },
+				{ field: "asset_ip", operator: "like", value: term },
+				{ field: "asset_domain", operator: "like", value: term },
+				{ field: "asset_description", operator: "like", value: term },
+				{ field: "asset_tags", operator: "like", value: term },
+				{ field: "asset_type.asset_name", operator: "like", value: term }
+			);
+		}
+		
+		// Add filter conditions
+		selectedFilters.forEach(filterId => {
+			const filter = filterOptions.find(f => f.id === filterId);
+			if (filter) {
+				conditions.push({ field: filter.field, operator: filter.operator, value: filter.value });
+			}
+		});
+		
+		return conditions;
 	}
 
 	// Refresh assets function - compatible with Svelte 5
@@ -203,6 +233,22 @@
 		}
 	}
 
+	// Toggle filter selection
+	function toggleFilter(filterId: string) {
+		if (selectedFilters.includes(filterId)) {
+			removeFilter(filterId);
+		} else {
+			selectedFilters = [...selectedFilters, filterId];
+			refreshAssets(1);
+		}
+	}
+	
+	// Remove filter
+	function removeFilter(filterId: string) {
+		selectedFilters = selectedFilters.filter(id => id !== filterId);
+		refreshAssets(1);
+	}
+
 	// Watch for search term changes
 	$effect(() => {
 		console.log('Search term changed:', searchTerm); 
@@ -282,26 +328,95 @@
 	const defaultSidebarSize = 33; // 33% of the container
 	const minSidebarSize = 20; // 20% of the container
 	const maxSidebarSize = 60; // 60% of the container
+
+	function scrollToSelectedAsset() {
+		if (page.params.asset_id && scrollContainer) {
+			// Use a timeout to ensure the DOM is updated after list changes
+			setTimeout(() => {
+				const selectedAssetElement = document.getElementById(`asset-card-${page.params.asset_id}`);
+				if (selectedAssetElement) {
+					selectedAssetElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+				}
+			}, 50); // A small delay should be sufficient
+		}
+	}
+
+	// Effect to scroll to selected asset when displayAssets or selected asset_id changes
+	$effect(() => {
+		// This effect depends on displayAssets to ensure it runs after the list is potentially re-rendered.
+		// It also depends on page.params.asset_id to run when the selection changes.
+		const currentDisplayAssets = displayAssets; // Create a dependency
+		const currentAssetId = page.params.asset_id; // Create a dependency
+		
+		if (currentAssetId) {
+			scrollToSelectedAsset();
+		}
+	});
 </script>
 
 <div class="flex h-full w-full">
 	<Resizable.PaneGroup direction="horizontal" class="h-full w-full">
-		<Resizable.Pane defaultSize={defaultSidebarSize} minSize={minSidebarSize} maxSize={maxSidebarSize} class="flex h-full flex-col gap-y-3 border-r bg-background/50 p-6">
+		<Resizable.Pane defaultSize={defaultSidebarSize} minSize={minSidebarSize} maxSize={maxSidebarSize} class="flex h-full flex-col gap-y-3 border-r bg-background/50 p-3 md:p-6">
 			<!-- Top of sidebar with asset count -->
-			<div class="flex flex-row items-center gap-x-2">
-				<div class="flex flex-col">
-					<h2 class="w-full">Assets</h2>
-					<span class="text-sm text-muted-foreground">Showing {displayAssets.length} of {totalAssets} assets</span>
+			<div class="flex flex-col gap-y-2">
+				<div class="flex flex-col md:flex-row md:items-center gap-2">
+					<div class="flex flex-col">
+						<h2 class="w-full text-lg font-semibold md:text-xl">Assets</h2>
+						<span class="text-xs md:text-sm text-muted-foreground">Showing {displayAssets.length} of {totalAssets} assets</span>
+					</div>
+					<div class="flex-grow md:hidden"></div> 
+					<div class="flex flex-col md:flex-row sm:flex-col gap-2 mt-2 md:ml-auto">
+						<div class="flex gap-2 w-full sm:w-auto">
+							<DropdownMenu.Root open={showFilterDropdown} onOpenChange={(open) => showFilterDropdown = open}>
+								<DropdownMenu.Trigger class="w-full sm:w-auto">
+									<Button variant="outline" size="icon" class="w-full sm:w-auto p-2">
+										<FilterIcon size={18}></FilterIcon>
+										<span class="sr-only">Filter Assets</span>
+									</Button>
+								</DropdownMenu.Trigger>
+								<DropdownMenu.Content align="end" class="w-56">
+									<DropdownMenu.Label>Filter Assets</DropdownMenu.Label>
+									<DropdownMenu.Separator />
+									{#each filterOptions as option}
+										<DropdownMenu.CheckboxItem 
+											checked={selectedFilters.includes(option.id)}
+											onclick={() => toggleFilter(option.id)}
+										>
+											{option.label}
+										</DropdownMenu.CheckboxItem>
+									{/each}
+								</DropdownMenu.Content>
+							</DropdownMenu.Root>
+							<Button variant="outline" onclick={() => refreshAssets(1)} disabled={isRefreshing} class="shrink-0 w-full sm:w-auto">
+								<RefreshCwIcon size={18} class={isRefreshing ? 'animate-spin' : ''} />
+								<span class="hidden sm:inline ml-1.5">Refresh</span>
+								<span class="sm:hidden">Refresh</span>
+							</Button>
+						</div>
+						<AddAssetButton class="w-full sm:w-auto" />
+					</div>
 				</div>
-				<div class="flex-grow"></div>
-				<Button variant="outline" size="icon" class="shrink-0">
-					<FilterIcon size={20}></FilterIcon>
-				</Button>
-				<Button variant="outline" onclick={() => refreshAssets(1)} disabled={isRefreshing}>
-					<RefreshCwIcon size={20} class={isRefreshing ? 'animate-spin' : ''} />
-					Refresh
-				</Button>
-				<AddAssetButton />
+				
+				<!-- Selected filters display -->
+				{#if selectedFilters.length > 0}
+					<div class="flex flex-wrap gap-2 mt-1">
+						{#each selectedFilters as filterId}
+							{@const filter = filterOptions.find(f => f.id === filterId)}
+							{#if filter}
+								<Badge variant="outline" class="flex items-center gap-1 px-2 py-1 border-dashed">
+									{filter.label}
+									<button 
+										class="ml-1 rounded-full hover:bg-muted p-0.5" 
+										onclick={() => removeFilter(filterId)}
+										aria-label={`Remove ${filter.label} filter`}
+									>
+										<XIcon size={14} />
+									</button>
+								</Badge>
+							{/if}
+						{/each}
+					</div>
+				{/if}
 			</div>
 			<Searchbar placeholder="Search assets" bind:value={searchTerm} />
 
@@ -328,8 +443,8 @@
 						--mask-image-content: linear-gradient(
 							to bottom,
 							transparent,
-							black var(--top-fade-stop, 3%),
-							black var(--bottom-fade-stop, 98%),
+							hsl(var(--background)) var(--top-fade-stop, 3%),
+							hsl(var(--background)) var(--bottom-fade-stop, 98%),
 							transparent
 						);
 						mask-image: var(--mask-image-content);
@@ -352,9 +467,9 @@
 								<Skeleton class="h-8 w-8 rounded-full" />
 							</div>
 						{:else if nextPage !== null}
-							<div class="text-center text-sm text-muted-foreground py-2">
-								Scroll for more
-							</div>
+							<Button variant="outline" onclick={loadMoreAssets} disabled={isLoading}>
+								Load More
+							</Button>
 						{/if}
 					</div>
 					

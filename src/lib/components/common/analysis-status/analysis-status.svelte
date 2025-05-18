@@ -82,7 +82,7 @@
 	}
 	
 	async function changeAnalysisStatus(statusId: number) {
-		if (!caseId || !assetId || statusId === status.id) {
+		if (!caseId || !assetId || statusId === status?.id) {
 			isStatusPopoverOpen = false;
 			return;
 		}
@@ -122,7 +122,7 @@
 			console.error('Error updating analysis status:', error);
 			toast({
 				title: "Update failed",
-				description: "There was a problem updating the analysis status.",
+				description: "There was a problem updating the analysis status?.",
 				variant: "destructive"
 			});
 		} finally {
@@ -152,9 +152,9 @@
 	<Popover bind:open={isStatusPopoverOpen}>
 		<PopoverTrigger>
 			<div class="flex items-center gap-1 cursor-pointer">
-				<div class={`px-2 py-1 rounded-md text-sm font-medium flex items-center gap-1 ${getStatusColor(status.name)}`}>
-					<svelte:component this={getStatusIcon(status.name)} class="h-3.5 w-3.5" />
-					<span>{status.name}</span>
+				<div class={`px-2 py-1 rounded-md text-sm font-medium flex items-center gap-1 ${getStatusColor(status?.name)}`}>
+					<svelte:component this={getStatusIcon(status?.name)} class="h-3.5 w-3.5" />
+					<span>{status?.name}</span>
 				</div>
 				{#if caseId && assetId}
 					<ChevronDownIcon class="h-4 w-4 text-muted-foreground" />
@@ -172,7 +172,7 @@
 							disabled={isChangingStatus}
 							onclick={() => changeAnalysisStatus(statusOption.id)}
 						>
-							<div class={`w-full flex items-center gap-2 ${statusOption.id === status.id ? 'font-bold' : ''}`}>
+							<div class={`w-full flex items-center gap-2 ${statusOption.id === status?.id ? 'font-bold' : ''}`}>
 								<div class={`flex items-center gap-1 ${getStatusColor(statusOption.name)} rounded-md px-2 py-1`}>
 									<svelte:component this={getStatusIcon(statusOption.name)} class="h-3.5 w-3.5" />
 									<span>{statusOption.name}</span>

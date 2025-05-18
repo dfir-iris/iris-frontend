@@ -9,9 +9,8 @@
 		MergeIcon,
 		Handshake,
 		BadgeAlert,
-
-		CircleAlert
-
+		CircleAlert,
+		XCircleIcon 
 	} from 'lucide-svelte';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 
@@ -78,12 +77,16 @@
 			icon: Circle
 		},
 		'To be done': {
-			color: 'bg-orange-100 text-orange-800 hover:bg-orange-200',
+			color: 'bg-orange-100 text-orange-800 hover:bg-orange-200 dark:bg-orange-700/30 dark:text-orange-400 dark:hover:bg-orange-700/40',
 			icon: CircleAlert
 		},
+		Cancelled: {
+			color: 'bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-700/30 dark:text-red-400 dark:hover:bg-red-700/40',
+			icon: XCircleIcon
+		},
 		Canceled: {
-			color: 'bg-red-100 text-red-800 hover:bg-red-200',
-			icon: BadgeAlert
+			color: 'bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-700/30 dark:text-red-400 dark:hover:bg-red-700/40',
+			icon: XCircleIcon
 		}
 	};
 
@@ -94,13 +97,13 @@
 	<Tooltip.Provider>
 		<Tooltip.Root>
 			<Tooltip.Trigger class="flex">
-				<Badge class="{config.color}" icon={config.icon}></Badge>
+				<Badge class="{config.color}  p-1 border-0 bg-transparent hover:bg-muted/50" icon={config.icon} variant="outline"></Badge>
 			</Tooltip.Trigger>
 			<Tooltip.Content>{prefix} {status}</Tooltip.Content>
 		</Tooltip.Root>
 	</Tooltip.Provider>
 {:else}
-	<Badge class="items-center gap-1 {config.color}" icon={config.icon}>
+	<Badge class="items-center gap-1 {config.color} p-1 border-0 bg-transparent hover:bg-muted/50" icon={config.icon} variant="outline">
 		{status}
 	</Badge>
 {/if}
