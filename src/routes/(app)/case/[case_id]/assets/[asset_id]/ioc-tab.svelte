@@ -42,6 +42,8 @@
   let selectionMode = $state(false);
   let selectedIOCs = $state<Set<number>>(new Set());
   let isRemoving = $state(false);
+
+  let linkedIocIds = $derived(asset.iocs?.map(ioc => ioc.ioc_id) || []);
   
   // Fetch IOCs when the component mounts or when the asset changes
   $effect(() => {
@@ -342,7 +344,7 @@
           <CheckIcon class="h-4 w-4 mr-2" />
           Select
         </Button>
-        <IocLinkButton assetId={asset.asset_id} caseId={asset.case_id} bind:hasRefreshed={needsRefresh}/>
+        <IocLinkButton assetId={asset.asset_id} caseId={asset.case_id} bind:hasRefreshed={needsRefresh} alreadyLinkedIocIds={linkedIocIds}/>
       {/if}
     </div>
   </header>

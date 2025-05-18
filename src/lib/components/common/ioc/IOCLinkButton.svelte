@@ -13,7 +13,17 @@
 	import { toast } from '$lib/stores/toast.store';
   
   // Props
-  let { caseId, assetId, hasRefreshed = $bindable()}: { caseId: number, assetId: number, hasRefreshed: boolean } = $props();
+  let { 
+    caseId, 
+    assetId, 
+    alreadyLinkedIocIds = [],
+    hasRefreshed = $bindable()
+  }: { 
+    caseId: number, 
+    assetId: number, 
+    alreadyLinkedIocIds?: number[],
+    hasRefreshed: boolean 
+  } = $props();
   
   // Local state
   let showIOCDropdown = $state(false);
@@ -25,6 +35,11 @@
   let currentPage = $state(1);
   let hasMorePages = $state(true);
   let initialFetchDone = $state(false);
+
+  // Derived state for displayable IOCs, filtering out already linked ones
+  let displayableIocs = $derived(
+    iocList.filter(ioc => !alreadyLinkedIocIds.includes(ioc.ioc_id))
+  );
   
   // Function to build search conditions
   function buildSearchConditions(term: string) {
@@ -225,13 +240,17 @@
           </div>
         {:else if error}
           <div class="text-destructive text-xs p-3">{error}</div>
-        {:else if iocList.length === 0}
+        {:else if iocList.length === 0 && !searchTerm }
           <div class="text-center text-muted-foreground text-xs p-3">
-            {searchTerm ? 'No IOCs found matching your search.' : 'No IOCs found for this case.'}
+            No IOCs found for this case.
+          </div>
+        {:else if displayableIocs.length === 0}
+          <div class="text-center text-muted-foreground text-xs p-3">
+            {searchTerm ? 'No unlinked IOCs match your search.' : 'All available IOCs for this case are already linked or none exist.'}
           </div>
         {:else}
           <div class="py-1">
-            {#each iocList as ioc}
+            {#each displayableIocs as ioc}
               <button 
                 class="w-full text-left px-3 py-2 hover:bg-muted transition-colors text-sm"
                 onclick={() => linkIOCToAsset(ioc)}
