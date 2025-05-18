@@ -9,7 +9,30 @@
 	export let routes: Route[];
 
 	const isRouteActive = (href: string) => {
-		return $page.url.pathname === href;
+		const currentPath = $page.url.pathname;
+
+		// Handle the root path specifically: it's active only on exact match.
+		if (href === '/') {
+			return currentPath === '/';
+		}
+
+		// For other paths, normalize the href by removing a potential trailing slash
+		// to simplify comparisons. $page.url.pathname usually doesn't have a trailing slash
+		// unless it's the root.
+		const normalizedHref = href.endsWith('/') ? href.slice(0, -1) : href;
+
+		// Active if currentPath is an exact match to the normalized href
+		if (currentPath === normalizedHref) {
+			return true;
+		}
+
+		// Active if currentPath starts with the normalized href followed by a '/'
+		// This covers sub-paths, e.g., href="/assets", currentPath="/assets/id"
+		if (currentPath.startsWith(normalizedHref + '/')) {
+			return true;
+		}
+
+		return false;
 	};
 </script>
 
@@ -21,15 +44,14 @@
 			{#if isCollapsed}
 			<Tooltip.Provider>
 					<Tooltip.Root openDelay={0}>
-						<Tooltip.Trigger asChild let:builder>
+						<Tooltip.Trigger>
 							<Button
 								href={route.href}
-								builders={[builder]}
 								variant={route.variant}
 								size="icon"
 								class={cn(
 									'size-9',
-									isRouteActive(route.href) ? 'te bg-primary-gradient' : '',
+									isRouteActive(route.href) ? 'bg-primary-gradient text-white' : '', // Corrected 'te' to 'text-white'
 									route.variant === 'default' &&
 										'dark:bg-muted dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-white'
 								)}

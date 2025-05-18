@@ -187,6 +187,11 @@
 		}
 	}
 
+	// This function will be called by child components to trigger a refresh
+	function triggerAssetListRefresh() {
+		refreshAssets(1);
+	}
+
 	// Load more assets when scrolling
 	async function loadMoreAssets() {
 		if (!nextPage || isLoading) return;
@@ -393,7 +398,7 @@
 								<span class="sm:hidden">Refresh</span>
 							</Button>
 						</div>
-						<AddAssetButton class="w-full sm:w-auto" />
+						<AddAssetButton class="w-full sm:w-auto" onAssetsAdded={triggerAssetListRefresh} />
 					</div>
 				</div>
 				
