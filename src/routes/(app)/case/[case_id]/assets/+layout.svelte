@@ -5,12 +5,14 @@
 	import { 
 		FilterIcon, 
 		RefreshCwIcon,
-		XIcon
+		XIcon,
+		Trash2Icon, // Added
+		CheckIcon // Added (though might not be used directly if text is preferred)
 	} from 'lucide-svelte';
 	import type { LayoutData } from './$types';
 	import { page } from '$app/state';
 	import type { Snippet } from 'svelte';
-	import { onMount, onDestroy } from 'svelte'; // Removed setContext
+	import { onMount, onDestroy } from 'svelte';
 	import { ENDPOINTS } from '$lib/constants/endpoints';
 	import { ApiService } from '$lib/services/api.service';
 	import type { Asset } from '$lib/types/resources/asset';
@@ -21,7 +23,9 @@
 	import AddAssetButton from '$lib/components/common/assets/add-asset-button.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Badge } from '$lib/components/ui/badge';
-	// Removed: import { ASSET_LIST_REFRESH_KEY } from '$lib/constants/contexts';
+	import { Checkbox } from '$lib/components/ui/checkbox'; // Added
+	import { toast } from '$lib/components/ui/toast'; // Added
+	import { cn } from '$lib/utils'; // Added
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 	
@@ -46,6 +50,11 @@
 	// Filter state
 	let showFilterDropdown = $state(false);
 	let selectedFilters = $state<string[]>([]);
+
+	// Selection state
+	let selectionMode = $state(false);
+	let selectedAssets = $state<Set<string>>(new Set());
+	let isRemovingSelected = $state(false);
 	
 	// Filter options
 	const filterOptions = [
@@ -378,8 +387,105 @@
 		const currentDisplayAssets = displayAssets; // Create a dependency
 		const currentAssetId = page.params.asset_id; // Create a dependency
 		
-		if (currentAssetId) {
+		if (currentAssetId && !selectionMode) { // Only scroll if not in selection mode to avoid conflicts
 			scrollToSelectedAsset();
+		}
+	});
+
+	// Selection functions
+	function toggleSelectionMode() {
+		selectionMode = !selectionMode;
+		if (!selectionMode) {
+			selectedAssets.clear();
+			selectedAssets = new Set(selectedAssets); // Trigger reactivity
+		}
+	}
+
+	function exitSelectionMode() {
+		selectionMode = false;
+		selectedAssets.clear();
+		selectedAssets = new Set(selectedAssets); // Trigger reactivity
+	}
+
+	function toggleAssetSelection(assetId: string) {
+		if (selectedAssets.has(assetId)) {
+			selectedAssets.delete(assetId);
+		} else {
+			selectedAssets.add(assetId);
+		}
+		selectedAssets = new Set(selectedAssets); // Trigger reactivity
+	}
+
+	function selectAllVisibleAssets() {
+		displayAssets.forEach(asset => {
+			if (asset && asset.asset_id != null) {
+				selectedAssets.add(asset.asset_id.toString());
+			}
+		});
+		selectedAssets = new Set(selectedAssets); // Trigger reactivity
+	}
+
+	function deselectAllAssets() {
+		selectedAssets.clear();
+		selectedAssets = new Set(selectedAssets); // Trigger reactivity
+	}
+
+	async function removeSelectedAssets() {
+		if (selectedAssets.size === 0) return;
+
+		isRemovingSelected = true;
+		const caseId = page.params.case_id;
+		const idsToRemove = Array.from(selectedAssets);
+		let successfulDeletions = 0;
+		let failedDeletions = 0;
+
+		const results = await Promise.allSettled(
+			idsToRemove.map(assetId => 
+				ApiService.delete(ENDPOINTS.case.assets.delete(caseId, assetId))
+			)
+		);
+
+		results.forEach(result => {
+			if (result.status === 'fulfilled') {
+				successfulDeletions++;
+			} else {
+				failedDeletions++;
+				console.error('Failed to delete asset:', result.reason);
+			}
+		});
+
+		if (successfulDeletions > 0) {
+			toast({
+				title: "Assets Removed",
+				description: `${successfulDeletions} asset(s) removed successfully.`,
+				variant: "success"
+			});
+			assetsStore.triggerListRefresh(); // This will trigger the effect to call refreshAssets(1)
+		}
+
+		if (failedDeletions > 0) {
+			toast({
+				title: "Removal Error",
+				description: `Failed to remove ${failedDeletions} asset(s). Check console for details.`,
+				variant: "destructive"
+			});
+		}
+		
+		exitSelectionMode();
+		isRemovingSelected = false;
+	}
+
+	// Effect to clear selection if filters change or search term changes significantly
+	$effect(() => {
+		if (selectionMode) {
+			// This is a dependency on searchTerm and selectedFilters
+			const currentSearchTerm = searchTerm;
+			const currentFilters = selectedFilters.join(',');
+			// If these change, it implies the list might change significantly.
+			// For simplicity, we can exit selection mode.
+			// More complex logic could try to preserve selection for items still visible.
+			// exitSelectionMode(); 
+			// Decided against auto-exiting for now, user can cancel.
 		}
 	});
 </script>
@@ -392,38 +498,94 @@
 				<div class="flex flex-col md:flex-row md:items-center gap-2">
 					<div class="flex flex-col">
 						<h2 class="w-full text-lg font-semibold md:text-xl">Assets</h2>
-						<span class="text-xs md:text-sm text-muted-foreground">Showing {displayAssets.length} of {totalAssets} assets</span>
+						<span class="text-xs md:text-sm text-muted-foreground">
+							{#if selectionMode}
+								{selectedAssets.size} of {displayAssets.length} selected (Total: {totalAssets})
+							{:else}
+								Showing {displayAssets.length} of {totalAssets} assets
+							{/if}
+						</span>
 					</div>
 					<div class="flex-grow md:hidden"></div> 
 					<div class="flex flex-col md:flex-row sm:flex-col gap-2 mt-2 md:ml-auto">
-						<div class="flex gap-2 w-full sm:w-auto">
-							<DropdownMenu.Root open={showFilterDropdown} onOpenChange={(open) => showFilterDropdown = open}>
-								<DropdownMenu.Trigger class="w-full sm:w-auto">
-									<Button variant="outline" size="icon" class="w-full sm:w-auto p-2">
-										<FilterIcon size={18}></FilterIcon>
-										<span class="sr-only">Filter Assets</span>
-									</Button>
-								</DropdownMenu.Trigger>
-								<DropdownMenu.Content align="end" class="w-56">
-									<DropdownMenu.Label>Filter Assets</DropdownMenu.Label>
-									<DropdownMenu.Separator />
-									{#each filterOptions as option}
-										<DropdownMenu.CheckboxItem 
-											checked={selectedFilters.includes(option.id)}
-											onclick={() => toggleFilter(option.id)}
-										>
-											{option.label}
-										</DropdownMenu.CheckboxItem>
-									{/each}
-								</DropdownMenu.Content>
-							</DropdownMenu.Root>
-							<Button variant="outline" onclick={() => refreshAssets(1)} disabled={isRefreshing} class="shrink-0 w-full sm:w-auto">
-								<RefreshCwIcon size={18} class={isRefreshing ? 'animate-spin' : ''} />
-								<span class="hidden sm:inline ml-1.5">Refresh</span>
-								<span class="sm:hidden">Refresh</span>
+						{#if selectionMode}
+							<Button 
+								variant="outline" 
+								size="sm" 
+								onclick={selectAllVisibleAssets}
+								disabled={displayAssets.length === 0 || selectedAssets.size === displayAssets.filter(a => a && a.asset_id != null).length}
+								class="text-xs"
+							>
+								Select All Visible
 							</Button>
-						</div>
-						<AddAssetButton class="w-full sm:w-auto" />
+							<Button 
+								variant="outline" 
+								size="sm" 
+								onclick={deselectAllAssets}
+								disabled={selectedAssets.size === 0}
+								class="text-xs"
+							>
+								Deselect All
+							</Button>
+							<Button 
+								variant="destructive" 
+								size="sm" 
+								onclick={removeSelectedAssets}
+								disabled={selectedAssets.size === 0 || isRemovingSelected}
+								class="text-xs"
+							>
+								{#if isRemovingSelected}
+									<RefreshCwIcon class="h-3.5 w-3.5 mr-1 animate-spin" /> Removing...
+								{:else}
+									<Trash2Icon class="h-3.5 w-3.5 mr-1" /> Remove Selected
+								{/if}
+							</Button>
+							<Button 
+								variant="ghost" 
+								size="sm" 
+								onclick={exitSelectionMode}
+								class="text-xs"
+							>
+								<XIcon class="h-3.5 w-3.5 mr-1" /> Cancel
+							</Button>
+						{:else}
+							<div class="flex flex-row gap-2 w-full sm:w-auto">
+								<DropdownMenu.Root open={showFilterDropdown} onOpenChange={(open) => showFilterDropdown = open}>
+									<DropdownMenu.Trigger class="w-full sm:w-auto">
+										<Button variant="outline" size="icon" class="w-full sm:w-auto p-2">
+											<FilterIcon size={18}></FilterIcon>
+											<span class="sr-only">Filter Assets</span>
+										</Button>
+									</DropdownMenu.Trigger>
+									<DropdownMenu.Content align="end" class="w-56">
+										<DropdownMenu.Label>Filter Assets</DropdownMenu.Label>
+										<DropdownMenu.Separator />
+										{#each filterOptions as option}
+											<DropdownMenu.CheckboxItem 
+												checked={selectedFilters.includes(option.id)}
+												onclick={() => toggleFilter(option.id)}
+											>
+												{option.label}
+											</DropdownMenu.CheckboxItem>
+										{/each}
+									</DropdownMenu.Content>
+								</DropdownMenu.Root>
+								<Button 
+									variant="outline" size="icon" 
+									onclick={toggleSelectionMode}
+									disabled={displayAssets.length === 0 || isRefreshing || isLoading}
+									class="w-full sm:w-auto p-2"
+								>
+									<CheckIcon size={18}/>
+							</Button>
+								<Button variant="outline" onclick={() => refreshAssets(1)} disabled={isRefreshing} class="shrink-0 w-full sm:w-auto">
+									<RefreshCwIcon size={18} class={isRefreshing ? 'animate-spin' : ''} />
+									<span class="hidden sm:inline ml-1.5">Refresh</span>
+									<span class="sm:hidden">Refresh</span>
+								</Button>
+							</div>
+							<AddAssetButton class="w-full sm:w-auto" />
+						{/if}
 					</div>
 				</div>
 				
@@ -448,7 +610,7 @@
 					</div>
 				{/if}
 			</div>
-			<Searchbar placeholder="Search assets" bind:value={searchTerm} />
+			<Searchbar placeholder="Search assets" bind:value={searchTerm} disabled={selectionMode}/>
 
 			<!-- Sidebar items -->
 			{#if displayAssets.length === 0 && (isLoading || isRefreshing)}
@@ -485,8 +647,37 @@
 					
 					{#key refreshCounter}
 						{#each displayAssets as asset (asset.asset_id)} 
-							{@const isSelected = page.params.asset_id === asset.asset_id.toString()}
-							<AssetCard {asset} {isSelected} />
+							{@const isSelectedForView = page.params.asset_id === asset.asset_id.toString()}
+							{@const isCheckedForSelection = selectedAssets.has(asset.asset_id.toString())}
+							<div 
+								class={cn(
+									"relative transition-all duration-150 ease-in-out",
+									selectionMode ? "py-1" : "" // Add some padding if needed for checkbox visibility
+								)}
+								role="button"
+								tabindex="0"
+								onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { if (selectionMode) toggleAssetSelection(asset.asset_id.toString()); else if (asset.asset_id) page.goto(`/case/${page.params.case_id}/assets/${asset.asset_id}`);}}}
+								onclick={() => { if (selectionMode) toggleAssetSelection(asset.asset_id.toString()); }}
+							>
+								{#if selectionMode}
+									<div class={cn(
+										"absolute left-2 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center h-full",
+										"cursor-pointer" // Make the checkbox area explicitly clickable
+									)}>
+										<Checkbox 
+											checked={isCheckedForSelection}
+											aria-label={`Select asset ${asset.asset_name}`}
+											class="pointer-events-none"
+										/>
+									</div>
+								{/if}
+								<div class={cn(selectionMode ? "pl-10" : "")}>
+									<AssetCard 
+										{asset} 
+										isSelected={isSelectedForView && !selectionMode} 
+									/>
+								</div>
+							</div>
 						{/each}
 					{/key}
 					
