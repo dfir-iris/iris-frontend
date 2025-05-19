@@ -117,7 +117,7 @@
 		onUpdateEditData(field, value);
 		
 		// If we have the asset ID, also update the store directly for immediate UI updates
-		if (asset.asset_id) {
+		if (asset?.asset_id) {
 			const assetId = asset.asset_id.toString();
 			const existingAsset = assetsStore.getAsset(assetId);
 			
@@ -132,6 +132,8 @@
 				console.log(`Updating ${field} in store from details-tab:`, assetId, updatedAsset);
 				assetsStore.updateAsset(assetId, updatedAsset);
 			}
+		} else {
+			console.error('Asset ID is not available for updating the store');
 		}
 	}
 </script>

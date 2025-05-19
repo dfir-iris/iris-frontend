@@ -26,7 +26,7 @@
   import { analysisStatuses } from '$lib/stores/analysis-status.store';
   import { assetsStore } from '$lib/stores/assets.store';
   import { tagsStore } from '$lib/stores/tags.store';
-  import { page } from '$app/state';
+  import { page } from '$app/stores'; // Corrected import
   import { AssetService } from '$lib/services/asset.service';
   import type { Tag } from '$lib/stores/tags.store';
   import type { Asset } from '$lib/types/resources/asset';
@@ -38,9 +38,9 @@
   import { Switch } from '$lib/components/ui/switch'; // Added
 
   // Props
-  let { open = $bindable(false), onAssetsAdded = () => {} }: {
+  let { open = $bindable(false) }: { // Removed onAssetsAdded
     open?: boolean;
-    onAssetsAdded?: () => void;
+    // Removed: onAssetsAdded?: () => void; 
   } = $props();
 
   // State
@@ -111,7 +111,7 @@
 
     isSearching = true;
     try {
-      const caseId = page.params.case_id;
+      const caseId = $page.params.case_id;
       const params = { 
         custom_conditions: JSON.stringify([
           { field: 'ioc_value', operator: 'like', value: searchQuery },
@@ -167,7 +167,7 @@
   async function submitForm() {
     isSubmitting = true;
     fieldErrors = {};
-    const caseId = page.params.case_id;
+    const caseId = $page.params.case_id;
 
     const commonPayloadBase = {
       asset_description: assetData.asset_description,
@@ -258,12 +258,11 @@
       }
       
       if (successCount > 0) { // If any asset was successfully added
-        if (typeof onAssetsAdded === 'function') {
-          onAssetsAdded();
-        }
-        // Close modal only if all were successful or if it's a partial success where we decide to close
-        // Current logic implies closing if at least one was successful and no errors, or if all names processed.
-        // Let's adjust to close if any success, to ensure refresh happens and user sees updated list.
+        // Removed: if (typeof onAssetsAdded === 'function') {
+        // Removed: onAssetsAdded();
+        // Removed: }
+        assetsStore.triggerListRefresh(); // Trigger refresh via store
+        
         open = false;
         resetForm();
       } else if (uniqueAssetNames.length === 0 && errorCount === 0) {
@@ -305,9 +304,10 @@
             description: `${payload.asset_name} has been successfully added.`,
             variant: "success"
           });
-          if (typeof onAssetsAdded === 'function') {
-            onAssetsAdded();
-          }
+          // Removed: if (typeof onAssetsAdded === 'function') {
+          // Removed: onAssetsAdded();
+          // Removed: }
+          assetsStore.triggerListRefresh(); // Trigger refresh via store
           open = false;
           resetForm();
         } else {

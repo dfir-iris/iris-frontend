@@ -211,12 +211,18 @@ export class ApiService {
         }
 
         // Parse the response
-        let responseData;
+        let responseData: any; // Use 'any' to accommodate different response types
         const contentType = response.headers.get("Content-Type");
         
-        if (contentType && contentType.includes("application/json")) {
+        if (response.status === 204) {
+          // For 204 No Content, there is no body to parse.
+          // Set responseData to null or an empty object as appropriate.
+          responseData = null; 
+        } else if (contentType && contentType.includes("application/json")) {
           responseData = await response.json();
         } else {
+          // For other content types or if no content-type, try to read as text.
+          // This could be an empty string if there's truly no body.
           responseData = await response.text();
         }
 

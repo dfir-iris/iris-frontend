@@ -10,7 +10,7 @@
 	import type { LayoutData } from './$types';
 	import { page } from '$app/state';
 	import type { Snippet } from 'svelte';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy } from 'svelte'; // Removed setContext
 	import { ENDPOINTS } from '$lib/constants/endpoints';
 	import { ApiService } from '$lib/services/api.service';
 	import type { Asset } from '$lib/types/resources/asset';
@@ -21,13 +21,14 @@
 	import AddAssetButton from '$lib/components/common/assets/add-asset-button.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Badge } from '$lib/components/ui/badge';
+	// Removed: import { ASSET_LIST_REFRESH_KEY } from '$lib/constants/contexts';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 	
 	// State for infinite scrolling
 	let assets = $state<Asset[]>([]);
 	let displayAssets = $state<Asset[]>([]);
-	let storeAssets = $state<Record<string, Asset>>({});
+	// let storeAssets = $state<Record<string, Asset>>({}); // No longer needed directly like this for display
 	let totalAssets = $state(0);
 	let currentPage = $state(1);
 	let nextPage = $state<number | null>(null);
@@ -67,26 +68,28 @@
 		});
 	}
 	
-	// Subscribe to the assets store
-	const unsubscribe = assetsStore.subscribe(updatedStoreAssets => {
-		storeAssets = updatedStoreAssets;
-		
-		// Only update displayAssets if we have assets loaded
-		if (assets.length > 0) {
-			// Create a new array with updated assets from the store
+	// Subscribe to the assets store for display purposes and nonce changes
+	let currentListRefreshNonce = $state(0);
+	const unsubscribe = assetsStore.subscribe(value => {
+		// storeAssets = value.assets; // Keep if direct store access is needed elsewhere
+		currentListRefreshNonce = value.listRefreshNonce;
+
+		// Update displayAssets based on the store's assets if assets are already loaded
+		// This part ensures that if the store is updated by other means (e.g. asset detail page edit),
+		// the list reflects it.
+		if (assets.length > 0) { // Check if assets has been initialized
 			const updatedAssets = assets.map(asset => {
 				const assetId = asset.asset_id.toString();
-				const storeAsset = storeAssets[assetId];
-				
-				// If we have this asset in the store, use it, otherwise use the original
-				if (storeAsset) {
-					return storeAsset;
-				}
-				return asset;
-			});
+				const storeAsset = value.assets[assetId];
+				return storeAsset || asset;
+			}).filter(Boolean); // Ensure no undefined assets if one was deleted and not in store
 			
-			// Force reactivity by creating a new array
-			displayAssets = [...updatedAssets];
+			// Only update if there's a material difference to avoid unnecessary re-renders
+			// This simple length check might not be enough for deep equality, but helps.
+			if (updatedAssets.length !== displayAssets.length || 
+					!updatedAssets.every((val, index) => val.asset_id === displayAssets[index]?.asset_id)) {
+				displayAssets = deduplicateAssets([...updatedAssets]);
+			}
 		}
 	});
 	
@@ -100,21 +103,36 @@
 		if (data.data) {
 			data.data.then((result) => {
 				// Force reactivity by creating new arrays and deduplicate
-				assets = deduplicateAssets([...result.data.data]);
-				displayAssets = [...assets]; // Initialize display assets
+				const initialAssets = deduplicateAssets([...result.data.data]);
+				assets = initialAssets;
+				displayAssets = [...initialAssets]; // Initialize display assets
 				totalAssets = result.data.total;
 				currentPage = result.data.current_page;
 				nextPage = result.data.next_page;
 				lastPage = result.data.last_page;
 				
 				// Add assets to the store
-				assetsStore.setAssets(assets);
+				assetsStore.setAssets(initialAssets);
 				
 				// Setup observer after initial data is loaded
 				setupObserver();
 			});
 		}
 	});
+
+	// Effect to refresh assets when listRefreshNonce changes
+	let previousNonce = $state(0); // Track the previous nonce value processed by this effect
+
+	$effect(() => {
+		// Only refresh if the nonce has actually changed to a new positive value
+		// and is different from the last nonce that triggered a refresh.
+		if (currentListRefreshNonce > 0 && currentListRefreshNonce !== previousNonce) {
+			console.log(`Asset list refresh triggered by store nonce change from ${previousNonce} to ${currentListRefreshNonce}.`);
+			refreshAssets(1); // Refresh the first page
+			previousNonce = currentListRefreshNonce; // Update previousNonce after refresh
+		}
+	});
+
 
 	// Function to build custom conditions for search and filters
 	function buildSearchConditions(term: string) {
@@ -173,7 +191,7 @@
 			lastPage = result.data.last_page;
 			refreshCounter++; // Increment counter to force reactivity
 			
-			// Update the store with new assets
+			// Update the store with new assets from the first page
 			assetsStore.setAssets(assets);
 			
 			// Re-setup observer after refresh
@@ -185,11 +203,6 @@
 		} finally {
 			isRefreshing = false;
 		}
-	}
-
-	// This function will be called by child components to trigger a refresh
-	function triggerAssetListRefresh() {
-		refreshAssets(1);
 	}
 
 	// Load more assets when scrolling
@@ -398,7 +411,7 @@
 								<span class="sm:hidden">Refresh</span>
 							</Button>
 						</div>
-						<AddAssetButton class="w-full sm:w-auto" onAssetsAdded={triggerAssetListRefresh} />
+						<AddAssetButton class="w-full sm:w-auto" />
 					</div>
 				</div>
 				

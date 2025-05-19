@@ -10,7 +10,7 @@
   import { Badge } from '$lib/components/ui/badge';
   import { cn } from '$lib/utils';
 	import { AssetService } from '$lib/services/asset.service';
-	import { toast } from '$lib/stores/toast.store';
+	import { toast } from '$lib/components/ui/toast'; // Corrected import
   
   // Props
   let { 

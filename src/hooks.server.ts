@@ -56,7 +56,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     console.log(`Proxying ${event.request.method} request to ${apiUrl}`);
     
     try {
-      // For POST requests, we need to handle the body specially
+      // For POST, PUT, PATCH requests, we need to handle the body specially
       if (['POST', 'PUT', 'PATCH'].includes(event.request.method)) {
         // Clone the request to read its body
         const clonedRequest = event.request.clone();
@@ -95,8 +95,11 @@ export const handle: Handle = async ({ event, resolve }) => {
         
         // Handle response
         let responseData;
+        const responseContentType = response.headers.get('content-type');
         try {
-          if (response.headers.get('content-type')?.includes('application/json')) {
+          if (response.status === 204) {
+            responseData = null; // No content to parse
+          } else if (responseContentType?.includes('application/json')) {
             responseData = await response.json();
           } else {
             responseData = await response.text();
@@ -158,7 +161,7 @@ export const handle: Handle = async ({ event, resolve }) => {
           return new Response(JSON.stringify(responseData), {
             status: response.status,
             headers: { 
-              'Content-Type': 'application/json',
+              'Content-Type': responseContentType || 'text/plain', // Use actual content type or default
               // Copy needed headers
               ...Object.fromEntries([...response.headers.entries()]
                 .filter(([key]) => !['content-length', 'connection'].includes(key.toLowerCase())))
@@ -166,13 +169,17 @@ export const handle: Handle = async ({ event, resolve }) => {
           });
         } catch (err) {
           console.error(`Error processing response: ${err}`);
+          // If parsing failed but status is 204, it's likely a successful DELETE
+          if (response.status === 204) {
+            return new Response(null, { status: 204, headers: response.headers });
+          }
           return new Response(JSON.stringify({ error: 'Failed to process response' }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' }
           });
         }
       } else {
-        // For non-POST requests, use the existing code
+        // For GET, DELETE, and other requests
         // Create sanitized headers
         const headers = sanitizeHeaders(event.request.headers);
         
@@ -186,19 +193,25 @@ export const handle: Handle = async ({ event, resolve }) => {
         
         // Get response data
         let responseData;
-        const contentType = response.headers.get('content-type');
+        const responseContentType = response.headers.get('content-type');
         
-        if (contentType?.includes('application/json')) {
+        if (response.status === 204) {
+          // For 204 No Content (common for DELETE), there's no body.
+          return new Response(null, {
+            status: response.status,
+            headers: response.headers // Forward original headers
+          });
+        } else if (responseContentType?.includes('application/json')) {
           responseData = await response.json();
         } else {
           responseData = await response.text();
         }
         
         // Create a new response with the data
-        return new Response(JSON.stringify(responseData), {
+        return new Response(response.status === 204 ? null : JSON.stringify(responseData), {
           status: response.status,
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': responseContentType || 'text/plain', // Use actual content type or default
             // Copy any other needed headers
             ...Object.fromEntries([...response.headers.entries()]
               .filter(([key]) => !['content-length', 'connection'].includes(key.toLowerCase())))

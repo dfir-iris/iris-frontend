@@ -14,6 +14,7 @@
 		InfoIcon,
 		SaveIcon,
 		XIcon,
+		SearchIcon, // Added for "not found" message
 
 		CalendarRange
 
@@ -32,6 +33,9 @@
 	import ScrollArea from '$lib/components/ui/scroll-area/scroll-area.svelte';
 	import type { Tag, TagInput } from '$lib/stores/tags.store';
 	import { tagsStore } from '$lib/stores/tags.store';
+	import DeleteButton from '$lib/components/common/DeleteButton.svelte'; // Import DeleteButton
+	import { goto } from '$app/navigation'; // Import goto for navigation
+	import { ENDPOINTS } from '$lib/constants/endpoints'; // Import ENDPOINTS
 
 	let { data } = $props<{ data: PageData }>();
 	$inspect(data);
@@ -305,6 +309,19 @@
 			isSaving = false;
 		}
 	}
+
+	function handleAssetDeleted() {
+		const assetName = displayAssetData?.asset_name || 'Unknown';
+		const assetId = displayAssetData!.asset_id.toString();
+		
+		assetsStore.removeAsset(assetId); // Remove from local store for immediate UI update if any part of this page relies on it
+		
+		// Navigate first
+		goto(`/case/${data.caseId}/assets`, { replaceState: true }).then(() => {
+			// Then trigger a list refresh via the store
+			assetsStore.triggerListRefresh();
+		});
+	}
 	
 </script>
 
@@ -340,7 +357,7 @@
 				</div>
 			</ErrorAlert>
 		</div>
-	{:else if displayAssetData}
+	{:else if displayAssetData?.asset_id}
 		<div in:fade={{ duration: 150 }}>
 			<Card class="border-0 shadow-lg overflow-hidden">
 				<div class="p-4">
@@ -389,10 +406,12 @@
 									<EditIcon class="h-4 w-4" />
 									<span>Edit</span>
 								</Button>
-								<Button variant="destructive" size="sm" class="flex items-center gap-1">
-									<Trash2Icon class="h-4 w-4" />
-									<span>Delete</span>
-								</Button>
+								<DeleteButton
+									url={ENDPOINTS.case.assets.delete(data.caseId, displayAssetData.asset_id.toString())}
+									onrefresh={handleAssetDeleted}
+									buttonText="Delete"
+									deletion_prompt_message={`Are you sure you want to delete the asset "${displayAssetData.asset_name}"? This action cannot be undone.`}
+								/>
 							{/if}
 						</div>
 					</div>
@@ -484,6 +503,21 @@
 			<Card class="border-0 shadow-lg overflow-hidden">
 				<div class="p-4 h-[68px]"></div>
 			</Card>
+		</div>
+	{:else if !isLoading && !displayAssetData?.asset_id}
+		<!-- Asset not found or not loaded -->
+		<div in:fade class="flex flex-col items-center justify-center h-[calc(100vh-200px)] text-center">
+			<SearchIcon class="h-16 w-16 text-muted-foreground/50 mb-4" />
+			<h2 class="text-xl font-semibold text-muted-foreground mb-2">Asset Not Found</h2>
+			<p class="text-muted-foreground">
+				The asset with ID #{data.assetId} could not be found or loaded.
+			</p>
+			<p class="text-muted-foreground mt-1">
+				Please select an asset from the list on the left, or try refreshing the page.
+			</p>
+			<Button variant="outline" class="mt-6" onclick={() => goto(`/case/${data.caseId}/assets`, { replaceState: true })}>
+				Go to Assets List
+			</Button>
 		</div>
 	{/if}
 </div>
