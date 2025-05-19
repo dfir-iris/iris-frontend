@@ -41,6 +41,7 @@
 	let searchTerm = $state('');
 	let searchDebounceTimer: number;
 	let refreshCounter = $state(0); // Add a counter to force reactivity
+	let initialFetchDone = $state(false); // Declare and initialize initialFetchDone
 	
 	// Filter state
 	let showFilterDropdown = $state(false);
@@ -70,26 +71,35 @@
 	
 	// Subscribe to the assets store for display purposes and nonce changes
 	let currentListRefreshNonce = $state(0);
-	const unsubscribe = assetsStore.subscribe(value => {
-		// storeAssets = value.assets; // Keep if direct store access is needed elsewhere
-		currentListRefreshNonce = value.listRefreshNonce;
+	const unsubscribe = assetsStore.subscribe(storeState => {
+		currentListRefreshNonce = storeState.listRefreshNonce;
 
-		// Update displayAssets based on the store's assets if assets are already loaded
-		// This part ensures that if the store is updated by other means (e.g. asset detail page edit),
+		// Update displayAssets based on the store's assets.
+		// This ensures that if the store is updated by other means (e.g. asset detail page edit),
 		// the list reflects it.
-		if (assets.length > 0) { // Check if assets has been initialized
-			const updatedAssets = assets.map(asset => {
-				const assetId = asset.asset_id.toString();
-				const storeAsset = value.assets[assetId];
-				return storeAsset || asset;
-			}).filter(Boolean); // Ensure no undefined assets if one was deleted and not in store
+		if (initialFetchDone) { 
+			// `assets` holds the list of assets for the current API view (paginated/filtered).
+			// `storeState.assets` is the global map of all known assets, potentially more up-to-date.
 			
-			// Only update if there's a material difference to avoid unnecessary re-renders
-			// This simple length check might not be enough for deep equality, but helps.
-			if (updatedAssets.length !== displayAssets.length || 
-					!updatedAssets.every((val, index) => val.asset_id === displayAssets[index]?.asset_id)) {
-				displayAssets = deduplicateAssets([...updatedAssets]);
-			}
+			// Reconstruct displayAssets:
+			// For each asset that *should* be in the current view (i.e., it's in our `assets` list),
+			// get its latest version from the store.
+			// If an asset from the `assets` list is no longer in the store (deleted), it will be filtered out.
+			const newDisplayAssets = assets
+				.map(assetFromApiList => {
+					// Ensure assetFromApiList and its ID are valid before trying to access the store
+					if (assetFromApiList && assetFromApiList.asset_id != null) {
+						return storeState.assets[assetFromApiList.asset_id.toString()];
+					}
+					return undefined; // Or handle as an error/log if this case is unexpected
+				})
+				.filter(Boolean) as Asset[]; // Filter out undefined (deleted) assets and assert type
+
+			// To ensure reactivity, always assign the new array if the store has changed.
+			// Svelte's keyed #each will efficiently update the DOM.
+			// A more optimized approach would compare newDisplayAssets with displayAssets
+			// before assigning, but direct assignment is more robust for debugging reactivity.
+			displayAssets = newDisplayAssets;
 		}
 	});
 	
@@ -113,6 +123,8 @@
 				
 				// Add assets to the store
 				assetsStore.setAssets(initialAssets);
+				
+				initialFetchDone = true; // Set to true after initial fetch
 				
 				// Setup observer after initial data is loaded
 				setupObserver();
@@ -472,7 +484,7 @@
 					<div class="sticky top-0 h-8 bg-gradient-to-b from-background to-transparent pointer-events-none"></div>
 					
 					{#key refreshCounter}
-						{#each displayAssets as asset, index (asset.asset_id + '-' + index)}
+						{#each displayAssets as asset (asset.asset_id)} 
 							{@const isSelected = page.params.asset_id === asset.asset_id.toString()}
 							<AssetCard {asset} {isSelected} />
 						{/each}
