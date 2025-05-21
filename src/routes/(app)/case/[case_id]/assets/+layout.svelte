@@ -113,6 +113,10 @@
 	// Clean up subscription on component destruction
 	onDestroy(() => {
 		unsubscribe();
+		if (observer) { // Ensure observer is disconnected on destroy
+			observer.disconnect();
+		}
+		clearTimeout(searchDebounceTimer); // Clear debounce timer on destroy
 	});
 	
 	// Initialize with data from the server
@@ -141,6 +145,7 @@
 
 	// Effect to refresh assets when listRefreshNonce changes
 	let previousNonce = $state(0); // Track the previous nonce value processed by this effect
+	let previousRoutedAssetId = $state<string | undefined>(undefined); // For tracking asset_id changes in route
 
 	$effect(() => {
 		// Only refresh if the nonce has actually changed to a new positive value
@@ -309,7 +314,7 @@
 		
 		// Create new observer
 		observer = new IntersectionObserver((entries) => {
-			if (entries[0].isIntersecting && nextPage) {
+			if (entries[0].isIntersecting && nextPage && !isLoading) { // Added !isLoading check
 				loadMoreAssets();
 			}
 		}, { 
@@ -350,6 +355,7 @@
 		if (observer) {
 			observer.disconnect();
 		}
+		clearTimeout(searchDebounceTimer); // Already present, ensure it's the one for search
 	});
 
 	// Handle scroll events for blur effect
@@ -368,26 +374,31 @@
 
 	function scrollToSelectedAsset() {
 		if (page.params.asset_id && scrollContainer) {
-			// Use a timeout to ensure the DOM is updated after list changes
-			setTimeout(() => {
+			// Use requestAnimationFrame to sync with browser repaint cycle
+			requestAnimationFrame(() => {
 				const selectedAssetElement = document.getElementById(`asset-card-${page.params.asset_id}`);
 				if (selectedAssetElement) {
 					selectedAssetElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 				}
-			}, 50); // A small delay should be sufficient
+			});
 		}
 	}
 
-	// Effect to scroll to selected asset when displayAssets or selected asset_id changes
+	// Effect to scroll to selected asset when the selected asset_id in the URL changes
 	$effect(() => {
-		// This effect depends on displayAssets to ensure it runs after the list is potentially re-rendered.
-		// It also depends on page.params.asset_id to run when the selection changes.
-		const currentDisplayAssets = displayAssets; // Create a dependency
-		const currentAssetId = page.params.asset_id; // Create a dependency
-		
-		if (currentAssetId && !selectionMode) { // Only scroll if not in selection mode to avoid conflicts
-			scrollToSelectedAsset();
+		const currentAssetIdInRoute = page.params.asset_id;
+
+		if (currentAssetIdInRoute && !selectionMode && !isLoading) {
+			// Only scroll if:
+			// 1. The asset_id in the URL has actually changed since the last check, OR
+			// 2. It's the initial load (previousRoutedAssetId is undefined) and an asset_id is present,
+			//    and initial data fetch is complete.
+			// This prevents scrolling when displayAssets changes due to pagination if the route hasn't changed.
+			if (initialFetchDone && currentAssetIdInRoute !== previousRoutedAssetId) {
+				scrollToSelectedAsset();
+			}
 		}
+		previousRoutedAssetId = currentAssetIdInRoute; // Update for the next comparison
 	});
 
 	// Selection functions

@@ -43,17 +43,36 @@
   // Internal selection state for 'select' mode
   let internalSelectedIocMap = $state<Map<number, IOC>>(new Map());
 
+  // New state variable to manage initialization from prop on open
+  let initialSelectedOnOpenForSelectMode = $state<IOC[] | undefined>(undefined);
+
   // Effect to initialize internalSelectedIocMap from selectedForLinking prop
-  // when in select mode and the dropdown opens.
+  // when in select mode and the dropdown opens, or mode changes to select.
+  // This replaces the previous effect that had issues with prop updates.
   $effect(() => {
-    if (mode === 'select' && showIOCDropdown) {
-      const newMap = new Map<number, IOC>();
-      selectedForLinking.forEach(ioc => newMap.set(ioc.ioc_id, ioc));
-      // Only assign if different to prevent re-triggering unnecessarily if parent passes same array instance
-      if (newMap.size !== internalSelectedIocMap.size || 
-          !Array.from(newMap.keys()).every(key => internalSelectedIocMap.has(key) && internalSelectedIocMap.get(key) === newMap.get(key))) {
-        internalSelectedIocMap = newMap;
+    if (mode === 'select') {
+      if (showIOCDropdown) {
+        // If initialSelectedOnOpenForSelectMode is undefined, it means the popover just opened
+        // in select mode, or the mode just switched to 'select' while the popover was already open.
+        // We capture the current state of selectedForLinking to initialize internalSelectedIocMap.
+        if (initialSelectedOnOpenForSelectMode === undefined) {
+          // Create a stable copy of selectedForLinking at the point of opening/mode switch.
+          initialSelectedOnOpenForSelectMode = [...selectedForLinking]; 
+          
+          const newMap = new Map<number, IOC>();
+          initialSelectedOnOpenForSelectMode.forEach(ioc => newMap.set(ioc.ioc_id, ioc));
+          internalSelectedIocMap = newMap;
+        }
+      } else {
+        // When popover closes, reset the captured state, so it re-initializes on next open.
+        initialSelectedOnOpenForSelectMode = undefined;
       }
+    } else {
+      // If mode is not 'select' (e.g., 'link' or undefined), ensure captured state is reset.
+      // This handles cases where mode might change.
+      initialSelectedOnOpenForSelectMode = undefined;
+      // Optionally, clear internalSelectedIocMap if mode is not 'select'
+      // internalSelectedIocMap = new Map(); // Uncomment if selections should clear when not in select mode
     }
   });
   
