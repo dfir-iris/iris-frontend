@@ -27,6 +27,7 @@
 	import { Checkbox } from '$lib/components/ui/checkbox'; // Added
 	import { toast } from '$lib/components/ui/toast'; // Added
 	import { cn } from '$lib/utils'; // Added
+	import { deduplicateAssets, escapeCSVValue, convertToCSV, AVAILABLE_EXPORT_COLUMNS, type ExportColumn } from '$lib/utils/asset.utils'; // Modified
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 	
@@ -60,6 +61,9 @@
 	// Download state
 	let showDownloadDropdown = $state(false);
 	let isDownloading = $state(false);
+	let selectedExportColumnKeys = $state<Set<string>>(
+		new Set(AVAILABLE_EXPORT_COLUMNS.filter(c => c.defaultSelected).map(c => c.key))
+	);
 	
 	// Filter options
 	const filterOptions = [
@@ -69,19 +73,6 @@
 		{ id: 'analysis_started', label: 'Analysis Started', field: 'analysis_status_id', value: 3, operator: 'eq' },
 		{ id: 'analysis_todo', label: 'Analysis To Be done', field: 'analysis_status_id', value: 2, operator: 'eq' },
 	];
-	
-	// Function to deduplicate assets by ID
-	function deduplicateAssets(assetList: Asset[]): Asset[] {
-		const seen = new Set<string>();
-		return assetList.filter(asset => {
-			const id = asset.asset_id.toString();
-			if (seen.has(id)) {
-				return false;
-			}
-			seen.add(id);
-			return true;
-		});
-	}
 	
 	// Subscribe to the assets store for display purposes and nonce changes
 	let currentListRefreshNonce = $state(0);
@@ -480,52 +471,6 @@
 		isRemovingSelected = false;
 	}
 
-	// CSV Helper functions
-	function escapeCSVValue(value: any): string {
-		if (value === null || typeof value === 'undefined') {
-			return '';
-		}
-		let stringValue = String(value);
-		// If the value contains a comma, newline, or double quote, enclose it in double quotes.
-		if (stringValue.includes(',') || stringValue.includes('\n') || stringValue.includes('"')) {
-			// Escape existing double quotes by doubling them
-			stringValue = stringValue.replace(/"/g, '""');
-			return `"${stringValue}"`;
-		}
-		return stringValue;
-	}
-
-	function convertToCSV(data: Asset[]): string {
-		if (!data || data.length === 0) {
-			return '';
-		}
-
-		const headers = [
-			'Asset ID', 'Asset UUID', 'Name', 'Type', 'Description', 'Domain', 'IP', 
-			'Info', 'Compromise Status', 'Tags', 'Analysis Status', 'Date Added', 'Date Updated'
-		];
-		
-		const rows = data.map(asset => {
-			return [
-				escapeCSVValue(asset.asset_id),
-				escapeCSVValue(asset.asset_uuid),
-				escapeCSVValue(asset.asset_name),
-				escapeCSVValue(asset.asset_type?.asset_name),
-				escapeCSVValue(asset.asset_description),
-				escapeCSVValue(asset.asset_domain),
-				escapeCSVValue(asset.asset_ip),
-				escapeCSVValue(asset.asset_info),
-				escapeCSVValue(asset.asset_compromise_status_id === 1 ? 'Compromised' : asset.asset_compromise_status_id === 3 ? 'Remediated' : 'Not Compromised'), // Example mapping
-				escapeCSVValue(asset.asset_tags),
-				escapeCSVValue(asset.analysis_status?.name),
-				escapeCSVValue(asset.date_added),
-				escapeCSVValue(asset.date_update)
-			].join(',');
-		});
-
-		return [headers.join(','), ...rows].join('\n');
-	}
-
 	function triggerDownload(csvContent: string, filename: string) {
 		const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
 		const link = document.createElement('a');
@@ -542,10 +487,16 @@
 	}
 
 	async function downloadVisibleAssets() {
-		if (isDownloading || displayAssets.length === 0) return;
+		if (isDownloading || displayAssets.length === 0 || selectedExportColumnKeys.size === 0) {
+			if (selectedExportColumnKeys.size === 0) {
+				toast({ title: "No Columns Selected", description: "Please select at least one column to export.", variant: "warning" });
+			}
+			return;
+		}
 		isDownloading = true;
 		try {
-			const csvData = convertToCSV(displayAssets);
+			const columnsToExport = AVAILABLE_EXPORT_COLUMNS.filter(col => selectedExportColumnKeys.has(col.key));
+			const csvData = convertToCSV(displayAssets, columnsToExport);
 			triggerDownload(csvData, `iris_case_${page.params.case_id}_visible_assets.csv`);
 			toast({
 				title: "Download Started",
@@ -566,7 +517,12 @@
 	}
 
 	async function downloadAllAssets() {
-		if (isDownloading) return;
+		if (isDownloading || selectedExportColumnKeys.size === 0) {
+			if (selectedExportColumnKeys.size === 0) {
+				toast({ title: "No Columns Selected", description: "Please select at least one column to export.", variant: "warning" });
+			}
+			return;
+		}
 		isDownloading = true;
 		let allAssets: Asset[] = [];
 		let currentPageToFetch = 1;
@@ -604,7 +560,8 @@
 			}
 
 			if (allAssets.length > 0) {
-				const csvData = convertToCSV(deduplicateAssets(allAssets)); // Deduplicate before converting
+				const columnsToExport = AVAILABLE_EXPORT_COLUMNS.filter(col => selectedExportColumnKeys.has(col.key));
+				const csvData = convertToCSV(deduplicateAssets(allAssets), columnsToExport); // Deduplicate before converting
 				triggerDownload(csvData, `iris_case_${page.params.case_id}_all_assets.csv`);
 				toast({
 					title: "Download Started",
@@ -630,6 +587,15 @@
 			isDownloading = false;
 			showDownloadDropdown = false;
 		}
+	}
+
+	function toggleExportColumn(key: string, newCheckedState: boolean) {
+		if (newCheckedState) {
+			selectedExportColumnKeys.add(key);
+		} else {
+			selectedExportColumnKeys.delete(key);
+		}
+		selectedExportColumnKeys = new Set(selectedExportColumnKeys); // Trigger reactivity
 	}
 
 	// Effect to clear selection if filters change or search term changes significantly
@@ -747,21 +713,42 @@
 											<span class="sr-only">Download Assets</span>
 										</Button>
 									</DropdownMenu.Trigger>
-									<DropdownMenu.Content align="end" class="w-64">
+									<DropdownMenu.Content align="end" class="w-72">
 										<DropdownMenu.Label>Download Options</DropdownMenu.Label>
 										<DropdownMenu.Separator />
 										<DropdownMenu.Item 
 											onclick={downloadVisibleAssets} 
-											disabled={isDownloading || displayAssets.length === 0}
+											disabled={isDownloading || displayAssets.length === 0 || selectedExportColumnKeys.size === 0}
 										>
-											Download visible assets (CSV)
+											Download visible assets ({displayAssets.length})
 										</DropdownMenu.Item>
 										<DropdownMenu.Item 
 											onclick={downloadAllAssets}
-											disabled={isDownloading || totalAssets === 0}
+											disabled={isDownloading || totalAssets === 0 || selectedExportColumnKeys.size === 0}
 										>
-											Download all assets (CSV)
+											Download all matching assets ({totalAssets})
 										</DropdownMenu.Item>
+										<DropdownMenu.Separator />
+										<DropdownMenu.Label>Select Columns to Export</DropdownMenu.Label>
+										<div class="max-h-60 overflow-y-auto px-1">
+											{#each AVAILABLE_EXPORT_COLUMNS as column}
+												<DropdownMenu.CheckboxItem
+													checked={selectedExportColumnKeys.has(column.key)}
+													onCheckedChange={(isChecked) => {
+														// The isChecked parameter from the component indicates its new state
+														if (typeof isChecked === 'boolean') {
+															toggleExportColumn(column.key, isChecked);
+														}
+													}}
+													onSelect={(e) => e.preventDefault()} class="text-xs"
+												>
+													{column.header}
+												</DropdownMenu.CheckboxItem>
+											{/each}
+										</div>
+										{#if selectedExportColumnKeys.size === 0}
+											<p class="px-2 py-1.5 text-xs text-destructive">Select at least one column.</p>
+										{/if}
 									</DropdownMenu.Content>
 								</DropdownMenu.Root>
 								<Button 

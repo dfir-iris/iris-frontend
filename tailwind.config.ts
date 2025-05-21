@@ -78,7 +78,7 @@ const config: Config = {
 				sans: [...fontFamily.sans]
 			},
 			backgroundImage: {
-				'primary-gradient': 'linear-gradient(-45deg, #05316A, #05316A)',
+				'primary-gradient': 'linear-gradient(-45deg, hsl(var(--gradient-primary-start)), hsl(var(--gradient-primary-end)))'
 			},
 		}
 	},

@@ -44,14 +44,10 @@
 		--table-row-even: 0 0% 95%;
 		--table-row-even-hover: 0 0% 89%;
 
-		--table-primary: 0 0% 98%;
-		--table-primary-hover: 0 0% 92%;
-		--table-secondary: 0 0% 96%;
-		--table-secondary-hover: 0 0% 92%;
-		--table-row-odd: 0 0% 99%;
-		--table-row-odd-hover: 0 0% 86%;
-		--table-row-even: 0 0% 95%;
-		--table-row-even-hover: 0 0% 89%;
+		/* Removed duplicate table variables */
+
+		--gradient-primary-start: 217 90% 22%; /* approx #05316A */
+		--gradient-primary-end: 217 90% 22%;   /* approx #05316A */
 	}
 
 	.dark {
@@ -73,6 +69,7 @@
 
 		--primary: 210 40% 98%;
 		--primary-foreground: 222.2 47.4% 11.2%;
+		/* --primary-gradient: 210 40% 98%; Removed this line */
 
 		--secondary: 217.2 32.6% 17.5%;
 		--secondary-foreground: 210 40% 98%;
@@ -94,14 +91,10 @@
 		--table-row-even: 0 0% 10%;
 		--table-row-even-hover: 0 0% 5%;
 
-		--table-primary: 0 0% 9%;
-		--table-primary-hover: 0 0% 5%;
-		--table-secondary: 0 0% 10%;
-		--table-secondary-hover: 0 0% 5%;
-		--table-row-odd: 0 0% 9%;
-		--table-row-odd-hover: 0 0% 5%;
-		--table-row-even: 0 0% 10%;
-		--table-row-even-hover: 0 0% 5%;
+		/* Removed duplicate table variables */
+
+		--gradient-primary-start: 222.2 47.4% 10%; /* Darker Blue */
+		--gradient-primary-end: 222.2 47.4% 15%;   /* Slightly Lighter Dark Blue */
 	}
 }
 

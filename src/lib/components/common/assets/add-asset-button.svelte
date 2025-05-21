@@ -7,7 +7,7 @@
   let showModal = $state(false);
 </script>
 
-<Button onclick={() => showModal = true} class={className}>
+<Button onclick={() => showModal = true} class={className} variant="outline">
   <PlusIcon size={20} />
   Add Assets
 </Button>
