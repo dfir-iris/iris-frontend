@@ -31,11 +31,12 @@
   import type { Tag } from '$lib/stores/tags.store';
   import type { Asset } from '$lib/types/resources/asset';
   import type { IOC } from '$lib/types/resources/ioc';
-  import { ApiService } from '$lib/services/api.service';
-  import { ENDPOINTS } from '$lib/constants/endpoints';
+  // Removed: import { ApiService } from '$lib/services/api.service';
+  // Removed: import { ENDPOINTS } from '$lib/constants/endpoints';
   import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
 	import { COMPROMISE_STATUS } from '$lib/constants/compromise_status';
   import { Switch } from '$lib/components/ui/switch'; // Added
+  import IOCLinkButton from '$lib/components/common/ioc/IOCLinkButton.svelte'; // Added
 
   // Props
   let { open = $bindable(false) }: { // Removed onAssetsAdded
@@ -46,11 +47,12 @@
   // State
   let isSubmitting = $state(false);
   let currentTags = $state<Tag[]>([]);
-  let selectedIOCs = $state<IOC[]>([]);
-  let searchQuery = $state('');
-  let searchResults = $state<IOC[]>([]);
-  let isSearching = $state(false);
-  let searchDebounceTimer: number;
+  // let selectedIOCs = $state<IOC[]>([]); // Replaced by selectedIOCsForNewAsset
+  let selectedIOCsForNewAsset = $state<IOC[]>([]); // Used with IOCLinkButton
+  // Removed: let searchQuery = $state('');
+  // Removed: let searchResults = $state<IOC[]>([]);
+  // Removed: let isSearching = $state(false);
+  // Removed: let searchDebounceTimer: number;
   let fieldErrors = $state<Record<string, string[]>>({});
   let oneAssetPerLine = $state(true); // Added: Toggle state
 
@@ -89,9 +91,10 @@
       asset_tags: ''
     };
     currentTags = [];
-    selectedIOCs = [];
-    searchQuery = '';
-    searchResults = [];
+    // selectedIOCs = []; // Replaced
+    selectedIOCsForNewAsset = [];
+    // searchQuery = ''; // Removed
+    // searchResults = []; // Removed
     fieldErrors = {};
     oneAssetPerLine = true; // Reset toggle to default
   }
@@ -102,66 +105,10 @@
     assetData.asset_tags = newTags.map(tag => tag.tag_title).join(',');
   }
 
-  // Search for IOCs
-  async function searchIOCs() {
-    if (!searchQuery.trim()) {
-      searchResults = [];
-      return;
-    }
-
-    isSearching = true;
-    try {
-      const caseId = $page.params.case_id;
-      const params = { 
-        custom_conditions: JSON.stringify([
-          { field: 'ioc_value', operator: 'like', value: searchQuery },
-          { field: 'ioc_type.type_name', operator: 'like', value: searchQuery },
-          { field: 'ioc_description', operator: 'like', value: searchQuery },
-          { field: 'ioc_tags', operator: 'like', value: searchQuery }
-        ]),
-        per_page: 10
-      };
-
-      const response = await ApiService.get(ENDPOINTS.case.ioc.list(caseId, params));
-      
-      if (response?.data?.data) {
-        searchResults = response.data.data;
-      } else if (Array.isArray(response?.data)) {
-        searchResults = response.data;
-      } else {
-        searchResults = [];
-      }
-    } catch (error) {
-      console.error('Error searching IOCs:', error);
-      searchResults = [];
-    } finally {
-      isSearching = false;
-    }
-  }
-
-  // Handle search input
-  function handleSearchInput(e: Event) {
-    searchQuery = (e.target as HTMLInputElement).value;
-    clearTimeout(searchDebounceTimer);
-    searchDebounceTimer = setTimeout(() => {
-      searchIOCs();
-    }, 300) as unknown as number;
-  }
-
-  // Toggle IOC selection
-  function toggleIOCSelection(ioc: IOC) {
-    const index = selectedIOCs.findIndex(i => i.ioc_id === ioc.ioc_id);
-    if (index >= 0) {
-      selectedIOCs = selectedIOCs.filter(i => i.ioc_id !== ioc.ioc_id);
-    } else {
-      selectedIOCs = [...selectedIOCs, ioc];
-    }
-  }
-
-  // Check if an IOC is selected
-  function isIOCSelected(ioc: IOC): boolean {
-    return selectedIOCs.some(i => i.ioc_id === ioc.ioc_id);
-  }
+  // Removed: searchIOCs function
+  // Removed: handleSearchInput function
+  // Removed: toggleIOCSelection function
+  // Removed: isIOCSelected function
 
   // Submit the form
   async function submitForm() {
@@ -177,7 +124,7 @@
       analysis_status_id: assetData.analysis_status_id,
       asset_compromise_status_id: assetData.asset_compromise_status_id,
       asset_tags: assetData.asset_tags,
-      ioc_links: selectedIOCs.map(ioc => ioc.ioc_id)
+      ioc_links: selectedIOCsForNewAsset.map(ioc => ioc.ioc_id) // Use selectedIOCsForNewAsset
     };
 
     if (oneAssetPerLine) {
@@ -575,91 +522,44 @@
             <h2 class="text-lg font-semibold">Link Indicators of Compromise</h2>
           </div>
 
-          <!-- Selected IOCs -->
-          {#if selectedIOCs.length > 0}
+          <!-- IOCLinkButton for selecting IOCs -->
+          <div class="mb-4">
+            <IOCLinkButton 
+              caseId={$page.params.case_id} 
+              mode="select"
+              bind:selectedForLinking={selectedIOCsForNewAsset}
+            />
+          </div>
+
+          <!-- Selected IOCs Display -->
+          {#if selectedIOCsForNewAsset.length > 0}
             <div class="mb-4">
-              <h3 class="text-sm font-medium mb-2">Selected IOCs ({selectedIOCs.length})</h3>
-              <div class="flex flex-wrap gap-2 mb-4">
-                {#each selectedIOCs as ioc (ioc.ioc_id)}
-                  <Badge variant="secondary" class="flex items-center gap-1 py-1.5 pl-2 pr-1">
+              <h3 class="text-sm font-medium mb-2">Selected IOCs ({selectedIOCsForNewAsset.length})</h3>
+              <div class="flex flex-wrap gap-2 mb-4 max-h-[150px] overflow-y-auto p-1 rounded-md border bg-muted/30">
+                {#each selectedIOCsForNewAsset as ioc (ioc.ioc_id)}
+                  <Badge variant="secondary" class="flex items-center gap-1 py-1 pl-2 pr-1">
                     <span class="text-xs">{ioc.ioc_value}</span>
                     <button 
-                      onclick={() => toggleIOCSelection(ioc)}
+                      onclick={() => {
+                        selectedIOCsForNewAsset = selectedIOCsForNewAsset.filter(selectedIoc => selectedIoc.ioc_id !== ioc.ioc_id);
+                      }}
                       class="ml-1 h-4 w-4 rounded-full bg-muted-foreground/20 hover:bg-destructive/20 flex items-center justify-center"
+                      aria-label={`Remove ${ioc.ioc_value}`}
                     >
                       <XIcon class="h-3 w-3" />
                     </button>
                   </Badge>
                 {/each}
               </div>
-              <Separator class="my-4" />
+            </div>
+          {:else if !oneAssetPerLine} <!-- Show only if not in bulk mode and no IOCs selected -->
+            <div class="text-center py-4 bg-muted/30 rounded-lg border border-dashed">
+              <InfoIcon class="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+              <p class="text-muted-foreground text-sm">No IOCs selected to link with this asset.</p>
+              <p class="text-muted-foreground text-xs mt-1">You can link IOCs later if needed.</p>
             </div>
           {/if}
-
-          <!-- Search IOCs -->
-          <div class="relative mb-4">
-            <Input 
-              type="search" 
-              placeholder="Search for IOCs by value, type, or description..." 
-              value={searchQuery}
-              oninput={handleSearchInput}
-              class="w-full"
-            />
-            {#if isSearching}
-              <div class="absolute right-3 top-1/2 -translate-y-1/2">
-                <div class="animate-spin h-4 w-4">⟳</div>
-              </div>
-            {/if}
-          </div>
-
-          <!-- Search Results -->
-          <div>
-            {#if searchQuery && !isSearching && searchResults.length === 0}
-              <div class="text-center py-4 bg-muted/30 rounded-lg border border-dashed">
-                <AlertTriangleIcon class="h-6 w-6 mx-auto text-muted-foreground mb-2" />
-                <p class="text-muted-foreground">No IOCs found matching "{searchQuery}"</p>
-              </div>
-            {:else if searchResults.length > 0}
-              <div class="space-y-2 max-h-[300px] overflow-y-auto">
-                {#each searchResults as ioc (ioc.ioc_id)}
-                  <Card class={isIOCSelected(ioc) ? 'border-primary/50 bg-primary/5' : ''}>
-                    <CardContent class="p-3 flex items-start justify-between">
-                      <div class="flex-1">
-                        <div class="flex items-center gap-2">
-                          <Badge variant="outline" class="px-2 py-0.5 text-xs">
-                            {ioc.ioc_type.type_name}
-                          </Badge>
-                          <h4 class="font-medium">{ioc.ioc_value}</h4>
-                        </div>
-                        {#if ioc.ioc_description}
-                          <p class="text-sm text-muted-foreground mt-1 line-clamp-2">
-                            {ioc.ioc_description}
-                          </p>
-                        {/if}
-                      </div>
-                      <Button 
-                        variant={isIOCSelected(ioc) ? "default" : "outline"} 
-                        size="sm"
-                        onclick={() => toggleIOCSelection(ioc)}
-                        class="ml-4 shrink-0"
-                      >
-                        {#if isIOCSelected(ioc)}
-                          <CheckIcon class="h-4 w-4 mr-1" /> Selected
-                        {:else}
-                          <PlusIcon class="h-4 w-4 mr-1" /> Select
-                        {/if}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                {/each}
-              </div>
-            {:else if !searchQuery}
-              <div class="text-center py-4 bg-muted/30 rounded-lg border border-dashed">
-                <ShieldAlertIcon class="h-6 w-6 mx-auto text-muted-foreground mb-2" />
-                <p class="text-muted-foreground">Search for IOCs to link to this asset</p>
-              </div>
-            {/if}
-          </div>
+          <!-- Removed old search input and results display -->
         </section>
       </div>
     </div>
@@ -667,8 +567,8 @@
     <DialogFooter class="flex items-center justify-between pt-2">
       <div class="text-sm text-muted-foreground">
         <span class="text-destructive">*</span> Required fields
-        {#if selectedIOCs.length > 0}
-          · {selectedIOCs.length} IOCs selected
+        {#if selectedIOCsForNewAsset.length > 0}
+          · {selectedIOCsForNewAsset.length} IOCs selected
         {/if}
       </div>
       <div class="flex gap-2">

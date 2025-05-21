@@ -35,7 +35,7 @@ export interface LoginResponse {
 class AuthenticationService {
     async login(credentials: LoginCredentials): Promise<LoginResponse> {
         try {
-            const response = await fetch('/auth/login', {
+            const response = await fetch('/api/v2/auth/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

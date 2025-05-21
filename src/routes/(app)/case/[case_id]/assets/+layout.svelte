@@ -7,7 +7,8 @@
 		RefreshCwIcon,
 		XIcon,
 		Trash2Icon, // Added
-		CheckIcon // Added (though might not be used directly if text is preferred)
+		CheckIcon, // Added (though might not be used directly if text is preferred)
+		DownloadIcon // Added
 	} from 'lucide-svelte';
 	import type { LayoutData } from './$types';
 	import { page } from '$app/state';
@@ -55,6 +56,10 @@
 	let selectionMode = $state(false);
 	let selectedAssets = $state<Set<string>>(new Set());
 	let isRemovingSelected = $state(false);
+
+	// Download state
+	let showDownloadDropdown = $state(false);
+	let isDownloading = $state(false);
 	
 	// Filter options
 	const filterOptions = [
@@ -475,6 +480,158 @@
 		isRemovingSelected = false;
 	}
 
+	// CSV Helper functions
+	function escapeCSVValue(value: any): string {
+		if (value === null || typeof value === 'undefined') {
+			return '';
+		}
+		let stringValue = String(value);
+		// If the value contains a comma, newline, or double quote, enclose it in double quotes.
+		if (stringValue.includes(',') || stringValue.includes('\n') || stringValue.includes('"')) {
+			// Escape existing double quotes by doubling them
+			stringValue = stringValue.replace(/"/g, '""');
+			return `"${stringValue}"`;
+		}
+		return stringValue;
+	}
+
+	function convertToCSV(data: Asset[]): string {
+		if (!data || data.length === 0) {
+			return '';
+		}
+
+		const headers = [
+			'Asset ID', 'Asset UUID', 'Name', 'Type', 'Description', 'Domain', 'IP', 
+			'Info', 'Compromise Status', 'Tags', 'Analysis Status', 'Date Added', 'Date Updated'
+		];
+		
+		const rows = data.map(asset => {
+			return [
+				escapeCSVValue(asset.asset_id),
+				escapeCSVValue(asset.asset_uuid),
+				escapeCSVValue(asset.asset_name),
+				escapeCSVValue(asset.asset_type?.asset_name),
+				escapeCSVValue(asset.asset_description),
+				escapeCSVValue(asset.asset_domain),
+				escapeCSVValue(asset.asset_ip),
+				escapeCSVValue(asset.asset_info),
+				escapeCSVValue(asset.asset_compromise_status_id === 1 ? 'Compromised' : asset.asset_compromise_status_id === 3 ? 'Remediated' : 'Not Compromised'), // Example mapping
+				escapeCSVValue(asset.asset_tags),
+				escapeCSVValue(asset.analysis_status?.name),
+				escapeCSVValue(asset.date_added),
+				escapeCSVValue(asset.date_update)
+			].join(',');
+		});
+
+		return [headers.join(','), ...rows].join('\n');
+	}
+
+	function triggerDownload(csvContent: string, filename: string) {
+		const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+		const link = document.createElement('a');
+		if (link.download !== undefined) {
+			const url = URL.createObjectURL(blob);
+			link.setAttribute('href', url);
+			link.setAttribute('download', filename);
+			link.style.visibility = 'hidden';
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+			URL.revokeObjectURL(url);
+		}
+	}
+
+	async function downloadVisibleAssets() {
+		if (isDownloading || displayAssets.length === 0) return;
+		isDownloading = true;
+		try {
+			const csvData = convertToCSV(displayAssets);
+			triggerDownload(csvData, `iris_case_${page.params.case_id}_visible_assets.csv`);
+			toast({
+				title: "Download Started",
+				description: "Downloading visible assets as CSV.",
+				variant: "success"
+			});
+		} catch (error) {
+			console.error('Failed to download visible assets:', error);
+			toast({
+				title: "Download Error",
+				description: "Could not download visible assets. Check console for details.",
+				variant: "destructive"
+			});
+		} finally {
+			isDownloading = false;
+			showDownloadDropdown = false;
+		}
+	}
+
+	async function downloadAllAssets() {
+		if (isDownloading) return;
+		isDownloading = true;
+		let allAssets: Asset[] = [];
+		let currentPageToFetch = 1;
+		let hasMorePages = true;
+
+		toast({
+			title: "Preparing Download",
+			description: "Fetching all assets, this may take a moment...",
+			variant: "default"
+		});
+
+		try {
+			while(hasMorePages) {
+				const customConditions = buildSearchConditions(searchTerm); // Use current filters/search
+				const params: Record<string, any> = { 
+					page: currentPageToFetch, 
+					per_page: 100 // Fetch in larger chunks for "download all"
+				};
+				if (customConditions.length > 0) {
+					params.custom_conditions = JSON.stringify(customConditions);
+				}
+
+				const result = await ApiService.get<Paginated<Asset>>(
+					ENDPOINTS.case.assets.list(page.params.case_id, params),
+					{ fetch }
+				);
+				
+				allAssets = allAssets.concat(result.data.data);
+				
+				if (result.data.next_page) {
+					currentPageToFetch++;
+				} else {
+					hasMorePages = false;
+				}
+			}
+
+			if (allAssets.length > 0) {
+				const csvData = convertToCSV(deduplicateAssets(allAssets)); // Deduplicate before converting
+				triggerDownload(csvData, `iris_case_${page.params.case_id}_all_assets.csv`);
+				toast({
+					title: "Download Started",
+					description: `Downloading ${allAssets.length} asset(s) as CSV.`,
+					variant: "success"
+				});
+			} else {
+				toast({
+					title: "No Assets",
+					description: "No assets found to download with the current filters.",
+					variant: "default"
+				});
+			}
+
+		} catch (error) {
+			console.error('Failed to download all assets:', error);
+			toast({
+				title: "Download Error",
+				description: "Could not download all assets. Check console for details.",
+				variant: "destructive"
+			});
+		} finally {
+			isDownloading = false;
+			showDownloadDropdown = false;
+		}
+	}
+
 	// Effect to clear selection if filters change or search term changes significantly
 	$effect(() => {
 		if (selectionMode) {
@@ -552,7 +709,7 @@
 							<div class="flex flex-row gap-2 w-full sm:w-auto">
 								<DropdownMenu.Root open={showFilterDropdown} onOpenChange={(open) => showFilterDropdown = open}>
 									<DropdownMenu.Trigger class="w-full sm:w-auto">
-										<Button variant="outline" size="icon" class="w-full sm:w-auto p-2">
+										<Button variant="ghost" size="icon" class="w-full sm:w-auto p-2" disabled={isDownloading}>
 											<FilterIcon size={18}></FilterIcon>
 											<span class="sr-only">Filter Assets</span>
 										</Button>
@@ -571,20 +728,53 @@
 									</DropdownMenu.Content>
 								</DropdownMenu.Root>
 								<Button 
-									variant="outline" size="icon" 
+									variant="ghost" 
+									size="icon" 
 									onclick={toggleSelectionMode}
-									disabled={displayAssets.length === 0 || isRefreshing || isLoading}
+									disabled={displayAssets.length === 0 || isRefreshing || isLoading || isDownloading}
 									class="w-full sm:w-auto p-2"
 								>
 									<CheckIcon size={18}/>
-							</Button>
-								<Button variant="outline" onclick={() => refreshAssets(1)} disabled={isRefreshing} class="shrink-0 w-full sm:w-auto">
+								</Button>
+								<DropdownMenu.Root open={showDownloadDropdown} onOpenChange={(open) => showDownloadDropdown = open}>
+									<DropdownMenu.Trigger class="w-full sm:w-auto">
+										<Button variant="ghost" size="icon" class="w-full sm:w-auto p-2" disabled={isDownloading || (displayAssets.length === 0 && totalAssets === 0)}>
+											{#if isDownloading}
+												<RefreshCwIcon size={18} class="animate-spin" />
+											{:else}
+												<DownloadIcon size={18} />
+											{/if}
+											<span class="sr-only">Download Assets</span>
+										</Button>
+									</DropdownMenu.Trigger>
+									<DropdownMenu.Content align="end" class="w-64">
+										<DropdownMenu.Label>Download Options</DropdownMenu.Label>
+										<DropdownMenu.Separator />
+										<DropdownMenu.Item 
+											onclick={downloadVisibleAssets} 
+											disabled={isDownloading || displayAssets.length === 0}
+										>
+											Download visible assets (CSV)
+										</DropdownMenu.Item>
+										<DropdownMenu.Item 
+											onclick={downloadAllAssets}
+											disabled={isDownloading || totalAssets === 0}
+										>
+											Download all assets (CSV)
+										</DropdownMenu.Item>
+									</DropdownMenu.Content>
+								</DropdownMenu.Root>
+								<Button 
+									variant="ghost"
+									size="icon" 
+									onclick={() => refreshAssets(1)} 
+									disabled={isRefreshing || isDownloading} 
+									class="w-full sm:w-auto p-2"
+									>
 									<RefreshCwIcon size={18} class={isRefreshing ? 'animate-spin' : ''} />
-									<span class="hidden sm:inline ml-1.5">Refresh</span>
-									<span class="sm:hidden">Refresh</span>
 								</Button>
 							</div>
-							<AddAssetButton class="w-full sm:w-auto" />
+							<AddAssetButton class="w-full sm:w-auto" disabled={isDownloading} />
 						{/if}
 					</div>
 				</div>
