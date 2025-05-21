@@ -28,6 +28,7 @@
 	import { toast } from '$lib/components/ui/toast'; // Added
 	import { cn } from '$lib/utils'; // Added
 	import { deduplicateAssets, escapeCSVValue, convertToCSV, AVAILABLE_EXPORT_COLUMNS, type ExportColumn } from '$lib/utils/asset.utils'; // Modified
+	import DownloadModal from '$lib/components/common/DownloadModal.svelte'; // New import
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 	
@@ -59,11 +60,12 @@
 	let isRemovingSelected = $state(false);
 
 	// Download state
-	let showDownloadDropdown = $state(false);
-	let isDownloading = $state(false);
-	let selectedExportColumnKeys = $state<Set<string>>(
-		new Set(AVAILABLE_EXPORT_COLUMNS.filter(c => c.defaultSelected).map(c => c.key))
-	);
+	let showDownloadModal = $state(false); // Changed from showDownloadDropdown
+	let isDownloadingModal = $state(false); // New state for modal processing
+	let downloadProgressMessage = $state(''); // New state for progress message
+	// let selectedExportColumnKeys = $state<Set<string>>( // This state is now managed within DownloadModal or passed directly
+	// 	new Set(AVAILABLE_EXPORT_COLUMNS.filter(c => c.defaultSelected).map(c => c.key))
+	// );
 	
 	// Filter options
 	const filterOptions = [
@@ -486,17 +488,17 @@
 		}
 	}
 
-	async function downloadVisibleAssets() {
-		if (isDownloading || displayAssets.length === 0 || selectedExportColumnKeys.size === 0) {
-			if (selectedExportColumnKeys.size === 0) {
+	async function downloadVisibleAssets(selectedColumnsForExport: ExportColumn[]) {
+		if (isDownloadingModal || displayAssets.length === 0 || selectedColumnsForExport.length === 0) {
+			if (selectedColumnsForExport.length === 0) {
 				toast({ title: "No Columns Selected", description: "Please select at least one column to export.", variant: "warning" });
 			}
 			return;
 		}
-		isDownloading = true;
+		isDownloadingModal = true;
+		downloadProgressMessage = 'Preparing visible assets...';
 		try {
-			const columnsToExport = AVAILABLE_EXPORT_COLUMNS.filter(col => selectedExportColumnKeys.has(col.key));
-			const csvData = convertToCSV(displayAssets, columnsToExport);
+			const csvData = convertToCSV(displayAssets, selectedColumnsForExport);
 			triggerDownload(csvData, `iris_case_${page.params.case_id}_visible_assets.csv`);
 			toast({
 				title: "Download Started",
@@ -511,28 +513,28 @@
 				variant: "destructive"
 			});
 		} finally {
-			isDownloading = false;
-			showDownloadDropdown = false;
+			isDownloadingModal = false;
+			downloadProgressMessage = '';
+			showDownloadModal = false; // Close modal on completion/error
 		}
 	}
 
-	async function downloadAllAssets() {
-		if (isDownloading || selectedExportColumnKeys.size === 0) {
-			if (selectedExportColumnKeys.size === 0) {
+	async function downloadAllAssets(selectedColumnsForExport: ExportColumn[]) {
+		if (isDownloadingModal || selectedColumnsForExport.length === 0) {
+			if (selectedColumnsForExport.length === 0) {
 				toast({ title: "No Columns Selected", description: "Please select at least one column to export.", variant: "warning" });
 			}
 			return;
 		}
-		isDownloading = true;
+		isDownloadingModal = true;
 		let allAssets: Asset[] = [];
 		let currentPageToFetch = 1;
 		let hasMorePages = true;
+		let totalFetched = 0;
+		// Estimate total pages for progress, or use totalAssets if accurate for current filters
+		const estimatedTotal = totalAssets; // Assuming totalAssets reflects filtered count
 
-		toast({
-			title: "Preparing Download",
-			description: "Fetching all assets, this may take a moment...",
-			variant: "default"
-		});
+		downloadProgressMessage = "Fetching all assets... (Page 1)";
 
 		try {
 			while(hasMorePages) {
@@ -551,17 +553,19 @@
 				);
 				
 				allAssets = allAssets.concat(result.data.data);
+				totalFetched += result.data.data.length;
 				
 				if (result.data.next_page) {
 					currentPageToFetch++;
+					downloadProgressMessage = `Fetching page ${currentPageToFetch}... (${totalFetched}/${estimatedTotal > 0 ? estimatedTotal : 'many'} assets)`;
 				} else {
 					hasMorePages = false;
 				}
 			}
 
 			if (allAssets.length > 0) {
-				const columnsToExport = AVAILABLE_EXPORT_COLUMNS.filter(col => selectedExportColumnKeys.has(col.key));
-				const csvData = convertToCSV(deduplicateAssets(allAssets), columnsToExport); // Deduplicate before converting
+				downloadProgressMessage = `Generating CSV for ${allAssets.length} assets...`;
+				const csvData = convertToCSV(deduplicateAssets(allAssets), selectedColumnsForExport); 
 				triggerDownload(csvData, `iris_case_${page.params.case_id}_all_assets.csv`);
 				toast({
 					title: "Download Started",
@@ -584,19 +588,26 @@
 				variant: "destructive"
 			});
 		} finally {
-			isDownloading = false;
-			showDownloadDropdown = false;
+			isDownloadingModal = false;
+			downloadProgressMessage = '';
+			showDownloadModal = false; // Close modal on completion/error
 		}
 	}
 
-	function toggleExportColumn(key: string, newCheckedState: boolean) {
-		if (newCheckedState) {
-			selectedExportColumnKeys.add(key);
-		} else {
-			selectedExportColumnKeys.delete(key);
+	function handleConfirmDownload(downloadType: 'visible' | 'all', selectedKeys: Set<string>) {
+		if (selectedKeys.size === 0) {
+			toast({ title: "No Columns Selected", description: "Please select at least one column to export.", variant: "warning" });
+			return;
 		}
-		selectedExportColumnKeys = new Set(selectedExportColumnKeys); // Trigger reactivity
+		const columnsToExport = AVAILABLE_EXPORT_COLUMNS.filter(col => selectedKeys.has(col.key));
+
+		if (downloadType === 'visible') {
+			downloadVisibleAssets(columnsToExport);
+		} else {
+			downloadAllAssets(columnsToExport);
+		}
 	}
+
 
 	// Effect to clear selection if filters change or search term changes significantly
 	$effect(() => {
@@ -675,7 +686,7 @@
 							<div class="flex flex-row gap-2 w-full sm:w-auto">
 								<DropdownMenu.Root open={showFilterDropdown} onOpenChange={(open) => showFilterDropdown = open}>
 									<DropdownMenu.Trigger class="w-full sm:w-auto">
-										<Button variant="ghost" size="icon" class="w-full sm:w-auto p-2" disabled={isDownloading}>
+										<Button variant="ghost" size="icon" class="w-full sm:w-auto p-2" disabled={isDownloadingModal}>
 											<FilterIcon size={18}></FilterIcon>
 											<span class="sr-only">Filter Assets</span>
 										</Button>
@@ -697,71 +708,36 @@
 									variant="ghost" 
 									size="icon" 
 									onclick={toggleSelectionMode}
-									disabled={displayAssets.length === 0 || isRefreshing || isLoading || isDownloading}
+									disabled={displayAssets.length === 0 || isRefreshing || isLoading || isDownloadingModal}
 									class="w-full sm:w-auto p-2"
 								>
 									<CheckIcon size={18}/>
 								</Button>
-								<DropdownMenu.Root open={showDownloadDropdown} onOpenChange={(open) => showDownloadDropdown = open}>
-									<DropdownMenu.Trigger class="w-full sm:w-auto">
-										<Button variant="ghost" size="icon" class="w-full sm:w-auto p-2" disabled={isDownloading || (displayAssets.length === 0 && totalAssets === 0)}>
-											{#if isDownloading}
-												<RefreshCwIcon size={18} class="animate-spin" />
-											{:else}
-												<DownloadIcon size={18} />
-											{/if}
-											<span class="sr-only">Download Assets</span>
-										</Button>
-									</DropdownMenu.Trigger>
-									<DropdownMenu.Content align="end" class="w-72">
-										<DropdownMenu.Label>Download Options</DropdownMenu.Label>
-										<DropdownMenu.Separator />
-										<DropdownMenu.Item 
-											onclick={downloadVisibleAssets} 
-											disabled={isDownloading || displayAssets.length === 0 || selectedExportColumnKeys.size === 0}
-										>
-											Download visible assets ({displayAssets.length})
-										</DropdownMenu.Item>
-										<DropdownMenu.Item 
-											onclick={downloadAllAssets}
-											disabled={isDownloading || totalAssets === 0 || selectedExportColumnKeys.size === 0}
-										>
-											Download all matching assets ({totalAssets})
-										</DropdownMenu.Item>
-										<DropdownMenu.Separator />
-										<DropdownMenu.Label>Select Columns to Export</DropdownMenu.Label>
-										<div class="max-h-60 overflow-y-auto px-1">
-											{#each AVAILABLE_EXPORT_COLUMNS as column}
-												<DropdownMenu.CheckboxItem
-													checked={selectedExportColumnKeys.has(column.key)}
-													onCheckedChange={(isChecked) => {
-														// The isChecked parameter from the component indicates its new state
-														if (typeof isChecked === 'boolean') {
-															toggleExportColumn(column.key, isChecked);
-														}
-													}}
-													onSelect={(e) => e.preventDefault()} class="text-xs"
-												>
-													{column.header}
-												</DropdownMenu.CheckboxItem>
-											{/each}
-										</div>
-										{#if selectedExportColumnKeys.size === 0}
-											<p class="px-2 py-1.5 text-xs text-destructive">Select at least one column.</p>
-										{/if}
-									</DropdownMenu.Content>
-								</DropdownMenu.Root>
+								<Button 
+									variant="ghost" 
+									size="icon" 
+									class="w-full sm:w-auto p-2" 
+									disabled={isDownloadingModal || (displayAssets.length === 0 && totalAssets === 0)}
+									onclick={() => showDownloadModal = true}
+								>
+									{#if isDownloadingModal}
+										<RefreshCwIcon size={18} class="animate-spin" />
+									{:else}
+										<DownloadIcon size={18} />
+									{/if}
+									<span class="sr-only">Download Assets</span>
+								</Button>
 								<Button 
 									variant="ghost"
 									size="icon" 
 									onclick={() => refreshAssets(1)} 
-									disabled={isRefreshing || isDownloading} 
+									disabled={isRefreshing || isDownloadingModal} 
 									class="w-full sm:w-auto p-2"
 									>
 									<RefreshCwIcon size={18} class={isRefreshing ? 'animate-spin' : ''} />
 								</Button>
 							</div>
-							<AddAssetButton class="w-full sm:w-auto" disabled={isDownloading} />
+							<AddAssetButton class="w-full sm:w-auto" disabled={isDownloadingModal} />
 						{/if}
 					</div>
 				</div>
@@ -889,6 +865,25 @@
 		</Resizable.Pane>
 	</Resizable.PaneGroup>
 </div>
+
+<DownloadModal
+	bind:open={showDownloadModal}
+	title="Download Assets"
+	itemNounPlural="assets"
+	availableColumns={AVAILABLE_EXPORT_COLUMNS}
+	countVisible={displayAssets.length}
+	countAll={totalAssets}
+	isProcessing={isDownloadingModal}
+	processingMessage={downloadProgressMessage}
+	onConfirm={handleConfirmDownload}
+	onOpenChange={(openState) => {
+		showDownloadModal = openState;
+		if (!openState) { // If modal is closed, ensure processing state is reset
+			isDownloadingModal = false;
+			downloadProgressMessage = '';
+		}
+	}}
+/>
 
 <style>
 	/* Custom scrollbar styles */
