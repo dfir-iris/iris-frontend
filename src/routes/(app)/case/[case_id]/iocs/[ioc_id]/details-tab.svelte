@@ -60,6 +60,7 @@
 			// Use Promise.all to fetch both in parallel
 			Promise.all([
 				iocTypes.fetch(),
+				tlpList.fetch() // Also fetch TLP list
 			]).then(() => {
 				storesInitialized = true;
 			});
@@ -182,11 +183,13 @@
 								class="mt-1 w-full px-3 py-2 bg-background border border-input rounded-md text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
 							>
 								<option value="" disabled>Select ioc type</option>
-								{#each $iocTypes as type}
-									<option value={type.type_id}>{type.type_name}</option>
-								{/each}
+								{#if storesInitialized && $iocTypes}
+									{#each $iocTypes as type}
+										<option value={type.type_id}>{type.type_name}</option>
+									{/each}
+								{/if}
 							</select>
-							{#if editData.ioc_type_id}
+							{#if editData.ioc_type_id && storesInitialized && $iocTypes}
 								{@const selectedType = $iocTypes.find(t => t.type_id === editData.ioc_type_id)}
 							{/if}
 						</div>
@@ -206,11 +209,13 @@
 								class="mt-1 w-full px-3 py-2 bg-background border border-input rounded-md text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
 							>
 								<option value="" disabled>Select TLP</option>
-								{#each $tlpList as tlp}
-									<option value={tlp.tlp_name}>{tlp.tlp_name}</option>
-								{/each}
+								{#if storesInitialized && $tlpList}
+									{#each $tlpList as tlp}
+										<option value={tlp.tlp_id}>{tlp.tlp_name}</option>
+									{/each}
+								{/if}
 							</select>
-							{#if editData.ioc_tlp_id}
+							{#if editData.ioc_tlp_id && storesInitialized && $tlpList}
 								{@const selectedTlp = $tlpList.find(t => t.tlp_id === editData.ioc_tlp_id)}
 							{/if}
 						</div>
