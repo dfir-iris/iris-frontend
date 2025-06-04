@@ -1,5 +1,3 @@
-import type { CaseQueryParams } from "$lib/types/resources/case"
-
 /** Builds and formats an API endpoint with URL params. */
 const buildUrl = (endpoint: string, params: Record<string, string | string[] | number | number[] | boolean>) => {
     for (const [k, v] of Object.entries(params)) {
@@ -50,7 +48,10 @@ export const ENDPOINTS = {
         },
         ioc: {
             list: (caseId: number | string, parameters: object = {}) => `/cases/${caseId}/iocs${buildParameters(parameters)}`,
+            update: (caseId: number | string, iocId: number | string) => `/cases/${caseId}/iocs/${iocId}`,
+            add: (caseId: number | string) => `/cases/${caseId}/iocs`,
             getById: (caseId: number | string, iocId: number | string) => `/cases/${caseId}/iocs/${iocId}`,
+            delete: (caseId: number | string, iocId: number | string) => `/cases/${caseId}/iocs/${iocId}`,
         },
         getById: (caseId: number | string) => `/cases/${caseId}`,
         list: `/cases`,
@@ -61,9 +62,20 @@ export const ENDPOINTS = {
     },
     auth: {
         login: `/auth/login`,
-        logout: `/auth/logout`,
-    }, 
+        logout: `/auth/logout`
+    },
     tags: {
         list: '/tags'
+    },
+    manage: {
+        asset_types: {
+            list: '/manage/asset-types/list'
+        },
+        ioc_types: {
+            list: '/manage/ioc-types/list',
+        },
+        tlp: {
+            list: '/manage/tlp/list',
+        }
     }
 };

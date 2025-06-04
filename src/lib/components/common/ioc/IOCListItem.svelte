@@ -17,9 +17,9 @@
   import { Button } from '$lib/components/ui/button';
   import { toast } from '$lib/components/ui/toast';
   import { cn } from '$lib/utils';
-  import type { IOC } from '$lib/types/resources/ioc';
+  import type { Ioc } from '$lib/types/resources/ioc';
   
-  let { ioc }: { ioc: IOC } = $props();
+  let { ioc }: { ioc: Ioc } = $props();
   
   // Function to get the appropriate icon for an IOC type
   function getIOCTypeIcon(typeName: string) {
@@ -73,7 +73,6 @@
     });
   }
 </script>
-
 <div class="flex items-center gap-3 p-2 hover:bg-muted/50 rounded-md transition-colors">
   <!-- Icon based on IOC type -->
   <div class="bg-primary/10 p-1.5 rounded-md text-primary shrink-0">

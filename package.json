@@ -55,7 +55,8 @@
 		"typescript": "^5.0.0",
 		"typescript-eslint": "^8.0.0",
 		"vite": "^6.0.1",
-		"vitest": "^3.0.2"
+		"vitest": "^3.0.2",
+		"zod": "^3.25.20"
 	},
 	"dependencies": {
 		"@sveltejs/adapter-node": "^5.2.9",

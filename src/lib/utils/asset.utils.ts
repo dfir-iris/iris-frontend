@@ -61,7 +61,6 @@ export const AVAILABLE_EXPORT_COLUMNS: ExportColumn[] = [
 		defaultSelected: false 
 	},
 	{ key: 'compromise_status_id', header: 'Compromise Status ID', getter: asset => asset.asset_compromise_status_id, defaultSelected: false },
-	// Add other relevant fields like created_at, updated_at if needed
 ];
 
 export function convertToCSV(assets: Asset[], selectedColumns: ExportColumn[]): string {

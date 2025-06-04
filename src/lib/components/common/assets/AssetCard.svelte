@@ -90,19 +90,6 @@
   $: assetDescription = asset.asset_description || '';
   $: parsedDescription = assetDescription ? marked(assetDescription) : '';
   
-  // Details for compromise statuses other than 'Compromised'
-  // $: compromiseStatusDetail = (() => { // This logic is now moved to CompromiseStatusBadge
-  //   if (!asset || asset.asset_compromise_status_id === 1) return null; 
-  //   switch (asset.asset_compromise_status_id) {
-  //     case 2: 
-  //       return { Icon: ShieldCheckIcon, color: 'text-green-600', tooltip: 'Not Compromised' };
-  //     case 3: 
-  //       return { Icon: ShieldQuestionIcon, color: 'text-muted-foreground', tooltip: 'Compromise Status Unknown' };
-  //     default:
-  //       return null;
-  //   }
-  // })();
-
   // State for description expansion
   let isDescriptionExpanded = false;
   

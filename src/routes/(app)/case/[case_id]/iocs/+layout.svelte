@@ -16,27 +16,28 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { ENDPOINTS } from '$lib/constants/endpoints';
 	import { ApiService } from '$lib/services/api.service';
-	import type { Asset } from '$lib/types/resources/asset';
+	import type { Ioc } from '$lib/types/resources/ioc';
 	import type { Paginated } from '$lib/services/api.service';
 	import * as Resizable from "$lib/components/ui/resizable/index.js";
-	import AssetCard from '$lib/components/common/assets/AssetCard.svelte';
-	import { assetsStore } from '$lib/stores/assets.store';
-	import AddAssetButton from '$lib/components/common/assets/add-asset-button.svelte';
+	import IocCard from '$lib/components/common/ioc/IocCard.svelte';
+	import { iocsStore } from '$lib/stores/iocs.store';
+	import AddIocButton from '$lib/components/common/assets/add-asset-button.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Checkbox } from '$lib/components/ui/checkbox'; // Added
 	import { toast } from '$lib/components/ui/toast'; // Added
 	import { cn } from '$lib/utils'; // Added
-	import { deduplicateAssets, escapeCSVValue, convertToCSV, AVAILABLE_EXPORT_COLUMNS, type ExportColumn } from '$lib/utils/asset.utils'; // Modified
+  import { deduplicateIocs } from '$lib/utils/iocs.utils'; 
+	import { deduplicateAssets, escapeCSVValue, convertToCSV, AVAILABLE_EXPORT_COLUMNS, type ExportColumn } from '$lib/utils/asset.utils'; 
 	import DownloadModal from '$lib/components/common/DownloadModal.svelte'; // New import
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 	
 	// State for infinite scrolling
-	let assets = $state<Asset[]>([]);
-	let displayAssets = $state<Asset[]>([]);
-	// let storeAssets = $state<Record<string, Asset>>({}); // No longer needed directly like this for display
-	let totalAssets = $state(0);
+	let ioc = $state<Ioc[]>([]);
+	let displayIocs = $state<Ioc[]>([]);
+	// let storeIocs = $state<Record<string, Ioc>>({}); // No longer needed directly like this for display
+	let totalIocs = $state(0);
 	let currentPage = $state(1);
 	let nextPage = $state<number | null>(null);
 	let lastPage = $state<number | null>(null);
@@ -56,57 +57,52 @@
 
 	// Selection state
 	let selectionMode = $state(false);
-	let selectedAssets = $state<Set<string>>(new Set());
+	let selectedIocs = $state<Set<string>>(new Set());
 	let isRemovingSelected = $state(false);
 
 	// Download state
-	let showDownloadModal = $state(false); // Changed from showDownloadDropdown
-	let isDownloadingModal = $state(false); // New state for modal processing
-	let downloadProgressMessage = $state(''); // New state for progress message
-	// let selectedExportColumnKeys = $state<Set<string>>( // This state is now managed within DownloadModal or passed directly
-	// 	new Set(AVAILABLE_EXPORT_COLUMNS.filter(c => c.defaultSelected).map(c => c.key))
-	// );
-	
+	let showDownloadModal = $state(false);
+	let isDownloadingModal = $state(false); 
+	let downloadProgressMessage = $state(''); 
+
+	const caseId = $derived($page.params.case_id); // Get caseId from page params
+
 	// Filter options
 	const filterOptions = [
-		{ id: 'compromised', label: 'Compromised Assets', field: 'asset_compromise_status_id', value: 1, operator: 'eq' },
-		{ id: 'non_compromised', label: 'Non Compromised Assets', field: 'asset_compromise_status_id', value: 1, operator: 'not' },
+		{ id: 'compromised', label: 'Compromised Iocs', field: 'ioc_compromise_status_id', value: 1, operator: 'eq' },
+		{ id: 'non_compromised', label: 'Non Compromised Iocs', field: 'ioc_compromise_status_id', value: 1, operator: 'not' },
 		{ id: 'analysis_done', label: 'Analysis Done', field: 'analysis_status_id', value: 6, operator: 'eq'  },
 		{ id: 'analysis_started', label: 'Analysis Started', field: 'analysis_status_id', value: 3, operator: 'eq' },
 		{ id: 'analysis_todo', label: 'Analysis To Be done', field: 'analysis_status_id', value: 2, operator: 'eq' },
 	];
 	
-	// Subscribe to the assets store for display purposes and nonce changes
+	// Subscribe to the ioc store for display purposes and nonce changes
 	let currentListRefreshNonce = $state(0);
-	const unsubscribe = assetsStore.subscribe(storeState => {
+	const unsubscribe = iocsStore.subscribe(storeState => {
 		currentListRefreshNonce = storeState.listRefreshNonce;
 
-		// Update displayAssets based on the store's assets.
+		// Update displayIocs based on the store's ioc.
 		// This ensures that if the store is updated by other means (e.g. asset detail page edit),
 		// the list reflects it.
 		if (initialFetchDone) { 
-			// `assets` holds the list of assets for the current API view (paginated/filtered).
-			// `storeState.assets` is the global map of all known assets, potentially more up-to-date.
+			// `ioc` holds the list of ioc for the current API view (paginated/filtered).
+			// `storeState.ioc` is the global map of all known ioc, potentially more up-to-date.
 			
-			// Reconstruct displayAssets:
-			// For each asset that *should* be in the current view (i.e., it's in our `assets` list),
+			// Reconstruct displayIocs:
+			// For each asset that *should* be in the current view (i.e., it's in our `ioc` list),
 			// get its latest version from the store.
-			// If an asset from the `assets` list is no longer in the store (deleted), it will be filtered out.
-			const newDisplayAssets = assets
+			// If an asset from the `ioc` list is no longer in the store (deleted), it will be filtered out.
+			const newDisplayIocs = ioc
 				.map(assetFromApiList => {
 					// Ensure assetFromApiList and its ID are valid before trying to access the store
-					if (assetFromApiList && assetFromApiList.asset_id != null) {
-						return storeState.assets[assetFromApiList.asset_id.toString()];
+					if (assetFromApiList && assetFromApiList.ioc_id != null) {
+						return storeState.iocs[assetFromApiList.ioc_id.toString()];
 					}
-					return undefined; // Or handle as an error/log if this case is unexpected
+					return undefined; // Or handle as appropriate if an ID is missing
 				})
-				.filter(Boolean) as Asset[]; // Filter out undefined (deleted) assets and assert type
+				.filter(a => a !== undefined) as Ioc[]; // Filter out undefined entries and assert type
 
-			// To ensure reactivity, always assign the new array if the store has changed.
-			// Svelte's keyed #each will efficiently update the DOM.
-			// A more optimized approach would compare newDisplayAssets with displayAssets
-			// before assigning, but direct assignment is more robust for debugging reactivity.
-			displayAssets = newDisplayAssets;
+			displayIocs = deduplicateIocs(newDisplayIocs); // Use the deduplication utility
 		}
 	});
 	
@@ -124,16 +120,16 @@
 		if (data.data) {
 			data.data.then((result) => {
 				// Force reactivity by creating new arrays and deduplicate
-				const initialAssets = deduplicateAssets([...result.data.data]);
-				assets = initialAssets;
-				displayAssets = [...initialAssets]; // Initialize display assets
-				totalAssets = result.data.total;
+				const initialIocs = deduplicateIocs([...result.data.data]);
+				ioc = initialIocs;
+				displayIocs = [...initialIocs]; // Initialize display ioc
+				totalIocs = result.data.total;
 				currentPage = result.data.current_page;
 				nextPage = result.data.next_page;
 				lastPage = result.data.last_page;
 				
-				// Add assets to the store
-				assetsStore.setAssets(initialAssets);
+				// Add ioc to the store
+				iocsStore.setIocs(initialIocs);
 				
 				initialFetchDone = true; // Set to true after initial fetch
 				
@@ -143,16 +139,16 @@
 		}
 	});
 
-	// Effect to refresh assets when listRefreshNonce changes
+	// Effect to refresh ioc when listRefreshNonce changes
 	let previousNonce = $state(0); // Track the previous nonce value processed by this effect
-	let previousRoutedAssetId = $state<string | undefined>(undefined); // For tracking asset_id changes in route
+	let previousRoutedIocId = $state<string | undefined>(undefined); // For tracking ioc_id changes in route
 
 	$effect(() => {
 		// Only refresh if the nonce has actually changed to a new positive value
 		// and is different from the last nonce that triggered a refresh.
 		if (currentListRefreshNonce > 0 && currentListRefreshNonce !== previousNonce) {
-			console.log(`Asset list refresh triggered by store nonce change from ${previousNonce} to ${currentListRefreshNonce}.`);
-			refreshAssets(1); // Refresh the first page
+			console.log(`Ioc list refresh triggered by store nonce change from ${previousNonce} to ${currentListRefreshNonce}.`);
+			refreshIocs(1); // Refresh the first page
 			previousNonce = currentListRefreshNonce; // Update previousNonce after refresh
 		}
 	});
@@ -165,12 +161,12 @@
 		// Add search term conditions if provided
 		if (term) {
 			conditions.push(
-				{ field: "asset_name", operator: "like", value: term },
-				{ field: "asset_ip", operator: "like", value: term },
-				{ field: "asset_domain", operator: "like", value: term },
-				{ field: "asset_description", operator: "like", value: term },
-				{ field: "asset_tags", operator: "like", value: term },
-				{ field: "asset_type.asset_name", operator: "like", value: term }
+				{ field: "ioc_name", operator: "like", value: term },
+				{ field: "ioc_ip", operator: "like", value: term },
+				{ field: "ioc_domain", operator: "like", value: term },
+				{ field: "ioc_description", operator: "like", value: term },
+				{ field: "ioc_tags", operator: "like", value: term },
+				{ field: "ioc_type.ioc_name", operator: "like", value: term }
 			);
 		}
 		
@@ -185,8 +181,8 @@
 		return conditions;
 	}
 
-	// Refresh assets function - compatible with Svelte 5
-	async function refreshAssets(pageNumber = 1) {
+	// Refresh ioc function - compatible with Svelte 5
+	async function refreshIocs(pageNumber = 1) {
 		if (isRefreshing) return;
 		
 		isRefreshing = true;
@@ -201,36 +197,36 @@
 				params.custom_conditions = JSON.stringify(customConditions);
 			}
 
-			const result = await ApiService.get<Paginated<Asset>>(
-				ENDPOINTS.case.assets.list(page.params.case_id, params),
+			const result = await ApiService.get<Paginated<Ioc>>(
+				ENDPOINTS.case.ioc.list(page.params.case_id, params),
 				{ fetch }
 			);
 			
 			// Reset state with fresh data - force reactivity with new arrays and deduplicate
-			assets = deduplicateAssets([...result.data.data]);
-			displayAssets = [...assets]; // Update display assets
-			totalAssets = result.data.total;
+			ioc = deduplicateIocs([...result.data.data]);
+			displayIocs = [...ioc]; // Update display ioc
+			totalIocs = result.data.total;
 			currentPage = result.data.current_page;
 			nextPage = result.data.next_page;
 			lastPage = result.data.last_page;
 			refreshCounter++; // Increment counter to force reactivity
 			
-			// Update the store with new assets from the first page
-			assetsStore.setAssets(assets);
+			// Update the store with new ioc from the first page
+			iocsStore.setIocs(ioc);
 			
 			// Re-setup observer after refresh
 			setupObserver();
 			
-			console.log('Assets refreshed:', assets.length, 'Display assets:', displayAssets.length);
+			console.log('Iocs refreshed:', ioc.length, 'Display ioc:', displayIocs.length);
 		} catch (error) {
-			console.error('Failed to refresh assets:', error);
+			console.error('Failed to refresh ioc:', error);
 		} finally {
 			isRefreshing = false;
 		}
 	}
 
-	// Load more assets when scrolling
-	async function loadMoreAssets() {
+	// Load more ioc when scrolling
+	async function loadMoreIocs() {
 		if (!nextPage || isLoading) return;
 		
 		isLoading = true;
@@ -245,31 +241,31 @@
 				params.custom_conditions = JSON.stringify(customConditions);
 			}
 
-			const result = await ApiService.get<Paginated<Asset>>(
-				ENDPOINTS.case.assets.list(page.params.case_id, params),
+			const result = await ApiService.get<Paginated<Ioc>>(
+				ENDPOINTS.case.ioc.list(page.params.case_id, params),
 				{ fetch }
 			);
 			
-			// Deduplicate new assets
-			const newAssets = deduplicateAssets([...result.data.data]);
+			// Deduplicate new ioc
+			const newIocs = deduplicateIocs([...result.data.data]);
 			
-			// Deduplicate combined assets (existing + new)
-			const combinedAssets = deduplicateAssets([...assets, ...newAssets]);
+			// Deduplicate combined ioc (existing + new)
+			const combinedIocs = deduplicateIocs([...ioc, ...newIocs]);
 			
 			// Force reactivity with new arrays
-			assets = combinedAssets;
-			displayAssets = [...assets]; // Update display assets
+			ioc = combinedIocs;
+			displayIocs = [...ioc]; // Update display ioc
 			currentPage = result.data.current_page;
 			nextPage = result.data.next_page;
 			lastPage = result.data.last_page;
 			refreshCounter++; // Increment counter to force reactivity
 			
-			// Add new assets to the store
-			assetsStore.setAssets(newAssets);
+			// Add new ioc to the store
+			iocsStore.setIocs(newIocs);
 			
-			console.log('More assets loaded:', assets.length, 'Display assets:', displayAssets.length);
+			console.log('More ioc loaded:', ioc.length, 'Display ioc:', displayIocs.length);
 		} catch (error) {
-			console.error('Failed to load more assets:', error);
+			console.error('Failed to load more ioc:', error);
 		} finally {
 			isLoading = false;
 		}
@@ -281,14 +277,14 @@
 			removeFilter(filterId);
 		} else {
 			selectedFilters = [...selectedFilters, filterId];
-			refreshAssets(1);
+			refreshIocs(1);
 		}
 	}
 	
 	// Remove filter
 	function removeFilter(filterId: string) {
 		selectedFilters = selectedFilters.filter(id => id !== filterId);
-		refreshAssets(1);
+		refreshIocs(1);
 	}
 
 	// Watch for search term changes
@@ -296,7 +292,7 @@
 		console.log('Search term changed:', searchTerm); 
 		clearTimeout(searchDebounceTimer);
 		searchDebounceTimer = setTimeout(() => {
-			refreshAssets(1);
+			refreshIocs(1);
 		}, 300) as unknown as number; 
 	});
 	
@@ -315,7 +311,7 @@
 		// Create new observer
 		observer = new IntersectionObserver((entries) => {
 			if (entries[0].isIntersecting && nextPage && !isLoading) { // Added !isLoading check
-				loadMoreAssets();
+				loadMoreIocs();
 			}
 		}, { 
 			rootMargin: '200px', // Increased margin to detect earlier
@@ -372,116 +368,102 @@
 	const minSidebarSize = 20; // 20% of the container
 	const maxSidebarSize = 60; // 60% of the container
 
-	function scrollToSelectedAsset() {
-		if (page.params.asset_id && scrollContainer) {
+	function scrollToSelectedIoc() {
+		if (page.params.ioc_id && scrollContainer) {
 			// Use requestAnimationFrame to sync with browser repaint cycle
 			requestAnimationFrame(() => {
-				const selectedAssetElement = document.getElementById(`asset-card-${page.params.asset_id}`);
-				if (selectedAssetElement) {
-					selectedAssetElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+				const selectedIocElement = document.getElementById(`asset-card-${page.params.ioc_id}`);
+				if (selectedIocElement) {
+					selectedIocElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 				}
 			});
 		}
 	}
 
-	// Effect to scroll to selected asset when the selected asset_id in the URL changes
+	// Effect to scroll to selected asset when the selected ioc_id in the URL changes
 	$effect(() => {
-		const currentAssetIdInRoute = page.params.asset_id;
+		const currentIocIdInRoute = page.params.ioc_id;
 
-		if (currentAssetIdInRoute && !selectionMode && !isLoading) {
+		if (currentIocIdInRoute && !selectionMode && !isLoading) {
 			// Only scroll if:
-			// 1. The asset_id in the URL has actually changed since the last check, OR
-			// 2. It's the initial load (previousRoutedAssetId is undefined) and an asset_id is present,
+			// 1. The ioc_id in the URL has actually changed since the last check, OR
+			// 2. It's the initial load (previousRoutedIocId is undefined) and an ioc_id is present,
 			//    and initial data fetch is complete.
-			// This prevents scrolling when displayAssets changes due to pagination if the route hasn't changed.
-			if (initialFetchDone && currentAssetIdInRoute !== previousRoutedAssetId) {
-				scrollToSelectedAsset();
+			// This prevents scrolling when displayIocs changes due to pagination if the route hasn't changed.
+			if (initialFetchDone && currentIocIdInRoute !== previousRoutedIocId) {
+				scrollToSelectedIoc();
 			}
 		}
-		previousRoutedAssetId = currentAssetIdInRoute; // Update for the next comparison
+		previousRoutedIocId = currentIocIdInRoute; // Update for the next comparison
 	});
 
 	// Selection functions
 	function toggleSelectionMode() {
 		selectionMode = !selectionMode;
 		if (!selectionMode) {
-			selectedAssets.clear();
-			selectedAssets = new Set(selectedAssets); // Trigger reactivity
+			selectedIocs.clear();
 		}
 	}
 
-	function exitSelectionMode() {
-		selectionMode = false;
-		selectedAssets.clear();
-		selectedAssets = new Set(selectedAssets); // Trigger reactivity
-	}
-
-	function toggleAssetSelection(assetId: string) {
-		if (selectedAssets.has(assetId)) {
-			selectedAssets.delete(assetId);
+	function toggleSelectAll() {
+		if (selectedIocs.size === displayIocs.length) {
+			selectedIocs.clear();
 		} else {
-			selectedAssets.add(assetId);
+			displayIocs.forEach(a => selectedIocs.add(a.ioc_id.toString()));
 		}
-		selectedAssets = new Set(selectedAssets); // Trigger reactivity
+		selectedIocs = selectedIocs; // Trigger reactivity
 	}
 
-	function selectAllVisibleAssets() {
-		displayAssets.forEach(asset => {
-			if (asset && asset.asset_id != null) {
-				selectedAssets.add(asset.asset_id.toString());
-			}
-		});
-		selectedAssets = new Set(selectedAssets); // Trigger reactivity
+	function handleIocSelection(iocId: string, isSelected: boolean) {
+		if (isSelected) {
+			selectedIocs.add(iocId);
+		} else {
+			selectedIocs.delete(iocId);
+		}
+		selectedIocs = selectedIocs; // Trigger reactivity for the set
 	}
 
-	function deselectAllAssets() {
-		selectedAssets.clear();
-		selectedAssets = new Set(selectedAssets); // Trigger reactivity
-	}
-
-	async function removeSelectedAssets() {
-		if (selectedAssets.size === 0) return;
-
+	async function removeSelectedIocs() {
+		if (selectedIocs.size === 0) {
+			toast.info('No IOCs selected for deletion.');
+			return;
+		}
 		isRemovingSelected = true;
-		const caseId = page.params.case_id;
-		const idsToRemove = Array.from(selectedAssets);
-		let successfulDeletions = 0;
-		let failedDeletions = 0;
+		const iocIdsToDelete = Array.from(selectedIocs);
+		let successCount = 0;
+		let errorCount = 0;
 
-		const results = await Promise.allSettled(
-			idsToRemove.map(assetId => 
-				ApiService.delete(ENDPOINTS.case.assets.delete(caseId, assetId))
-			)
-		);
-
-		results.forEach(result => {
-			if (result.status === 'fulfilled') {
-				successfulDeletions++;
-			} else {
-				failedDeletions++;
-				console.error('Failed to delete asset:', result.reason);
+		for (const iocId of iocIdsToDelete) {
+			try {
+				const url = ENDPOINTS.case.ioc.delete(caseId, iocId);
+				const response = await ApiService.delete(url, $page.fetch);
+				if (response.ok || response.status === 204) {
+					iocsStore.removeIoc(iocId); // Remove from store
+					successCount++;
+				} else {
+					const errorData = response.data;
+					console.error(`Failed to delete IOC ${iocId}:`, errorData?.message || response.status);
+					errorCount++;
+				}
+			} catch (error) {
+				console.error(`Error deleting IOC ${iocId}:`, error);
+				errorCount++;
 			}
-		});
-
-		if (successfulDeletions > 0) {
-			toast({
-				title: "Assets Removed",
-				description: `${successfulDeletions} asset(s) removed successfully.`,
-				variant: "success"
-			});
-			assetsStore.triggerListRefresh(); // This will trigger the effect to call refreshAssets(1)
 		}
 
-		if (failedDeletions > 0) {
-			toast({
-				title: "Removal Error",
-				description: `Failed to remove ${failedDeletions} asset(s). Check console for details.`,
-				variant: "destructive"
-			});
+		if (successCount > 0) {
+			toast.success(`${successCount} IOC(s) deleted successfully.`);
 		}
-		
-		exitSelectionMode();
+		if (errorCount > 0) {
+			toast.error(`${errorCount} IOC(s) failed to delete. Check console for details.`);
+		}
+
+		selectedIocs.clear();
+		selectionMode = false;
 		isRemovingSelected = false;
+		// The store update should trigger reactivity and update displayIocs.
+		// If not, a manual refreshIocs() or selective removal from 'ioc' and 'displayIocs' might be needed.
+		// For now, relying on store reactivity.
 	}
 
 	function triggerDownload(csvContent: string, filename: string) {
@@ -499,28 +481,28 @@
 		}
 	}
 
-	async function downloadVisibleAssets(selectedColumnsForExport: ExportColumn[]) {
-		if (isDownloadingModal || displayAssets.length === 0 || selectedColumnsForExport.length === 0) {
+	async function downloadVisibleIocs(selectedColumnsForExport: ExportColumn[]) {
+		if (isDownloadingModal || displayIocs.length === 0 || selectedColumnsForExport.length === 0) {
 			if (selectedColumnsForExport.length === 0) {
 				toast({ title: "No Columns Selected", description: "Please select at least one column to export.", variant: "warning" });
 			}
 			return;
 		}
 		isDownloadingModal = true;
-		downloadProgressMessage = 'Preparing visible assets...';
+		downloadProgressMessage = 'Preparing visible ioc...';
 		try {
-			const csvData = convertToCSV(displayAssets, selectedColumnsForExport);
-			triggerDownload(csvData, `iris_case_${page.params.case_id}_visible_assets.csv`);
+			const csvData = convertToCSV(displayIocs, selectedColumnsForExport);
+			triggerDownload(csvData, `iris_case_${page.params.case_id}_visible_ioc.csv`);
 			toast({
 				title: "Download Started",
-				description: "Downloading visible assets as CSV.",
+				description: "Downloading visible ioc as CSV.",
 				variant: "success"
 			});
 		} catch (error) {
-			console.error('Failed to download visible assets:', error);
+			console.error('Failed to download visible ioc:', error);
 			toast({
 				title: "Download Error",
-				description: "Could not download visible assets. Check console for details.",
+				description: "Could not download visible ioc. Check console for details.",
 				variant: "destructive"
 			});
 		} finally {
@@ -530,7 +512,7 @@
 		}
 	}
 
-	async function downloadAllAssets(selectedColumnsForExport: ExportColumn[]) {
+	async function downloadAllIocs(selectedColumnsForExport: ExportColumn[]) {
 		if (isDownloadingModal || selectedColumnsForExport.length === 0) {
 			if (selectedColumnsForExport.length === 0) {
 				toast({ title: "No Columns Selected", description: "Please select at least one column to export.", variant: "warning" });
@@ -538,14 +520,14 @@
 			return;
 		}
 		isDownloadingModal = true;
-		let allAssets: Asset[] = [];
+		let allIocs: Ioc[] = [];
 		let currentPageToFetch = 1;
 		let hasMorePages = true;
 		let totalFetched = 0;
-		// Estimate total pages for progress, or use totalAssets if accurate for current filters
-		const estimatedTotal = totalAssets; // Assuming totalAssets reflects filtered count
+		// Estimate total pages for progress, or use totalIocs if accurate for current filters
+		const estimatedTotal = totalIocs; // Assuming totalIocs reflects filtered count
 
-		downloadProgressMessage = "Fetching all assets... (Page 1)";
+		downloadProgressMessage = "Fetching all ioc... (Page 1)";
 
 		try {
 			while(hasMorePages) {
@@ -558,44 +540,44 @@
 					params.custom_conditions = JSON.stringify(customConditions);
 				}
 
-				const result = await ApiService.get<Paginated<Asset>>(
-					ENDPOINTS.case.assets.list(page.params.case_id, params),
+				const result = await ApiService.get<Paginated<Ioc>>(
+					ENDPOINTS.case.ioc.list(page.params.case_id, params),
 					{ fetch }
 				);
 				
-				allAssets = allAssets.concat(result.data.data);
+				allIocs = allIocs.concat(result.data.data);
 				totalFetched += result.data.data.length;
 				
 				if (result.data.next_page) {
 					currentPageToFetch++;
-					downloadProgressMessage = `Fetching page ${currentPageToFetch}... (${totalFetched}/${estimatedTotal > 0 ? estimatedTotal : 'many'} assets)`;
+					downloadProgressMessage = `Fetching page ${currentPageToFetch}... (${totalFetched}/${estimatedTotal > 0 ? estimatedTotal : 'many'} ioc)`;
 				} else {
 					hasMorePages = false;
 				}
 			}
 
-			if (allAssets.length > 0) {
-				downloadProgressMessage = `Generating CSV for ${allAssets.length} assets...`;
-				const csvData = convertToCSV(deduplicateAssets(allAssets), selectedColumnsForExport); 
-				triggerDownload(csvData, `iris_case_${page.params.case_id}_all_assets.csv`);
+			if (allIocs.length > 0) {
+				downloadProgressMessage = `Generating CSV for ${allIocs.length} ioc...`;
+				const csvData = convertToCSV(deduplicateIocs(allIocs), selectedColumnsForExport); 
+				triggerDownload(csvData, `iris_case_${page.params.case_id}_all_ioc.csv`);
 				toast({
 					title: "Download Started",
-					description: `Downloading ${allAssets.length} asset(s) as CSV.`,
+					description: `Downloading ${allIocs.length} asset(s) as CSV.`,
 					variant: "success"
 				});
 			} else {
 				toast({
-					title: "No Assets",
-					description: "No assets found to download with the current filters.",
+					title: "No Iocs",
+					description: "No ioc found to download with the current filters.",
 					variant: "default"
 				});
 			}
 
 		} catch (error) {
-			console.error('Failed to download all assets:', error);
+			console.error('Failed to download all ioc:', error);
 			toast({
 				title: "Download Error",
-				description: "Could not download all assets. Check console for details.",
+				description: "Could not download all ioc. Check console for details.",
 				variant: "destructive"
 			});
 		} finally {
@@ -613,9 +595,9 @@
 		const columnsToExport = AVAILABLE_EXPORT_COLUMNS.filter(col => selectedKeys.has(col.key));
 
 		if (downloadType === 'visible') {
-			downloadVisibleAssets(columnsToExport);
+			downloadVisibleIocs(columnsToExport);
 		} else {
-			downloadAllAssets(columnsToExport);
+			downloadAllIocs(columnsToExport);
 		}
 	}
 
@@ -638,16 +620,16 @@
 <div class="flex h-full w-full">
 	<Resizable.PaneGroup direction="horizontal" class="h-full w-full">
 		<Resizable.Pane defaultSize={defaultSidebarSize} minSize={minSidebarSize} maxSize={maxSidebarSize} class="flex h-full flex-col gap-y-3 border-r bg-background/50 p-3">
-			<!-- Top of sidebar with asset count -->
+			<!-- Top of sidebar with ioc count -->
 			<div class="flex flex-col gap-y-2">
 				<div class="flex flex-col md:flex-row md:items-center gap-2">
 					<div class="flex flex-col">
-						<h2 class="w-full text-lg font-semibold md:text-xl">Assets</h2>
+						<h2 class="w-full text-lg font-semibold md:text-xl">Indicators</h2>
 						<span class="text-xs md:text-sm text-muted-foreground">
 							{#if selectionMode}
-								{selectedAssets.size} of {displayAssets.length} selected (Total: {totalAssets})
+								{selectedIocs.size} of {displayIocs.length} selected (Total: {totalIocs})
 							{:else}
-								Showing {displayAssets.length} of {totalAssets} assets
+								Showing {displayIocs.length} of {totalIocs} IOC
 							{/if}
 						</span>
 					</div>
@@ -657,8 +639,8 @@
 							<Button 
 								variant="outline" 
 								size="sm" 
-								onclick={selectAllVisibleAssets}
-								disabled={displayAssets.length === 0 || selectedAssets.size === displayAssets.filter(a => a && a.asset_id != null).length}
+								onclick={selectAllVisibleIocs}
+								disabled={displayIocs.length === 0 || selectedIocs.size === displayIocs.filter(a => a && a.ioc_id != null).length}
 								class="text-xs"
 							>
 								Select All Visible
@@ -666,8 +648,8 @@
 							<Button 
 								variant="outline" 
 								size="sm" 
-								onclick={deselectAllAssets}
-								disabled={selectedAssets.size === 0}
+								onclick={deselectAllIocs}
+								disabled={selectedIocs.size === 0}
 								class="text-xs"
 							>
 								Deselect All
@@ -675,8 +657,8 @@
 							<Button 
 								variant="destructive" 
 								size="sm" 
-								onclick={removeSelectedAssets}
-								disabled={selectedAssets.size === 0 || isRemovingSelected}
+								onclick={removeSelectedIocs}
+								disabled={selectedIocs.size === 0 || isRemovingSelected}
 								class="text-xs"
 							>
 								{#if isRemovingSelected}
@@ -699,11 +681,11 @@
 									<DropdownMenu.Trigger class="w-full sm:w-auto">
 										<Button variant="ghost" size="icon" class="w-full sm:w-auto p-2" disabled={isDownloadingModal}>
 											<FilterIcon size={18}></FilterIcon>
-											<span class="sr-only">Filter Assets</span>
+											<span class="sr-only">Filter Iocs</span>
 										</Button>
 									</DropdownMenu.Trigger>
 									<DropdownMenu.Content align="end" class="w-56">
-										<DropdownMenu.Label>Filter Assets</DropdownMenu.Label>
+										<DropdownMenu.Label>Filter Iocs</DropdownMenu.Label>
 										<DropdownMenu.Separator />
 										{#each filterOptions as option}
 											<DropdownMenu.CheckboxItem 
@@ -719,7 +701,7 @@
 									variant="ghost" 
 									size="icon" 
 									onclick={toggleSelectionMode}
-									disabled={displayAssets.length === 0 || isRefreshing || isLoading || isDownloadingModal}
+									disabled={displayIocs.length === 0 || isRefreshing || isLoading || isDownloadingModal}
 									class="w-full sm:w-auto p-2"
 								>
 									<CheckIcon size={18}/>
@@ -728,7 +710,7 @@
 									variant="ghost" 
 									size="icon" 
 									class="w-full sm:w-auto p-2" 
-									disabled={isDownloadingModal || (displayAssets.length === 0 && totalAssets === 0)}
+									disabled={isDownloadingModal || (displayIocs.length === 0 && totalIocs === 0)}
 									onclick={() => showDownloadModal = true}
 								>
 									{#if isDownloadingModal}
@@ -736,19 +718,19 @@
 									{:else}
 										<DownloadIcon size={18} />
 									{/if}
-									<span class="sr-only">Download Assets</span>
+									<span class="sr-only">Download Iocs</span>
 								</Button>
 								<Button 
 									variant="ghost"
 									size="icon" 
-									onclick={() => refreshAssets(1)} 
+									onclick={() => refreshIocs(1)} 
 									disabled={isRefreshing || isDownloadingModal} 
 									class="w-full sm:w-auto p-2"
 									>
 									<RefreshCwIcon size={18} class={isRefreshing ? 'animate-spin' : ''} />
 								</Button>
 							</div>
-							<AddAssetButton class="w-full sm:w-auto" disabled={isDownloadingModal} />
+							<AddIocButton class="w-full sm:w-auto" disabled={isDownloadingModal} />
 						{/if}
 					</div>
 				</div>
@@ -774,10 +756,10 @@
 					</div>
 				{/if}
 			</div>
-			<Searchbar placeholder="Search assets" bind:value={searchTerm} disabled={selectionMode}/>
+			<Searchbar placeholder="Search ioc" bind:value={searchTerm} disabled={selectionMode}/>
 
 			<!-- Sidebar items -->
-			{#if displayAssets.length === 0 && (isLoading || isRefreshing)}
+			{#if displayIocs.length === 0 && (isLoading || isRefreshing)}
 				{#each Array(5) as _}
 					<div class="card-custom space-y-1.5 rounded-lg border p-3 text-sm shadow">
 						<div class="flex flex-row gap-x-1">
@@ -810,9 +792,9 @@
 					<div class="sticky top-0 h-8 bg-gradient-to-b from-background to-transparent pointer-events-none"></div>
 					
 					{#key refreshCounter}
-						{#each displayAssets as asset (asset.asset_id)} 
-							{@const isSelectedForView = page.params.asset_id === asset.asset_id.toString()}
-							{@const isCheckedForSelection = selectedAssets.has(asset.asset_id.toString())}
+						{#each displayIocs as ioc (ioc.ioc_id)} 
+							{@const isSelectedForView = page.params.ioc_id === ioc.ioc_id.toString()}
+							{@const isCheckedForSelection = selectedIocs.has(ioc.ioc_id.toString())}
 							<div 
 								class={cn(
 									"relative transition-all duration-150 ease-in-out",
@@ -820,8 +802,8 @@
 								)}
 								role="button"
 								tabindex="0"
-								onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { if (selectionMode) toggleAssetSelection(asset.asset_id.toString()); else if (asset.asset_id) page.goto(`/case/${page.params.case_id}/assets/${asset.asset_id}`);}}}
-								onclick={() => { if (selectionMode) toggleAssetSelection(asset.asset_id.toString()); }}
+								onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { if (selectionMode) toggleIocSelection(ioc.ioc_id.toString()); else if (ioc.ioc_id) page.goto(`/case/${page.params.case_id}/ioc/${asset.ioc_id}`);}}}
+								onclick={() => { if (selectionMode) toggleIocSelection(ioc.ioc_id.toString()); }}
 							>
 								{#if selectionMode}
 									<div class={cn(
@@ -830,14 +812,15 @@
 									)}>
 										<Checkbox 
 											checked={isCheckedForSelection}
-											aria-label={`Select asset ${asset.asset_name}`}
+											aria-label={`Select IOC ${ioc.ioc_value}`}
 											class="pointer-events-none"
 										/>
 									</div>
 								{/if}
 								<div class={cn(selectionMode ? "pl-10" : "")}>
-									<AssetCard 
-										{asset} 
+									<IocCard 
+										ioc={ioc} 
+                    compact={false}
 										isSelected={isSelectedForView && !selectionMode} 
 									/>
 								</div>
@@ -852,16 +835,16 @@
 								<Skeleton class="h-8 w-8 rounded-full" />
 							</div>
 						{:else if nextPage !== null}
-							<Button variant="outline" onclick={loadMoreAssets} disabled={isLoading}>
+							<Button variant="outline" onclick={loadMoreIocs} disabled={isLoading}>
 								Load More
 							</Button>
 						{/if}
 					</div>
 					
 					<!-- End of list message -->
-					{#if nextPage === null && displayAssets.length > 0}
+					{#if nextPage === null && displayIocs.length > 0}
 						<div class="text-center text-sm text-muted-foreground py-2">
-							End of assets list
+							End of ioc list
 						</div>
 					{/if}
 					<div class="sticky bottom-0 h-8 bg-gradient-to-t from-background to-transparent pointer-events-none"></div>
@@ -879,11 +862,11 @@
 
 <DownloadModal
 	bind:open={showDownloadModal}
-	title="Download Assets"
-	itemNounPlural="assets"
+	title="Download Iocs"
+	itemNounPlural="ioc"
 	availableColumns={AVAILABLE_EXPORT_COLUMNS}
-	countVisible={displayAssets.length}
-	countAll={totalAssets}
+	countVisible={displayIocs.length}
+	countAll={totalIocs}
 	isProcessing={isDownloadingModal}
 	processingMessage={downloadProgressMessage}
 	onConfirm={handleConfirmDownload}
