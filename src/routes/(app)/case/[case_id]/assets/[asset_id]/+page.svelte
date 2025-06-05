@@ -195,7 +195,6 @@
 		};
 		
 		isEditing = true;
-		console.log('Editing mode enabled', editData);
 	}
 	
 	function cancelEditing() {
