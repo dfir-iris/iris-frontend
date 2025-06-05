@@ -147,10 +147,9 @@
 			<ServerIcon class="h-5 w-5 text-primary" />
 			<h2 class="text-lg font-semibold">General Information</h2>
 		</div>
-		
-		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-			{#if isEditing && editData}
-				<div class="group bg-card/40 p-4 rounded-lg">
+    <div class="grid">
+      {#if isEditing && editData}
+        <div class="group bg-card/40 p-4 rounded-lg">
 					<div class="flex items-start gap-3">
 						<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
 							<ServerIcon class="h-4 w-4" />
@@ -169,33 +168,12 @@
 						</div>
 					</div>
 				</div>
-				
-				<div class="group bg-card/40 p-4 rounded-lg">
-					<div class="flex items-start gap-3">
-						<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
-							<ComponentIcon class="h-4 w-4" />
-						</div>
-						<div class="min-w-0 flex-1">				
-							<p class="text-sm font-medium text-muted-foreground">Type</p>
-							<select 
-								value={editData.ioc_type_id} 
-								onchange={(e) => updateField('ioc_type_id', parseInt((e.target as HTMLSelectElement).value))}
-								class="mt-1 w-full px-3 py-2 bg-background border border-input rounded-md text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
-							>
-								<option value="" disabled>Select ioc type</option>
-								{#if storesInitialized && $iocTypes}
-									{#each $iocTypes as type}
-										<option value={type.type_id}>{type.type_name}</option>
-									{/each}
-								{/if}
-							</select>
-							{#if editData.ioc_type_id && storesInitialized && $iocTypes}
-								{@const selectedType = $iocTypes.find(t => t.type_id === editData.ioc_type_id)}
-							{/if}
-						</div>
-					</div>
-				</div>
-
+        {:else}
+          {@render fieldWithIcon('Value', ioc.ioc_value, ServerIcon)}
+        {/if}
+    </div>
+		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+			{#if isEditing && editData}				
         <div class="group bg-card/40 p-4 rounded-lg">
 					<div class="flex items-start gap-3">
 						<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
@@ -224,7 +202,6 @@
 
 				
 			{:else}
-				{@render fieldWithIcon('Value', ioc.ioc_value, ServerIcon)}
 				{@render fieldWithIcon('Type', ioc.ioc_type?.type_name, ComponentIcon)}
         <div class="group bg-card/40 p-4 rounded-lg">
           <div class="flex items-start gap-3">
