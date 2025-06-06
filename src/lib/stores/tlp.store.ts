@@ -19,7 +19,7 @@ function createTlpStore() {
       try {
         const response = await ApiService.get(ENDPOINTS.manage.tlp.list);
         if (response && response.data) {
-          set(response.data?.data);
+          set(response.data);
         }
         initialized = true;
       } catch (error) {

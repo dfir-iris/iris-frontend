@@ -168,37 +168,59 @@
 						</div>
 					</div>
 				</div>
-        {:else}
-          {@render fieldWithIcon('Value', ioc.ioc_value, ServerIcon)}
-        {/if}
+      {:else}
+        {@render fieldWithIcon('Value', ioc.ioc_value, ServerIcon)}
+      {/if}
     </div>
 		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
 			{#if isEditing && editData}				
         <div class="group bg-card/40 p-4 rounded-lg">
-					<div class="flex items-start gap-3">
-						<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
-							<ComponentIcon class="h-4 w-4" />
-						</div>
-						<div class="min-w-0 flex-1">				
-							<p class="text-sm font-medium text-muted-foreground">TLP</p>
-							<select 
-								value={editData.ioc_tlp_id} 
-								onchange={(e) => updateField('ioc_tlp_id', parseInt((e.target as HTMLSelectElement).value))}
-								class="mt-1 w-full px-3 py-2 bg-background border border-input rounded-md text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
-							>
-								<option value="" disabled>Select TLP</option>
-								{#if storesInitialized && $tlpList}
-									{#each $tlpList as tlp}
-										<option value={tlp.tlp_id}>{tlp.tlp_name}</option>
-									{/each}
-								{/if}
-							</select>
-							{#if editData.ioc_tlp_id && storesInitialized && $tlpList}
-								{@const selectedTlp = $tlpList.find(t => t.tlp_id === editData.ioc_tlp_id)}
-							{/if}
-						</div>
-					</div>
+          <div class="flex items-start gap-3">
+            <div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
+              <ComponentIcon class="h-4 w-4" />
+            </div>
+            <div class="min-w-0 flex-1">				
+              <p class="text-sm font-medium text-muted-foreground">Type</p>
+              <select 
+                value={editData.ioc_type_id} 
+                onchange={(e) => updateField('ioc_type_id', parseInt((e.target as HTMLSelectElement).value))}
+                class="mt-1 w-full px-3 py-2 bg-background border border-input rounded-md text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="" disabled>Select type</option>
+                {#if storesInitialized && $iocTypes}
+                  {#each $iocTypes as type}
+                    <option value={type.type_id}>{type.type_name}</option>
+                  {/each}
+                {/if}
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="group bg-card/40 p-4 rounded-lg">
+          <div class="flex items-start gap-3">
+            <div class="flex items-start gap-3">
+              <div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
+                <FileWarningIcon class="h-4 w-4" />
+              </div>
+              <div class="min-w-0 flex-1">				
+                <p class="text-sm font-medium text-muted-foreground">TLP</p>
+                <select 
+                  value={editData.ioc_tlp_id} 
+                  onchange={(e) => updateField('ioc_tlp_id', parseInt((e.target as HTMLSelectElement).value))}
+                  class="mt-1 w-full px-3 py-2 bg-background border border-input rounded-md text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="" disabled>Select TLP</option>
+                    {#each $tlpList as tlp}
+                      <option value={tlp.tlp_id}>{tlp.tlp_name}</option>
+                    {/each}
+                </select>
+                {#if editData.ioc_tlp_id && $tlpList}
+                  {@const selectedTlp = $tlpList.find(t => t.tlp_id === editData.ioc_tlp_id)}
+                {/if}
+              </div>
+            </div>
 				</div>
+        </div>  
 
 				
 			{:else}

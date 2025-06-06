@@ -26,8 +26,10 @@ function createIocTypesStore() {
     fetchPromise = new Promise(async (resolve) => {
       try {
         const response = await ApiService.get(ENDPOINTS.manage.ioc_types.list);
+        console.log('Fetched IOC types:', response.data);
+
         if (response && response.data) {
-          set(response.data?.data);
+          set(response.data);
         }
         initialized = true;
       } catch (error) {

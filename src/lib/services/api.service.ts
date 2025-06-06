@@ -1,8 +1,6 @@
 import { env } from "$env/dynamic/public";
-import { PUBLIC_USE_MOCK_API_DATA } from "$env/static/public";
 import { browser } from "$app/environment";
 import { randomDelay } from "$lib/utils/mock";
-import { goto } from "$app/navigation";
 import { auth } from "$lib/stores/auth.store";
 import { AuthService } from "./auth.service";
 import { API_BASE_URL } from "$lib/config/api.config";
