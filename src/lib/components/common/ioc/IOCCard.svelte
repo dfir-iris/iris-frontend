@@ -11,7 +11,18 @@
     User,
     Cog,
     ChevronDown,
-    ChevronUp
+    ChevronUp,
+    ShieldIcon, 
+    CopyIcon, 
+    ExternalLinkIcon,
+    HashIcon,
+    AtSignIcon,
+    GlobeIcon,
+    FileIcon,
+    UserIcon,
+    ServerIcon,
+    CodeIcon,
+    DatabaseIcon,
   } from 'lucide-svelte';
   import { Badge } from '$lib/components/ui/badge';
   import { Button } from '$lib/components/ui/button';
@@ -26,43 +37,25 @@
 
   let { ioc, compact = false, isSelected = false }: { ioc: Ioc; compact?: boolean; isSelected?: boolean } = $props();
 
-  // IOC Type to Icon Mapping
-  const iocTypeIcons = {
-    default: HelpCircle,
-    'ipv4-addr': Network,
-    'ipv6-addr': Network,
-    'domain-name': Globe,
-    hostname: Globe,
-    url: LinkIcon,
-    'email-addr': Mail,
-    md5: FileText,
-    sha1: FileText,
-    sha256: FileText,
-    sha512: FileText,
-    filename: FileText,
-    file: FileText,
-    mutex: Lock,
-    reg_key: Cog,
-    'registry-key': Cog,
-    cve: ShieldAlert,
-    'user-agent': User
-  };
 
-  function getIocTypeIcon(typeName: string | undefined) {
-    if (!typeName) return iocTypeIcons.default;
-    const lowerTypeName = typeName.toLowerCase();
-    if (lowerTypeName in iocTypeIcons) {
-      return iocTypeIcons[lowerTypeName as keyof typeof iocTypeIcons];
-    }
-    for (const [key, value] of Object.entries(iocTypeIcons)) {
-      if (lowerTypeName.includes(key) && key !== 'default') {
-        return value;
-      }
-    }
-    return iocTypeIcons.default;
+  function getIOCTypeIcon(typeName: string) {
+    const type = typeName.toLowerCase();
+    
+    if (type.includes('ip')) return GlobeIcon;
+    if (type.includes('email')) return AtSignIcon;
+    if (type.includes('domain') || type.includes('hostname')) return GlobeIcon;
+    if (type.includes('url')) return LinkIcon;
+    if (type.includes('hash') || type.includes('md5') || type.includes('sha')) return HashIcon;
+    if (type.includes('file')) return FileIcon;
+    if (type.includes('account') || type.includes('user')) return UserIcon;
+    if (type.includes('registry')) return DatabaseIcon;
+    if (type.includes('mutex')) return CodeIcon;
+    if (type.includes('server')) return ServerIcon;
+    
+    return ShieldIcon;
   }
 
-  let IocTypeIcon = $derived(getIocTypeIcon(ioc.ioc_type?.type_name));
+  let IocTypeIcon = $derived(getIOCTypeIcon(ioc.ioc_type?.type_name));
 
   // IOC Value Formatting
   function formatIOCValue(value: string, typeName: string | undefined) {
@@ -198,7 +191,7 @@
   <!-- Tags (if available and not compact) -->
   {#if !compact && ioc.ioc_tags && ioc.ioc_tags.length > 0}
     <div class="mt-2 pt-1">
-      <TagDisplay tags={ioc.ioc_tags} size="sm" />
+      <TagDisplay tags={ioc.ioc_tags} size="small" />
     </div>
   {/if}
 </button>

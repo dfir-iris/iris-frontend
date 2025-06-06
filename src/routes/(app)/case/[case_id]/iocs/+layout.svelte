@@ -36,7 +36,6 @@
 	// State for infinite scrolling
 	let ioc = $state<Ioc[]>([]);
 	let displayIocs = $state<Ioc[]>([]);
-	// let storeIocs = $state<Record<string, Ioc>>({}); // No longer needed directly like this for display
 	let totalIocs = $state(0);
 	let currentPage = $state(1);
 	let nextPage = $state<number | null>(null);
@@ -802,8 +801,8 @@
 								)}
 								role="button"
 								tabindex="0"
-								onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { if (selectionMode) toggleIocSelection(ioc.ioc_id.toString()); else if (ioc.ioc_id) page.goto(`/case/${page.params.case_id}/ioc/${asset.ioc_id}`);}}}
-								onclick={() => { if (selectionMode) toggleIocSelection(ioc.ioc_id.toString()); }}
+								onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { if (selectionMode) toggleIocSelection(ioc.ioc_id.toString()); else if (ioc.ioc_id) page.goto(`/case/${page.params.case_id}/ioc/${ioc.ioc_id}`);}}}
+								onclick={() => { if (selectionMode) toggleSelectionMode(ioc.ioc_id.toString()); }}
 							>
 								{#if selectionMode}
 									<div class={cn(

@@ -17,6 +17,8 @@
         return 'bg-red-500/10 text-red-600 border-red-500/20';
       case 'amber':
         return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
+      case 'amber+strict':
+        return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
       case 'green':
         return 'bg-green-500/10 text-green-600 border-green-500/20';
       case 'white':
