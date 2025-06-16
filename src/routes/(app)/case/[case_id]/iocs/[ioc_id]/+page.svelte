@@ -184,6 +184,7 @@
 			ioc_value: displayIocData.ioc_value,
 			ioc_description: displayIocData.ioc_description || '',
 			ioc_type_id: displayIocData.ioc_type?.type_id,
+			ioc_tlp_id: displayIocData.ioc_tlp_id,
 			ioc_tags: displayIocData.ioc_tags || '' 
 		};
 		
@@ -464,7 +465,7 @@
 				<div class="py-6 px-2">
 					<div class="flex flex-col md:flex-row items-start md:items-center gap-4">
 						<div class="flex-grow text-xs">
-							<p class="text-muted-foreground">Added on {formatDate(displayIocData.date_added)} - Last updated on {formatDate(displayIocData.date_update)} - ID #{displayIocData.ioc_id || 'Unknown ID'} - UUID #{displayIocData.ioc_uuid || 'Unknown ID'}</p>
+							<p class="text-muted-foreground">ID #{displayIocData.ioc_id || 'Unknown ID'} - UUID #{displayIocData.ioc_uuid || 'Unknown ID'}</p>
 						</div>
 					</div>
 				</div>

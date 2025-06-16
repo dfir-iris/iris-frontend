@@ -74,6 +74,10 @@
 				onUpdateEditData('ioc_type_id', ioc.ioc_type.type_id);
 			}
 			
+			if (editData.ioc_tlp_id === undefined && ioc.ioc_tlp_id) {
+				onUpdateEditData('ioc_tlp_id', ioc.ioc_tlp_id);
+			}
+			
 			if (editData.analysis_status_id === undefined && ioc.analysis_status) {
 				onUpdateEditData('analysis_status_id', ioc.analysis_status.id);
 			}
@@ -214,9 +218,6 @@
                       <option value={tlp.tlp_id}>{tlp.tlp_name}</option>
                     {/each}
                 </select>
-                {#if editData.ioc_tlp_id && $tlpList}
-                  {@const selectedTlp = $tlpList.find(t => t.tlp_id === editData.ioc_tlp_id)}
-                {/if}
               </div>
             </div>
 				</div>
