@@ -21,7 +21,7 @@
 	import * as Resizable from "$lib/components/ui/resizable/index.js";
 	import IocCard from '$lib/components/common/ioc/IocCard.svelte';
 	import { iocsStore } from '$lib/stores/iocs.store';
-	import AddIocButton from '$lib/components/common/assets/add-asset-button.svelte';
+	import AddIocButton from '$lib/components/common/ioc/add-ioc-button.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Checkbox } from '$lib/components/ui/checkbox'; // Added
@@ -160,12 +160,10 @@
 		// Add search term conditions if provided
 		if (term) {
 			conditions.push(
-				{ field: "ioc_name", operator: "like", value: term },
-				{ field: "ioc_ip", operator: "like", value: term },
-				{ field: "ioc_domain", operator: "like", value: term },
+				{ field: "ioc_value", operator: "like", value: term },
 				{ field: "ioc_description", operator: "like", value: term },
 				{ field: "ioc_tags", operator: "like", value: term },
-				{ field: "ioc_type.ioc_name", operator: "like", value: term }
+				{ field: "ioc_type.type_name", operator: "like", value: term }
 			);
 		}
 		

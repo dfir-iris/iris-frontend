@@ -11,21 +11,25 @@ export class IocService {
 
 	public static async getIocById(caseId: string | number, iocId: string | number, fetchInstance?: typeof fetch): Promise<Ioc> {
 		const endpoint = ENDPOINTS.case.ioc.getById(caseId, iocId);
-		return ApiService.get<Ioc>(endpoint, { fetch: fetchInstance });
+		const response = await ApiService.get<Ioc>(endpoint, { fetch: fetchInstance });
+		return response.data;
 	}
 
 	public static async addIoc(caseId: string | number, iocData: IocCreate, fetchInstance?: typeof fetch): Promise<Ioc> {
 		const endpoint = ENDPOINTS.case.ioc.add(caseId);
-		return ApiService.post<Ioc, IocCreate>(endpoint, iocData, { fetch: fetchInstance });
+		const response = await ApiService.post<Ioc>(endpoint, iocData, { fetch: fetchInstance });
+		return response.data;
 	}
 
 	public static async updateIoc(caseId: string | number, iocId: string | number, iocData: IocUpdate, fetchInstance?: typeof fetch): Promise<Ioc> {
 		const endpoint = ENDPOINTS.case.ioc.update(caseId, iocId);
-		return ApiService.put<Ioc, IocUpdate>(endpoint, iocData, { fetch: fetchInstance });
+		const response = await ApiService.put<Ioc>(endpoint, iocData, { fetch: fetchInstance });
+		return response.data;
 	}
 
 	public static async deleteIoc(caseId: string | number, iocId: string | number, fetchInstance?: typeof fetch): Promise<void> {
 		const endpoint = ENDPOINTS.case.ioc.delete(caseId, iocId);
-		return ApiService.delete<void>(endpoint, { fetch: fetchInstance });
+		const response = await ApiService.delete<void>(endpoint, { fetch: fetchInstance });
+		return response.data;
 	}
 }
