@@ -385,8 +385,8 @@
 			return;
 		}
 		
-		// Only trigger search for regular search terms when no structured conditions exist
-		if (searchTerm.trim() && searchConditions.length === 0) {
+		// Trigger search when no structured conditions exist
+		if (searchConditions.length === 0) {
 			searchDebounceTimer = setTimeout(() => {
 				refreshAssets(1);
 			}, 300) as unknown as number;
@@ -884,7 +884,6 @@
 				bind:conditions={searchConditions}
 				fields={searchFields}
 				allowRawSearch={true}
-				onchange={() => refreshAssets(1)}
 			/>
 
 			<!-- Sidebar items -->
@@ -989,7 +988,7 @@
 </div>
 
 <DownloadModal
-	bind:open={showDownloadModal}
+	open={showDownloadModal}
 	title="Download Assets"
 	itemNounPlural="assets"
 	availableColumns={AVAILABLE_EXPORT_COLUMNS}
