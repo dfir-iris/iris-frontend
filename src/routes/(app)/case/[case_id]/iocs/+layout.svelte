@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import Searchbar from '$lib/components/ui/searchbar/searchbar.svelte';
+	import { AdvancedSearch, type SearchField, type SearchCondition } from '$lib/components/ui/advanced-search';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { 
 		FilterIcon, 
@@ -19,7 +20,7 @@
 	import type { Ioc } from '$lib/types/resources/ioc';
 	import type { Paginated } from '$lib/services/api.service';
 	import * as Resizable from "$lib/components/ui/resizable/index.js";
-	import IocCard from '$lib/components/common/ioc/IocCard.svelte';
+	import IOCCard from '$lib/components/common/ioc/IOCCard.svelte';
 	import { iocsStore } from '$lib/stores/iocs.store';
 	import AddIocButton from '$lib/components/common/ioc/add-ioc-button.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
@@ -27,8 +28,8 @@
 	import { Checkbox } from '$lib/components/ui/checkbox'; // Added
 	import { toast } from '$lib/components/ui/toast'; // Added
 	import { cn } from '$lib/utils'; // Added
-  import { deduplicateIocs } from '$lib/utils/iocs.utils'; 
-	import { deduplicateAssets, escapeCSVValue, convertToCSV, AVAILABLE_EXPORT_COLUMNS, type ExportColumn } from '$lib/utils/asset.utils'; 
+  import { deduplicateIocs, convertIocsToCSV, AVAILABLE_IOC_EXPORT_COLUMNS, type IocExportColumn } from '$lib/utils/iocs.utils';
+  import type { ExportColumn } from '$lib/utils/asset.utils'; 
 	import DownloadModal from '$lib/components/common/DownloadModal.svelte'; // New import
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
@@ -46,6 +47,7 @@
 	let loadMoreTrigger: HTMLDivElement | null = null;
 	let scrollContainer = $state<HTMLDivElement | null>(null);
 	let searchTerm = $state('');
+	let searchConditions = $state<SearchCondition[]>([]);
 	let searchDebounceTimer: number;
 	let refreshCounter = $state(0); // Add a counter to force reactivity
 	let initialFetchDone = $state(false); // Declare and initialize initialFetchDone
@@ -64,7 +66,7 @@
 	let isDownloadingModal = $state(false); 
 	let downloadProgressMessage = $state(''); 
 
-	const caseId = $derived($page.params.case_id); // Get caseId from page params
+	const caseId = $derived(page.params.case_id); // Get caseId from page params
 
 	// Filter options
 	const filterOptions = [
@@ -73,6 +75,31 @@
 		{ id: 'analysis_done', label: 'Analysis Done', field: 'analysis_status_id', value: 6, operator: 'eq'  },
 		{ id: 'analysis_started', label: 'Analysis Started', field: 'analysis_status_id', value: 3, operator: 'eq' },
 		{ id: 'analysis_todo', label: 'Analysis To Be done', field: 'analysis_status_id', value: 2, operator: 'eq' },
+	];
+
+	// Available search fields for IOCs
+	const searchFields: SearchField[] = [
+		{ key: 'ioc_value', label: 'IOC Value', type: 'text' },
+		{ key: 'ioc_description', label: 'Description', type: 'text' },
+		{ key: 'ioc_tags', label: 'Tags', type: 'text' },
+		{ key: 'ioc_type.type_name', label: 'Type', type: 'text' },
+		{ key: 'tlp.tlp_name', label: 'TLP', type: 'select', options: [
+			{ value: 'TLP:WHITE', label: 'TLP:WHITE' },
+			{ value: 'TLP:GREEN', label: 'TLP:GREEN' },
+			{ value: 'TLP:AMBER', label: 'TLP:AMBER' },
+			{ value: 'TLP:RED', label: 'TLP:RED' }
+		]},
+		{ key: 'ioc_compromise_status_id', label: 'Compromise Status', type: 'select', options: [
+			{ value: '1', label: 'Compromised' },
+			{ value: '0', label: 'Not Compromised' }
+		]},
+		{ key: 'analysis_status_id', label: 'Analysis Status', type: 'select', options: [
+			{ value: '2', label: 'To Be Done' },
+			{ value: '3', label: 'Started' },
+			{ value: '6', label: 'Done' }
+		]},
+		{ key: 'user_id', label: 'User ID', type: 'number' },
+		{ key: 'ioc_id', label: 'IOC ID', type: 'number' }
 	];
 	
 	// Subscribe to the ioc store for display purposes and nonce changes
@@ -154,16 +181,63 @@
 
 
 	// Function to build custom conditions for search and filters
-	function buildSearchConditions(term: string) {
+	function buildSearchConditions(searchConditions: SearchCondition[], rawSearchTerm: string = '') {
 		const conditions = [];
 		
-		// Add search term conditions if provided
-		if (term) {
+		// Add structured search conditions
+		searchConditions.forEach(condition => {
+			if (condition.field === '_raw') {
+				// Handle raw search - search across multiple fields
+				conditions.push(
+					{ field: "ioc_value", operator: "like", value: condition.value },
+					{ field: "ioc_description", operator: "like", value: condition.value },
+					{ field: "ioc_tags", operator: "like", value: condition.value },
+					{ field: "ioc_type.type_name", operator: "like", value: condition.value }
+				);
+			} else {
+				// Handle structured field search
+				let operator = condition.operator;
+				let value = condition.value;
+				
+				// Map operators to backend format
+				switch (operator) {
+					case '=':
+						operator = 'eq';
+						break;
+					case '!=':
+						operator = 'not';
+						break;
+					case 'like':
+						operator = 'like';
+						break;
+					case 'not like':
+						operator = 'not_like';
+						break;
+					case '>':
+						operator = 'gt';
+						break;
+					case '<':
+						operator = 'lt';
+						break;
+					case '>=':
+						operator = 'gte';
+						break;
+					case '<=':
+						operator = 'lte';
+						break;
+				}
+				
+				conditions.push({ field: condition.field, operator, value });
+			}
+		});
+		
+		// Only add legacy raw search term if no structured conditions exist
+		if (rawSearchTerm && searchConditions.length === 0) {
 			conditions.push(
-				{ field: "ioc_value", operator: "like", value: term },
-				{ field: "ioc_description", operator: "like", value: term },
-				{ field: "ioc_tags", operator: "like", value: term },
-				{ field: "ioc_type.type_name", operator: "like", value: term }
+				{ field: "ioc_value", operator: "like", value: rawSearchTerm },
+				{ field: "ioc_description", operator: "like", value: rawSearchTerm },
+				{ field: "ioc_tags", operator: "like", value: rawSearchTerm },
+				{ field: "ioc_type.type_name", operator: "like", value: rawSearchTerm }
 			);
 		}
 		
@@ -184,7 +258,7 @@
 		
 		isRefreshing = true;
 		try {
-			const customConditions = buildSearchConditions(searchTerm);
+			const customConditions = buildSearchConditions(searchConditions, searchTerm);
 			const params: Record<string, any> = { 
 				page: pageNumber, 
 				per_page: 10
@@ -228,7 +302,7 @@
 		
 		isLoading = true;
 		try {
-			const customConditions = buildSearchConditions(searchTerm);
+			const customConditions = buildSearchConditions(searchConditions, searchTerm);
 			const params: Record<string, any> = { 
 				page: currentPage + 1, 
 				per_page: 10
@@ -284,13 +358,44 @@
 		refreshIocs(1);
 	}
 
-	// Watch for search term changes
+	// Watch for search term changes with intelligent handling
 	$effect(() => {
 		console.log('Search term changed:', searchTerm); 
 		clearTimeout(searchDebounceTimer);
-		searchDebounceTimer = setTimeout(() => {
+		
+		// Don't trigger search if the term looks like a field:value pattern being typed
+		// This prevents premature searches while user is typing structured queries
+		const isTypingStructuredQuery = searchTerm.includes(':') && 
+			searchFields.some(field => searchTerm.startsWith(field.key + ':'));
+		
+		// Don't trigger search if we already have structured conditions and the search term is empty
+		// This prevents conflicts between structured and raw search
+		if (searchConditions.length > 0 && !searchTerm.trim()) {
+			return;
+		}
+		
+		// Don't trigger search if typing a structured query - wait for Enter
+		if (isTypingStructuredQuery) {
+			return;
+		}
+		
+		// Only trigger search for regular search terms when no structured conditions exist
+		if (searchTerm.trim() && searchConditions.length === 0) {
+			searchDebounceTimer = setTimeout(() => {
+				refreshIocs(1);
+			}, 300) as unknown as number;
+		}
+	});
+
+	// Watch for search conditions changes - track the length to avoid infinite loops
+	let previousSearchConditionsLength = $state(0);
+	$effect(() => {
+		const currentLength = searchConditions.length;
+		if (currentLength !== previousSearchConditionsLength) {
+			console.log('Search conditions changed, length:', currentLength);
+			previousSearchConditionsLength = currentLength;
 			refreshIocs(1);
-		}, 300) as unknown as number; 
+		}
 	});
 	
 	// Watch for refresh counter changes to force reactivity
@@ -420,9 +525,43 @@
 		selectedIocs = selectedIocs; // Trigger reactivity for the set
 	}
 
+	// Add missing selection functions
+	function selectAllVisibleIocs() {
+		displayIocs.forEach(ioc => {
+			if (ioc && ioc.ioc_id != null) {
+				selectedIocs.add(ioc.ioc_id.toString());
+			}
+		});
+		selectedIocs = selectedIocs; // Trigger reactivity
+	}
+
+	function deselectAllIocs() {
+		selectedIocs.clear();
+		selectedIocs = selectedIocs; // Trigger reactivity
+	}
+
+	function exitSelectionMode() {
+		selectionMode = false;
+		selectedIocs.clear();
+		selectedIocs = selectedIocs; // Trigger reactivity
+	}
+
+	function toggleIocSelection(iocId: string) {
+		if (selectedIocs.has(iocId)) {
+			selectedIocs.delete(iocId);
+		} else {
+			selectedIocs.add(iocId);
+		}
+		selectedIocs = selectedIocs; // Trigger reactivity
+	}
+
 	async function removeSelectedIocs() {
 		if (selectedIocs.size === 0) {
-			toast.info('No IOCs selected for deletion.');
+			toast({
+				title: "No IOCs Selected",
+				description: "No IOCs selected for deletion.",
+				variant: "default"
+			});
 			return;
 		}
 		isRemovingSelected = true;
@@ -433,7 +572,7 @@
 		for (const iocId of iocIdsToDelete) {
 			try {
 				const url = ENDPOINTS.case.ioc.delete(caseId, iocId);
-				const response = await ApiService.delete(url, $page.fetch);
+				const response = await ApiService.delete(url, { fetch });
 				if (response.ok || response.status === 204) {
 					iocsStore.removeIoc(iocId); // Remove from store
 					successCount++;
@@ -449,10 +588,18 @@
 		}
 
 		if (successCount > 0) {
-			toast.success(`${successCount} IOC(s) deleted successfully.`);
+			toast({
+				title: "IOCs Deleted",
+				description: `${successCount} IOC(s) deleted successfully.`,
+				variant: "success"
+			});
 		}
 		if (errorCount > 0) {
-			toast.error(`${errorCount} IOC(s) failed to delete. Check console for details.`);
+			toast({
+				title: "Delete Error",
+				description: `${errorCount} IOC(s) failed to delete. Check console for details.`,
+				variant: "destructive"
+			});
 		}
 
 		selectedIocs.clear();
@@ -478,7 +625,7 @@
 		}
 	}
 
-	async function downloadVisibleIocs(selectedColumnsForExport: ExportColumn[]) {
+	async function downloadVisibleIocs(selectedColumnsForExport: IocExportColumn[]) {
 		if (isDownloadingModal || displayIocs.length === 0 || selectedColumnsForExport.length === 0) {
 			if (selectedColumnsForExport.length === 0) {
 				toast({ title: "No Columns Selected", description: "Please select at least one column to export.", variant: "warning" });
@@ -488,7 +635,7 @@
 		isDownloadingModal = true;
 		downloadProgressMessage = 'Preparing visible ioc...';
 		try {
-			const csvData = convertToCSV(displayIocs, selectedColumnsForExport);
+			const csvData = convertIocsToCSV(displayIocs, selectedColumnsForExport);
 			triggerDownload(csvData, `iris_case_${page.params.case_id}_visible_ioc.csv`);
 			toast({
 				title: "Download Started",
@@ -509,7 +656,7 @@
 		}
 	}
 
-	async function downloadAllIocs(selectedColumnsForExport: ExportColumn[]) {
+	async function downloadAllIocs(selectedColumnsForExport: IocExportColumn[]) {
 		if (isDownloadingModal || selectedColumnsForExport.length === 0) {
 			if (selectedColumnsForExport.length === 0) {
 				toast({ title: "No Columns Selected", description: "Please select at least one column to export.", variant: "warning" });
@@ -528,7 +675,7 @@
 
 		try {
 			while(hasMorePages) {
-				const customConditions = buildSearchConditions(searchTerm); // Use current filters/search
+				const customConditions = buildSearchConditions(searchConditions, searchTerm); // Use current filters/search
 				const params: Record<string, any> = { 
 					page: currentPageToFetch, 
 					per_page: 100 // Fetch in larger chunks for "download all"
@@ -555,7 +702,7 @@
 
 			if (allIocs.length > 0) {
 				downloadProgressMessage = `Generating CSV for ${allIocs.length} ioc...`;
-				const csvData = convertToCSV(deduplicateIocs(allIocs), selectedColumnsForExport); 
+				const csvData = convertIocsToCSV(deduplicateIocs(allIocs), selectedColumnsForExport); 
 				triggerDownload(csvData, `iris_case_${page.params.case_id}_all_ioc.csv`);
 				toast({
 					title: "Download Started",
@@ -589,7 +736,7 @@
 			toast({ title: "No Columns Selected", description: "Please select at least one column to export.", variant: "warning" });
 			return;
 		}
-		const columnsToExport = AVAILABLE_EXPORT_COLUMNS.filter(col => selectedKeys.has(col.key));
+		const columnsToExport = AVAILABLE_IOC_EXPORT_COLUMNS.filter(col => selectedKeys.has(col.key));
 
 		if (downloadType === 'visible') {
 			downloadVisibleIocs(columnsToExport);
@@ -612,6 +759,12 @@
 			// Decided against auto-exiting for now, user can cancel.
 		}
 	});
+	
+	// Convert IOC columns to be compatible with DownloadModal
+	const exportColumns = AVAILABLE_IOC_EXPORT_COLUMNS.map(col => ({
+		...col,
+		defaultSelected: col.key === 'ioc_value' || col.key === 'ioc_type' || col.key === 'ioc_description'
+	}));
 </script>
 
 <div class="flex h-full w-full">
@@ -727,7 +880,7 @@
 									<RefreshCwIcon size={18} class={isRefreshing ? 'animate-spin' : ''} />
 								</Button>
 							</div>
-							<AddIocButton class="w-full sm:w-auto" disabled={isDownloadingModal} />
+							<AddIocButton class="w-full sm:w-auto" />
 						{/if}
 					</div>
 				</div>
@@ -753,7 +906,14 @@
 					</div>
 				{/if}
 			</div>
-			<Searchbar placeholder="Search ioc" bind:value={searchTerm} disabled={selectionMode}/>
+			<AdvancedSearch 
+				placeholder="Search IOCs or type field:value..." 
+				bind:value={searchTerm}
+				bind:conditions={searchConditions}
+				fields={searchFields}
+				allowRawSearch={true}
+				onchange={() => refreshIocs(1)}
+			/>
 
 			<!-- Sidebar items -->
 			{#if displayIocs.length === 0 && (isLoading || isRefreshing)}
@@ -800,7 +960,7 @@
 								role="button"
 								tabindex="0"
 								onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { if (selectionMode) toggleIocSelection(ioc.ioc_id.toString()); else if (ioc.ioc_id) page.goto(`/case/${page.params.case_id}/ioc/${ioc.ioc_id}`);}}}
-								onclick={() => { if (selectionMode) toggleSelectionMode(ioc.ioc_id.toString()); }}
+								onclick={() => { if (selectionMode) toggleIocSelection(ioc.ioc_id.toString()); }}
 							>
 								{#if selectionMode}
 									<div class={cn(
@@ -815,7 +975,7 @@
 									</div>
 								{/if}
 								<div class={cn(selectionMode ? "pl-10" : "")}>
-									<IocCard 
+									<IOCCard 
 										ioc={ioc} 
                     compact={false}
 										isSelected={isSelectedForView && !selectionMode} 
@@ -858,10 +1018,10 @@
 </div>
 
 <DownloadModal
-	bind:open={showDownloadModal}
+	open={showDownloadModal}
 	title="Download Iocs"
 	itemNounPlural="ioc"
-	availableColumns={AVAILABLE_EXPORT_COLUMNS}
+	availableColumns={exportColumns}
 	countVisible={displayIocs.length}
 	countAll={totalIocs}
 	isProcessing={isDownloadingModal}

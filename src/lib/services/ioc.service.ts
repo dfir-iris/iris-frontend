@@ -21,10 +21,10 @@ export class IocService {
 		return response.data;
 	}
 
-	public static async updateIoc(caseId: string | number, iocId: string | number, iocData: IocUpdate, fetchInstance?: typeof fetch): Promise<Ioc> {
+	public static async updateIoc(caseId: string | number, iocId: string | number, iocData: IocUpdate, fetchInstance?: typeof fetch): Promise<any> {
 		const endpoint = ENDPOINTS.case.ioc.update(caseId, iocId);
 		const response = await ApiService.put<Ioc>(endpoint, iocData, { fetch: fetchInstance });
-		return response.data;
+		return response;
 	}
 
 	public static async deleteIoc(caseId: string | number, iocId: string | number, fetchInstance?: typeof fetch): Promise<void> {

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import Searchbar from '$lib/components/ui/searchbar/searchbar.svelte';
+	import { AdvancedSearch, type SearchField, type SearchCondition } from '$lib/components/ui/advanced-search';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { 
 		FilterIcon, 
@@ -46,6 +47,7 @@
 	let loadMoreTrigger: HTMLDivElement | null = null;
 	let scrollContainer = $state<HTMLDivElement | null>(null);
 	let searchTerm = $state('');
+	let searchConditions = $state<SearchCondition[]>([]);
 	let searchDebounceTimer: number;
 	let refreshCounter = $state(0); // Add a counter to force reactivity
 	let initialFetchDone = $state(false); // Declare and initialize initialFetchDone
@@ -74,6 +76,28 @@
 		{ id: 'analysis_done', label: 'Analysis Done', field: 'analysis_status_id', value: 6, operator: 'eq'  },
 		{ id: 'analysis_started', label: 'Analysis Started', field: 'analysis_status_id', value: 3, operator: 'eq' },
 		{ id: 'analysis_todo', label: 'Analysis To Be done', field: 'analysis_status_id', value: 2, operator: 'eq' },
+	];
+
+	// Available search fields for Assets
+	const searchFields: SearchField[] = [
+		{ key: 'asset_name', label: 'Asset Name', type: 'text' },
+		{ key: 'asset_description', label: 'Description', type: 'text' },
+		{ key: 'asset_ip', label: 'IP Address', type: 'text' },
+		{ key: 'asset_domain', label: 'Domain', type: 'text' },
+		{ key: 'asset_tags', label: 'Tags', type: 'text' },
+		{ key: 'asset_type.asset_name', label: 'Asset Type', type: 'text' },
+		{ key: 'asset_compromise_status_id', label: 'Compromise Status', type: 'select', options: [
+			{ value: '1', label: 'Compromised' },
+			{ value: '0', label: 'Not Compromised' }
+		]},
+		{ key: 'analysis_status_id', label: 'Analysis Status', type: 'select', options: [
+			{ value: '1', label: 'Unspecified' },
+			{ value: '2', label: 'To Be Done' },
+			{ value: '3', label: 'Started' },
+			{ value: '6', label: 'Done' }
+		]},
+		{ key: 'user_id', label: 'User ID', type: 'number' },
+		{ key: 'asset_id', label: 'Asset ID', type: 'number' }
 	];
 	
 	// Subscribe to the assets store for display purposes and nonce changes
@@ -159,18 +183,67 @@
 
 
 	// Function to build custom conditions for search and filters
-	function buildSearchConditions(term: string) {
+	function buildSearchConditions(searchConditions: SearchCondition[], rawSearchTerm: string = '') {
 		const conditions = [];
 		
-		// Add search term conditions if provided
-		if (term) {
+		// Add structured search conditions
+		searchConditions.forEach(condition => {
+			if (condition.field === '_raw') {
+				// Handle raw search - search across multiple fields
+				conditions.push(
+					{ field: "asset_name", operator: "like", value: condition.value },
+					{ field: "asset_ip", operator: "like", value: condition.value },
+					{ field: "asset_domain", operator: "like", value: condition.value },
+					{ field: "asset_description", operator: "like", value: condition.value },
+					{ field: "asset_tags", operator: "like", value: condition.value },
+					{ field: "asset_type.asset_name", operator: "like", value: condition.value }
+				);
+			} else {
+				// Handle structured field search
+				let operator = condition.operator;
+				let value = condition.value;
+				
+				// Map operators to backend format
+				switch (operator) {
+					case '=':
+						operator = 'eq';
+						break;
+					case '!=':
+						operator = 'not';
+						break;
+					case 'like':
+						operator = 'like';
+						break;
+					case 'not like':
+						operator = 'not_like';
+						break;
+					case '>':
+						operator = 'gt';
+						break;
+					case '<':
+						operator = 'lt';
+						break;
+					case '>=':
+						operator = 'gte';
+						break;
+					case '<=':
+						operator = 'lte';
+						break;
+				}
+				
+				conditions.push({ field: condition.field, operator, value });
+			}
+		});
+		
+		// Only add legacy raw search term if no structured conditions exist
+		if (rawSearchTerm && searchConditions.length === 0) {
 			conditions.push(
-				{ field: "asset_name", operator: "like", value: term },
-				{ field: "asset_ip", operator: "like", value: term },
-				{ field: "asset_domain", operator: "like", value: term },
-				{ field: "asset_description", operator: "like", value: term },
-				{ field: "asset_tags", operator: "like", value: term },
-				{ field: "asset_type.asset_name", operator: "like", value: term }
+				{ field: "asset_name", operator: "like", value: rawSearchTerm },
+				{ field: "asset_ip", operator: "like", value: rawSearchTerm },
+				{ field: "asset_domain", operator: "like", value: rawSearchTerm },
+				{ field: "asset_description", operator: "like", value: rawSearchTerm },
+				{ field: "asset_tags", operator: "like", value: rawSearchTerm },
+				{ field: "asset_type.asset_name", operator: "like", value: rawSearchTerm }
 			);
 		}
 		
@@ -191,7 +264,7 @@
 		
 		isRefreshing = true;
 		try {
-			const customConditions = buildSearchConditions(searchTerm);
+			const customConditions = buildSearchConditions(searchConditions, searchTerm);
 			const params: Record<string, any> = { 
 				page: pageNumber, 
 				per_page: 10
@@ -235,7 +308,7 @@
 		
 		isLoading = true;
 		try {
-			const customConditions = buildSearchConditions(searchTerm);
+			const customConditions = buildSearchConditions(searchConditions, searchTerm);
 			const params: Record<string, any> = { 
 				page: currentPage + 1, 
 				per_page: 10
@@ -291,13 +364,44 @@
 		refreshAssets(1);
 	}
 
-	// Watch for search term changes
+	// Watch for search term changes with intelligent handling
 	$effect(() => {
 		console.log('Search term changed:', searchTerm); 
 		clearTimeout(searchDebounceTimer);
-		searchDebounceTimer = setTimeout(() => {
+		
+		// Don't trigger search if the term looks like a field:value pattern being typed
+		// This prevents premature searches while user is typing structured queries
+		const isTypingStructuredQuery = searchTerm.includes(':') && 
+			searchFields.some(field => searchTerm.startsWith(field.key + ':'));
+		
+		// Don't trigger search if we already have structured conditions and the search term is empty
+		// This prevents conflicts between structured and raw search
+		if (searchConditions.length > 0 && !searchTerm.trim()) {
+			return;
+		}
+		
+		// Don't trigger search if typing a structured query - wait for Enter
+		if (isTypingStructuredQuery) {
+			return;
+		}
+		
+		// Only trigger search for regular search terms when no structured conditions exist
+		if (searchTerm.trim() && searchConditions.length === 0) {
+			searchDebounceTimer = setTimeout(() => {
+				refreshAssets(1);
+			}, 300) as unknown as number;
+		}
+	});
+
+	// Watch for search conditions changes - track the length to avoid infinite loops
+	let previousSearchConditionsLength = $state(0);
+	$effect(() => {
+		const currentLength = searchConditions.length;
+		if (currentLength !== previousSearchConditionsLength) {
+			console.log('Search conditions changed, length:', currentLength);
+			previousSearchConditionsLength = currentLength;
 			refreshAssets(1);
-		}, 300) as unknown as number; 
+		}
 	});
 	
 	// Watch for refresh counter changes to force reactivity
@@ -549,7 +653,7 @@
 
 		try {
 			while(hasMorePages) {
-				const customConditions = buildSearchConditions(searchTerm); // Use current filters/search
+				const customConditions = buildSearchConditions(searchConditions, searchTerm); // Use current filters/search
 				const params: Record<string, any> = { 
 					page: currentPageToFetch, 
 					per_page: 100 // Fetch in larger chunks for "download all"
@@ -748,7 +852,7 @@
 									<RefreshCwIcon size={18} class={isRefreshing ? 'animate-spin' : ''} />
 								</Button>
 							</div>
-							<AddAssetButton class="w-full sm:w-auto" disabled={isDownloadingModal} />
+							<AddAssetButton class="w-full sm:w-auto" />
 						{/if}
 					</div>
 				</div>
@@ -774,7 +878,14 @@
 					</div>
 				{/if}
 			</div>
-			<Searchbar placeholder="Search assets" bind:value={searchTerm} disabled={selectionMode}/>
+			<AdvancedSearch 
+				placeholder="Search assets or type field:value..." 
+				bind:value={searchTerm}
+				bind:conditions={searchConditions}
+				fields={searchFields}
+				allowRawSearch={true}
+				onchange={() => refreshAssets(1)}
+			/>
 
 			<!-- Sidebar items -->
 			{#if displayAssets.length === 0 && (isLoading || isRefreshing)}
