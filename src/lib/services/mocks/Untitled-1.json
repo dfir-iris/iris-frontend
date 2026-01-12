@@ -1,0 +1,170 @@
+{
+    "instance_url": "https://iris.lab.",
+    "webhooks": [
+        {
+            "name": "Report IOC to OpenCTI",
+            "active": "true",
+            "trigger_on": ["on_manual_trigger_alert"],
+            "manual_trigger_name": "Report IOC",
+            "request_url": "https://dark-sea-7901.tines.com/webhook/action/c1d505edd32884b6d43e537c69d2e425?type=ioc_report",
+            "verify_ssl": false,
+            "request_rendering": "",
+            "use_rendering": false,
+            "request_body": {
+                "alerts": "alerts"
+            }
+        },
+        {
+            "name": "Report rule",
+            "active": "true",
+            "trigger_on": ["on_manual_trigger_alert"],
+            "manual_trigger_name": "Report Rule",
+            "request_url": "https://dark-sea-7901.tines.com/webhook/action/c1d505edd32884b6d43e537c69d2e425?type=rule_report",
+            "request_rendering": "",
+            "use_rendering": false,
+            "request_body": {
+                "alerts": "alerts"
+            },
+            "verify_ssl": false
+        },
+        {
+            "name": "Case review",
+            "active": "true",
+            "trigger_on": ["on_manual_trigger_case"],
+            "manual_trigger_name": "Case review",
+            "request_url": "https://dark-sea-7901.tines.com/webhook/action/c1d505edd32884b6d43e537c69d2e425?type=case_review",
+            "request_rendering": "",
+            "use_rendering": false,
+            "verify_ssl": false,
+            "request_body": {
+                "cases": "cases"
+            },
+            "verify_ssl": false
+        },
+        {
+            "name": "[DEV] - Case summary LLM",
+            "active": "true",
+            "trigger_on": ["on_manual_trigger_case"],
+            "manual_trigger_name": "Generate Summary",
+            "request_url": "https://dark-sea-7901.tines.com/webhook/action/c1d505edd32884b6d43e537c69d2e425?type=llm_generation",
+            "request_rendering": "",
+            "verify_ssl": false,
+            "use_rendering": false,
+            "request_body": {
+                "cases": "cases"
+            }
+        },
+        {
+            "name": "Report IOC to OpenCTI and bulk close alerts",
+            "active": "true",
+            "trigger_on": ["on_manual_trigger_alert"],
+            "manual_trigger_name": "Report IOC and bulk close",
+            "request_url": "https://dark-sea-7901.tines.com/webhook/action/c1d505edd32884b6d43e537c69d2e425?type=ioc_report&bulk=true",
+            "request_rendering": "",
+            "use_rendering": false,
+            "verify_ssl": false,
+            "request_body": {
+                "alerts": "alerts"
+            }
+        },
+        {
+            "name": "Retrieve info from MS Azure",
+            "active": "true",
+            "trigger_on": ["on_manual_trigger_asset"],
+            "manual_trigger_name": "Get info from MS Azure",
+            "request_url": "https://dark-sea-7901.tines.com/webhook/action/c1d505edd32884b6d43e537c69d2e425?type=asset_info",
+            "request_rendering": "",
+            "use_rendering": false,
+            "verify_ssl": false,
+            "request_body": {
+                "assets": "assets"
+            }
+        },
+        {
+            "name": "Alert - Resolution Update",
+            "active": "true",
+            "trigger_on": ["on_postload_alert_resolution_update"],
+            "manual_trigger_name": "",
+            "request_url": "https://dark-sea-7901.tines.com/webhook/action/c1d505edd32884b6d43e537c69d2e425?type=resolution_update",
+            "request_rendering": "",
+            "use_rendering": false,
+            "verify_ssl": false,
+            "request_body": {
+                "alerts": "alerts"
+            }
+        },
+        {
+            "name": "Alert - Update",
+            "active": "true",
+            "trigger_on": ["on_postload_alert_update"],
+            "manual_trigger_name": "",
+            "request_url": "https://dark-sea-7901.tines.com/webhook/action/c1d505edd32884b6d43e537c69d2e425?type=alert_update",
+            "request_rendering": "",
+            "use_rendering": false,
+            "verify_ssl": false,
+            "request_body": {
+                "alerts": "alerts"
+            }
+        },
+        {
+            "name": "Notify MM on case creation",
+            "active": "true",
+            "trigger_on": ["on_postload_case_create"],
+            "request_url": "https://dark-sea-7901.tines.com/webhook/action/c1d505edd32884b6d43e537c69d2e425?type=case_create",
+            "request_rendering": "",
+            "use_rendering": false,
+            "verify_ssl": false,
+            "request_body": {
+                "cases": "cases"
+            }
+        },
+        {
+            "name": "Notify MM on case closing",
+            "active": "true",
+            "trigger_on": ["on_postload_case_update"],
+            "request_url": "https://dark-sea-7901.tines.com/webhook/action/c1d505edd32884b6d43e537c69d2e425?type=case_update",
+            "request_rendering": "",
+            "use_rendering": false,
+            "verify_ssl": false,
+            "request_body": {
+                "cases": "cases"
+            }
+        },
+        {
+            "name": "Notify MM on tasks create",
+            "active": "true",
+            "trigger_on": ["on_postload_task_create"],
+            "request_url": "https://dark-sea-7901.tines.com/webhook/action/c1d505edd32884b6d43e537c69d2e425?type=task_create",
+            "request_rendering": "",
+            "use_rendering": false,
+            "verify_ssl": false,
+            "request_body": {
+                "tasks": "tasks"
+            }
+        },
+        {
+            "name": "Notify MM on tasks update",
+            "active": "true",
+            "trigger_on": ["on_postload_task_update"],
+            "request_url": "https://dark-sea-7901.tines.com/webhook/action/c1d505edd32884b6d43e537c69d2e425?type=task_update",
+            "request_rendering": "",
+            "use_rendering": false,
+            "verify_ssl": false,
+            "request_body": {
+                "tasks": "tasks"
+            }
+        }, 
+        {
+            "name": "Notify closing alert",
+            "active": "true",
+            "trigger_on": ["on_postload_alert_status_update"],
+            "request_url": "https://dark-sea-7901.tines.com/webhook/action/c1d505edd32884b6d43e537c69d2e425?type=alert_status_update",
+            "request_rendering": "",
+            "use_rendering": false,
+            "verify_ssl": false,
+            "request_body": {
+                "alerts": "alerts"
+            }
+        }
+    ]
+}
