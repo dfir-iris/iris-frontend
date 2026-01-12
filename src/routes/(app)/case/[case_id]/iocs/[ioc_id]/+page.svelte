@@ -349,67 +349,9 @@
 		</div>
 	{:else if displayIocData?.ioc_id}
 		<div in:fade={{ duration: 150 }}>
-			<Card class="border-0 shadow-lg overflow-hidden">
-				<div class="p-4">
-					<div class="flex flex-col md:flex-row items-start md:items-center gap-4">
-						<div class="bg-primary/10 p-3 rounded-lg text-primary">
-							<ComputerIcon class="h-8 w-8" />
-						</div>
-						<div class="flex-grow">
-								<h2 class="text-2xl font-bold">{displayIocData.ioc_value}</h2>
-								<p class="text-muted-foreground">{displayIocData.ioc_type?.type_name || 'Unknown Type'}</p>
-						</div>
-						<div class="flex gap-2 mt-4 md:mt-0 w-full md:w-auto">
-							{#if isEditing}
-								<Button 
-									variant="outline" 
-									size="sm" 
-									onclick={cancelEditing}
-									class="flex items-center gap-1" 
-									disabled={isSaving}
-								>
-									<XIcon class="h-4 w-4" />
-									<span>Cancel</span>
-								</Button>
-								<Button 
-									variant="default" 
-									size="sm" 
-									onclick={saveChanges}
-									class="flex items-center gap-1" 
-									disabled={isSaving}
-								>
-									{#if isSaving}
-										<span class="animate-spin">⟳</span>
-										<span>Saving...</span>
-									{:else}
-										<SaveIcon class="h-4 w-4" />
-										<span>Save</span>
-									{/if}
-								</Button>
-							{:else}
-								<Button 
-									variant="outline" 
-									size="sm" 
-									onclick={startEditing}
-									class="flex items-center gap-1"
-								>
-									<EditIcon class="h-4 w-4" />
-									<span>Edit</span>
-								</Button>
-								<DeleteButton
-									url={ENDPOINTS.case.ioc.delete(data.caseId, displayIocData.ioc_id.toString())}
-									onrefresh={handleAssetDeleted}
-									buttonText="Delete"
-									deletion_prompt_message={`Are you sure you want to delete the ioc "${displayIocData.ioc_value}"? This action cannot be undone.`}
-								/>
-							{/if}
-						</div>
-					</div>
-				</div>
-			</Card>
-			<ScrollArea class="h-[calc(100vh-220px)] mt-5 rounded-lg">
-				<Card class="border shadow-md overflow-hidden">
-					<CardContent class="p-0">
+			<ScrollArea class="h-[calc(100vh-220px)]">
+				<div class="shadow-md overflow-hidden">
+					<CardContent class="p-0 bg-background">
 						<Tabs bind:value={activeTab} class="w-full">
 							<div class="border-b">
 								<TabsList class="p-0 h-auto bg-transparent border-0 w-full rounded-none">
@@ -452,7 +394,13 @@
 										editData={editData}
 										onUpdateEditData={handleUpdateEditData}
 										currentTags={currentTags}
-										onAssetChange={handleIocChange}
+										onIocChange={handleIocChange}
+										onStartEditing={startEditing}
+										onCancelEditing={cancelEditing}
+										onSaveChanges={saveChanges}
+										onDeleteIoc={handleAssetDeleted}
+										isSaving={isSaving}
+										deleteUrl={ENDPOINTS.case.ioc.delete(data.caseId, displayIocData.ioc_id.toString())}
 									/>
 								</TabsContent>
 								<TabsContent value="history">
@@ -461,7 +409,7 @@
 							</div>
 						</Tabs>
 					</CardContent>
-				</Card>
+				</div>
 				<div class="py-6 px-2">
 					<div class="flex flex-col md:flex-row items-start md:items-center gap-4">
 						<div class="flex-grow text-xs">

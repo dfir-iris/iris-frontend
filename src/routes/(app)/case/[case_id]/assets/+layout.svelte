@@ -7,6 +7,8 @@
 		FilterIcon, 
 		RefreshCwIcon,
 		XIcon,
+		List,
+		Grid,
 		Trash2Icon, // Added
 		CheckIcon, // Added (though might not be used directly if text is preferred)
 		DownloadIcon // Added
@@ -23,6 +25,7 @@
 	import AssetCard from '$lib/components/common/assets/AssetCard.svelte';
 	import { assetsStore } from '$lib/stores/assets.store';
 	import AddAssetButton from '$lib/components/common/assets/add-asset-button.svelte';
+import AssetDataTable from '$lib/components/common/assets/AssetDataTable.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Checkbox } from '$lib/components/ui/checkbox'; // Added
@@ -51,6 +54,9 @@
 	let searchDebounceTimer: number;
 	let refreshCounter = $state(0); // Add a counter to force reactivity
 	let initialFetchDone = $state(false); // Declare and initialize initialFetchDone
+
+// View mode: 'cards' or 'table'
+let viewMode = $state<'cards' | 'table'>('cards');
 	
 	// Filter state
 	let showFilterDropdown = $state(false);
@@ -798,7 +804,27 @@
 								<XIcon class="h-3.5 w-3.5 mr-1" /> Cancel
 							</Button>
 						{:else}
-							<div class="flex flex-row gap-2 w-full sm:w-auto">
+							<div class="flex flex-row gap-2 w-full sm:w-auto items-center">
+								<!-- View mode toggle -->
+								<div class="inline-flex rounded-md shadow-sm" role="tablist" aria-label="View mode">
+									<button
+										class={cn('p-2 rounded-l-md border border-input bg-transparent', viewMode === 'cards' ? 'bg-muted/10' : '')}
+										onclick={() => viewMode = 'cards'}
+										aria-pressed={viewMode === 'cards'}
+										title="Cards view"
+									>
+										<List size={16} />
+									</button>
+									<button
+										class={cn('p-2 rounded-r-md border-t border-b border-r border-input bg-transparent', viewMode === 'table' ? 'bg-muted/10' : '')}
+										onclick={() => viewMode = 'table'}
+										aria-pressed={viewMode === 'table'}
+										title="Table view"
+									>
+										<Grid size={16} />
+									</button>
+								</div>
+								<div class="w-1"></div>
 								<DropdownMenu.Root open={showFilterDropdown} onOpenChange={(open) => showFilterDropdown = open}>
 									<DropdownMenu.Trigger class="w-full sm:w-auto">
 										<Button variant="ghost" size="icon" class="w-full sm:w-auto p-2" disabled={isDownloadingModal}>
@@ -887,7 +913,22 @@
 			/>
 
 			<!-- Sidebar items -->
-			{#if displayAssets.length === 0 && (isLoading || isRefreshing)}
+			{#if viewMode === 'table'}
+				<!-- Table view -->
+				<AssetDataTable
+					className="w-full"
+					assets={displayAssets}
+					caseId={page.params.case_id}
+					tablePage={currentPage}
+					totalPages={lastPage}
+					on:pageChange={(e) => {
+						const newPage = e.detail.page;
+						const target = lastPage ? Math.min(Math.max(1, newPage), lastPage) : Math.max(1, newPage);
+						refreshAssets(target);
+					}}
+				/>
+			{:else}
+				{#if displayAssets.length === 0 && (isLoading || isRefreshing)}
 				{#each Array(5) as _}
 					<div class="card-custom space-y-1.5 rounded-lg border p-3 text-sm shadow">
 						<div class="flex flex-row gap-x-1">
@@ -976,12 +1017,13 @@
 					{/if}
 					<div class="sticky bottom-0 h-8 bg-gradient-to-t from-background to-transparent pointer-events-none"></div>
 				</div>
-			{/if}
+					{/if}
+				{/if}
 		</Resizable.Pane>
 		
 		<Resizable.Handle withHandle class="bg-muted hover:bg-muted-foreground/20" />
 		
-		<Resizable.Pane class="flex h-full flex-col gap-y-2 overflow-y-auto p-4">
+		<Resizable.Pane class="flex h-full flex-col gap-y-2 overflow-y-auto">
 			{@render children()}
 		</Resizable.Pane>
 	</Resizable.PaneGroup>

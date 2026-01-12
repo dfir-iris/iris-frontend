@@ -6,8 +6,10 @@
 	import { 
 		FilterIcon, 
 		RefreshCwIcon,
-		XIcon,
-		Trash2Icon, // Added
+	XIcon,
+	List,
+	Grid,
+	Trash2Icon, // Added
 		CheckIcon, // Added (though might not be used directly if text is preferred)
 		DownloadIcon // Added
 	} from 'lucide-svelte';
@@ -31,6 +33,7 @@
   import { deduplicateIocs, convertIocsToCSV, AVAILABLE_IOC_EXPORT_COLUMNS, type IocExportColumn } from '$lib/utils/iocs.utils';
   import type { ExportColumn } from '$lib/utils/asset.utils'; 
 	import DownloadModal from '$lib/components/common/DownloadModal.svelte'; // New import
+	import IocDataTable from '$lib/components/common/ioc/IocDataTable.svelte';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 	
@@ -43,6 +46,8 @@
 	let lastPage = $state<number | null>(null);
 	let isLoading = $state(false);
 	let isRefreshing = $state(false);
+		// View mode: 'cards' or 'table'
+		let viewMode = $state<'cards' | 'table'>('cards');
 	let observer: IntersectionObserver | null = null;
 	let loadMoreTrigger: HTMLDivElement | null = null;
 	let scrollContainer = $state<HTMLDivElement | null>(null);
@@ -826,7 +831,28 @@
 								<XIcon class="h-3.5 w-3.5 mr-1" /> Cancel
 							</Button>
 						{:else}
-							<div class="flex flex-row gap-2 w-full sm:w-auto">
+							<div class="flex flex-row gap-2 w-full sm:w-auto items-center">
+								<!-- View mode toggle -->
+								<div class="inline-flex rounded-md shadow-sm" role="tablist" aria-label="View mode">
+									<button
+										class={cn('p-2 rounded-l-md border border-input bg-transparent', viewMode === 'cards' ? 'bg-muted/10' : '')}
+										onclick={() => viewMode = 'cards'}
+										aria-pressed={viewMode === 'cards'}
+										title="Cards view"
+									>
+										<List size={16} />
+									</button>
+									<button
+										class={cn('p-2 rounded-r-md border-t border-b border-r border-input bg-transparent', viewMode === 'table' ? 'bg-muted/10' : '')}
+										onclick={() => viewMode = 'table'}
+										aria-pressed={viewMode === 'table'}
+										title="Table view"
+									>
+										<Grid size={16} />
+									</button>
+								</div>
+								<div class="w-1"></div>
+								<div class="flex flex-row gap-2">
 								<DropdownMenu.Root open={showFilterDropdown} onOpenChange={(open) => showFilterDropdown = open}>
 									<DropdownMenu.Trigger class="w-full sm:w-auto">
 										<Button variant="ghost" size="icon" class="w-full sm:w-auto p-2" disabled={isDownloadingModal}>
@@ -881,8 +907,8 @@
 								</Button>
 							</div>
 							<AddIocButton class="w-full sm:w-auto" />
+						</div>
 						{/if}
-					</div>
 				</div>
 				
 				<!-- Selected filters display -->
@@ -916,102 +942,118 @@
 			/>
 
 			<!-- Sidebar items -->
-			{#if displayIocs.length === 0 && (isLoading || isRefreshing)}
-				{#each Array(5) as _}
-					<div class="card-custom space-y-1.5 rounded-lg border p-3 text-sm shadow">
-						<div class="flex flex-row gap-x-1">
-							<Skeleton class="h-6 w-1/2 shrink-0"></Skeleton>
-							<div class="w-full"></div>
-							<Skeleton class="h-6 w-16"></Skeleton>
-							<Skeleton class="h-6 w-16"></Skeleton>
-						</div>
-						<Skeleton class="h-4 w-1/2 shrink-0"></Skeleton>
-						<Skeleton class="h-4 w-1/3 shrink-0"></Skeleton>
-					</div>
-				{/each}
+			{#if viewMode === 'table'}
+				<!-- Table view -->
+				<IocDataTable
+					className="w-full"
+					iocs={displayIocs}
+					caseId={page.params.case_id}
+					tablePage={currentPage}
+					totalPages={lastPage}
+					on:pageChange={(e) => {
+						const newPage = e.detail.page;
+						const target = lastPage ? Math.min(Math.max(1, newPage), lastPage) : Math.max(1, newPage);
+						refreshIocs(target);
+					}}
+				/>
 			{:else}
-				<div 
-					bind:this={scrollContainer}
-					onscroll={handleScroll}
-					class="flex flex-col px-3 gap-y-3 overflow-y-auto max-h-[calc(100vh-200px)] relative scroll-smooth"
-					style="
-						--mask-image-content: linear-gradient(
-							to bottom,
-							transparent,
-							hsl(var(--background)) var(--top-fade-stop, 3%),
-							hsl(var(--background)) var(--bottom-fade-stop, 98%),
-							transparent
-						);
-						mask-image: var(--mask-image-content);
-						-webkit-mask-image: var(--mask-image-content);
-					"
-				>
-					<div class="sticky top-0 h-8 bg-gradient-to-b from-background to-transparent pointer-events-none"></div>
-					
-					{#key refreshCounter}
-						{#each displayIocs as ioc (ioc.ioc_id)} 
-							{@const isSelectedForView = page.params.ioc_id === ioc.ioc_id.toString()}
-							{@const isCheckedForSelection = selectedIocs.has(ioc.ioc_id.toString())}
-							<div 
-								class={cn(
-									"relative transition-all duration-150 ease-in-out",
-									selectionMode ? "py-1" : "" // Add some padding if needed for checkbox visibility
-								)}
-								role="button"
-								tabindex="0"
-								onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { if (selectionMode) toggleIocSelection(ioc.ioc_id.toString()); else if (ioc.ioc_id) page.goto(`/case/${page.params.case_id}/ioc/${ioc.ioc_id}`);}}}
-								onclick={() => { if (selectionMode) toggleIocSelection(ioc.ioc_id.toString()); }}
-							>
-								{#if selectionMode}
-									<div class={cn(
-										"absolute left-2 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center h-full",
-										"cursor-pointer" // Make the checkbox area explicitly clickable
-									)}>
-										<Checkbox 
-											checked={isCheckedForSelection}
-											aria-label={`Select IOC ${ioc.ioc_value}`}
-											class="pointer-events-none"
+				{#if displayIocs.length === 0 && (isLoading || isRefreshing)}
+					{#each Array(5) as _}
+						<div class="card-custom space-y-1.5 rounded-lg border p-3 text-sm shadow">
+							<div class="flex flex-row gap-x-1">
+								<Skeleton class="h-6 w-1/2 shrink-0"></Skeleton>
+								<div class="w-full"></div>
+								<Skeleton class="h-6 w-16"></Skeleton>
+								<Skeleton class="h-6 w-16"></Skeleton>
+							</div>
+							<Skeleton class="h-4 w-1/2 shrink-0"></Skeleton>
+							<Skeleton class="h-4 w-1/3 shrink-0"></Skeleton>
+						</div>
+					{/each}
+				{:else}
+					<div 
+						bind:this={scrollContainer}
+						onscroll={handleScroll}
+						class="flex flex-col px-3 gap-y-3 overflow-y-auto max-h-[calc(100vh-200px)] relative scroll-smooth"
+						style="
+							--mask-image-content: linear-gradient(
+								to bottom,
+								transparent,
+								hsl(var(--background)) var(--top-fade-stop, 3%),
+								hsl(var(--background)) var(--bottom-fade-stop, 98%),
+								transparent
+							);
+							mask-image: var(--mask-image-content);
+							-webkit-mask-image: var(--mask-image-content);
+						"
+					>
+						<div class="sticky top-0 h-8 bg-gradient-to-b from-background to-transparent pointer-events-none"></div>
+						
+						{#key refreshCounter}
+							{#each displayIocs as ioc (ioc.ioc_id)} 
+								{@const isSelectedForView = page.params.ioc_id === ioc.ioc_id.toString()}
+								{@const isCheckedForSelection = selectedIocs.has(ioc.ioc_id.toString())}
+								<div 
+									class={cn(
+										"relative transition-all duration-150 ease-in-out",
+										selectionMode ? "py-1" : "" // Add some padding if needed for checkbox visibility
+									)}
+									role="button"
+									tabindex="0"
+									onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { if (selectionMode) toggleIocSelection(ioc.ioc_id.toString()); else if (ioc.ioc_id) page.goto(`/case/${page.params.case_id}/ioc/${ioc.ioc_id}`);}}}
+									onclick={() => { if (selectionMode) toggleIocSelection(ioc.ioc_id.toString()); }}
+								>
+									{#if selectionMode}
+										<div class={cn(
+											"absolute left-2 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center h-full",
+											"cursor-pointer" // Make the checkbox area explicitly clickable
+										)}>
+											<Checkbox 
+												checked={isCheckedForSelection}
+												aria-label={`Select IOC ${ioc.ioc_value}`}
+												class="pointer-events-none"
+											/>
+										</div>
+									{/if}
+									<div class={cn(selectionMode ? "pl-10" : "")}>
+										<IOCCard 
+											ioc={ioc} 
+											compact={false}
+											isSelected={isSelectedForView && !selectionMode} 
 										/>
 									</div>
-								{/if}
-								<div class={cn(selectionMode ? "pl-10" : "")}>
-									<IOCCard 
-										ioc={ioc} 
-                    compact={false}
-										isSelected={isSelectedForView && !selectionMode} 
-									/>
 								</div>
-							</div>
-						{/each}
-					{/key}
-					
-					<!-- Infinite scroll trigger element -->
-					<div use:handleTriggerRef class="h-20 w-full flex items-center justify-center">
-						{#if isLoading && !isRefreshing}
-							<div class="flex justify-center py-4">
-								<Skeleton class="h-8 w-8 rounded-full" />
-							</div>
-						{:else if nextPage !== null}
-							<Button variant="outline" onclick={loadMoreIocs} disabled={isLoading}>
-								Load More
-							</Button>
-						{/if}
-					</div>
-					
-					<!-- End of list message -->
-					{#if nextPage === null && displayIocs.length > 0}
-						<div class="text-center text-sm text-muted-foreground py-2">
-							End of ioc list
+							{/each}
+						{/key}
+						
+						<!-- Infinite scroll trigger element -->
+						<div use:handleTriggerRef class="h-20 w-full flex items-center justify-center">
+							{#if isLoading && !isRefreshing}
+								<div class="flex justify-center py-4">
+									<Skeleton class="h-8 w-8 rounded-full" />
+								</div>
+							{:else if nextPage !== null}
+								<Button variant="outline" onclick={loadMoreIocs} disabled={isLoading}>
+									Load More
+								</Button>
+							{/if}
 						</div>
-					{/if}
-					<div class="sticky bottom-0 h-8 bg-gradient-to-t from-background to-transparent pointer-events-none"></div>
-				</div>
+						
+						<!-- End of list message -->
+						{#if nextPage === null && displayIocs.length > 0}
+							<div class="text-center text-sm text-muted-foreground py-2">
+								End of ioc list
+							</div>
+						{/if}
+						<div class="sticky bottom-0 h-8 bg-gradient-to-t from-background to-transparent pointer-events-none"></div>
+					</div>
+				{/if}
 			{/if}
 		</Resizable.Pane>
 		
 		<Resizable.Handle withHandle class="bg-muted hover:bg-muted-foreground/20" />
 		
-		<Resizable.Pane class="flex h-full flex-col gap-y-2 overflow-y-auto p-4">
+		<Resizable.Pane class="flex h-full flex-col gap-y-2 overflow-y-auto">
 			{@render children()}
 		</Resizable.Pane>
 	</Resizable.PaneGroup>

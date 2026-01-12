@@ -106,7 +106,8 @@ export const handle: Handle = async ({ event, resolve }) => {
           }
                     
           // If this was a login request and it was successful, perform redirection
-          if (event.url.pathname === '/auth/login' && response.status === 200) {
+          // Accept either '/auth/login' or '/api/v2/auth/login' (or similar prefixes)
+          if (event.url.pathname.endsWith('/auth/login') && response.status === 200) {
             // Store the tokens in cookies if they exist in the response
             if (responseData && typeof responseData === 'object') {
               const authData = responseData.data || responseData;

@@ -9,7 +9,16 @@
 		CheckCircleIcon,
 		ShieldIcon,
 		ComponentIcon,
-		HashIcon
+		HashIcon,
+
+		XIcon,
+
+		SaveIcon,
+
+		EditIcon
+
+
+
 	} from 'lucide-svelte';
 	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
 	import { Input } from '$lib/components/ui/input';
@@ -22,6 +31,8 @@
 	import { assetsStore } from '$lib/stores/assets.store';
 	import { TagInput, TagDisplay } from '$lib/components/common/tag';
 	import type { Tag } from '$lib/stores/tags.store';
+	import { Button } from '$lib/components/ui/button';
+	import DeleteButton from '$lib/components/common/DeleteButton.svelte';
 
 	let { 
 		asset, 
@@ -29,7 +40,13 @@
 		editData,
 		onUpdateEditData = (field: string, value: string | number | Tag[]) => {},
 		currentTags = [],
-		onAssetChange = (updatedAsset: Partial<Asset>) => {}
+		onAssetChange = (updatedAsset: Partial<Asset>) => {},
+		onStartEditing = () => {},
+		onCancelEditing = () => {},
+		onSaveChanges = () => {},
+		onDeleteAsset = () => {},
+		isSaving = false,
+		deleteUrl = ''
 	} = $props<{ 
 		asset: Asset;
 		isEditing?: boolean;
@@ -46,6 +63,12 @@
 		onUpdateEditData?: (field: string, value: string | number | Tag[]) => void;
 		currentTags?: Tag[];
 		onAssetChange?: (updatedAsset: Partial<Asset>) => void;
+		onStartEditing?: () => void;
+		onCancelEditing?: () => void;
+		onSaveChanges?: () => void;
+		onDeleteAsset?: () => void;
+		isSaving?: boolean;
+		deleteUrl?: string;
 	}>();
 	
 	let descriptionHtml = $derived(marked(asset.asset_description || 'No description provided'));
@@ -141,9 +164,57 @@
 <div class="space-y-8 p-1">
 	<!-- General Information -->
 	<section>
-		<div class="flex items-center gap-2 mb-4 border-b pb-2">
-			<ServerIcon class="h-5 w-5 text-primary" />
-			<h2 class="text-lg font-semibold">General Information</h2>
+		<div class="flex items-center justify-between gap-2 mb-4 border-b pb-2">
+			<div class="flex items-center gap-2">
+				<ServerIcon class="h-5 w-5 text-primary" />
+				<h2 class="text-lg font-semibold">General Information</h2>
+			</div>
+
+			<div class="flex items-center gap-2">
+				{#if isEditing}
+					<Button 
+						variant="outline" 
+						size="sm" 
+						onclick={onCancelEditing}
+						class="flex items-center gap-2 hover:bg-muted/80 transition-colors" 
+						disabled={isSaving}
+					>
+						<XIcon class="h-4 w-4" />
+						<span>Cancel</span>
+					</Button>
+					<Button 
+						variant="default" 
+						size="sm" 
+						onclick={onSaveChanges}
+						class="flex items-center gap-2 bg-primary hover:bg-primary/90 transition-colors" 
+						disabled={isSaving}
+					>
+						{#if isSaving}
+							<span class="animate-spin">⟳</span>
+							<span>Saving...</span>
+						{:else}
+							<SaveIcon class="h-4 w-4" />
+							<span>Save Changes</span>
+						{/if}
+					</Button>
+				{:else}
+					<Button 
+						variant="outline" 
+						size="sm" 
+						onclick={onStartEditing}
+						class="flex items-center gap-2 hover:bg-muted/80 transition-colors"
+					>
+						<EditIcon class="h-4 w-4" />
+						<span>Edit Asset</span>
+					</Button>
+					<DeleteButton
+						url={deleteUrl}
+						onrefresh={onDeleteAsset}
+						buttonText="Delete"
+						deletion_prompt_message={`Are you sure you want to delete the asset "${asset.asset_name}"? This action cannot be undone.`}
+					/>
+				{/if}
+			</div>
 		</div>
 		
 		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">

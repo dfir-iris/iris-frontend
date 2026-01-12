@@ -48,20 +48,37 @@ class AuthenticationService {
                 throw new Error(errorData.message || 'Authentication failed');
             }
             
-            const responseData = await response.json() as LoginResponse;
-            
-            // Extract token information
+            const raw = await response.json();
+
+            // The backend may wrap the payload in a `data` property or may return fields at the top level.
+            // Normalize to the most useful object for the auth store.
+            const responseData = (raw && typeof raw === 'object')
+                ? (raw.data ?? raw)
+                : raw;
+
+            // Attempt to locate tokens in several possible shapes
+            const tokens = (responseData && typeof responseData === 'object')
+                ? (responseData.tokens ?? responseData.data?.tokens ?? null)
+                : null;
+
+            if (!tokens || !tokens.access_token) {
+                // If tokens aren't present in the expected shape, log for debugging and throw.
+                console.error('Login response missing tokens:', { raw, responseData });
+                throw new Error('Authentication response did not include tokens');
+            }
+
+            // Extract token information safely
             const tokenInfo = {
-                accessToken: responseData.tokens.access_token,
-                refreshToken: responseData.tokens.refresh_token,
-                accessTokenExpiresAt: responseData.tokens.access_token_expires_at,
-                refreshTokenExpiresAt: responseData.tokens.refresh_token_expires_at
+                accessToken: tokens.access_token,
+                refreshToken: tokens.refresh_token,
+                accessTokenExpiresAt: tokens.access_token_expires_at,
+                refreshTokenExpiresAt: tokens.refresh_token_expires_at
             };
-            
+
             // Update the auth store with user data and tokens
             auth.setAuth(responseData, tokenInfo);
-            
-            return responseData;
+
+            return responseData as LoginResponse;
         } catch (error) {
             console.error('Login error:', error);
             throw error;

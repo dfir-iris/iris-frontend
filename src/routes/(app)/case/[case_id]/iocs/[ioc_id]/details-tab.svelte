@@ -13,7 +13,16 @@
 
 		AlarmCheck,
 
-		FileWarningIcon
+		FileWarningIcon,
+
+		XIcon,
+
+		SaveIcon,
+
+		EditIcon
+
+
+
 
 
 	} from 'lucide-svelte';
@@ -27,6 +36,8 @@
 	import type { Tag } from '$lib/stores/tags.store';
 	import { tlpList } from '$lib/stores/tlp.store';
 	import TlpBadge from '$lib/components/common/tlp/TlpBadge.svelte';
+	import Button from '$lib/components/ui/button/button.svelte';
+	import DeleteButton from '$lib/components/common/DeleteButton.svelte';
 
 	let { 
 		ioc, 
@@ -34,7 +45,13 @@
 		editData,
 		onUpdateEditData = (field: string, value: string | number | Tag[]) => {},
 		currentTags = [],
-		onIocChange = (updatedIoc: Partial<Ioc>) => {}
+		onIocChange = (updatedIoc: Partial<Ioc>) => {},
+		onStartEditing = () => {},
+		onCancelEditing = () => {},
+		onSaveChanges = () => {},
+		onDeleteIoc = () => {},
+		isSaving = false,
+		deleteUrl = ''
 	} = $props<{ 
 		ioc: Ioc;
 		isEditing?: boolean;
@@ -48,6 +65,12 @@
 		onUpdateEditData?: (field: string, value: string | number | Tag[]) => void;
 		currentTags?: Tag[];
 		onIocChange?: (updatedIoc: Partial<Ioc>) => void;
+		onStartEditing?: () => void;
+		onCancelEditing?: () => void;
+		onSaveChanges?: () => void;
+		onDeleteIoc?: () => void;
+		isSaving?: boolean;
+		deleteUrl?: string;
 	}>();
 	
 	let descriptionHtml = $derived(marked(ioc.ioc_description || 'No description provided'));
@@ -147,9 +170,57 @@
 <div class="space-y-8 p-1">
 	<!-- General Information -->
 	<section>
-		<div class="flex items-center gap-2 mb-4 border-b pb-2">
-			<ServerIcon class="h-5 w-5 text-primary" />
-			<h2 class="text-lg font-semibold">General Information</h2>
+		<div class="flex items-center justify-between gap-2 mb-4 border-b pb-2">
+			<div class="flex items-center gap-2">
+				<ServerIcon class="h-5 w-5 text-primary" />
+				<h2 class="text-lg font-semibold">General Information</h2>
+			</div>
+
+			<div class="flex items-center gap-2">
+				{#if isEditing}
+					<Button 
+						variant="outline" 
+						size="sm" 
+						onclick={onCancelEditing}
+						class="flex items-center gap-2 hover:bg-muted/80 transition-colors" 
+						disabled={isSaving}
+					>
+						<XIcon class="h-4 w-4" />
+						<span>Cancel</span>
+					</Button>
+					<Button 
+						variant="default" 
+						size="sm" 
+						onclick={onSaveChanges}
+						class="flex items-center gap-2 bg-primary hover:bg-primary/90 transition-colors" 
+						disabled={isSaving}
+					>
+						{#if isSaving}
+							<span class="animate-spin">⟳</span>
+							<span>Saving...</span>
+						{:else}
+							<SaveIcon class="h-4 w-4" />
+							<span>Save Changes</span>
+						{/if}
+					</Button>
+				{:else}
+					<Button 
+						variant="outline" 
+						size="sm" 
+						onclick={onStartEditing}
+						class="flex items-center gap-2 hover:bg-muted/80 transition-colors"
+					>
+						<EditIcon class="h-4 w-4" />
+						<span>Edit</span>
+					</Button>
+					<DeleteButton
+						url={deleteUrl}
+						onrefresh={onDeleteIoc}
+						buttonText="Delete"
+						deletion_prompt_message={`Are you sure you want to delete the ioc "${ioc.ioc_value}"? This action cannot be undone.`}
+					/>
+				{/if}
+			</div>
 		</div>
     <div class="grid">
       {#if isEditing && editData}
