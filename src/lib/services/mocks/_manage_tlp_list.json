@@ -1,0 +1,32 @@
+[
+  {
+    "registry": null,
+    "tlp_bscolor": "danger",
+    "tlp_id": 1,
+    "tlp_name": "red"
+  },
+  {
+    "registry": null,
+    "tlp_bscolor": "warning",
+    "tlp_id": 2,
+    "tlp_name": "amber"
+  },
+  {
+    "registry": null,
+    "tlp_bscolor": "success",
+    "tlp_id": 3,
+    "tlp_name": "green"
+  },
+  {
+    "registry": null,
+    "tlp_bscolor": "black",
+    "tlp_id": 4,
+    "tlp_name": "clear"
+  },
+  {
+    "registry": null,
+    "tlp_bscolor": "warning",
+    "tlp_id": 5,
+    "tlp_name": "amber+strict"
+  }
+]

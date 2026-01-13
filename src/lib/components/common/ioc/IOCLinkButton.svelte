@@ -267,13 +267,19 @@
     if (!showIOCDropdown && mode === 'select') {
       const newSelectionArray = Array.from(internalSelectedIocMap.values());
       
-      // Check if an update to the prop is actually needed to avoid loops.
-      // This compares the content of the arrays based on IOC IDs.
-      let needsUpdate = selectedForLinking.length !== newSelectionArray.length;
-      if (!needsUpdate) {
-        const currentPropIds = new Set(selectedForLinking.map(i => i.ioc_id));
-        for (const ioc of newSelectionArray) {
-          if (!currentPropIds.has(ioc.ioc_id)) {
+      // Robust check if an update to the prop is actually needed.
+      // Compares the set of IOC IDs.
+      const currentPropIds = new Set(selectedForLinking.map(i => i.ioc_id));
+      const newSelectionIds = new Set(newSelectionArray.map(i => i.ioc_id));
+
+      let needsUpdate = false;
+      if (currentPropIds.size !== newSelectionIds.size) {
+        needsUpdate = true;
+      } else {
+        // If sizes are the same, check if all IDs in newSelectionIds are present in currentPropIds.
+        // (If so, the sets are identical, as they have the same size and one is a subset of the other).
+        for (const id of newSelectionIds) {
+          if (!currentPropIds.has(id)) {
             needsUpdate = true;
             break;
           }
