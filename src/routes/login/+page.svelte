@@ -1,10 +1,7 @@
 <script lang="ts">
-	import ErrorAlert from '$lib/components/ui/alert/ErrorAlert.svelte';
 	import Label from '$lib/components/ui/label/label.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import { EyeIcon, EyeOffIcon, UserIcon, RefreshCcwIcon } from 'lucide-svelte';
-	import { LoadingButton } from '$lib/components/ui/loading-button';
-	import { enhance } from '$app/forms';
 	import { isServerReachable } from '$lib/utils/server-health';
 	import { API_BASE_URL } from '$lib/config/api.config';
 	import { onMount } from 'svelte';
@@ -22,6 +19,7 @@
 	// Check server health on mount
 	onMount(async () => {
 		await checkServerHealth();
+
 		// Check if the user is already logged in
 		if (auth.isRefreshTokenExpired()) {
 			// Redirect to login page if the refresh token is expired
@@ -35,10 +33,10 @@
 	async function checkServerHealth() {
 		serverStatus = 'checking';
 		serverCheckMessage = 'Checking server connectivity...';
-		
+
 		const isReachable = await isServerReachable();
 		serverStatus = isReachable ? 'online' : 'offline';
-		
+
 		if (isReachable) {
 			serverCheckMessage = `Server is online at ${API_BASE_URL}`;
 		} else {
@@ -64,20 +62,23 @@
 			}
 
 			const response = await AuthService.login({ username, password });
-			
+
 			// Check if we need to redirect
-			if (response && response.success) {
+			if (response && response.active) {
 				// Get redirect URL from query params or default to dashboard
 				const urlParams = new URLSearchParams(window.location.search);
 				const redirectUrl = urlParams.get('redirect') || '/';
-				
+
 				// Redirect to the appropriate page
 				goto(redirectUrl);
 			}
-			
-		} catch (err: any) {
+		} catch (err: unknown) {
 			console.error('Login error:', err);
-			error = err.message || 'Authentication failed. Please check your credentials.';
+
+			error =
+				err instanceof Error
+					? err.message
+					: 'Authentication failed. Please check your credentials.';
 		} finally {
 			isLoading = false;
 		}
@@ -111,25 +112,23 @@
 		{#if serverStatus === 'offline'}
 			<Alert variant="destructive" class="text-sm">
 				<AlertDescription class="flex flex-col gap-2">
-					<div class="flex justify-between items-center">
+					<div class="flex items-center justify-between">
 						<span>{serverCheckMessage}</span>
-						<button 
-							class="p-1 rounded-full hover:bg-background/20" 
+						<button
+							class="rounded-full p-1 hover:bg-background/20"
 							onclick={checkServerHealth}
 							type="button"
 						>
 							<RefreshCcwIcon class="h-4 w-4" />
 						</button>
 					</div>
-					<div class="text-xs">
-						Please ensure the API server is running and accessible.
-					</div>
+					<div class="text-xs">Please ensure the API server is running and accessible.</div>
 				</AlertDescription>
 			</Alert>
 		{/if}
 
 		{#if error}
-			<div class="bg-destructive/15 text-destructive p-4 rounded-md text-sm">
+			<div class="rounded-md bg-destructive/15 p-4 text-sm text-destructive">
 				{error}
 			</div>
 		{/if}
@@ -139,13 +138,7 @@
 			<div class="group space-y-2">
 				<Label for="username">Username</Label>
 				<div class="relative">
-					<Input
-						id="username"
-						type="text"
-						name="username"
-						required
-						class="pr-10"
-					/>
+					<Input id="username" type="text" name="username" required class="pr-10" />
 					<UserIcon
 						class="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground"
 					/>
