@@ -6,19 +6,6 @@ import { AuthService } from './auth.service';
 import { API_BASE_URL } from '$lib/config/api.config';
 import { ApiLogger } from '$lib/utils/api-logger';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-interface RequestOptions {
-	method: string;
-	body?: string;
-	options: MethodOptions;
-}
-
-interface MethodOptions {
-	sessionCookie?: string;
-	fetch?: typeof fetch;
-	skipAuthRedirect?: boolean;
-}
-
 export type ResponseData<T> = T | string | null;
 
 export interface ResponseError {
@@ -62,7 +49,7 @@ export interface RequestInitDuplex extends RequestInit {
 }
 
 export class ApiService {
-	private static baseUrl = browser ? env.PUBLIC_EXTERNAL_API_URL : env.PUBLIC_INTERNAL_API_URL;
+	static baseUrl = browser ? env.PUBLIC_EXTERNAL_API_URL : env.PUBLIC_INTERNAL_API_URL;
 
 	static async get<T>(url: string, options: ApiOptions = {}): Promise<RequestResponse<T>> {
 		return ApiService.request<T>('GET', url, undefined, options);
@@ -138,13 +125,12 @@ export class ApiService {
 					fetchHeaders.set('Authorization', `Bearer ${accessToken}`);
 				}
 			}
-			if (!headers['Authorization']) {
-				fetchHeaders.set('Authorization', `Bearer ${auth.getAccessToken()}`);
-			}
 
 			// Add body if we have data
 			if (data) {
 				fetchOptions.body = JSON.stringify(data);
+
+				// Required option in newer Node.js versions when sending a body
 				fetchOptions.duplex = 'half';
 			}
 
@@ -186,26 +172,6 @@ export class ApiService {
 					Date.now() - startTime
 				);
 
-				// Check for 404 Not Found response
-				if (response.status === 404) {
-					console.log(`404 response received for ${url}, attempting to use mock data...`);
-					// Extract the endpoint from the URL to use with mockRequest
-					const endpoint = absoluteUrl ? url : url;
-					const mockResponse = await ApiService.mockRequest<T>(endpoint);
-
-					// If mock data is available, return it instead
-					if (mockResponse) {
-						console.log(`Mock data found for ${endpoint}`, mockResponse);
-						return {
-							data: mockResponse.data,
-							status: 200, // Override with success status
-							headers: mockResponse.headers,
-							ok: true
-						};
-					}
-					// If no mock data, continue with the original 404 response
-				}
-
 				// Check for unauthorized access (401)
 				if (response.status === 401 && !skipAuthRedirect && !skipTokenRefresh) {
 					// Try to refresh the token
@@ -231,24 +197,18 @@ export class ApiService {
 				}
 
 				// Parse the response
-				let responseData: ResponseData<T>;
+				let responseData;
 				const contentType = response.headers.get('Content-Type');
 
-				if (response.status === 204) {
-					// For 204 No Content, there is no body to parse.
-					// Set responseData to null or an empty object as appropriate.
-					responseData = null;
-				} else if (contentType && contentType.includes('application/json')) {
+				if (contentType && contentType.includes('application/json')) {
 					responseData = await response.json();
 				} else {
-					// For other content types or if no content-type, try to read as text.
-					// This could be an empty string if there's truly no body.
 					responseData = await response.text();
 				}
 
 				// Return the response data, status, and headers
 				return {
-					data: responseData as T | string,
+					data: responseData,
 					status: response.status,
 					headers: response.headers,
 					ok: response.ok
@@ -321,13 +281,15 @@ export class ApiService {
 		}
 
 		// Check if the path is already an API or auth path
-		const isApiPath = normalizedPath.startsWith('/api/') || normalizedPath.startsWith('/api/v2/');
+		const isApiPath =
+			normalizedPath.startsWith('/api/') ||
+			normalizedPath.startsWith('/api/v2/') ||
+			normalizedPath.startsWith('/auth/');
 
 		// Add API prefix if needed and not already present
 		if (useApiPrefix && !isApiPath) {
 			// Default to /api/v2 for compatibility with the backend
 			normalizedPath = `/api/v2${normalizedPath}`;
-			console.log('normalized:', normalizedPath);
 		}
 
 		return `${baseUrl}${normalizedPath}`;

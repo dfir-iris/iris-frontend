@@ -1,88 +1,35 @@
 <script lang="ts">
 	import Label from '$lib/components/ui/label/label.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
-	import { EyeIcon, EyeOffIcon, UserIcon, RefreshCcwIcon } from 'lucide-svelte';
-	import { isServerReachable } from '$lib/utils/server-health';
-	import { API_BASE_URL } from '$lib/config/api.config';
+	import { EyeIcon, EyeOffIcon, UserIcon } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import { AuthService } from '$lib/services/auth.service';
 	import { goto } from '$app/navigation';
-	import { auth } from '$lib/stores/auth.store';
+	import { auth, type TokenInfo } from '$lib/stores/auth.store';
+	import { enhance } from '$app/forms';
+	import type { LoginResponse } from '$lib/services/auth.service';
 
 	let isLoading = false;
 	let showPassword = false;
-	let serverStatus: 'checking' | 'online' | 'offline' = 'checking';
-	let serverCheckMessage = 'Checking server connectivity...';
 	let error: string | null = null;
+
+	export let form: { error?: string } | null;
+	export let data: {
+		serverStatus: 'online' | 'offline';
+		serverCheckMessage: string;
+	};
+
+	let { serverStatus, serverCheckMessage } = data;
 
 	// Check server health on mount
 	onMount(async () => {
-		await checkServerHealth();
+		console.log(serverCheckMessage);
 
-		// Check if the user is already logged in
-		if (auth.isRefreshTokenExpired()) {
-			// Redirect to login page if the refresh token is expired
-			goto('/login');
-		} else {
-			// Redirect to dashboard if the user is already logged in
+		// if already logged in, go away from login page
+		if (!auth.isRefreshTokenExpired()) {
 			goto('/');
 		}
 	});
-
-	async function checkServerHealth() {
-		serverStatus = 'checking';
-		serverCheckMessage = 'Checking server connectivity...';
-
-		const isReachable = await isServerReachable();
-		serverStatus = isReachable ? 'online' : 'offline';
-
-		if (isReachable) {
-			serverCheckMessage = `Server is online at ${API_BASE_URL}`;
-		} else {
-			serverCheckMessage = `Cannot connect to server at ${API_BASE_URL}`;
-		}
-	}
-
-	async function handleLogin(event: SubmitEvent) {
-		event.preventDefault();
-		isLoading = true;
-		error = null;
-
-		try {
-			const formData = new FormData(event.currentTarget as HTMLFormElement);
-			const username = formData.get('username') as string;
-			const password = formData.get('password') as string;
-
-			if (!AuthService || typeof AuthService.login !== 'function') {
-				console.error('Auth service or login method is not available', AuthService);
-				error = 'Authentication service unavailable';
-				isLoading = false;
-				return;
-			}
-
-			const response = await AuthService.login({ username, password });
-
-			// Check if we need to redirect
-			if (response && response.active) {
-				// Get redirect URL from query params or default to dashboard
-				const urlParams = new URLSearchParams(window.location.search);
-				const redirectUrl = urlParams.get('redirect') || '/';
-
-				// Redirect to the appropriate page
-				goto(redirectUrl);
-			}
-		} catch (err: unknown) {
-			console.error('Login error:', err);
-
-			error =
-				err instanceof Error
-					? err.message
-					: 'Authentication failed. Please check your credentials.';
-		} finally {
-			isLoading = false;
-		}
-	}
 </script>
 
 <svelte:head>
@@ -114,26 +61,42 @@
 				<AlertDescription class="flex flex-col gap-2">
 					<div class="flex items-center justify-between">
 						<span>{serverCheckMessage}</span>
-						<button
-							class="rounded-full p-1 hover:bg-background/20"
-							onclick={checkServerHealth}
-							type="button"
-						>
-							<RefreshCcwIcon class="h-4 w-4" />
-						</button>
 					</div>
 					<div class="text-xs">Please ensure the API server is running and accessible.</div>
 				</AlertDescription>
 			</Alert>
 		{/if}
 
-		{#if error}
+		{#if error || form?.error}
 			<div class="rounded-md bg-destructive/15 p-4 text-sm text-destructive">
-				{error}
+				{error || form?.error}
 			</div>
 		{/if}
 
-		<form class="flex w-full flex-col gap-y-4" onsubmit={handleLogin}>
+		<form
+			class="flex w-full flex-col gap-y-4"
+			method="post"
+			use:enhance={() => {
+				isLoading = true;
+
+				return async ({ result, update }) => {
+					await update();
+					isLoading = false;
+
+					if (result.type === 'success') {
+						const { responseData, tokenInfo, redirectTo } = result.data as {
+							responseData: LoginResponse;
+							tokenInfo: TokenInfo;
+							redirectTo: string;
+						};
+
+						auth.setAuth(responseData, tokenInfo);
+
+						await goto(redirectTo || '/');
+					}
+				};
+			}}
+		>
 			<!-- Username field -->
 			<div class="group space-y-2">
 				<Label for="username">Username</Label>
