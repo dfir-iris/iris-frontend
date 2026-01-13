@@ -37,9 +37,9 @@
     const handleSessionEvent = () => {
       handleSessionExpiration();
     };
-    
+
     window.addEventListener('session-expired', handleSessionEvent);
-    
+
     return () => {
       window.removeEventListener('session-expired', handleSessionEvent);
     };
@@ -47,26 +47,26 @@
 
   // Flag to prevent redirect loops
   let initialCheckDone = false;
-  
+
   onMount(() => {
     if (browser && !initialCheckDone) {
       initialCheckDone = true;
-      
+
       const currentPath = $page.url.pathname;
       console.log('Current path:', currentPath, 'Auth state:', $auth.isAuthenticated);
-      
+
       // If we're at the login page and already authenticated, go to dashboard
       if (currentPath === '/login' && $auth.isAuthenticated) {
         const redirectTo = $page.url.searchParams.get('redirect') || '/';
         console.log('Already authenticated on login page, redirecting to:', redirectTo);
         goto(redirectTo);
       }
-      
+
       // If we're at a protected route but not authenticated, go to login
-      const isProtectedRoute = !currentPath.startsWith('/login') || 
+      const isProtectedRoute = !currentPath.startsWith('/login') ||
                               !currentPath.startsWith('/logout');
-      
-      if (isProtectedRoute && !$auth.isAuthenticated) {
+
+      if (isProtectedRoute && !$auth.isAuthenticated && currentPath != '/login') {
         console.log('Not authenticated on protected route, redirecting to login');
         goto(`/login?redirect=${encodeURIComponent(currentPath)}`);
       }

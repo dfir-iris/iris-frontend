@@ -9,12 +9,14 @@ interface LoginCredentials {
 }
 
 interface RefreshTokens {
-	tokens: {
-		access_token: string;
-		refresh_token: string;
-		access_token_expires_at: number;
-		refresh_token_expires_at: number;
-	};
+	access_token: string;
+	refresh_token: string;
+	access_token_expires_at: number;
+	refresh_token_expires_at: number;
+}
+
+interface RefreshTokens {
+	tokens: RefreshTokens;
 }
 
 export interface LoginResponse extends RefreshTokens {
