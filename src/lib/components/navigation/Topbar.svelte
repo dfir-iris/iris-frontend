@@ -23,6 +23,13 @@
 	import { authUserStore } from '$lib/stores/auth.store';
 	import { mode, toggleMode } from 'mode-watcher';
 	import TopbarCasesDropdown from './TopbarCasesDropdown.svelte';
+	import { AuthService } from '$lib/services/auth.service';
+
+	const logout = () => {
+		console.log('Logging out...');
+
+		AuthService.logout();
+	};
 </script>
 
 <header
@@ -55,10 +62,8 @@
 
 	<!-- Tasks dropdown -->
 	<DropdownMenu>
-		<DropdownMenuTrigger >
-			<Button variant="ghost" class="px-2 text-gray-100"
-				><ClipboardList /></Button
-			>
+		<DropdownMenuTrigger>
+			<Button variant="ghost" class="px-2 text-gray-100"><ClipboardList /></Button>
 		</DropdownMenuTrigger>
 		<DropdownMenuContent class="w-56">
 			<DropdownMenuLabel>Tasks</DropdownMenuLabel>
@@ -92,9 +97,7 @@
 	<!-- User dropdown -->
 	<DropdownMenu>
 		<DropdownMenuTrigger>
-			<Button variant="ghost" class="px-2 text-gray-100"
-				><UserRoundIcon /></Button
-			>
+			<Button variant="ghost" class="px-2 text-gray-100"><UserRoundIcon /></Button>
 		</DropdownMenuTrigger>
 		<DropdownMenuContent class="w-56">
 			<DropdownMenuLabel>{$authUserStore?.name || 'My account'}</DropdownMenuLabel>
@@ -119,7 +122,7 @@
 				</DropdownMenuItem>
 			</a>
 			<DropdownMenuSeparator />
-			<DropdownMenuItem>
+			<DropdownMenuItem onclick={logout}>
 				<LogOutIcon size={18} />
 				<span>Log out</span>
 			</DropdownMenuItem>
