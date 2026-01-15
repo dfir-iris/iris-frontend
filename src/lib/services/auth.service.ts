@@ -36,11 +36,30 @@ export interface LoginResponse extends RefreshTokens {
 	mfa_setup_complete: boolean;
 }
 
+export interface WhoamiResponse {
+	responseData: LoginResponse;
+	tokenInfo: RefreshTokens;
+}
+
+export interface AuthSettings {
+	oidc_enabled: boolean;
+	mfa_enabled: boolean;
+}
+
 class AuthenticationService {
-	async login(credentials: LoginCredentials): Promise<LoginResponse> {
+	async getAuthSettings(): Promise<AuthSettings> {
+		const response = await ApiService.get<AuthSettings>(
+			'/api/v2/manage/server/authentication-settings',
+			{ skipTokenRefresh: true }
+		);
+
+		return response.data as AuthSettings;
+	}
+
+	async login(credentials?: LoginCredentials): Promise<LoginResponse> {
 		try {
 			const response = await ApiService.post<LoginResponse>(
-				'/auth/login',
+				'/api/v2/auth/login',
 				{
 					...credentials
 				},
@@ -74,7 +93,7 @@ class AuthenticationService {
 
 	async logout() {
 		try {
-			await ApiService.post('/auth/logout', {});
+			await ApiService.post('/api/v2/auth/logout', {});
 		} catch (error: unknown) {
 			console.error('Logout error:', (error as Error).message);
 		} finally {
@@ -93,7 +112,7 @@ class AuthenticationService {
 			console.log('Refreshing token...');
 
 			const response = await ApiService.post<RefreshTokens>(
-				'/auth/refresh-token',
+				'/api/v2/auth/refresh-token',
 				{
 					refresh_token: auth.getRefreshToken()
 				},
@@ -128,6 +147,16 @@ class AuthenticationService {
 			auth.clearAuth();
 			// this.logout();
 			throw error;
+		}
+	}
+
+	async whoami() {
+		try {
+			const response = await ApiService.get<WhoamiResponse>('/api/v2/auth/whoami');
+
+			return response.data as WhoamiResponse;
+		} catch (error: unknown) {
+			console.error('Logout error:', (error as Error).message);
 		}
 	}
 }

@@ -7,7 +7,12 @@
 	import { goto } from '$app/navigation';
 	import { auth, type TokenInfo } from '$lib/stores/auth.store';
 	import { enhance } from '$app/forms';
-	import type { LoginResponse } from '$lib/services/auth.service';
+	import {
+		AuthService,
+		type AuthSettings,
+		type LoginResponse,
+		type WhoamiResponse
+	} from '$lib/services/auth.service';
 
 	let isLoading = false;
 	let showPassword = false;
@@ -15,20 +20,32 @@
 
 	export let form: { error?: string } | null;
 	export let data: {
+		authSettings: AuthSettings;
 		serverStatus: 'online' | 'offline';
 		serverCheckMessage: string;
 	};
 
-	let { serverStatus, serverCheckMessage } = data;
+	let { authSettings, serverStatus, serverCheckMessage } = data;
 
-	// Check server health on mount
 	onMount(async () => {
-		console.log(serverCheckMessage);
+		const { responseData, tokenInfo } = (await AuthService.whoami()) as WhoamiResponse;
 
-		// if already logged in, go away from login page
-		if (!auth.isRefreshTokenExpired()) {
-			goto('/');
+		if (responseData && tokenInfo) {
+			auth.setAuth(responseData, {
+				accessToken: tokenInfo.access_token,
+				refreshToken: tokenInfo.refresh_token,
+				accessTokenExpiresAt: tokenInfo.access_token_expires_at,
+				refreshTokenExpiresAt: tokenInfo.refresh_token_expires_at
+			});
 		}
+
+		// If already logged in via existing frontend tokens, leave login
+		if (!auth.isRefreshTokenExpired()) {
+			await goto('/');
+			return;
+		}
+
+		return;
 	});
 </script>
 
@@ -73,75 +90,83 @@
 			</div>
 		{/if}
 
-		<form
-			class="flex w-full flex-col gap-y-4"
-			method="post"
-			use:enhance={() => {
-				isLoading = true;
-
-				return async ({ result, update }) => {
-					await update();
-					isLoading = false;
-
-					if (result.type === 'success') {
-						const { responseData, tokenInfo, redirectTo } = result.data as {
-							responseData: LoginResponse;
-							tokenInfo: TokenInfo;
-							redirectTo: string;
-						};
-
-						auth.setAuth(responseData, tokenInfo);
-
-						await goto(redirectTo || '/');
-					}
-				};
-			}}
-		>
-			<!-- Username field -->
-			<div class="group space-y-2">
-				<Label for="username">Username</Label>
-				<div class="relative">
-					<Input id="username" type="text" name="username" required class="pr-10" />
-					<UserIcon
-						class="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground"
-					/>
-				</div>
-			</div>
-
-			<!-- Password field -->
-			<div class="group space-y-2">
-				<Label for="password">Password</Label>
-				<div class="relative">
-					<Input
-						id="password"
-						type={showPassword ? 'text' : 'password'}
-						name="password"
-						required
-						class="pr-10"
-					/>
-
-					<!-- Show/hide password -->
-					<button
-						type="button"
-						class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-						onclick={() => (showPassword = !showPassword)}
-					>
-						{#if showPassword}
-							<EyeOffIcon class="h-5 w-5" />
-						{:else}
-							<EyeIcon class="h-5 w-5" />
-						{/if}
-					</button>
-				</div>
-			</div>
-
-			<button
-				type="submit"
-				class="w-full rounded-md bg-primary p-2 text-primary-foreground"
-				disabled={isLoading}
+		{#if authSettings.oidc_enabled}
+			<a href="/oidc-login">
+				<button class="w-full rounded-md bg-primary p-2 text-primary-foreground"
+					>OIDC Sign In
+				</button></a
 			>
-				{isLoading ? 'Logging in...' : 'Log in'}
-			</button>
-		</form>
+		{:else}
+			<form
+				class="flex w-full flex-col gap-y-4"
+				method="post"
+				use:enhance={() => {
+					isLoading = true;
+
+					return async ({ result, update }) => {
+						await update();
+						isLoading = false;
+
+						if (result.type === 'success') {
+							const { responseData, tokenInfo, redirectTo } = result.data as {
+								responseData: LoginResponse;
+								tokenInfo: TokenInfo;
+								redirectTo: string;
+							};
+
+							auth.setAuth(responseData, tokenInfo);
+
+							await goto(redirectTo || '/');
+						}
+					};
+				}}
+			>
+				<!-- Username field -->
+				<div class="group space-y-2">
+					<Label for="username">Username</Label>
+					<div class="relative">
+						<Input id="username" type="text" name="username" required class="pr-10" />
+						<UserIcon
+							class="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground"
+						/>
+					</div>
+				</div>
+
+				<!-- Password field -->
+				<div class="group space-y-2">
+					<Label for="password">Password</Label>
+					<div class="relative">
+						<Input
+							id="password"
+							type={showPassword ? 'text' : 'password'}
+							name="password"
+							required
+							class="pr-10"
+						/>
+
+						<!-- Show/hide password -->
+						<button
+							type="button"
+							class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+							onclick={() => (showPassword = !showPassword)}
+						>
+							{#if showPassword}
+								<EyeOffIcon class="h-5 w-5" />
+							{:else}
+								<EyeIcon class="h-5 w-5" />
+							{/if}
+						</button>
+					</div>
+				</div>
+
+				<button
+					type="submit"
+					class="w-full rounded-md bg-primary p-2 text-primary-foreground"
+					disabled={isLoading}
+				>
+					{isLoading ? 'Logging in...' : 'Log in'}
+				</button>
+			</form>
+		{/if}
 	</div>
 </div>
