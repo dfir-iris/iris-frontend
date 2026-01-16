@@ -4,10 +4,10 @@ import type { Handle, HandleFetch } from '@sveltejs/kit';
 import { API_BASE_URL } from '$lib/config/api.config';
 import { createForwardingRequest } from '$lib/utils/request-forwarding';
 import { DEV } from 'esm-env';
+import { env } from '$env/dynamic/public';
 
 // Define our backend API URL
-
-const AUTH_EXCLUDED_URLS = ['/[fallback]', '/login'];
+const AUTH_EXCLUDED_URLS = ['/[fallback]', '/login', '/oidc-login', '/oidc-authorize'];
 
 /**
  * Process headers to ensure they're valid for proxying
@@ -33,6 +33,112 @@ function sanitizeHeaders(headers: Headers): Record<string, string> {
 }
 
 /**
+ * Copy Set-Cookie safely (supports multiple cookies)
+ */
+function copySetCookie(from: Headers, to: Headers) {
+	const any = from as unknown as { getSetCookie?: () => string[] };
+
+	if (typeof any.getSetCookie === 'function') {
+		for (const c of any.getSetCookie()) to.append('set-cookie', c);
+		return;
+	}
+
+	const sc = from.get('set-cookie');
+	if (sc) to.append('set-cookie', sc);
+}
+
+/**
+ * Rewrite provider Location redirect so redirect_uri points to PUBLIC_EXTERNAL_API_URL.
+ * Identification is done ONLY by pathname suffix (/oidc-authorize).
+ */
+function rewriteOidcLocation(location: string): string {
+	let loc: URL;
+	try {
+		loc = new URL(location);
+	} catch {
+		return location;
+	}
+
+	const redirectUri = loc.searchParams.get('redirect_uri');
+	if (!redirectUri) return location;
+
+	let ru: URL;
+	try {
+		ru = new URL(redirectUri);
+	} catch {
+		return location;
+	}
+
+	if (!ru.pathname.endsWith('/oidc-authorize')) return location;
+
+	const pub = new URL(env.PUBLIC_EXTERNAL_API_URL);
+	ru.protocol = pub.protocol;
+	ru.hostname = pub.hostname;
+	ru.port = pub.port;
+
+	loc.searchParams.set('redirect_uri', ru.toString());
+	return loc.toString();
+}
+
+/**
+ * OIDC passthrough proxy (redirect + cookies, NOT JSON)
+ */
+async function proxyOidc(event: Parameters<Handle>[0]['event']): Promise<Response> {
+	// Backend is only reachable from the SvelteKit server via API_BASE_URL
+	const backendBase = API_BASE_URL.replace('/api/v2', '');
+	const backendUrl = new URL(event.url.pathname, backendBase);
+	backendUrl.search = event.url.search;
+
+	// Public (browser-facing) origin from SvelteKit public env
+	const pub = new URL(env.PUBLIC_EXTERNAL_API_URL);
+
+	// Sanitize incoming headers, then inject proxy/public-origin headers
+	const headers = sanitizeHeaders(event.request.headers);
+
+	const r = await fetch(backendUrl.toString(), {
+		method: event.request.method,
+		redirect: 'manual',
+		headers: {
+			...headers,
+
+			// Ensure Flask/Werkzeug can reconstruct the correct external URL
+			// (many apps use Host and/or X-Forwarded-* when behind a proxy)
+			host: pub.host,
+			'X-Forwarded-Proto': pub.protocol.replace(':', ''),
+			'X-Forwarded-Host': pub.host,
+			'X-Forwarded-Port': pub.port || (pub.protocol === 'https:' ? '443' : '80'),
+
+			// Preserve browser cookies for OIDC state/session continuity
+			cookie: event.request.headers.get('cookie') ?? ''
+		}
+	});
+
+	const out = new Headers();
+
+	// Copy all headers except hop-by-hop and set-cookie (handled separately)
+	for (const [k, v] of r.headers.entries()) {
+		const lk = k.toLowerCase();
+		if (lk === 'content-length' || lk === 'connection' || lk === 'transfer-encoding') continue;
+		if (lk === 'set-cookie') continue;
+		out.set(k, v);
+	}
+
+	// Rewrite Location ONLY for /oidc-login (provider redirect)
+	const location = r.headers.get('location');
+	if (location) {
+		out.set(
+			'location',
+			event.url.pathname === '/oidc-login' ? rewriteOidcLocation(location) : location
+		);
+	}
+
+	// Multi-cookie support
+	copySetCookie(r.headers, out);
+
+	return new Response(r.body, { status: r.status, headers: out });
+}
+
+/**
  * Fetches current auth state, returning it as a events.local
  */
 export const handle: Handle = async ({ event, resolve }) => {
@@ -43,6 +149,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 		console.log(
 			`[${requestId}] 📥 Request: ${event.request.method} ${event.url.pathname}${event.url.search}`
 		);
+	}
+
+	if (
+		(event.url.pathname === '/oidc-login' || event.url.pathname === '/oidc-authorize') &&
+		(event.request.method === 'GET' || event.request.method === 'POST')
+	) {
+		return proxyOidc(event);
 	}
 
 	// Proxy auth requests to the backend
@@ -168,13 +281,25 @@ export const handle: Handle = async ({ event, resolve }) => {
 				// For non-POST requests, use the existing code
 				// Create sanitized headers
 				const headers = sanitizeHeaders(event.request.headers);
+				const cookie = event.request.headers.get('cookie');
+
+				// Public (browser-facing) origin (same logic as OIDC passthrough)
+				const pub = new URL(env.PUBLIC_EXTERNAL_API_URL);
 
 				// Send the request to backend API
 				const response = await fetch(apiUrl, {
 					method: event.request.method,
 					headers: {
 						...headers,
-						'Content-Type': 'application/json'
+
+						// Preserve browser cookies so session-based auth (OIDC) works
+						...(cookie ? { cookie } : {}),
+
+						// Ensure backend can reconstruct public origin consistently
+						host: pub.host,
+						'X-Forwarded-Proto': pub.protocol.replace(':', ''),
+						'X-Forwarded-Host': pub.host,
+						'X-Forwarded-Port': pub.port || (pub.protocol === 'https:' ? '443' : '80')
 					}
 				});
 
@@ -190,18 +315,22 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 				console.log(`Response data: ${JSON.stringify(responseData)}`);
 
+				// Create headers for the proxied response (preserve Set-Cookie too)
+				const out = new Headers({
+					'Content-Type': 'application/json',
+					...Object.fromEntries(
+						[...response.headers.entries()].filter(
+							([key]) => !['content-length', 'connection'].includes(key.toLowerCase())
+						)
+					)
+				});
+
+				copySetCookie(response.headers, out);
+
 				// Create a new response with the data
 				return new Response(JSON.stringify(responseData), {
 					status: response.status,
-					headers: {
-						'Content-Type': 'application/json',
-						// Copy any other needed headers
-						...Object.fromEntries(
-							[...response.headers.entries()].filter(
-								([key]) => !['content-length', 'connection'].includes(key.toLowerCase())
-							)
-						)
-					}
+					headers: out
 				});
 			}
 		} catch (error) {
