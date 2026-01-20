@@ -67,7 +67,9 @@
 		"fast-xml-parser": "^5.0.6",
 		"marked": "^15.0.7",
 		"mode-watcher": "^0.5.0",
+		"otpauth": "^9.4.1",
 		"papaparse": "^5.5.3",
+		"qrcode": "^1.5.4",
 		"uuid": "^11.1.0"
 	},
 	"overrides": {

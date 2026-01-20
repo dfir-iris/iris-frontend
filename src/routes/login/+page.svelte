@@ -27,21 +27,48 @@
 
 	let { authSettings, serverStatus, serverCheckMessage } = data;
 
+	const getRedirectTo = (redirectTo?: string) =>
+		redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : '';
+
 	onMount(async () => {
 		const { responseData, tokenInfo } = (await AuthService.whoami()) as WhoamiResponse;
 
 		if (responseData && tokenInfo) {
-			auth.setAuth(responseData, {
-				accessToken: tokenInfo.access_token,
-				refreshToken: tokenInfo.refresh_token,
-				accessTokenExpiresAt: tokenInfo.access_token_expires_at,
-				refreshTokenExpiresAt: tokenInfo.refresh_token_expires_at
-			});
+			auth.setAuth(
+				responseData,
+				{
+					accessToken: tokenInfo.access_token,
+					refreshToken: tokenInfo.refresh_token,
+					accessTokenExpiresAt: tokenInfo.access_token_expires_at,
+					refreshTokenExpiresAt: tokenInfo.refresh_token_expires_at
+				},
+				authSettings.mfa_enabled
+			);
+		}
+
+		const hasValidTokens =
+			!!auth.getAccessToken() &&
+			!!auth.getRefreshToken() &&
+			!auth.isTokenExpired() &&
+			!auth.isRefreshTokenExpired();
+
+		if (auth.getMfaEnabled() && hasValidTokens) {
+			if (!auth.getMfaSetupComplete()) {
+				console.log('Redirecting to mfa-setup');
+				await goto('/login/mfa-setup', { replaceState: true });
+				return;
+			}
+
+			if (!auth.getMfaVerified()) {
+				console.log('Redirecting to mfa-verify');
+				await goto('/login/mfa-verify', { replaceState: true });
+				return;
+			}
 		}
 
 		// If already logged in via existing frontend tokens, leave login
-		if (!auth.isRefreshTokenExpired()) {
-			await goto('/');
+		if (!auth.isRefreshTokenExpired() && auth.isAuthenticated()) {
+			await goto('/', { replaceState: true });
 			return;
 		}
 
@@ -101,11 +128,13 @@
 				class="flex w-full flex-col gap-y-4"
 				method="post"
 				use:enhance={() => {
+					error = null;
 					isLoading = true;
 
-					return async ({ result, update }) => {
-						await update();
+					return async ({ result }) => {
 						isLoading = false;
+
+						console.log('result?', result);
 
 						if (result.type === 'success') {
 							const { responseData, tokenInfo, redirectTo } = result.data as {
@@ -114,9 +143,42 @@
 								redirectTo: string;
 							};
 
-							auth.setAuth(responseData, tokenInfo);
+							auth.setAuth(responseData, tokenInfo, authSettings.mfa_enabled);
 
-							await goto(redirectTo || '/');
+							if (authSettings.mfa_enabled) {
+								if (!responseData.mfa_setup_complete) {
+									console.log('redirecting to: /login/mfa-setup');
+
+									await goto(
+										redirectTo
+											? `/login/mfa-setup${getRedirectTo(redirectTo)}`
+											: '/login/mfa-setup',
+										{ replaceState: true }
+									);
+									return;
+								}
+
+								if (!auth.getMfaVerified()) {
+									console.log('redirecting to: /login/mfa-verify');
+
+									await goto(
+										redirectTo
+											? `/login/mfa-verify${getRedirectTo(redirectTo)}`
+											: '/login/mfa-verify',
+										{ replaceState: true }
+									);
+									return;
+								}
+							}
+
+							await goto(redirectTo || '/', { replaceState: true });
+							return;
+						} else if (result.type === 'failure') {
+							const { error: err } = result.data as { error: string };
+
+							error = err;
+						} else if (result.type === 'error') {
+							error = result.error.message;
 						}
 					};
 				}}

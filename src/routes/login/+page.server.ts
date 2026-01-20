@@ -43,7 +43,7 @@ export const actions = {
 		} catch (error: unknown) {
 			console.error('User', username, 'sign in error: ', error);
 			return fail(400, {
-				error: 'Could not connect to the authentication server. Please try again later.',
+				error: (error as Error).message,
 				username,
 				connectionError: true
 			});

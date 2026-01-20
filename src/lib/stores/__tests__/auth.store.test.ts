@@ -56,9 +56,9 @@ describe('auth store', () => {
 			let unsub: (() => void) | undefined;
 
 			unsub = auth.subscribe((state) => {
-				if (state.isAuthenticated) {
+				if (auth.isAuthenticated()) {
 					expect(state.user).toEqual(mockResponse);
-					expect(state.isAuthenticated).toBe(true);
+					expect(auth.isAuthenticated()).toBe(true);
 					expect(state.tokens).toEqual(tokens);
 
 					if (unsub) unsub();
@@ -81,9 +81,9 @@ describe('auth store', () => {
 			let unsub: (() => void) | undefined;
 
 			unsub = auth.subscribe((state) => {
-				if (!state.isAuthenticated) {
+				if (!auth.isAuthenticated()) {
 					expect(state.user).toBeNull();
-					expect(state.isAuthenticated).toBe(false);
+					expect(auth.isAuthenticated()).toBe(false);
 					expect(state.tokens).toBeNull();
 
 					if (unsub) unsub();

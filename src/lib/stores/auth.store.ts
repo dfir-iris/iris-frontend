@@ -9,6 +9,7 @@ const ACCESS_TOKEN_KEY = 'iris_access_token';
 const REFRESH_TOKEN_KEY = 'iris_refresh_token';
 const TOKEN_EXPIRY_KEY = 'iris_token_expiry';
 const REFRESH_EXPIRY_KEY = 'iris_refresh_expiry';
+const MFA_VERIFIED_KEY = 'iris_mfa_verified';
 
 export interface UserInfo {
 	id: string;
@@ -27,13 +28,14 @@ export const authUserStore: Writable<UserInfo | null> = writable(null);
 
 interface AuthState {
 	user: LoginResponse | null;
-	isAuthenticated: boolean;
 	tokens: TokenInfo | null;
+	mfaEnabled: boolean;
+	mfaVerified: boolean;
 }
 
 function loadInitialState(): AuthState {
 	if (!browser) {
-		return { user: null, isAuthenticated: false, tokens: null };
+		return { user: null, tokens: null, mfaEnabled: false, mfaVerified: false };
 	}
 
 	// Try to load tokens from localStorage
@@ -41,11 +43,13 @@ function loadInitialState(): AuthState {
 	const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
 	const accessTokenExpiresAt = localStorage.getItem(TOKEN_EXPIRY_KEY);
 	const refreshTokenExpiresAt = localStorage.getItem(REFRESH_EXPIRY_KEY);
+	const mfaVerified = localStorage.getItem(MFA_VERIFIED_KEY) === 'true';
 
 	if (accessToken && refreshToken && accessTokenExpiresAt && refreshTokenExpiresAt) {
 		return {
 			user: null, // We don't have user data yet, will be loaded later
-			isAuthenticated: true, // We have tokens, so we're authenticated
+			mfaEnabled: false,
+			mfaVerified,
 			tokens: {
 				accessToken,
 				refreshToken,
@@ -55,7 +59,7 @@ function loadInitialState(): AuthState {
 		};
 	}
 
-	return { user: null, isAuthenticated: false, tokens: null };
+	return { user: null, tokens: null, mfaEnabled: false, mfaVerified: false };
 }
 
 function saveTokensToStorage(tokens: TokenInfo) {
@@ -81,26 +85,37 @@ const createAuthStore = () => {
 
 	const store = {
 		subscribe,
-		setAuth: (response: LoginResponse, tokens: TokenInfo) => {
+		setAuth: (response: LoginResponse, tokens: TokenInfo, mfaEnabled?: boolean) => {
 			// Save tokens to storage
 			saveTokensToStorage(tokens);
 
-			const newState: AuthState = {
+			// New login -> MFA must be verified again (if enabled)
+			if (browser) {
+				localStorage.removeItem(MFA_VERIFIED_KEY);
+			}
+
+			update((state) => ({
 				user: response,
-				isAuthenticated: true,
+				mfaEnabled: mfaEnabled ?? state.mfaEnabled ?? false,
+				mfaVerified: false,
 				tokens
-			};
-			set(newState);
+			}));
 		},
 		clearAuth: () => {
 			// Clear tokens from storage
 			clearTokensFromStorage();
 
+			if (browser) {
+				localStorage.removeItem(MFA_VERIFIED_KEY);
+			}
+
 			const newState: AuthState = {
 				user: null,
-				isAuthenticated: false,
+				mfaEnabled: false,
+				mfaVerified: false,
 				tokens: null
 			};
+
 			set(newState);
 		},
 		updateTokens: (tokens: TokenInfo) => {
@@ -108,9 +123,31 @@ const createAuthStore = () => {
 
 			update((state) => ({
 				...state,
-				tokens,
-				isAuthenticated: true
+				tokens
 			}));
+		},
+		setMfaEnabled: (mfaEnabled: boolean) => {
+			update((state) => ({ ...state, mfaEnabled }));
+		},
+		setMfaVerified: (mfaVerified: boolean) => {
+			if (browser) {
+				localStorage.setItem(MFA_VERIFIED_KEY, mfaVerified ? 'true' : 'false');
+			}
+
+			update((state) => ({ ...state, mfaVerified }));
+		},
+		getMfaVerified: (): boolean => {
+			const current = get(store);
+			return current.mfaVerified;
+		},
+		isAuthenticated: () => {
+			const current = get(store);
+
+			const isAuthenticated = current.mfaEnabled
+				? !!current.user?.mfa_setup_complete && current.mfaVerified
+				: !!current.user;
+
+			return isAuthenticated;
 		},
 		loadAuth: async (
 			fetchFn: typeof fetch,
@@ -124,7 +161,7 @@ const createAuthStore = () => {
 			// Check if we have valid tokens
 			if (current.tokens) {
 				try {
-					const response = await ApiService.get<LoginResponse>('/user/whoami', {
+					const response = await ApiService.get<LoginResponse>('/api/v2/auth/whoami', {
 						fetch: fetchFn,
 						headers: {
 							Authorization: `Bearer ${current.tokens.accessToken}`
@@ -134,8 +171,7 @@ const createAuthStore = () => {
 					// If successful, update user info
 					update((state) => ({
 						...state,
-						user: response.data as LoginResponse,
-						isAuthenticated: true
+						user: response.data as LoginResponse
 					}));
 
 					return response.data as LoginResponse;
@@ -155,6 +191,20 @@ const createAuthStore = () => {
 				}
 				return null;
 			}
+		},
+		getMfaEnabled: (): boolean => {
+			const current = get(store);
+			return current.mfaEnabled;
+		},
+		setMfaSetupComplete: (complete: boolean) => {
+			update((state) => ({
+				...state,
+				user: state.user ? { ...state.user, mfa_setup_complete: complete } : state.user
+			}));
+		},
+		getMfaSetupComplete: (): boolean => {
+			const current = get(store);
+			return current.user?.mfa_setup_complete || false;
 		},
 		getAccessToken: (): string | null => {
 			const current = get(store);
@@ -189,3 +239,4 @@ export const auth = createAuthStore();
 // Derived stores for user name and full user info
 export const username = derived(auth, ($auth) => $auth.user?.user_name ?? 'Loading...');
 export const current_user = derived(auth, ($auth) => $auth.user ?? null);
+export const mfa_verified = derived(auth, ($auth) => $auth.mfaVerified);
