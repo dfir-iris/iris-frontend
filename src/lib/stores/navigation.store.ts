@@ -6,15 +6,15 @@ import { derived } from 'svelte/store';
 const protectedPaths = ['/dashboard', '/cases', '/analysis'];
 const publicPaths = ['/login', '/register', '/forgot-password'];
 
-export const navigation = derived([auth, page], ([$auth, $page]) => {
-    const path = $page.url.pathname;
-    console.log('Navigation guard:', path, $auth.isAuthenticated);
+export const navigation = derived([page], ([$page]) => {
+	const path = $page.url.pathname;
+	console.log('Navigation guard:', path, auth.isAuthenticated());
 
-    if (protectedPaths.some(p => path.startsWith(p)) && !$auth.isAuthenticated) {
-        goto(`/login?redirect=${encodeURIComponent(path)}`);
-    }
+	if (protectedPaths.some((p) => path.startsWith(p)) && !auth.isAuthenticated()) {
+		goto(`/login?redirect=${encodeURIComponent(path)}`);
+	}
 
-    if (publicPaths.includes(path) && $auth.isAuthenticated) {
-        goto('/dashboard');
-    }
+	if (publicPaths.includes(path) && auth.isAuthenticated()) {
+		goto('/dashboard');
+	}
 });

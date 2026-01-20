@@ -7,7 +7,14 @@ import { DEV } from 'esm-env';
 import { env } from '$env/dynamic/public';
 
 // Define our backend API URL
-const AUTH_EXCLUDED_URLS = ['/[fallback]', '/login', '/oidc-login', '/oidc-authorize'];
+const AUTH_EXCLUDED_URLS = [
+	'/[fallback]',
+	'/login',
+	'/login/mfa-setup',
+	'/login/mfa-verify',
+	'/oidc-login',
+	'/oidc-authorize'
+];
 
 /**
  * Process headers to ensure they're valid for proxying
@@ -151,6 +158,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 		);
 	}
 
+	console.log('cookies:', event.cookies.getAll());
+
+	if (event.cookies.get('access_token') && event.cookies.get('refresh_token')) {
+		console.log('we have cookies');
+	}
+
 	if (
 		(event.url.pathname === '/oidc-login' || event.url.pathname === '/oidc-authorize') &&
 		(event.request.method === 'GET' || event.request.method === 'POST')
@@ -184,11 +197,37 @@ export const handle: Handle = async ({ event, resolve }) => {
 					bodyObj = { data: text };
 				}
 
-				// Directly create a new fetch request with stringified JSON and proper headers
+				const headers = sanitizeHeaders(event.request.headers);
+
+				delete (headers as Record<string, string>)['content-type'];
+				delete (headers as Record<string, string>)['Content-Type'];
+
+				const cookie = event.request.headers.get('cookie');
+				const pub = new URL(env.PUBLIC_EXTERNAL_API_URL);
+				const authHeader = headers.authorization ?? headers.Authorization;
+
+				if (authHeader) {
+					headers.authorization = authHeader;
+					delete (headers as Record<string, string>).Authorization;
+				} else {
+					const accessToken = event.cookies.get('access_token');
+					if (accessToken) {
+						headers.authorization = `Bearer ${accessToken}`;
+					}
+				}
+
+				console.log('forwarding authorization:', headers.authorization ? 'yes' : 'no');
+
 				const response = await fetch(apiUrl, {
 					method: 'POST',
 					headers: {
-						'Content-Type': 'application/json'
+						...headers,
+						'Content-Type': 'application/json',
+						...(cookie ? { cookie } : {}),
+						host: pub.host,
+						'X-Forwarded-Proto': pub.protocol.replace(':', ''),
+						'X-Forwarded-Host': pub.host,
+						'X-Forwarded-Port': pub.port || (pub.protocol === 'https:' ? '443' : '80')
 					},
 					body: JSON.stringify(bodyObj)
 				});

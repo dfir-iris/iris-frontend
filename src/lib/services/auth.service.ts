@@ -41,6 +41,10 @@ export interface WhoamiResponse {
 	tokenInfo: RefreshTokens;
 }
 
+export interface MfaVerifyResponse {
+	mfa_verified: boolean;
+}
+
 export interface AuthSettings {
 	oidc_enabled: boolean;
 	mfa_enabled: boolean;
@@ -156,8 +160,49 @@ class AuthenticationService {
 
 			return response.data as WhoamiResponse;
 		} catch (error: unknown) {
-			console.error('Logout error:', (error as Error).message);
+			console.error('Whoami error:', (error as Error).message);
 		}
+	}
+
+	async setupMfa(password: string, token: string, mfaSecret: string): Promise<void> {
+		const response = await ApiService.post(
+			'/api/v2/auth/mfa-setup',
+			{
+				refresh_token: auth.getRefreshToken(),
+				password,
+				token,
+				mfa_secret: mfaSecret
+			},
+			{ fetch }
+		);
+
+		if (!response.ok) {
+			throw new Error(response.error?.message ?? 'Failed to setup MFA');
+		}
+
+		auth.setMfaSetupComplete(true);
+		auth.setMfaVerified(false);
+	}
+
+	async verifyMfa(token: string): Promise<void> {
+		const response = await ApiService.post(
+			'/api/v2/auth/mfa-verify',
+			{
+				refresh_token: auth.getRefreshToken(),
+				token: token.replace(/\s+/g, '')
+			},
+			{ fetch }
+		);
+
+		if (!response.ok) {
+			throw new Error(response.error?.message ?? 'MFA verification failed');
+		}
+
+		auth.setMfaVerified(true);
+	}
+
+	setMfaVerified(verified: boolean) {
+		auth.setMfaVerified(verified);
 	}
 }
 

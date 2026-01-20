@@ -1,4 +1,3 @@
-import { API_BASE_URL } from '$lib/config/api.config';
 import { browser } from '$app/environment';
 import { ApiService } from '$lib/services/api.service';
 
@@ -14,7 +13,7 @@ export async function isServerReachable(timeout = 3000): Promise<boolean> {
 		}
 
 		// Try different possible health check endpoints
-		const possibleEndpoints = [`/user/whoami`];
+		const possibleEndpoints = [`/api/v2/auth/whoami`];
 
 		// Create an AbortController to handle timeout
 		const controller = new AbortController();
@@ -23,7 +22,10 @@ export async function isServerReachable(timeout = 3000): Promise<boolean> {
 		// Try endpoints in sequence
 		for (const endpoint of possibleEndpoints) {
 			try {
-				const response = await ApiService.get(endpoint, { skipTokenRefresh: true, useApiPrefix: false });
+				const response = await ApiService.get(endpoint, {
+					skipTokenRefresh: true,
+					useApiPrefix: false
+				});
 
 				// If we get any response, consider the server reachable
 				if (response.status == 200 || response.status === 401) {
@@ -31,16 +33,16 @@ export async function isServerReachable(timeout = 3000): Promise<boolean> {
 					console.log(`Server is reachable at ${endpoint}`);
 					return true;
 				}
-			} catch (err) {
+			} catch (err: unknown) {
 				// Continue to the next endpoint
-				console.warn(`Endpoint ${endpoint} is not reachable:`, err.message);
+				console.warn(`Endpoint ${endpoint} is not reachable:`, (err as Error).message);
 			}
 		}
 
 		clearTimeout(timeoutId);
 		return false;
-	} catch (error) {
-		console.error('Server health check failed:', error);
+	} catch (err: unknown) {
+		console.error('Server health check failed:', err);
 		return false;
 	}
 }
