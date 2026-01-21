@@ -49,7 +49,7 @@ export interface RequestInitDuplex extends RequestInit {
 }
 
 export class ApiService {
-	static baseUrl = browser ? env.PUBLIC_EXTERNAL_API_URL : env.PUBLIC_INTERNAL_API_URL;
+	static baseUrl = env.PUBLIC_EXTERNAL_API_URL;
 
 	static async get<T>(url: string, options: ApiOptions = {}): Promise<RequestResponse<T>> {
 		return ApiService.request<T>('GET', url, undefined, options);

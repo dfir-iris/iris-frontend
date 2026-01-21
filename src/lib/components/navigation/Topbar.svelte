@@ -20,7 +20,7 @@
 		DropdownMenuItem,
 		DropdownMenuSeparator
 	} from '$lib/components/ui/dropdown-menu';
-	import { authUserStore } from '$lib/stores/auth.store';
+	import { username } from '$lib/stores/auth.store';
 	import { mode, toggleMode } from 'mode-watcher';
 	import TopbarCasesDropdown from './TopbarCasesDropdown.svelte';
 	import { AuthService } from '$lib/services/auth.service';
@@ -30,6 +30,8 @@
 
 		AuthService.logout();
 	};
+
+	console.log('Topbar username:', $username);
 </script>
 
 <header
@@ -100,7 +102,7 @@
 			<Button variant="ghost" class="px-2 text-gray-100"><UserRoundIcon /></Button>
 		</DropdownMenuTrigger>
 		<DropdownMenuContent class="w-56">
-			<DropdownMenuLabel>{$authUserStore?.name || 'My account'}</DropdownMenuLabel>
+			<DropdownMenuLabel>{$username || 'My account'}</DropdownMenuLabel>
 			<DropdownMenuItem>
 				<SlidersHorizontalIcon size={18} />
 				<span>Preferences</span>
