@@ -1,4 +1,4 @@
-import { writable, derived, get, type Writable } from 'svelte/store';
+import { writable, derived, get } from 'svelte/store';
 import type { LoginResponse } from '$lib/services/auth.service';
 import { ApiService } from '$lib/services/api.service';
 import { redirect } from '@sveltejs/kit';
@@ -11,20 +11,12 @@ const TOKEN_EXPIRY_KEY = 'iris_token_expiry';
 const REFRESH_EXPIRY_KEY = 'iris_refresh_expiry';
 const MFA_VERIFIED_KEY = 'iris_mfa_verified';
 
-export interface UserInfo {
-	id: string;
-	name: string;
-	email: string;
-}
-
 export interface TokenInfo {
 	accessToken: string;
 	refreshToken: string;
 	accessTokenExpiresAt: number;
 	refreshTokenExpiresAt: number;
 }
-
-export const authUserStore: Writable<UserInfo | null> = writable(null);
 
 interface AuthState {
 	user: LoginResponse | null;
@@ -80,6 +72,17 @@ function clearTokensFromStorage() {
 	localStorage.removeItem(REFRESH_EXPIRY_KEY);
 }
 
+function normalizeUser(payload: unknown): LoginResponse | null {
+	if (!payload) return null;
+
+	if (typeof payload === 'object' && payload !== null && 'responseData' in payload) {
+		const rd = (payload as { responseData?: unknown }).responseData;
+		return (rd as LoginResponse) ?? null;
+	}
+
+	return payload as LoginResponse;
+}
+
 const createAuthStore = () => {
 	const { subscribe, set, update } = writable<AuthState>(loadInitialState());
 
@@ -95,7 +98,7 @@ const createAuthStore = () => {
 			}
 
 			update((state) => ({
-				user: response,
+				user: normalizeUser(response),
 				mfaEnabled: mfaEnabled ?? state.mfaEnabled ?? false,
 				mfaVerified: false,
 				tokens
@@ -171,7 +174,7 @@ const createAuthStore = () => {
 					// If successful, update user info
 					update((state) => ({
 						...state,
-						user: response.data as LoginResponse
+						user: normalizeUser(response.data as LoginResponse)
 					}));
 
 					return response.data as LoginResponse;
@@ -199,7 +202,9 @@ const createAuthStore = () => {
 		setMfaSetupComplete: (complete: boolean) => {
 			update((state) => ({
 				...state,
-				user: state.user ? { ...state.user, mfa_setup_complete: complete } : state.user
+				user: normalizeUser(
+					state.user ? { ...state.user, mfa_setup_complete: complete } : state.user
+				)
 			}));
 		},
 		getMfaSetupComplete: (): boolean => {

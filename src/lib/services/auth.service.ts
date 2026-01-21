@@ -8,18 +8,18 @@ interface LoginCredentials {
 	password: string;
 }
 
-interface RefreshTokens {
+export interface RefreshTokens {
 	access_token: string;
 	refresh_token: string;
 	access_token_expires_at: number;
 	refresh_token_expires_at: number;
 }
 
-interface RefreshTokens {
+export interface RefreshTokensResponse {
 	tokens: RefreshTokens;
 }
 
-export interface LoginResponse extends RefreshTokens {
+export interface LoginResponse {
 	success: boolean;
 	redirect?: string;
 	user_name: string;
@@ -34,6 +34,7 @@ export interface LoginResponse extends RefreshTokens {
 	has_mini_sidebar: boolean;
 	has_deletion_confirmation: boolean;
 	mfa_setup_complete: boolean;
+	tokens: RefreshTokens;
 }
 
 export interface WhoamiResponse {
@@ -43,6 +44,7 @@ export interface WhoamiResponse {
 
 export interface MfaVerifyResponse {
 	mfa_verified: boolean;
+	tokens?: RefreshTokens;
 }
 
 export interface AuthSettings {
@@ -115,7 +117,7 @@ class AuthenticationService {
 		try {
 			console.log('Refreshing token...');
 
-			const response = await ApiService.post<RefreshTokens>(
+			const response = await ApiService.post<RefreshTokensResponse>(
 				'/api/v2/auth/refresh-token',
 				{
 					refresh_token: auth.getRefreshToken()
@@ -132,7 +134,7 @@ class AuthenticationService {
 				throw new Error('Failed to refresh token');
 			}
 
-			const refreshData = response.data as RefreshTokens;
+			const refreshData = response.data as RefreshTokensResponse;
 
 			// Update tokens in auth store
 			if (refreshData.tokens) {
@@ -147,9 +149,7 @@ class AuthenticationService {
 			return refreshData;
 		} catch (error: unknown) {
 			console.error('Token refresh error:', error);
-			// If refresh fails, redirect to login
 			auth.clearAuth();
-			// this.logout();
 			throw error;
 		}
 	}
@@ -185,7 +185,7 @@ class AuthenticationService {
 	}
 
 	async verifyMfa(token: string): Promise<void> {
-		const response = await ApiService.post(
+		const response = await ApiService.post<MfaVerifyResponse>(
 			'/api/v2/auth/mfa-verify',
 			{
 				refresh_token: auth.getRefreshToken(),
@@ -196,6 +196,17 @@ class AuthenticationService {
 
 		if (!response.ok) {
 			throw new Error(response.error?.message ?? 'MFA verification failed');
+		}
+
+		const data = response.data as MfaVerifyResponse;
+
+		if (data.tokens) {
+			auth.updateTokens({
+				accessToken: data.tokens.access_token,
+				refreshToken: data.tokens.refresh_token,
+				accessTokenExpiresAt: data.tokens.access_token_expires_at,
+				refreshTokenExpiresAt: data.tokens.refresh_token_expires_at
+			});
 		}
 
 		auth.setMfaVerified(true);
