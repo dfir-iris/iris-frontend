@@ -188,11 +188,6 @@ const createAuthStore = () => {
 					}
 					return null;
 				}
-			} else {
-				if (redirectOnFailure) {
-					throw redirect(302, '/login');
-				}
-				return null;
 			}
 		},
 		getMfaEnabled: (): boolean => {
