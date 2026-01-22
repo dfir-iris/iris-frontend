@@ -7,12 +7,7 @@
 	import { goto } from '$app/navigation';
 	import { auth, type TokenInfo } from '$lib/stores/auth.store';
 	import { enhance } from '$app/forms';
-	import {
-		AuthService,
-		type AuthSettings,
-		type LoginResponse,
-		type WhoamiResponse
-	} from '$lib/services/auth.service';
+	import { type AuthSettings, type LoginResponse } from '$lib/services/auth.service';
 
 	let isLoading = false;
 	let showPassword = false;
@@ -31,20 +26,7 @@
 		redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : '';
 
 	onMount(async () => {
-		const { responseData, tokenInfo } = (await AuthService.whoami()) as WhoamiResponse;
-
-		if (responseData && tokenInfo) {
-			auth.setAuth(
-				responseData,
-				{
-					accessToken: tokenInfo.access_token,
-					refreshToken: tokenInfo.refresh_token,
-					accessTokenExpiresAt: tokenInfo.access_token_expires_at,
-					refreshTokenExpiresAt: tokenInfo.refresh_token_expires_at
-				},
-				authSettings.mfa_enabled
-			);
-		}
+		await auth.loadAuth(fetch, true);
 
 		const hasValidTokens =
 			!!auth.getAccessToken() &&
@@ -89,7 +71,7 @@
 	>
 		<div class="hidden h-full flex-col items-center justify-center lg:flex">
 			<div class="w-80">
-				<img src="/logo/logo-white.png" alt="IRIS Logo" class="w-full" />
+				<img src="/img/logo/logo-white.png" alt="IRIS Logo" class="w-full" />
 			</div>
 		</div>
 	</div>

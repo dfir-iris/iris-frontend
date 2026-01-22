@@ -41,7 +41,7 @@
 	>
 		<div class="hidden h-full flex-col items-center justify-center lg:flex">
 			<div class="w-80">
-				<img src="/logo/logo-white.png" alt="IRIS Logo" class="w-full" />
+				<img src="/img/logo/logo-white.png" alt="IRIS Logo" class="w-full" />
 			</div>
 		</div>
 	</div>
