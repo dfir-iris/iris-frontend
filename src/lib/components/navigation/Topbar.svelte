@@ -22,7 +22,7 @@
 				<DropdownMenuLabel>Tasks</DropdownMenuLabel>
 
 				<DropdownMenuSeparator />
-				<a href="/tasks">
+				<a href="/#tasks">
 					<DropdownMenuItem>
 						<span>View all</span>
 					</DropdownMenuItem>
@@ -39,7 +39,7 @@
 				<DropdownMenuLabel>Alerts</DropdownMenuLabel>
 
 				<DropdownMenuSeparator />
-				<a href="/alerts">
+				<a href="/#alerts">
 					<DropdownMenuItem>
 						<span>View all</span>
 					</DropdownMenuItem>

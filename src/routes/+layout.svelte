@@ -37,7 +37,7 @@
 
 <Toaster />
 
-<div class="flex min-h-screen flex-col">
+<div class="min-h-screen">
 	<!-- Render subroutes -->
 	{@render children()}
 </div>

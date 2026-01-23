@@ -11,27 +11,38 @@
 	export let iconSize: number = 18;
 
 	export let liClass = '';
+	export let active: boolean = false;
+
+	const baseClass = 'flex items-center py-2 px-3 rounded-xl hover:opacity-80 transition-all';
+	const inactiveClass = '';
+	const activeClass = 'bg-blue-900 text-gray-100 shadow-lg';
 </script>
 
-<li class={`my-1 flex w-full ${liClass}`}>
+<li class={`my-1 flex w-full justify-center ${liClass}`}>
 	{#if href}
-		<a class="flex w-full items-center" {href} {target}>
+		<a
+			class={`${baseClass} ${active ? activeClass : inactiveClass} ${collapsed ? 'w-auto' : 'w-full'}`}
+			{href}
+			{target}
+		>
 			{#if icon}
 				<svelte:component this={icon} size={iconSize} />
 			{/if}
+
 			<span
-				class={`ml-2 overflow-hidden whitespace-nowrap transition-all ${collapsed ? 'max-w-0' : 'max-w-96'}`}
+				class={`overflow-hidden whitespace-nowrap transition-all ${collapsed ? 'ml-0 max-w-0' : 'ml-2 max-w-96'}`}
 			>
 				{label}
 			</span>
 		</a>
 	{:else}
-		<button class="flex w-full items-center" on:click={() => onClick?.()}>
+		<button class={`${baseClass} ${collapsed ? 'w-auto' : 'w-full'}`} on:click={() => onClick?.()}>
 			{#if icon}
 				<svelte:component this={icon} size={iconSize} />
 			{/if}
+
 			<span
-				class={`ml-2 overflow-hidden whitespace-nowrap transition-all ${collapsed ? 'max-w-0' : 'max-w-96'}`}
+				class={`overflow-hidden whitespace-nowrap transition-all ${collapsed ? 'ml-0 max-w-0' : 'ml-2 max-w-96'}`}
 			>
 				{label}
 			</span>
