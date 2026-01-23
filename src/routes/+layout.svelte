@@ -5,11 +5,6 @@
 	import { ModeWatcher, mode } from 'mode-watcher';
 	import { Toaster } from '$lib/components/ui/toast';
 	import { handleSessionExpiration } from '$lib/utils/session-handler';
-	import { browser } from '$app/environment';
-	import { onMount } from 'svelte';
-	import { auth } from '$lib/stores/auth.store';
-	import { page } from '$app/stores';
-	import { goto } from '$app/navigation';
 
 	const { children } = $props();
 
@@ -31,36 +26,6 @@
 			window.removeEventListener('session-expired', handleSessionEvent);
 		};
 	});
-
-	// Flag to prevent redirect loops
-	let initialCheckDone = false;
-
-	onMount(() => {
-		if (browser && !initialCheckDone) {
-			initialCheckDone = true;
-
-			const currentPath = $page.url.pathname;
-			console.log('Current path:', currentPath, 'Auth state:', auth.isAuthenticated());
-
-			// If we're at the login page and already authenticated, go to dashboard
-			if (currentPath.startsWith('/login') && auth.isAuthenticated()) {
-				const redirectTo = $page.url.searchParams.get('redirect') || '/';
-				console.log('Already authenticated on login page, redirecting to:', redirectTo);
-				goto(redirectTo);
-			}
-
-			// If we're at a protected route but not authenticated, go to login
-			const isProtectedRoute =
-				!currentPath.startsWith('/login') || !currentPath.startsWith('/logout');
-
-			console.log('isProtectedRoute:', isProtectedRoute);
-
-			if (isProtectedRoute && !auth.isAuthenticated() && !currentPath.startsWith('/login')) {
-				console.log('Not authenticated on protected route, redirecting to login');
-				goto(`/login?redirect=${encodeURIComponent(currentPath)}`);
-			}
-		}
-	});
 </script>
 
 <svelte:head>
@@ -72,7 +37,7 @@
 
 <Toaster />
 
-<div class="flex min-h-screen flex-col">
+<div class="min-h-screen">
 	<!-- Render subroutes -->
 	{@render children()}
 </div>

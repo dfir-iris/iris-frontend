@@ -6,29 +6,21 @@
 	import UserCurrentReviewsTable from './[components]/user-current-reviews-table.svelte';
 	import UserCurrentAlerts from './[components]/user-current-alerts.svelte';
 	import type { PageData } from './$types';
+	import { page } from '$app/stores';
+	import type { Paginated } from '$lib/services/api.service';
+	import type { Case } from '$lib/types/resources/case';
 
 	let { data }: { data: PageData } = $props();
-
-	let activeTab = $state('cases');
 
 	let tasks = data.tasks || [];
 	let reviews = data.reviews || [];
 	let alerts = data.alerts || [];
 
-	function toggleView(key: string) {
-		activeTab = activeTab === key ? '' : key;
-	}
+	let activeTab = $state('');
+	let hash = $derived(() => $page.url.hash);
 
-	// Load current tab from URL hash
-	$effect.pre(() => {
-		if (window.location.hash) {
-			activeTab = `${window.location.hash}`;
-		}
-	});
-
-	// When active tab changes, sync it to the hash
 	$effect(() => {
-		window.location.hash = activeTab;
+		activeTab = hash().replace('#', '');
 	});
 </script>
 
@@ -44,60 +36,56 @@
 		{#await data.cases}
 			<BaseKpi title="Current Cases" icon={LayersIcon} value={0} isLoading></BaseKpi>
 		{:then { data: cases }}
-			{@const hashName = 'cases'}
-			<BaseKpi
-				title="Current Cases"
-				icon={LayersIcon}
-				value={cases.data.length}
-				isActive={activeTab === hashName}
-				subtitle={activeTab === hashName ? 'Click to hide' : 'Click to view'}
-				onClick={() => toggleView(hashName)}
-			></BaseKpi>
+			<a href="/#cases">
+				<BaseKpi
+					title="Current Cases"
+					subtitle={activeTab !== 'cases' ? 'Click to view' : undefined}
+					icon={LayersIcon}
+					value={cases ? (cases as Paginated<Case>).total : 0}
+				></BaseKpi>
+			</a>
 		{/await}
 
 		<!-- Tasks KPI -->
 		{#await data.tasks}
 			<BaseKpi title="Pending Tasks" icon={ListTodoIcon} value={0} isLoading></BaseKpi>
 		{:then tasks}
-			{@const hashName = 'tasks'}
-			<BaseKpi
-				title="Pending Tasks"
-				icon={ListTodoIcon}
-				value={tasks.data.length}
-				isActive={activeTab === hashName}
-				subtitle={activeTab === hashName ? 'Click to hide' : 'Click to view'}
-				onClick={() => toggleView(hashName)}
-			></BaseKpi>
+			<a href="/#tasks">
+				<BaseKpi
+					title="Pending Tasks"
+					subtitle={activeTab !== 'tasks' ? 'Click to view' : undefined}
+					icon={ListTodoIcon}
+					value={tasks?.data?.data?.total ?? 0}
+				></BaseKpi>
+			</a>
 		{/await}
 
 		<!-- Reviews KPI -->
 		{#await data.reviews}
 			<BaseKpi title="Pending Reviews" icon={ListTodoIcon} value={0} isLoading></BaseKpi>
 		{:then reviews}
-			{@const hashName = 'reviews'}
-			<BaseKpi
-				title="Pending Reviews"
-				icon={ClipboardCheckIcon}
-				value={reviews.data.length}
-				isActive={activeTab === hashName}
-				subtitle={activeTab === hashName ? 'Click to hide' : 'Click to view'}
-				onClick={() => toggleView(hashName)}
-			></BaseKpi>
+			<a href="/#reviews">
+				<BaseKpi
+					title="Pending Reviews"
+					subtitle={activeTab !== 'reviews' ? 'Click to view' : undefined}
+					icon={ClipboardCheckIcon}
+					value={reviews?.data?.data?.total ?? 0}
+				></BaseKpi>
+			</a>
 		{/await}
 
 		<!-- Alerts KPI -->
 		{#await data.alerts}
 			<BaseKpi title="Attributes Alerts" icon={ListTodoIcon} value={0} isLoading></BaseKpi>
 		{:then alerts}
-			{@const hashName = 'reviews'}
-			<BaseKpi
-				title="Attributes Alerts"
-				icon={BellRingIcon}
-				value={alerts.data.length}
-				isActive={activeTab === hashName}
-				subtitle={activeTab === hashName ? 'Click to hide' : 'Click to view'}
-				onClick={() => toggleView(hashName)}
-			></BaseKpi>
+			<a href="/#alerts">
+				<BaseKpi
+					title="Attributes Alerts"
+					subtitle={activeTab !== 'alerts' ? 'Click to view' : undefined}
+					icon={BellRingIcon}
+					value={alerts?.data?.data?.total ?? 0}
+				></BaseKpi>
+			</a>
 		{/await}
 	</div>
 
