@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import Topbar from '$lib/components/navigation/Topbar.svelte';
+	import TopBar from '$lib/components/navigation/TopBar.svelte';
 	import { SideBar } from '$lib/components/navigation/SideBar';
 
 	let { children }: { children: Snippet } = $props();
@@ -14,7 +14,7 @@
 	<SideBar />
 
 	<main class="w-full">
-		<Topbar></Topbar>
+		<TopBar></TopBar>
 
 		{@render children()}
 	</main>

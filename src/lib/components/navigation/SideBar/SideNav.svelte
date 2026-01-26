@@ -3,43 +3,71 @@
 
 	import {
 		BellIcon,
+		CircleUserIcon,
+		DoorOpenIcon,
+		FileStackIcon,
 		FileTextIcon,
 		FolderIcon,
+		HouseIcon,
 		InfoIcon,
-		LayoutDashboardIcon,
-		ScaleIcon,
+		LayersIcon,
+		LockKeyholeIcon,
+		NewspaperIcon,
 		SearchIcon,
-		UsersIcon
+		ServerIcon,
+		SettingsIcon,
+		SlidersVerticalIcon,
+		SquareDashedIcon,
+		ViewIcon,
+		WaypointsIcon
 	} from 'lucide-svelte';
 
 	import MenuItem from './MenuItem.svelte';
+	import SubMenu from './SubMenu.svelte';
 
 	export let collapsed: boolean;
 
 	$: pathname = $page.url.pathname;
 	$: hash = $page.url.hash;
+
+	const mainMenuItems = [
+		{ label: 'Dashboard', path: '/', hash: '', icon: HouseIcon },
+		{ label: 'Overview', path: '/', hash: '#overview', icon: ViewIcon },
+		{ label: 'Welcome page', path: '/', hash: '#welcome', icon: DoorOpenIcon }
+	];
+
+	const investigationMenuItems = [
+		{ label: 'Case', path: '/', hash: '#cases', icon: WaypointsIcon },
+		{ label: 'Alerts', path: '/', hash: '#alerts', icon: BellIcon },
+		{ label: 'Search', path: '/', hash: '#search', icon: SearchIcon },
+		{ label: 'Activities', path: '/', hash: '#activities', icon: FileTextIcon },
+		{ label: 'Dim Tasks', path: '/', hash: '#dim-tasks', icon: FileStackIcon }
+	];
+
+	const advancedMenuItems = [
+		{ label: 'Modules', path: '/', hash: '#modules', icon: ServerIcon },
+		{ label: 'Customers', path: '/', hash: '#customers', icon: CircleUserIcon },
+		{ label: 'Case Objects', path: '/', hash: '#case-objects', icon: LayersIcon },
+		{ label: 'Custom Attributes', path: '/', hash: '#custom-attributes', icon: WaypointsIcon },
+		{ label: 'Case Templates', path: '/', hash: '#case-templates', icon: SquareDashedIcon },
+		{ label: 'Report Templates', path: '/', hash: '#report-templates', icon: NewspaperIcon },
+		{ label: 'Access Control', path: '/', hash: '#access-control', icon: LockKeyholeIcon },
+		{ label: 'Server Settings', path: '/settings', hash: '', icon: SettingsIcon }
+	];
 </script>
 
 <ul
 	class={`flex h-auto w-full flex-col items-center overflow-hidden text-gray-600 transition-all dark:text-gray-200`}
 >
-	<MenuItem
-		{collapsed}
-		label="Dashboard"
-		icon={LayoutDashboardIcon}
-		href="/"
-		liClass="mt-4"
-		active={pathname === '/' && hash === ''}
-	/>
-
-	<MenuItem
-		{collapsed}
-		liClass="my-2"
-		label="Activities"
-		icon={FileTextIcon}
-		href="/#activities"
-		active={pathname === '/' && hash === '#activities'}
-	/>
+	{#each mainMenuItems as item}
+		<MenuItem
+			{collapsed}
+			label={item.label}
+			icon={item.icon}
+			href={`${item.path}${item.hash}`}
+			active={pathname === item.path && hash === item.hash}
+		/>
+	{/each}
 
 	<li class="my-4 ml-4 flex w-full text-sm uppercase text-gray-400">
 		{#if collapsed}
@@ -49,37 +77,15 @@
 		{/if}
 	</li>
 
-	<MenuItem
-		{collapsed}
-		label="Cases"
-		icon={ScaleIcon}
-		href="/#cases"
-		active={pathname === '/' && hash === '#cases'}
-	/>
-
-	<MenuItem
-		{collapsed}
-		label="Alerts"
-		icon={BellIcon}
-		href="/#alerts"
-		active={pathname === '/' && hash === '#alerts'}
-	/>
-
-	<MenuItem
-		{collapsed}
-		label="Customers"
-		icon={UsersIcon}
-		href="/#customers"
-		active={pathname === '/' && hash === '#customers'}
-	/>
-
-	<MenuItem
-		{collapsed}
-		label="Search"
-		icon={SearchIcon}
-		href="/#search"
-		active={pathname === '/' && hash === '#search'}
-	/>
+	{#each investigationMenuItems as item}
+		<MenuItem
+			{collapsed}
+			label={item.label}
+			icon={item.icon}
+			href={`${item.path}${item.hash}`}
+			active={pathname === item.path && hash === item.hash}
+		/>
+	{/each}
 
 	<li class="my-4 ml-4 flex w-full text-sm uppercase text-gray-400">
 		{#if collapsed}
@@ -96,6 +102,24 @@
 		href="/#manage"
 		active={pathname === '/' && hash === '#manage'}
 	/>
+
+	<SubMenu {collapsed}>
+		<svelte:fragment slot="trigger">
+			<MenuItem {collapsed} label="Advanced" icon={SlidersVerticalIcon} />
+		</svelte:fragment>
+
+		<svelte:fragment slot="menu">
+			{#each advancedMenuItems as item}
+				<MenuItem
+					{collapsed}
+					label={item.label}
+					icon={item.icon}
+					href={`${item.path}${item.hash}`}
+					active={pathname === item.path && hash === item.hash}
+				/>
+			{/each}
+		</svelte:fragment>
+	</SubMenu>
 
 	<MenuItem
 		{collapsed}

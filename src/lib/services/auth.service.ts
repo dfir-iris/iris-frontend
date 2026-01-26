@@ -150,6 +150,7 @@ class AuthenticationService {
 		} catch (error: unknown) {
 			console.error('Token refresh error:', error);
 			auth.clearAuth();
+			goto('/login');
 			throw error;
 		}
 	}
