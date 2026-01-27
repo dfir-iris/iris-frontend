@@ -24,20 +24,22 @@
 
 	import MenuItem from './MenuItem.svelte';
 	import SubMenu from './SubMenu.svelte';
+	import { appContext } from '$lib/stores/appContext.store';
 
 	export let collapsed: boolean;
 
 	$: pathname = $page.url.pathname;
 	$: hash = $page.url.hash;
+	$: currentCaseID = $appContext.currentCaseID;
 
 	const mainMenuItems = [
-		{ label: 'Dashboard', path: '/', hash: '', icon: HouseIcon },
-		{ label: 'Overview', path: '/', hash: '#overview', icon: ViewIcon },
+		{ label: 'Dashboard', path: '/', icon: HouseIcon },
+		{ label: 'Overview', path: '/cases', icon: ViewIcon },
 		{ label: 'Welcome page', path: '/', hash: '#welcome', icon: DoorOpenIcon }
 	];
 
-	const investigationMenuItems = [
-		{ label: 'Case', path: '/', hash: '#cases', icon: WaypointsIcon },
+	$: investigationMenuItems = [
+		{ label: 'Case', path: `/case/${currentCaseID}`, icon: WaypointsIcon },
 		{ label: 'Alerts', path: '/', hash: '#alerts', icon: BellIcon },
 		{ label: 'Search', path: '/', hash: '#search', icon: SearchIcon },
 		{ label: 'Activities', path: '/', hash: '#activities', icon: FileTextIcon },
@@ -52,7 +54,7 @@
 		{ label: 'Case Templates', path: '/', hash: '#case-templates', icon: SquareDashedIcon },
 		{ label: 'Report Templates', path: '/', hash: '#report-templates', icon: NewspaperIcon },
 		{ label: 'Access Control', path: '/', hash: '#access-control', icon: LockKeyholeIcon },
-		{ label: 'Server Settings', path: '/settings', hash: '', icon: SettingsIcon }
+		{ label: 'Server Settings', path: '/settings', icon: SettingsIcon }
 	];
 </script>
 
@@ -64,7 +66,7 @@
 			{collapsed}
 			label={item.label}
 			icon={item.icon}
-			href={`${item.path}${item.hash}`}
+			href={`${item.path}${item.hash ?? ''}`}
 			active={pathname === item.path && hash === item.hash}
 		/>
 	{/each}
@@ -82,7 +84,7 @@
 			{collapsed}
 			label={item.label}
 			icon={item.icon}
-			href={`${item.path}${item.hash}`}
+			href={`${item.path}${item.hash ?? ''}`}
 			active={pathname === item.path && hash === item.hash}
 		/>
 	{/each}
@@ -114,7 +116,7 @@
 					{collapsed}
 					label={item.label}
 					icon={item.icon}
-					href={`${item.path}${item.hash}`}
+					href={`${item.path}${item.hash ?? ''}`}
 					active={pathname === item.path && hash === item.hash}
 				/>
 			{/each}

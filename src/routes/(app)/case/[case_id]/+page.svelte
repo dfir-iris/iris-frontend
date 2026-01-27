@@ -1,13 +1,23 @@
 <script lang="ts">
-	import { Badge } from '$lib/components/ui/badge';
-	import SeverityBadge from '$lib/components/ui/badge/severity-badge.svelte';
-	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
-	import { TagIcon } from 'lucide-svelte';
 	import type { PageData } from './$types';
+	import { page } from '$app/state';
+	import { appContext } from '$lib/stores/appContext.store';
 
 	let { data }: { data: PageData } = $props();
 
 	$inspect(data);
+
+	$effect(() => {
+		const case_id = page.params.case_id;
+		if (!case_id) return;
+
+		const currentCaseID = Number(case_id);
+		if (!Number.isInteger(currentCaseID)) return;
+
+		appContext.update((current) =>
+			current.currentCaseID === currentCaseID ? current : { ...current, currentCaseID }
+		);
+	});
 </script>
 
 <!-- Overview info -->

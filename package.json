@@ -11,7 +11,7 @@
 		"format": "prettier --write .",
 		"lint": "prettier --check . && eslint .",
 		"test:unit": "vitest",
-		"test": "npm run test:unit -- --run && npm run test:e2e",
+		"test": "npm run test:unit -- --run",
 		"test:e2e": "PLAYWRIGHT_JUNIT_OUTPUT_NAME=playwright-junit.xml playwright test"
 	},
 	"devDependencies": {

@@ -1,5 +1,15 @@
 <script lang="ts">
-	import { Building2, Clock, FileDigit, Hash, MoreHorizontal, Tag, UserRound, Shield, AlertTriangle, Activity, HashIcon } from 'lucide-svelte';
+	import {
+		Building2,
+		Clock,
+		FileDigit,
+		MoreHorizontal,
+		Tag,
+		UserRound,
+		Shield,
+		Activity,
+		HashIcon
+	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import {
 		DropdownMenu,
@@ -16,17 +26,16 @@
 	import type { Case } from '$lib/types/resources/case';
 
 	export let caseData: Case;
-	let severity: string = caseData.severity.severity_name;
-	let status: string = caseData.state?.state_name || 'Unknown';
-	export let tags: string[] = [];
+	let severity: string = caseData?.severity?.severity_name ?? '';
+	let status: string = caseData?.state?.state_name || 'Unknown';
 
 	// Format the date if provided
 	let formattedDate = '';
-	if (caseData.open_date) {
+	if (caseData?.open_date) {
 		try {
 			const date = new Date(caseData.open_date);
 			formattedDate = date.toLocaleDateString();
-		} catch (e) {
+		} catch {
 			formattedDate = caseData.open_date;
 		}
 	}
@@ -52,29 +61,35 @@
 	}
 </script>
 
-<div class="flex h-auto min-h-16 w-full flex-col border-b bg-background px-4 py-2 shadow-sm md:flex-row md:items-center md:justify-between">
+<div
+	class="flex h-auto min-h-16 w-full flex-col border-b bg-background px-4 py-2 shadow-sm md:flex-row md:items-center md:justify-between"
+>
 	<div class="flex items-start gap-3 md:items-center">
 		<!-- Case Icon Badge -->
 		<div class="relative flex-shrink-0">
-			<div class={`flex h-10 w-10 items-center justify-center rounded-full ${caseIconBg} ring-2 ${iconRingColor} ${isHighSeverity ? 'shadow-glow-red' : ''}`}>
+			<div
+				class={`flex h-10 w-10 items-center justify-center rounded-full ${caseIconBg} ring-2 ${iconRingColor} ${isHighSeverity ? 'shadow-glow-red' : ''}`}
+			>
 				<svelte:component this={CaseIcon} size={20} class={caseIconColor} />
 			</div>
 		</div>
 
-		<div class="flex flex-col overflow-hidden ml-1">
+		<div class="ml-1 flex flex-col overflow-hidden">
 			<!-- Case Name -->
 			<div class="flex items-center gap-2">
-				<h2 class="truncate text-lg font-semibold">{caseData.case_name.split(' - ')[1]}</h2>
+				<h2 class="truncate text-lg font-semibold">{caseData?.case_name.split(' - ')[1]}</h2>
 			</div>
-			
+
 			<!-- Additional case information -->
-			<div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
-        {#if caseData.case_id}
-          <div class="flex items-center gap-1">
-            <HashIcon size={12} />
-            <span class="font-medium">{caseData.case_id}</span>
-          </div>
-        {/if}
+			<div
+				class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground"
+			>
+				{#if caseData.case_id}
+					<div class="flex items-center gap-1">
+						<HashIcon size={12} />
+						<span class="font-medium">{caseData.case_id}</span>
+					</div>
+				{/if}
 
 				{#if caseData.case_customer?.customer_name}
 					<div class="flex items-center gap-1">
@@ -82,16 +97,16 @@
 						<span class="font-medium">{caseData.case_customer.customer_name}</span>
 					</div>
 				{/if}
-				
+
 				{#if caseData.case_soc_id}
 					<div class="flex items-center gap-1">
 						<FileDigit size={12} />
 						<span>SOC #{caseData.case_soc_id}</span>
 					</div>
 				{/if}
-				
-				<Separator orientation="vertical"/>
-				
+
+				<Separator orientation="vertical" />
+
 				{#if caseData.owner?.user_name}
 					<div class="flex items-center gap-1">
 						<UserRound size={12} />
@@ -99,8 +114,8 @@
 					</div>
 				{/if}
 
-				<Separator orientation="vertical"/>
-				
+				<Separator orientation="vertical" />
+
 				{#if formattedDate}
 					<div class="flex items-center gap-1">
 						<Clock size={12} />
@@ -120,13 +135,13 @@
 				</div>
 			{/each}
 		</div>
-		
+
 		<StatusBadge {status} />
-		<SeverityBadge severity={severity} />
-		
+		<SeverityBadge {severity} />
+
 		<!-- Case Add Dropdown -->
 		<CaseAddDropdown buttonClass="h-8" />
-		
+
 		<DropdownMenu>
 			<DropdownMenuTrigger>
 				<Button variant="ghost" size="icon" class="h-8 w-8">

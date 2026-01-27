@@ -5,8 +5,11 @@
 	import { ModeWatcher, mode } from 'mode-watcher';
 	import { Toaster } from '$lib/components/ui/toast';
 	import { handleSessionExpiration } from '$lib/utils/session-handler';
+	import { initAppContextStore } from '$lib/stores/appContext.store';
 
 	const { children } = $props();
+
+	initAppContextStore();
 
 	$effect.pre(() => {
 		// Set UI theme

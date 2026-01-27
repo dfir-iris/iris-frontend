@@ -10,8 +10,22 @@ vi.mock('$env/dynamic/public', () => ({
 	}
 }));
 
-vi.mock('$app/environment', () => ({
-	browser: false
+vi.mock('$app/environment', () => ({ browser: false }));
+
+vi.mock('$lib/stores/auth.store', () => ({
+	auth: {
+		isTokenExpired: () => false,
+		isRefreshTokenExpired: () => false,
+		getAccessToken: () => null
+	}
+}));
+
+vi.mock('../auth.service', () => ({
+	AuthService: {
+		refreshToken: vi.fn(async () => {
+			throw new Error('Failed to refresh token');
+		})
+	}
 }));
 
 import { ApiService } from '../api.service';
