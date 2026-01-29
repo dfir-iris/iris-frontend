@@ -8,7 +8,6 @@
 		RefreshCwIcon,
 		SquareCheckBigIcon
 	} from 'lucide-svelte';
-
 	import {
 		Tooltip,
 		TooltipContent,
@@ -21,11 +20,30 @@
 	import { goto } from '$app/navigation';
 	import SwitchContextModal from './SwitchContextModal.svelte';
 	import QuickActions from './QuickActions.svelte';
+	import { CaseService } from '$lib/services/case.service'; // NEW
+	import type { Case } from '$lib/types/resources/case';
 
 	$: pathname = $page.url.pathname;
-
 	$: currentCaseID = $appContext.currentCaseID;
-	$: currentCaseTitle = `#${currentCaseID} Current Case`;
+
+	let currentCaseName: string | null = null;
+	let lastFetchedCaseId: number | null = null;
+
+	$: if (currentCaseID && currentCaseID !== lastFetchedCaseId) {
+		lastFetchedCaseId = currentCaseID;
+		currentCaseName = null;
+
+		CaseService.get(currentCaseID).then((res) => {
+			if (lastFetchedCaseId !== currentCaseID) return;
+
+			if (res?.ok && res.data) {
+				const c = res.data as Case;
+				currentCaseName = c.case_name ?? null;
+			}
+		});
+	}
+
+	$: currentCaseTitle = currentCaseID ? `${currentCaseName ?? 'Current Case'}` : `Current Case`;
 
 	$: caseBasePath = `/case/${currentCaseID}`;
 
@@ -43,8 +61,9 @@
 		}
 	};
 
-	const switchContext = () => {
-		console.log('Switch Context');
+	const switchContext = async (caseID: number) => {
+		caseNumber = caseID;
+		await gotoCase();
 	};
 
 	const addTaskLog = () => {
@@ -109,7 +128,7 @@
 	{#if pathname.startsWith('/case') && pathname !== '/cases'}
 		<div class="flex items-center overflow-hidden">
 			<button
-				onclick={switchContext}
+				onclick={() => (showSwitchContext = true)}
 				class="whitespace-nowrap text-sm hover:underline hover:opacity-80"
 				>{currentCaseTitle}</button
 			>

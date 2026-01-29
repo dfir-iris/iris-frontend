@@ -157,7 +157,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			? API_BASE_URL.replace(/\/api\/v2\/?$/, '')
 			: API_BASE_URL;
 
-		const apiUrl = `${base.replace(/\/$/, '')}${event.url.pathname}`;
+		const apiUrl = `${base.replace(/\/$/, '')}${event.url.pathname}${event.url.search}`;
 
 		if (DEV) {
 			console.log(`Proxying ${event.request.method} request to ${apiUrl}`);

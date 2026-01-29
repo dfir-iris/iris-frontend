@@ -9,7 +9,7 @@
 </script>
 
 {#if show}
-	<div class="fixed left-0 top-0 flex h-screen w-screen">
+	<div class="fixed left-0 top-0 z-10 flex h-screen w-screen">
 		<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 		<div onclick={() => (show = false)} class="flex h-screen grow"></div>
 		<div class="flex h-screen w-96 bg-white p-4 shadow-xl dark:bg-black">

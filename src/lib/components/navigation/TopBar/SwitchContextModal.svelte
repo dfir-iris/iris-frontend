@@ -1,11 +1,18 @@
 <script lang="ts">
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
+	import { CaseService } from '$lib/services/case.service';
+	import type { Case } from '$lib/types/resources/case';
+	import type { Paginated } from '$lib/services/api.service';
+	import { Select } from '$lib/components/ui/select';
+	import SelectTrigger from '$lib/components/ui/select/select-trigger.svelte';
+	import SelectContent from '$lib/components/ui/select/select-content.svelte';
+	import SelectItem from '$lib/components/ui/select/select-item.svelte';
 
 	type SwitchContextModalProps = {
 		open: boolean;
 		title?: string;
-		onConfirm: () => void;
+		onConfirm: (caseId: number) => void;
 		onOpenChange: (open: boolean) => void;
 	};
 
@@ -16,9 +23,86 @@
 		onOpenChange
 	}: SwitchContextModalProps = $props();
 
-	function handleConfirm() {
-		onConfirm();
-	}
+	let loading = $state(false);
+	let error = $state<string | null>(null);
+	let cases = $state<Case[]>([]);
+	let selectedCaseId = $state<string | undefined>(undefined);
+
+	const selectedCaseLabel = $derived.by(() => {
+		if (!selectedCaseId) return 'Select Case';
+
+		const id = Number(selectedCaseId);
+		const c = cases.find((x) => x.case_id === id);
+
+		return c ? (c.case_name ?? '').trim() : `#${id}`;
+	});
+
+	const PER_PAGE = 100;
+	const MAX_PAGES = 250;
+	const MAX_CASES = 25000;
+
+	const loadAllCases = async () => {
+		if (loading) return;
+
+		loading = true;
+		error = null;
+		cases = [];
+		selectedCaseId = undefined;
+
+		try {
+			const seen = new Set<number>();
+
+			for (let page = 1; page <= MAX_PAGES; page++) {
+				const res = await CaseService.list({ page, per_page: PER_PAGE });
+
+				if (!res.ok || !res.data) {
+					throw new Error(res.error?.message ?? 'Failed to load cases');
+				}
+
+				const { data, next_page } = res.data as Paginated<Case>;
+
+				for (const c of data ?? []) {
+					if (!seen.has(c.case_id)) {
+						seen.add(c.case_id);
+						cases.push(c);
+					}
+				}
+
+				if (cases.length > MAX_CASES) {
+					throw new Error(`Too many cases (>${MAX_CASES})`);
+				}
+
+				if (!next_page) break;
+			}
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			loading = false;
+		}
+	};
+
+	const handleConfirm = () => {
+		if (!selectedCaseId) return;
+
+		onConfirm(Number(selectedCaseId));
+		onOpenChange(false);
+	};
+
+	let didLoadForOpen = false;
+
+	$effect(() => {
+		if (!open) {
+			didLoadForOpen = false;
+
+			return;
+		}
+
+		if (!didLoadForOpen) {
+			didLoadForOpen = true;
+
+			void loadAllCases();
+		}
+	});
 </script>
 
 <Dialog.Root bind:open {onOpenChange}>
@@ -28,13 +112,28 @@
 		</Dialog.Header>
 
 		<div class="grid gap-4 py-4">
-			<h1>Select Context</h1>
+			<Select bind:value={selectedCaseId} type="single">
+				<SelectTrigger>{selectedCaseLabel}</SelectTrigger>
+
+				<SelectContent>
+					{#each cases as c (c.case_id)}
+						<SelectItem value={String(c.case_id)}>{c.case_name ?? ''}</SelectItem>
+					{/each}
+				</SelectContent>
+			</Select>
+
+			{#if loading}
+				<div class="text-sm opacity-80">Loading cases...</div>
+			{/if}
+
+			{#if error}
+				<div class="text-sm text-red-500">{error}</div>
+			{/if}
 		</div>
 
 		<Dialog.Footer>
 			<Button variant="outline" onclick={() => onOpenChange(false)}>Close</Button>
-
-			<Button onclick={handleConfirm}>Switch</Button>
+			<Button onclick={handleConfirm} disabled={!selectedCaseId || loading}>Switch</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>

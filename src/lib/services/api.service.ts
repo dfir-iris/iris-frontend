@@ -48,6 +48,15 @@ export interface RequestInitDuplex extends RequestInit {
 	duplex?: string;
 }
 
+export type QueryArrayFormat = 'repeat' | 'comma';
+
+export interface QueryStringOptions {
+	arrayFormat?: QueryArrayFormat;
+	encode?: boolean;
+	sortKeys?: boolean;
+	allowNested?: boolean;
+}
+
 export class ApiService {
 	static baseUrl = env.PUBLIC_EXTERNAL_API_URL;
 
@@ -55,28 +64,55 @@ export class ApiService {
 		return ApiService.request<T>('GET', url, undefined, options);
 	}
 
-	static async post<T>(
+	static async post<TRes, TBody = unknown>(
 		url: string,
-		data?: unknown,
+		data?: TBody,
 		options: ApiOptions = {}
-	): Promise<RequestResponse<T>> {
-		return ApiService.request<T>('POST', url, data, options);
+	): Promise<RequestResponse<TRes>> {
+		return ApiService.request<TRes>('POST', url, data, options);
 	}
 
-	static async put<T>(url: string, data: T, options: ApiOptions = {}): Promise<RequestResponse<T>> {
-		return ApiService.request<T>('PUT', url, data, options);
+	static async put<TRes, TBody = unknown>(
+		url: string,
+		data: TBody,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<TRes>> {
+		return ApiService.request<TRes>('PUT', url, data, options);
 	}
 
 	static async delete<T>(url: string, options: ApiOptions = {}): Promise<RequestResponse<T>> {
 		return ApiService.request<T>('DELETE', url, undefined, options);
 	}
 
-	static async patch<T>(
+	static async patch<TRes, TBody = unknown>(
 		url: string,
-		data: T,
+		data: TBody,
 		options: ApiOptions = {}
-	): Promise<RequestResponse<T>> {
-		return ApiService.request<T>('PATCH', url, data, options);
+	): Promise<RequestResponse<TRes>> {
+		return ApiService.request<TRes>('PATCH', url, data, options);
+	}
+
+	static withQuery(path: string, params?: Record<string, unknown>): string {
+		return `${path}${ApiService.toQueryString(params)}`;
+	}
+
+	private static toQueryString(params?: Record<string, unknown>): string {
+		if (!params) return '';
+
+		const urlParams = new URLSearchParams();
+
+		for (const [k, v] of Object.entries(params)) {
+			if (v == null) continue;
+
+			if (Array.isArray(v)) {
+				for (const item of v) if (item != null) urlParams.append(k, String(item));
+			} else {
+				urlParams.set(k, v instanceof Date ? v.toISOString() : String(v));
+			}
+		}
+
+		const queryString = urlParams.toString();
+		return queryString ? `?${queryString}` : '';
 	}
 
 	private static async request<T>(
