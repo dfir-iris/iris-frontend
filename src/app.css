@@ -47,7 +47,7 @@
 		/* Removed duplicate table variables */
 
 		--gradient-primary-start: 217 90% 22%; /* approx #05316A */
-		--gradient-primary-end: 217 90% 22%;   /* approx #05316A */
+		--gradient-primary-end: 217 90% 22%; /* approx #05316A */
 	}
 
 	.dark {
@@ -60,8 +60,8 @@
 		--popover: 222.2 84% 4.9%;
 		--popover-foreground: 210 40% 98%;
 
-    --card: 224 71% 4%;
-    --card-foreground: 210 40% 98%;
+		--card: 224 71% 4%;
+		--card-foreground: 210 40% 98%;
 
 		--border: 217.2 32.6% 17.5%;
 
@@ -94,7 +94,7 @@
 		/* Removed duplicate table variables */
 
 		--gradient-primary-start: 222.2 47.4% 10%; /* Darker Blue */
-		--gradient-primary-end: 222.2 47.4% 15%;   /* Slightly Lighter Dark Blue */
+		--gradient-primary-end: 222.2 47.4% 15%; /* Slightly Lighter Dark Blue */
 	}
 }
 
@@ -107,7 +107,7 @@
 		@apply bg-background text-foreground;
 	}
 
-	/** 
+	/**
 		Typography
 	*/
 
@@ -128,6 +128,12 @@
 	}
 }
 
+@layer utilities {
+	.shadow-glow-danger {
+		box-shadow: 0 0 8px 2px rgb(220 38 38 / 0.3);
+	}
+}
+
 .lucide {
 	stroke-width: 1.5px;
 	flex-shrink: 0;
@@ -138,17 +144,17 @@
 .dark .bg-card\/40,
 .dark .bg-card\/50,
 .dark .bg-card {
-  @apply bg-[#151823] border-[#2a2f42] border-opacity-80;
+	@apply border-[#2a2f42] border-opacity-80 bg-[#151823];
 }
 
 /* Custom border styling for dark mode */
 .dark .border {
-  @apply border-[#2a2f42] border-opacity-80;
+	@apply border-[#2a2f42] border-opacity-80;
 }
 
 /* Custom background for dark mode */
 .dark .bg-background {
-  @apply  border-[#3a3f52];
+	@apply border-[#3a3f52];
 }
 
 /* Custom hover effects for cards in dark mode */
@@ -156,5 +162,5 @@
 .dark .bg-card\/40:hover,
 .dark .bg-card\/50:hover,
 .dark .bg-card:hover {
-  @apply border-[#3a3f52];
+	@apply border-[#3a3f52];
 }

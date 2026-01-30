@@ -75,8 +75,8 @@
 	<title>Cases | DFIR-IRIS</title>
 </svelte:head>
 
-<div class="flex h-full flex-col gap-y-6 p-8">
-	<div class="flex flex-row items-center gap-x-4">
+<div class="flex grow flex-col gap-4 p-4">
+	<div class="flex flex-row items-center gap-4">
 		<h1>Cases</h1>
 
 		<div class="ml-auto"></div>
@@ -90,6 +90,6 @@
 	</div>
 
 	{#if cases}
-		<CasesDataTable class="h-full" {cases} />
+		<CasesDataTable class="flex grow" {cases} />
 	{/if}
 </div>

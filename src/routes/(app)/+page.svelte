@@ -24,7 +24,11 @@
 	});
 </script>
 
-<div class="flex h-full flex-col space-y-4 overflow-hidden p-8 pt-6">
+<svelte:head>
+	<title>Dashboard | DFIR-IRIS</title>
+</svelte:head>
+
+<div class="flex flex-col space-y-4 p-8 pt-6">
 	<!-- Page Header -->
 	<div class="flex items-center justify-between space-y-2 py-2">
 		<h1 class="">Dashboard</h1>

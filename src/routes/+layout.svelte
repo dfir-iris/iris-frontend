@@ -40,7 +40,4 @@
 
 <Toaster />
 
-<div class="min-h-screen">
-	<!-- Render subroutes -->
-	{@render children()}
-</div>
+{@render children()}

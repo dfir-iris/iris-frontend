@@ -6,16 +6,14 @@
 	let { children }: { children: Snippet } = $props();
 </script>
 
-<svelte:head>
-	<title>Dashboard | DFIR-IRIS</title>
-</svelte:head>
-
-<div class="fixed m-0 flex h-screen w-screen overflow-auto dark:bg-background">
+<div class="flex h-screen w-full overflow-hidden dark:bg-background">
 	<SideBar />
 
-	<main class="w-full">
+	<main class="flex min-w-0 grow flex-col">
 		<TopBar />
 
-		{@render children()}
+		<div class="flex min-w-0 grow overflow-auto">
+			{@render children()}
+		</div>
 	</main>
 </div>

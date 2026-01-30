@@ -123,10 +123,10 @@
 </script>
 
 <header
-	class="sticky top-0 flex max-h-16 min-h-16 w-full items-center justify-between bg-primary-gradient p-4 text-gray-100 drop-shadow-lg"
+	class="sticky top-0 flex max-h-16 min-h-16 items-center justify-between bg-primary-gradient p-4 text-gray-100 drop-shadow-lg"
 >
 	{#if pathname.startsWith('/case') && pathname !== '/cases'}
-		<div class="flex items-center overflow-hidden">
+		<div class="flex items-center overflow-auto">
 			<button
 				onclick={() => (showSwitchContext = true)}
 				class="whitespace-nowrap text-sm hover:underline hover:opacity-80"
@@ -134,11 +134,11 @@
 			>
 		</div>
 
-		<div class="mx-2 flex items-center rounded-lg bg-white/10">
+		<div class="mx-2 flex flex-nowrap items-center overflow-auto rounded-lg bg-white/10">
 			{#each caseButtons as button}
 				<a href={button.path === '' ? caseBasePath : `${caseBasePath}/${button.path}`}>
 					<button
-						class={`mx-1 rounded-lg px-3 py-2 hover:bg-white/10 ${
+						class={`rounded-lg px-3 py-2  hover:bg-white/10 ${
 							button.path === ''
 								? pathname === `/case/${currentCaseID}` || pathname === `/case/${currentCaseID}/`
 									? 'bg-white/10'

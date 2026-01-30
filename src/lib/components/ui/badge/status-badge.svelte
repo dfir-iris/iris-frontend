@@ -10,26 +10,14 @@
 		Handshake,
 		BadgeAlert,
 		CircleAlert,
-		XCircleIcon 
+		XCircleIcon
 	} from 'lucide-svelte';
 	import * as Tooltip from '$lib/components/ui/tooltip';
+	import type { CaseStatus } from './types';
 
 	export let icon_only: boolean = false;
-	export let status:
-		| 'Pending'
-		| 'In progress'
-		| 'Completed'
-		| 'Unspecified'
-		| 'To do'
-		| 'Closed'
-		| 'Merged'
-		| 'Assigned'
-		| 'New'
-		| 'Started'
-		| 'Cancelled'
-		| 'Done' = 'Unspecified';
-
-		export let prefix: string = '';
+	export let status: CaseStatus;
+	export let prefix: string = '';
 
 	const statusConfig = {
 		Pending: {
@@ -77,15 +65,18 @@
 			icon: Circle
 		},
 		'To be done': {
-			color: 'bg-orange-100 text-orange-800 hover:bg-orange-200 dark:bg-orange-700/30 dark:text-orange-400 dark:hover:bg-orange-700/40',
+			color:
+				'bg-orange-100 text-orange-800 hover:bg-orange-200 dark:bg-orange-700/30 dark:text-orange-400 dark:hover:bg-orange-700/40',
 			icon: CircleAlert
 		},
 		Cancelled: {
-			color: 'bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-700/30 dark:text-red-400 dark:hover:bg-red-700/40',
+			color:
+				'bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-700/30 dark:text-red-400 dark:hover:bg-red-700/40',
 			icon: XCircleIcon
 		},
 		Canceled: {
-			color: 'bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-700/30 dark:text-red-400 dark:hover:bg-red-700/40',
+			color:
+				'bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-700/30 dark:text-red-400 dark:hover:bg-red-700/40',
 			icon: XCircleIcon
 		}
 	};
@@ -97,13 +88,21 @@
 	<Tooltip.Provider>
 		<Tooltip.Root>
 			<Tooltip.Trigger class="flex">
-				<Badge class="{config.color}  p-1 border-0 bg-transparent hover:bg-muted/50" icon={config.icon} variant="outline"></Badge>
+				<Badge
+					class="{config.color}  border-0 bg-transparent p-1 hover:bg-muted/50"
+					icon={config.icon}
+					variant="outline"
+				></Badge>
 			</Tooltip.Trigger>
 			<Tooltip.Content>{prefix} {status}</Tooltip.Content>
 		</Tooltip.Root>
 	</Tooltip.Provider>
 {:else}
-	<Badge class="items-center gap-1 {config.color} p-1 border-0 bg-transparent hover:bg-muted/50" icon={config.icon} variant="outline">
+	<Badge
+		class="items-center gap-1 {config.color} border-0 bg-transparent p-1 hover:bg-muted/50"
+		icon={config.icon}
+		variant="outline"
+	>
 		{status}
 	</Badge>
 {/if}

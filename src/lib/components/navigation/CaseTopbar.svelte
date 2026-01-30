@@ -24,10 +24,12 @@
 	import CaseAddDropdown from '../../../routes/(app)/case/[case_id]/CaseAddDropdown.svelte';
 	import { Separator } from '$lib/components/ui/separator';
 	import type { Case } from '$lib/types/resources/case';
+	import type { CaseStatus, Severity } from '../ui/badge/types';
 
 	export let caseData: Case;
-	let severity: string = caseData?.severity?.severity_name ?? '';
-	let status: string = caseData?.state?.state_name || 'Unknown';
+
+	let severity = (caseData?.severity?.severity_name || 'Unspecified') as Severity;
+	let status = (caseData?.state?.state_name || 'Unspecified') as CaseStatus;
 
 	// Format the date if provided
 	let formattedDate = '';
@@ -62,19 +64,19 @@
 </script>
 
 <div
-	class="flex h-auto min-h-16 w-full flex-col border-b bg-background px-4 py-2 shadow-sm md:flex-row md:items-center md:justify-between"
+	class="flex min-h-16 flex-col border-b bg-background p-2 shadow-sm xl:flex-row xl:items-center"
 >
-	<div class="flex items-start gap-3 md:items-center">
+	<div class="flex grow items-center">
 		<!-- Case Icon Badge -->
-		<div class="relative flex-shrink-0">
+		<div class="flex">
 			<div
-				class={`flex h-10 w-10 items-center justify-center rounded-full ${caseIconBg} ring-2 ${iconRingColor} ${isHighSeverity ? 'shadow-glow-red' : ''}`}
+				class={`mr-2 flex h-10 w-10 items-center justify-center rounded-full ${caseIconBg} ring-2 ${iconRingColor} ${isHighSeverity ? 'shadow-glow-danger' : ''}`}
 			>
 				<svelte:component this={CaseIcon} size={20} class={caseIconColor} />
 			</div>
 		</div>
 
-		<div class="ml-1 flex flex-col overflow-hidden">
+		<div class="ml-1 flex flex-col flex-wrap overflow-hidden">
 			<!-- Case Name -->
 			<div class="flex items-center gap-2">
 				<h2 class="truncate text-lg font-semibold">{caseData?.case_name.split(' - ')[1]}</h2>
@@ -82,7 +84,7 @@
 
 			<!-- Additional case information -->
 			<div
-				class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground"
+				class="mt-1.5 flex flex-nowrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground"
 			>
 				{#if caseData.case_id}
 					<div class="flex items-center gap-1">
@@ -126,7 +128,7 @@
 		</div>
 	</div>
 
-	<div class="mt-2 flex flex-wrap items-center gap-2 md:mt-0 md:gap-3">
+	<div class="mt-2 flex justify-start gap-2 xl:mt-0 xl:justify-end">
 		<div class="hidden gap-1 sm:flex">
 			{#each caseData.tags as tag}
 				<div class="flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-xs">
@@ -141,6 +143,8 @@
 
 		<!-- Case Add Dropdown -->
 		<CaseAddDropdown buttonClass="h-8" />
+
+		<div class="flex grow xl:hidden"></div>
 
 		<DropdownMenu>
 			<DropdownMenuTrigger>
@@ -163,10 +167,3 @@
 		</DropdownMenu>
 	</div>
 </div>
-
-<style>
-	/* Static glow effect for high severity cases */
-	.shadow-glow-red {
-		box-shadow: 0 0 8px 2px rgba(220, 38, 38, 0.3);
-	}
-</style>
