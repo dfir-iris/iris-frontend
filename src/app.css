@@ -164,3 +164,34 @@
 .dark .bg-card:hover {
 	@apply border-[#3a3f52];
 }
+
+.ace_content {
+	@apply dark:bg-black dark:text-white;
+}
+
+.ace_gutter {
+	@apply dark:bg-black/80 dark:text-white;
+
+	&-active-line {
+		@apply dark:bg-white/20;
+	}
+}
+
+.prose {
+	table {
+		@apply w-full;
+	}
+
+	tr {
+		@apply odd:bg-black/5 dark:odd:bg-white/10;
+	}
+
+	th {
+		@apply bg-white dark:bg-black;
+	}
+
+	th,
+	td {
+		@apply border px-2 py-1 text-left;
+	}
+}

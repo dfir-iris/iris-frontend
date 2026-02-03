@@ -1,37 +1,41 @@
 <script lang="ts" module>
-	import { type VariantProps, tv } from "tailwind-variants";
+	import { type VariantProps, tv } from 'tailwind-variants';
 	export const badgeVariants = tv({
-		base: "focus:ring-ring inline-flex select-none items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2",
+		base: 'focus:ring-ring inline-flex select-none items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2',
 		variants: {
 			variant: {
-				default:
-					"bg-primary text-primary-foreground hover:bg-primary/80 border-transparent shadow",
+				default: 'bg-primary text-primary-foreground hover:bg-primary/80 border-transparent shadow',
 				secondary:
-					"bg-secondary text-secondary-foreground hover:bg-secondary/80 border-transparent",
+					'bg-secondary text-secondary-foreground hover:bg-secondary/80 border-transparent',
 				destructive:
-					"bg-destructive text-destructive-foreground hover:bg-destructive/80 border-transparent shadow",
-				compromised:
-					"bg-red-700 text-red-50 hover:bg-red-600 border-transparent",
-				outline: "text-foreground",
-			},
+					'bg-destructive text-destructive-foreground hover:bg-destructive/80 border-transparent shadow',
+				compromised: 'bg-red-700 text-red-50 hover:bg-red-600 border-transparent',
+				green: 'bg-green-700 text-green-50 hover:bg-green-600 border-transparent',
+				outline: 'text-foreground'
+			}
 		},
 		defaultVariants: {
-			variant: "default",
-		},
+			variant: 'default'
+		}
 	});
 
-	export type BadgeVariant = VariantProps<typeof badgeVariants>["variant"];
+	export type BadgeVariant = VariantProps<typeof badgeVariants>['variant'];
 </script>
 
 <script lang="ts">
-	import type { SvelteComponent } from "svelte";
+	import type { SvelteComponent } from 'svelte';
 	// Define a type alias for any Svelte component constructor
 	type ComponentType = new (...args: any) => SvelteComponent;
 
-	import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "$lib/components/ui/tooltip";
-	import type { WithElementRef } from "bits-ui";
-	import type { HTMLAnchorAttributes } from "svelte/elements";
-	import { cn } from "$lib/utils.js";
+	import {
+		Tooltip,
+		TooltipContent,
+		TooltipProvider,
+		TooltipTrigger
+	} from '$lib/components/ui/tooltip';
+	import type { WithElementRef } from 'bits-ui';
+	import type { HTMLAnchorAttributes } from 'svelte/elements';
+	import { cn } from '$lib/utils.js';
 
 	// Destructure props and rename "icon" to "Icon" (uppercase) for dynamic rendering.
 	let {
@@ -39,7 +43,7 @@
 		ref = $bindable(null),
 		href,
 		class: className,
-		variant = "default",
+		variant = 'default',
 		tooltip,
 		children,
 		...restProps
@@ -52,12 +56,11 @@
 </script>
 
 {#if tooltip}
-
 	<TooltipProvider>
 		<Tooltip>
 			<TooltipTrigger class="cursor-default">
 				<svelte:element
-					this={href ? "a" : "span"}
+					this={href ? 'a' : 'span'}
 					bind:this={ref}
 					{href}
 					class={cn(badgeVariants({ variant }), className)}
@@ -65,7 +68,7 @@
 				>
 					{#if Icon}
 						<span class="mr-1">
-							<Icon class="h-3.5 w-3.5"/>
+							<Icon class="h-3.5 w-3.5" />
 						</span>
 					{/if}
 					{@render children?.()}
@@ -76,11 +79,9 @@
 			</TooltipContent>
 		</Tooltip>
 	</TooltipProvider>
-
 {:else}
-
 	<svelte:element
-		this={href ? "a" : "span"}
+		this={href ? 'a' : 'span'}
 		bind:this={ref}
 		{href}
 		class={cn(badgeVariants({ variant }), className)}
@@ -88,7 +89,7 @@
 	>
 		{#if Icon}
 			<span class="">
-				<Icon class="h-3.5 w-3.5"/>
+				<Icon class="h-3.5 w-3.5" />
 			</span>
 		{/if}
 		{@render children?.()}

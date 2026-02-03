@@ -53,6 +53,7 @@ export interface UpdateCaseBody {
 	protagonists?: unknown[];
 	case_tags?: string;
 	custom_attributes?: Record<string, unknown>;
+	case_description?: string;
 }
 
 export class CaseService {
@@ -84,7 +85,7 @@ export class CaseService {
 		body: UpdateCaseBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<Case>> {
-		return ApiService.put<Case>(`/api/v2/cases/${caseId}`, body as unknown as Case, options);
+		return ApiService.put<Case>(`/api/v2/cases/${caseId}`, body, options);
 	}
 
 	static async remove(
