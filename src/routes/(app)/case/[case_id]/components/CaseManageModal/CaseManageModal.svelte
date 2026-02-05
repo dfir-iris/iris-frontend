@@ -1,10 +1,12 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
-
-	import { CaseService, type UpdateCaseBody } from '$lib/services/case.service';
+	import type { UpdateCaseBody } from '$lib/services/case.service';
 	import type { Case } from '$lib/types/resources/case';
+	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
+	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
 	import CaseGeneralInfo from './CaseGeneralInfo.svelte';
 	import CaseModificationHistory from './CaseModificationHistory.svelte';
@@ -13,19 +15,25 @@
 	type CaseManageModalProps = {
 		open: boolean;
 		onOpenChange: (open: boolean) => void;
-		currentCase: Case;
 	};
 
-	let { open, onOpenChange, currentCase }: CaseManageModalProps = $props();
+	let { open, onOpenChange }: CaseManageModalProps = $props();
+
+	const app = getContext<AppContext>(APP_CTX);
+	const cases = getContext<CasesContext>(CASES_CTX);
+
+	const case_id = app.state.currentCaseID;
+
+	let currentCase = $derived<Case | null>(cases.byId[case_id] ?? null);
 
 	let showConfirmDelete = $state(false);
 	let showConfirmClose = $state(false);
 	let activeTab = $state('info');
 	let editing = $state(false);
 
-	const saveCase = async (caseId: number, body: UpdateCaseBody) => {
-		const res = await CaseService.update(caseId, body);
-		currentCase = res.data as Case;
+	const saveCase = async (body: UpdateCaseBody) => {
+		if (!currentCase) return;
+		await cases.patch(case_id, body);
 	};
 </script>
 
@@ -35,9 +43,9 @@
 	>
 		<Dialog.Header>
 			<Dialog.Title class="flex items-center">
-				{currentCase.case_name}
+				{currentCase?.case_name}
 
-				<CaseModificationHistory {currentCase} />
+				<CaseModificationHistory />
 			</Dialog.Title>
 		</Dialog.Header>
 
@@ -73,14 +81,13 @@
 
 						{#if editing}
 							<CaseEditor
-								{currentCase}
 								onCancel={() => (editing = false)}
 								onDelete={() => (showConfirmDelete = true)}
 								onClose={() => (showConfirmClose = true)}
-								onSave={(patch) => saveCase(currentCase.case_id, { ...patch })}
+								onSave={(patch) => saveCase({ ...patch })}
 							/>
 						{:else}
-							<CaseGeneralInfo {currentCase} />
+							<CaseGeneralInfo />
 						{/if}
 					</div>
 				</TabsContent>

@@ -1,31 +1,43 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
+	import type { Case } from '$lib/types/resources/case';
+	import type { UpdateCaseBody } from '$lib/services/case.service';
+	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
+	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import Ace from '$lib/components/common/Ace/Ace.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { normalizeTags } from './utils';
 
-	import type { Case } from '$lib/types/resources/case';
-	import type { UpdateCaseBody } from '$lib/services/case.service';
-
 	type CaseEditorProps = {
-		currentCase: Case;
 		onDelete?: () => void;
 		onClose?: () => void;
 		onCancel?: () => void;
 		onSave?: (body: UpdateCaseBody) => void | Promise<void>;
 	};
 
-	let { currentCase, onDelete, onClose, onCancel, onSave }: CaseEditorProps = $props();
+	let { onDelete, onClose, onCancel, onSave }: CaseEditorProps = $props();
 
-	let caseName = $state(currentCase.case_name ?? '');
-	let socId = $state(currentCase.case_soc_id ?? '');
-	let tagsCsv = $state((currentCase.tags ?? []).join(', '));
-	let description = $state(currentCase.case_description ?? '');
+	const app = getContext<AppContext>(APP_CTX);
+	const cases = getContext<CasesContext>(CASES_CTX);
+
+	let currentCase = $state<Case | null>(null);
+
+	let caseName = $state('');
+	let socId = $state('');
+	let tagsCsv = $state('');
+	let description = $state('');
 
 	$effect(() => {
-		caseName = currentCase.case_name ?? '';
-		socId = currentCase.case_soc_id ?? '';
-		tagsCsv = (currentCase.tags ?? []).join(', ');
-		description = currentCase.case_description ?? '';
+		const c = cases.byId[app.state.currentCaseID] ?? null;
+
+		currentCase = c;
+
+		if (!c) return;
+
+		caseName = c.case_name ?? '';
+		socId = c.case_soc_id ?? '';
+		tagsCsv = (c.tags ?? []).map((t) => t.tag_title).join(', ');
+		description = c.case_description ?? '';
 	});
 
 	const save = async () => {
@@ -40,6 +52,8 @@
 	};
 
 	const cancel = () => {
+		if (!currentCase) return;
+
 		caseName = currentCase.case_name ?? '';
 		socId = currentCase.case_soc_id ?? '';
 		tagsCsv = (currentCase.tags ?? []).join(', ');
@@ -49,7 +63,6 @@
 
 	const onSubmit = async (event: SubmitEvent) => {
 		event.preventDefault();
-
 		await save();
 	};
 </script>
@@ -69,7 +82,7 @@
 			<span class="text-sm font-semibold">Customer</span>
 			<input
 				class="rounded-md border bg-muted/20 px-3 py-2"
-				value={currentCase.case_customer.customer_name}
+				value={currentCase?.case_customer?.customer_name}
 				readonly
 			/>
 		</label>
@@ -95,48 +108,50 @@
 
 		<div>
 			<div class="text-sm font-semibold">Case ID</div>
-			<div class="rounded-md border bg-muted/20 px-3 py-2">{currentCase.case_id}</div>
+			<div class="rounded-md border bg-muted/20 px-3 py-2">{currentCase?.case_id}</div>
 		</div>
 
 		<div>
 			<div class="text-sm font-semibold">Case UUID</div>
-			<div class="rounded-md border bg-muted/20 px-3 py-2">{currentCase.case_uuid}</div>
+			<div class="rounded-md border bg-muted/20 px-3 py-2">{currentCase?.case_uuid}</div>
 		</div>
 
-		{#if currentCase.classification_id}
+		{#if currentCase?.classification_id}
 			<div>
 				<div class="text-sm font-semibold">Classification</div>
 				<div class="rounded-md border bg-muted/20 px-3 py-2">{currentCase.classification_id}</div>
 			</div>
 		{/if}
 
-		{#if currentCase.state}
+		{#if currentCase?.state}
 			<div>
 				<div class="text-sm font-semibold">State</div>
 				<div class="rounded-md border bg-muted/20 px-3 py-2">{currentCase.state.state_name}</div>
 			</div>
 		{/if}
 
-		{#if currentCase.severity}
+		{#if currentCase?.severity}
 			<div>
 				<div class="text-sm font-semibold">Severity</div>
-				<div class="rounded-md border bg-muted/20 px-3 py-2">{currentCase.severity}</div>
+				<div class="rounded-md border bg-muted/20 px-3 py-2">
+					{currentCase.severity.severity_name}
+				</div>
 			</div>
 		{/if}
 
 		<div>
 			<div class="text-sm font-semibold">Open date</div>
-			<div class="rounded-md border bg-muted/20 px-3 py-2">{currentCase.open_date}</div>
+			<div class="rounded-md border bg-muted/20 px-3 py-2">{currentCase?.open_date}</div>
 		</div>
 
 		<div>
 			<div class="text-sm font-semibold">Opening user</div>
-			<div class="rounded-md border bg-muted/20 px-3 py-2">{currentCase.user_id}</div>
+			<div class="rounded-md border bg-muted/20 px-3 py-2">{currentCase?.user_id}</div>
 		</div>
 
 		<div>
 			<div class="text-sm font-semibold">Owner</div>
-			<div class="rounded-md border bg-muted/20 px-3 py-2">{currentCase.owner.user_name}</div>
+			<div class="rounded-md border bg-muted/20 px-3 py-2">{currentCase?.owner.user_name}</div>
 		</div>
 	</div>
 

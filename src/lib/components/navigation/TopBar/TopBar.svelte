@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { getContext } from 'svelte';
 	import {
 		DatabaseIcon,
 		GripIcon,
@@ -14,17 +15,19 @@
 		TooltipProvider,
 		TooltipTrigger
 	} from '$lib/components/ui/tooltip';
-	import { appContext } from '$lib/stores/appContext.store';
-	import ActionButton from './ActionButton.svelte';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import type { Case } from '$lib/types/resources/case';
+	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
+	import { CaseService } from '$lib/services/case.service';
 	import { goto } from '$app/navigation';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import ActionButton from './ActionButton.svelte';
 	import SwitchContextModal from './SwitchContextModal.svelte';
 	import QuickActions from './QuickActions.svelte';
-	import { CaseService } from '$lib/services/case.service'; // NEW
-	import type { Case } from '$lib/types/resources/case';
+
+	const app = getContext<AppContext>(APP_CTX);
 
 	$: pathname = $page.url.pathname;
-	$: currentCaseID = $appContext.currentCaseID;
+	$: currentCaseID = app.state.currentCaseID;
 
 	let currentCaseName: string | null = null;
 	let lastFetchedCaseId: number | null = null;
@@ -44,7 +47,6 @@
 	}
 
 	$: currentCaseTitle = currentCaseID ? `${currentCaseName ?? 'Current Case'}` : `Current Case`;
-
 	$: caseBasePath = `/case/${currentCaseID}`;
 
 	$: showGoToCase = false;
@@ -56,7 +58,6 @@
 	const gotoCase = async () => {
 		if (caseNumber) {
 			showGoToCase = false;
-
 			await goto(`/case/${caseNumber}`);
 		}
 	};
@@ -87,38 +88,14 @@
 	];
 
 	const caseButtons = [
-		{
-			label: 'Summary',
-			path: ''
-		},
-		{
-			label: 'Notes',
-			path: 'notes'
-		},
-		{
-			label: 'Assets',
-			path: 'assets'
-		},
-		{
-			label: 'IOC',
-			path: 'iocs'
-		},
-		{
-			label: 'Timeline',
-			path: 'timeline'
-		},
-		{
-			label: 'Graph',
-			path: 'graph'
-		},
-		{
-			label: 'Tasks',
-			path: 'tasks'
-		},
-		{
-			label: 'Evidence',
-			path: 'evidence'
-		}
+		{ label: 'Summary', path: '' },
+		{ label: 'Notes', path: 'notes' },
+		{ label: 'Assets', path: 'assets' },
+		{ label: 'IOC', path: 'iocs' },
+		{ label: 'Timeline', path: 'timeline' },
+		{ label: 'Graph', path: 'graph' },
+		{ label: 'Tasks', path: 'tasks' },
+		{ label: 'Evidence', path: 'evidence' }
 	];
 </script>
 
@@ -130,15 +107,16 @@
 			<button
 				onclick={() => (showSwitchContext = true)}
 				class="whitespace-nowrap text-sm hover:underline hover:opacity-80"
-				>{currentCaseTitle}</button
 			>
+				{currentCaseTitle}
+			</button>
 		</div>
 
 		<div class="mx-2 flex flex-nowrap items-center overflow-auto rounded-lg bg-white/10">
 			{#each caseButtons as button}
 				<a href={button.path === '' ? caseBasePath : `${caseBasePath}/${button.path}`}>
 					<button
-						class={`rounded-lg px-3 py-2  hover:bg-white/10 ${
+						class={`rounded-lg px-3 py-2 hover:bg-white/10 ${
 							button.path === ''
 								? pathname === `/case/${currentCaseID}` || pathname === `/case/${currentCaseID}/`
 									? 'bg-white/10'
@@ -166,7 +144,6 @@
 								<TooltipTrigger>
 									<LeafIcon size="16" />
 								</TooltipTrigger>
-
 								<TooltipContent align="center" side="top">Switch Context</TooltipContent>
 							</Tooltip>
 						</TooltipProvider>
@@ -180,15 +157,16 @@
 						class="rounded border px-4 py-2"
 						bind:value={caseNumber}
 					/>
-
 					<button class="ml-2 hover:opacity-75" onclick={gotoCase}>Go!</button>
 				</DropdownMenu.Content>
 			</DropdownMenu.Root>
 
 			<button
 				onclick={() => (showSwitchContext = true)}
-				class="ml-2 text-sm hover:underline hover:opacity-80">{currentCaseTitle}</button
+				class="ml-2 text-sm hover:underline hover:opacity-80"
 			>
+				{currentCaseTitle}
+			</button>
 		</div>
 	{/if}
 
@@ -198,7 +176,7 @@
 				icon={topBarButton.icon}
 				tooltip={topBarButton.tooltip}
 				action={topBarButton.action}
-			></ActionButton>
+			/>
 		{/each}
 	</div>
 </header>

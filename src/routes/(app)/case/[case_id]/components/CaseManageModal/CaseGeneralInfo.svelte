@@ -1,46 +1,48 @@
 <script lang="ts">
 	import DOMPurify from 'dompurify';
-	import { converter } from '$lib/components/common/Ace';
+	import { getContext } from 'svelte';
 	import type { Case } from '$lib/types/resources/case';
+	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
+	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
+	import { converter } from '$lib/components/common/Ace';
 
-	type CaseGeneralInfoProps = {
-		currentCase: Case;
-	};
+	const app = getContext<AppContext>(APP_CTX);
+	const cases = getContext<CasesContext>(CASES_CTX);
 
-	let { currentCase }: CaseGeneralInfoProps = $props();
+	const currentCase = $derived<Case | null>(cases.byId[app.state.currentCaseID] ?? null);
 
-	let safeHtml = $derived(
-		DOMPurify.sanitize(converter.makeHtml(currentCase.case_description ?? ''))
+	const safeHtml = $derived(
+		DOMPurify.sanitize(converter.makeHtml(currentCase?.case_description ?? ''))
 	);
 </script>
 
 <grid class="grid grid-cols-2 gap-0">
-	<div><b>Case name:</b> {currentCase.case_name}</div>
-	<div><b>Customer:</b> {currentCase.case_customer.customer_name}</div>
+	<div><b>Case name:</b> {currentCase?.case_name}</div>
+	<div><b>Customer:</b> {currentCase?.case_customer.customer_name}</div>
 
-	{#if currentCase.tags.length}
+	{#if currentCase?.tags.length}
 		<div><b>Case tags:</b> {currentCase.tags.join(', ')}</div>
 	{/if}
 
-	<div><b>SOC ID:</b> {currentCase.case_soc_id}</div>
-	<div><b>Case ID:</b> {currentCase.case_id}</div>
-	<div><b>Case UUID:</b> {currentCase.case_uuid}</div>
+	<div><b>SOC ID:</b> {currentCase?.case_soc_id}</div>
+	<div><b>Case ID:</b> {currentCase?.case_id}</div>
+	<div><b>Case UUID:</b> {currentCase?.case_uuid}</div>
 
-	{#if currentCase.classification_id}
+	{#if currentCase?.classification_id}
 		<div><b>Classification:</b> {currentCase.classification_id}</div>
 	{/if}
 
-	{#if currentCase.state}
+	{#if currentCase?.state}
 		<div><b>State:</b> {currentCase.state.state_name}</div>
 	{/if}
 
-	{#if currentCase.severity}
+	{#if currentCase?.severity}
 		<div><b>Severity:</b> {currentCase.severity}</div>
 	{/if}
 
-	<div><b>Open date:</b> {currentCase.open_date}</div>
-	<div><b>Opening user:</b> {currentCase.user_id}</div>
-	<div><b>Owner:</b> {currentCase.owner.user_name}</div>
+	<div><b>Open date:</b> {currentCase?.open_date}</div>
+	<div><b>Opening user:</b> {currentCase?.user_id}</div>
+	<div><b>Owner:</b> {currentCase?.owner.user_name}</div>
 </grid>
 
 <h2 class="mb-2 mt-12 text-xl font-bold">Case description</h2>

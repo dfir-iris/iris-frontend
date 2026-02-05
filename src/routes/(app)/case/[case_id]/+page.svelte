@@ -1,13 +1,5 @@
 <script lang="ts">
 	import DOMPurify from 'dompurify';
-	import type { PageData } from './$types';
-	import type { Case } from '$lib/types/resources/case';
-	import { page } from '$app/state';
-	import { appContext } from '$lib/stores/appContext.store';
-	import * as Card from '$lib/components/ui/card';
-	import Badge from '$lib/components/ui/badge/badge.svelte';
-	import Button from '$lib/components/ui/button/button.svelte';
-	import { Ace, converter } from '$lib/components/common/Ace';
 	import {
 		ChartLineIcon,
 		ClipboardCheckIcon,
@@ -16,12 +8,21 @@
 		SettingsIcon,
 		ZapIcon
 	} from 'lucide-svelte';
-	import { CaseService } from '$lib/services/case.service';
+	import { getContext } from 'svelte';
+	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
+	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
+	import type { Case } from '$lib/types/resources/case';
+	import * as Card from '$lib/components/ui/card';
+	import Badge from '$lib/components/ui/badge/badge.svelte';
+	import Button from '$lib/components/ui/button/button.svelte';
+	import { Ace, converter } from '$lib/components/common/Ace';
 	import { CaseManageModal } from './components/CaseManageModal';
 
-	let { data }: { data: PageData } = $props();
+	const app = getContext<AppContext>(APP_CTX);
+	const cases = getContext<CasesContext>(CASES_CTX);
 
-	let currentCase: Case | null = $state(null);
+	const case_id = app.state.currentCaseID;
+	let currentCase = $derived<Case | null>(cases.byId[case_id] ?? null);
 
 	let caseDescription = $state('');
 	let baseDescription = $state('');
@@ -38,77 +39,44 @@
 
 	let showCaseManage = $state(false);
 
-	const getCaseId = (): number | null => {
-		const raw = page.params.case_id;
-		if (!raw) return null;
-		const id = Number(raw);
-		return Number.isInteger(id) ? id : null;
-	};
-
-	const fetchCase = async () => {
-		const caseId = getCaseId();
-		if (caseId === null) return;
-
-		loading = true;
-		lastError = null;
-
-		appContext.update((current) =>
-			current.currentCaseID === caseId ? current : { ...current, currentCaseID: caseId }
-		);
-
-		const res = await CaseService.get(caseId);
-		if (res.status < 200 || res.status >= 300) {
-			loading = false;
-			lastError = `Failed to load case ${caseId} (status ${res.status})`;
-			return;
-		}
-
-		currentCase = res.data as Case;
+	$effect(() => {
+		if (!currentCase) return;
 
 		baseDescription = currentCase.case_description ?? '';
 		caseDescription = baseDescription;
 
 		loadedTime = new Date();
+
+		app.state.currentCaseID = case_id;
+	});
+
+	const refresh = async () => {
+		loading = true;
+		lastError = null;
+
+		await cases.load({ case_ids: [case_id] });
+
+		loadedTime = new Date();
 		loading = false;
 	};
 
-	const refresh = async () => {
-		await fetchCase();
-	};
-
 	const save = async () => {
-		const caseId = getCaseId();
-		if (caseId === null) return;
 		if (!currentCase) return;
 
 		saving = true;
 		lastError = null;
 
-		const res = await CaseService.update(caseId, {
-			case_description: caseDescription
-		});
-
-		if (res.status < 200 || res.status >= 300) {
-			saving = false;
-			lastError = `Save failed (status ${res.status})`;
-			return;
-		}
+		await cases.patch(case_id, { case_description: caseDescription });
 
 		baseDescription = caseDescription;
-		currentCase = { ...currentCase, case_description: caseDescription };
-
 		loadedTime = new Date();
 		saving = false;
 		editing = false;
 	};
-
-	$effect(() => {
-		fetchCase();
-	});
 </script>
 
 <svelte:head>
-	<title>Case #{data.caseId} | IRIS</title>
+	<title>Case #{case_id} | IRIS</title>
 </svelte:head>
 
 <div class="flex w-full flex-col border-b bg-muted/20 p-4">
@@ -212,5 +180,4 @@
 			refresh();
 		}
 	}}
-	currentCase={currentCase as Case}
 />

@@ -5,11 +5,25 @@
 	import { ModeWatcher, mode } from 'mode-watcher';
 	import { Toaster } from '$lib/components/ui/toast';
 	import { handleSessionExpiration } from '$lib/utils/session-handler';
-	import { initAppContextStore } from '$lib/stores/appContext.store';
+	import { setContext, onMount } from 'svelte';
+	import {
+		CASES_CTX,
+		createCasesContext,
+		type CasesContext
+	} from '$lib/contexts/cases.context.svelte';
+	import { APP_CTX, createAppContext, type AppContext } from '$lib/contexts/app.context.svelte';
 
 	const { children } = $props();
 
-	initAppContextStore();
+	const cases: CasesContext = createCasesContext((c) => c.case_id);
+	setContext(CASES_CTX, cases);
+
+	const app: AppContext = createAppContext();
+	setContext(APP_CTX, app);
+
+	onMount(() => {
+		app.init();
+	});
 
 	$effect.pre(() => {
 		// Set UI theme

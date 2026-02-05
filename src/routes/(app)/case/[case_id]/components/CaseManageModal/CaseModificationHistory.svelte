@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { HistoryIcon } from 'lucide-svelte';
-	import { Popover, PopoverContent, PopoverTrigger } from '$lib/components/ui/popover';
+	import { getContext } from 'svelte';
 	import type { Case } from '$lib/types/resources/case';
+	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
+	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
+	import { Popover, PopoverContent, PopoverTrigger } from '$lib/components/ui/popover';
 
-	type CaseModificationHistoryProps = {
-		currentCase: Case;
-	};
-
-	let { currentCase }: CaseModificationHistoryProps = $props();
+	const app = getContext<AppContext>(APP_CTX);
+	const cases = getContext<CasesContext>(CASES_CTX);
+	const currentCase = $derived<Case | null>(cases.byId[app.state.currentCaseID] ?? null);
 
 	let showCaseHistory = $state(false);
 </script>
@@ -23,7 +24,7 @@
 		<div class="flex">Modifications History</div>
 
 		<ul class="mt-2">
-			{#if currentCase.modification_history}
+			{#if currentCase?.modification_history}
 				{#each Object.keys(currentCase.modification_history as object) as modification}
 					<li class="text-nowrap text-xs">
 						<span class="text-pink-500">

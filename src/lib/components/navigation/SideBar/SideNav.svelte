@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-
+	import { getContext } from 'svelte';
 	import {
 		BellIcon,
 		CircleUserIcon,
@@ -21,16 +20,18 @@
 		ViewIcon,
 		WaypointsIcon
 	} from 'lucide-svelte';
-
+	import { page } from '$app/stores';
+	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
 	import MenuItem from './MenuItem.svelte';
 	import SubMenu from './SubMenu.svelte';
-	import { appContext } from '$lib/stores/appContext.store';
 
 	export let collapsed: boolean;
 
+	const app = getContext<AppContext>(APP_CTX);
+
 	$: pathname = $page.url.pathname;
 	$: hash = $page.url.hash;
-	$: currentCaseID = $appContext.currentCaseID;
+	$: currentCaseID = app.state.currentCaseID;
 
 	const mainMenuItems = [
 		{ label: 'Dashboard', path: '/', icon: HouseIcon },
