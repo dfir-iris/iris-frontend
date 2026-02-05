@@ -179,7 +179,7 @@
 
 .prose {
 	table {
-		@apply w-full;
+		@apply my-2 w-full;
 	}
 
 	tr {

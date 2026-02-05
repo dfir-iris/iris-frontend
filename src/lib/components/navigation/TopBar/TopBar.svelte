@@ -207,9 +207,6 @@
 
 <SwitchContextModal
 	open={showSwitchContext}
-	title="Switch Context"
 	onConfirm={switchContext}
-	onOpenChange={(openState) => {
-		showSwitchContext = openState;
-	}}
+	onOpenChange={(openState) => (showSwitchContext = openState)}
 />

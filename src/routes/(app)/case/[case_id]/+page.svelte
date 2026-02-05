@@ -7,6 +7,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import Badge from '$lib/components/ui/badge/badge.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
+	import { Ace, converter } from '$lib/components/common/Ace';
 	import {
 		ChartLineIcon,
 		ClipboardCheckIcon,
@@ -15,8 +16,8 @@
 		SettingsIcon,
 		ZapIcon
 	} from 'lucide-svelte';
-	import { Ace, converter } from '../../[components]/Ace';
 	import { CaseService } from '$lib/services/case.service';
+	import { CaseManageModal } from './components/CaseManageModal';
 
 	let { data }: { data: PageData } = $props();
 
@@ -34,6 +35,8 @@
 
 	let dirty = $derived(caseDescription !== baseDescription);
 	let safeHtml = $derived(DOMPurify.sanitize(converter.makeHtml(caseDescription ?? '')));
+
+	let showCaseManage = $state(false);
 
 	const getCaseId = (): number | null => {
 		const raw = page.params.case_id;
@@ -115,7 +118,7 @@
 				<div class="overflow-x-auto">
 					<div class="flex min-w-max flex-nowrap justify-between">
 						<div class="mr-2 flex">
-							<Button variant="secondary" class="mr-2">
+							<Button onclick={() => (showCaseManage = true)} variant="secondary" class="mr-2">
 								<SettingsIcon /> Manage
 							</Button>
 
@@ -199,3 +202,15 @@
 		<div>Loading...</div>
 	{/if}
 </div>
+
+<CaseManageModal
+	open={showCaseManage}
+	onOpenChange={(openState) => {
+		showCaseManage = openState;
+
+		if (!openState) {
+			refresh();
+		}
+	}}
+	currentCase={currentCase as Case}
+/>

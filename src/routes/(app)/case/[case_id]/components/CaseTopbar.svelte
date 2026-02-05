@@ -21,10 +21,10 @@
 	} from '$lib/components/ui/dropdown-menu';
 	import SeverityBadge from '$lib/components/ui/badge/severity-badge.svelte';
 	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
-	import CaseAddDropdown from '../../../routes/(app)/case/[case_id]/CaseAddDropdown.svelte';
 	import { Separator } from '$lib/components/ui/separator';
 	import type { Case } from '$lib/types/resources/case';
-	import type { CaseStatus, Severity } from '../ui/badge/types';
+	import type { CaseStatus, Severity } from '$lib/components/ui/badge/types';
+	import CaseAddDropdown from './CaseAddDropdown.svelte';
 
 	export let caseData: Case;
 

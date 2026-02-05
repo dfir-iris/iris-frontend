@@ -3,7 +3,7 @@
 	import type { LayoutData } from './$types';
 	import type { Case } from '$lib/types/resources/case';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import CaseTopbar from '$lib/components/navigation/CaseTopbar.svelte';
+	import CaseTopbar from './components/CaseTopbar.svelte';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 </script>
