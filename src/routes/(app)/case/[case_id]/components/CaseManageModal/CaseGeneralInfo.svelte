@@ -1,7 +1,9 @@
 <script lang="ts">
 	import DOMPurify from 'dompurify';
-	import { getContext } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import type { Case } from '$lib/types/resources/case';
+	import type { RequestResponse } from '$lib/services/api.service';
+	import { type User, UsersService } from '$lib/services/users.service';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import { converter } from '$lib/components/common/Ace';
 
@@ -12,6 +14,17 @@
 	const safeHtml = $derived(
 		DOMPurify.sanitize(converter.makeHtml(currentCase?.case_description ?? ''))
 	);
+
+	let openingUser = $state<User>();
+
+	onMount(async () => {
+		if (currentCase?.user_id) {
+			const getUserResponse = (await UsersService.get(currentCase?.user_id))
+				.data as unknown as RequestResponse<User>;
+
+			openingUser = getUserResponse.data as User;
+		}
+	});
 </script>
 
 <grid class="grid grid-cols-2 gap-0">
@@ -35,12 +48,12 @@
 	{/if}
 
 	{#if currentCase?.severity}
-		<div><b>Severity:</b> {currentCase.severity}</div>
+		<div><b>Severity:</b> {currentCase.severity?.severity_name}</div>
 	{/if}
 
 	<div><b>Open date:</b> {currentCase?.open_date}</div>
-	<div><b>Opening user:</b> {currentCase?.user_id}</div>
-	<div><b>Owner:</b> {currentCase?.owner.user_name}</div>
+	<div><b>Opening user:</b> {openingUser?.user_name}</div>
+	<div><b>Owner:</b> {currentCase?.owner?.user_name}</div>
 </grid>
 
 <h2 class="mb-2 mt-12 text-xl font-bold">Case description</h2>

@@ -99,7 +99,7 @@
 </script>
 
 <div
-	class="flex min-h-16 flex-col border-b bg-background p-2 shadow-sm xl:flex-row xl:items-center"
+	class="flex min-h-28 flex-col border-b bg-background p-2 shadow-sm xl:flex-row xl:items-center"
 >
 	<div class="flex grow items-center">
 		<!-- Case Icon Badge -->

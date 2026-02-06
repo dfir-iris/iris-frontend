@@ -1,13 +1,12 @@
 <script lang="ts">
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
-	import Input from '$lib/components/ui/input/input.svelte';
-	import * as Popover from '$lib/components/ui/popover';
-
 	import { CaseService } from '$lib/services/case.service';
 	import type { Case } from '$lib/types/resources/case';
 	import type { Paginated } from '$lib/services/api.service';
-	import { CheckIcon, ChevronDownIcon } from 'lucide-svelte';
+	import SearchSelect, {
+		type SelectOption
+	} from '$lib/components/common/selects/SearchSelect.svelte';
 
 	type SwitchContextModalProps = {
 		open: boolean;
@@ -25,26 +24,16 @@
 
 	let loading = $state(false);
 	let error = $state<string | null>(null);
+
 	let cases = $state<Case[]>([]);
-	let selectedCaseId = $state<string | undefined>(undefined);
+	let selectedCaseId = $state<string>('');
 
-	let casesFilter = $state('');
-	let popoverOpen = $state(false);
-
-	const selectedCaseLabel = $derived.by(() => {
-		if (!selectedCaseId) return 'Select Case';
-
-		const id = Number(selectedCaseId);
-		const c = cases.find((x) => x.case_id === id);
-		return c ? (c.case_name ?? '').trim() : `#${id}`;
-	});
-
-	const filteredCases = $derived.by(() => {
-		if (casesFilter === '') return cases;
-		return cases.filter((c) =>
-			(c.case_name ?? '').toLowerCase().includes(casesFilter.toLowerCase())
-		);
-	});
+	const options = $derived.by<SelectOption[]>(() =>
+		cases.map((c) => ({
+			value: String(c.case_id),
+			label: (c.case_name ?? '').trim() !== '' ? (c.case_name ?? '').trim() : `#${c.case_id}`
+		}))
+	);
 
 	const PER_PAGE = 100;
 	const MAX_PAGES = 250;
@@ -56,7 +45,7 @@
 		loading = true;
 		error = null;
 		cases = [];
-		selectedCaseId = undefined;
+		selectedCaseId = '';
 
 		try {
 			const seen = new Set<number>();
@@ -85,13 +74,8 @@
 		}
 	};
 
-	const chooseCase = (id: number) => {
-		selectedCaseId = String(id);
-		popoverOpen = false;
-	};
-
 	const handleConfirm = () => {
-		if (!selectedCaseId) return;
+		if (selectedCaseId === '') return;
 		onConfirm(Number(selectedCaseId));
 		onOpenChange(false);
 	};
@@ -101,8 +85,6 @@
 	$effect(() => {
 		if (!open) {
 			didLoadForOpen = false;
-			popoverOpen = false;
-			casesFilter = '';
 			return;
 		}
 
@@ -110,10 +92,6 @@
 			didLoadForOpen = true;
 			void loadAllCases();
 		}
-	});
-
-	$effect(() => {
-		if (popoverOpen) casesFilter = '';
 	});
 </script>
 
@@ -124,45 +102,14 @@
 		</Dialog.Header>
 
 		<div class="grid gap-4 py-4">
-			<Popover.Root bind:open={popoverOpen}>
-				<Popover.Trigger>
-					{#snippet child({ props })}
-						<Button {...props} type="button" variant="outline" class="w-full justify-between">
-							<span class="truncate">{selectedCaseLabel}</span>
-							<ChevronDownIcon size="16" />
-						</Button>
-					{/snippet}
-				</Popover.Trigger>
-
-				<Popover.Content class="w-[calc(525px-3rem)] max-w-[calc(100vw-3rem)] p-2">
-					<Input
-						type="text"
-						placeholder="Search cases..."
-						bind:value={casesFilter}
-						class="mb-2 w-full"
-					/>
-
-					<div class="max-h-72 overflow-auto">
-						{#if filteredCases.length === 0}
-							<div class="px-2 py-2 text-sm opacity-70">No matches</div>
-						{:else}
-							{#each filteredCases as c (c.case_id)}
-								<button
-									type="button"
-									class="flex w-full items-center justify-between rounded-md px-2 py-2 text-left hover:bg-muted"
-									onclick={() => chooseCase(c.case_id)}
-								>
-									<span class="truncate">{c.case_name ?? ''}</span>
-
-									{#if selectedCaseId === String(c.case_id)}
-										<CheckIcon size="16" />
-									{/if}
-								</button>
-							{/each}
-						{/if}
-					</div>
-				</Popover.Content>
-			</Popover.Root>
+			<SearchSelect
+				value={selectedCaseId}
+				{options}
+				placeholder="Select Case"
+				searchPlaceholder="Search cases..."
+				disabled={loading}
+				onChange={(v) => (selectedCaseId = v)}
+			/>
 
 			{#if loading}
 				<div class="text-sm opacity-80">Loading cases...</div>
@@ -175,7 +122,7 @@
 
 		<Dialog.Footer>
 			<Button variant="outline" onclick={() => onOpenChange(false)}>Close</Button>
-			<Button onclick={handleConfirm} disabled={!selectedCaseId || loading}>Switch</Button>
+			<Button onclick={handleConfirm} disabled={selectedCaseId === '' || loading}>Switch</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
