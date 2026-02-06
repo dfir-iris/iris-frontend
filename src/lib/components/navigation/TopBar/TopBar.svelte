@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { getContext } from 'svelte';
 	import {
 		DatabaseIcon,
@@ -16,47 +16,30 @@
 		TooltipTrigger
 	} from '$lib/components/ui/tooltip';
 	import type { Case } from '$lib/types/resources/case';
-	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
-	import { CaseService } from '$lib/services/case.service';
+	import { CASES_CTX } from '$lib/contexts/cases.context.svelte';
+	import type { CasesContext } from '$lib/contexts/cases.context.svelte';
 	import { goto } from '$app/navigation';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import ActionButton from './ActionButton.svelte';
 	import SwitchContextModal from './SwitchContextModal.svelte';
 	import QuickActions from './QuickActions.svelte';
 
-	const app = getContext<AppContext>(APP_CTX);
+	const cases = getContext<CasesContext>(CASES_CTX);
 
-	$: pathname = $page.url.pathname;
-	$: currentCaseID = app.state.currentCaseID;
+	const case_id = $derived<number>(cases.currentCaseId());
+	const currentCase = $derived<Case>(cases.currentCase());
+	const currentCaseTitle = $derived<string>(currentCase?.case_name);
+	const caseBasePath = $derived<string>(`/case/${case_id}`);
+	const pathname = $derived<string>(page.url.pathname);
 
-	let currentCaseName: string | null = null;
-	let lastFetchedCaseId: number | null = null;
+	let showGoToCase = $state(false);
+	let showSwitchContext = $state(false);
+	let showQuickActions = $state(false);
 
-	$: if (currentCaseID && currentCaseID !== lastFetchedCaseId) {
-		lastFetchedCaseId = currentCaseID;
-		currentCaseName = null;
-
-		CaseService.get(currentCaseID).then((res) => {
-			if (lastFetchedCaseId !== currentCaseID) return;
-
-			if (res?.ok && res.data) {
-				const c = res.data as Case;
-				currentCaseName = c.case_name ?? null;
-			}
-		});
-	}
-
-	$: currentCaseTitle = currentCaseID ? `${currentCaseName ?? 'Current Case'}` : `Current Case`;
-	$: caseBasePath = `/case/${currentCaseID}`;
-
-	$: showGoToCase = false;
-	$: showSwitchContext = false;
-	$: showQuickActions = false;
-
-	let caseNumber: number | null = null;
+	let caseNumber = $state<number | null>(null);
 
 	const gotoCase = async () => {
-		if (caseNumber) {
+		if (caseNumber !== null) {
 			showGoToCase = false;
 			await goto(`/case/${caseNumber}`);
 		}
@@ -102,7 +85,7 @@
 <header
 	class="sticky top-0 flex max-h-16 min-h-16 items-center justify-between bg-primary-gradient p-4 text-gray-100 drop-shadow-lg"
 >
-	{#if pathname.startsWith('/case') && pathname !== '/cases'}
+	{#if case_id !== null && pathname.startsWith('/case') && pathname !== '/cases'}
 		<div class="flex items-center overflow-auto">
 			<button
 				onclick={() => (showSwitchContext = true)}
@@ -118,10 +101,11 @@
 					<button
 						class={`rounded-lg px-3 py-2 hover:bg-white/10 ${
 							button.path === ''
-								? pathname === `/case/${currentCaseID}` || pathname === `/case/${currentCaseID}/`
+								? pathname === caseBasePath || pathname === `${caseBasePath}/`
 									? 'bg-white/10'
 									: ''
-								: pathname === `/case/${currentCaseID}/${button.path}`
+								: pathname === `${caseBasePath}/${button.path}` ||
+									  pathname === `${caseBasePath}/${button.path}/`
 									? 'bg-white/10'
 									: ''
 						}`}

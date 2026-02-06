@@ -2,7 +2,6 @@
 	import { getContext } from 'svelte';
 	import type { Case } from '$lib/types/resources/case';
 	import type { UpdateCaseBody } from '$lib/services/case.service';
-	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import Ace from '$lib/components/common/Ace/Ace.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -17,7 +16,6 @@
 
 	let { onDelete, onClose, onCancel, onSave }: CaseEditorProps = $props();
 
-	const app = getContext<AppContext>(APP_CTX);
 	const cases = getContext<CasesContext>(CASES_CTX);
 
 	let currentCase = $state<Case | null>(null);
@@ -28,7 +26,7 @@
 	let description = $state('');
 
 	$effect(() => {
-		const c = cases.byId[app.state.currentCaseID] ?? null;
+		const c = cases.currentCase() ?? null;
 
 		currentCase = c;
 

@@ -2,14 +2,12 @@
 	import DOMPurify from 'dompurify';
 	import { getContext } from 'svelte';
 	import type { Case } from '$lib/types/resources/case';
-	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import { converter } from '$lib/components/common/Ace';
 
-	const app = getContext<AppContext>(APP_CTX);
 	const cases = getContext<CasesContext>(CASES_CTX);
 
-	const currentCase = $derived<Case | null>(cases.byId[app.state.currentCaseID] ?? null);
+	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
 
 	const safeHtml = $derived(
 		DOMPurify.sanitize(converter.makeHtml(currentCase?.case_description ?? ''))

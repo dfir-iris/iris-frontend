@@ -5,7 +5,6 @@
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
 	import type { UpdateCaseBody } from '$lib/services/case.service';
 	import type { Case } from '$lib/types/resources/case';
-	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
 	import CaseGeneralInfo from './CaseGeneralInfo.svelte';
@@ -19,12 +18,9 @@
 
 	let { open, onOpenChange }: CaseManageModalProps = $props();
 
-	const app = getContext<AppContext>(APP_CTX);
 	const cases = getContext<CasesContext>(CASES_CTX);
-
-	const case_id = app.state.currentCaseID;
-
-	let currentCase = $derived<Case | null>(cases.byId[case_id] ?? null);
+	const case_id = cases.currentCaseId();
+	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
 
 	let showConfirmDelete = $state(false);
 	let showConfirmClose = $state(false);
@@ -121,7 +117,7 @@
 <ConfirmationDialog
 	bind:open={showConfirmClose}
 	title="Are you sure?"
-	message={`Case ID ${currentCase?.case_id} will be closed and will not appear in contexts anymore.`}
+	message={`Case ID ${case_id} will be closed and will not appear in contexts anymore.`}
 	onConfirm={() => {}}
 	onCancel={() => (showConfirmClose = false)}
 />

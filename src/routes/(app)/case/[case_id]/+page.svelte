@@ -21,8 +21,8 @@
 	const app = getContext<AppContext>(APP_CTX);
 	const cases = getContext<CasesContext>(CASES_CTX);
 
-	const case_id = app.state.currentCaseID;
-	let currentCase = $derived<Case | null>(cases.byId[case_id] ?? null);
+	const case_id = cases.currentCaseId();
+	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
 
 	let caseDescription = $state('');
 	let baseDescription = $state('');

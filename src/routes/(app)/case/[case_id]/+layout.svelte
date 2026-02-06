@@ -1,20 +1,18 @@
 <script lang="ts">
 	import { getContext, onMount, type Snippet } from 'svelte';
 	import type { Case } from '$lib/types/resources/case';
-	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import CaseTopbar from './components/CaseTopbar.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
-	const app = getContext<AppContext>(APP_CTX);
 	const cases = getContext<CasesContext>(CASES_CTX);
 
-	const currentCase = $derived<Case | null>(cases.byId[app.state.currentCaseID] ?? null);
+	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
 
 	onMount(() => {
-		cases.load({ case_ids: [app.state.currentCaseID] });
+		cases.load({ case_ids: [cases.currentCaseId()] });
 	});
 </script>
 

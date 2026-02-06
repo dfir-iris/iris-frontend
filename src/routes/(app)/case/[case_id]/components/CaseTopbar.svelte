@@ -13,7 +13,6 @@
 	} from 'lucide-svelte';
 	import type { Case } from '$lib/types/resources/case';
 	import type { CaseStatus, Severity } from '$lib/components/ui/badge/types';
-	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import {
 		DropdownMenu,
@@ -29,7 +28,6 @@
 	import { Separator } from '$lib/components/ui/separator';
 	import CaseAddDropdown from './CaseAddDropdown.svelte';
 
-	const app = getContext<AppContext>(APP_CTX);
 	const cases = getContext<CasesContext>(CASES_CTX);
 
 	type IconComponent = typeof Shield | typeof Activity;
@@ -56,7 +54,7 @@
 	});
 
 	$effect(() => {
-		caseData = cases.byId[app.state.currentCaseID] ?? null;
+		caseData = cases.currentCase() ?? null;
 
 		const severityName = caseData?.severity?.severity_name ?? 'Unspecified';
 		const statusName = caseData?.state?.state_name ?? 'Unspecified';

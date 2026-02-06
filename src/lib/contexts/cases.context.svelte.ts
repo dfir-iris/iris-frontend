@@ -1,13 +1,14 @@
-import type { Case } from '$lib/types/resources/case';
+import { CaseService } from '$lib/services/case.service';
 import type { CaseIdentifier, ListCasesParams, UpdateCaseBody } from '$lib/services/case.service';
 import type { ApiOptions, Paginated } from '$lib/services/api.service';
-import { CaseService } from '$lib/services/case.service';
+import type { Case } from '$lib/types/resources/case';
+import type { AppContext } from './app.context.svelte';
 
 export const CASES_CTX = Symbol('cases');
 
 type Status = 'idle' | 'loading' | 'error';
 
-export const createCasesContext = (getId: (c: Case) => number) => {
+export const createCasesContext = (getId: (c: Case) => number, app: AppContext) => {
 	const byId = $state<Record<number, Case>>({});
 
 	const list = $state<{
@@ -75,7 +76,32 @@ export const createCasesContext = (getId: (c: Case) => number) => {
 		list.ids.map((id) => byId[id]).filter((c): c is Case => c !== undefined)
 	);
 
-	return { byId, list, cases, load, refresh, patch, reset };
+	const currentCaseId = $derived(() => app.state.currentCaseID);
+
+	const currentCase = $derived(() => {
+		const id = app.state.currentCaseID;
+		return byId[id] ?? null;
+	});
+
+	const ensureCurrentLoaded = async (options: ApiOptions = {}) => {
+		const id = app.state.currentCaseID;
+		if (byId[id]) return;
+
+		await refresh(options);
+	};
+
+	return {
+		byId,
+		list,
+		cases,
+		currentCaseId,
+		currentCase,
+		ensureCurrentLoaded,
+		load,
+		refresh,
+		patch,
+		reset
+	};
 };
 
 export type CasesContext = ReturnType<typeof createCasesContext>;

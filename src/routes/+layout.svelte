@@ -6,23 +6,25 @@
 	import { Toaster } from '$lib/components/ui/toast';
 	import { handleSessionExpiration } from '$lib/utils/session-handler';
 	import { setContext, onMount } from 'svelte';
+	import { APP_CTX, createAppContext, type AppContext } from '$lib/contexts/app.context.svelte';
 	import {
 		CASES_CTX,
 		createCasesContext,
 		type CasesContext
 	} from '$lib/contexts/cases.context.svelte';
-	import { APP_CTX, createAppContext, type AppContext } from '$lib/contexts/app.context.svelte';
 
 	const { children } = $props();
-
-	const cases: CasesContext = createCasesContext((c) => c.case_id);
-	setContext(CASES_CTX, cases);
 
 	const app: AppContext = createAppContext();
 	setContext(APP_CTX, app);
 
-	onMount(() => {
+	const cases: CasesContext = createCasesContext((c) => c.case_id, app);
+	setContext(CASES_CTX, cases);
+
+	onMount(async () => {
 		app.init();
+
+		await cases.load({ case_ids: [cases.currentCaseId()] });
 	});
 
 	$effect.pre(() => {

@@ -2,13 +2,11 @@
 	import { HistoryIcon } from 'lucide-svelte';
 	import { getContext } from 'svelte';
 	import type { Case } from '$lib/types/resources/case';
-	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import { Popover, PopoverContent, PopoverTrigger } from '$lib/components/ui/popover';
 
-	const app = getContext<AppContext>(APP_CTX);
 	const cases = getContext<CasesContext>(CASES_CTX);
-	const currentCase = $derived<Case | null>(cases.byId[app.state.currentCaseID] ?? null);
+	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
 
 	let showCaseHistory = $state(false);
 </script>
