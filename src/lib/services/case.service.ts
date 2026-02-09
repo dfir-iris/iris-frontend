@@ -56,6 +56,16 @@ export interface UpdateCaseBody {
 	case_description?: string;
 }
 
+export type CaseAccessLevel = 1 | 2 | 4;
+
+export interface CaseAccessUserRow {
+	user_id: number;
+	user_name: string;
+	user_login: string;
+	user_access_level: CaseAccessLevel;
+	user_email?: string;
+}
+
 export class CaseService {
 	static async list(
 		params: ListCasesParams = {},
@@ -93,5 +103,12 @@ export class CaseService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
 		return ApiService.delete<null>(`/api/v2/cases/${caseId}`, options);
+	}
+
+	static async listAccessUsers(
+		caseId: CaseIdentifier,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<CaseAccessUserRow[]>> {
+		return ApiService.get<CaseAccessUserRow[]>(`/api/v2/cases/${caseId}/access/users`, options);
 	}
 }

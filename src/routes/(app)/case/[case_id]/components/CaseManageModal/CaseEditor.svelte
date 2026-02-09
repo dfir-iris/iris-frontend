@@ -43,8 +43,7 @@
 	let { onDelete, onClose, onCancel, onSave }: CaseEditorProps = $props();
 
 	const cases = getContext<CasesContext>(CASES_CTX);
-
-	let currentCase = $state<Case | null>(null);
+	const currentCase = cases.currentCase as unknown as Case;
 
 	let caseName = $state('');
 	let socId = $state('');
@@ -123,24 +122,20 @@
 	});
 
 	$effect(() => {
-		const c = cases.currentCase();
+		if (!currentCase) return;
 
-		currentCase = c;
+		caseName = currentCase.case_name;
+		socId = currentCase.case_soc_id;
+		tagsCsv = (currentCase.tags ?? []).map((t) => t.tag_title).join(', ');
+		description = currentCase.case_description ?? '';
 
-		if (!c) return;
-
-		caseName = c.case_name;
-		socId = c.case_soc_id;
-		tagsCsv = (c.tags ?? []).map((t) => t.tag_title).join(', ');
-		description = c.case_description ?? '';
-
-		caseClassificationId = String(c.classification_id);
-		ownerId = String(c.owner?.id);
-		caseStateId = String(c.state?.state_id);
-		statusId = String(c.status_id);
-		customerId = String(c.case_customer?.customer_id);
-		reviewerId = String(c.reviewer_id);
-		severityId = String(c.severity?.severity_id);
+		caseClassificationId = String(currentCase.classification_id);
+		ownerId = String(currentCase.owner?.id);
+		caseStateId = String(currentCase.state?.state_id);
+		statusId = String(currentCase.status_id);
+		customerId = String(currentCase.case_customer?.customer_id);
+		reviewerId = String(currentCase.reviewer_id);
+		severityId = String(currentCase.severity?.severity_id);
 	});
 
 	const save = async () => {

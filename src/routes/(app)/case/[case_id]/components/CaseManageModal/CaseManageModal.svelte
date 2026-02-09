@@ -10,6 +10,7 @@
 	import CaseGeneralInfo from './CaseGeneralInfo.svelte';
 	import CaseModificationHistory from './CaseModificationHistory.svelte';
 	import CaseEditor from './CaseEditor.svelte';
+	import CaseAccess from './CaseAccess.svelte';
 
 	type CaseManageModalProps = {
 		open: boolean;
@@ -89,7 +90,16 @@
 				</TabsContent>
 
 				<TabsContent value="access">
-					<div class="w-full border-b pb-2 text-lg">Access</div>
+					<div class="flex flex-col pb-2 text-lg">
+						<div class="mb-2 flex justify-between">
+							<div class="text-3xl font-bold">Case access</div>
+						</div>
+
+						<CaseAccess
+							onDelete={() => (showConfirmDelete = true)}
+							onClose={() => (showConfirmClose = true)}
+						/>
+					</div>
 				</TabsContent>
 			</div>
 		</Tabs>
