@@ -9,7 +9,7 @@
 		label: string;
 	};
 
-	type Props = {
+	export type SearchSelectProps = {
 		value: string;
 		options: SelectOption[];
 		placeholder: string;
@@ -25,7 +25,7 @@
 		searchPlaceholder,
 		disabled = false,
 		onChange
-	}: Props = $props();
+	}: SearchSelectProps = $props();
 
 	let open = $state(false);
 	let filter = $state('');

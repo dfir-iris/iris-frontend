@@ -1,12 +1,19 @@
 <script lang="ts">
-	import type { ColumnDef } from '@tanstack/svelte-table';
+	import { renderComponent, type ColumnDef } from '@tanstack/svelte-table';
 	import { getContext, onMount } from 'svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
-	import { CaseAccessService, type CaseAccessEntry } from '$lib/services/case-access.service';
+	import {
+		AccessLevel,
+		CaseAccessService,
+		type CaseAccessEntry
+	} from '$lib/services/case-access.service';
 	import type { RequestResponse } from '$lib/services/api.service';
 	import { UsersService, type User } from '$lib/services/users.service';
 	import DataTable from '$lib/components/ui/data-table-tanstack/data-table.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
+	import SearchSelect, {
+		type SearchSelectProps
+	} from '$lib/components/common/selects/SearchSelect.svelte';
 
 	type Access = {
 		name: string;
@@ -18,30 +25,70 @@
 		onClose?: () => void;
 	};
 
-	const columns: ColumnDef<{ user: User; access: Access | null }>[] = [
+	const accessOptions = [
+		{
+			value: String(AccessLevel.DENY_ALL),
+			label: 'Deny All'
+		},
+		{
+			value: String(AccessLevel.READ_ONLY),
+			label: 'Read Only'
+		},
+		{
+			value: String(AccessLevel.FULL_ACCESS),
+			label: 'Full Access'
+		}
+	];
+
+	const columns: ColumnDef<unknown>[] = [
 		{
 			id: 'user_id',
 			header: () => 'User ID',
-			accessorFn: (row) => row.user.user_id,
-			cell: (cell) => cell.getValue()
+			accessorKey: 'user.user_id'
 		},
 		{
 			id: 'user_name',
 			header: 'User Name',
-			accessorFn: (row) => row.user.user_name,
-			cell: (cell) => cell.getValue()
+			accessorKey: 'user.user_name'
 		},
 		{
 			id: 'user_login',
 			header: 'User Login',
-			accessorFn: (row) => row.user.user_login,
-			cell: (cell) => cell.getValue()
+			accessorKey: 'user.user_login'
 		},
 		{
 			id: 'access_name',
 			header: 'User Access',
-			accessorFn: (row) => row.access?.name ?? 'no access',
-			cell: (cell) => cell.getValue()
+			cell: (cell) =>
+				renderComponent(SearchSelect, {
+					value: String(
+						(cell.row?.original as { access: Access | null }).access?.level ?? AccessLevel.DENY_ALL
+					),
+					options: accessOptions,
+					onChange: (value) => {
+						const user_id = (cell.row?.original as { user: User }).user.user_id;
+						const access_level = Number(value);
+
+						usersAccess = usersAccess.map((userAccess) =>
+							userAccess.user.user_id === user_id
+								? {
+										...userAccess,
+										access: {
+											name:
+												accessOptions.find((option) => Number(option.value) === access_level)
+													?.label ?? 'Unkown',
+											level: access_level
+										}
+									}
+								: userAccess
+						);
+
+						CaseAccessService.setUserCasesAccess(user_id, {
+							cases_list: [currentCaseId],
+							access_level
+						});
+					}
+				} as SearchSelectProps)
 		}
 	];
 
@@ -88,7 +135,7 @@
 	});
 </script>
 
-<div class="flex flex-col overflow-hidden rounded border bg-card">
+<div class="flex flex-col overflow-hidden bg-card">
 	<DataTable {columns} data={usersAccess} page={1} />
 </div>
 
