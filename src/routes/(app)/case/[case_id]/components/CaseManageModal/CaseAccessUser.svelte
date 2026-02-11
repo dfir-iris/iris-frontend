@@ -14,31 +14,8 @@
 	import SearchSelect, {
 		type SearchSelectProps
 	} from '$lib/components/common/selects/SearchSelect.svelte';
-
-	type Access = {
-		name: string;
-		level: number;
-	};
-
-	type CaseAccessProps = {
-		onDelete?: () => void;
-		onClose?: () => void;
-	};
-
-	const accessOptions = [
-		{
-			value: String(AccessLevel.DENY_ALL),
-			label: 'Deny All'
-		},
-		{
-			value: String(AccessLevel.READ_ONLY),
-			label: 'Read Only'
-		},
-		{
-			value: String(AccessLevel.FULL_ACCESS),
-			label: 'Full Access'
-		}
-	];
+	import type { Access, CaseAccessProps } from './types';
+	import { ACCESS_OPTIONS } from './consts';
 
 	const columns: ColumnDef<unknown>[] = [
 		{
@@ -57,14 +34,14 @@
 			accessorKey: 'user.user_login'
 		},
 		{
-			id: 'access_name',
+			id: 'access_select',
 			header: 'User Access',
 			cell: (cell) =>
 				renderComponent(SearchSelect, {
 					value: String(
 						(cell.row?.original as { access: Access | null }).access?.level ?? AccessLevel.DENY_ALL
 					),
-					options: accessOptions,
+					options: ACCESS_OPTIONS,
 					onChange: (value) => {
 						const user_id = (cell.row?.original as { user: User }).user.user_id;
 						const access_level = Number(value);
@@ -75,7 +52,7 @@
 										...userAccess,
 										access: {
 											name:
-												accessOptions.find((option) => Number(option.value) === access_level)
+												ACCESS_OPTIONS.find((option) => Number(option.value) === access_level)
 													?.label ?? 'Unkown',
 											level: access_level
 										}
@@ -99,7 +76,7 @@
 
 	let usersAccess = $state<Array<{ user: User; access: Access | null }>>([]);
 
-	onMount(async () => {
+	const refresh = async () => {
 		const usersResponse = (await UsersService.list()).data as unknown as RequestResponse<User[]>;
 		const users = usersResponse.data as User[];
 
@@ -132,14 +109,24 @@
 		}
 
 		usersAccess = rows;
-	});
+	};
+
+	onMount(() => refresh());
 </script>
 
 <div class="flex flex-col overflow-hidden bg-card">
+	<div class="my-4 mb-6 flex items-center justify-between">
+		<div class="flex text-3xl font-bold">Case access</div>
+
+		<div class="flex gap-6">
+			<Button onclick={() => refresh()}>Refresh</Button>
+		</div>
+	</div>
+
 	<DataTable {columns} data={usersAccess} page={1} />
 </div>
 
-<div class="mt-8 flex justify-end gap-2">
-	<Button type="button" variant="destructive" onclick={onDelete}>Delete case</Button>
-	<Button type="button" variant="secondary" onclick={onClose}>Close case</Button>
+<div class="mt-8 flex justify-end gap-6">
+	<Button variant="destructive" onclick={onDelete}>Delete case</Button>
+	<Button variant="secondary" onclick={onClose}>Close case</Button>
 </div>

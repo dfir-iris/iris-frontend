@@ -11,7 +11,6 @@
 	import { SeveritiesService, type Severity } from '$lib/services/severities.service';
 	import type { UpdateCaseBody } from '$lib/services/case.service';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
-	import Ace from '$lib/components/common/Ace/Ace.svelte';
 	import SearchSelect, {
 		type SelectOption
 	} from '$lib/components/common/selects/SearchSelect.svelte';
@@ -43,7 +42,7 @@
 	let { onDelete, onClose, onCancel, onSave }: CaseEditorProps = $props();
 
 	const cases = getContext<CasesContext>(CASES_CTX);
-	const currentCase = cases.currentCase as unknown as Case;
+	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
 
 	let caseName = $state('');
 	let socId = $state('');
@@ -310,18 +309,14 @@
 		</div>
 	</div>
 
-	<h2 class="text-xl font-bold">Case description</h2>
-
-	<Ace value={description} onChange={(v) => (description = v)} />
-
 	<div class="flex justify-between">
-		<div class="flex gap-2">
-			<Button type="button" variant="destructive" onclick={onDelete}>Delete case</Button>
-			<Button type="button" variant="secondary" onclick={onClose}>Close case</Button>
+		<div class="flex gap-6">
+			<Button variant="destructive" onclick={onDelete}>Delete case</Button>
+			<Button variant="secondary" onclick={onClose}>Close case</Button>
 		</div>
 
-		<div class="flex gap-2">
-			<Button type="button" variant="secondary" onclick={cancel}>Cancel</Button>
+		<div class="flex gap-6">
+			<Button variant="secondary" onclick={cancel}>Cancel</Button>
 			<Button type="submit" variant="destructive">Save</Button>
 		</div>
 	</div>

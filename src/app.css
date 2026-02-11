@@ -194,4 +194,20 @@
 	td {
 		@apply border px-2 py-1 text-left;
 	}
+
+	h1 {
+		@apply text-2xl;
+	}
+
+	h2 {
+		@apply text-xl;
+	}
+
+	h2 {
+		@apply text-lg;
+	}
+
+	ul {
+		@apply list-disc pl-4;
+	}
 }

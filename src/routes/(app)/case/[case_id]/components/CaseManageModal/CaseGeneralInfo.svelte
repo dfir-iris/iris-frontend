@@ -1,19 +1,13 @@
 <script lang="ts">
-	import DOMPurify from 'dompurify';
 	import { getContext, onMount } from 'svelte';
 	import type { Case } from '$lib/types/resources/case';
 	import type { RequestResponse } from '$lib/services/api.service';
 	import { type User, UsersService } from '$lib/services/users.service';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
-	import { converter } from '$lib/components/common/Ace';
 
 	const cases = getContext<CasesContext>(CASES_CTX);
 
 	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
-
-	const safeHtml = $derived(
-		DOMPurify.sanitize(converter.makeHtml(currentCase?.case_description ?? ''))
-	);
 
 	let openingUser = $state<User>();
 
@@ -55,10 +49,3 @@
 	<div><b>Opening user:</b> {openingUser?.user_name}</div>
 	<div><b>Owner:</b> {currentCase?.owner?.user_name}</div>
 </grid>
-
-<h2 class="mb-2 mt-12 text-xl font-bold">Case description</h2>
-
-<p class="prose dark:prose-invert max-w-none">
-	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-	{@html safeHtml}
-</p>
