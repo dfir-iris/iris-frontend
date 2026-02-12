@@ -2,10 +2,9 @@
 	import { getContext, onMount } from 'svelte';
 	import { renderComponent, type ColumnDef } from '@tanstack/svelte-table';
 	import { Button } from '$lib/components/ui/button';
-	import type { Case } from '$lib/types/resources/case';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import DataTable from '$lib/components/ui/data-table-tanstack/data-table.svelte';
-	import type { Access, CaseAccessProps } from './types';
+	import type { CaseAccessProps } from './types';
 	import { GroupsService, type Group } from '$lib/services/groups.service';
 	import type { RequestResponse } from '$lib/services/api.service';
 	import { AccessLevel, CaseAccessService } from '$lib/services/case-access.service';
@@ -60,8 +59,7 @@
 						CaseAccessService.setGroupCasesAccess(group_id, {
 							cases_list: [currentCaseId],
 							access_level,
-							auto_follow_cases: true
-						});
+						}).then(() => refresh());
 					}
 				} as SearchSelectProps)
 		}
@@ -80,10 +78,10 @@
 				.data as unknown as RequestResponse<unknown>;
 
 			const caseAccess = caseAccessResponse.data as unknown as {
-				group_auto_follow_access_level: number;
+				group_cases_access: {access_level: number, case_id: number}[];
 			};
 
-			const access_level = caseAccess.group_auto_follow_access_level;
+			const access_level = caseAccess.group_cases_access.find(access => access.case_id === currentCaseId)?.access_level ?? 0;
 
 			rows.push({ group, access_level });
 		}
