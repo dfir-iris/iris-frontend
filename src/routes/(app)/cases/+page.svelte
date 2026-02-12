@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
+	import { getContext } from 'svelte';
 
 	import CasesDataTable from '$lib/components/common/cases-data-table.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -11,9 +12,13 @@
 	import type { RequestResponse, Paginated } from '$lib/services/api.service';
 	import type { Case } from '$lib/types/resources/case';
 
+	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
+
+	const cases = getContext<CasesContext>(CASES_CTX);
+
 	let search = $state('');
 	let currentPage = $state(1);
-	let cases = $state<Promise<RequestResponse<Paginated<Case>>> | null>(null);
+	let casesPaginated = $state<Promise<RequestResponse<Paginated<Case>>> | null>(null);
 
 	function updateUrl(params: { search?: string; page?: number }) {
 		const url = new URL(page.url);
@@ -48,7 +53,9 @@
 			case_name: urlSearch || undefined
 		};
 
-		cases = CaseService.list(params);
+		casesPaginated = CaseService.list(params);
+
+		cases.load(params);
 	});
 
 	let didInitSearch = false;
@@ -83,13 +90,13 @@
 
 		<Searchbar placeholder="Search cases" bind:value={search} />
 
-		<Button href="/case/open">
+		<Button onclick={() => (cases.ui.showAddModal = true)}>
 			<PlusIcon />
 			Open Case
 		</Button>
 	</div>
 
-	{#if cases}
-		<CasesDataTable class="flex grow" {cases} />
+	{#if casesPaginated}
+		<CasesDataTable class="flex grow" cases={casesPaginated} />
 	{/if}
 </div>

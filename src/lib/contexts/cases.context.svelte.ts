@@ -1,5 +1,10 @@
 import { CaseService } from '$lib/services/case.service';
-import type { CaseIdentifier, ListCasesParams, UpdateCaseBody } from '$lib/services/case.service';
+import type {
+	CaseIdentifier,
+	ListCasesParams,
+	UpdateCaseBody,
+	CreateCaseBody
+} from '$lib/services/case.service';
 import type { ApiOptions, Paginated } from '$lib/services/api.service';
 import type { Case } from '$lib/types/resources/case';
 import type { AppContext } from './app.context.svelte';
@@ -21,6 +26,10 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 		ids: [],
 		status: 'idle',
 		error: null
+	});
+
+	const ui = $state({
+		showAddModal: false
 	});
 
 	const load = async (params: ListCasesParams = {}, options: ApiOptions = {}) => {
@@ -47,6 +56,26 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 
 	const refresh = async (options: ApiOptions = {}) => load(list.params, options);
 
+	const create = async (body: CreateCaseBody, options: ApiOptions = {}) => {
+		const res = await CaseService.create(body, options);
+
+		if (res.ok && !res.error && res.data !== null && typeof res.data !== 'string') {
+			const c = res.data;
+			byId[getId(c)] = c;
+
+			const id = getId(c);
+			if (!list.ids.includes(id)) {
+				list.ids = [id, ...list.ids];
+			}
+
+			return res;
+		}
+
+		await refresh(options);
+
+		return res;
+	};
+
 	const patch = async (id: CaseIdentifier, body: UpdateCaseBody, options: ApiOptions = {}) => {
 		const prev = byId[id];
 
@@ -70,6 +99,7 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 		list.ids = [];
 		list.status = 'idle';
 		list.error = null;
+		ui.showAddModal = false;
 	};
 
 	const cases = $derived(() =>
@@ -93,12 +123,14 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 	return {
 		byId,
 		list,
+		ui,
 		cases,
 		currentCaseId,
 		currentCase,
 		ensureCurrentLoaded,
 		load,
 		refresh,
+		create,
 		patch,
 		reset
 	};

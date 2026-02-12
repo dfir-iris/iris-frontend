@@ -59,7 +59,7 @@
 	};
 
 	const createCase = () => {
-		console.log('Create Case');
+		cases.ui.showAddModal = true;
 	};
 
 	const topBarButtons = [

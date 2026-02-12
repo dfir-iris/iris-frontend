@@ -35,7 +35,7 @@ export interface CustomerBody {
 
 export class CustomersService {
 	static async list(options: ApiOptions = {}): Promise<RequestResponse<Customer[]>> {
-		return ApiService.get<Customer[]>(`/manage/customers/list`, options);
+		return ApiService.get<Customer[]>(`/manage/customers`, options);
 	}
 
 	static async get(

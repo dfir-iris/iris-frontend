@@ -16,7 +16,7 @@
 	import Badge from '$lib/components/ui/badge/badge.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { Ace, converter } from '$lib/components/common/Ace';
-	import { CaseManageModal } from './components/CaseManageModal';
+	import { CaseManageModal } from '../../[components]/CaseModals';
 
 	const app = getContext<AppContext>(APP_CTX);
 	const cases = getContext<CasesContext>(CASES_CTX);
