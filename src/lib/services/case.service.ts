@@ -32,7 +32,7 @@ export interface ListCasesParams {
 export interface CreateCaseBody {
 	case_name: string;
 	case_description: string;
-	case_customer: number;
+	case_customer_id: number;
 	case_soc_id: string;
 
 	custom_attributes?: Record<string, unknown>;

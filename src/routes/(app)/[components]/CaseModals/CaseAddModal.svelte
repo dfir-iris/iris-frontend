@@ -103,28 +103,26 @@
 		const body: CreateCaseBody = {
 			case_name: name,
 			case_description: desc,
-			case_customer: cid,
+			case_customer_id: cid,
 			case_soc_id: socTicketId.trim()
 		};
 
 		if (caseTemplateId !== '') body.case_template_id = Number(caseTemplateId);
 		if (classificationId !== '') body.classification_id = Number(classificationId);
 
-		submitting = true;
-		try {
-			const res = await createCase(body);
+		const res = await createCase(body);
 
-			if (!res.ok || res.error || res.data === null || typeof res.data === 'string') {
-				error = res.error?.message ?? 'Failed to create case';
-				return;
-			}
+		if (!res.ok || res.error || res.data === null || typeof res.data === 'string') {
+			error = res.error?.message ?? 'Failed to create case';
 
-			const created = res.data as Case;
-			onOpenChange(false);
-			await goto(`/case/${created.case_id}`);
-		} finally {
-			submitting = false;
+			return;
 		}
+
+		const created = res.data as Case;
+
+		onOpenChange(false);
+
+		await goto(`/case/${created.case_id}`);
 	};
 </script>
 
@@ -204,9 +202,7 @@
 				{/if}
 
 				<div class="flex justify-end pt-2">
-					<Button type="submit" disabled={submitting}>
-						{submitting ? 'Creating...' : 'Create'}
-					</Button>
+					<Button type="submit">Create</Button>
 				</div>
 			</form>
 		</div>

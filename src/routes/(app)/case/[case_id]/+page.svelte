@@ -9,6 +9,7 @@
 		ZapIcon
 	} from 'lucide-svelte';
 	import { getContext } from 'svelte';
+	import { page } from '$app/state';
 	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import type { Case } from '$lib/types/resources/case';
@@ -40,14 +41,22 @@
 	let showCaseManage = $state(false);
 
 	$effect(() => {
+		const raw = page.params.case_id;
+		const next = Number(raw);
+		if (!Number.isInteger(next)) return;
+
+		if (app.state.currentCaseID !== next) {
+			app.state.currentCaseID = next;
+		}
+	});
+
+	$effect(() => {
 		if (!currentCase) return;
 
 		baseDescription = currentCase.case_description ?? '';
 		caseDescription = baseDescription;
 
 		loadedTime = new Date();
-
-		app.state.currentCaseID = case_id;
 	});
 
 	const refresh = async () => {
