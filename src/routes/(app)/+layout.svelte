@@ -1,21 +1,34 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
-	import Topbar from '$lib/components/navigation/Topbar.svelte';
+	import { getContext, type Snippet } from 'svelte';
 	import { SideBar } from '$lib/components/navigation/SideBar';
+	import TopBar from '$lib/components/navigation/TopBar/TopBar.svelte';
+	import { CaseAddModal } from './[components]/CaseModals';
+	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 
 	let { children }: { children: Snippet } = $props();
+
+	const cases = getContext<CasesContext>(CASES_CTX);
+	const showCaseAdd = $derived<boolean>(cases.ui.showAddModal);
 </script>
 
-<svelte:head>
-	<title>Dashboard | DFIR-IRIS</title>
-</svelte:head>
-
-<div class="fixed m-0 flex h-screen w-screen overflow-auto dark:bg-background">
+<div class="flex h-screen w-full overflow-hidden dark:bg-background">
 	<SideBar />
 
-	<main class="w-full">
-		<Topbar></Topbar>
+	<main class="flex min-w-0 grow flex-col">
+		<TopBar />
 
-		{@render children()}
+		<div class="flex min-w-0 grow overflow-auto">
+			{@render children()}
+		</div>
 	</main>
 </div>
+
+<CaseAddModal
+	open={showCaseAdd}
+	onOpenChange={(openState) => {
+		cases.ui.showAddModal = openState;
+
+		// if (!openState) {
+		// }
+	}}
+/>

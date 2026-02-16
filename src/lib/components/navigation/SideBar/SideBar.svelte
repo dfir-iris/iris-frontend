@@ -18,7 +18,9 @@
 			<img src="/img/logo/logo-white.png" alt="IRIS Logo" class="mx-4 h-7" />
 		{/if}
 
-		<div class="mx-1 flex justify-center text-gray-100 transition-all hover:opacity-80">
+		<div
+			class="mx-1 flex items-center justify-center text-gray-100 transition-all hover:opacity-80"
+		>
 			<MenuIcon class="size-7 cursor-pointer" onclick={() => (collapsed = !collapsed)} />
 		</div>
 	</div>

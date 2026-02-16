@@ -2,8 +2,8 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { AlertCircle, AlertTriangle, ShieldAlert, CircleDot, HelpCircle } from 'lucide-svelte';
 	import * as Tooltip from '$lib/components/ui/tooltip';
+	import type { Severity } from './types';
 
-	type Severity = 'Unspecified' | 'Low' | 'Medium' | 'High' | 'Critical';
 	export let severity: Severity;
 	export let icon_only: boolean = false;
 

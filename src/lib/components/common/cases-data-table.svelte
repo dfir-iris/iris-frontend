@@ -75,7 +75,7 @@
 	];
 </script>
 
-<div class="{className} flex overflow-hidden rounded border bg-card pt-1">
+<div class="{className} flex overflow-hidden bg-card">
 	{#await cases}
 		<!-- Loading state -->
 		<div class="space-y-2 overflow-clip p-4">

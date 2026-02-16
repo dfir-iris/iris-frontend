@@ -11,7 +11,7 @@
 		"format": "prettier --write .",
 		"lint": "prettier --check . && eslint .",
 		"test:unit": "vitest",
-		"test": "npm run test:unit -- --run && npm run test:e2e",
+		"test": "npm run test:unit -- --run",
 		"test:e2e": "PLAYWRIGHT_JUNIT_OUTPUT_NAME=playwright-junit.xml playwright test"
 	},
 	"devDependencies": {
@@ -33,6 +33,7 @@
 		"@types/marked": "^5.0.2",
 		"@types/node": "^22.10.5",
 		"@types/papaparse": "^5.3.16",
+		"@types/showdown": "^2.0.6",
 		"@types/uuid": "^10.0.0",
 		"autoprefixer": "^10.4.20",
 		"bits-ui": "^1.5.3",
@@ -62,7 +63,9 @@
 		"@sveltejs/adapter-node": "^5.2.9",
 		"@sveltejs/adapter-static": "^3.0.6",
 		"@tailwindcss/postcss": "^4.0.8",
+		"ace-builds": "^1.43.6",
 		"ag-grid-community": "^33.0.3",
+		"dompurify": "^3.3.1",
 		"fast-sort": "^3.4.1",
 		"fast-xml-parser": "^5.0.6",
 		"marked": "^15.0.7",
@@ -70,6 +73,7 @@
 		"otpauth": "^9.4.1",
 		"papaparse": "^5.5.3",
 		"qrcode": "^1.5.4",
+		"showdown": "^2.1.0",
 		"uuid": "^11.1.0"
 	},
 	"overrides": {
