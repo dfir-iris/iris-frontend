@@ -11,24 +11,70 @@
 
 	let {
 		cases,
-		class: className = ''
+		class: className = '',
+		page = $bindable(),
+		onPageChange,
+		pageSize = 10
 	}: {
 		cases: Promise<RequestResponse<Paginated<Case>>>;
 		class?: string;
+		page?: number;
+		onPageChange?: (page: number) => void;
+		pageSize?: number;
 	} = $props();
 
-	// Columns configuration
+	if (page === undefined) page = 1;
+
+	let loading = $state(true);
+	let res = $state<RequestResponse<Paginated<Case>> | null>(null);
+
+	let suppressEmit = false;
+	let lastEmitted = page;
+
+	const syncFromServer = (p: number) => {
+		suppressEmit = true;
+		page = p;
+		lastEmitted = p;
+
+		queueMicrotask(() => (suppressEmit = false));
+	};
+
+	$effect(() => {
+		if (suppressEmit) return;
+		if (page === lastEmitted) return;
+
+		lastEmitted = page as number;
+		onPageChange?.(page as number);
+	});
+
+	$effect(() => {
+		let cancelled = false;
+
+		loading = true;
+		res = null;
+
+		(async () => {
+			const out = await cases;
+			if (cancelled) return;
+
+			res = out;
+			loading = false;
+
+			syncFromServer((out?.data as Paginated<Case>).current_page);
+		})();
+
+		return () => (cancelled = true);
+	});
+
 	const columns: ColumnDef<Case>[] = [
 		{
 			accessorKey: 'case_name',
 			header: () => 'Title',
-			cell: (cell) => {
-				console.log(cell.row.original);
-				return renderComponent(LinkCell, {
+			cell: (cell) =>
+				renderComponent(LinkCell, {
 					href: `/case/${cell.row.original.case_id}`,
 					label: `${cell.getValue()}`
-				});
-			}
+				})
 		},
 		{
 			accessorKey: 'open_date',
@@ -76,8 +122,7 @@
 </script>
 
 <div class="{className} flex overflow-hidden bg-card">
-	{#await cases}
-		<!-- Loading state -->
+	{#if loading}
 		<div class="space-y-2 overflow-clip p-4">
 			<div class="grid grid-cols-5 gap-4 border-b">
 				<Skeleton class="h-6" />
@@ -96,7 +141,13 @@
 				</div>
 			{/each}
 		</div>
-	{:then { data }}
-		<DataTable {columns} data={data.data} page={data.current_page}></DataTable>
-	{/await}
+	{:else}
+		<DataTable
+			columns={columns as unknown as ColumnDef<unknown>[]}
+			data={(res?.data as Paginated<Case>).data}
+			bind:page
+			{pageSize}
+			totalPages={(res?.data as Paginated<Case>).last_page as number}
+		/>
+	{/if}
 </div>

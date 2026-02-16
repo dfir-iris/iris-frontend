@@ -5,7 +5,7 @@ import type {
 	UpdateCaseBody,
 	CreateCaseBody
 } from '$lib/services/case.service';
-import type { ApiOptions, Paginated } from '$lib/services/api.service';
+import type { ApiOptions, Paginated, RequestResponse } from '$lib/services/api.service';
 import type { Case } from '$lib/types/resources/case';
 import type { AppContext } from './app.context.svelte';
 
@@ -54,9 +54,51 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 		list.status = 'idle';
 	};
 
+	// IMPORTANT: always creates a fresh request/promise
+	const listPaginated = (params: ListCasesParams = {}, options: ApiOptions = {}) => {
+		const p = CaseService.list(params, options) as Promise<RequestResponse<Paginated<Case>>>;
+
+		// optionally hydrate cache in the background when it resolves
+		void (async () => {
+			const res = await p;
+
+			if (!res.ok || res.error || res.data === null || typeof res.data === 'string') return;
+
+			const page: Paginated<Case> = res.data;
+
+			for (const c of page.data) byId[getId(c)] = c;
+
+			// keep list state consistent with latest request
+			list.params = params;
+			list.ids = page.data.map(getId);
+			list.status = 'idle';
+			list.error = null;
+		})();
+
+		return p;
+	};
+
 	const refresh = async (options: ApiOptions = {}) => load(list.params, options);
 
-	const create = async (body: CreateCaseBody, options: ApiOptions = {}) => {
+	const get = async (id: CaseIdentifier, options: ApiOptions = {}): Promise<Case | null> => {
+		const res = await CaseService.get(id, options);
+
+		if (res.ok && !res.error && res.data !== null && typeof res.data !== 'string') {
+			const c = res.data;
+			byId[getId(c)] = c;
+
+			if (!list.ids.includes(id)) {
+				list.ids = [id, ...list.ids];
+			}
+
+			return c;
+		}
+
+		await refresh(options);
+		return byId[id] ?? null;
+	};
+
+	const create = async (body: CreateCaseBody, options: ApiOptions = {}): Promise<Case | null> => {
 		const res = await CaseService.create(body, options);
 
 		if (res.ok && !res.error && res.data !== null && typeof res.data !== 'string') {
@@ -68,15 +110,18 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 				list.ids = [id, ...list.ids];
 			}
 
-			return res;
+			return c;
 		}
 
 		await refresh(options);
-
-		return res;
+		return null;
 	};
 
-	const patch = async (id: CaseIdentifier, body: UpdateCaseBody, options: ApiOptions = {}) => {
+	const patch = async (
+		id: CaseIdentifier,
+		body: UpdateCaseBody,
+		options: ApiOptions = {}
+	): Promise<Case | null> => {
 		const prev = byId[id];
 
 		if (prev) byId[id] = { ...prev, ...(body as Partial<Case>) };
@@ -86,10 +131,54 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 		if (res.ok && !res.error && res.data !== null && typeof res.data !== 'string') {
 			const c = res.data;
 			byId[getId(c)] = c;
-			return;
+			return c;
 		}
 
 		await refresh(options);
+		return await get(id, options);
+	};
+
+	const remove = async (id: CaseIdentifier, options: ApiOptions = {}): Promise<boolean> => {
+		const prev = byId[id];
+
+		if (prev) delete byId[id];
+		if (list.ids.includes(id)) list.ids = list.ids.filter((x) => x !== id);
+
+		const res = await CaseService.remove(id, options);
+
+		if (res.ok && !res.error) return true;
+
+		if (prev) byId[id] = prev;
+		if (!list.ids.includes(id)) list.ids = [id, ...list.ids];
+
+		await refresh(options);
+		return false;
+	};
+
+	const close = async (id: CaseIdentifier, options: ApiOptions = {}): Promise<Case | null> => {
+		const prev = byId[id];
+		if (prev) byId[id] = { ...prev, close_date: new Date().toISOString() };
+
+		const res = await CaseService.close(id, options);
+
+		if (!res.ok || res.error) {
+			return await get(id, options);
+		}
+
+		return await get(id, options);
+	};
+
+	const reopen = async (id: CaseIdentifier, options: ApiOptions = {}): Promise<Case | null> => {
+		const prev = byId[id];
+		if (prev) byId[id] = { ...prev, close_date: null };
+
+		const res = await CaseService.reopen(id, options);
+
+		if (!res.ok || res.error) {
+			return await get(id, options);
+		}
+
+		return await get(id, options);
 	};
 
 	const reset = () => {
@@ -99,6 +188,7 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 		list.ids = [];
 		list.status = 'idle';
 		list.error = null;
+
 		ui.showAddModal = false;
 	};
 
@@ -113,11 +203,11 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 		return byId[id] ?? null;
 	});
 
-	const ensureCurrentLoaded = async (options: ApiOptions = {}) => {
+	const ensureCurrentLoaded = async (options: ApiOptions = {}): Promise<Case | null> => {
 		const id = app.state.currentCaseID;
-		if (byId[id]) return;
+		if (byId[id]) return byId[id];
 
-		await refresh(options);
+		return await get(id, options);
 	};
 
 	return {
@@ -129,9 +219,14 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 		currentCase,
 		ensureCurrentLoaded,
 		load,
+		listPaginated,
 		refresh,
+		get,
 		create,
 		patch,
+		remove,
+		close,
+		reopen,
 		reset
 	};
 };

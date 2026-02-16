@@ -20,6 +20,7 @@
 		class?: string;
 		page?: number;
 		pageSize?: number;
+		totalPages?: number;
 	};
 
 	let {
@@ -27,7 +28,8 @@
 		columns,
 		class: className = '',
 		page = $bindable(),
-		pageSize = 10
+		pageSize = 10,
+		totalPages: totalPagesProp
 	}: Props<unknown> = $props();
 
 	if (page === undefined) page = 1;
@@ -137,9 +139,19 @@
 		});
 	});
 
-	const totalPages = $derived.by(() =>
-		Math.max(1, Math.ceil(sorted.length / Math.max(1, pageSize)))
-	);
+	const totalPages = $derived.by(() => {
+		const computed = Math.max(1, Math.ceil(sorted.length / Math.max(1, pageSize)));
+
+		if (
+			typeof totalPagesProp === 'number' &&
+			Number.isFinite(totalPagesProp) &&
+			totalPagesProp >= 1
+		) {
+			return Math.max(1, Math.floor(totalPagesProp));
+		}
+
+		return computed;
+	});
 
 	const clampedPage = $derived.by(() => Math.min(Math.max(1, page ?? 1), totalPages));
 
@@ -148,6 +160,14 @@
 	});
 
 	const paged = $derived.by(() => {
+		if (
+			typeof totalPagesProp === 'number' &&
+			Number.isFinite(totalPagesProp) &&
+			totalPagesProp >= 1
+		) {
+			return sorted;
+		}
+
 		const ps = Math.max(1, pageSize);
 		const start = (clampedPage - 1) * ps;
 		return sorted.slice(start, start + ps);

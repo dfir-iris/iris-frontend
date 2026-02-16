@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
+	import { goto } from '$app/navigation';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
@@ -21,8 +22,8 @@
 	let { open, onOpenChange }: CaseManageModalProps = $props();
 
 	const cases = getContext<CasesContext>(CASES_CTX);
-	const case_id = cases.currentCaseId();
-	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
+	const case_id = $derived(cases.currentCaseId());
+	const currentCase = $derived<Case | null>(cases.currentCase());
 
 	let showConfirmDelete = $state(false);
 	let showConfirmClose = $state(false);
@@ -118,13 +119,21 @@
 		</Tabs>
 
 		{#if !editing && activeTab === 'info'}
-			<Dialog.Footer>
-				<Button variant="destructive" onclick={() => (showConfirmDelete = true)}>
-					Delete Case
-				</Button>
+			{#key `${case_id}:${currentCase?.close_date ?? ''}`}
+				<Dialog.Footer>
+					<Button variant="destructive" onclick={() => (showConfirmDelete = true)}>
+						Delete Case
+					</Button>
 
-				<Button variant="secondary" onclick={() => (showConfirmClose = true)}>Close Case</Button>
-			</Dialog.Footer>
+					{#if currentCase?.close_date}
+						<Button onclick={async () => await cases.reopen(case_id)}>Reopen Case</Button>
+					{:else}
+						<Button variant="secondary" onclick={() => (showConfirmClose = true)}>
+							Close Case
+						</Button>
+					{/if}
+				</Dialog.Footer>
+			{/key}
 		{/if}
 	</Dialog.Content>
 </Dialog.Root>
@@ -133,7 +142,10 @@
 	bind:open={showConfirmDelete}
 	title="Are you sure?"
 	message="You are about to delete this case forever. This cannot be reverted. All associated data will be deleted."
-	onConfirm={() => {}}
+	onConfirm={async () => {
+		await cases.remove(case_id);
+		goto('/cases');
+	}}
 	onCancel={() => (showConfirmDelete = false)}
 />
 
@@ -141,6 +153,6 @@
 	bind:open={showConfirmClose}
 	title="Are you sure?"
 	message={`Case ID ${case_id} will be closed and will not appear in contexts anymore.`}
-	onConfirm={() => {}}
+	onConfirm={async () => await cases.close(case_id)}
 	onCancel={() => (showConfirmClose = false)}
 />

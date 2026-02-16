@@ -9,8 +9,6 @@
 		ZapIcon
 	} from 'lucide-svelte';
 	import { getContext } from 'svelte';
-	import { page } from '$app/state';
-	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import type { Case } from '$lib/types/resources/case';
 	import * as Card from '$lib/components/ui/card';
@@ -19,7 +17,6 @@
 	import { Ace, converter } from '$lib/components/common/Ace';
 	import { CaseManageModal } from '../../[components]/CaseModals';
 
-	const app = getContext<AppContext>(APP_CTX);
 	const cases = getContext<CasesContext>(CASES_CTX);
 
 	const case_id = cases.currentCaseId();
@@ -39,16 +36,6 @@
 	let safeHtml = $derived(DOMPurify.sanitize(converter.makeHtml(caseDescription ?? '')));
 
 	let showCaseManage = $state(false);
-
-	$effect(() => {
-		const raw = page.params.case_id;
-		const next = Number(raw);
-		if (!Number.isInteger(next)) return;
-
-		if (app.state.currentCaseID !== next) {
-			app.state.currentCaseID = next;
-		}
-	});
 
 	$effect(() => {
 		if (!currentCase) return;

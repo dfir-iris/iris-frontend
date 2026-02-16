@@ -312,7 +312,12 @@
 	<div class="flex justify-between">
 		<div class="flex gap-6">
 			<Button variant="destructive" onclick={onDelete}>Delete case</Button>
-			<Button variant="secondary" onclick={onClose}>Close case</Button>
+
+			{#if currentCase?.close_date}
+				<Button onclick={async () => await cases.reopen(currentCase?.case_id)}>Reopen Case</Button>
+			{:else}
+				<Button variant="secondary" onclick={() => onClose}>Close Case</Button>
+			{/if}
 		</div>
 
 		<div class="flex gap-6">

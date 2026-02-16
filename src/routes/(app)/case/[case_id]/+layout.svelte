@@ -1,17 +1,27 @@
 <script lang="ts">
-	import { getContext, onMount, type Snippet } from 'svelte';
-	import type { Case } from '$lib/types/resources/case';
+	import { getContext, type Snippet } from 'svelte';
+	import { page } from '$app/state';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import CaseTopbar from './components/CaseTopbar.svelte';
+	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
+	import type { Case } from '$lib/types/resources/case';
 
 	let { children }: { children: Snippet } = $props();
 
+	const app = getContext<AppContext>(APP_CTX);
 	const cases = getContext<CasesContext>(CASES_CTX);
 
 	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
 
-	onMount(() => {
+	$effect(() => {
+		const case_id = Number(page.params.case_id);
+		if (!Number.isInteger(case_id)) return;
+
+		if (app.state.currentCaseID !== case_id) {
+			app.state.currentCaseID = case_id;
+		}
+
 		cases.load({ case_ids: [cases.currentCaseId()] });
 	});
 </script>
@@ -28,7 +38,6 @@
 	</div>
 {:else}
 	<div class="flex w-full grow flex-col bg-background">
-		<!-- NO PROPS -->
 		<CaseTopbar />
 
 		<div class="flex grow overflow-y-auto bg-muted">

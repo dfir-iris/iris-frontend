@@ -1,26 +1,25 @@
 <script lang="ts">
+	import { PlusIcon } from 'lucide-svelte';
+	import { getContext } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { getContext } from 'svelte';
-
-	import CasesDataTable from '$lib/components/common/cases-data-table.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import Label from '$lib/components/ui/label/label.svelte';
+	import Checkbox from '$lib/components/ui/checkbox/checkbox.svelte';
 	import Searchbar from '$lib/components/ui/searchbar/searchbar.svelte';
-	import { PlusIcon } from 'lucide-svelte';
-
-	import { CaseService, type ListCasesParams } from '$lib/services/case.service';
+	import CasesDataTable from '$lib/components/common/cases-data-table.svelte';
 	import type { RequestResponse, Paginated } from '$lib/services/api.service';
 	import type { Case } from '$lib/types/resources/case';
-
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 
 	const cases = getContext<CasesContext>(CASES_CTX);
 
 	let search = $state('');
+	let showClosed = $state(false);
 	let currentPage = $state(1);
 	let casesPaginated = $state<Promise<RequestResponse<Paginated<Case>>> | null>(null);
 
-	function updateUrl(params: { search?: string; page?: number }) {
+	const updateUrl = (params: { search?: string; page?: number; showClosed?: boolean }) => {
 		const url = new URL(page.url);
 
 		if (params.search !== undefined) {
@@ -34,28 +33,35 @@
 			else url.searchParams.set('page', String(params.page));
 		}
 
+		if (params.showClosed !== undefined) {
+			if (!params.showClosed) url.searchParams.delete('show_closed');
+			else url.searchParams.set('show_closed', '1');
+		}
+
 		const nextHref = `${url.pathname}${url.search}`;
 		const curHref = `${page.url.pathname}${page.url.search}`;
 		if (nextHref === curHref) return;
 
 		void goto(nextHref, { replaceState: true, keepFocus: true, noScroll: true });
-	}
+	};
 
 	$effect(() => {
 		const urlSearch = page.url.searchParams.get('search') ?? '';
 		const urlPage = Number(page.url.searchParams.get('page') ?? '1') || 1;
+		const urlShowClosed = (page.url.searchParams.get('show_closed') ?? '') === '1';
 
 		search = urlSearch;
 		currentPage = urlPage;
+		showClosed = urlShowClosed;
 
-		const params: ListCasesParams = {
+		const params = {
 			page: urlPage,
-			case_name: urlSearch || undefined
+			per_page: 10,
+			case_name: urlSearch.trim() === '' ? undefined : urlSearch.trim(),
+			is_open: urlShowClosed ? undefined : true
 		};
 
-		casesPaginated = CaseService.list(params);
-
-		cases.load(params);
+		casesPaginated = cases.listPaginated(params);
 	});
 
 	let didInitSearch = false;
@@ -66,7 +72,6 @@
 
 		if (!didInitSearch) {
 			didInitSearch = true;
-
 			return;
 		}
 
@@ -84,9 +89,21 @@
 
 <div class="flex grow flex-col gap-4 p-4">
 	<div class="flex flex-row items-center gap-4">
-		<h1>Cases</h1>
+		<h1>{showClosed ? 'All Cases' : 'Open Cases'}</h1>
 
 		<div class="ml-auto"></div>
+
+		<div class="flex items-center space-x-2 rounded p-1 hover:bg-muted/50">
+			<Checkbox
+				id="show_closed"
+				checked={showClosed}
+				onCheckedChange={(checked) => updateUrl({ showClosed: checked === true, page: 1 })}
+			/>
+
+			<Label for="show_closed" class="w-full cursor-pointer text-sm font-normal">
+				Show closed cases
+			</Label>
+		</div>
 
 		<Searchbar placeholder="Search cases" bind:value={search} />
 
@@ -97,6 +114,11 @@
 	</div>
 
 	{#if casesPaginated}
-		<CasesDataTable class="flex grow" cases={casesPaginated} />
+		<CasesDataTable
+			class="flex grow"
+			cases={casesPaginated}
+			page={currentPage}
+			onPageChange={(p) => updateUrl({ page: p })}
+		/>
 	{/if}
 </div>

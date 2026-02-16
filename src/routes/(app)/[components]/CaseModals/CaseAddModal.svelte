@@ -14,7 +14,6 @@
 		type CaseClassification
 	} from '$lib/services/case-classifications.service';
 	import type { RequestResponse } from '$lib/services/api.service';
-	import type { Case } from '$lib/types/resources/case';
 
 	type CaseAddModalProps = {
 		open: boolean;
@@ -74,8 +73,6 @@
 		submitting = false;
 	});
 
-	const createCase = async (body: CreateCaseBody) => cases.create(body);
-
 	const onSubmit = async (event: SubmitEvent) => {
 		event.preventDefault();
 		if (submitting) return;
@@ -110,15 +107,13 @@
 		if (caseTemplateId !== '') body.case_template_id = Number(caseTemplateId);
 		if (classificationId !== '') body.classification_id = Number(classificationId);
 
-		const res = await createCase(body);
+		const created = await cases.create(body);
 
-		if (!res.ok || res.error || res.data === null || typeof res.data === 'string') {
-			error = res.error?.message ?? 'Failed to create case';
+		if (!created) {
+			error = 'Faled to create case';
 
 			return;
 		}
-
-		const created = res.data as Case;
 
 		onOpenChange(false);
 
