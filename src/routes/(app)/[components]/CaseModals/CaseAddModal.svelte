@@ -8,6 +8,7 @@
 		type SelectOption
 	} from '$lib/components/common/selects/SearchSelect.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { CustomersService, type Customer } from '$lib/services/customers.service';
 	import {
 		CaseClassificationsService,
@@ -129,74 +130,75 @@
 			<Dialog.Title class="text-xl font-semibold">Create a new case</Dialog.Title>
 		</Dialog.Header>
 
-		<div class="flex w-full flex-col px-8 py-6">
+		<div class="flex w-full flex-col px-8">
 			<p class="text-sm text-muted-foreground">Fields with an asterisk are required.</p>
 			<p class="mt-2 text-sm text-muted-foreground">
 				Access to the case can be granted to other users once the case is created. Users pertaining
 				to the customer will be able to see the case by default.
 			</p>
 
-			<form class="mt-8 flex flex-col gap-6" onsubmit={onSubmit}>
-				<SearchSelect
-					value={customerId}
-					options={customerOptions}
-					placeholder="Select customer *"
-					searchPlaceholder="Search customer..."
-					onChange={(v) => (customerId = v)}
-				/>
-
-				<div class="flex items-center overflow-hidden rounded-lg border bg-background">
-					<div class="w-44 bg-muted/40 px-4 py-3 text-sm font-medium">Case name *</div>
-					<input
-						class="min-w-0 grow bg-background px-4 py-3 text-sm outline-none"
-						autocomplete="off"
-						bind:value={caseName}
-					/>
+			<form class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2" onsubmit={onSubmit}>
+				<div class="flex flex-col gap-2">
+					<div class="text-sm font-medium">Case name *</div>
+					<Input class="text-sm" autocomplete="off" bind:value={caseName} />
 				</div>
 
-				<SearchSelect
-					value={caseTemplateId}
-					options={templateOptions}
-					placeholder="Select case template"
-					searchPlaceholder="Search template..."
-					onChange={(v) => (caseTemplateId = v)}
-				/>
-
-				<SearchSelect
-					value={classificationId}
-					options={classificationOptions}
-					placeholder="Select classification"
-					searchPlaceholder="Search classification..."
-					onChange={(v) => (classificationId = v)}
-				/>
-
-				<div class="flex items-center overflow-hidden rounded-lg border bg-background">
-					<div class="w-44 bg-muted/40 px-4 py-3 text-sm font-medium">Short description *</div>
-					<input
-						class="min-w-0 grow bg-background px-4 py-3 text-sm outline-none"
-						autocomplete="off"
-						bind:value={shortDescription}
-					/>
-				</div>
-
-				<div class="flex items-center overflow-hidden rounded-lg border bg-background">
-					<div class="w-44 bg-muted/40 px-4 py-3 text-sm font-medium">SOC ticket ID</div>
-					<input
-						class="min-w-0 grow bg-background px-4 py-3 text-sm outline-none"
+				<div class="flex flex-col gap-2">
+					<div class="text-sm font-medium">SOC ticket ID</div>
+					<Input
+						class="bg-background text-sm outline-none"
 						autocomplete="off"
 						bind:value={socTicketId}
 					/>
 				</div>
 
+				<div class="flex flex-col gap-2">
+					<div class="text-sm font-medium">Case template</div>
+					<SearchSelect
+						value={caseTemplateId}
+						options={templateOptions}
+						placeholder="Select case template"
+						searchPlaceholder="Search template..."
+						onChange={(value) => (caseTemplateId = value as string)}
+					/>
+				</div>
+
+				<div class="flex flex-col gap-2">
+					<div class="text-sm font-medium">Classification</div>
+					<SearchSelect
+						value={classificationId}
+						options={classificationOptions}
+						placeholder="Select classification"
+						searchPlaceholder="Search classification..."
+						onChange={(value) => (classificationId = value as string)}
+					/>
+				</div>
+
+				<div class="flex flex-col gap-2">
+					<div class="text-sm font-medium">Customer *</div>
+					<SearchSelect
+						value={customerId}
+						options={customerOptions}
+						placeholder="Select customer"
+						searchPlaceholder="Search customer..."
+						onChange={(value) => (customerId = value as string)}
+					/>
+				</div>
+
+				<div class="flex flex-col gap-2">
+					<div class="text-sm font-medium">Short description *</div>
+					<Input class="text-sm" autocomplete="off" bind:value={shortDescription} />
+				</div>
+
 				{#if error}
 					<div
-						class="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+						class="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive sm:col-span-2"
 					>
 						{error}
 					</div>
 				{/if}
 
-				<div class="flex justify-end pt-2">
+				<div class="mb-6 mt-2 flex justify-end sm:col-span-2">
 					<Button type="submit">Create</Button>
 				</div>
 			</form>

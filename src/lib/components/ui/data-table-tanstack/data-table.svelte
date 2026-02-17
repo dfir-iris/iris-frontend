@@ -199,7 +199,7 @@
 </script>
 
 <div class={`w-full overflow-auto ${className}`}>
-	<table class="w-full table-fixed rounded-lg border">
+	<table class="w-full table-fixed rounded-lg border text-sm">
 		<thead>
 			<tr class="border-b">
 				{#each cols as col (col.key)}

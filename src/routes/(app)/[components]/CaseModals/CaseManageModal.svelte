@@ -10,9 +10,8 @@
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
 	import CaseGeneralInfo from './CaseGeneralInfo.svelte';
 	import CaseModificationHistory from './CaseModificationHistory.svelte';
+	import CaseAccess from './CaseAccess.svelte';
 	import CaseEditor from './CaseEditor.svelte';
-	import CaseAccessUser from './CaseAccessUser.svelte';
-	import CaseAccessGroup from './CaseAccessGroup.svelte';
 
 	type CaseManageModalProps = {
 		open: boolean;
@@ -64,20 +63,13 @@
 					>
 						User access
 					</TabsTrigger>
-
-					<TabsTrigger
-						value="group_access"
-						class="flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
-					>
-						Group access
-					</TabsTrigger>
 				</TabsList>
 			</div>
 
 			<div class="w-full">
 				<TabsContent value="info">
 					<div class="flex flex-col pb-2 text-lg">
-						<div class="mb-2 flex justify-between">
+						<div class="mb-8 flex justify-between">
 							<div class="text-3xl font-bold">General Info</div>
 
 							{#if !editing}
@@ -100,16 +92,7 @@
 
 				<TabsContent value="user_access">
 					<div class="flex flex-col pb-2 text-lg">
-						<CaseAccessUser
-							onDelete={() => (showConfirmDelete = true)}
-							onClose={() => (showConfirmClose = true)}
-						/>
-					</div>
-				</TabsContent>
-
-				<TabsContent value="group_access">
-					<div class="flex flex-col pb-2 text-lg">
-						<CaseAccessGroup
+						<CaseAccess
 							onDelete={() => (showConfirmDelete = true)}
 							onClose={() => (showConfirmClose = true)}
 						/>

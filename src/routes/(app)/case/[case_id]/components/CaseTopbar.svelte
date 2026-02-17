@@ -191,10 +191,11 @@
 			<DropdownMenuContent align="end">
 				<DropdownMenuLabel>Manage Case</DropdownMenuLabel>
 				<DropdownMenuSeparator />
-				<DropdownMenuItem>Edit Case Details</DropdownMenuItem>
-				<DropdownMenuItem>Manage Tags</DropdownMenuItem>
-				<DropdownMenuItem>Change Status</DropdownMenuItem>
-				<DropdownMenuItem>Change Severity</DropdownMenuItem>
+
+				<DropdownMenuItem onclick={() => (cases.ui.showManageModal = true)}>
+					Edit Case Details
+				</DropdownMenuItem>
+
 				<DropdownMenuSeparator />
 				<DropdownMenuItem>Export Case</DropdownMenuItem>
 				<DropdownMenuItem>Archive Case</DropdownMenuItem>

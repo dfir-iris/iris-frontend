@@ -16,6 +16,7 @@
 	} from '$lib/components/common/selects/SearchSelect.svelte';
 	import type { Access, CaseAccessProps } from './types';
 	import { ACCESS_OPTIONS } from './consts';
+	import CaseAccessGroup from './CaseAccessGroup.svelte';
 
 	const columns: ColumnDef<unknown>[] = [
 		{
@@ -75,6 +76,25 @@
 	const currentCaseId = cases.currentCaseId();
 
 	let usersAccess = $state<Array<{ user: User; access: Access | null }>>([]);
+	let setAccessViaGroup = $state(false);
+	let groupIds = $state<string[]>([]);
+	let groupAccess = $state<string>('');
+
+	const saveAccessViaGroup = async () => {
+		await Promise.all(
+			groupIds.map(async (groupId) => {
+				console.log('group:', groupId);
+				CaseAccessService.setGroupCasesAccess(Number(groupId), {
+					cases_list: [currentCaseId],
+					access_level: Number(groupAccess)
+				});
+			})
+		);
+
+		await refresh();
+
+		setAccessViaGroup = false;
+	};
 
 	const refresh = async () => {
 		const usersResponse = (await UsersService.list()).data as unknown as RequestResponse<User[]>;
@@ -118,15 +138,34 @@
 	<div class="my-4 mb-6 flex items-center justify-between">
 		<div class="flex text-3xl font-bold">Case access</div>
 
-		<div class="flex gap-6">
-			<Button onclick={() => refresh()}>Refresh</Button>
-		</div>
+		{#if !setAccessViaGroup}
+			<div class="flex gap-6">
+				<Button onclick={() => (setAccessViaGroup = true)}>Set access via group</Button>
+				<Button onclick={() => refresh()}>Refresh</Button>
+			</div>
+		{/if}
 	</div>
 
-	<DataTable {columns} data={usersAccess} page={1} />
+	{#if setAccessViaGroup}
+		<CaseAccessGroup bind:groupIds bind:access={groupAccess} />
+	{:else}
+		<DataTable {columns} data={usersAccess} page={1} />
+	{/if}
 </div>
 
-<div class="mt-8 flex justify-end gap-6">
-	<Button variant="destructive" onclick={onDelete}>Delete case</Button>
-	<Button variant="secondary" onclick={onClose}>Close case</Button>
+<div class="flex">
+	<div class="mt-8 flex grow gap-6">
+		<Button variant="destructive" onclick={onDelete}>Delete case</Button>
+		<Button variant="secondary" onclick={onClose}>Close case</Button>
+	</div>
+
+	{#if setAccessViaGroup}
+		<div class="mt-8 flex justify-end gap-6">
+			<Button variant="destructive" onclick={() => saveAccessViaGroup()}>
+				Set Access Via Group
+			</Button>
+
+			<Button variant="secondary" onclick={() => (setAccessViaGroup = false)}>Cancel</Button>
+		</div>
+	{/if}
 </div>

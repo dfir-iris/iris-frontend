@@ -6,6 +6,7 @@
 	import CaseTopbar from './components/CaseTopbar.svelte';
 	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
 	import type { Case } from '$lib/types/resources/case';
+	import { CaseManageModal } from '../../[components]/CaseModals';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -13,6 +14,11 @@
 	const cases = getContext<CasesContext>(CASES_CTX);
 
 	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
+
+	const refresh = async () => {
+		const id = cases.currentCaseId();
+		await cases.load({ case_ids: [id] });
+	};
 
 	$effect(() => {
 		const case_id = Number(page.params.case_id);
@@ -45,3 +51,14 @@
 		</div>
 	</div>
 {/if}
+
+<CaseManageModal
+	open={cases.ui.showManageModal}
+	onOpenChange={(openState) => {
+		cases.ui.showManageModal = openState;
+
+		if (!openState) {
+			refresh();
+		}
+	}}
+/>

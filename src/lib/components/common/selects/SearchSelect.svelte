@@ -10,12 +10,13 @@
 	};
 
 	export type SearchSelectProps = {
-		value: string;
+		value: string | string[];
 		options: SelectOption[];
 		placeholder: string;
 		searchPlaceholder: string;
 		disabled?: boolean;
-		onChange: (value: string) => void;
+		multiple?: boolean;
+		onChange: (value: string | string[]) => void;
 	};
 
 	const {
@@ -24,16 +25,30 @@
 		placeholder,
 		searchPlaceholder,
 		disabled = false,
+		multiple = false,
 		onChange
 	}: SearchSelectProps = $props();
 
 	let open = $state(false);
 	let filter = $state('');
+	let selectAllEl = $state();
 
 	const selectedLabel = $derived.by(() => {
-		if (value === '') return placeholder;
-		const option = options.find((option) => option.value === value);
-		return option ? option.label : placeholder;
+		if (!multiple) {
+			if (value === '') return placeholder;
+			const option = options.find((option) => option.value === value);
+			return option ? option.label : placeholder;
+		}
+
+		const values = Array.isArray(value) ? value : [];
+		if (values.length === 0) return placeholder;
+
+		const labels = values
+			.map((v) => options.find((o) => o.value === v)?.label)
+			.filter((x): x is string => typeof x === 'string');
+
+		if (labels.length <= 2) return labels.join(', ');
+		return `${values.length} selected`;
 	});
 
 	const filteredOptions = $derived.by(() => {
@@ -42,13 +57,52 @@
 		return options.filter((option) => option.label.toLowerCase().includes(query));
 	});
 
+	const isSelected = (v: string) => {
+		if (!multiple) return value === v;
+		return Array.isArray(value) ? value.includes(v) : false;
+	};
+
 	const choose = (v: string) => {
-		onChange(v);
-		open = false;
+		if (!multiple) {
+			onChange(v);
+
+			open = false;
+			return;
+		}
+
+		const current = Array.isArray(value) ? value : [];
+		const next = current.includes(v) ? current.filter((x) => x !== v) : [...current, v];
+
+		onChange(next);
+	};
+
+	const allSelected = $derived.by(() => {
+		if (!multiple) return false;
+		const current = Array.isArray(value) ? value : [];
+		return options.length > 0 && current.length === options.length;
+	});
+
+	const someSelected = $derived.by(() => {
+		if (!multiple) return false;
+		const current = Array.isArray(value) ? value : [];
+		return current.length > 0 && current.length < options.length;
+	});
+
+	const toggleAll = () => {
+		if (!multiple) return;
+		if (allSelected) onChange([]);
+		else onChange(options.map((o) => o.value));
 	};
 
 	$effect(() => {
 		if (open) filter = '';
+	});
+
+	$effect(() => {
+		if (!multiple) return;
+		if (!selectAllEl) return;
+
+		(selectAllEl as HTMLInputElement).indeterminate = someSelected;
 	});
 </script>
 
@@ -72,6 +126,24 @@
 		/>
 
 		<div class="max-h-72 overflow-auto">
+			{#if multiple}
+				<button
+					type="button"
+					class="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-muted"
+					onclick={toggleAll}
+					{disabled}
+				>
+					<input
+						bind:this={selectAllEl}
+						type="checkbox"
+						checked={allSelected}
+						{disabled}
+						class="pointer-events-none"
+					/>
+					<span class="truncate font-semibold">Select all</span>
+				</button>
+			{/if}
+
 			{#if filteredOptions.length === 0}
 				<div class="px-2 py-2 text-sm opacity-70">No matches</div>
 			{:else}
@@ -82,9 +154,21 @@
 						onclick={() => choose(o.value)}
 						{disabled}
 					>
-						<span class="truncate">{o.label}</span>
-						{#if value === o.value}
-							<CheckIcon size="16" />
+						{#if multiple}
+							<span class="flex min-w-0 items-center gap-2">
+								<input
+									type="checkbox"
+									checked={isSelected(o.value)}
+									{disabled}
+									class="pointer-events-none"
+								/>
+								<span class="truncate">{o.label}</span>
+							</span>
+						{:else}
+							<span class="truncate">{o.label}</span>
+							{#if value === o.value}
+								<CheckIcon size="16" />
+							{/if}
 						{/if}
 					</button>
 				{/each}

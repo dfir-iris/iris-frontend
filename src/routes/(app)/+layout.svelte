@@ -25,10 +25,5 @@
 
 <CaseAddModal
 	open={showCaseAdd}
-	onOpenChange={(openState) => {
-		cases.ui.showAddModal = openState;
-
-		// if (!openState) {
-		// }
-	}}
+	onOpenChange={(openState) => (cases.ui.showAddModal = openState)}
 />

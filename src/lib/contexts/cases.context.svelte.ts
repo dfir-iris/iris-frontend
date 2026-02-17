@@ -29,7 +29,8 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 	});
 
 	const ui = $state({
-		showAddModal: false
+		showAddModal: false,
+		showManageModal: false
 	});
 
 	const load = async (params: ListCasesParams = {}, options: ApiOptions = {}) => {
@@ -190,6 +191,7 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 		list.error = null;
 
 		ui.showAddModal = false;
+		ui.showManageModal = false;
 	};
 
 	const cases = $derived(() =>

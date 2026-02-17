@@ -15,7 +15,6 @@
 	import Badge from '$lib/components/ui/badge/badge.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { Ace, converter } from '$lib/components/common/Ace';
-	import { CaseManageModal } from '../../[components]/CaseModals';
 
 	const cases = getContext<CasesContext>(CASES_CTX);
 
@@ -34,8 +33,6 @@
 
 	let dirty = $derived(caseDescription !== baseDescription);
 	let safeHtml = $derived(DOMPurify.sanitize(converter.makeHtml(caseDescription ?? '')));
-
-	let showCaseManage = $state(false);
 
 	$effect(() => {
 		if (!currentCase) return;
@@ -82,7 +79,11 @@
 				<div class="overflow-x-auto">
 					<div class="flex min-w-max flex-nowrap justify-between">
 						<div class="mr-2 flex">
-							<Button onclick={() => (showCaseManage = true)} variant="secondary" class="mr-2">
+							<Button
+								onclick={() => (cases.ui.showManageModal = true)}
+								variant="secondary"
+								class="mr-2"
+							>
 								<SettingsIcon /> Manage
 							</Button>
 
@@ -166,14 +167,3 @@
 		<div>Loading...</div>
 	{/if}
 </div>
-
-<CaseManageModal
-	open={showCaseManage}
-	onOpenChange={(openState) => {
-		showCaseManage = openState;
-
-		if (!openState) {
-			refresh();
-		}
-	}}
-/>
