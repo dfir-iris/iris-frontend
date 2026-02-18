@@ -9,17 +9,13 @@
 		ZapIcon
 	} from 'lucide-svelte';
 	import { getContext } from 'svelte';
-	import { page } from '$app/state';
-	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import type { Case } from '$lib/types/resources/case';
 	import * as Card from '$lib/components/ui/card';
 	import Badge from '$lib/components/ui/badge/badge.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { Ace, converter } from '$lib/components/common/Ace';
-	import { CaseManageModal } from '../../[components]/CaseModals';
 
-	const app = getContext<AppContext>(APP_CTX);
 	const cases = getContext<CasesContext>(CASES_CTX);
 
 	const case_id = cases.currentCaseId();
@@ -37,18 +33,6 @@
 
 	let dirty = $derived(caseDescription !== baseDescription);
 	let safeHtml = $derived(DOMPurify.sanitize(converter.makeHtml(caseDescription ?? '')));
-
-	let showCaseManage = $state(false);
-
-	$effect(() => {
-		const raw = page.params.case_id;
-		const next = Number(raw);
-		if (!Number.isInteger(next)) return;
-
-		if (app.state.currentCaseID !== next) {
-			app.state.currentCaseID = next;
-		}
-	});
 
 	$effect(() => {
 		if (!currentCase) return;
@@ -95,7 +79,11 @@
 				<div class="overflow-x-auto">
 					<div class="flex min-w-max flex-nowrap justify-between">
 						<div class="mr-2 flex">
-							<Button onclick={() => (showCaseManage = true)} variant="secondary" class="mr-2">
+							<Button
+								onclick={() => (cases.ui.showManageModal = true)}
+								variant="secondary"
+								class="mr-2"
+							>
 								<SettingsIcon /> Manage
 							</Button>
 
@@ -179,14 +167,3 @@
 		<div>Loading...</div>
 	{/if}
 </div>
-
-<CaseManageModal
-	open={showCaseManage}
-	onOpenChange={(openState) => {
-		showCaseManage = openState;
-
-		if (!openState) {
-			refresh();
-		}
-	}}
-/>

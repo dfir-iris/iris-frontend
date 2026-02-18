@@ -66,6 +66,16 @@ export interface CaseAccessUserRow {
 	user_email?: string;
 }
 
+export type FilterCasesParams = Omit<ListCasesParams, 'order_by' | 'is_open'>;
+
+export type FilterCasesMessage = {
+	total: number;
+	cases: Case[];
+	current_page?: number;
+	last_page?: number;
+	next_page?: number | null;
+};
+
 export class CaseService {
 	static async list(
 		params: ListCasesParams = {},
@@ -74,6 +84,19 @@ export class CaseService {
 		const path = ApiService.withQuery('/api/v2/cases', params as Record<string, unknown>);
 
 		return ApiService.get<Paginated<Case>>(path, options);
+	}
+
+	static async filter(
+		params: FilterCasesParams = {},
+		options: ApiOptions = {}
+	): Promise<RequestResponse<FilterCasesMessage>> {
+		const query: Record<string, unknown> = {
+			...params,
+			case_ids: Array.isArray(params.case_ids) ? params.case_ids.join(',') : params.case_ids
+		};
+
+		const path = ApiService.withQuery('/manage/cases/filter', query);
+		return ApiService.get<FilterCasesMessage>(path, options);
 	}
 
 	static async get(
@@ -96,6 +119,20 @@ export class CaseService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<Case>> {
 		return ApiService.put<Case>(`/api/v2/cases/${caseId}`, body, options);
+	}
+
+	static async close(
+		caseId: CaseIdentifier,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<null>> {
+		return ApiService.post<null>(`/manage/cases/close/${caseId}`, {}, options);
+	}
+
+	static async reopen(
+		caseId: CaseIdentifier,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<null>> {
+		return ApiService.post<null>(`/manage/cases/reopen/${caseId}`, {}, options);
 	}
 
 	static async remove(

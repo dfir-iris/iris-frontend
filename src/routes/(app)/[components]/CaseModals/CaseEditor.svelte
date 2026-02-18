@@ -9,14 +9,15 @@
 	import { CaseStatesService, type CaseState } from '$lib/services/case-states.service';
 	import { CustomersService, type Customer } from '$lib/services/customers.service';
 	import { SeveritiesService, type Severity } from '$lib/services/severities.service';
+	import { UsersService, type User } from '$lib/services/users.service';
 	import type { UpdateCaseBody } from '$lib/services/case.service';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import SearchSelect, {
 		type SelectOption
 	} from '$lib/components/common/selects/SearchSelect.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { normalizeTags } from './utils';
-	import { UsersService, type User } from '$lib/services/users.service';
 
 	type Outcome = {
 		id: number;
@@ -185,7 +186,7 @@
 	<div class="grid grid-cols-2 gap-4">
 		<label class="flex flex-col gap-1">
 			<span class="text-sm font-semibold">Case name</span>
-			<input
+			<Input
 				class="rounded-md border bg-background px-3 py-2"
 				bind:value={caseName}
 				autocomplete="off"
@@ -194,7 +195,7 @@
 
 		<label class="flex flex-col gap-1">
 			<span class="text-sm font-semibold">SOC ID</span>
-			<input
+			<Input
 				class="rounded-md border bg-background px-3 py-2"
 				bind:value={socId}
 				autocomplete="off"
@@ -208,7 +209,7 @@
 				options={classificationOptions}
 				placeholder="Classification"
 				searchPlaceholder="Search classification..."
-				onChange={(v) => (caseClassificationId = v)}
+				onChange={(value) => (caseClassificationId = value as string)}
 			/>
 		</label>
 
@@ -219,7 +220,7 @@
 				options={ownerOptions}
 				placeholder="Owner"
 				searchPlaceholder="Search owner..."
-				onChange={(v) => (ownerId = v)}
+				onChange={(value) => (ownerId = value as string)}
 			/>
 		</label>
 
@@ -230,7 +231,7 @@
 				options={stateOptions}
 				placeholder="State"
 				searchPlaceholder="Search state..."
-				onChange={(v) => (caseStateId = v)}
+				onChange={(value) => (caseStateId = value as string)}
 			/>
 		</label>
 
@@ -241,7 +242,7 @@
 				options={outcomeOptions}
 				placeholder="Outcome"
 				searchPlaceholder="Search outcome..."
-				onChange={(v) => (statusId = v)}
+				onChange={(value) => (statusId = value as string)}
 			/>
 		</label>
 
@@ -252,7 +253,7 @@
 				options={customerOptions}
 				placeholder="Customer"
 				searchPlaceholder="Search customer..."
-				onChange={(v) => (customerId = v)}
+				onChange={(value) => (customerId = value as string)}
 			/>
 		</label>
 
@@ -263,7 +264,7 @@
 				options={reviewerOptions}
 				placeholder="Reviewer"
 				searchPlaceholder="Search reviewer..."
-				onChange={(v) => (reviewerId = v)}
+				onChange={(value) => (reviewerId = value as string)}
 			/>
 		</label>
 
@@ -274,13 +275,13 @@
 				options={severityOptions}
 				placeholder="Severity"
 				searchPlaceholder="Search severity..."
-				onChange={(v) => (severityId = v)}
+				onChange={(value) => (severityId = value as string)}
 			/>
 		</label>
 
 		<label class="flex flex-col gap-1">
 			<span class="text-sm font-semibold">Case tags (comma separated)</span>
-			<input
+			<Input
 				class="rounded-md border bg-background px-3 py-2"
 				bind:value={tagsCsv}
 				placeholder="tag1, tag2, tag3"
@@ -290,29 +291,54 @@
 
 		<div>
 			<div class="text-sm font-semibold">Case ID</div>
-			<div class="rounded-md border bg-muted/20 px-3 py-2">{currentCase?.case_id}</div>
+			<Input
+				class="rounded-md border bg-background px-3 py-2"
+				value={currentCase?.case_id}
+				autocomplete="off"
+				readonly
+			/>
 		</div>
 
 		<div>
 			<div class="text-sm font-semibold">Case UUID</div>
-			<div class="rounded-md border bg-muted/20 px-3 py-2">{currentCase?.case_uuid}</div>
+			<Input
+				class="rounded-md border bg-background px-3 py-2"
+				value={currentCase?.case_uuid}
+				autocomplete="off"
+				readonly
+			/>
 		</div>
 
 		<div>
 			<div class="text-sm font-semibold">Open date</div>
-			<div class="rounded-md border bg-muted/20 px-3 py-2">{currentCase?.open_date}</div>
+			<Input
+				class="rounded-md border bg-background px-3 py-2"
+				value={currentCase?.open_date}
+				autocomplete="off"
+				readonly
+			/>
 		</div>
 
 		<div>
 			<div class="text-sm font-semibold">Opening user</div>
-			<div class="rounded-md border bg-muted/20 px-3 py-2">{currentCase?.user_id}</div>
+			<Input
+				class="rounded-md border bg-background px-3 py-2"
+				value={currentCase?.user_id}
+				autocomplete="off"
+				readonly
+			/>
 		</div>
 	</div>
 
 	<div class="flex justify-between">
 		<div class="flex gap-6">
 			<Button variant="destructive" onclick={onDelete}>Delete case</Button>
-			<Button variant="secondary" onclick={onClose}>Close case</Button>
+
+			{#if currentCase?.close_date}
+				<Button onclick={async () => await cases.reopen(currentCase?.case_id)}>Reopen Case</Button>
+			{:else}
+				<Button variant="secondary" onclick={() => onClose}>Close Case</Button>
+			{/if}
 		</div>
 
 		<div class="flex gap-6">

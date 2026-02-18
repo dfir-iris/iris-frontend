@@ -21,7 +21,7 @@
 	});
 </script>
 
-<grid class="grid grid-cols-2 gap-0">
+<grid class="grid grid-cols-2 gap-1 text-sm">
 	<div><b>Case name:</b> {currentCase?.case_name}</div>
 	<div><b>Customer:</b> {currentCase?.case_customer.customer_name}</div>
 

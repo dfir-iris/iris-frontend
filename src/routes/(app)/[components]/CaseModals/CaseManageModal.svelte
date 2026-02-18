@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
+	import { goto } from '$app/navigation';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
@@ -9,9 +10,8 @@
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
 	import CaseGeneralInfo from './CaseGeneralInfo.svelte';
 	import CaseModificationHistory from './CaseModificationHistory.svelte';
+	import CaseAccess from './CaseAccess.svelte';
 	import CaseEditor from './CaseEditor.svelte';
-	import CaseAccessUser from './CaseAccessUser.svelte';
-	import CaseAccessGroup from './CaseAccessGroup.svelte';
 
 	type CaseManageModalProps = {
 		open: boolean;
@@ -21,8 +21,8 @@
 	let { open, onOpenChange }: CaseManageModalProps = $props();
 
 	const cases = getContext<CasesContext>(CASES_CTX);
-	const case_id = cases.currentCaseId();
-	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
+	const case_id = $derived(cases.currentCaseId());
+	const currentCase = $derived<Case | null>(cases.currentCase());
 
 	let showConfirmDelete = $state(false);
 	let showConfirmClose = $state(false);
@@ -63,20 +63,13 @@
 					>
 						User access
 					</TabsTrigger>
-
-					<TabsTrigger
-						value="group_access"
-						class="flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
-					>
-						Group access
-					</TabsTrigger>
 				</TabsList>
 			</div>
 
 			<div class="w-full">
 				<TabsContent value="info">
 					<div class="flex flex-col pb-2 text-lg">
-						<div class="mb-2 flex justify-between">
+						<div class="mb-8 flex justify-between">
 							<div class="text-3xl font-bold">General Info</div>
 
 							{#if !editing}
@@ -99,16 +92,7 @@
 
 				<TabsContent value="user_access">
 					<div class="flex flex-col pb-2 text-lg">
-						<CaseAccessUser
-							onDelete={() => (showConfirmDelete = true)}
-							onClose={() => (showConfirmClose = true)}
-						/>
-					</div>
-				</TabsContent>
-
-				<TabsContent value="group_access">
-					<div class="flex flex-col pb-2 text-lg">
-						<CaseAccessGroup
+						<CaseAccess
 							onDelete={() => (showConfirmDelete = true)}
 							onClose={() => (showConfirmClose = true)}
 						/>
@@ -118,13 +102,21 @@
 		</Tabs>
 
 		{#if !editing && activeTab === 'info'}
-			<Dialog.Footer>
-				<Button variant="destructive" onclick={() => (showConfirmDelete = true)}>
-					Delete Case
-				</Button>
+			{#key `${case_id}:${currentCase?.close_date ?? ''}`}
+				<Dialog.Footer>
+					<Button variant="destructive" onclick={() => (showConfirmDelete = true)}>
+						Delete Case
+					</Button>
 
-				<Button variant="secondary" onclick={() => (showConfirmClose = true)}>Close Case</Button>
-			</Dialog.Footer>
+					{#if currentCase?.close_date}
+						<Button onclick={async () => await cases.reopen(case_id)}>Reopen Case</Button>
+					{:else}
+						<Button variant="secondary" onclick={() => (showConfirmClose = true)}>
+							Close Case
+						</Button>
+					{/if}
+				</Dialog.Footer>
+			{/key}
 		{/if}
 	</Dialog.Content>
 </Dialog.Root>
@@ -133,7 +125,10 @@
 	bind:open={showConfirmDelete}
 	title="Are you sure?"
 	message="You are about to delete this case forever. This cannot be reverted. All associated data will be deleted."
-	onConfirm={() => {}}
+	onConfirm={async () => {
+		await cases.remove(case_id);
+		goto('/cases');
+	}}
 	onCancel={() => (showConfirmDelete = false)}
 />
 
@@ -141,6 +136,6 @@
 	bind:open={showConfirmClose}
 	title="Are you sure?"
 	message={`Case ID ${case_id} will be closed and will not appear in contexts anymore.`}
-	onConfirm={() => {}}
+	onConfirm={async () => await cases.close(case_id)}
 	onCancel={() => (showConfirmClose = false)}
 />
