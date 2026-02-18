@@ -64,7 +64,6 @@
 		baseDescription = caseDescription;
 		loadedTime = new Date();
 		saving = false;
-		editing = false;
 	};
 </script>
 
@@ -154,7 +153,11 @@
 
 			<Card.Content>
 				{#if editing}
-					<Ace value={caseDescription} onChange={(v) => (caseDescription = v)} />
+					<Ace
+						value={caseDescription}
+						onChange={(v) => (caseDescription = v)}
+						onSave={() => save()}
+					/>
 				{:else}
 					<div class="prose dark:prose-invert max-w-none">
 						<!-- eslint-disable-next-line svelte/no-at-html-tags -->

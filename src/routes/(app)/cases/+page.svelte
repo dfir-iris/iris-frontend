@@ -7,17 +7,82 @@
 	import Label from '$lib/components/ui/label/label.svelte';
 	import Checkbox from '$lib/components/ui/checkbox/checkbox.svelte';
 	import Searchbar from '$lib/components/ui/searchbar/searchbar.svelte';
+	import {
+		applyFilters,
+		CaseFilters,
+		type FilterDef,
+		type FilterLogic,
+		type FilterRow
+	} from '$lib/components/common/CaseFilters';
 	import CasesDataTable from '$lib/components/common/cases-data-table.svelte';
+	import type { Case, Tags } from '$lib/types/resources/case';
 	import type { RequestResponse, Paginated } from '$lib/services/api.service';
-	import type { Case } from '$lib/types/resources/case';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
+	import { Select } from '$lib/components/ui/select';
+	import SelectTrigger from '$lib/components/ui/select/select-trigger.svelte';
+	import SelectContent from '$lib/components/ui/select/select-content.svelte';
+	import SelectItem from '$lib/components/ui/select/select-item.svelte';
+	import type { ListCasesParams } from '$lib/services/case.service';
+
+	const DEFAULT_ITEMS_PER_PAGE = 25;
 
 	const cases = getContext<CasesContext>(CASES_CTX);
 
 	let search = $state('');
 	let showClosed = $state(false);
 	let currentPage = $state(1);
+	let perPage = $state(DEFAULT_ITEMS_PER_PAGE);
+
+	let filterLogic = $state<FilterLogic>('and');
+	let filters = $state<FilterRow[]>([]);
+
+	let casesBase = $state<Promise<RequestResponse<Paginated<Case>>> | null>(null);
 	let casesPaginated = $state<Promise<RequestResponse<Paginated<Case>>> | null>(null);
+
+	const perPageOptions = [5, 10, 25, 50, 100].map((n) => ({
+		value: String(n),
+		label: `${n} entries`
+	}));
+
+	const filterDefs: FilterDef<Case>[] = [
+		{ id: 'outcome', label: 'Outcome', get: (c) => (c as Case).closing_note ?? '' },
+		{ id: 'case_id', label: 'Case ID', get: (c) => (c as Case).case_id },
+		{ id: 'severity', label: 'Severity', get: (c) => (c as Case).severity?.severity_name ?? '' },
+		{ id: 'title', label: 'Title', get: (c) => (c as Case).case_name },
+		{
+			id: 'customer',
+			label: 'Customer',
+			get: (c) => (c as Case).case_customer?.customer_name ?? ''
+		},
+		{
+			id: 'classification',
+			label: 'Classification',
+			get: (c) =>
+				(c as Case).classification_id === null ? '' : String((c as Case).classification_id)
+		},
+		{ id: 'state', label: 'State', get: (c) => (c as Case).state?.state_name ?? '' },
+		{
+			id: 'tags',
+			label: 'Tags',
+			get: (c) => (c as Case).tags?.map((t) => (t as Tags).tag_title).join(', ') ?? ''
+		},
+		{
+			id: 'open_since',
+			label: 'Open since',
+			get: (c) => (c as Case).open_date ?? ''
+		},
+		{
+			id: 'open_date',
+			label: 'Open date',
+			get: (c) => (c as Case).open_date ?? ''
+		},
+		{
+			id: 'tasks',
+			label: 'Tasks',
+			get: () => ''
+		},
+		{ id: 'owner', label: 'Owner', get: (c) => (c as Case).owner?.user_login ?? '' }
+	];
 
 	const updateUrl = (params: { search?: string; page?: number; showClosed?: boolean }) => {
 		const url = new URL(page.url);
@@ -34,8 +99,8 @@
 		}
 
 		if (params.showClosed !== undefined) {
-			if (!params.showClosed) url.searchParams.delete('show_closed');
-			else url.searchParams.set('show_closed', '1');
+			if (params.showClosed) url.searchParams.set('show_closed', '1');
+			else url.searchParams.delete('show_closed');
 		}
 
 		const nextHref = `${url.pathname}${url.search}`;
@@ -48,20 +113,45 @@
 	$effect(() => {
 		const urlSearch = page.url.searchParams.get('search') ?? '';
 		const urlPage = Number(page.url.searchParams.get('page') ?? '1') || 1;
-		const urlShowClosed = (page.url.searchParams.get('show_closed') ?? '') === '1';
+		const urlShowClosed = page.url.searchParams.get('show_closed') === '1';
 
 		search = urlSearch;
 		currentPage = urlPage;
 		showClosed = urlShowClosed;
 
-		const params = {
+		const params: ListCasesParams = {
 			page: urlPage,
-			per_page: 10,
+			per_page: Number(perPage),
 			case_name: urlSearch.trim() === '' ? undefined : urlSearch.trim(),
 			is_open: urlShowClosed ? undefined : true
 		};
 
-		casesPaginated = cases.listPaginated(params);
+		casesBase = cases.listPaginated(params);
+	});
+
+	$effect(() => {
+		const base = casesBase;
+		const f = filters;
+		const l = filterLogic;
+
+		if (!base) {
+			casesPaginated = null;
+			return;
+		}
+
+		casesPaginated = base.then((res) => {
+			if (!res.ok || !res.data || typeof res.data === 'string') return res;
+
+			const filtered = applyFilters(res.data.data, filterDefs, f, l);
+
+			return {
+				...res,
+				data: {
+					...res.data,
+					data: filtered
+				}
+			};
+		});
 	});
 
 	let didInitSearch = false;
@@ -105,12 +195,50 @@
 			</Label>
 		</div>
 
-		<Searchbar placeholder="Search cases" bind:value={search} />
-
 		<Button onclick={() => (cases.ui.showAddModal = true)}>
 			<PlusIcon />
 			Open Case
 		</Button>
+	</div>
+
+	<div class="flex justify-between">
+		<div class="">
+			<CaseFilters
+				defs={filterDefs}
+				logic={filterLogic}
+				{filters}
+				onLogicChange={(l) => (filterLogic = l)}
+				onFiltersChange={(f) => {
+					filters = f;
+					currentPage = 1;
+					updateUrl({ page: 1 });
+				}}
+			/>
+		</div>
+
+		<div class="flex gap-2">
+			<div class="flex min-w-48">
+				<Searchbar placeholder="Search cases" bind:value={search} />
+			</div>
+
+			<Select
+				value={String(perPage)}
+				onValueChange={(value) => {
+					perPage = Number(value);
+					currentPage = 1;
+					updateUrl({ page: 1 });
+				}}
+				type="single"
+			>
+				<SelectTrigger>{perPage} entries per page</SelectTrigger>
+
+				<SelectContent>
+					{#each perPageOptions as perPageOption}
+						<SelectItem value={perPageOption.value}>{perPageOption.label}</SelectItem>
+					{/each}
+				</SelectContent>
+			</Select>
+		</div>
 	</div>
 
 	{#if casesPaginated}
@@ -118,7 +246,7 @@
 			class="flex grow"
 			cases={casesPaginated}
 			page={currentPage}
-			onPageChange={(p) => updateUrl({ page: p })}
+			onPageChange={(page) => updateUrl({ page })}
 		/>
 	{/if}
 </div>
