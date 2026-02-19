@@ -3,28 +3,25 @@
 	import { getContext } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { Button } from '$lib/components/ui/button';
-	import Label from '$lib/components/ui/label/label.svelte';
-	import Checkbox from '$lib/components/ui/checkbox/checkbox.svelte';
-	import Searchbar from '$lib/components/ui/searchbar/searchbar.svelte';
+	import type { Case, Tags } from '$lib/types/resources/case';
+	import type { RequestResponse, Paginated } from '$lib/services/api.service';
+	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
+	import { DEFAULT_DEBOUNCE, DEFAULT_ITEMS_PER_PAGE } from '$lib/config/api.config';
 	import {
-		applyFilters,
 		CaseFilters,
 		type FilterDef,
 		type FilterLogic,
 		type FilterRow
 	} from '$lib/components/common/CaseFilters';
 	import CasesDataTable from '$lib/components/common/cases-data-table.svelte';
-	import type { Case, Tags } from '$lib/types/resources/case';
-	import type { RequestResponse, Paginated } from '$lib/services/api.service';
-	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import Checkbox from '$lib/components/ui/checkbox/checkbox.svelte';
+	import Label from '$lib/components/ui/label/label.svelte';
+	import Searchbar from '$lib/components/ui/searchbar/searchbar.svelte';
 	import { Select } from '$lib/components/ui/select';
 	import SelectTrigger from '$lib/components/ui/select/select-trigger.svelte';
 	import SelectContent from '$lib/components/ui/select/select-content.svelte';
 	import SelectItem from '$lib/components/ui/select/select-item.svelte';
-	import type { ListCasesParams } from '$lib/services/case.service';
-
-	const DEFAULT_ITEMS_PER_PAGE = 25;
 
 	const cases = getContext<CasesContext>(CASES_CTX);
 
@@ -36,7 +33,6 @@
 	let filterLogic = $state<FilterLogic>('and');
 	let filters = $state<FilterRow[]>([]);
 
-	let casesBase = $state<Promise<RequestResponse<Paginated<Case>>> | null>(null);
 	let casesPaginated = $state<Promise<RequestResponse<Paginated<Case>>> | null>(null);
 
 	const perPageOptions = [5, 10, 25, 50, 100].map((n) => ({
@@ -110,6 +106,61 @@
 		void goto(nextHref, { replaceState: true, keepFocus: true, noScroll: true });
 	};
 
+	let filtersDebounce: ReturnType<typeof setTimeout> | null = null;
+	let debouncedLogic = $state<FilterLogic>('and');
+	let debouncedFilters = $state<FilterRow[]>([]);
+
+	const effectiveFilters = (rows: FilterRow[]) =>
+		rows.filter((r) => {
+			const op = (r.operation ?? '').toLowerCase();
+			if (op === 'empty' || op === 'not_empty') return true;
+			return (r.value ?? '').trim() !== '';
+		});
+
+	$effect(() => {
+		const l = filterLogic;
+		const f = filters;
+
+		if (filtersDebounce) clearTimeout(filtersDebounce);
+
+		filtersDebounce = setTimeout(() => {
+			debouncedLogic = l;
+			debouncedFilters = f;
+			currentPage = 1;
+			updateUrl({ page: 1 });
+		}, DEFAULT_DEBOUNCE);
+	});
+
+	const normalizeCase = (value: unknown): Case => {
+		if (!value || typeof value !== 'object') return {} as Case;
+
+		const raw = value as Record<string, unknown>;
+
+		const normalized: Record<string, unknown> = { ...raw };
+
+		const name = raw.name;
+		if (normalized.case_name === undefined && typeof name === 'string') {
+			normalized.case_name = name;
+		}
+
+		const description = raw.description;
+		if (normalized.case_description === undefined && typeof description === 'string') {
+			normalized.case_description = description;
+		}
+
+		const socId = raw.soc_id;
+		if (normalized.case_soc_id === undefined && typeof socId === 'string') {
+			normalized.case_soc_id = socId;
+		}
+
+		const client = raw.client;
+		if (normalized.case_customer === undefined && client && typeof client === 'object') {
+			normalized.case_customer = client;
+		}
+
+		return normalized as unknown as Case;
+	};
+
 	$effect(() => {
 		const urlSearch = page.url.searchParams.get('search') ?? '';
 		const urlPage = Number(page.url.searchParams.get('page') ?? '1') || 1;
@@ -119,43 +170,37 @@
 		currentPage = urlPage;
 		showClosed = urlShowClosed;
 
-		const params: ListCasesParams = {
+		const activeFilters = effectiveFilters(debouncedFilters);
+
+		const baseParams: Record<string, unknown> = {
 			page: urlPage,
 			per_page: Number(perPage),
 			case_name: urlSearch.trim() === '' ? undefined : urlSearch.trim(),
-			is_open: urlShowClosed ? undefined : true
+			logic: debouncedLogic,
+			filters:
+				activeFilters.length === 0 ? undefined : encodeURIComponent(JSON.stringify(activeFilters))
 		};
 
-		casesBase = cases.listPaginated(params);
-	});
+		const params = urlShowClosed ? baseParams : { ...baseParams, is_open: true };
 
-	$effect(() => {
-		const base = casesBase;
-		const f = filters;
-		const l = filterLogic;
+		const p = cases.filterPaginated(params);
 
-		if (!base) {
-			casesPaginated = null;
-			return;
-		}
+		casesPaginated = p.then((res) => {
+			if (!res.ok || res.data === null || typeof res.data === 'string') return res;
 
-		casesPaginated = base.then((res) => {
-			if (!res.ok || !res.data || typeof res.data === 'string') return res;
-
-			const filtered = applyFilters(res.data.data, filterDefs, f, l);
-
+			const pageData = res.data;
 			return {
 				...res,
 				data: {
-					...res.data,
-					data: filtered
+					...pageData,
+					data: (pageData.data ?? []).map(normalizeCase)
 				}
 			};
 		});
 	});
 
 	let didInitSearch = false;
-	let debounce: ReturnType<typeof setTimeout> | null = null;
+	let searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
 	$effect(() => {
 		const searchParam = search;
@@ -165,11 +210,11 @@
 			return;
 		}
 
-		if (debounce) clearTimeout(debounce);
+		if (searchDebounce) clearTimeout(searchDebounce);
 
-		debounce = setTimeout(() => {
+		searchDebounce = setTimeout(() => {
 			updateUrl({ search: searchParam, page: 1 });
-		}, 250);
+		}, DEFAULT_DEBOUNCE);
 	});
 </script>
 

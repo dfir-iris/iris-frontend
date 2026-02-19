@@ -13,6 +13,21 @@ export const CASES_CTX = Symbol('cases');
 
 type Status = 'idle' | 'loading' | 'error';
 
+type FilterMsg = {
+	total: number;
+	cases: Case[];
+	current_page?: number;
+	last_page?: number;
+	next_page?: number | null;
+	draw?: number;
+};
+
+const isFilterMsg = (v: unknown): v is FilterMsg => {
+	if (!v || typeof v !== 'object') return false;
+	const o = v as Record<string, unknown>;
+	return typeof o.total === 'number' && Array.isArray(o.cases);
+};
+
 export const createCasesContext = (getId: (c: Case) => number, app: AppContext) => {
 	const byId = $state<Record<number, Case>>({});
 
@@ -55,28 +70,58 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 		list.status = 'idle';
 	};
 
-	// IMPORTANT: always creates a fresh request/promise
-	const listPaginated = (params: ListCasesParams = {}, options: ApiOptions = {}) => {
+	const listPaginated = async (params: ListCasesParams = {}, options: ApiOptions = {}) => {
 		const p = CaseService.list(params, options) as Promise<RequestResponse<Paginated<Case>>>;
 
-		// optionally hydrate cache in the background when it resolves
-		void (async () => {
-			const res = await p;
+		const res = await p;
 
-			if (!res.ok || res.error || res.data === null || typeof res.data === 'string') return;
+		if (!res.ok || res.error || res.data === null || typeof res.data === 'string') return;
 
-			const page: Paginated<Case> = res.data;
+		const page: Paginated<Case> = res.data;
 
-			for (const c of page.data) byId[getId(c)] = c;
+		for (const c of page.data) byId[getId(c)] = c;
 
-			// keep list state consistent with latest request
-			list.params = params;
-			list.ids = page.data.map(getId);
-			list.status = 'idle';
-			list.error = null;
-		})();
+		list.params = params;
+		list.ids = page.data.map(getId);
+		list.status = 'idle';
+		list.error = null;
 
 		return p;
+	};
+
+	const filterPaginated = async (
+		params: Record<string, unknown> = {},
+		options: ApiOptions = {}
+	): Promise<RequestResponse<Paginated<Case>>> => {
+		const res = await CaseService.filter(params, options);
+
+		if (!res.ok || res.error || res.data === null || typeof res.data === 'string') {
+			return res as unknown as RequestResponse<Paginated<Case>>;
+		}
+
+		const rawData: unknown = res.data;
+
+		const wrapped: unknown =
+			rawData && typeof rawData === 'object'
+				? ((rawData as Record<string, unknown>).data ?? rawData)
+				: rawData;
+
+		const filterMessage = isFilterMsg(rawData) ? rawData : isFilterMsg(wrapped) ? wrapped : null;
+		const per_page = Number(params.per_page);
+
+		const pageData: Paginated<Case> = {
+			data: filterMessage?.cases ?? [],
+			total: filterMessage?.total ?? 0,
+			current_page: filterMessage?.current_page ?? 1,
+			last_page: filterMessage?.last_page ?? 1,
+			next_page: filterMessage?.next_page ?? null,
+			per_page
+		} as Paginated<Case>;
+
+		return {
+			...res,
+			data: pageData
+		} as unknown as RequestResponse<Paginated<Case>>;
 	};
 
 	const refresh = async (options: ApiOptions = {}) => load(list.params, options);
@@ -222,6 +267,7 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 		ensureCurrentLoaded,
 		load,
 		listPaginated,
+		filterPaginated,
 		refresh,
 		get,
 		create,

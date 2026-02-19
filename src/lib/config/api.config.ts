@@ -1,6 +1,11 @@
 import { browser } from '$app/environment';
 import { env } from '$env/dynamic/public';
 
+// Default values
+
+export const DEFAULT_DEBOUNCE = 250;
+export const DEFAULT_ITEMS_PER_PAGE = 25;
+
 // Get API base URL from environment or use default
 export const API_BASE_URL = env.PUBLIC_INTERNAL_API_URL || '/api/v2';
 
