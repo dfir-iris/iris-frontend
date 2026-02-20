@@ -177,8 +177,7 @@
 			per_page: Number(perPage),
 			case_name: urlSearch.trim() === '' ? undefined : urlSearch.trim(),
 			logic: debouncedLogic,
-			filters:
-				activeFilters.length === 0 ? undefined : encodeURIComponent(JSON.stringify(activeFilters))
+			filters: activeFilters.length === 0 ? undefined : JSON.stringify(activeFilters)
 		};
 
 		const params = urlShowClosed ? baseParams : { ...baseParams, is_open: true };
@@ -186,14 +185,32 @@
 		const p = cases.filterPaginated(params);
 
 		casesPaginated = p.then((res) => {
-			if (!res.ok || res.data === null || typeof res.data === 'string') return res;
+			const raw = res.data;
 
-			const pageData = res.data;
+			if (!raw || typeof raw !== 'object' || typeof raw === 'string') {
+				const empty: Paginated<Case> = {
+					data: [] as Case[],
+					total: 0,
+					current_page: urlPage,
+					last_page: 1,
+					next_page: null
+				};
+
+				return {
+					...res,
+					ok: false,
+					data: empty
+				};
+			}
+
+			const pageData = raw as Paginated<Case>;
+			const list = Array.isArray(pageData.data) ? pageData.data : ([] as Case[]);
+
 			return {
 				...res,
 				data: {
 					...pageData,
-					data: (pageData.data ?? []).map(normalizeCase)
+					data: list.map(normalizeCase)
 				}
 			};
 		});

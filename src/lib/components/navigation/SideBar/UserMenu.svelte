@@ -1,16 +1,31 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import { username } from '$lib/stores/auth.store';
+	import { page } from '$app/state';
+	import { browser } from '$app/environment';
+	import { auth, username } from '$lib/stores/auth.store';
 	import { mode, toggleMode } from 'mode-watcher';
 	import { LogOutIcon, MoonIcon, SlidersHorizontalIcon, SunIcon } from 'lucide-svelte';
 	import { AuthService } from '$lib/services/auth.service';
 	import MenuItem from './MenuItem.svelte';
 	import SubMenu from './SubMenu.svelte';
 
-	export let collapsed;
+	type Props = {
+		collapsed: boolean;
+	};
 
-	$: pathname = $page.url.pathname;
-	$: hash = $page.url.hash;
+	let { collapsed }: Props = $props();
+
+	const pathname = $derived(page.url.pathname);
+	const hash = $derived(page.url.hash);
+
+	let didLoadAuth = false;
+
+	$effect(() => {
+		if (!browser) return;
+		if (didLoadAuth) return;
+		didLoadAuth = true;
+
+		void auth.loadAuth(fetch, false);
+	});
 
 	const logout = () => {
 		console.log('Logging out...');
@@ -28,7 +43,7 @@
 		>
 			<div class="flex w-full flex-col items-start justify-center">
 				<span class="text-xs font-bold">{$username}</span>
-				<span class="text-2xs whitespace-nowrap font-light text-gray-400"
+				<span class="whitespace-nowrap text-2xs font-light text-gray-400"
 					>{new Date().toLocaleString()}</span
 				>
 			</div>

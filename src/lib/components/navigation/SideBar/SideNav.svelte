@@ -20,18 +20,22 @@
 		ViewIcon,
 		WaypointsIcon
 	} from 'lucide-svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
 	import MenuItem from './MenuItem.svelte';
 	import SubMenu from './SubMenu.svelte';
 
-	export let collapsed: boolean;
+	type Props = {
+		collapsed: boolean;
+	};
+
+	let { collapsed }: Props = $props();
 
 	const app = getContext<AppContext>(APP_CTX);
 
-	$: pathname = $page.url.pathname;
-	$: hash = $page.url.hash;
-	$: currentCaseID = app.state.currentCaseID;
+	const currentCaseID = $derived(app.state.currentCaseID);
+	const pathname = $derived(page.url.pathname);
+	const hash = $derived(page.url.hash);
 
 	const mainMenuItems = [
 		{ label: 'Dashboard', path: '/', icon: HouseIcon },
@@ -39,13 +43,13 @@
 		{ label: 'Welcome page', path: '/', hash: '#welcome', icon: DoorOpenIcon }
 	];
 
-	$: investigationMenuItems = [
+	const investigationMenuItems = $derived([
 		{ label: 'Case', path: `/case/${currentCaseID}`, icon: WaypointsIcon },
 		{ label: 'Alerts', path: '/', hash: '#alerts', icon: BellIcon },
 		{ label: 'Search', path: '/', hash: '#search', icon: SearchIcon },
 		{ label: 'Activities', path: '/', hash: '#activities', icon: FileTextIcon },
 		{ label: 'Dim Tasks', path: '/', hash: '#dim-tasks', icon: FileStackIcon }
-	];
+	]);
 
 	const advancedMenuItems = [
 		{ label: 'Modules', path: '/', hash: '#modules', icon: ServerIcon },
@@ -68,7 +72,7 @@
 			label={item.label}
 			icon={item.icon}
 			href={`${item.path}${item.hash ?? ''}`}
-			active={pathname === item.path && hash === item.hash}
+			active={pathname === item.path && hash === (item.hash ?? '')}
 		/>
 	{/each}
 
@@ -86,7 +90,7 @@
 			label={item.label}
 			icon={item.icon}
 			href={`${item.path}${item.hash ?? ''}`}
-			active={pathname === item.path && hash === item.hash}
+			active={pathname === item.path && hash === (item.hash ?? '')}
 		/>
 	{/each}
 
@@ -118,7 +122,7 @@
 					label={item.label}
 					icon={item.icon}
 					href={`${item.path}${item.hash ?? ''}`}
-					active={pathname === item.path && hash === item.hash}
+					active={pathname === item.path && hash === (item.hash ?? '')}
 				/>
 			{/each}
 		</svelte:fragment>
