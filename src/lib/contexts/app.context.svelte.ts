@@ -36,7 +36,7 @@ export const createAppContext = (): AppContext => {
 		const parsed = safeParse(localStorage.getItem(STORAGE_KEY));
 
 		if (parsed) {
-			state = { ...DEFAULT_STATE, ...parsed };
+			Object.assign(state, { ...DEFAULT_STATE, ...parsed });
 		}
 	};
 
@@ -60,7 +60,7 @@ export const createAppContext = (): AppContext => {
 			const next = safeParse(e.newValue);
 			if (!next) return;
 
-			state = { ...DEFAULT_STATE, ...next };
+			Object.assign(state, { ...DEFAULT_STATE, ...next });
 		});
 	};
 

@@ -8,9 +8,10 @@
 	import { LinkIcon, ListIcon, ListOrderedIcon, SheetIcon } from 'lucide-svelte';
 	import { converter } from './converter';
 
-	let { value, onChange } = $props<{
+	let { value, onChange, onSave } = $props<{
 		value: string;
 		onChange: (v: string) => void;
+		onSave: () => void;
 	}>();
 
 	let editorElement: HTMLDivElement;
@@ -67,6 +68,36 @@
 			name: 'italic',
 			bindKey: { win: 'Ctrl-I', mac: 'Cmd-I' },
 			exec: (e) => insertSnippet(e, '*${1:$SELECTION}*')
+		});
+
+		(editor as Ace.Editor).commands.addCommand({
+			name: 'save',
+			bindKey: { win: 'Ctrl-S', mac: 'Cmd-S' },
+			exec: () => onSave()
+		});
+
+		(editor as Ace.Editor).commands.addCommand({
+			name: 'head_1',
+			bindKey: { win: 'Ctrl-Shift-1', mac: 'Cmd-Shift-1' },
+			exec: (e) => insertSnippet(e, '# ${1:$SELECTION}')
+		});
+
+		(editor as Ace.Editor).commands.addCommand({
+			name: 'head_2',
+			bindKey: { win: 'Ctrl-Shift-2', mac: 'Cmd-Shift-2' },
+			exec: (e) => insertSnippet(e, '## ${1:$SELECTION}')
+		});
+
+		(editor as Ace.Editor).commands.addCommand({
+			name: 'head_3',
+			bindKey: { win: 'Ctrl-Shift-3', mac: 'Cmd-Shift-3' },
+			exec: (e) => insertSnippet(e, '### ${1:$SELECTION}')
+		});
+
+		(editor as Ace.Editor).commands.addCommand({
+			name: 'head_4',
+			bindKey: { win: 'Ctrl-Shift-4', mac: 'Cmd-Shift-4' },
+			exec: (e) => insertSnippet(e, '#### ${1:$SELECTION}')
 		});
 	});
 
