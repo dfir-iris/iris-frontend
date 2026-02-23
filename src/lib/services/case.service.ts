@@ -95,7 +95,7 @@ export class CaseService {
 			case_ids: Array.isArray(params.case_ids) ? params.case_ids.join(',') : params.case_ids
 		};
 
-		const path = ApiService.withQuery('/manage/cases/filter', query);
+		const path = ApiService.withQuery('/api/v2/cases/filter', query);
 		return ApiService.get<FilterCasesMessage>(path, options);
 	}
 
@@ -125,14 +125,14 @@ export class CaseService {
 		caseId: CaseIdentifier,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
-		return ApiService.post<null>(`/manage/cases/close/${caseId}`, {}, options);
+		return ApiService.post<null>(`/api/v2/cases/close/${caseId}`, {}, options);
 	}
 
 	static async reopen(
 		caseId: CaseIdentifier,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
-		return ApiService.post<null>(`/manage/cases/reopen/${caseId}`, {}, options);
+		return ApiService.post<null>(`/api/v2/cases/reopen/${caseId}`, {}, options);
 	}
 
 	static async remove(
