@@ -158,9 +158,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 			: API_BASE_URL;
 
 		const upstreamPath =
-			event.url.pathname.startsWith('/api/v2/manage/') && !event.url.pathname.endsWith('customers')
-				? event.url.pathname.replace(/^\/api\/v2\/manage/, '/manage')
-				: event.url.pathname;
+			event.url.pathname === '/api/v2/alerts/filter'
+				? event.url.pathname.replace(/^\/api\/v2/, '')
+				: event.url.pathname.startsWith('/api/v2/manage/') &&
+					  !event.url.pathname.endsWith('customers')
+					? event.url.pathname.replace(/^\/api\/v2\/manage/, '/manage')
+					: event.url.pathname;
 
 		const apiUrl = `${base.replace(/\/$/, '')}${upstreamPath}${event.url.search}`;
 

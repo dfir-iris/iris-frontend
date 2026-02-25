@@ -3,30 +3,39 @@
 	import { BellRingIcon, LayersIcon, ListTodoIcon, ClipboardCheckIcon } from 'lucide-svelte';
 	import { page } from '$app/state';
 	import BaseKpi from '$lib/components/ui/card/card-base-kpi.svelte';
-	import UserCurrentTasksTable from './[components]/user-current-tasks-table.svelte';
+	import UserCurrentAlertsTable from './[components]/user-current-alerts-table.svelte';
 	import CurrentUserCasesTable from './[components]/user-current-cases-table.svelte';
 	import UserCurrentReviewsTable from './[components]/user-current-reviews-table.svelte';
-	import UserCurrentAlerts from './[components]/user-current-alerts.svelte';
+	import UserCurrentTasksTable from './[components]/user-current-tasks-table.svelte';
+	import type { Paginated, RequestResponse } from '$lib/services/api.service';
+	import type { Alert } from '$lib/types/resources/alert';
 	import type { Case } from '$lib/types/resources/case';
+	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
-	import { type Paginated, type RequestResponse } from '$lib/services/api.service';
 
+	const alerts = getContext<AlertsContext | undefined>(ALERTS_CTX);
 	const cases = getContext<CasesContext | undefined>(CASES_CTX);
 
 	let activeTab = $state('');
 	let hash = $derived(() => page.url.hash);
 
+	let alertsPromise = $state<Promise<RequestResponse<Paginated<Alert>>> | null>(null);
 	let casesPromise = $state<Promise<RequestResponse<Paginated<Case>>> | null>(null);
 	let tasksPromise = $state<Promise<unknown> | null>(null);
 	let reviewsPromise = $state<Promise<unknown> | null>(null);
-	let alertsPromise = $state<Promise<unknown> | null>(null);
 
 	const getTotal = (value: unknown): number => {
 		const total = (value as { data?: { total?: unknown } })?.data?.total;
 		return typeof total === 'number' ? total : 0;
 	};
 
-	onMount(() => {
+	onMount(async () => {
+		if (!alertsPromise) {
+			alertsPromise = alerts?.listPaginated() as unknown as Promise<
+				RequestResponse<Paginated<Alert>>
+			>;
+		}
+
 		if (!casesPromise) {
 			casesPromise = cases?.listPaginated() as unknown as Promise<RequestResponse<Paginated<Case>>>;
 		}
@@ -108,7 +117,7 @@
 
 	{#if activeTab === 'cases'}
 		{#if casesPromise}
-			<CurrentUserCasesTable cases={casesPromise} />
+			<CurrentUserCasesTable />
 		{/if}
 	{:else if activeTab === 'tasks'}
 		{#if tasksPromise}
@@ -120,7 +129,7 @@
 		{/if}
 	{:else if activeTab === 'alerts'}
 		{#if alertsPromise}
-			<UserCurrentAlerts data={alertsPromise} />
+			<UserCurrentAlertsTable />
 		{/if}
 	{/if}
 </div>

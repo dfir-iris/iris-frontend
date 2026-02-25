@@ -108,17 +108,21 @@
 	};
 
 	const filtered = $derived.by(() => {
-		return (data as unknown[]).filter((row) => {
-			for (const col of cols) {
-				const query = filters[col.key as string] ?? '';
+		const unfiltered = data as unknown[];
 
-				if (!query) continue;
+		return unfiltered.length
+			? unfiltered.filter((row) => {
+					for (const col of cols) {
+						const query = filters[col.key as string] ?? '';
 
-				if (!matches(columnValue(col.c, row), query)) return false;
-			}
+						if (!query) continue;
 
-			return true;
-		});
+						if (!matches(columnValue(col.c, row), query)) return false;
+					}
+
+					return true;
+				})
+			: [];
 	});
 
 	const sorted = $derived.by(() => {
