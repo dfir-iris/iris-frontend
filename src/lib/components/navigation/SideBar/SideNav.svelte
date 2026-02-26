@@ -45,7 +45,7 @@
 
 	const investigationMenuItems = $derived([
 		{ label: 'Case', path: `/case/${currentCaseID}`, icon: WaypointsIcon },
-		{ label: 'Alerts', path: '/', hash: '#alerts', icon: BellIcon },
+		{ label: 'Alerts', path: '/alerts', hash: '', icon: BellIcon },
 		{ label: 'Search', path: '/', hash: '#search', icon: SearchIcon },
 		{ label: 'Activities', path: '/', hash: '#activities', icon: FileTextIcon },
 		{ label: 'Dim Tasks', path: '/', hash: '#dim-tasks', icon: FileStackIcon }

@@ -85,11 +85,11 @@
 			}
 		},
 		{
-			accessorKey: 'alert_customer.customer_name',
+			accessorKey: 'customer.customer_name',
 			header: 'Client'
 		},
 		{
-			accessorKey: 'alert_status.status_name',
+			accessorKey: 'status.status_name',
 			header: 'Status',
 			cell: (cell) => {
 				const status = (cell.getValue() || 'Unknown') as
@@ -106,7 +106,7 @@
 			}
 		},
 		{
-			accessorKey: 'alert_severity.severity_name',
+			accessorKey: 'severity.severity_name',
 			header: 'Severity',
 			cell: (cell) => {
 				const severity = (cell.getValue() || 'Unknown') as

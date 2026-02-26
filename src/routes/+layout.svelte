@@ -3,39 +3,20 @@
 	import '../app.postcss';
 
 	import { ModeWatcher, mode } from 'mode-watcher';
+	import { goto } from '$app/navigation';
+	import { auth } from '$lib/stores/auth.store';
 	import { Toaster } from '$lib/components/ui/toast';
 	import { handleSessionExpiration } from '$lib/utils/session-handler';
-	import { setContext, onMount } from 'svelte';
-	import { APP_CTX, createAppContext, type AppContext } from '$lib/contexts/app.context.svelte';
-	import {
-		ALERTS_CTX,
-		createAlertsContext,
-		type AlertsContext
-	} from '$lib/contexts/alerts.context.svelte';
-	import {
-		CASES_CTX,
-		createCasesContext,
-		type CasesContext
-	} from '$lib/contexts/cases.context.svelte';
 
 	const { children } = $props();
 
-	const app: AppContext = createAppContext();
-	setContext(APP_CTX, app);
-
-	const alerts: AlertsContext = createAlertsContext((a) => a.alert_id);
-	setContext(ALERTS_CTX, alerts);
-
-	const cases: CasesContext = createCasesContext((c) => c.case_id, app);
-	setContext(CASES_CTX, cases);
-
-	onMount(async () => {
-		app.init();
-
-		await cases.load({ case_ids: [cases.currentCaseId()] });
-	});
-
 	$effect.pre(() => {
+		auth.loadAuth(fetch, true).then((loginResponse) => {
+			if (!loginResponse) {
+				goto('/login');
+			}
+		});
+
 		// Set UI theme
 		if ($mode == 'dark') {
 			document.body.classList.add('dark');
