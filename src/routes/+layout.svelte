@@ -8,6 +8,11 @@
 	import { setContext, onMount } from 'svelte';
 	import { APP_CTX, createAppContext, type AppContext } from '$lib/contexts/app.context.svelte';
 	import {
+		ALERTS_CTX,
+		createAlertsContext,
+		type AlertsContext
+	} from '$lib/contexts/alerts.context.svelte';
+	import {
 		CASES_CTX,
 		createCasesContext,
 		type CasesContext
@@ -17,6 +22,9 @@
 
 	const app: AppContext = createAppContext();
 	setContext(APP_CTX, app);
+
+	const alerts: AlertsContext = createAlertsContext((a) => a.alert_id);
+	setContext(ALERTS_CTX, alerts);
 
 	const cases: CasesContext = createCasesContext((c) => c.case_id, app);
 	setContext(CASES_CTX, cases);

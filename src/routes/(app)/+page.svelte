@@ -1,23 +1,45 @@
 <script lang="ts">
-	import BaseKpi from '$lib/components/ui/card/card-base-kpi.svelte';
-	import UserCurrentTasksTable from './[components]/user-current-tasks-table.svelte';
+	import { getContext, onMount } from 'svelte';
 	import { BellRingIcon, LayersIcon, ListTodoIcon, ClipboardCheckIcon } from 'lucide-svelte';
+	import { page } from '$app/state';
+	import BaseKpi from '$lib/components/ui/card/card-base-kpi.svelte';
+	import UserCurrentAlertsTable from './[components]/user-current-alerts-table.svelte';
 	import CurrentUserCasesTable from './[components]/user-current-cases-table.svelte';
 	import UserCurrentReviewsTable from './[components]/user-current-reviews-table.svelte';
-	import UserCurrentAlerts from './[components]/user-current-alerts.svelte';
-	import type { PageData } from './$types';
-	import { page } from '$app/stores';
-	import type { Paginated } from '$lib/services/api.service';
+	import UserCurrentTasksTable from './[components]/user-current-tasks-table.svelte';
+	import type { Paginated, RequestResponse } from '$lib/services/api.service';
+	import type { Alert } from '$lib/types/resources/alert';
 	import type { Case } from '$lib/types/resources/case';
+	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
+	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 
-	let { data }: { data: PageData } = $props();
-
-	let tasks = data.tasks || [];
-	let reviews = data.reviews || [];
-	let alerts = data.alerts || [];
+	const alerts = getContext<AlertsContext | undefined>(ALERTS_CTX);
+	const cases = getContext<CasesContext | undefined>(CASES_CTX);
 
 	let activeTab = $state('');
-	let hash = $derived(() => $page.url.hash);
+	let hash = $derived(() => page.url.hash);
+
+	let alertsPromise = $state<Promise<RequestResponse<Paginated<Alert>>> | null>(null);
+	let casesPromise = $state<Promise<RequestResponse<Paginated<Case>>> | null>(null);
+	let tasksPromise = $state<Promise<unknown> | null>(null);
+	let reviewsPromise = $state<Promise<unknown> | null>(null);
+
+	const getTotal = (value: unknown): number => {
+		const total = (value as { data?: { total?: unknown } })?.data?.total;
+		return typeof total === 'number' ? total : 0;
+	};
+
+	onMount(async () => {
+		if (!alertsPromise) {
+			alertsPromise = alerts?.listPaginated() as unknown as Promise<
+				RequestResponse<Paginated<Alert>>
+			>;
+		}
+
+		if (!casesPromise) {
+			casesPromise = cases?.listPaginated() as unknown as Promise<RequestResponse<Paginated<Case>>>;
+		}
+	});
 
 	$effect(() => {
 		activeTab = hash().replace('#', '');
@@ -37,69 +59,77 @@
 
 	<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
 		<!-- Current cases KPI -->
-		{#await data.cases}
+		{#await casesPromise ?? Promise.resolve(undefined)}
 			<BaseKpi title="Current Cases" icon={LayersIcon} value={0} isLoading></BaseKpi>
-		{:then { data: cases }}
+		{:then res}
 			<a href="/#cases">
 				<BaseKpi
 					title="Current Cases"
 					subtitle={activeTab !== 'cases' ? 'Click to view' : undefined}
 					icon={LayersIcon}
-					value={cases ? (cases as Paginated<Case>).total : 0}
+					value={getTotal(res)}
 				></BaseKpi>
 			</a>
 		{/await}
 
 		<!-- Tasks KPI -->
-		{#await data.tasks}
+		{#await tasksPromise ?? Promise.resolve(undefined)}
 			<BaseKpi title="Pending Tasks" icon={ListTodoIcon} value={0} isLoading></BaseKpi>
-		{:then tasks}
+		{:then res}
 			<a href="/#tasks">
 				<BaseKpi
 					title="Pending Tasks"
 					subtitle={activeTab !== 'tasks' ? 'Click to view' : undefined}
 					icon={ListTodoIcon}
-					value={tasks?.data?.data?.total ?? 0}
+					value={getTotal(res)}
 				></BaseKpi>
 			</a>
 		{/await}
 
 		<!-- Reviews KPI -->
-		{#await data.reviews}
+		{#await reviewsPromise ?? Promise.resolve(undefined)}
 			<BaseKpi title="Pending Reviews" icon={ListTodoIcon} value={0} isLoading></BaseKpi>
-		{:then reviews}
+		{:then res}
 			<a href="/#reviews">
 				<BaseKpi
 					title="Pending Reviews"
 					subtitle={activeTab !== 'reviews' ? 'Click to view' : undefined}
 					icon={ClipboardCheckIcon}
-					value={reviews?.data?.data?.total ?? 0}
+					value={getTotal(res)}
 				></BaseKpi>
 			</a>
 		{/await}
 
 		<!-- Alerts KPI -->
-		{#await data.alerts}
+		{#await alertsPromise ?? Promise.resolve(undefined)}
 			<BaseKpi title="Attributes Alerts" icon={ListTodoIcon} value={0} isLoading></BaseKpi>
-		{:then alerts}
+		{:then res}
 			<a href="/#alerts">
 				<BaseKpi
 					title="Attributes Alerts"
 					subtitle={activeTab !== 'alerts' ? 'Click to view' : undefined}
 					icon={BellRingIcon}
-					value={alerts?.data?.data?.total ?? 0}
+					value={getTotal(res)}
 				></BaseKpi>
 			</a>
 		{/await}
 	</div>
 
 	{#if activeTab === 'cases'}
-		<CurrentUserCasesTable cases={data.cases} />
+		{#if casesPromise}
+			<CurrentUserCasesTable />
+		{/if}
 	{:else if activeTab === 'tasks'}
-		<UserCurrentTasksTable data={data.tasks} />
+		{#if tasksPromise}
+			<UserCurrentTasksTable data={tasksPromise} />
+		{/if}
 	{:else if activeTab === 'reviews'}
-		<UserCurrentReviewsTable {...reviews} />
+		{#if reviewsPromise}
+			<UserCurrentReviewsTable data={reviewsPromise} />
+		{/if}
 	{:else if activeTab === 'alerts'}
-		<UserCurrentAlerts {...alerts} />
+		{#if alertsPromise}
+			<UserCurrentAlertsTable />
+		{/if}
 	{/if}
 </div>

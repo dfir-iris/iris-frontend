@@ -47,7 +47,7 @@ describe('CustomersService', () => {
 		const res = await CustomersService.list(options);
 
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
-		expect(ApiService.get).toHaveBeenCalledWith('/manage/customers/list', options);
+		expect(ApiService.get).toHaveBeenCalledWith('/manage/customers', options);
 		expect(res).toBe(mockResponse);
 	});
 

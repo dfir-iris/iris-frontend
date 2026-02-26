@@ -3,16 +3,16 @@
 	import { RefreshCw } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import type { Case } from '$lib/types/resources/case';
-	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
+	import type { Alert } from '$lib/types/resources/alert';
 	import type { Paginated, RequestResponse } from '$lib/services/api.service';
+	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card/index.js';
-	import CasesDataTable from '$lib/components/common/cases-data-table.svelte';
+	import AlertsDataTable from '$lib/components/common/alerts-data-table.svelte';
 
-	const cases = getContext<CasesContext | undefined>(CASES_CTX);
+	const alerts = getContext<AlertsContext | undefined>(ALERTS_CTX);
 
-	let casesPromise = $state<Promise<RequestResponse<Paginated<Case>>> | null>(null);
+	let alertsPromise = $state<Promise<RequestResponse<Paginated<Alert>>> | null>(null);
 
 	const currentPage = $derived(() => {
 		const p = Number(page.url.searchParams.get('page') ?? '1');
@@ -20,12 +20,12 @@
 	});
 
 	const fetchPage = (p: number) => {
-		if (!cases) return;
-		casesPromise = cases.listPaginated({ page: p }) as Promise<RequestResponse<Paginated<Case>>>;
+		if (!alerts) return;
+		alertsPromise = alerts.listPaginated({ page: p }) as Promise<RequestResponse<Paginated<Alert>>>;
 	};
 
 	onMount(() => {
-		if (!casesPromise && cases) fetchPage(currentPage());
+		if (!alertsPromise && alerts) fetchPage(currentPage());
 	});
 
 	const updateUrl = (params: { page?: number }) => {
@@ -36,7 +36,6 @@
 			else url.searchParams.set('page', String(params.page));
 		}
 
-		// IMPORTANT: keep the hash (#cases)
 		const nextHref = `${url.pathname}${url.search}${url.hash}`;
 		const curHref = `${page.url.pathname}${page.url.search}${page.url.hash}`;
 		if (nextHref === curHref) return;
@@ -52,9 +51,9 @@
 
 <Card.Root class="flex flex-col p-4">
 	<Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
-		<Card.Title class="text-lg font-medium">Owned Cases</Card.Title>
+		<Card.Title class="text-lg font-medium">Attributes Alerts</Card.Title>
 
-		{#if cases}
+		{#if alerts}
 			<Button
 				variant="ghost"
 				size="icon"
@@ -68,10 +67,10 @@
 	</Card.Header>
 
 	<Card.Content class="p-0">
-		{#if casesPromise}
-			<CasesDataTable
+		{#if alertsPromise}
+			<AlertsDataTable
 				class="h-full border-0"
-				cases={casesPromise}
+				alerts={alertsPromise}
 				page={currentPage()}
 				{onPageChange}
 			/>
