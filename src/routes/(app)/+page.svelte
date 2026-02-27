@@ -2,6 +2,7 @@
 	import { getContext, onMount } from 'svelte';
 	import { BellRingIcon, LayersIcon, ListTodoIcon, ClipboardCheckIcon } from 'lucide-svelte';
 	import { page } from '$app/state';
+	import { getTotal } from '$lib/utils';
 	import BaseKpi from '$lib/components/ui/card/card-base-kpi.svelte';
 	import UserCurrentAlertsTable from './[components]/user-current-alerts-table.svelte';
 	import CurrentUserCasesTable from './[components]/user-current-cases-table.svelte';
@@ -24,11 +25,6 @@
 	let tasksPromise = $state<Promise<unknown> | null>(null);
 	let reviewsPromise = $state<Promise<unknown> | null>(null);
 
-	const getTotal = (value: unknown): number => {
-		const total = (value as { data?: { total?: unknown } })?.data?.total;
-		return typeof total === 'number' ? total : 0;
-	};
-
 	onMount(async () => {
 		if (!alertsPromise) {
 			alertsPromise = alerts?.listPaginated() as unknown as Promise<
@@ -50,7 +46,7 @@
 	<title>Dashboard | DFIR-IRIS</title>
 </svelte:head>
 
-<div class="flex flex-col space-y-4 p-8 pt-6">
+<div class="flex flex-col space-y-4 p-2">
 	<!-- Page Header -->
 	<div class="flex items-center justify-between space-y-2 py-2">
 		<h1 class="">Dashboard</h1>
