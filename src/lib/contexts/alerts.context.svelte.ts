@@ -8,6 +8,13 @@ import type {
 } from '$lib/services/alerts.service';
 import type { ApiOptions, Paginated, RequestResponse } from '$lib/services/api.service';
 import type { Alert } from '$lib/types/resources/alert';
+import { AlertsFiltersService } from '$lib/services/alerts-filters.service';
+import type {
+	SavedFilter,
+	SavedFilterIdentifier,
+	CreateSavedFilterBody,
+	ListSavedFiltersParams
+} from '$lib/services/alerts-filters.service';
 
 export const ALERTS_CTX = Symbol('alerts');
 
@@ -96,6 +103,18 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 		error: null
 	});
 
+	const savedFilters = $state<{
+		params: ListSavedFiltersParams;
+		items: SavedFilter[];
+		status: Status;
+		error: string | null;
+	}>({
+		params: { filter_type: 'alerts', include_public: 1 },
+		items: [],
+		status: 'idle',
+		error: null
+	});
+
 	const ui = $state({
 		showAddModal: false,
 		showManageModal: false
@@ -167,6 +186,105 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 	};
 
 	const refresh = async (options: ApiOptions = {}) => load(list.params, options);
+
+	const loadSavedFilters = async (
+		params: ListSavedFiltersParams = savedFilters.params,
+		options: ApiOptions = {}
+	) => {
+		savedFilters.params = params;
+		savedFilters.status = 'loading';
+		savedFilters.error = null;
+
+		const response = await AlertsFiltersService.list(params, options);
+
+		if (
+			!response.ok ||
+			response.error ||
+			response.data === null ||
+			typeof response.data === 'string' ||
+			!Array.isArray(response.data)
+		) {
+			savedFilters.status = 'error';
+			savedFilters.error = response.error?.message ?? 'Failed to load saved filters';
+			savedFilters.items = [];
+			return;
+		}
+
+		savedFilters.items = response.data;
+		savedFilters.status = 'idle';
+		savedFilters.error = null;
+	};
+
+	const getSavedFilter = async (
+		id: SavedFilterIdentifier,
+		options: ApiOptions = {}
+	): Promise<SavedFilter | null> => {
+		const response = await AlertsFiltersService.get(id, options);
+
+		if (
+			response.ok &&
+			!response.error &&
+			response.data !== null &&
+			typeof response.data !== 'string'
+		) {
+			return response.data;
+		}
+
+		return null;
+	};
+
+	const createSavedFilter = async (
+		body: CreateSavedFilterBody,
+		options: ApiOptions = {}
+	): Promise<SavedFilter | null> => {
+		const response = await AlertsFiltersService.create(body, options);
+
+		if (
+			response.ok &&
+			!response.error &&
+			response.data !== null &&
+			typeof response.data !== 'string'
+		) {
+			await loadSavedFilters(savedFilters.params, options);
+			return response.data;
+		}
+
+		return null;
+	};
+
+	const updateSavedFilter = async (
+		id: SavedFilterIdentifier,
+		body: Partial<CreateSavedFilterBody>,
+		options: ApiOptions = {}
+	): Promise<SavedFilter | null> => {
+		const response = await AlertsFiltersService.update(id, body, options);
+
+		if (
+			response.ok &&
+			!response.error &&
+			response.data !== null &&
+			typeof response.data !== 'string'
+		) {
+			await loadSavedFilters(savedFilters.params, options);
+			return response.data;
+		}
+
+		return null;
+	};
+
+	const removeSavedFilter = async (
+		id: SavedFilterIdentifier,
+		options: ApiOptions = {}
+	): Promise<boolean> => {
+		const response = await AlertsFiltersService.remove(id, options);
+
+		if (response.ok && !response.error) {
+			await loadSavedFilters(savedFilters.params, options);
+			return true;
+		}
+
+		return false;
+	};
 
 	const get = async (id: AlertIdentifier, options: ApiOptions = {}): Promise<Alert | null> => {
 		const response = await AlertService.get(id, options);
@@ -284,6 +402,11 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 		list.status = 'idle';
 		list.error = null;
 
+		savedFilters.params = { filter_type: 'alerts', include_public: 1 };
+		savedFilters.items = [];
+		savedFilters.status = 'idle';
+		savedFilters.error = null;
+
 		ui.showAddModal = false;
 		ui.showManageModal = false;
 	};
@@ -295,11 +418,17 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 	return {
 		byId,
 		list,
+		savedFilters,
 		ui,
 		alerts,
 		load,
 		listPaginated,
 		refresh,
+		loadSavedFilters,
+		getSavedFilter,
+		createSavedFilter,
+		updateSavedFilter,
+		removeSavedFilter,
 		get,
 		create,
 		patch,
