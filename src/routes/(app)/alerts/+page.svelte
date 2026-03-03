@@ -8,7 +8,6 @@
 	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
 	import type { RequestResponse, Paginated } from '$lib/services/api.service';
 	import type { Alert } from '$lib/types/resources/alert';
-	import * as Card from '$lib/components/ui/card';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { Select } from '$lib/components/ui/select';
 	import SelectContent from '$lib/components/ui/select/select-content.svelte';
@@ -21,6 +20,7 @@
 		uiFiltersToSavedFilterData,
 		type Filters
 	} from '$lib/components/common/AlertFilters';
+	import AlertCard from './components/alert-card.svelte';
 	import AlertsPagination from './components/alerts-pagination.svelte';
 
 	const alerts = getContext<AlertsContext>(ALERTS_CTX);
@@ -31,6 +31,9 @@
 	let filters = $state<Filters>(defaultFilters());
 	let selectedSavedFilterId = $state<string>('');
 	let savingFilter = $state(false);
+
+	let expandedAll = $state(false);
+	let expanded = $state<Record<number, boolean>>({});
 
 	let lastFiltersKey = '';
 
@@ -155,6 +158,9 @@
 
 		currentPage = Number.isFinite(urlPage) && urlPage >= 1 ? urlPage : 1;
 		perPage = Number.isFinite(urlPerPage) && urlPerPage >= 1 ? urlPerPage : DEFAULT_ITEMS_PER_PAGE;
+
+		const urlExpanded = page.url.searchParams.get('expanded') === '1';
+		expandedAll = urlExpanded;
 
 		const nextFilters: Filters = { ...defaultFilters() };
 
@@ -343,6 +349,16 @@
 					{/if}
 				</Button>
 
+				<Button
+					variant="outline"
+					onclick={() => {
+						expanded = {};
+						updateUrl({ expanded: !expandedAll });
+					}}
+				>
+					{expandedAll ? 'Collapse All' : 'Expand All'}
+				</Button>
+
 				<Select
 					value={String(perPage)}
 					onValueChange={(value) => {
@@ -365,32 +381,32 @@
 		</div>
 
 		{#if filtersOpen}
-		<AlertFilters
-			value={filters}
-			onChange={(next) => (filters = next)}
-			onApply={() => {
-				currentPage = 1;
-				updateUrl({ page: 1, filters });
-			}}
-			onClear={() => {
-				filters = defaultFilters();
-				currentPage = 1;
-				updateUrl({ page: 1, filters });
-				clearSavedFilterSelection();
-			}}
-			presets={alerts.savedFilters.items}
-			onSaveAsFilter={saveAsFilter}
-			saving={savingFilter}
-		/>
+			<AlertFilters
+				value={filters}
+				onChange={(next) => (filters = next)}
+				onApply={() => {
+					currentPage = 1;
+					updateUrl({ page: 1, filters });
+				}}
+				onClear={() => {
+					filters = defaultFilters();
+					currentPage = 1;
+					updateUrl({ page: 1, filters });
+					clearSavedFilterSelection();
+				}}
+				presets={alerts.savedFilters.items}
+				onSaveAsFilter={saveAsFilter}
+				saving={savingFilter}
+			/>
 		{/if}
 
 		<div class="flex">
 			<AlertsPagination
 				page={currentPage}
 				pages={getPagesCount(res as RequestResponse<Paginated<Alert>>)}
-				onPageChange={(p) => {
-					currentPage = p;
-					updateUrl({ page: p });
+				onPageChange={(page) => {
+					currentPage = page;
+					updateUrl({ page });
 				}}
 			/>
 		</div>
@@ -398,15 +414,13 @@
 		<ul class="flex flex-col gap-4">
 			{#each (res?.data as Paginated<Alert>).data as alert}
 				<li>
-					<Card.Root>
-						<Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
-							{alert.alert_title}
-						</Card.Header>
-
-						<Card.Content>
-							{alert.alert_description}
-						</Card.Content>
-					</Card.Root>
+					<AlertCard
+						{alert}
+						expanded={expanded[alert.alert_id] ?? expandedAll}
+						onExpandedChange={(v) => {
+							expanded = { ...expanded, [alert.alert_id]: v };
+						}}
+					/>
 				</li>
 			{/each}
 		</ul>
@@ -415,9 +429,9 @@
 			<AlertsPagination
 				page={currentPage}
 				pages={getPagesCount(res as RequestResponse<Paginated<Alert>>)}
-				onPageChange={(p) => {
-					currentPage = p;
-					updateUrl({ page: p });
+				onPageChange={(page) => {
+					currentPage = page;
+					updateUrl({ page });
 				}}
 			/>
 		</div>
