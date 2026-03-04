@@ -19,8 +19,8 @@
 		savedFilterToUiFilters,
 		uiFiltersToSavedFilterData,
 		type Filters
-	} from '$lib/components/common/AlertFilters';
-	import AlertCard from './components/alert-card.svelte';
+	} from './components/AlertFilters';
+	import { AlertCard } from './components/AlertCard';
 	import AlertsPagination from './components/alerts-pagination.svelte';
 
 	const alerts = getContext<AlertsContext>(ALERTS_CTX);

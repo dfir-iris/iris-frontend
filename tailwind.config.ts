@@ -14,6 +14,20 @@ const config: Config = {
 			}
 		},
 		extend: {
+			keyframes: {
+				'collapsible-down': {
+					from: { height: '0' },
+					to: { height: 'var(--bits-collapsible-content-height)' }
+				},
+				'collapsible-up': {
+					from: { height: 'var(--bits-collapsible-content-height)' },
+					to: { height: '0' }
+				}
+			},
+			animation: {
+				'collapsible-down': 'collapsible-down 200ms ease-out',
+				'collapsible-up': 'collapsible-up 200ms ease-out'
+			},
 			colors: {
 				table: {
 					primary: {
