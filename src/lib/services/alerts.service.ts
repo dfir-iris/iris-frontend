@@ -54,6 +54,7 @@ export interface CreateAlertBody {
 	alert_source_event_time?: string;
 	alert_note?: string;
 	alert_tags?: string;
+	alert_owner_id?: number | null;
 
 	alert_iocs?: Array<{
 		ioc_value: string;

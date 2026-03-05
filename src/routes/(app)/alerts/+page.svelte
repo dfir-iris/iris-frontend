@@ -3,12 +3,14 @@
 	import { ArrowDownNarrowWide, ArrowUpNarrowWide } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { getTotal } from '$lib/utils';
+	import { getTotal, isFiniteNumberString, toApiDate } from '$lib/utils';
 	import { DEFAULT_ITEMS_PER_PAGE } from '$lib/config/api.config';
 	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
 	import type { RequestResponse, Paginated } from '$lib/services/api.service';
+	import { current_user } from '$lib/stores/auth.store';
 	import type { Alert } from '$lib/types/resources/alert';
 	import Button from '$lib/components/ui/button/button.svelte';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Select } from '$lib/components/ui/select';
 	import SelectContent from '$lib/components/ui/select/select-content.svelte';
 	import SelectItem from '$lib/components/ui/select/select-item.svelte';
@@ -22,6 +24,7 @@
 	} from './components/AlertFilters';
 	import { AlertCard } from './components/AlertCard';
 	import AlertsPagination from './components/alerts-pagination.svelte';
+	import AlertsReasignDialog from './components/alerts-reasign-dialog.svelte';
 
 	const alerts = getContext<AlertsContext>(ALERTS_CTX);
 
@@ -32,12 +35,20 @@
 	let selectedSavedFilterId = $state<string>('');
 	let savingFilter = $state(false);
 
+	let lastFiltersKey = '';
+
 	let expandedAll = $state(false);
 	let expanded = $state<Record<number, boolean>>({});
 
-	let lastFiltersKey = '';
+	let selecting = $state(false);
+	let selectedAll = $state(false);
+	let selected = $state<Record<number, boolean>>({});
 
 	let alertsPaginated = $state<Promise<RequestResponse<Paginated<Alert>>> | null>(null);
+
+	let reassignOpen = $state(false);
+	let reassignAlert = $state<Alert | null>(null);
+	let reassignOwnerId = $state<string>('');
 
 	const perPageOptions = [5, 10, 25, 50, 100].map((n) => ({
 		value: String(n),
@@ -72,23 +83,6 @@
 			page: 1,
 			filters: { ...filters, sort: nextSort }
 		});
-	};
-
-	const isFiniteNumberString = (v: string) => {
-		const n = Number(v);
-		return Number.isFinite(n) && v.trim() !== '';
-	};
-
-	const toApiStartDate = (v: string | undefined) => {
-		if (!v) return undefined;
-		if (v.includes('T')) return v;
-		return `${v}T00:00:00`;
-	};
-
-	const toApiEndDate = (v: string | undefined) => {
-		if (!v) return undefined;
-		if (v.includes('T')) return v;
-		return `${v}T23:59:59`;
 	};
 
 	const updateUrl = (params: {
@@ -141,13 +135,129 @@
 		const curHref = `${page.url.pathname}${page.url.search}`;
 		if (nextHref === curHref) return;
 
-		void goto(nextHref, { replaceState: true, keepFocus: true, noScroll: true });
+		goto(nextHref, { replaceState: true, keepFocus: true, noScroll: true });
 	};
 
 	const normalizeAlert = (value: unknown): Alert => {
 		if (!value || typeof value !== 'object') return {} as Alert;
 
 		return value as Alert;
+	};
+
+	const updateAlertInPage = (id: number, patch: Partial<Alert>) => {
+		if (!alertsPaginated) return;
+
+		alertsPaginated = alertsPaginated.then((res) => {
+			const pageData = res.data;
+			if (!pageData || typeof pageData === 'string') return res;
+
+			const list = Array.isArray(pageData.data) ? pageData.data : [];
+			const next = list.map((alert) =>
+				alert.alert_id === id ? ({ ...alert, ...patch } as Alert) : alert
+			);
+
+			return {
+				...res,
+				data: {
+					...pageData,
+					data: next
+				}
+			};
+		});
+	};
+
+	const getPagesCount = (res: RequestResponse<Paginated<Alert>>): number => {
+		const total = getTotal(res);
+		if (total <= 0) return 1;
+		return Math.ceil(total / perPage);
+	};
+
+	const applySavedFilter = async (id: number) => {
+		const saved = await alerts.getSavedFilter(id);
+		if (!saved) return;
+
+		selectedSavedFilterId = String(id);
+
+		const next = savedFilterToUiFilters(saved, defaultFilters());
+
+		filters = next;
+		currentPage = 1;
+		updateUrl({ page: 1, filters: next });
+	};
+
+	const clearSavedFilterSelection = () => (selectedSavedFilterId = '');
+
+	const saveAsFilter = async (
+		current: Filters,
+		meta: { name: string; description: string; isPrivate: boolean }
+	) => {
+		if (savingFilter) return;
+
+		const name = meta.name.trim();
+		if (name === '') return;
+
+		savingFilter = true;
+
+		const created = await alerts.createSavedFilter({
+			filter_is_private: meta.isPrivate,
+			filter_type: 'alerts',
+			filter_name: name,
+			filter_description: meta.description.trim(),
+			filter_data: [uiFiltersToSavedFilterData(current)]
+		});
+
+		savingFilter = false;
+
+		if (!created) return;
+
+		selectedSavedFilterId = String(created.filter_id);
+	};
+
+	const openReassignDialog = (alert: Alert) => {
+		reassignAlert = alert;
+		reassignOwnerId = '';
+		reassignOpen = true;
+	};
+
+	const confirmReassign = async () => {
+		if (!reassignAlert) return;
+
+		updateAlertInPage(reassignAlert.alert_id, { alert_owner_id: Number(reassignOwnerId) });
+
+		const updated = await alerts.patch(reassignAlert.alert_id, {
+			alert_owner_id: Number(reassignOwnerId)
+		});
+
+		if (updated) {
+			updateAlertInPage(reassignAlert.alert_id, updated);
+
+			reassignOpen = false;
+			reassignAlert = null;
+			reassignOwnerId = '';
+		} else {
+			alerts.refresh();
+		}
+	};
+
+	const assign = async (alert: Alert) => {
+		if (!$current_user) return;
+
+		if (alert.alert_owner_id) {
+			openReassignDialog(alert);
+			return;
+		}
+
+		const nextOwnerId = $current_user.id;
+
+		updateAlertInPage(alert.alert_id, { alert_owner_id: nextOwnerId });
+
+		const updated = await alerts.patch(alert.alert_id, { alert_owner_id: nextOwnerId });
+
+		if (updated) {
+			updateAlertInPage(alert.alert_id, updated);
+		} else {
+			alerts.refresh();
+		}
 	};
 
 	$effect(() => {
@@ -193,8 +303,8 @@
 
 		const params = {
 			...nextFilters,
-			alert_start_date: toApiStartDate(nextFilters.alert_start_date),
-			alert_end_date: toApiEndDate(nextFilters.alert_end_date),
+			alert_start_date: toApiDate(nextFilters.alert_start_date),
+			alert_end_date: toApiDate(nextFilters.alert_end_date, true),
 			page: currentPage,
 			per_page: perPage
 		};
@@ -232,58 +342,7 @@
 		});
 	});
 
-	const getPagesCount = (res: RequestResponse<Paginated<Alert>>): number => {
-		const total = getTotal(res);
-		if (total <= 0) return 1;
-		return Math.ceil(total / perPage);
-	};
-
-	const applySavedFilter = async (id: number) => {
-		const saved = await alerts.getSavedFilter(id);
-		if (!saved) return;
-
-		selectedSavedFilterId = String(id);
-
-		const next = savedFilterToUiFilters(saved, defaultFilters());
-
-		filters = next;
-		currentPage = 1;
-		updateUrl({ page: 1, filters: next });
-	};
-
-	const clearSavedFilterSelection = () => {
-		selectedSavedFilterId = '';
-	};
-
-	const saveAsFilter = async (
-		current: Filters,
-		meta: { name: string; description: string; isPrivate: boolean }
-	) => {
-		if (savingFilter) return;
-
-		const name = meta.name.trim();
-		if (name === '') return;
-
-		savingFilter = true;
-
-		const created = await alerts.createSavedFilter({
-			filter_is_private: meta.isPrivate,
-			filter_type: 'alerts',
-			filter_name: name,
-			filter_description: meta.description.trim(),
-			filter_data: [uiFiltersToSavedFilterData(current)]
-		});
-
-		savingFilter = false;
-
-		if (!created) return;
-
-		selectedSavedFilterId = String(created.filter_id);
-	};
-
-	onMount(() => {
-		void alerts.loadSavedFilters({ filter_type: 'alerts', include_public: 1 });
-	});
+	onMount(() => alerts.loadSavedFilters({ filter_type: 'alerts', include_public: 1 }));
 </script>
 
 <svelte:head>
@@ -319,7 +378,7 @@
 							const id = Number(v);
 							if (!Number.isFinite(id)) return;
 
-							void applySavedFilter(id);
+							applySavedFilter(id);
 
 							filtersOpen = true;
 						}}
@@ -339,15 +398,26 @@
 			</div>
 
 			<div class="flex gap-4">
-				<Button variant="outline" onclick={() => alerts.refresh()}>Refresh</Button>
+				{#if selecting}
+					<Button
+						variant="outline"
+						onclick={() => {
+							selecting = false;
+							selectedAll = false;
+							selected = {};
+						}}>Cancel</Button
+					>
 
-				<Button variant="outline" onclick={toggleSort}>
-					{#if filters.sort === 'asc'}
-						<ArrowDownNarrowWide class="h-4 w-4" />
-					{:else}
-						<ArrowUpNarrowWide class="h-4 w-4" />
-					{/if}
-				</Button>
+					<Button
+						variant="outline"
+						onclick={() => {
+							selected = {};
+							selectedAll = true;
+						}}>Select All</Button
+					>
+				{:else}
+					<Button variant="outline" onclick={() => (selecting = true)}>Select</Button>
+				{/if}
 
 				<Button
 					variant="outline"
@@ -357,6 +427,16 @@
 					}}
 				>
 					{expandedAll ? 'Collapse All' : 'Expand All'}
+				</Button>
+
+				<Button variant="outline" onclick={() => alerts.refresh()}>Refresh</Button>
+
+				<Button variant="outline" onclick={toggleSort}>
+					{#if filters.sort === 'asc'}
+						<ArrowDownNarrowWide class="h-4 w-4" />
+					{:else}
+						<ArrowUpNarrowWide class="h-4 w-4" />
+					{/if}
 				</Button>
 
 				<Select
@@ -413,13 +493,19 @@
 
 		<ul class="flex flex-col gap-4">
 			{#each (res?.data as Paginated<Alert>).data as alert}
-				<li>
+				<li class="flex items-center gap-4">
+					{#if selecting}
+						<Checkbox
+							checked={selected[alert.alert_id] ?? selectedAll}
+							onCheckedChange={(v) => (selected = { ...selected, [alert.alert_id]: v })}
+						/>
+					{/if}
+
 					<AlertCard
 						{alert}
 						expanded={expanded[alert.alert_id] ?? expandedAll}
-						onExpandedChange={(v) => {
-							expanded = { ...expanded, [alert.alert_id]: v };
-						}}
+						onExpandedChange={(v) => (expanded = { ...expanded, [alert.alert_id]: v })}
+						onAssign={() => assign(alert)}
 					/>
 				</li>
 			{/each}
@@ -437,3 +523,19 @@
 		</div>
 	{/await}
 </div>
+
+<AlertsReasignDialog
+	open={reassignOpen}
+	onOpenChange={(open) => {
+		reassignOpen = open;
+
+		if (!open) {
+			reassignAlert = null;
+			reassignOwnerId = '';
+		}
+	}}
+	alert={reassignAlert}
+	ownerId={reassignOwnerId}
+	onOwnerIdChange={(ownerId) => (reassignOwnerId = ownerId)}
+	onConfirm={confirmReassign}
+/>

@@ -16,11 +16,13 @@
 	let {
 		alert,
 		expanded = false,
-		onExpandedChange
+		onExpandedChange,
+		onAssign
 	}: {
 		alert: Alert;
 		expanded?: boolean;
 		onExpandedChange: (v: boolean) => void;
+		onAssign: () => void;
 	} = $props();
 
 	const getBackgroundBySeverity = (severity: string): string => {
@@ -37,21 +39,23 @@
 	};
 </script>
 
-<Card.Root>
+<Card.Root class="flex grow">
 	<Collapsible.Root open={expanded} onOpenChange={onExpandedChange}>
 		<Card.Header class="!flex !flex-row !items-center !justify-between !space-y-0 pb-2">
 			<div class="flex min-w-0 flex-1 items-center gap-4">
 				<div class="relative flex h-12 w-14 shrink-0">
-					<button
-						class={`absolute left-0 top-0 flex h-12 w-12 items-center justify-center rounded-full text-white hover:z-50 ${getBackgroundBySeverity(alert.severity.severity_name)}`}
-						title="Assign to me"
-					>
-						<FlameIcon size="32" />
-					</button>
+					<Collapsible.Trigger>
+						<button
+							class={`absolute left-0 top-0 flex h-12 w-12 items-center justify-center rounded-full text-white hover:z-50 ${getBackgroundBySeverity(alert.severity.severity_name)}`}
+						>
+							<FlameIcon size="32" />
+						</button>
+					</Collapsible.Trigger>
 
 					<button
 						class={`absolute left-6 top-4 z-0 flex h-10 w-10 items-center justify-center rounded-full text-xl text-white ${alert.owner ? 'bg-blue-300' : 'bg-orange-800'}`}
 						title="Reasign alert"
+						onclick={onAssign}
 					>
 						{#if alert.owner}
 							{getInitials(alert.owner.user_name ?? '')}
