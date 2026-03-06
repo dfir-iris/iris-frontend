@@ -12,16 +12,17 @@
 
 	type Props = {
 		open: boolean;
-		onOpenChange: (v: boolean) => void;
 		alert: Alert | null;
 		ownerId: string;
 		onOwnerIdChange: (v: string) => void;
 		onConfirm: () => void;
 	};
 
-	let { open, onOpenChange, alert, ownerId, onOwnerIdChange, onConfirm }: Props = $props();
+	let { open = $bindable(), alert, ownerId, onOwnerIdChange, onConfirm }: Props = $props();
 
 	let users = $state<User[]>([]);
+
+	const DEFAULT_VALUE = 'Select user';
 
 	const loadReassignUsers = async () => {
 		const usersResponse = (await UsersService.list()).data as unknown as RequestResponse<User[]>;
@@ -31,10 +32,14 @@
 	onMount(() => loadReassignUsers());
 </script>
 
-<Dialog.Root {open} {onOpenChange}>
+<Dialog.Root bind:open>
 	<Dialog.Content class="sm:max-w-[520px]">
 		<Dialog.Header>
-			<Dialog.Title>Reassign Alert #{alert?.alert_id ?? ''}</Dialog.Title>
+			{#if alert}
+				<Dialog.Title>Reassign Alert #{alert?.alert_id ?? ''}</Dialog.Title>
+			{:else}
+				<Dialog.Title>Reassign Multiple Alerts</Dialog.Title>
+			{/if}
 		</Dialog.Header>
 
 		<div class="flex flex-col gap-2 py-2">
@@ -42,12 +47,12 @@
 
 			<Select value={ownerId} onValueChange={onOwnerIdChange} type="single">
 				<SelectTrigger
-					>{users.find((user) => user.user_id === Number(ownerId))?.user_name ??
-						String(alert?.owner.user_name)}</SelectTrigger
+					>{users.find((user) => Number(user.user_id) === Number(ownerId))?.user_name ??
+						DEFAULT_VALUE}</SelectTrigger
 				>
 
 				<SelectContent>
-					<SelectItem value="">Select user</SelectItem>
+					<SelectItem value="">{DEFAULT_VALUE}</SelectItem>
 
 					{#each users as u (u.user_id)}
 						<SelectItem value={String(u.user_id)}>
@@ -59,7 +64,7 @@
 		</div>
 
 		<Dialog.Footer class="flex gap-2">
-			<Button variant="outline" onclick={() => onOpenChange(false)}>Cancel</Button>
+			<Button variant="outline" onclick={() => (open = false)}>Cancel</Button>
 			<Button disabled={ownerId === ''} onclick={onConfirm}>Assign</Button>
 		</Dialog.Footer>
 	</Dialog.Content>

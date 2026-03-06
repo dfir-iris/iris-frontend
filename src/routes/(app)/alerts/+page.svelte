@@ -1,16 +1,30 @@
 <script lang="ts">
 	import { getContext, onMount } from 'svelte';
-	import { ArrowDownNarrowWide, ArrowUpNarrowWide } from 'lucide-svelte';
+	import {
+		ArrowDownNarrowWide,
+		ArrowUpNarrowWide,
+		ChevronDownIcon,
+		TrashIcon
+	} from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { getTotal, isFiniteNumberString, toApiDate } from '$lib/utils';
+	import type { Alert } from '$lib/types/resources/alert';
 	import { DEFAULT_ITEMS_PER_PAGE } from '$lib/config/api.config';
 	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
 	import type { RequestResponse, Paginated } from '$lib/services/api.service';
+	import type { UpdateAlertBody } from '$lib/services/alerts.service';
+	import { AlertStatusService, type AlertStatus } from '$lib/services/alert-status.service';
 	import { current_user } from '$lib/stores/auth.store';
-	import type { Alert } from '$lib/types/resources/alert';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
+	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
+	import {
+		DropdownMenu,
+		DropdownMenuContent,
+		DropdownMenuItem,
+		DropdownMenuTrigger
+	} from '$lib/components/ui/dropdown-menu';
 	import { Select } from '$lib/components/ui/select';
 	import SelectContent from '$lib/components/ui/select/select-content.svelte';
 	import SelectItem from '$lib/components/ui/select/select-item.svelte';
@@ -25,6 +39,7 @@
 	import { AlertCard } from './components/AlertCard';
 	import AlertsPagination from './components/alerts-pagination.svelte';
 	import AlertsReasignDialog from './components/alerts-reasign-dialog.svelte';
+	import AlertsCloseDialog from './components/alerts-close-dialog.svelte';
 
 	const alerts = getContext<AlertsContext>(ALERTS_CTX);
 
@@ -45,12 +60,17 @@
 	let selected = $state<Record<number, boolean>>({});
 
 	let alertsPaginated = $state<Promise<RequestResponse<Paginated<Alert>>> | null>(null);
+	let alertStatuses = $state<AlertStatus[]>([]);
 
 	let reassignOpen = $state(false);
 	let reassignAlert = $state<Alert | null>(null);
 	let reassignOwnerId = $state<string>('');
 
-	const perPageOptions = [5, 10, 25, 50, 100].map((n) => ({
+	let showConfirmDelete = $state(false);
+
+	let closeOpen = $state(false);
+
+	const perPageOptions = [5, 10, 25, 50, 100, 200, 500].map((n) => ({
 		value: String(n),
 		label: `${n} entries`
 	}));
@@ -172,6 +192,24 @@
 		return Math.ceil(total / perPage);
 	};
 
+	const getSelectedAlertIds = (): number[] => {
+		let ids: number[] = [];
+
+		if (selectedAll) {
+			ids = alerts.list.ids;
+		} else {
+			for (const alertId in selected) {
+				if (selected[alertId]) {
+					ids.push(Number(alertId));
+				}
+			}
+		}
+
+		return ids;
+	};
+
+	const getSelectedCount = (): number => getSelectedAlertIds().length;
+
 	const applySavedFilter = async (id: number) => {
 		const saved = await alerts.getSavedFilter(id);
 		if (!saved) return;
@@ -213,27 +251,70 @@
 		selectedSavedFilterId = String(created.filter_id);
 	};
 
-	const openReassignDialog = (alert: Alert) => {
-		reassignAlert = alert;
-		reassignOwnerId = '';
+	const openReassignDialog = (alert?: Alert) => {
+		if (alert) {
+			reassignAlert = alert;
+			reassignOwnerId = String(alert.alert_owner_id);
+		}
+
 		reassignOpen = true;
 	};
 
-	const confirmReassign = async () => {
-		if (!reassignAlert) return;
+	const cancelSelect = () => {
+		selecting = false;
+		selectedAll = false;
+		selected = {};
+	};
 
-		updateAlertInPage(reassignAlert.alert_id, { alert_owner_id: Number(reassignOwnerId) });
-
-		const updated = await alerts.patch(reassignAlert.alert_id, {
-			alert_owner_id: Number(reassignOwnerId)
-		});
-
-		if (updated) {
-			updateAlertInPage(reassignAlert.alert_id, updated);
+	const refreshConditionally = (updates: (Alert | null)[]) => {
+		if (updates) {
+			for (const updated of updates) {
+				if (updated) {
+					updateAlertInPage(updated.alert_id, updated);
+				}
+			}
 
 			reassignOpen = false;
 			reassignAlert = null;
 			reassignOwnerId = '';
+
+			cancelSelect();
+		} else {
+			alerts.refresh();
+		}
+	};
+
+	const confirmReassign = async () => {
+		let reassignAlertIds: number[] = [];
+
+		if (reassignAlert) {
+			reassignAlertIds = [reassignAlert.alert_id];
+		}
+
+		const updates = [];
+
+		for (const alert_id of reassignAlertIds) {
+			updateAlertInPage(alert_id, { alert_owner_id: Number(reassignOwnerId) });
+
+			updates.push(
+				await alerts.patch(alert_id, {
+					alert_owner_id: Number(reassignOwnerId)
+				})
+			);
+		}
+
+		refreshConditionally(updates);
+	};
+
+	const assignToCurrentUser = async (alert: Alert) => {
+		const nextOwnerId = $current_user?.id;
+
+		updateAlertInPage(alert.alert_id, { alert_owner_id: nextOwnerId });
+
+		const updated = await alerts.patch(alert.alert_id, { alert_owner_id: nextOwnerId });
+
+		if (updated) {
+			updateAlertInPage(alert.alert_id, updated);
 		} else {
 			alerts.refresh();
 		}
@@ -247,17 +328,81 @@
 			return;
 		}
 
-		const nextOwnerId = $current_user.id;
+		assignToCurrentUser(alert);
+	};
 
-		updateAlertInPage(alert.alert_id, { alert_owner_id: nextOwnerId });
+	const setStatus = async (alert_status_id: number) => {
+		const updates = [];
 
-		const updated = await alerts.patch(alert.alert_id, { alert_owner_id: nextOwnerId });
+		for (const alert_id of getSelectedAlertIds()) {
+			updateAlertInPage(alert_id, { alert_status_id });
 
-		if (updated) {
-			updateAlertInPage(alert.alert_id, updated);
-		} else {
-			alerts.refresh();
+			updates.push(await alerts.patch(alert_id, { alert_status_id }));
 		}
+
+		refreshConditionally(updates);
+	};
+
+	const removeAlertFromPage = (id: number) => {
+		if (!alertsPaginated) return;
+
+		alertsPaginated = alertsPaginated.then((res) => {
+			const pageData = res.data;
+			if (!pageData || typeof pageData === 'string') return res;
+
+			const list = Array.isArray(pageData.data) ? pageData.data : [];
+			const next = list.filter((alert) => alert.alert_id !== id);
+
+			return {
+				...res,
+				data: {
+					...pageData,
+					data: next,
+					total: Math.max(0, (pageData.total ?? 0) - 1)
+				}
+			};
+		});
+	};
+
+	const closeWithNote = async (changes: UpdateAlertBody) => {
+		const closedStatusId = alertStatuses.find(
+			(alertStatus) => alertStatus.status_name.toLowerCase() === 'closed'
+		)?.status_id;
+
+		const updates = [];
+
+		for (const alert_id of getSelectedAlertIds()) {
+			if (changes.alert_resolution_status_id) {
+				updateAlertInPage(alert_id, {
+					alert_status_id: closedStatusId,
+					alert_resolution_status_id: changes.alert_resolution_status_id,
+					alert_note: changes.alert_note,
+					alert_tags: changes.alert_tags
+				});
+			}
+
+			updates.push(await alerts.patch(alert_id, { ...changes, alert_status_id: closedStatusId }));
+		}
+
+		refreshConditionally(updates);
+		closeOpen = false;
+	};
+
+	const deleteSelected = async () => {
+		const alertIds = getSelectedAlertIds();
+
+		if (!alertIds.length) {
+			showConfirmDelete = false;
+			return;
+		}
+
+		for (const alertId of alertIds) {
+			removeAlertFromPage(alertId);
+			await alerts.remove(alertId);
+		}
+
+		showConfirmDelete = false;
+		cancelSelect();
 	};
 
 	$effect(() => {
@@ -342,7 +487,14 @@
 		});
 	});
 
-	onMount(() => alerts.loadSavedFilters({ filter_type: 'alerts', include_public: 1 }));
+	onMount(async () => {
+		alerts.loadSavedFilters({ filter_type: 'alerts', include_public: 1 });
+
+		const alertStatusResponse = (await AlertStatusService.list())
+			.data as unknown as RequestResponse<AlertStatus[]>;
+
+		alertStatuses = alertStatusResponse.data as AlertStatus[];
+	});
 </script>
 
 <svelte:head>
@@ -399,14 +551,7 @@
 
 			<div class="flex gap-4">
 				{#if selecting}
-					<Button
-						variant="outline"
-						onclick={() => {
-							selecting = false;
-							selectedAll = false;
-							selected = {};
-						}}>Cancel</Button
-					>
+					<Button variant="outline" onclick={cancelSelect}>Cancel</Button>
 
 					<Button
 						variant="outline"
@@ -480,6 +625,69 @@
 			/>
 		{/if}
 
+		{#if getSelectedCount() > 0}
+			<div class="flex gap-4">
+				{#if getSelectedCount() > 1}
+					<Button variant="outline" onclick={() => {}}>Merge</Button>
+				{/if}
+
+				<DropdownMenu>
+					<DropdownMenuTrigger>
+						<Button variant="outline">
+							Assign
+
+							<ChevronDownIcon />
+						</Button>
+					</DropdownMenuTrigger>
+
+					<DropdownMenuContent align="end">
+						<DropdownMenuItem
+							onclick={() => {
+								for (const alertId of getSelectedAlertIds()) {
+									assignToCurrentUser(alerts.byId[alertId]);
+								}
+
+								cancelSelect();
+							}}>Assign to me</DropdownMenuItem
+						>
+
+						<DropdownMenuItem
+							onclick={() =>
+								openReassignDialog(
+									getSelectedAlertIds().length === 1
+										? alerts.byId[getSelectedAlertIds()[0]]
+										: undefined
+								)}>Assign</DropdownMenuItem
+						>
+					</DropdownMenuContent>
+				</DropdownMenu>
+
+				<DropdownMenu>
+					<DropdownMenuTrigger>
+						<Button variant="outline">
+							Set status
+
+							<ChevronDownIcon />
+						</Button>
+					</DropdownMenuTrigger>
+
+					<DropdownMenuContent align="end">
+						{#each alertStatuses as alertStatus}
+							<DropdownMenuItem onclick={() => setStatus(alertStatus.status_id)}>
+								{alertStatus.status_name}</DropdownMenuItem
+							>
+						{/each}
+					</DropdownMenuContent>
+				</DropdownMenu>
+
+				<Button variant="destructive" onclick={() => (closeOpen = true)}>Close with note</Button>
+
+				<Button variant="destructive" onclick={() => (showConfirmDelete = true)}
+					><TrashIcon /> Delete</Button
+				>
+			</div>
+		{/if}
+
 		<div class="flex">
 			<AlertsPagination
 				page={currentPage}
@@ -525,17 +733,23 @@
 </div>
 
 <AlertsReasignDialog
-	open={reassignOpen}
-	onOpenChange={(open) => {
-		reassignOpen = open;
-
-		if (!open) {
-			reassignAlert = null;
-			reassignOwnerId = '';
-		}
-	}}
+	bind:open={reassignOpen}
 	alert={reassignAlert}
 	ownerId={reassignOwnerId}
 	onOwnerIdChange={(ownerId) => (reassignOwnerId = ownerId)}
 	onConfirm={confirmReassign}
+/>
+
+<AlertsCloseDialog
+	bind:open={closeOpen}
+	selectedAlertIds={getSelectedAlertIds()}
+	onConfirm={closeWithNote}
+/>
+
+<ConfirmationDialog
+	bind:open={showConfirmDelete}
+	title="Are you sure?"
+	message="You are about to delete this forever. This cannot be reverted. All associated data will be deleted."
+	onConfirm={deleteSelected}
+	onCancel={() => (showConfirmDelete = false)}
 />

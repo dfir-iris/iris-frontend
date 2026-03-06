@@ -11,7 +11,7 @@ export interface Alert {
 	alert_description: string;
 	alert_creation_time: string;
 	alert_note: string;
-	alert_tags: string[];
+	alert_tags: string;
 
 	alert_owner_id: number;
 	owner: LoginResponse;
