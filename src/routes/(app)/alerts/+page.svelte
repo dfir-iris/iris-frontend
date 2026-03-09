@@ -25,10 +25,7 @@
 		DropdownMenuItem,
 		DropdownMenuTrigger
 	} from '$lib/components/ui/dropdown-menu';
-	import { Select } from '$lib/components/ui/select';
-	import SelectContent from '$lib/components/ui/select/select-content.svelte';
-	import SelectItem from '$lib/components/ui/select/select-item.svelte';
-	import SelectTrigger from '$lib/components/ui/select/select-trigger.svelte';
+	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
 	import {
 		AlertFilters,
 		defaultFilters,
@@ -37,9 +34,11 @@
 		type Filters
 	} from './components/AlertFilters';
 	import { AlertCard } from './components/AlertCard';
+	import AlertHistoryDialog from './components/alert-history-dialog.svelte';
 	import AlertsPagination from './components/alerts-pagination.svelte';
 	import AlertsReasignDialog from './components/alerts-reasign-dialog.svelte';
 	import AlertsCloseDialog from './components/alerts-close-dialog.svelte';
+	import AlertEditDialog from './components/alert-edit-dialog.svelte';
 
 	const alerts = getContext<AlertsContext>(ALERTS_CTX);
 
@@ -67,6 +66,9 @@
 	let reassignOwnerId = $state<string>('');
 
 	let showConfirmDelete = $state(false);
+
+	let showAlertHistory = $state(false);
+	let showAlertEdit = $state(false);
 
 	let closeOpen = $state(false);
 
@@ -284,6 +286,16 @@
 		}
 	};
 
+	const updateAlert = async (alert_id: number, changes: UpdateAlertBody): Promise<Alert | null> => {
+		const updated = await alerts.patch(alert_id, changes);
+
+		if (updated) {
+			updateAlertInPage(alert_id, { alert_owner_id: Number(reassignOwnerId) });
+		}
+
+		return updated;
+	};
+
 	const confirmReassign = async () => {
 		let reassignAlertIds: number[] = [];
 
@@ -291,17 +303,11 @@
 			reassignAlertIds = [reassignAlert.alert_id];
 		}
 
-		const updates = [];
-
-		for (const alert_id of reassignAlertIds) {
-			updateAlertInPage(alert_id, { alert_owner_id: Number(reassignOwnerId) });
-
-			updates.push(
-				await alerts.patch(alert_id, {
-					alert_owner_id: Number(reassignOwnerId)
-				})
-			);
-		}
+		const updates = await Promise.all(
+			reassignAlertIds.map((alert_id) =>
+				updateAlert(alert_id, { alert_owner_id: Number(reassignOwnerId) })
+			)
+		);
 
 		refreshConditionally(updates);
 	};
@@ -309,13 +315,8 @@
 	const assignToCurrentUser = async (alert: Alert) => {
 		const nextOwnerId = $current_user?.id;
 
-		updateAlertInPage(alert.alert_id, { alert_owner_id: nextOwnerId });
-
-		const updated = await alerts.patch(alert.alert_id, { alert_owner_id: nextOwnerId });
-
-		if (updated) {
-			updateAlertInPage(alert.alert_id, updated);
-		} else {
+		const updated = await updateAlert(alert.alert_id, { alert_owner_id: nextOwnerId });
+		if (!updated) {
 			alerts.refresh();
 		}
 	};
@@ -332,13 +333,9 @@
 	};
 
 	const setStatus = async (alert_status_id: number) => {
-		const updates = [];
-
-		for (const alert_id of getSelectedAlertIds()) {
-			updateAlertInPage(alert_id, { alert_status_id });
-
-			updates.push(await alerts.patch(alert_id, { alert_status_id }));
-		}
+		const updates = await Promise.all(
+			getSelectedAlertIds().map((alert_id) => updateAlert(alert_id, { alert_status_id }))
+		);
 
 		refreshConditionally(updates);
 	};
@@ -369,20 +366,17 @@
 			(alertStatus) => alertStatus.status_name.toLowerCase() === 'closed'
 		)?.status_id;
 
-		const updates = [];
-
-		for (const alert_id of getSelectedAlertIds()) {
-			if (changes.alert_resolution_status_id) {
-				updateAlertInPage(alert_id, {
+		const updates = await Promise.all(
+			getSelectedAlertIds().map((alert_id) =>
+				updateAlert(alert_id, {
+					...changes,
 					alert_status_id: closedStatusId,
 					alert_resolution_status_id: changes.alert_resolution_status_id,
 					alert_note: changes.alert_note,
 					alert_tags: changes.alert_tags
-				});
-			}
-
-			updates.push(await alerts.patch(alert_id, { ...changes, alert_status_id: closedStatusId }));
-		}
+				})
+			)
+		);
 
 		refreshConditionally(updates);
 		closeOpen = false;
@@ -486,6 +480,9 @@
 			};
 		});
 	});
+
+	let selectedAlertId = $derived(getSelectedAlertIds()[0]);
+	let selectedAlert = $derived(alerts.byId[selectedAlertId]);
 
 	onMount(async () => {
 		alerts.loadSavedFilters({ filter_type: 'alerts', include_public: 1 });
@@ -711,9 +708,27 @@
 
 					<AlertCard
 						{alert}
+						{alertStatuses}
 						expanded={expanded[alert.alert_id] ?? expandedAll}
 						onExpandedChange={(v) => (expanded = { ...expanded, [alert.alert_id]: v })}
 						onAssign={() => assign(alert)}
+						onAssignToCurrentUser={() => assignToCurrentUser(alert)}
+						onSetStatus={(s) => {
+							selected[alert.alert_id] = true;
+							setStatus(s);
+						}}
+						onShowEdit={() => {
+							selected[alert.alert_id] = true;
+							showAlertEdit = true;
+						}}
+						onShowHistory={() => {
+							selected[alert.alert_id] = true;
+							showAlertHistory = true;
+						}}
+						onDelete={() => {
+							selected[alert.alert_id] = true;
+							showConfirmDelete = true;
+						}}
 					/>
 				</li>
 			{/each}
@@ -731,6 +746,23 @@
 		</div>
 	{/await}
 </div>
+
+{#if selectedAlert}
+	<AlertHistoryDialog bind:open={showAlertHistory} onClose={cancelSelect} alert={selectedAlert} />
+
+	<AlertEditDialog
+		bind:open={showAlertEdit}
+		onClose={cancelSelect}
+		onSave={async (changes) => {
+			refreshConditionally([await updateAlert(selectedAlertId, changes)]);
+
+			cancelSelect();
+
+			showAlertEdit = false;
+		}}
+		alert={selectedAlert}
+	/>
+{/if}
 
 <AlertsReasignDialog
 	bind:open={reassignOpen}

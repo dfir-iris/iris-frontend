@@ -1,28 +1,54 @@
 <script lang="ts">
 	import {
+		ChevronDownIcon,
 		EllipsisVerticalIcon,
+		FileSymlinkIcon,
 		FlameIcon,
+		ForwardIcon,
 		HandIcon,
+		HistoryIcon,
 		MessagesSquareIcon,
-		PencilIcon
+		PencilIcon,
+		TrashIcon
 	} from 'lucide-svelte';
 	import { Collapsible } from 'bits-ui';
-	import * as Card from '$lib/components/ui/card';
 	import type { Alert } from '$lib/types/resources/alert';
 	import { getInitials } from '$lib/utils';
+	import Button from '$lib/components/ui/button/button.svelte';
+	import * as Card from '$lib/components/ui/card';
+	import {
+		DropdownMenu,
+		DropdownMenuContent,
+		DropdownMenuItem,
+		DropdownMenuTrigger,
+		Separator
+	} from '$lib/components/ui/dropdown-menu';
 	import AlertCardFooter from './AlertCardFooter.svelte';
 	import AlertCardDetails from './AlertCardDetails.svelte';
+	import type { AlertStatus } from '$lib/services/alert-status.service';
 
 	let {
 		alert,
+		alertStatuses,
 		expanded = false,
 		onExpandedChange,
-		onAssign
+		onAssign,
+		onAssignToCurrentUser,
+		onSetStatus,
+		onShowEdit,
+		onShowHistory,
+		onDelete
 	}: {
 		alert: Alert;
+		alertStatuses: AlertStatus[];
 		expanded?: boolean;
 		onExpandedChange: (v: boolean) => void;
 		onAssign: () => void;
+		onAssignToCurrentUser: () => void;
+		onSetStatus: (status_id: number) => void;
+		onShowEdit: () => void;
+		onShowHistory: () => void;
+		onDelete: () => void;
 	} = $props();
 
 	const getBackgroundBySeverity = (severity: string): string => {
@@ -37,9 +63,15 @@
 				return 'bg-gray-500';
 		}
 	};
+
+	let isAssignMenuOpen = $state(false);
+	let isSetStatusMenuOpen = $state(false);
+	let isMenuOpen = $state(false);
+
+	const showHeaderActions = $derived(isAssignMenuOpen || isSetStatusMenuOpen || isMenuOpen);
 </script>
 
-<Card.Root class="flex grow">
+<Card.Root class="group flex grow">
 	<Collapsible.Root open={expanded} onOpenChange={onExpandedChange}>
 		<Card.Header class="!flex !flex-row !items-center !justify-between !space-y-0 pb-2">
 			<div class="flex min-w-0 flex-1 items-center gap-4">
@@ -65,7 +97,9 @@
 					</button>
 				</div>
 
-				<Collapsible.Trigger class="min-w-0 flex-1 cursor-pointer text-left">
+				<Collapsible.Trigger
+					class="min-w-0 flex-1 cursor-pointer text-left transition-all hover:opacity-50"
+				>
 					<h3 class="truncate text-lg font-bold">{alert.alert_title}</h3>
 					<h4 class="truncate text-sm italic opacity-85">
 						#{alert.alert_id} - {alert.alert_uuid}
@@ -73,18 +107,86 @@
 				</Collapsible.Trigger>
 			</div>
 
-			<div class="flex shrink-0 items-center gap-4">
-				<button title="comments">
-					<MessagesSquareIcon size="16" />
-				</button>
+			<div class="flex shrink-0 items-center gap-8">
+				<div
+					class={`flex gap-4 transition-opacity ${showHeaderActions ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+				>
+					<DropdownMenu bind:open={isAssignMenuOpen}>
+						<DropdownMenuTrigger>
+							<Button variant="outline">
+								Assign
 
-				<button title="edit">
-					<PencilIcon size="16" />
-				</button>
+								<ChevronDownIcon />
+							</Button>
+						</DropdownMenuTrigger>
 
-				<button title="menu">
-					<EllipsisVerticalIcon size="16" />
-				</button>
+						<DropdownMenuContent align="end">
+							<DropdownMenuItem
+								onclick={() => {
+									onAssignToCurrentUser();
+								}}>Assign to me</DropdownMenuItem
+							>
+
+							<DropdownMenuItem onclick={() => onAssign()}>Assign</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+
+					<DropdownMenu bind:open={isSetStatusMenuOpen}>
+						<DropdownMenuTrigger>
+							<Button variant="outline">
+								Set status
+
+								<ChevronDownIcon />
+							</Button>
+						</DropdownMenuTrigger>
+
+						<DropdownMenuContent align="end">
+							{#each alertStatuses as alertStatus}
+								<DropdownMenuItem onclick={() => onSetStatus(alertStatus.status_id)}>
+									{alertStatus.status_name}</DropdownMenuItem
+								>
+							{/each}
+						</DropdownMenuContent>
+					</DropdownMenu>
+
+					<Button variant="default" onclick={() => {}}>Set In Progress</Button>
+				</div>
+
+				<div class="flex gap-4">
+					<button title="comments" class="transition-all hover:opacity-50">
+						<MessagesSquareIcon size="16" />
+					</button>
+
+					<button title="edit" onclick={onShowEdit} class="transition-all hover:opacity-50">
+						<PencilIcon size="16" />
+					</button>
+
+					<DropdownMenu bind:open={isMenuOpen}>
+						<DropdownMenuTrigger>
+							<button title="menu" class="transition-all hover:opacity-50">
+								<EllipsisVerticalIcon size="16" />
+							</button>
+						</DropdownMenuTrigger>
+
+						<DropdownMenuContent align="end">
+							<DropdownMenuItem onclick={() => {}}><ForwardIcon /> Share</DropdownMenuItem>
+
+							<DropdownMenuItem onclick={() => {}}
+								><FileSymlinkIcon /> Markdown Link</DropdownMenuItem
+							>
+
+							<Separator />
+
+							<DropdownMenuItem onclick={onShowHistory}><HistoryIcon /> History</DropdownMenuItem>
+
+							<Separator />
+
+							<DropdownMenuItem onclick={onDelete} class="text-red-500 hover:!text-red-600"
+								><TrashIcon /> Delete alert</DropdownMenuItem
+							>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				</div>
 			</div>
 		</Card.Header>
 
@@ -92,7 +194,7 @@
 			{alert.alert_description}
 
 			<Collapsible.Content
-				class="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up overflow-hidden pt-4"
+				class="overflow-hidden pt-4 data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down"
 			>
 				<AlertCardDetails {alert} />
 			</Collapsible.Content>

@@ -11,6 +11,8 @@
 	import Input from '$lib/components/ui/input/input.svelte';
 	import Label from '$lib/components/ui/label/label.svelte';
 	import Textarea from '$lib/components/ui/textarea/textarea.svelte';
+	import type { SegmentedSelectOption } from '$lib/components/ui/segmented-select';
+	import SegmentedSelect from '$lib/components/ui/segmented-select/segmented-select.svelte';
 
 	type Props = {
 		open: boolean;
@@ -24,6 +26,13 @@
 	let resolutionStatusId = $state<number | null>(null);
 	let note = $state('');
 	let tags = $state('');
+
+	const resolutionOptions = $derived.by<SegmentedSelectOption[]>(() =>
+		alertResolutions.map((resolution) => ({
+			value: resolution.resolution_status_id,
+			label: resolution.resolution_status_name
+		}))
+	);
 
 	const getTitle = () => `Close ${selectedAlertIds.length > 1 ? 'multiple alerts' : 'alert'}`;
 
@@ -66,21 +75,11 @@
 			<div class="flex flex-col gap-3">
 				<Label class="text-sm font-medium">Resolution status</Label>
 
-				<div class="flex flex-wrap">
-					{#each alertResolutions as resolution}
-						<button
-							type="button"
-							class={`border px-4 py-2 text-sm first:rounded-l last:rounded-r ${
-								resolutionStatusId === resolution.resolution_status_id
-									? 'border-primary bg-accent text-foreground'
-									: 'border-input bg-background text-muted-foreground hover:bg-accent'
-							}`}
-							onclick={() => (resolutionStatusId = resolution.resolution_status_id)}
-						>
-							{resolution.resolution_status_name}
-						</button>
-					{/each}
-				</div>
+				<SegmentedSelect
+					options={resolutionOptions}
+					value={resolutionStatusId}
+					onChange={(value) => (resolutionStatusId = Number(value))}
+				/>
 			</div>
 
 			<div class="flex flex-col gap-2">

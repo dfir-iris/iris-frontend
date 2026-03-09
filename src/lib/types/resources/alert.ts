@@ -1,4 +1,5 @@
 import type { LoginResponse } from '$lib/services/auth.service';
+import type { HistoryData } from '$lib/components/common/ActivityHistory.svelte';
 import type { Asset } from './asset';
 import type { Classification, ResolutionStatus, Severity, Status } from './common';
 import type { Customer } from './customer';
@@ -45,4 +46,6 @@ export interface Alert {
 	alert_source_event_time: string;
 
 	iocs: Ioc[];
+
+	modification_history: HistoryData;
 }

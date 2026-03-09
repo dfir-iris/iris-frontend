@@ -106,7 +106,7 @@
 		</Collapsible.Trigger>
 
 		<Collapsible.Content
-			class="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up w-full overflow-auto"
+			class="w-full overflow-auto data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down"
 		>
 			<pre class="mt-4 whitespace-pre-wrap break-words text-xs opacity-80">{JSON.stringify(
 					alert.alert_source_content,
