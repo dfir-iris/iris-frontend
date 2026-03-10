@@ -12,7 +12,9 @@
 		TrashIcon
 	} from 'lucide-svelte';
 	import { Collapsible } from 'bits-ui';
+	import { page } from '$app/state';
 	import type { Alert } from '$lib/types/resources/alert';
+	import { toast } from '$lib/stores/toast.store';
 	import { getInitials } from '$lib/utils';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Card from '$lib/components/ui/card';
@@ -30,24 +32,28 @@
 	let {
 		alert,
 		alertStatuses,
-		expanded = false,
+		expanded = $bindable(),
+		alwaysExpanded = false,
 		onExpandedChange,
 		onAssign,
 		onAssignToCurrentUser,
 		onSetStatus,
 		onShowEdit,
 		onShowHistory,
+		onShowComments,
 		onDelete
 	}: {
 		alert: Alert;
 		alertStatuses: AlertStatus[];
 		expanded?: boolean;
-		onExpandedChange: (v: boolean) => void;
+		alwaysExpanded?: boolean;
+		onExpandedChange?: (v: boolean) => void;
 		onAssign: () => void;
 		onAssignToCurrentUser: () => void;
 		onSetStatus: (status_id: number) => void;
 		onShowEdit: () => void;
 		onShowHistory: () => void;
+		onShowComments: () => void;
 		onDelete: () => void;
 	} = $props();
 
@@ -68,17 +74,28 @@
 	let isSetStatusMenuOpen = $state(false);
 	let isMenuOpen = $state(false);
 
-	const showHeaderActions = $derived(isAssignMenuOpen || isSetStatusMenuOpen || isMenuOpen);
+	const showHeaderActions = $derived(
+		isAssignMenuOpen || isSetStatusMenuOpen || isMenuOpen || alwaysExpanded
+	);
+
+	const getAlertUrl = () => {
+		const url = new URL(page.url);
+		return `${url.origin}${url.pathname}/${alert.alert_id}`;
+	};
 </script>
 
 <Card.Root class="group flex grow">
-	<Collapsible.Root open={expanded} onOpenChange={onExpandedChange}>
+	<Collapsible.Root
+		open={alwaysExpanded ? true : expanded}
+		onOpenChange={alwaysExpanded ? undefined : onExpandedChange}
+		disabled={alwaysExpanded}
+	>
 		<Card.Header class="!flex !flex-row !items-center !justify-between !space-y-0 pb-2">
 			<div class="flex min-w-0 flex-1 items-center gap-4">
 				<div class="relative flex h-12 w-14 shrink-0">
 					<Collapsible.Trigger>
 						<button
-							class={`absolute left-0 top-0 flex h-12 w-12 items-center justify-center rounded-full text-white hover:z-50 ${getBackgroundBySeverity(alert.severity.severity_name)}`}
+							class={`absolute left-0 top-0 flex h-12 w-12 items-center justify-center rounded-full text-white ${alwaysExpanded ? 'cursor-default' : 'hover:z-50'} ${getBackgroundBySeverity(alert.severity.severity_name)}`}
 						>
 							<FlameIcon size="32" />
 						</button>
@@ -98,7 +115,7 @@
 				</div>
 
 				<Collapsible.Trigger
-					class="min-w-0 flex-1 cursor-pointer text-left transition-all hover:opacity-50"
+					class={`min-w-0 flex-1 text-left transition-all ${alwaysExpanded ? '' : 'cursor-pointer hover:opacity-50'}`}
 				>
 					<h3 class="truncate text-lg font-bold">{alert.alert_title}</h3>
 					<h4 class="truncate text-sm italic opacity-85">
@@ -149,12 +166,31 @@
 						</DropdownMenuContent>
 					</DropdownMenu>
 
-					<Button variant="default" onclick={() => {}}>Set In Progress</Button>
+					<Button
+						variant="default"
+						onclick={() =>
+							onSetStatus(
+								alertStatuses.find((s) => s.status_name.toLowerCase().trim() === 'in progress')
+									?.status_id ?? alertStatuses.length
+							)}>Set In Progress</Button
+					>
 				</div>
 
-				<div class="flex gap-4">
-					<button title="comments" class="transition-all hover:opacity-50">
-						<MessagesSquareIcon size="16" />
+				<div class="flex gap-4 pt-2">
+					<button
+						title="comments"
+						onclick={onShowComments}
+						class="relative flex transition-all hover:opacity-50"
+					>
+						<MessagesSquareIcon class="absolute right-0 top-0.5" size="16" />
+
+						{#if alert.comments?.length}
+							<div
+								class="absolute -right-2 bottom-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-2xs text-white"
+							>
+								{alert.comments.length}
+							</div>
+						{/if}
 					</button>
 
 					<button title="edit" onclick={onShowEdit} class="transition-all hover:opacity-50">
@@ -169,10 +205,46 @@
 						</DropdownMenuTrigger>
 
 						<DropdownMenuContent align="end">
-							<DropdownMenuItem onclick={() => {}}><ForwardIcon /> Share</DropdownMenuItem>
+							<DropdownMenuItem
+								onclick={() => {
+									navigator.clipboard
+										.writeText(getAlertUrl())
+										.then(() => {
+											toast({
+												title: 'Link copied',
+												variant: 'success'
+											});
+										})
+										.catch((e) => {
+											console.error('Clipboard copy error:', e);
 
-							<DropdownMenuItem onclick={() => {}}
-								><FileSymlinkIcon /> Markdown Link</DropdownMenuItem
+											toast({
+												title: 'Could not copy link',
+												variant: 'destructive'
+											});
+										});
+								}}><ForwardIcon /> Share</DropdownMenuItem
+							>
+
+							<DropdownMenuItem
+								onclick={() => {
+									navigator.clipboard
+										.writeText(`[<i class="fa-solid fa-bell"></i> #25](${getAlertUrl()})`)
+										.then(() => {
+											toast({
+												title: 'Link copied',
+												variant: 'success'
+											});
+										})
+										.catch((e) => {
+											console.error('Clipboard copy error:', e);
+
+											toast({
+												title: 'Could not copy link',
+												variant: 'destructive'
+											});
+										});
+								}}><FileSymlinkIcon /> Markdown Link</DropdownMenuItem
 							>
 
 							<Separator />

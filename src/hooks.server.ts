@@ -207,6 +207,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 				out.set(k, v);
 			}
 
+			console.log('response:', response);
+
 			copySetCookie(response.headers, out);
 
 			return new Response(response.body, {

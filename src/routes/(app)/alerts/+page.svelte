@@ -39,6 +39,7 @@
 	import AlertsReasignDialog from './components/alerts-reasign-dialog.svelte';
 	import AlertsCloseDialog from './components/alerts-close-dialog.svelte';
 	import AlertEditDialog from './components/alert-edit-dialog.svelte';
+	import AlertCommentsDialog from './components/alert-comments-dialog.svelte';
 
 	const alerts = getContext<AlertsContext>(ALERTS_CTX);
 
@@ -69,6 +70,7 @@
 
 	let showAlertHistory = $state(false);
 	let showAlertEdit = $state(false);
+	let showAlertComments = $state(false);
 
 	let closeOpen = $state(false);
 
@@ -268,22 +270,20 @@
 		selected = {};
 	};
 
-	const refreshConditionally = (updates: (Alert | null)[]) => {
-		if (updates) {
-			for (const updated of updates) {
-				if (updated) {
-					updateAlertInPage(updated.alert_id, updated);
-				}
+	const refresh = (updates: (Alert | null)[]) => {
+		for (const updated of updates) {
+			if (updated) {
+				updateAlertInPage(updated.alert_id, updated);
 			}
-
-			reassignOpen = false;
-			reassignAlert = null;
-			reassignOwnerId = '';
-
-			cancelSelect();
-		} else {
-			alerts.refresh();
 		}
+
+		reassignOpen = false;
+		reassignAlert = null;
+		reassignOwnerId = '';
+
+		cancelSelect();
+
+		alerts.refresh();
 	};
 
 	const updateAlert = async (alert_id: number, changes: UpdateAlertBody): Promise<Alert | null> => {
@@ -309,7 +309,7 @@
 			)
 		);
 
-		refreshConditionally(updates);
+		refresh(updates);
 	};
 
 	const assignToCurrentUser = async (alert: Alert) => {
@@ -337,7 +337,7 @@
 			getSelectedAlertIds().map((alert_id) => updateAlert(alert_id, { alert_status_id }))
 		);
 
-		refreshConditionally(updates);
+		refresh(updates);
 	};
 
 	const removeAlertFromPage = (id: number) => {
@@ -378,7 +378,7 @@
 			)
 		);
 
-		refreshConditionally(updates);
+		refresh(updates);
 		closeOpen = false;
 	};
 
@@ -685,16 +685,18 @@
 			</div>
 		{/if}
 
-		<div class="flex">
-			<AlertsPagination
-				page={currentPage}
-				pages={getPagesCount(res as RequestResponse<Paginated<Alert>>)}
-				onPageChange={(page) => {
-					currentPage = page;
-					updateUrl({ page });
-				}}
-			/>
-		</div>
+		{#if getPagesCount(res as RequestResponse<Paginated<Alert>>) > 1}
+			<div class="flex">
+				<AlertsPagination
+					page={currentPage}
+					pages={getPagesCount(res as RequestResponse<Paginated<Alert>>)}
+					onPageChange={(page) => {
+						currentPage = page;
+						updateUrl({ page });
+					}}
+				/>
+			</div>
+		{/if}
 
 		<ul class="flex flex-col gap-4">
 			{#each (res?.data as Paginated<Alert>).data as alert}
@@ -725,6 +727,10 @@
 							selected[alert.alert_id] = true;
 							showAlertHistory = true;
 						}}
+						onShowComments={() => {
+							selected[alert.alert_id] = true;
+							showAlertComments = true;
+						}}
 						onDelete={() => {
 							selected[alert.alert_id] = true;
 							showConfirmDelete = true;
@@ -734,16 +740,18 @@
 			{/each}
 		</ul>
 
-		<div class="flex pb-4">
-			<AlertsPagination
-				page={currentPage}
-				pages={getPagesCount(res as RequestResponse<Paginated<Alert>>)}
-				onPageChange={(page) => {
-					currentPage = page;
-					updateUrl({ page });
-				}}
-			/>
-		</div>
+		{#if getPagesCount(res as RequestResponse<Paginated<Alert>>) > 1}
+			<div class="flex pb-4">
+				<AlertsPagination
+					page={currentPage}
+					pages={getPagesCount(res as RequestResponse<Paginated<Alert>>)}
+					onPageChange={(page) => {
+						currentPage = page;
+						updateUrl({ page });
+					}}
+				/>
+			</div>
+		{/if}
 	{/await}
 </div>
 
@@ -754,7 +762,7 @@
 		bind:open={showAlertEdit}
 		onClose={cancelSelect}
 		onSave={async (changes) => {
-			refreshConditionally([await updateAlert(selectedAlertId, changes)]);
+			refresh([await updateAlert(selectedAlertId, changes)]);
 
 			cancelSelect();
 
@@ -762,6 +770,8 @@
 		}}
 		alert={selectedAlert}
 	/>
+
+	<AlertCommentsDialog bind:open={showAlertComments} onClose={cancelSelect} alert={selectedAlert} />
 {/if}
 
 <AlertsReasignDialog
