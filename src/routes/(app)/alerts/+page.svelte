@@ -59,7 +59,15 @@
 	let selectedAll = $state(false);
 	let selected = $state<Record<number, boolean>>({});
 
-	let alertsPaginated = $state<Promise<RequestResponse<Paginated<Alert>>> | null>(null);
+	let loading = $state(true);
+	let alertsData = $state<Paginated<Alert>>({
+		data: [],
+		total: 0,
+		current_page: 1,
+		last_page: 1,
+		next_page: null
+	});
+
 	let alertStatuses = $state<AlertStatus[]>([]);
 
 	let reassignOpen = $state(false);
@@ -168,44 +176,84 @@
 		return value as Alert;
 	};
 
-	const updateAlertInPage = (id: number, patch: Partial<Alert>) => {
-		if (!alertsPaginated) return;
+	const loadAlerts = async () => {
+		loading = true;
 
-		alertsPaginated = alertsPaginated.then((res) => {
-			const pageData = res.data;
-			if (!pageData || typeof pageData === 'string') return res;
+		const params = {
+			...filters,
+			alert_start_date: toApiDate(filters.alert_start_date),
+			alert_end_date: toApiDate(filters.alert_end_date, true),
+			page: currentPage,
+			per_page: perPage
+		};
 
-			const list = Array.isArray(pageData.data) ? pageData.data : [];
-			const next = list.map((alert) =>
-				alert.alert_id === id ? ({ ...alert, ...patch } as Alert) : alert
-			);
+		const alertsPaginatedResponse = await alerts.listPaginated(params);
+		const rawAlertsData = alertsPaginatedResponse.data;
 
-			return {
-				...res,
-				data: {
-					...pageData,
-					data: next
-				}
-			};
-		});
+		const paginatedAlertsData = rawAlertsData as Paginated<Alert>;
+		const alertsList = Array.isArray(paginatedAlertsData.data) ? paginatedAlertsData.data : [];
+
+		alertsData = {
+			...paginatedAlertsData,
+			data: alertsList.map(normalizeAlert)
+		};
+
+		loading = false;
 	};
 
-	const getPagesCount = (res: RequestResponse<Paginated<Alert>>): number => {
-		const total = getTotal(res);
+	const refreshAlerts = async () => await loadAlerts();
+
+	const applyUpdatedAlert = (updated: Alert) => {
+		const alertsList = Array.isArray(alertsData.data) ? alertsData.data : [];
+
+		alertsData = {
+			...alertsData,
+			data: alertsList.map((alert) => (alert.alert_id === updated.alert_id ? updated : alert))
+		};
+
+		if (reassignAlert?.alert_id === updated.alert_id) {
+			reassignAlert = updated;
+			reassignOwnerId = String(updated.alert_owner_id ?? '');
+		}
+	};
+
+	const applyRemovedAlerts = (ids: number[]) => {
+		const idSet = new Set(ids);
+		const alertsList = Array.isArray(alertsData.data) ? alertsData.data : [];
+		const next = alertsList.filter((alert) => !idSet.has(alert.alert_id));
+		const nextTotal = Math.max(0, (alertsData.total ?? 0) - ids.length);
+
+		alertsData = {
+			...alertsData,
+			data: next,
+			total: nextTotal
+		};
+	};
+
+	const getPagesCount = (): number => {
+		const total = typeof alertsData.total === 'number' ? alertsData.total : 0;
 		if (total <= 0) return 1;
 		return Math.ceil(total / perPage);
 	};
 
-	const getSelectedAlertIds = (): number[] => {
-		let ids: number[] = [];
+	const getAlertFromPage = (id: number): Alert | null => {
+		for (const alert of alertsData.data) {
+			if (alert.alert_id === id) return alert;
+		}
 
+		return null;
+	};
+
+	const getSelectedAlertIds = (): number[] => {
 		if (selectedAll) {
-			ids = alerts.list.ids;
-		} else {
-			for (const alertId in selected) {
-				if (selected[alertId]) {
-					ids.push(Number(alertId));
-				}
+			return alerts.list.ids;
+		}
+
+		const ids: number[] = [];
+
+		for (const alertId in selected) {
+			if (selected[alertId]) {
+				ids.push(Number(alertId));
 			}
 		}
 
@@ -264,52 +312,41 @@
 		reassignOpen = true;
 	};
 
+	const closeReassignDialog = () => {
+		reassignOpen = false;
+		reassignAlert = null;
+		reassignOwnerId = '';
+	};
+
 	const cancelSelect = () => {
 		selecting = false;
 		selectedAll = false;
 		selected = {};
 	};
 
-	const refresh = (updates: (Alert | null)[]) => {
-		for (const updated of updates) {
-			if (updated) {
-				updateAlertInPage(updated.alert_id, updated);
-			}
-		}
-
-		reassignOpen = false;
-		reassignAlert = null;
-		reassignOwnerId = '';
-
-		cancelSelect();
-
-		alerts.refresh();
-	};
-
 	const updateAlert = async (alert_id: number, changes: UpdateAlertBody): Promise<Alert | null> => {
 		const updated = await alerts.patch(alert_id, changes);
 
 		if (updated) {
-			updateAlertInPage(alert_id, { alert_owner_id: Number(reassignOwnerId) });
+			applyUpdatedAlert(updated);
 		}
 
 		return updated;
 	};
 
 	const confirmReassign = async () => {
-		let reassignAlertIds: number[] = [];
+		if (!reassignAlert) return;
 
-		if (reassignAlert) {
-			reassignAlertIds = [reassignAlert.alert_id];
+		const updated = await updateAlert(reassignAlert.alert_id, {
+			alert_owner_id: Number(reassignOwnerId)
+		});
+
+		if (!updated) {
+			await refreshAlerts();
 		}
 
-		const updates = await Promise.all(
-			reassignAlertIds.map((alert_id) =>
-				updateAlert(alert_id, { alert_owner_id: Number(reassignOwnerId) })
-			)
-		);
-
-		refresh(updates);
+		closeReassignDialog();
+		cancelSelect();
 	};
 
 	const assignToCurrentUser = async (alert: Alert) => {
@@ -317,7 +354,7 @@
 
 		const updated = await updateAlert(alert.alert_id, { alert_owner_id: nextOwnerId });
 		if (!updated) {
-			alerts.refresh();
+			await refreshAlerts();
 		}
 	};
 
@@ -329,7 +366,7 @@
 			return;
 		}
 
-		assignToCurrentUser(alert);
+		await assignToCurrentUser(alert);
 	};
 
 	const setStatus = async (alert_status_id: number) => {
@@ -337,28 +374,11 @@
 			getSelectedAlertIds().map((alert_id) => updateAlert(alert_id, { alert_status_id }))
 		);
 
-		refresh(updates);
-	};
+		if (updates.some((updated) => !updated)) {
+			await refreshAlerts();
+		}
 
-	const removeAlertFromPage = (id: number) => {
-		if (!alertsPaginated) return;
-
-		alertsPaginated = alertsPaginated.then((res) => {
-			const pageData = res.data;
-			if (!pageData || typeof pageData === 'string') return res;
-
-			const list = Array.isArray(pageData.data) ? pageData.data : [];
-			const next = list.filter((alert) => alert.alert_id !== id);
-
-			return {
-				...res,
-				data: {
-					...pageData,
-					data: next,
-					total: Math.max(0, (pageData.total ?? 0) - 1)
-				}
-			};
-		});
+		cancelSelect();
 	};
 
 	const closeWithNote = async (changes: UpdateAlertBody) => {
@@ -378,8 +398,13 @@
 			)
 		);
 
-		refresh(updates);
+		if (updates.some((updated) => !updated)) {
+			await refreshAlerts();
+		}
+
 		closeOpen = false;
+
+		cancelSelect();
 	};
 
 	const deleteSelected = async () => {
@@ -390,13 +415,24 @@
 			return;
 		}
 
-		for (const alertId of alertIds) {
-			removeAlertFromPage(alertId);
-			await alerts.remove(alertId);
+		const results = await Promise.all(alertIds.map((alertId) => alerts.remove(alertId)));
+		const deletedIds = alertIds.filter((_, index) => results[index]);
+
+		if (deletedIds.length) {
+			applyRemovedAlerts(deletedIds);
 		}
 
 		showConfirmDelete = false;
 		cancelSelect();
+
+		if (alertsData.data.length === 0 && currentPage > 1) {
+			updateUrl({ page: currentPage - 1 });
+			return;
+		}
+
+		if (deletedIds.length !== alertIds.length) {
+			await refreshAlerts();
+		}
 	};
 
 	$effect(() => {
@@ -440,49 +476,13 @@
 			filters = nextFilters;
 		}
 
-		const params = {
-			...nextFilters,
-			alert_start_date: toApiDate(nextFilters.alert_start_date),
-			alert_end_date: toApiDate(nextFilters.alert_end_date, true),
-			page: currentPage,
-			per_page: perPage
-		};
-
-		const p = alerts.listPaginated(params);
-
-		alertsPaginated = p.then((res) => {
-			const raw = res.data;
-
-			if (!raw || typeof raw !== 'object' || typeof raw === 'string') {
-				const empty: Paginated<Alert> = {
-					data: [] as Alert[],
-					total: 0,
-					current_page: currentPage,
-					last_page: 1,
-					next_page: null
-				};
-
-				return {
-					...res,
-					ok: false,
-					data: empty
-				};
-			}
-
-			const pageData = raw as Paginated<Alert>;
-			const list = Array.isArray(pageData.data) ? pageData.data : ([] as Alert[]);
-			return {
-				...res,
-				data: {
-					...pageData,
-					data: list.map(normalizeAlert)
-				}
-			};
-		});
+		void loadAlerts();
 	});
 
-	let selectedAlertId = $derived(getSelectedAlertIds()[0]);
-	let selectedAlert = $derived(alerts.byId[selectedAlertId]);
+	let selectedAlertId = $derived(getSelectedAlertIds()[0] ?? 0);
+	let selectedAlert = $derived(
+		getAlertFromPage(selectedAlertId) ?? alerts.byId[selectedAlertId] ?? null
+	);
 
 	onMount(async () => {
 		alerts.loadSavedFilters({ filter_type: 'alerts', include_public: 1 });
@@ -499,10 +499,10 @@
 </svelte:head>
 
 <div class="flex grow flex-col gap-4 p-4">
-	{#await alertsPaginated}
+	{#if loading}
 		<h1>Alerts</h1>
-	{:then res}
-		<h1>{getTotal(res)} Alerts</h1>
+	{:else}
+		<h1>{getTotal({ data: alertsData } as RequestResponse<Paginated<Alert>>)} Alerts</h1>
 
 		<div class="flex items-center justify-between">
 			<div class="flex gap-4">
@@ -571,7 +571,7 @@
 					{expandedAll ? 'Collapse All' : 'Expand All'}
 				</Button>
 
-				<Button variant="outline" onclick={() => alerts.refresh()}>Refresh</Button>
+				<Button variant="outline" onclick={() => refreshAlerts()}>Refresh</Button>
 
 				<Button variant="outline" onclick={toggleSort}>
 					{#if filters.sort === 'asc'}
@@ -639,9 +639,16 @@
 
 					<DropdownMenuContent align="end">
 						<DropdownMenuItem
-							onclick={() => {
-								for (const alertId of getSelectedAlertIds()) {
-									assignToCurrentUser(alerts.byId[alertId]);
+							onclick={async () => {
+								const updates = await Promise.all(
+									getSelectedAlertIds()
+										.map((alertId) => getAlertFromPage(alertId))
+										.filter((alert): alert is Alert => alert !== null)
+										.map((alert) => assignToCurrentUser(alert))
+								);
+
+								if (updates.length === 0) {
+									await refreshAlerts();
 								}
 
 								cancelSelect();
@@ -652,7 +659,7 @@
 							onclick={() =>
 								openReassignDialog(
 									getSelectedAlertIds().length === 1
-										? alerts.byId[getSelectedAlertIds()[0]]
+										? (getAlertFromPage(getSelectedAlertIds()[0]) ?? undefined)
 										: undefined
 								)}>Assign</DropdownMenuItem
 						>
@@ -685,11 +692,11 @@
 			</div>
 		{/if}
 
-		{#if getPagesCount(res as RequestResponse<Paginated<Alert>>) > 1}
+		{#if getPagesCount() > 1}
 			<div class="flex">
 				<AlertsPagination
 					page={currentPage}
-					pages={getPagesCount(res as RequestResponse<Paginated<Alert>>)}
+					pages={getPagesCount()}
 					onPageChange={(page) => {
 						currentPage = page;
 						updateUrl({ page });
@@ -699,7 +706,7 @@
 		{/if}
 
 		<ul class="flex flex-col gap-4">
-			{#each (res?.data as Paginated<Alert>).data as alert}
+			{#each alertsData.data as alert (alert.alert_id)}
 				<li class="flex items-center gap-4">
 					{#if selecting}
 						<Checkbox
@@ -716,23 +723,23 @@
 						onAssign={() => assign(alert)}
 						onAssignToCurrentUser={() => assignToCurrentUser(alert)}
 						onSetStatus={(s) => {
-							selected[alert.alert_id] = true;
+							selected = { ...selected, [alert.alert_id]: true };
 							setStatus(s);
 						}}
 						onShowEdit={() => {
-							selected[alert.alert_id] = true;
+							selected = { ...selected, [alert.alert_id]: true };
 							showAlertEdit = true;
 						}}
 						onShowHistory={() => {
-							selected[alert.alert_id] = true;
+							selected = { ...selected, [alert.alert_id]: true };
 							showAlertHistory = true;
 						}}
 						onShowComments={() => {
-							selected[alert.alert_id] = true;
+							selected = { ...selected, [alert.alert_id]: true };
 							showAlertComments = true;
 						}}
 						onDelete={() => {
-							selected[alert.alert_id] = true;
+							selected = { ...selected, [alert.alert_id]: true };
 							showConfirmDelete = true;
 						}}
 					/>
@@ -740,11 +747,11 @@
 			{/each}
 		</ul>
 
-		{#if getPagesCount(res as RequestResponse<Paginated<Alert>>) > 1}
+		{#if getPagesCount() > 1}
 			<div class="flex pb-4">
 				<AlertsPagination
 					page={currentPage}
-					pages={getPagesCount(res as RequestResponse<Paginated<Alert>>)}
+					pages={getPagesCount()}
 					onPageChange={(page) => {
 						currentPage = page;
 						updateUrl({ page });
@@ -752,7 +759,7 @@
 				/>
 			</div>
 		{/if}
-	{/await}
+	{/if}
 </div>
 
 {#if selectedAlert}
@@ -762,16 +769,21 @@
 		bind:open={showAlertEdit}
 		onClose={cancelSelect}
 		onSave={async (changes) => {
-			refresh([await updateAlert(selectedAlertId, changes)]);
-
-			cancelSelect();
-
+			await updateAlert(selectedAlertId, changes);
 			showAlertEdit = false;
+			cancelSelect();
 		}}
 		alert={selectedAlert}
 	/>
 
-	<AlertCommentsDialog bind:open={showAlertComments} onClose={cancelSelect} alert={selectedAlert} />
+	<AlertCommentsDialog
+		bind:open={showAlertComments}
+		onClose={() => {
+			refreshAlerts();
+			cancelSelect();
+		}}
+		alert={selectedAlert}
+	/>
 {/if}
 
 <AlertsReasignDialog

@@ -36,6 +36,12 @@
 	let alert_id = $derived(Number(page.params.alert_id));
 	let alert = $derived(alerts.byId[alert_id]);
 
+	const refreshAlert = () => {
+		if (alert_id) {
+			alertPromise = alerts.get(alert_id);
+		}
+	};
+
 	const openReassignDialog = (alert?: Alert) => {
 		if (alert) {
 			reassignAlert = alert;
@@ -51,9 +57,7 @@
 			reassignAlert = null;
 			reassignOwnerId = '';
 
-			if (alert_id) {
-				alertPromise = alerts.get(alert_id);
-			}
+			refreshAlert();
 		}
 	};
 
@@ -73,8 +77,8 @@
 		const nextOwnerId = $current_user?.id;
 
 		const updated = await updateAlert(alert.alert_id, { alert_owner_id: nextOwnerId });
-		if (!updated && alert_id) {
-			alertPromise = alerts.get(alert_id);
+		if (!updated) {
+			refreshAlert();
 		}
 	};
 
@@ -118,7 +122,7 @@
 	};
 
 	$effect(() => {
-		alertPromise = alerts.get(alert_id);
+		refreshAlert();
 	});
 
 	onMount(async () => {
@@ -174,7 +178,7 @@
 		{alert}
 	/>
 
-	<AlertCommentsDialog bind:open={showAlertComments} onClose={() => {}} {alert} />
+	<AlertCommentsDialog bind:open={showAlertComments} onClose={refreshAlert} {alert} />
 {/if}
 
 <AlertsReasignDialog

@@ -1,12 +1,11 @@
 <script lang="ts">
-	import DOMPurify from 'dompurify';
+	import { onMount, onDestroy } from 'svelte';
+	import { LinkIcon, ListIcon, ListOrderedIcon, SheetIcon } from 'lucide-svelte';
 	import ace from 'ace-builds/src-noconflict/ace';
 	import type { Ace } from 'ace-builds';
 	import 'ace-builds/src-noconflict/mode-markdown';
 	import 'ace-builds/src-noconflict/ext-language_tools';
-	import { onMount, onDestroy } from 'svelte';
-	import { LinkIcon, ListIcon, ListOrderedIcon, SheetIcon } from 'lucide-svelte';
-	import { converter } from './converter';
+	import Preview from './Preview.svelte';
 
 	let { value, onChange, onSave } = $props<{
 		value: string;
@@ -16,14 +15,6 @@
 
 	let editorElement: HTMLDivElement;
 	let editor: Ace.Editor | null = null;
-
-	let previewHtml = $state('');
-	let safeHtml = $derived(DOMPurify.sanitize(previewHtml));
-
-	const render = (md: string) => {
-		const html = converter.makeHtml(md ?? '');
-		return DOMPurify.sanitize(html);
-	};
 
 	const insertSnippet = (editor: Ace.Editor, snippet: string) => {
 		const snippetManager = ace.require('ace/snippets').snippetManager as {
@@ -52,11 +43,8 @@
 			if (!editor) return;
 
 			const md = editor.getValue();
-			previewHtml = render(md);
 			onChange(md);
 		});
-
-		previewHtml = render(value ?? '');
 
 		(editor as Ace.Editor).commands.addCommand({
 			name: 'bold',
@@ -73,6 +61,12 @@
 		(editor as Ace.Editor).commands.addCommand({
 			name: 'save',
 			bindKey: { win: 'Ctrl-S', mac: 'Cmd-S' },
+			exec: () => onSave()
+		});
+
+		(editor as Ace.Editor).commands.addCommand({
+			name: 'save',
+			bindKey: { win: 'Ctrl-Enter', mac: 'Cmd-Enter' },
 			exec: () => onSave()
 		});
 
@@ -108,7 +102,6 @@
 
 		if ((value ?? '') !== current) {
 			editor.setValue(value ?? '', -1);
-			previewHtml = render(value ?? '');
 		}
 	});
 
@@ -197,14 +190,11 @@
 
 	<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 		<div class="rounded-md border bg-background">
-			<div bind:this={editorElement} class="h-[360px] w-full"></div>
+			<div bind:this={editorElement} class="h-full min-h-24 w-full"></div>
 		</div>
 
 		<div class="rounded-md border bg-background p-3">
-			<div class="prose dark:prose-invert max-w-none">
-				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-				{@html safeHtml}
-			</div>
+			<Preview markdown={value} />
 		</div>
 	</div>
 </div>
