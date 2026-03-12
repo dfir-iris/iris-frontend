@@ -24,6 +24,13 @@ export interface UpdateCommentBody {
 	comment_text: string;
 }
 
+export interface CommentUser {
+	user_id?: number;
+	user_name: string;
+	user_login?: string;
+	user_email?: string;
+}
+
 export interface Comment {
 	comment_id: number;
 	comment_text: string;
@@ -31,7 +38,7 @@ export interface Comment {
 	comment_update_date: string;
 	comment_uuid: string;
 	name: string;
-	user: string;
+	user: CommentUser;
 }
 
 export class CommentsService {
