@@ -6,8 +6,6 @@
 		ChevronDownIcon,
 		TrashIcon
 	} from 'lucide-svelte';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
 	import { getTotal, isFiniteNumberString, toApiDate } from '$lib/utils';
 	import type { Alert } from '$lib/types/resources/alert';
 	import { DEFAULT_ITEMS_PER_PAGE } from '$lib/config/api.config';
@@ -25,6 +23,7 @@
 		DropdownMenuItem,
 		DropdownMenuTrigger
 	} from '$lib/components/ui/dropdown-menu';
+	import { Loading } from '$lib/components/ui/loading';
 	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
 	import {
 		AlertFilters,
@@ -41,25 +40,51 @@
 	import AlertEditDialog from './components/alert-edit-dialog.svelte';
 	import AlertCommentsDialog from './components/alert-comments-dialog.svelte';
 
+	type QueryState = {
+		page: number;
+		per_page: number;
+		expanded: boolean;
+		filters: Filters;
+	};
+
+	type FilterKey = keyof Filters;
+
+	const FILTER_KEYS: readonly FilterKey[] = [
+		'alert_title',
+		'alert_description',
+		'alert_source',
+		'alert_tags',
+		'alert_status_id',
+		'alert_severity_id',
+		'alert_classification_id',
+		'alert_customer_id',
+		'alert_start_date',
+		'alert_end_date',
+		'case_id',
+		'alert_owner_id',
+		'sort'
+	];
+
+	let query = $state<QueryState>({
+		page: 1,
+		per_page: DEFAULT_ITEMS_PER_PAGE,
+		expanded: false,
+		filters: defaultFilters()
+	});
+
 	const alerts = getContext<AlertsContext>(ALERTS_CTX);
 
-	let currentPage = $state(1);
-	let perPage = $state(DEFAULT_ITEMS_PER_PAGE);
+	let status = $state<'initial' | 'loading' | 'ready'>('initial');
 	let filtersOpen = $state(false);
-	let filters = $state<Filters>(defaultFilters());
 	let selectedSavedFilterId = $state<string>('');
 	let savingFilter = $state(false);
 
-	let lastFiltersKey = '';
-
-	let expandedAll = $state(false);
 	let expanded = $state<Record<number, boolean>>({});
 
 	let selecting = $state(false);
 	let selectedAll = $state(false);
 	let selected = $state<Record<number, boolean>>({});
 
-	let loading = $state(true);
 	let alertsData = $state<Paginated<Alert>>({
 		data: [],
 		total: 0,
@@ -87,121 +112,145 @@
 		label: `${n} entries`
 	}));
 
-	const FILTER_KEYS = [
-		'alert_title',
-		'alert_description',
-		'alert_source',
-		'alert_tags',
-		'alert_status_id',
-		'alert_severity_id',
-		'alert_classification_id',
-		'alert_customer_id',
-		'alert_start_date',
-		'alert_end_date',
-		'case_id',
-		'alert_owner_id',
-		'sort'
-	] as const;
-
-	type FilterKey = (typeof FILTER_KEYS)[number];
-
-	const toggleSort = () => {
-		const nextSort: Filters['sort'] = filters.sort === 'asc' ? 'desc' : 'asc';
-
-		filters = { ...filters, sort: nextSort };
-		currentPage = 1;
-
-		updateUrl({
-			page: 1,
-			filters: { ...filters, sort: nextSort }
-		});
-	};
-
-	const updateUrl = (params: {
-		page?: number;
-		per_page?: number;
-		expanded?: boolean;
-		filters?: Filters;
-	}) => {
-		const url = new URL(page.url);
-
-		if (params.page !== undefined) {
-			if (params.page <= 1) url.searchParams.delete('page');
-			else url.searchParams.set('page', String(params.page));
-		}
-
-		if (params.per_page !== undefined) {
-			if (params.per_page === DEFAULT_ITEMS_PER_PAGE) url.searchParams.delete('per_page');
-			else url.searchParams.set('per_page', String(params.per_page));
-		}
-
-		if (params.expanded !== undefined) {
-			if (params.expanded) url.searchParams.set('expanded', '1');
-			else url.searchParams.delete('expanded');
-		}
-
-		if (params.filters !== undefined) {
-			const f = params.filters;
-
-			for (const key of FILTER_KEYS) {
-				const raw = f[key];
-
-				if (raw == null) {
-					url.searchParams.delete(key);
-					continue;
-				}
-
-				if (typeof raw === 'number') {
-					if (!Number.isFinite(raw)) url.searchParams.delete(key);
-					else url.searchParams.set(key, String(raw));
-					continue;
-				}
-
-				const s = String(raw).trim();
-				if (s === '') url.searchParams.delete(key);
-				else url.searchParams.set(key, s);
-			}
-		}
-
-		const nextHref = `${url.pathname}${url.search}`;
-		const curHref = `${page.url.pathname}${page.url.search}`;
-		if (nextHref === curHref) return;
-
-		goto(nextHref, { replaceState: true, keepFocus: true, noScroll: true });
-	};
-
 	const normalizeAlert = (value: unknown): Alert => {
 		if (!value || typeof value !== 'object') return {} as Alert;
 
 		return value as Alert;
 	};
 
-	const loadAlerts = async () => {
-		loading = true;
+	const readQueryFromUrl = (url: URL): QueryState => {
+		const filters = defaultFilters();
 
-		const params = {
-			...filters,
-			alert_start_date: toApiDate(filters.alert_start_date),
-			alert_end_date: toApiDate(filters.alert_end_date, true),
-			page: currentPage,
-			per_page: perPage
+		for (const key of FILTER_KEYS) {
+			const raw = url.searchParams.get(key);
+			if (raw == null || raw.trim() === '') continue;
+
+			if (
+				key === 'alert_status_id' ||
+				key === 'alert_severity_id' ||
+				key === 'alert_classification_id' ||
+				key === 'alert_customer_id' ||
+				key === 'case_id' ||
+				key === 'alert_owner_id'
+			) {
+				if (isFiniteNumberString(raw)) {
+					(filters as Record<FilterKey, unknown>)[key] = Number(raw);
+				}
+				continue;
+			}
+
+			(filters as Record<FilterKey, unknown>)[key] = raw;
+		}
+
+		const pageRaw = Number(url.searchParams.get('page') ?? '1');
+		const perPageRaw = Number(url.searchParams.get('per_page') ?? String(DEFAULT_ITEMS_PER_PAGE));
+
+		return {
+			page: Number.isFinite(pageRaw) && pageRaw >= 1 ? pageRaw : 1,
+			per_page:
+				Number.isFinite(perPageRaw) && perPageRaw >= 1 ? perPageRaw : DEFAULT_ITEMS_PER_PAGE,
+			expanded: url.searchParams.get('expanded') === '1',
+			filters
 		};
-
-		const alertsPaginatedResponse = await alerts.listPaginated(params);
-		const rawAlertsData = alertsPaginatedResponse.data;
-
-		const paginatedAlertsData = rawAlertsData as Paginated<Alert>;
-		const alertsList = Array.isArray(paginatedAlertsData.data) ? paginatedAlertsData.data : [];
-
-		alertsData = {
-			...paginatedAlertsData,
-			data: alertsList.map(normalizeAlert)
-		};
-
-		loading = false;
 	};
 
-	const refreshAlerts = async () => await loadAlerts();
+	const writeQueryToUrl = (queryState: QueryState) => {
+		const url = new URL(window.location.href);
+
+		if (queryState.page <= 1) url.searchParams.delete('page');
+		else url.searchParams.set('page', String(queryState.page));
+
+		if (queryState.per_page === DEFAULT_ITEMS_PER_PAGE) url.searchParams.delete('per_page');
+		else url.searchParams.set('per_page', String(queryState.per_page));
+
+		if (queryState.expanded) url.searchParams.set('expanded', '1');
+		else url.searchParams.delete('expanded');
+
+		for (const key of FILTER_KEYS) {
+			const raw = queryState.filters[key];
+
+			if (raw == null) {
+				url.searchParams.delete(key);
+				continue;
+			}
+
+			if (typeof raw === 'number') {
+				if (!Number.isFinite(raw)) url.searchParams.delete(key);
+				else url.searchParams.set(key, String(raw));
+				continue;
+			}
+
+			const value = String(raw).trim();
+			if (value === '') url.searchParams.delete(key);
+			else url.searchParams.set(key, value);
+		}
+
+		const nextHref = `${url.pathname}${url.search}`;
+		const currentHref = `${window.location.pathname}${window.location.search}`;
+		if (nextHref === currentHref) return;
+
+		window.history.replaceState(window.history.state, '', nextHref);
+	};
+
+	const loadAlerts = async (next: QueryState) => {
+		status = 'loading';
+
+		const response = await alerts.listPaginated({
+			...next.filters,
+			alert_start_date: toApiDate(next.filters.alert_start_date),
+			alert_end_date: toApiDate(next.filters.alert_end_date, true),
+			page: next.page,
+			per_page: next.per_page
+		});
+
+		const raw = response.data as Paginated<Alert>;
+		const list = Array.isArray(raw.data) ? raw.data : [];
+
+		alertsData = {
+			...raw,
+			data: list.map(normalizeAlert)
+		};
+
+		status = 'ready';
+	};
+
+	const commitQuery = async (nextQuery: QueryState) => {
+		if (status === 'loading') return;
+
+		query = nextQuery;
+		writeQueryToUrl(nextQuery);
+
+		if (status !== 'initial') {
+			status = 'loading';
+		}
+
+		try {
+			await loadAlerts(nextQuery);
+		} finally {
+			status = 'ready';
+		}
+	};
+
+	const refreshAlerts = async () => loadAlerts(query);
+
+	const changePage = (page: number) => {
+		if (status === 'loading') return;
+
+		void commitQuery({
+			...query,
+			page
+		});
+	};
+
+	const toggleSort = async () => {
+		const nextSort: Filters['sort'] = query.filters.sort === 'asc' ? 'desc' : 'asc';
+
+		await commitQuery({
+			...query,
+			page: 1,
+			filters: { ...query.filters, sort: nextSort }
+		});
+	};
 
 	const applyUpdatedAlert = (updated: Alert) => {
 		const alertsList = Array.isArray(alertsData.data) ? alertsData.data : [];
@@ -220,12 +269,12 @@
 	const applyRemovedAlerts = (ids: number[]) => {
 		const idSet = new Set(ids);
 		const alertsList = Array.isArray(alertsData.data) ? alertsData.data : [];
-		const next = alertsList.filter((alert) => !idSet.has(alert.alert_id));
+		const nextAlerts = alertsList.filter((alert) => !idSet.has(alert.alert_id));
 		const nextTotal = Math.max(0, (alertsData.total ?? 0) - ids.length);
 
 		alertsData = {
 			...alertsData,
-			data: next,
+			data: nextAlerts,
 			total: nextTotal
 		};
 	};
@@ -233,7 +282,7 @@
 	const getPagesCount = (): number => {
 		const total = typeof alertsData.total === 'number' ? alertsData.total : 0;
 		if (total <= 0) return 1;
-		return Math.ceil(total / perPage);
+		return Math.ceil(total / query.per_page);
 	};
 
 	const getAlertFromPage = (id: number): Alert | null => {
@@ -268,11 +317,13 @@
 
 		selectedSavedFilterId = String(id);
 
-		const next = savedFilterToUiFilters(saved, defaultFilters());
+		const nextFilters = savedFilterToUiFilters(saved, defaultFilters());
 
-		filters = next;
-		currentPage = 1;
-		updateUrl({ page: 1, filters: next });
+		await commitQuery({
+			...query,
+			page: 1,
+			filters: nextFilters
+		});
 	};
 
 	const clearSavedFilterSelection = () => (selectedSavedFilterId = '');
@@ -425,8 +476,12 @@
 		showConfirmDelete = false;
 		cancelSelect();
 
-		if (alertsData.data.length === 0 && currentPage > 1) {
-			updateUrl({ page: currentPage - 1 });
+		if (alertsData.data.length === 0 && query.page > 1) {
+			await commitQuery({
+				...query,
+				page: query.page - 1
+			});
+
 			return;
 		}
 
@@ -435,56 +490,17 @@
 		}
 	};
 
-	$effect(() => {
-		const urlPage = Number(page.url.searchParams.get('page') ?? '1');
-		const urlPerPage = Number(
-			page.url.searchParams.get('per_page') ?? String(DEFAULT_ITEMS_PER_PAGE)
-		);
-
-		currentPage = Number.isFinite(urlPage) && urlPage >= 1 ? urlPage : 1;
-		perPage = Number.isFinite(urlPerPage) && urlPerPage >= 1 ? urlPerPage : DEFAULT_ITEMS_PER_PAGE;
-
-		const urlExpanded = page.url.searchParams.get('expanded') === '1';
-		expandedAll = urlExpanded;
-
-		const nextFilters: Filters = { ...defaultFilters() };
-
-		for (const key of FILTER_KEYS) {
-			const raw = page.url.searchParams.get(key);
-			if (raw == null || raw.trim() === '') continue;
-
-			if (
-				key === 'alert_status_id' ||
-				key === 'alert_severity_id' ||
-				key === 'alert_classification_id' ||
-				key === 'alert_customer_id' ||
-				key === 'case_id' ||
-				key === 'alert_owner_id'
-			) {
-				if (isFiniteNumberString(raw)) {
-					(nextFilters as Record<FilterKey, unknown>)[key] = Number(raw);
-				}
-				continue;
-			}
-
-			(nextFilters as Record<FilterKey, unknown>)[key] = raw;
-		}
-
-		const nextFiltersKey = JSON.stringify(nextFilters);
-		if (nextFiltersKey !== lastFiltersKey) {
-			lastFiltersKey = nextFiltersKey;
-			filters = nextFilters;
-		}
-
-		void loadAlerts();
-	});
-
 	let selectedAlertId = $derived(getSelectedAlertIds()[0] ?? 0);
 	let selectedAlert = $derived(
 		getAlertFromPage(selectedAlertId) ?? alerts.byId[selectedAlertId] ?? null
 	);
 
 	onMount(async () => {
+		const nextQuery = readQueryFromUrl(new URL(window.location.href));
+		query = nextQuery;
+
+		await loadAlerts(nextQuery);
+
 		alerts.loadSavedFilters({ filter_type: 'alerts', include_public: 1 });
 
 		const alertStatusResponse = (await AlertStatusService.list())
@@ -499,266 +515,272 @@
 </svelte:head>
 
 <div class="flex grow flex-col gap-4 p-4">
-	{#if loading}
-		<h1>Alerts</h1>
+	{#if status === 'initial'}
+		<div class="flex h-full w-full items-center justify-center">
+			<Loading size={32} />
+		</div>
 	{:else}
-		<h1>{getTotal({ data: alertsData } as RequestResponse<Paginated<Alert>>)} Alerts</h1>
+		<div class:opacity-60={status === 'loading'} class="flex grow flex-col gap-4">
+			<h1>{getTotal({ data: alertsData } as RequestResponse<Paginated<Alert>>)} Alerts</h1>
 
-		<div class="flex items-center justify-between">
-			<div class="flex gap-4">
-				<Button
-					variant={filtersOpen ? 'default' : 'outline'}
-					onclick={() => (filtersOpen = !filtersOpen)}
-				>
-					Filter
-				</Button>
-
-				{#if alerts.savedFilters.items.length}
-					<Select
-						value={selectedSavedFilterId}
-						onValueChange={(v) => {
-							if (v === '') {
-								clearSavedFilterSelection();
-								return;
-							}
-
-							selectedSavedFilterId = v;
-
-							const id = Number(v);
-							if (!Number.isFinite(id)) return;
-
-							applySavedFilter(id);
-
-							filtersOpen = true;
-						}}
-						type="single"
+			<div class="flex items-center justify-between">
+				<div class="flex gap-4">
+					<Button
+						variant={filtersOpen ? 'default' : 'outline'}
+						onclick={() => (filtersOpen = !filtersOpen)}
 					>
-						<SelectTrigger>Select preset filter</SelectTrigger>
+						Filter
+					</Button>
 
-						<SelectContent>
-							<SelectItem value="">Select preset filter</SelectItem>
+					{#if alerts.savedFilters.items.length}
+						<Select
+							value={selectedSavedFilterId}
+							onValueChange={(v) => {
+								if (v === '') {
+									clearSavedFilterSelection();
+									return;
+								}
 
-							{#each alerts.savedFilters.items as filter (filter.filter_id)}
-								<SelectItem value={String(filter.filter_id)}>{filter.filter_name}</SelectItem>
-							{/each}
-						</SelectContent>
-					</Select>
-				{/if}
-			</div>
+								selectedSavedFilterId = v;
 
-			<div class="flex gap-4">
-				{#if selecting}
-					<Button variant="outline" onclick={cancelSelect}>Cancel</Button>
+								const id = Number(v);
+								if (!Number.isFinite(id)) return;
+
+								applySavedFilter(id);
+								filtersOpen = true;
+							}}
+							type="single"
+						>
+							<SelectTrigger>Select preset filter</SelectTrigger>
+
+							<SelectContent>
+								<SelectItem value="">Select preset filter</SelectItem>
+
+								{#each alerts.savedFilters.items as filter (filter.filter_id)}
+									<SelectItem value={String(filter.filter_id)}>{filter.filter_name}</SelectItem>
+								{/each}
+							</SelectContent>
+						</Select>
+					{/if}
+				</div>
+
+				<div class="flex gap-4">
+					{#if selecting}
+						<Button variant="outline" onclick={cancelSelect}>Cancel</Button>
+
+						<Button
+							variant="outline"
+							onclick={() => {
+								selected = {};
+								selectedAll = true;
+							}}>Select All</Button
+						>
+					{:else}
+						<Button variant="outline" onclick={() => (selecting = true)}>Select</Button>
+					{/if}
 
 					<Button
 						variant="outline"
 						onclick={() => {
-							selected = {};
-							selectedAll = true;
-						}}>Select All</Button
+							expanded = {};
+
+							commitQuery({
+								...query,
+								expanded: !query.expanded
+							});
+						}}
 					>
-				{:else}
-					<Button variant="outline" onclick={() => (selecting = true)}>Select</Button>
-				{/if}
+						{query.expanded ? 'Collapse All' : 'Expand All'}
+					</Button>
 
-				<Button
-					variant="outline"
-					onclick={() => {
-						expanded = {};
-						updateUrl({ expanded: !expandedAll });
-					}}
-				>
-					{expandedAll ? 'Collapse All' : 'Expand All'}
-				</Button>
+					<Button variant="outline" onclick={refreshAlerts} disabled={status === 'loading'}>
+						Refresh
+					</Button>
 
-				<Button variant="outline" onclick={() => refreshAlerts()}>Refresh</Button>
+					<Button variant="outline" onclick={toggleSort} disabled={status === 'loading'}>
+						{#if query.filters.sort === 'asc'}
+							<ArrowDownNarrowWide class="h-4 w-4" />
+						{:else}
+							<ArrowUpNarrowWide class="h-4 w-4" />
+						{/if}
+					</Button>
 
-				<Button variant="outline" onclick={toggleSort}>
-					{#if filters.sort === 'asc'}
-						<ArrowDownNarrowWide class="h-4 w-4" />
-					{:else}
-						<ArrowUpNarrowWide class="h-4 w-4" />
-					{/if}
-				</Button>
+					<Select
+						value={String(query.per_page)}
+						onValueChange={(value) => {
+							const nextPerPage = Number(value);
 
-				<Select
-					value={String(perPage)}
-					onValueChange={(value) => {
-						const nextPerPage = Number(value);
-						perPage = nextPerPage;
-						currentPage = 1;
-						updateUrl({ per_page: nextPerPage, page: 1 });
-					}}
-					type="single"
-				>
-					<SelectTrigger>{perPage} entries per page</SelectTrigger>
+							commitQuery({
+								...query,
+								page: 1,
+								per_page: nextPerPage
+							});
+						}}
+						type="single"
+					>
+						<SelectTrigger>{query.per_page} entries per page</SelectTrigger>
 
-					<SelectContent>
-						{#each perPageOptions as perPageOption}
-							<SelectItem value={perPageOption.value}>{perPageOption.label}</SelectItem>
-						{/each}
-					</SelectContent>
-				</Select>
+						<SelectContent>
+							{#each perPageOptions as perPageOption}
+								<SelectItem value={perPageOption.value}>{perPageOption.label}</SelectItem>
+							{/each}
+						</SelectContent>
+					</Select>
+				</div>
 			</div>
-		</div>
 
-		{#if filtersOpen}
-			<AlertFilters
-				value={filters}
-				onChange={(next) => (filters = next)}
-				onApply={() => {
-					currentPage = 1;
-					updateUrl({ page: 1, filters });
-				}}
-				onClear={() => {
-					filters = defaultFilters();
-					currentPage = 1;
-					updateUrl({ page: 1, filters });
-					clearSavedFilterSelection();
-				}}
-				presets={alerts.savedFilters.items}
-				onSaveAsFilter={saveAsFilter}
-				saving={savingFilter}
-			/>
-		{/if}
+			{#if filtersOpen}
+				<AlertFilters
+					value={query.filters}
+					onChange={(next) => {
+						query = {
+							...query,
+							filters: next
+						};
+					}}
+					onApply={() =>
+						commitQuery({
+							...query,
+							page: 1
+						})}
+					onClear={() => {
+						clearSavedFilterSelection();
 
-		{#if getSelectedCount() > 0}
-			<div class="flex gap-4">
-				{#if getSelectedCount() > 1}
-					<Button variant="outline" onclick={() => {}}>Merge</Button>
-				{/if}
+						commitQuery({
+							...query,
+							page: 1,
+							filters: defaultFilters()
+						});
+					}}
+					presets={alerts.savedFilters.items}
+					onSaveAsFilter={saveAsFilter}
+					saving={savingFilter}
+				/>
+			{/if}
 
-				<DropdownMenu>
-					<DropdownMenuTrigger>
-						<Button variant="outline">
-							Assign
+			{#if getSelectedCount() > 0}
+				<div class="flex gap-4">
+					{#if getSelectedCount() > 1}
+						<Button variant="outline" onclick={() => {}}>Merge</Button>
+					{/if}
 
-							<ChevronDownIcon />
-						</Button>
-					</DropdownMenuTrigger>
+					<DropdownMenu>
+						<DropdownMenuTrigger>
+							<Button variant="outline">
+								Assign
+								<ChevronDownIcon />
+							</Button>
+						</DropdownMenuTrigger>
 
-					<DropdownMenuContent align="end">
-						<DropdownMenuItem
-							onclick={async () => {
-								const updates = await Promise.all(
-									getSelectedAlertIds()
-										.map((alertId) => getAlertFromPage(alertId))
-										.filter((alert): alert is Alert => alert !== null)
-										.map((alert) => assignToCurrentUser(alert))
-								);
+						<DropdownMenuContent align="end">
+							<DropdownMenuItem
+								onclick={async () => {
+									const updates = await Promise.all(
+										getSelectedAlertIds()
+											.map((alertId) => getAlertFromPage(alertId))
+											.filter((alert): alert is Alert => alert !== null)
+											.map((alert) => assignToCurrentUser(alert))
+									);
 
-								if (updates.length === 0) {
-									await refreshAlerts();
-								}
+									if (updates.length === 0) {
+										await refreshAlerts();
+									}
 
-								cancelSelect();
-							}}>Assign to me</DropdownMenuItem
-						>
-
-						<DropdownMenuItem
-							onclick={() =>
-								openReassignDialog(
-									getSelectedAlertIds().length === 1
-										? (getAlertFromPage(getSelectedAlertIds()[0]) ?? undefined)
-										: undefined
-								)}>Assign</DropdownMenuItem
-						>
-					</DropdownMenuContent>
-				</DropdownMenu>
-
-				<DropdownMenu>
-					<DropdownMenuTrigger>
-						<Button variant="outline">
-							Set status
-
-							<ChevronDownIcon />
-						</Button>
-					</DropdownMenuTrigger>
-
-					<DropdownMenuContent align="end">
-						{#each alertStatuses as alertStatus}
-							<DropdownMenuItem onclick={() => setStatus(alertStatus.status_id)}>
-								{alertStatus.status_name}</DropdownMenuItem
+									cancelSelect();
+								}}>Assign to me</DropdownMenuItem
 							>
-						{/each}
-					</DropdownMenuContent>
-				</DropdownMenu>
 
-				<Button variant="destructive" onclick={() => (closeOpen = true)}>Close with note</Button>
+							<DropdownMenuItem
+								onclick={() =>
+									openReassignDialog(
+										getSelectedAlertIds().length === 1
+											? (getAlertFromPage(getSelectedAlertIds()[0]) ?? undefined)
+											: undefined
+									)}>Assign</DropdownMenuItem
+							>
+						</DropdownMenuContent>
+					</DropdownMenu>
 
-				<Button variant="destructive" onclick={() => (showConfirmDelete = true)}
-					><TrashIcon /> Delete</Button
-				>
-			</div>
-		{/if}
+					<DropdownMenu>
+						<DropdownMenuTrigger>
+							<Button variant="outline">
+								Set status
+								<ChevronDownIcon />
+							</Button>
+						</DropdownMenuTrigger>
 
-		{#if getPagesCount() > 1}
-			<div class="flex">
-				<AlertsPagination
-					page={currentPage}
-					pages={getPagesCount()}
-					onPageChange={(page) => {
-						currentPage = page;
-						updateUrl({ page });
-					}}
-				/>
-			</div>
-		{/if}
+						<DropdownMenuContent align="end">
+							{#each alertStatuses as alertStatus}
+								<DropdownMenuItem onclick={() => setStatus(alertStatus.status_id)}>
+									{alertStatus.status_name}</DropdownMenuItem
+								>
+							{/each}
+						</DropdownMenuContent>
+					</DropdownMenu>
 
-		<ul class="flex flex-col gap-4">
-			{#each alertsData.data as alert (alert.alert_id)}
-				<li class="flex items-center gap-4">
-					{#if selecting}
-						<Checkbox
-							checked={selected[alert.alert_id] ?? selectedAll}
-							onCheckedChange={(v) => (selected = { ...selected, [alert.alert_id]: v })}
+					<Button variant="destructive" onclick={() => (closeOpen = true)}>Close with note</Button>
+
+					<Button variant="destructive" onclick={() => (showConfirmDelete = true)}
+						><TrashIcon /> Delete</Button
+					>
+				</div>
+			{/if}
+
+			{#if getPagesCount() > 1}
+				<div class="flex">
+					<AlertsPagination page={query.page} pages={getPagesCount()} onPageChange={changePage} />
+				</div>
+			{/if}
+
+			<ul class="flex flex-col gap-4">
+				{#each alertsData.data as alert (alert.alert_id)}
+					<li class="flex items-center gap-4">
+						{#if selecting}
+							<Checkbox
+								checked={selected[alert.alert_id] ?? selectedAll}
+								onCheckedChange={(v) => (selected = { ...selected, [alert.alert_id]: v })}
+							/>
+						{/if}
+
+						<AlertCard
+							{alert}
+							{alertStatuses}
+							expanded={expanded[alert.alert_id] ?? query.expanded}
+							onExpandedChange={(v) => (expanded = { ...expanded, [alert.alert_id]: v })}
+							onAssign={() => assign(alert)}
+							onAssignToCurrentUser={() => assignToCurrentUser(alert)}
+							onSetStatus={(status) => {
+								selected = { ...selected, [alert.alert_id]: true };
+
+								setStatus(status);
+							}}
+							onShowEdit={() => {
+								selected = { ...selected, [alert.alert_id]: true };
+								showAlertEdit = true;
+							}}
+							onShowHistory={() => {
+								selected = { ...selected, [alert.alert_id]: true };
+								showAlertHistory = true;
+							}}
+							onShowComments={() => {
+								selected = { ...selected, [alert.alert_id]: true };
+								showAlertComments = true;
+							}}
+							onDelete={() => {
+								selected = { ...selected, [alert.alert_id]: true };
+								showConfirmDelete = true;
+							}}
 						/>
-					{/if}
+					</li>
+				{/each}
+			</ul>
 
-					<AlertCard
-						{alert}
-						{alertStatuses}
-						expanded={expanded[alert.alert_id] ?? expandedAll}
-						onExpandedChange={(v) => (expanded = { ...expanded, [alert.alert_id]: v })}
-						onAssign={() => assign(alert)}
-						onAssignToCurrentUser={() => assignToCurrentUser(alert)}
-						onSetStatus={(s) => {
-							selected = { ...selected, [alert.alert_id]: true };
-							setStatus(s);
-						}}
-						onShowEdit={() => {
-							selected = { ...selected, [alert.alert_id]: true };
-							showAlertEdit = true;
-						}}
-						onShowHistory={() => {
-							selected = { ...selected, [alert.alert_id]: true };
-							showAlertHistory = true;
-						}}
-						onShowComments={() => {
-							selected = { ...selected, [alert.alert_id]: true };
-							showAlertComments = true;
-						}}
-						onDelete={() => {
-							selected = { ...selected, [alert.alert_id]: true };
-							showConfirmDelete = true;
-						}}
-					/>
-				</li>
-			{/each}
-		</ul>
-
-		{#if getPagesCount() > 1}
-			<div class="flex pb-4">
-				<AlertsPagination
-					page={currentPage}
-					pages={getPagesCount()}
-					onPageChange={(page) => {
-						currentPage = page;
-						updateUrl({ page });
-					}}
-				/>
-			</div>
-		{/if}
+			{#if getPagesCount() > 1}
+				<div class="flex pb-4">
+					<AlertsPagination page={query.page} pages={getPagesCount()} onPageChange={changePage} />
+				</div>
+			{/if}
+		</div>
 	{/if}
 </div>
 
