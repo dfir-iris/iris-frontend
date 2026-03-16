@@ -79,11 +79,10 @@
 	let selectedSavedFilterId = $state<string>('');
 	let savingFilter = $state(false);
 
-	let expanded = $state<Record<number, boolean>>({});
-
 	let selecting = $state(false);
 	let selectedAll = $state(false);
 	let selected = $state<Record<number, boolean>>({});
+	let expanded = $state<Record<number, boolean>>({});
 
 	let alertsData = $state<Paginated<Alert>>({
 		data: [],

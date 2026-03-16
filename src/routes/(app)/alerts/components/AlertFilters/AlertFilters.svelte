@@ -1,9 +1,19 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+	import type { RequestResponse } from '$lib/services/api.service';
+	import { AlertStatusService, type AlertStatus } from '$lib/services/alert-status.service';
+	import {
+		type CaseClassification,
+		CaseClassificationsService
+	} from '$lib/services/case-classifications.service';
+	import { SeveritiesService, type Severity } from '$lib/services/severities.service';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
-	import type { Filters } from './filters';
-	import { defaultFilters, numOrUndef, strOrUndef } from './filters';
+	import SearchSelect, {
+		type SelectOption
+	} from '$lib/components/common/selects/SearchSelect.svelte';
 	import SaveAlertFiltersModal from './SaveAlertFiltersModal.svelte';
+	import { defaultFilters, type Filters } from '.';
 
 	type Preset = {
 		filter_id: number;
@@ -37,6 +47,18 @@
 		onSaveAsFilter,
 		saving = false
 	}: Props = $props();
+
+	const strOrUndef = (v: string): string | undefined => {
+		const s = v.trim();
+		return s === '' ? undefined : s;
+	};
+
+	const numOrUndef = (v: string): number | undefined => {
+		const s = v.trim();
+		if (s === '') return undefined;
+		const n = Number(s);
+		return Number.isFinite(n) ? n : undefined;
+	};
 
 	const setStr = (key: keyof Filters, v: string) => {
 		onChange({ ...value, [key]: strOrUndef(v) });
@@ -75,6 +97,43 @@
 		e.preventDefault();
 		onApply();
 	};
+
+	let alertStatuses = $state<AlertStatus[]>([]);
+	let caseClassifications = $state<CaseClassification[]>([]);
+	let severities = $state<Severity[]>([]);
+
+	const statusOptions = $derived.by<SelectOption[]>(() =>
+		alertStatuses.map((status) => ({
+			value: String(status.status_id),
+			label: status.status_name
+		}))
+	);
+
+	const classificationOptions = $derived.by<SelectOption[]>(() =>
+		caseClassifications.map((c) => ({ value: String(c.id), label: c.name_expanded }))
+	);
+
+	const severityOptions = $derived.by<SelectOption[]>(() =>
+		severities.map((s) => ({ value: String(s.severity_id), label: s.severity_name }))
+	);
+
+	onMount(async () => {
+		const alertStatusResponse = (await AlertStatusService.list())
+			.data as unknown as RequestResponse<AlertStatus[]>;
+
+		alertStatuses = alertStatusResponse.data as AlertStatus[];
+
+		const caseClassificationsResponse = (await CaseClassificationsService.list())
+			.data as unknown as RequestResponse<CaseClassification[]>;
+
+		caseClassifications = caseClassificationsResponse.data as CaseClassification[];
+
+		const severitiesResponse = (await SeveritiesService.list()).data as unknown as RequestResponse<
+			Severity[]
+		>;
+
+		severities = severitiesResponse.data as Severity[];
+	});
 </script>
 
 <form class="rounded-xl border bg-background p-4" onsubmit={submit}>
@@ -113,29 +172,46 @@
 
 		<div class="space-y-1">
 			<div class="text-sm font-medium">Status</div>
-			<Input
-				inputmode="numeric"
+			<SearchSelect
 				value={value.alert_status_id == null ? '' : String(value.alert_status_id)}
-				oninput={(e) => setNum('alert_status_id', (e.currentTarget as HTMLInputElement).value)}
+				options={statusOptions}
+				placeholder="Status"
+				searchPlaceholder="Search status..."
+				onChange={(next) =>
+					onChange({
+						...value,
+						alert_status_id: next ? Number(next) : undefined
+					})}
 			/>
 		</div>
 
 		<div class="space-y-1">
 			<div class="text-sm font-medium">Severity</div>
-			<Input
-				inputmode="numeric"
+			<SearchSelect
 				value={value.alert_severity_id == null ? '' : String(value.alert_severity_id)}
-				oninput={(e) => setNum('alert_severity_id', (e.currentTarget as HTMLInputElement).value)}
+				options={severityOptions}
+				placeholder="Severity"
+				searchPlaceholder="Search severity..."
+				onChange={(next) =>
+					onChange({
+						...value,
+						alert_severity_id: next ? Number(next) : undefined
+					})}
 			/>
 		</div>
 
 		<div class="space-y-1">
 			<div class="text-sm font-medium">Classification</div>
-			<Input
-				inputmode="numeric"
+			<SearchSelect
 				value={value.alert_classification_id == null ? '' : String(value.alert_classification_id)}
-				oninput={(e) =>
-					setNum('alert_classification_id', (e.currentTarget as HTMLInputElement).value)}
+				options={classificationOptions}
+				placeholder="Classification"
+				searchPlaceholder="Search classification..."
+				onChange={(next) =>
+					onChange({
+						...value,
+						alert_classification_id: next ? Number(next) : undefined
+					})}
 			/>
 		</div>
 
