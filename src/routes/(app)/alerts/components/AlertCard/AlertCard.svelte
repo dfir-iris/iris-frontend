@@ -41,6 +41,7 @@
 		onShowEdit,
 		onShowHistory,
 		onShowComments,
+		onShowMerge,
 		onDelete
 	}: {
 		alert: Alert;
@@ -54,6 +55,7 @@
 		onShowEdit: () => void;
 		onShowHistory: () => void;
 		onShowComments: () => void;
+		onShowMerge: () => void;
 		onDelete: () => void;
 	} = $props();
 
@@ -128,6 +130,8 @@
 				<div
 					class={`flex gap-4 transition-opacity ${showHeaderActions ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
 				>
+					<Button variant="outline" onclick={onShowMerge}>Merge</Button>
+
 					<DropdownMenu bind:open={isAssignMenuOpen}>
 						<DropdownMenuTrigger>
 							<Button variant="outline">

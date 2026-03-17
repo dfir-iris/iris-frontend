@@ -88,13 +88,17 @@
 		{/each}
 	</div>
 
-	<div class="my-4 border-t border-t-gray-300 pt-4 text-lg font-bold">IOCs</div>
+	{#if alert.iocs.length}
+		<div class="my-4 border-t border-t-gray-300 pt-4 text-lg font-bold">IOCs</div>
 
-	<IocDataTable iocs={alert.iocs} className="border-0" />
+		<IocDataTable iocs={alert.iocs} className="border-0" />
+	{/if}
 
-	<div class="my-4 border-t border-t-gray-300 pt-4 text-lg font-bold">Assets</div>
+	{#if alert.assets.length}
+		<div class="my-4 border-t border-t-gray-300 pt-4 text-lg font-bold">Assets</div>
 
-	<AssetDataTable assets={alert.assets} className="border-0" />
+		<AssetDataTable assets={alert.assets} className="border-0" />
+	{/if}
 
 	<div class="my-4 border-t border-t-gray-300 pt-4 text-lg font-bold">Raw Alert</div>
 

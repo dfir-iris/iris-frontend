@@ -15,6 +15,9 @@
 	import AlertHistoryDialog from '../components/alert-history-dialog.svelte';
 	import AlertEditDialog from '../components/alert-edit-dialog.svelte';
 	import AlertCommentsDialog from '../components/alert-comments-dialog.svelte';
+	import AlertsMergeDialog, {
+		type MergeAlertsPayload
+	} from '../components/alerts-merge-dialog.svelte';
 
 	const alerts = getContext<AlertsContext>(ALERTS_CTX);
 
@@ -30,8 +33,8 @@
 	let showAlertHistory = $state(false);
 	let showAlertEdit = $state(false);
 	let showAlertComments = $state(false);
-
-	let closeOpen = $state(false);
+	let showAlertMerge = $state(false);
+	let showAlertClose = $state(false);
 
 	let alert_id = $derived(Number(page.params.alert_id));
 	let alert = $derived(alerts.byId[alert_id]);
@@ -97,6 +100,12 @@
 		await refreshConditionally(await updateAlert(alert_id, { alert_status_id }));
 	};
 
+	const mergeAlert = async (mergeAlertPayload: MergeAlertsPayload) => {
+		console.log('merging:', mergeAlertPayload);
+
+		showAlertMerge = false;
+	};
+
 	const closeWithNote = async (changes: UpdateAlertBody) => {
 		const closedStatusId = alertStatuses.find(
 			(alertStatus) => alertStatus.status_name.toLowerCase() === 'closed'
@@ -112,7 +121,7 @@
 			})
 		);
 
-		closeOpen = false;
+		showAlertClose = false;
 	};
 
 	const deleteAlert = async () => {
@@ -155,6 +164,7 @@
 						onShowEdit={() => (showAlertEdit = true)}
 						onShowHistory={() => (showAlertHistory = true)}
 						onShowComments={() => (showAlertComments = true)}
+						onShowMerge={() => (showAlertMerge = true)}
 						onDelete={() => (showConfirmDelete = true)}
 						alwaysExpanded
 					/>
@@ -166,6 +176,13 @@
 
 {#if alert}
 	<AlertHistoryDialog bind:open={showAlertHistory} onClose={() => {}} {alert} />
+
+	<AlertsMergeDialog
+		bind:open={showAlertMerge}
+		selectedAlertIds={[alert_id]}
+		onConfirm={mergeAlert}
+		onClose={() => {}}
+	/>
 
 	<AlertEditDialog
 		bind:open={showAlertEdit}
@@ -189,7 +206,11 @@
 	onConfirm={confirmReassign}
 />
 
-<AlertsCloseDialog bind:open={closeOpen} selectedAlertIds={[alert_id]} onConfirm={closeWithNote} />
+<AlertsCloseDialog
+	bind:open={showAlertClose}
+	selectedAlertIds={[alert_id]}
+	onConfirm={closeWithNote}
+/>
 
 <ConfirmationDialog
 	bind:open={showConfirmDelete}

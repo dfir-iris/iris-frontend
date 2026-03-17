@@ -69,7 +69,12 @@
 	const columns: ColumnDef<Alert>[] = [
 		{
 			accessorKey: 'alert_title',
-			header: () => 'Title'
+			header: () => 'Title',
+			cell: (cell) =>
+				renderComponent(LinkCell, {
+					href: `/alerts/${cell.row.original.alert_id}`,
+					label: `${cell.getValue()}`
+				})
 		},
 		{
 			accessorKey: 'alert_source_event_time',

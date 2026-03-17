@@ -39,6 +39,9 @@
 	import AlertsCloseDialog from './components/alerts-close-dialog.svelte';
 	import AlertEditDialog from './components/alert-edit-dialog.svelte';
 	import AlertCommentsDialog from './components/alert-comments-dialog.svelte';
+	import AlertsMergeDialog, {
+		type MergeAlertsPayload
+	} from './components/alerts-merge-dialog.svelte';
 
 	type QueryState = {
 		page: number;
@@ -103,8 +106,8 @@
 	let showAlertHistory = $state(false);
 	let showAlertEdit = $state(false);
 	let showAlertComments = $state(false);
-
-	let closeOpen = $state(false);
+	let showMerge = $state(false);
+	let showClose = $state(false);
 
 	const perPageOptions = [5, 10, 25, 50, 100, 200, 500].map((n) => ({
 		value: String(n),
@@ -431,6 +434,14 @@
 		cancelSelect();
 	};
 
+	const mergeAlerts = async (mergeAlertPayload: MergeAlertsPayload) => {
+		console.log('merging:', mergeAlertPayload);
+
+		showMerge = false;
+
+		cancelSelect();
+	};
+
 	const closeWithNote = async (changes: UpdateAlertBody) => {
 		const closedStatusId = alertStatuses.find(
 			(alertStatus) => alertStatus.status_name.toLowerCase() === 'closed'
@@ -452,7 +463,7 @@
 			await refreshAlerts();
 		}
 
-		closeOpen = false;
+		showClose = false;
 
 		cancelSelect();
 	};
@@ -659,9 +670,7 @@
 
 			{#if getSelectedCount() > 0}
 				<div class="flex gap-4">
-					{#if getSelectedCount() > 1}
-						<Button variant="outline" onclick={() => {}}>Merge</Button>
-					{/if}
+					<Button variant="outline" onclick={() => (showMerge = true)}>Merge</Button>
 
 					<DropdownMenu>
 						<DropdownMenuTrigger>
@@ -717,7 +726,7 @@
 						</DropdownMenuContent>
 					</DropdownMenu>
 
-					<Button variant="destructive" onclick={() => (closeOpen = true)}>Close with note</Button>
+					<Button variant="destructive" onclick={() => (showClose = true)}>Close with note</Button>
 
 					<Button variant="destructive" onclick={() => (showConfirmDelete = true)}
 						><TrashIcon /> Delete</Button
@@ -765,6 +774,10 @@
 								selected = { ...selected, [alert.alert_id]: true };
 								showAlertComments = true;
 							}}
+							onShowMerge={() => {
+								selected = { ...selected, [alert.alert_id]: true };
+								showMerge = true;
+							}}
 							onDelete={() => {
 								selected = { ...selected, [alert.alert_id]: true };
 								showConfirmDelete = true;
@@ -784,6 +797,13 @@
 </div>
 
 {#if selectedAlert}
+	<AlertsMergeDialog
+		bind:open={showMerge}
+		selectedAlertIds={getSelectedAlertIds()}
+		onConfirm={mergeAlerts}
+		onClose={cancelSelect}
+	/>
+
 	<AlertHistoryDialog bind:open={showAlertHistory} onClose={cancelSelect} alert={selectedAlert} />
 
 	<AlertEditDialog
@@ -816,7 +836,7 @@
 />
 
 <AlertsCloseDialog
-	bind:open={closeOpen}
+	bind:open={showClose}
 	selectedAlertIds={getSelectedAlertIds()}
 	onConfirm={closeWithNote}
 />
