@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import type { Alert } from '$lib/types/resources/alert';
 	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
+	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import type { RequestResponse } from '$lib/services/api.service';
 	import type { UpdateAlertBody } from '$lib/services/alerts.service';
 	import { AlertStatusService, type AlertStatus } from '$lib/services/alert-status.service';
@@ -16,10 +17,12 @@
 	import AlertEditDialog from '../components/alert-edit-dialog.svelte';
 	import AlertCommentsDialog from '../components/alert-comments-dialog.svelte';
 	import AlertsMergeDialog, {
-		type MergeAlertsPayload
+		type MergeAlertPayload
 	} from '../components/alerts-merge-dialog.svelte';
+	import { mergeAlerts } from '../helpers/alerts-merge';
 
 	const alerts = getContext<AlertsContext>(ALERTS_CTX);
+	const cases = getContext<CasesContext>(CASES_CTX);
 
 	let alertPromise = $state<Promise<Alert | null> | null>(null);
 	let alertStatuses = $state<AlertStatus[]>([]);
@@ -64,9 +67,8 @@
 		}
 	};
 
-	const updateAlert = async (alert_id: number, changes: UpdateAlertBody): Promise<Alert | null> => {
-		return await alerts.patch(alert_id, changes);
-	};
+	const updateAlert = async (alert_id: number, changes: UpdateAlertBody): Promise<Alert | null> =>
+		await alerts.patch(alert_id, changes);
 
 	const confirmReassign = async () => {
 		if (!reassignAlert) return;
@@ -96,12 +98,15 @@
 		await assignToCurrentUser(alert);
 	};
 
-	const setStatus = async (alert_status_id: number) => {
+	const setStatus = async (alert_status_id: number) =>
 		await refreshConditionally(await updateAlert(alert_id, { alert_status_id }));
-	};
 
-	const mergeAlert = async (mergeAlertPayload: MergeAlertsPayload) => {
-		console.log('merging:', mergeAlertPayload);
+	const confirmMergeAlert = async (mergeAlertPayload: MergeAlertPayload) => {
+		const updatedCaseId = await mergeAlerts({ alerts, cases }, [alert.alert_id], mergeAlertPayload);
+
+		if (updatedCaseId) {
+			refreshAlert();
+		}
 
 		showAlertMerge = false;
 	};
@@ -180,7 +185,8 @@
 	<AlertsMergeDialog
 		bind:open={showAlertMerge}
 		selectedAlertIds={[alert_id]}
-		onConfirm={mergeAlert}
+		selectedAlert={alert}
+		onConfirm={confirmMergeAlert}
 		onClose={() => {}}
 	/>
 

@@ -86,6 +86,52 @@ export type RelatedAlert = {
 	iocs: unknown;
 };
 
+export interface MergeAlertBody {
+	iocs_import_list?: string[];
+	assets_import_list?: string[];
+	note?: string;
+	import_as_event?: boolean;
+	target_case_id: number;
+}
+
+export interface EscalateAlertBody {
+	iocs_import_list?: string[];
+	assets_import_list?: string[];
+	note?: string;
+	import_as_event?: boolean;
+	case_tags?: string;
+	case_template_id?: string;
+	case_title?: string;
+}
+
+export type MergeAlertResponse = {
+	status: string;
+	message: string;
+	data: {
+		case_id: number;
+		case_name: string;
+		case_customer: number;
+		case_uuid: string;
+		case_description: string;
+		open_date: string;
+		status_id: number;
+		modification_history: null;
+		case_soc_id: string;
+		state_id: number;
+		close_date: null;
+		classification_id: number;
+		closing_note: null;
+		owner_id: number;
+		user_id: number;
+		custom_attributes: Record<string, unknown>;
+		reviewer_id: null;
+		review_status_id: null;
+		severity_id: number;
+	};
+};
+
+export type EscalateAlertResponse = MergeAlertResponse;
+
 function toCommaSeparated(value?: string | string[] | number[]): string | undefined {
 	if (value == null) return undefined;
 	if (Array.isArray(value)) return value.map(String).join(',');
@@ -143,5 +189,36 @@ export class AlertService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<RelatedAlert>> {
 		return ApiService.get<RelatedAlert>(`/api/v2/alerts/${alertId}/related-alerts`, options);
+	}
+
+	static async merge(
+		alertId: AlertIdentifier,
+		body: MergeAlertBody,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<MergeAlertResponse>> {
+		return ApiService.post<MergeAlertResponse, MergeAlertBody>(
+			`/alerts/merge/${alertId}`,
+			body,
+			options
+		);
+	}
+
+	static async unmerge(
+		alertId: AlertIdentifier,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<Alert>> {
+		return ApiService.post<Alert, Record<string, never>>(`/alerts/unmerge/${alertId}`, {}, options);
+	}
+
+	static async escalate(
+		alertId: AlertIdentifier,
+		body: EscalateAlertBody,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<EscalateAlertResponse>> {
+		return ApiService.post<EscalateAlertResponse, EscalateAlertBody>(
+			`/alerts/escalate/${alertId}`,
+			body,
+			options
+		);
 	}
 }

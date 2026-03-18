@@ -157,13 +157,20 @@ export const handle: Handle = async ({ event, resolve }) => {
 			? API_BASE_URL.replace(/\/api\/v2\/?$/, '')
 			: API_BASE_URL;
 
-		const upstreamPath =
-			event.url.pathname === '/api/v2/alerts/filter'
-				? event.url.pathname.replace(/^\/api\/v2/, '')
-				: event.url.pathname.startsWith('/api/v2/manage/') &&
-					  !event.url.pathname.endsWith('customers')
-					? event.url.pathname.replace(/^\/api\/v2\/manage/, '/manage')
-					: event.url.pathname;
+		const { pathname } = event.url;
+
+		const isAlertsRoute =
+			pathname === '/api/v2/alerts/filter' ||
+			pathname.startsWith('/api/v2/alerts/merge') ||
+			pathname.startsWith('/api/v2/alerts/escalate');
+
+		const isManageRoute = pathname.startsWith('/api/v2/manage/') && !pathname.endsWith('customers');
+
+		const upstreamPath = isAlertsRoute
+			? pathname.replace(/^\/api\/v2/, '')
+			: isManageRoute
+				? pathname.replace(/^\/api\/v2\/manage/, '/manage')
+				: pathname;
 
 		const apiUrl = `${base.replace(/\/$/, '')}${upstreamPath}${event.url.search}`;
 

@@ -4,7 +4,11 @@ import type {
 	FilterAlertsParams,
 	UpdateAlertBody,
 	CreateAlertBody,
-	RelatedAlert
+	RelatedAlert,
+	MergeAlertBody,
+	EscalateAlertBody,
+	MergeAlertResponse,
+	EscalateAlertResponse
 } from '$lib/services/alerts.service';
 import type { ApiOptions, Paginated, RequestResponse } from '$lib/services/api.service';
 import type { Alert } from '$lib/types/resources/alert';
@@ -113,11 +117,6 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 		items: [],
 		status: 'idle',
 		error: null
-	});
-
-	const ui = $state({
-		showAddModal: false,
-		showManageModal: false
 	});
 
 	const load = async (params: FilterAlertsParams = {}, options: ApiOptions = {}) => {
@@ -376,6 +375,64 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 		return false;
 	};
 
+	const merge = async (
+		id: AlertIdentifier,
+		body: MergeAlertBody,
+		options: ApiOptions = {}
+	): Promise<MergeAlertResponse | null> => {
+		const response = await AlertService.merge(id, body, options);
+
+		if (
+			response.ok &&
+			!response.error &&
+			response.data !== null &&
+			typeof response.data !== 'string'
+		) {
+			await refresh(options);
+			return response.data;
+		}
+
+		return null;
+	};
+
+	const unmerge = async (id: AlertIdentifier, options: ApiOptions = {}): Promise<Alert | null> => {
+		const response = await AlertService.unmerge(id, options);
+
+		if (
+			response.ok &&
+			!response.error &&
+			response.data !== null &&
+			typeof response.data !== 'string'
+		) {
+			const alert = response.data;
+			byId[getId(alert)] = alert;
+			await refresh(options);
+			return alert;
+		}
+
+		return null;
+	};
+
+	const escalate = async (
+		id: AlertIdentifier,
+		body: EscalateAlertBody,
+		options: ApiOptions = {}
+	): Promise<EscalateAlertResponse | null> => {
+		const response = await AlertService.escalate(id, body, options);
+
+		if (
+			response.ok &&
+			!response.error &&
+			response.data !== null &&
+			typeof response.data !== 'string'
+		) {
+			await refresh(options);
+			return response.data;
+		}
+
+		return null;
+	};
+
 	const getRelatedAlerts = async (
 		id: AlertIdentifier,
 		options: ApiOptions = {}
@@ -406,9 +463,6 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 		savedFilters.items = [];
 		savedFilters.status = 'idle';
 		savedFilters.error = null;
-
-		ui.showAddModal = false;
-		ui.showManageModal = false;
 	};
 
 	const alerts = $derived(() =>
@@ -419,7 +473,6 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 		byId,
 		list,
 		savedFilters,
-		ui,
 		alerts,
 		load,
 		listPaginated,
@@ -433,6 +486,9 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 		create,
 		patch,
 		remove,
+		merge,
+		unmerge,
+		escalate,
 		getRelatedAlerts,
 		reset
 	};

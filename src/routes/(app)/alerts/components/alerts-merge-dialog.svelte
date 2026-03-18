@@ -1,4 +1,11 @@
 <script lang="ts">
+	import { getContext, onMount } from 'svelte';
+	import type { MergeAlertBody } from '$lib/services/alerts.service';
+	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
+	import {
+		CASE_TEMPLATES_CTX,
+		type CaseTemplatesContext
+	} from '$lib/contexts/case-templates.context.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
@@ -9,49 +16,38 @@
 	} from '$lib/components/common/selects/SearchSelect.svelte';
 	import { SegmentedSelect, type SegmentedSelectOption } from '$lib/components/ui/segmented-select';
 	import TagInput from '$lib/components/common/tag/TagInput.svelte';
+	import type { Alert } from '$lib/types/resources/alert';
 
 	export type MergeMode = 'new' | 'existing';
 
-	export type MergeAlertsPayload = {
-		merge_mode: MergeMode;
+	export interface MergeAlertPayload
+		extends Omit<MergeAlertBody, 'target_case_id' | 'case_template_id'> {
 		target_case_id: number | null;
-		case_title: string;
 		case_template_id: number | null;
-		escalation_note: string;
+		case_title: string;
 		case_tags: string;
-		add_as_event: boolean;
-	};
-
-	type ItemOption = {
-		value: number;
-		label: string;
-	};
+	}
 
 	type Props = {
 		open: boolean;
 		selectedAlertIds: number[];
-		caseTemplates?: ItemOption[];
-		existingCases?: ItemOption[];
+		selectedAlert?: Alert;
 		onClose: () => void;
-		onConfirm: (payload: MergeAlertsPayload) => void;
+		onConfirm: (payload: MergeAlertPayload) => void;
 	};
 
-	let {
-		open = $bindable(),
-		selectedAlertIds,
-		caseTemplates = [],
-		existingCases = [],
-		onClose,
-		onConfirm
-	}: Props = $props();
+	let { open = $bindable(), selectedAlertIds, selectedAlert, onClose, onConfirm }: Props = $props();
+
+	const cases = getContext<CasesContext>(CASES_CTX);
+	const caseTemplates = getContext<CaseTemplatesContext>(CASE_TEMPLATES_CTX);
 
 	let mergeMode = $state<MergeMode>('new');
 	let targetCaseId = $state('');
 	let caseTitle = $state('');
 	let caseTemplateId = $state('');
-	let escalationNote = $state('');
+	let note = $state('');
 	let tags = $state('');
-	let addAsEvent = $state(true);
+	let importAsEvent = $state(true);
 
 	const mergeOptions = $derived.by<SegmentedSelectOption[]>(() => [
 		{ value: 'new', label: 'Merge into a new case' },
@@ -59,16 +55,16 @@
 	]);
 
 	const caseTemplateOptions = $derived.by<SelectOption[]>(() =>
-		caseTemplates.map((template) => ({
-			value: String(template.value),
-			label: template.label
+		caseTemplates.caseTemplates.map((t) => ({
+			value: String(t.template_id),
+			label: t.template_name
 		}))
 	);
 
 	const existingCaseOptions = $derived.by<SelectOption[]>(() =>
-		existingCases.map((item) => ({
-			value: String(item.value),
-			label: item.label
+		cases.cases().map((c) => ({
+			value: String(c.case_id),
+			label: c.case_name
 		}))
 	);
 
@@ -80,11 +76,13 @@
 	const resetForm = () => {
 		mergeMode = 'new';
 		targetCaseId = '';
-		caseTitle = `[ALERT] Escalation of ${selectedAlertIds.length} alert${selectedAlertIds.length > 1 ? 's' : ''}`;
+		caseTitle = selectedAlert
+			? `[ALERT] ${selectedAlert.alert_title}`
+			: `[ALERT] Escalation of ${selectedAlertIds.length} alert${selectedAlertIds.length > 1 ? 's' : ''}`;
 		caseTemplateId = '';
-		escalationNote = '';
-		tags = '';
-		addAsEvent = true;
+		note = '';
+		tags = selectedAlert ? selectedAlert.alert_tags : '';
+		importAsEvent = true;
 	};
 
 	$effect(() => {
@@ -92,6 +90,8 @@
 			resetForm();
 		}
 	});
+
+	onMount(async () => {});
 </script>
 
 <Dialog.Root
@@ -167,7 +167,7 @@
 					<textarea
 						id="merge-alert-note"
 						class="min-h-28 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-ring"
-						bind:value={escalationNote}
+						bind:value={note}
 					></textarea>
 				</div>
 
@@ -180,8 +180,8 @@
 				<div class="flex items-center gap-2">
 					<Checkbox
 						id="merge-alert-add-event"
-						checked={addAsEvent}
-						onCheckedChange={(checked) => (addAsEvent = checked === true)}
+						checked={importAsEvent}
+						onCheckedChange={(checked) => (importAsEvent = checked === true)}
 					/>
 					<Label for="merge-alert-add-event" class="text-sm font-normal">
 						Add alert as event in the timeline
@@ -204,13 +204,12 @@
 			<Button
 				onclick={() =>
 					onConfirm({
-						merge_mode: mergeMode,
 						target_case_id: mergeMode === 'existing' ? Number(targetCaseId) : null,
 						case_title: caseTitle,
 						case_template_id: mergeMode === 'new' && caseTemplateId ? Number(caseTemplateId) : null,
-						escalation_note: escalationNote,
+						note: note,
 						case_tags: tags,
-						add_as_event: addAsEvent
+						import_as_event: importAsEvent
 					})}
 				disabled={(mergeMode === 'new' && caseTitle.trim().length === 0) ||
 					(mergeMode === 'existing' && targetCaseId === '')}

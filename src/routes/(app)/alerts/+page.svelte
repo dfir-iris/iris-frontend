@@ -10,6 +10,7 @@
 	import type { Alert } from '$lib/types/resources/alert';
 	import { DEFAULT_ITEMS_PER_PAGE } from '$lib/config/api.config';
 	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
+	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import type { RequestResponse, Paginated } from '$lib/services/api.service';
 	import type { UpdateAlertBody } from '$lib/services/alerts.service';
 	import { AlertStatusService, type AlertStatus } from '$lib/services/alert-status.service';
@@ -40,8 +41,9 @@
 	import AlertEditDialog from './components/alert-edit-dialog.svelte';
 	import AlertCommentsDialog from './components/alert-comments-dialog.svelte';
 	import AlertsMergeDialog, {
-		type MergeAlertsPayload
+		type MergeAlertPayload
 	} from './components/alerts-merge-dialog.svelte';
+	import { mergeAlerts } from './helpers/alerts-merge';
 
 	type QueryState = {
 		page: number;
@@ -76,6 +78,7 @@
 	});
 
 	const alerts = getContext<AlertsContext>(ALERTS_CTX);
+	const cases = getContext<CasesContext>(CASES_CTX);
 
 	let status = $state<'initial' | 'loading' | 'ready'>('initial');
 	let filtersOpen = $state(false);
@@ -434,8 +437,16 @@
 		cancelSelect();
 	};
 
-	const mergeAlerts = async (mergeAlertPayload: MergeAlertsPayload) => {
-		console.log('merging:', mergeAlertPayload);
+	const confirmMergeAlerts = async (mergeAlertPayload: MergeAlertPayload) => {
+		const updatedCaseId = await mergeAlerts(
+			{ alerts, cases },
+			getSelectedAlertIds(),
+			mergeAlertPayload
+		);
+
+		if (updatedCaseId) {
+			await refreshAlerts();
+		}
 
 		showMerge = false;
 
@@ -800,7 +811,8 @@
 	<AlertsMergeDialog
 		bind:open={showMerge}
 		selectedAlertIds={getSelectedAlertIds()}
-		onConfirm={mergeAlerts}
+		selectedAlert={getSelectedAlertIds().length === 1 ? selectedAlert : undefined}
+		onConfirm={confirmMergeAlerts}
 		onClose={cancelSelect}
 	/>
 

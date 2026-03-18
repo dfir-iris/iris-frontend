@@ -15,7 +15,13 @@ import { ApiService } from '../api.service';
 
 import type { Alert } from '$lib/types/resources/alert';
 import type { ApiOptions } from '../api.service';
-import type { CreateAlertBody, UpdateAlertBody, FilterAlertsParams } from '../alerts.service';
+import type {
+	CreateAlertBody,
+	UpdateAlertBody,
+	FilterAlertsParams,
+	MergeAlertBody,
+	EscalateAlertBody
+} from '../alerts.service';
 import type { FilterAlertsMessage } from '../alerts.service';
 
 describe('AlertService', () => {
@@ -184,6 +190,90 @@ describe('AlertService', () => {
 
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
 		expect(ApiService.get).toHaveBeenCalledWith('/api/v2/alerts/10/related-alerts', options);
+		expect(res).toBe(mockResponse);
+	});
+
+	it('merge() should call ApiService.post with /alerts/merge/{id}, body, options', async () => {
+		const body: MergeAlertBody = {
+			target_case_id: 123,
+			iocs_import_list: ['ioc-1', 'ioc-2'],
+			assets_import_list: ['asset-1'],
+			note: 'merge note',
+			import_as_event: true
+		};
+
+		const options: ApiOptions = { skipTokenRefresh: true };
+
+		const mockResponse = {
+			ok: true,
+			status: 200,
+			data: {
+				status: 'success',
+				message: 'ok',
+				data: {
+					case_id: 123
+				}
+			}
+		};
+
+		(ApiService.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+
+		const res = await AlertService.merge(10, body, options);
+
+		expect(ApiService.post).toHaveBeenCalledTimes(1);
+		expect(ApiService.post).toHaveBeenCalledWith('/alerts/merge/10', body, options);
+		expect(res).toBe(mockResponse);
+	});
+
+	it('unmerge() should call ApiService.post with /alerts/unmerge/{id}, empty body, options', async () => {
+		const options: ApiOptions = { skipTokenRefresh: true };
+
+		const mockResponse = {
+			ok: true,
+			status: 200,
+			data: { alert_id: 10 } as unknown as Alert
+		};
+
+		(ApiService.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+
+		const res = await AlertService.unmerge(10, options);
+
+		expect(ApiService.post).toHaveBeenCalledTimes(1);
+		expect(ApiService.post).toHaveBeenCalledWith('/alerts/unmerge/10', {}, options);
+		expect(res).toBe(mockResponse);
+	});
+
+	it('escalate() should call ApiService.post with /alerts/escalate/{id}, body, options', async () => {
+		const body: EscalateAlertBody = {
+			iocs_import_list: ['ioc-1'],
+			assets_import_list: ['asset-1'],
+			note: 'escalate note',
+			import_as_event: false,
+			case_tags: 'tag1,tag2',
+			case_template_id: '5',
+			case_title: 'Escalated case'
+		};
+
+		const options: ApiOptions = { skipTokenRefresh: true };
+
+		const mockResponse = {
+			ok: true,
+			status: 200,
+			data: {
+				status: 'success',
+				message: 'ok',
+				data: {
+					case_id: 999
+				}
+			}
+		};
+
+		(ApiService.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+
+		const res = await AlertService.escalate(10, body, options);
+
+		expect(ApiService.post).toHaveBeenCalledTimes(1);
+		expect(ApiService.post).toHaveBeenCalledWith('/alerts/escalate/10', body, options);
 		expect(res).toBe(mockResponse);
 	});
 });
