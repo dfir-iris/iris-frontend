@@ -42,6 +42,7 @@
 		onShowHistory,
 		onShowComments,
 		onShowMerge,
+		onShowClose,
 		onDelete
 	}: {
 		alert: Alert;
@@ -56,6 +57,7 @@
 		onShowHistory: () => void;
 		onShowComments: () => void;
 		onShowMerge: () => void;
+		onShowClose: (withNote: boolean) => void;
 		onDelete: () => void;
 	} = $props();
 
@@ -170,14 +172,19 @@
 						</DropdownMenuContent>
 					</DropdownMenu>
 
-					<Button
-						variant="default"
-						onclick={() =>
-							onSetStatus(
-								alertStatuses.find((s) => s.status_name.toLowerCase().trim() === 'in progress')
-									?.status_id ?? alertStatuses.length
-							)}>Set In Progress</Button
-					>
+					{#if alert.status.status_name.toLowerCase() === 'in progress'}
+						<Button variant="destructive" onclick={() => onShowClose(true)}>Close with note</Button>
+						<Button variant="destructive" onclick={() => onShowClose(false)}>Close</Button>
+					{:else}
+						<Button
+							variant="default"
+							onclick={() =>
+								onSetStatus(
+									alertStatuses.find((s) => s.status_name.toLowerCase().trim() === 'in progress')
+										?.status_id ?? alertStatuses.length
+								)}>Set In Progress</Button
+						>
+					{/if}
 				</div>
 
 				<div class="flex gap-4 pt-2">

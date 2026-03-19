@@ -5,9 +5,8 @@
 	import type { Alert } from '$lib/types/resources/alert';
 	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
-	import type { RequestResponse } from '$lib/services/api.service';
 	import type { UpdateAlertBody } from '$lib/services/alerts.service';
-	import { AlertStatusService, type AlertStatus } from '$lib/services/alert-status.service';
+	import type { AlertStatus } from '$lib/services/alert-status.service';
 	import { current_user } from '$lib/stores/auth.store';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
 	import { AlertCard } from '../components/AlertCard';
@@ -19,7 +18,10 @@
 	import AlertsMergeDialog, {
 		type MergeAlertPayload
 	} from '../components/alerts-merge-dialog.svelte';
+	import { loadAlertStatuses } from '../helpers/alert-status';
 	import { mergeAlerts } from '../helpers/alerts-merge';
+	import { closeAlerts } from '../helpers/alerts-close';
+	import { assignAlertsToOwner, reassignAlertOwner } from '../helpers/alerts-assign';
 
 	const alerts = getContext<AlertsContext>(ALERTS_CTX);
 	const cases = getContext<CasesContext>(CASES_CTX);
@@ -74,14 +76,16 @@
 		if (!reassignAlert) return;
 
 		await refreshConditionally(
-			await updateAlert(reassignAlert.alert_id, { alert_owner_id: Number(reassignOwnerId) })
+			await reassignAlertOwner({ updateAlert }, reassignAlert.alert_id, {
+				ownerId: reassignOwnerId
+			})
 		);
 	};
 
 	const assignToCurrentUser = async (alert: Alert) => {
 		const nextOwnerId = $current_user?.id;
 
-		const updated = await updateAlert(alert.alert_id, { alert_owner_id: nextOwnerId });
+		const [updated] = await assignAlertsToOwner({ updateAlert }, [alert.alert_id], nextOwnerId);
 		if (!updated) {
 			refreshAlert();
 		}
@@ -112,19 +116,9 @@
 	};
 
 	const closeWithNote = async (changes: UpdateAlertBody) => {
-		const closedStatusId = alertStatuses.find(
-			(alertStatus) => alertStatus.status_name.toLowerCase() === 'closed'
-		)?.status_id;
+		const [updated] = await closeAlerts({ updateAlert }, [alert_id], alertStatuses, changes);
 
-		await refreshConditionally(
-			await updateAlert(alert_id, {
-				...changes,
-				alert_status_id: closedStatusId,
-				alert_resolution_status_id: changes.alert_resolution_status_id,
-				alert_note: changes.alert_note,
-				alert_tags: changes.alert_tags
-			})
-		);
+		await refreshConditionally(updated ?? null);
 
 		showAlertClose = false;
 	};
@@ -140,10 +134,7 @@
 	});
 
 	onMount(async () => {
-		const alertStatusResponse = (await AlertStatusService.list())
-			.data as unknown as RequestResponse<AlertStatus[]>;
-
-		alertStatuses = alertStatusResponse.data as AlertStatus[];
+		alertStatuses = await loadAlertStatuses();
 	});
 </script>
 
@@ -170,6 +161,13 @@
 						onShowHistory={() => (showAlertHistory = true)}
 						onShowComments={() => (showAlertComments = true)}
 						onShowMerge={() => (showAlertMerge = true)}
+						onShowClose={(withNote) => {
+							if (withNote) {
+								showAlertClose = true;
+							} else {
+								closeWithNote({});
+							}
+						}}
 						onDelete={() => (showConfirmDelete = true)}
 						alwaysExpanded
 					/>

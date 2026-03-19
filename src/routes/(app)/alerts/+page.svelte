@@ -13,7 +13,7 @@
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import type { RequestResponse, Paginated } from '$lib/services/api.service';
 	import type { UpdateAlertBody } from '$lib/services/alerts.service';
-	import { AlertStatusService, type AlertStatus } from '$lib/services/alert-status.service';
+	import type { AlertStatus } from '$lib/services/alert-status.service';
 	import { current_user } from '$lib/stores/auth.store';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
@@ -43,7 +43,10 @@
 	import AlertsMergeDialog, {
 		type MergeAlertPayload
 	} from './components/alerts-merge-dialog.svelte';
+	import { loadAlertStatuses } from './helpers/alert-status';
 	import { mergeAlerts } from './helpers/alerts-merge';
+	import { closeAlerts } from './helpers/alerts-close';
+	import { assignAlertsToOwner, reassignAlertOwner } from './helpers/alerts-assign';
 
 	type QueryState = {
 		page: number;
@@ -393,8 +396,8 @@
 	const confirmReassign = async () => {
 		if (!reassignAlert) return;
 
-		const updated = await updateAlert(reassignAlert.alert_id, {
-			alert_owner_id: Number(reassignOwnerId)
+		const updated = await reassignAlertOwner({ updateAlert }, reassignAlert.alert_id, {
+			ownerId: reassignOwnerId
 		});
 
 		if (!updated) {
@@ -408,7 +411,7 @@
 	const assignToCurrentUser = async (alert: Alert) => {
 		const nextOwnerId = $current_user?.id;
 
-		const updated = await updateAlert(alert.alert_id, { alert_owner_id: nextOwnerId });
+		const [updated] = await assignAlertsToOwner({ updateAlert }, [alert.alert_id], nextOwnerId);
 		if (!updated) {
 			await refreshAlerts();
 		}
@@ -454,20 +457,11 @@
 	};
 
 	const closeWithNote = async (changes: UpdateAlertBody) => {
-		const closedStatusId = alertStatuses.find(
-			(alertStatus) => alertStatus.status_name.toLowerCase() === 'closed'
-		)?.status_id;
-
-		const updates = await Promise.all(
-			getSelectedAlertIds().map((alert_id) =>
-				updateAlert(alert_id, {
-					...changes,
-					alert_status_id: closedStatusId,
-					alert_resolution_status_id: changes.alert_resolution_status_id,
-					alert_note: changes.alert_note,
-					alert_tags: changes.alert_tags
-				})
-			)
+		const updates = await closeAlerts(
+			{ updateAlert },
+			getSelectedAlertIds(),
+			alertStatuses,
+			changes
 		);
 
 		if (updates.some((updated) => !updated)) {
@@ -524,10 +518,7 @@
 
 		alerts.loadSavedFilters({ filter_type: 'alerts', include_public: 1 });
 
-		const alertStatusResponse = (await AlertStatusService.list())
-			.data as unknown as RequestResponse<AlertStatus[]>;
-
-		alertStatuses = alertStatusResponse.data as AlertStatus[];
+		alertStatuses = await loadAlertStatuses();
 	});
 </script>
 
@@ -788,6 +779,15 @@
 							onShowMerge={() => {
 								selected = { ...selected, [alert.alert_id]: true };
 								showMerge = true;
+							}}
+							onShowClose={(withNote: boolean) => {
+								selected = { ...selected, [alert.alert_id]: true };
+
+								if (withNote) {
+									showClose = true;
+								} else {
+									closeWithNote({});
+								}
 							}}
 							onDelete={() => {
 								selected = { ...selected, [alert.alert_id]: true };
