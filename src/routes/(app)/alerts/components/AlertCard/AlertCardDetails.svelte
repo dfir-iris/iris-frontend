@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { Collapsible } from 'bits-ui';
-
 	import type { Alert } from '$lib/types/resources/alert';
-
 	import { mediumDateTimeFormatter } from '$lib/utils/time-formatter';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
 	import IocDataTable from '$lib/components/common/ioc/IocDataTable.svelte';
 	import AssetDataTable from '$lib/components/common/assets/AssetDataTable.svelte';
+	import { AlertRelatedGraph } from '../AlertRelatedGraph';
 
 	let {
 		alert
@@ -87,6 +86,10 @@
 			<div class="col-span-2">{alert.alert_context[context_key]}</div>
 		{/each}
 	</div>
+
+	<div class="my-4 border-t border-t-gray-300 pt-4 text-lg font-bold">Relationships</div>
+
+	<AlertRelatedGraph alertId={alert.alert_id} />
 
 	{#if alert.iocs.length}
 		<div class="my-4 border-t border-t-gray-300 pt-4 text-lg font-bold">IOCs</div>

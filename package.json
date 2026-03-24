@@ -68,13 +68,16 @@
 		"dompurify": "^3.3.1",
 		"fast-sort": "^3.4.1",
 		"fast-xml-parser": "^5.0.6",
+		"lucide-static": "^1.0.1",
 		"marked": "^15.0.7",
 		"mode-watcher": "^0.5.0",
 		"otpauth": "^9.4.1",
 		"papaparse": "^5.5.3",
 		"qrcode": "^1.5.4",
 		"showdown": "^2.1.0",
-		"uuid": "^11.1.0"
+		"uuid": "^11.1.0",
+		"vis-data": "^8.0.3",
+		"vis-network": "^10.0.2"
 	},
 	"overrides": {
 		"cookie": "^0.7.0",

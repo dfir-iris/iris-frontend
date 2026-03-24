@@ -81,9 +81,31 @@ export interface CreateAlertBody {
 
 export type UpdateAlertBody = Partial<CreateAlertBody>;
 
+export type RelatedAlertNode = {
+	id: string;
+	label: string;
+	title?: string;
+	group: string;
+	shape?: string;
+	icon?: {
+		face?: string;
+		code?: string;
+		color?: string;
+		weight?: string;
+	};
+	image?: string;
+	font?: string;
+};
+
+export type RelatedAlertEdge = {
+	from: string;
+	to: string;
+	dashes?: boolean;
+};
+
 export type RelatedAlert = {
-	assets: unknown;
-	iocs: unknown;
+	nodes: RelatedAlertNode[];
+	edges: RelatedAlertEdge[];
 };
 
 export interface MergeAlertBody {
@@ -132,10 +154,26 @@ export type MergeAlertResponse = {
 
 export type EscalateAlertResponse = MergeAlertResponse;
 
-function toCommaSeparated(value?: string | string[] | number[]): string | undefined {
+const toCommaSeparated = (value?: string | string[] | number[]): string | undefined => {
 	if (value == null) return undefined;
 	if (Array.isArray(value)) return value.map(String).join(',');
 	return value;
+}
+
+const parseRelatedAlert = (value: unknown): RelatedAlert => {
+	if (typeof value !== 'object' || value === null) {
+		return { nodes: [], edges: [] };
+	}
+
+	const data = value as {
+		nodes?: RelatedAlertNode[];
+		edges?: RelatedAlertEdge[];
+	};
+
+	return {
+		nodes: Array.isArray(data.nodes) ? data.nodes : [],
+		edges: Array.isArray(data.edges) ? data.edges : []
+	};
 }
 
 export class AlertService {
@@ -188,7 +226,12 @@ export class AlertService {
 		alertId: AlertIdentifier,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<RelatedAlert>> {
-		return ApiService.get<RelatedAlert>(`/api/v2/alerts/${alertId}/related-alerts`, options);
+		const response = await ApiService.get<unknown>(`/api/v2/alerts/${alertId}/related-alerts`, options);
+
+		return {
+			...response,
+			data: parseRelatedAlert(response.data)
+		};
 	}
 
 	static async merge(

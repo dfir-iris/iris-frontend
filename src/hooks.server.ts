@@ -152,10 +152,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	// Proxy auth requests to the backend
-	if (event.url.pathname.startsWith('/api/v2/') || event.url.pathname.startsWith('/auth/')) {
-		const base = event.url.pathname.startsWith('/api/v2/')
-			? API_BASE_URL.replace(/\/api\/v2\/?$/, '')
-			: API_BASE_URL;
+	if (
+		event.url.pathname.startsWith('/api/v2/') ||
+		event.url.pathname.startsWith('/auth/') ||
+		event.url.pathname.startsWith('/static/')
+	) {
+		const base =
+			event.url.pathname.startsWith('/api/v2/') || event.url.pathname.startsWith('/static/')
+				? API_BASE_URL.replace(/\/api\/v2\/?$/, '')
+				: API_BASE_URL;
 
 		const { pathname } = event.url;
 
