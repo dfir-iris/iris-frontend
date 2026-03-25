@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
+	import { mode } from 'mode-watcher';
 	import alertSvg from 'lucide-static/icons/bell.svg?raw';
 	import iocSvg from 'lucide-static/icons/link.svg?raw';
 	import caseSvg from 'lucide-static/icons/briefcase-business.svg?raw';
@@ -7,6 +8,7 @@
 	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
 	import type { RelatedAlert } from '$lib/services/alerts.service';
 	import VisNetwork from '$lib/components/common/VisNetwork.svelte';
+	import type { Options } from 'vis-network';
 
 	type VisNode = Record<string, unknown>;
 	type VisEdge = Record<string, unknown>;
@@ -19,11 +21,6 @@
 			.replace(/stroke="currentColor"/g, `stroke="${color}"`)
 			.replace(/<svg /, '<svg fill="none" ');
 
-	const alertIcon = svgToDataUrl(withStroke(alertSvg, '#111827'));
-	const iocIcon = svgToDataUrl(withStroke(iocSvg, '#111827'));
-	const caseOpenIcon = svgToDataUrl(withStroke(caseSvg, '#16a34a'));
-	const caseClosedIcon = svgToDataUrl(withStroke(caseClosedSvg, '#c2410c'));
-
 	let {
 		alertId
 	}: {
@@ -32,11 +29,45 @@
 
 	const alerts = getContext<AlertsContext>(ALERTS_CTX);
 
+	const isDark = $derived($mode === 'dark');
+	const strokeColor = $derived(isDark ? '#f9fafb' : '#111827');
+	const caseOpenColor = $derived(isDark ? '#4ade80' : '#16a34a');
+	const caseClosedColor = $derived(isDark ? '#fb923c' : '#c2410c');
+
+	const alertIcon = $derived(svgToDataUrl(withStroke(alertSvg, strokeColor)));
+	const iocIcon = $derived(svgToDataUrl(withStroke(iocSvg, strokeColor)));
+	const caseOpenIcon = $derived(svgToDataUrl(withStroke(caseSvg, caseOpenColor)));
+	const caseClosedIcon = $derived(svgToDataUrl(withStroke(caseClosedSvg, caseClosedColor)));
+
 	let loading = $state(false);
 	let error = $state<string | null>(null);
 	let graph = $state<RelatedAlert>({ nodes: [], edges: [] });
 
 	let lastLoadedAlertId = $state<number | null>(null);
+	let lastLoadedTheme = $state<string | null>(null);
+
+	const options = $derived({
+		autoResize: true,
+		layout: {
+			improvedLayout: true
+		},
+		nodes: {
+			font: {
+				color: strokeColor
+			}
+		},
+		physics: {
+			enabled: true,
+			solver: 'forceAtlas2Based',
+			forceAtlas2Based: {
+				avoidOverlap: 1
+			},
+			stabilization: {
+				enabled: true,
+				fit: true
+			}
+		}
+	} satisfies Options);
 
 	const load = async () => {
 		if (!alertId) return;
@@ -52,6 +83,7 @@
 			error = 'Failed to load relationships';
 			loading = false;
 			lastLoadedAlertId = currentAlertId;
+			lastLoadedTheme = $mode ? $mode : null;
 
 			return;
 		}
@@ -59,21 +91,29 @@
 		graph = data;
 		loading = false;
 		lastLoadedAlertId = currentAlertId;
+		lastLoadedTheme = $mode ? $mode : null;
 	};
 
 	$effect(() => {
-		if (alertId && alertId !== lastLoadedAlertId) {
+		if (!alertId) return;
+
+		if (alertId !== lastLoadedAlertId || $mode !== lastLoadedTheme) {
 			load();
 		}
 	});
 
 	const nodes = $derived(
 		graph.nodes.map((node) => {
+			const font = {
+				color: strokeColor
+			};
+
 			if (node.group === 'alert') {
 				return {
 					...node,
 					shape: 'image',
-					image: alertIcon
+					image: alertIcon,
+					font
 				};
 			}
 
@@ -81,7 +121,8 @@
 				return {
 					...node,
 					shape: 'image',
-					image: iocIcon
+					image: iocIcon,
+					font
 				};
 			}
 
@@ -92,11 +133,26 @@
 					image:
 						typeof node.label === 'string' && node.label.startsWith('[Closed]')
 							? caseClosedIcon
-							: caseOpenIcon
+							: caseOpenIcon,
+					font
 				};
 			}
 
-			return node;
+			if (node.group === 'asset' && typeof node.image === 'string') {
+				const theme = isDark ? 'dark' : 'light';
+				const separator = node.image.includes('?') ? '&' : '?';
+
+				return {
+					...node,
+					image: `${node.image}${separator}theme=${theme}`,
+					font
+				};
+			}
+
+			return {
+				...node,
+				font
+			};
 		}) as VisNode[]
 	);
 
@@ -110,5 +166,5 @@
 {:else if !graph.nodes.length}
 	<div class="text-sm opacity-70">No related entities found.</div>
 {:else}
-	<VisNetwork {nodes} {edges} className="h-96 w-full rounded-md border bg-muted/20" />
+	<VisNetwork {nodes} {edges} {options} className="h-96 w-full rounded-md border bg-muted/20" />
 {/if}

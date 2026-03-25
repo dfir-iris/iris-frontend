@@ -2,6 +2,7 @@ import type { Handle } from '@sveltejs/kit';
 import { API_BASE_URL } from '$lib/config/api.config';
 import { DEV } from 'esm-env';
 import { env } from '$env/dynamic/public';
+import sharp from 'sharp';
 
 /**
  * Process headers to ensure they're valid for proxying
@@ -72,6 +73,67 @@ function rewriteOidcLocation(location: string): string {
 
 	loc.searchParams.set('redirect_uri', ru.toString());
 	return loc.toString();
+}
+
+/**
+ * Decide if PNG should be recolored
+ */
+function shouldInvertGraphPng(url: URL): boolean {
+	if (!url.pathname.startsWith('/static/assets/img/graph/')) return false;
+	if (!url.pathname.toLowerCase().endsWith('.png')) return false;
+	return url.searchParams.get('theme') === 'dark';
+}
+
+/**
+ * Recolor monochrome PNG -> light color (preserve alpha)
+ */
+async function handleInvertGraphImage(
+	event: Parameters<Handle>[0]['event'],
+	response: Response
+): Promise<Response | null> {
+	if (!shouldInvertGraphPng(event.url)) return null;
+	if (!response.ok) return null;
+
+	const contentType = response.headers.get('content-type') ?? '';
+	if (!contentType.includes('image/png')) return null;
+
+	const input = Buffer.from(await response.arrayBuffer());
+
+	const { data, info } = await sharp(input)
+		.ensureAlpha()
+		.raw()
+		.toBuffer({ resolveWithObject: true });
+
+	for (let i = 0; i < data.length; i += info.channels) {
+		const alpha = data[i + 3];
+		if (alpha === 0) continue;
+
+		data[i] = 255;
+		data[i + 1] = 255;
+		data[i + 2] = 255;
+	}
+
+	const output = await sharp(data, {
+		raw: {
+			width: info.width,
+			height: info.height,
+			channels: info.channels
+		}
+	})
+		.png()
+		.toBuffer();
+
+	const headers = new Headers(response.headers);
+
+	headers.set('content-type', 'image/png');
+	headers.set('content-length', String(output.byteLength));
+	headers.set('cache-control', 'no-cache');
+
+	return new Response(new Uint8Array(output), {
+		status: response.status,
+		statusText: response.statusText,
+		headers
+	});
 }
 
 /**
@@ -209,7 +271,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 				...(hasBody ? ({ duplex: 'half' } as RequestInit) : {})
 			});
 
-			// Preserve response headers (including Set-Cookie)
+			const graphImage = await handleInvertGraphImage(event, response);
+			if (graphImage) return graphImage;
+
 			const out = new Headers();
 
 			for (const [k, v] of response.headers.entries()) {
