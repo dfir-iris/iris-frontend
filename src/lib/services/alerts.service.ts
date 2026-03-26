@@ -26,6 +26,15 @@ export interface FilterAlertsParams {
 	sort?: SortDir;
 }
 
+export interface GetRelatedAlertsParams {
+	open_alerts?: boolean;
+	closed_alerts?: boolean;
+	open_cases?: boolean;
+	closed_cases?: boolean;
+	number_of_nodes?: number;
+	days_back?: number;
+}
+
 export type FilterAlertsData = {
 	total: number;
 	alerts: Alert[];
@@ -158,7 +167,7 @@ const toCommaSeparated = (value?: string | string[] | number[]): string | undefi
 	if (value == null) return undefined;
 	if (Array.isArray(value)) return value.map(String).join(',');
 	return value;
-}
+};
 
 const parseRelatedAlert = (value: unknown): RelatedAlert => {
 	if (typeof value !== 'object' || value === null) {
@@ -174,7 +183,7 @@ const parseRelatedAlert = (value: unknown): RelatedAlert => {
 		nodes: Array.isArray(data.nodes) ? data.nodes : [],
 		edges: Array.isArray(data.edges) ? data.edges : []
 	};
-}
+};
 
 export class AlertService {
 	static async list(
@@ -224,9 +233,19 @@ export class AlertService {
 
 	static async getRelatedAlerts(
 		alertId: AlertIdentifier,
+		params: GetRelatedAlertsParams,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<RelatedAlert>> {
-		const response = await ApiService.get<unknown>(`/api/v2/alerts/${alertId}/related-alerts`, options);
+		const path = ApiService.withQuery(`/api/v2/alerts/${alertId}/related-alerts`, {
+			'open-alerts': params?.open_alerts,
+			'closed-alerts': params?.closed_alerts,
+			'open-cases': params?.open_cases,
+			'closed-cases': params?.closed_cases,
+			'days-back': params?.days_back,
+			'number-of-nodes': params?.number_of_nodes
+		});
+
+		const response = await ApiService.get<unknown>(path, options);
 
 		return {
 			...response,

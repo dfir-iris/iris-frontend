@@ -8,7 +8,8 @@ import type {
 	MergeAlertBody,
 	EscalateAlertBody,
 	MergeAlertResponse,
-	EscalateAlertResponse
+	EscalateAlertResponse,
+	GetRelatedAlertsParams
 } from '$lib/services/alerts.service';
 import type { ApiOptions, Paginated, RequestResponse } from '$lib/services/api.service';
 import type { Alert } from '$lib/types/resources/alert';
@@ -435,9 +436,10 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 
 	const getRelatedAlerts = async (
 		id: AlertIdentifier,
+		params: GetRelatedAlertsParams,
 		options: ApiOptions = {}
 	): Promise<RelatedAlert | null> => {
-		const response = await AlertService.getRelatedAlerts(id, options);
+		const response = await AlertService.getRelatedAlerts(id, params, options);
 
 		if (
 			response.ok &&

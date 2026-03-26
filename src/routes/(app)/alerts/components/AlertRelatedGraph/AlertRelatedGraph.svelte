@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import { mode } from 'mode-watcher';
+	import type { Options } from 'vis-network';
 	import alertSvg from 'lucide-static/icons/bell.svg?raw';
 	import iocSvg from 'lucide-static/icons/link.svg?raw';
 	import caseSvg from 'lucide-static/icons/briefcase-business.svg?raw';
@@ -8,7 +9,7 @@
 	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
 	import type { RelatedAlert } from '$lib/services/alerts.service';
 	import VisNetwork from '$lib/components/common/VisNetwork.svelte';
-	import type { Options } from 'vis-network';
+	import { AlertRelationshipsFilters, defaultAlertRelationshipsFilters } from '.';
 
 	type VisNode = Record<string, unknown>;
 	type VisEdge = Record<string, unknown>;
@@ -43,13 +44,13 @@
 	let error = $state<string | null>(null);
 	let graph = $state<RelatedAlert>({ nodes: [], edges: [] });
 
-	let lastLoadedAlertId = $state<number | null>(null);
-	let lastLoadedTheme = $state<string | null>(null);
+	let filters = $state(defaultAlertRelationshipsFilters());
 
 	const options = $derived({
 		autoResize: true,
 		layout: {
-			improvedLayout: true
+			improvedLayout: true,
+			randomSeed: alertId
 		},
 		nodes: {
 			font: {
@@ -75,31 +76,30 @@
 		loading = true;
 		error = null;
 
-		const currentAlertId = alertId;
-		const data = await alerts.getRelatedAlerts(currentAlertId);
+		const data = await alerts.getRelatedAlerts(alertId, {
+			open_alerts: filters.openAlerts,
+			closed_alerts: filters.closedAlerts,
+			open_cases: filters.openCases,
+			closed_cases: filters.closedCases,
+			number_of_nodes: filters.numberOfNodes,
+			days_back: filters.daysBack
+		});
 
 		if (!data) {
 			graph = { nodes: [], edges: [] };
 			error = 'Failed to load relationships';
 			loading = false;
-			lastLoadedAlertId = currentAlertId;
-			lastLoadedTheme = $mode ? $mode : null;
-
 			return;
 		}
 
 		graph = data;
 		loading = false;
-		lastLoadedAlertId = currentAlertId;
-		lastLoadedTheme = $mode ? $mode : null;
 	};
 
 	$effect(() => {
 		if (!alertId) return;
 
-		if (alertId !== lastLoadedAlertId || $mode !== lastLoadedTheme) {
-			load();
-		}
+		load();
 	});
 
 	const nodes = $derived(
@@ -158,6 +158,10 @@
 
 	const edges = $derived(graph.edges as VisEdge[]);
 </script>
+
+<div class="mb-4 flex">
+	<AlertRelationshipsFilters bind:value={filters} />
+</div>
 
 {#if loading}
 	<div class="text-sm opacity-70">Loading relationships...</div>
