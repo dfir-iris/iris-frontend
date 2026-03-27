@@ -85,6 +85,8 @@ export interface CreateAlertBody {
 		asset_enrichment?: Record<string, unknown>;
 	}>;
 
+	cases: Array<number>;
+
 	alert_source_content?: Record<string, unknown>;
 }
 

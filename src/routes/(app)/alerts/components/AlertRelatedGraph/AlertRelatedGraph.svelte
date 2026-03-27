@@ -57,6 +57,9 @@
 				color: strokeColor
 			}
 		},
+		interaction: {
+			zoomView: false
+		},
 		physics: {
 			enabled: true,
 			solver: 'forceAtlas2Based',
@@ -170,5 +173,10 @@
 {:else if !graph.nodes.length}
 	<div class="text-sm opacity-70">No related entities found.</div>
 {:else}
-	<VisNetwork {nodes} {edges} {options} className="h-96 w-full rounded-md border bg-muted/20" />
+	<VisNetwork
+		{nodes}
+		{edges}
+		{options}
+		className="h-[32rem] w-full rounded-md border bg-muted/20"
+	/>
 {/if}

@@ -43,6 +43,7 @@
 		onShowComments,
 		onShowMerge,
 		onShowClose,
+		onUnlinkCase,
 		onDelete
 	}: {
 		alert: Alert;
@@ -58,6 +59,7 @@
 		onShowComments: () => void;
 		onShowMerge: () => void;
 		onShowClose: (withNote: boolean) => void;
+		onUnlinkCase: (case_id: number) => void;
 		onDelete: () => void;
 	} = $props();
 
@@ -283,6 +285,6 @@
 			</Collapsible.Content>
 		</Card.Content>
 
-		<AlertCardFooter {alert} />
+		<AlertCardFooter {alert} {onUnlinkCase} />
 	</Collapsible.Root>
 </Card.Root>

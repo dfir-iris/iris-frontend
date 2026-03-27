@@ -36,7 +36,15 @@
 			options
 		);
 
+		let resizeTimeout: ReturnType<typeof setTimeout>;
+
+		const observer = new ResizeObserver(() => (resizeTimeout = setTimeout(() => network?.fit())));
+
+		observer.observe(container);
+
 		return () => {
+			clearTimeout(resizeTimeout);
+			observer.disconnect();
 			network?.destroy();
 			network = null;
 			nodesDataSet = null;

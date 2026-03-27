@@ -47,6 +47,7 @@
 	import { mergeAlerts } from './helpers/alerts-merge';
 	import { closeAlerts } from './helpers/alerts-close';
 	import { assignAlertsToOwner, reassignAlertOwner } from './helpers/alerts-assign';
+	import { unlinkAlertCase } from './helpers/alert-unlink';
 
 	type QueryState = {
 		page: number;
@@ -473,6 +474,16 @@
 		cancelSelect();
 	};
 
+	const unlinkCase = async (case_id: number) => {
+		const updates = await unlinkAlertCase({ updateAlert }, selectedAlert, case_id);
+
+		if (updates) {
+			await refreshAlerts();
+		}
+
+		cancelSelect();
+	};
+
 	const deleteSelected = async () => {
 		const alertIds = getSelectedAlertIds();
 
@@ -788,6 +799,10 @@
 								} else {
 									closeWithNote({});
 								}
+							}}
+							onUnlinkCase={(case_id: number) => {
+								selected = { ...selected, [alert.alert_id]: true };
+								unlinkCase(case_id);
 							}}
 							onDelete={() => {
 								selected = { ...selected, [alert.alert_id]: true };

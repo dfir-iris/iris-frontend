@@ -22,6 +22,7 @@
 	import { mergeAlerts } from '../helpers/alerts-merge';
 	import { closeAlerts } from '../helpers/alerts-close';
 	import { assignAlertsToOwner, reassignAlertOwner } from '../helpers/alerts-assign';
+	import { unlinkAlertCase } from '../helpers/alert-unlink';
 
 	const alerts = getContext<AlertsContext>(ALERTS_CTX);
 	const cases = getContext<CasesContext>(CASES_CTX);
@@ -123,6 +124,14 @@
 		showAlertClose = false;
 	};
 
+	const unlinkCase = async (case_id: number) => {
+		const updates = await unlinkAlertCase({ updateAlert }, alert, case_id);
+
+		if (updates) {
+			refreshAlert();
+		}
+	};
+
 	const deleteAlert = async () => {
 		if (await alerts.remove(alert_id)) {
 			goto('/alerts');
@@ -168,6 +177,7 @@
 								closeWithNote({});
 							}
 						}}
+						onUnlinkCase={(case_id) => unlinkCase(case_id)}
 						onDelete={() => (showConfirmDelete = true)}
 						alwaysExpanded
 					/>

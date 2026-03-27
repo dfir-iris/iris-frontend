@@ -2,11 +2,21 @@
 	import {
 		CalendarIcon,
 		CloudDownloadIcon,
+		EyeIcon,
+		LinkIcon,
 		ShieldAlertIcon,
+		UnlinkIcon,
 		UserCircleIcon,
 		ZapIcon
 	} from 'lucide-svelte';
 	import * as Card from '$lib/components/ui/card';
+	import {
+		DropdownMenu,
+		DropdownMenuContent,
+		DropdownMenuItem,
+		DropdownMenuTrigger,
+		Separator
+	} from '$lib/components/ui/dropdown-menu';
 	import {
 		Tooltip,
 		TooltipContent,
@@ -15,15 +25,67 @@
 	} from '$lib/components/ui/tooltip';
 	import type { Alert } from '$lib/types/resources/alert';
 	import { mediumDateTimeFormatter } from '$lib/utils/time-formatter';
+	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
 
 	let {
-		alert
+		alert,
+		onUnlinkCase
 	}: {
 		alert: Alert;
+		onUnlinkCase: (case_id: number) => void;
 	} = $props();
+
+	let showConfirmUnlink = $state(false);
+	let unlinkCaseId = $state<number | null>(null);
+
+	const hideUnlink = () => {
+		unlinkCaseId = null;
+		showConfirmUnlink = false;
+	};
+
+	const unlink = () => {
+		onUnlinkCase(unlinkCaseId as number);
+		hideUnlink();
+	};
 </script>
 
 <Card.Footer class="flex flex-col items-start gap-2">
+	{#if alert.cases}
+		<div class="flex items-center gap-8">
+			{#each alert.cases as linkedCase}
+				<DropdownMenu>
+					<DropdownMenuTrigger>
+						<div class="flex items-center gap-1 text-sm hover:opacity-50 transition-all">
+							<LinkIcon size="16" /> #{linkedCase}
+						</div>
+					</DropdownMenuTrigger>
+
+					<DropdownMenuContent>
+						<DropdownMenuItem>
+							<a class="flex items-center gap-1 text-sm" href={`/case/${linkedCase}`}>
+								<EyeIcon size="16" /> View case #{linkedCase}
+							</a>
+						</DropdownMenuItem>
+
+						<Separator />
+
+						<DropdownMenuItem>
+							<button
+								class="flex items-center gap-1 text-sm text-red-500"
+								onclick={() => {
+									unlinkCaseId = linkedCase;
+									showConfirmUnlink = true;
+								}}
+							>
+								<UnlinkIcon size="16" /> Unlink alert from case #{linkedCase}
+							</button>
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
+			{/each}
+		</div>
+	{/if}
+
 	<div class="flex items-center gap-6">
 		{#if alert.resolution_status}
 			<TooltipProvider>
@@ -146,3 +208,11 @@
 		</div>
 	{/if}
 </Card.Footer>
+
+<ConfirmationDialog
+	bind:open={showConfirmUnlink}
+	title="Are you sure?"
+	message={`Unlink alert #${alert.alert_id} from case #${unlinkCaseId}`}
+	onConfirm={unlink}
+	onCancel={hideUnlink}
+/>
