@@ -166,17 +166,27 @@
 	<AlertRelationshipsFilters bind:value={filters} />
 </div>
 
-{#if loading}
-	<div class="text-sm opacity-70">Loading relationships...</div>
-{:else if error}
-	<div class="text-sm text-red-500">{error}</div>
-{:else if !graph.nodes.length}
-	<div class="text-sm opacity-70">No related entities found.</div>
-{:else}
-	<VisNetwork
-		{nodes}
-		{edges}
-		{options}
-		className="h-[32rem] w-full rounded-md border bg-muted/20"
-	/>
-{/if}
+<div class="relative h-[32rem] w-full rounded-md border bg-muted/20">
+	{#if graph.nodes.length}
+		<VisNetwork
+			{nodes}
+			{edges}
+			{options}
+			className="h-full w-full"
+		/>
+	{/if}
+
+	{#if loading}
+		<div class="absolute inset-0 flex items-center justify-center text-sm opacity-70">
+			Loading relationships...
+		</div>
+	{:else if error}
+		<div class="absolute inset-0 flex items-center justify-center text-sm text-red-500">
+			{error}
+		</div>
+	{:else if !graph.nodes.length}
+		<div class="absolute inset-0 flex items-center justify-center text-sm opacity-70">
+			No related entities found.
+		</div>
+	{/if}
+</div>
