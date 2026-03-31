@@ -40,7 +40,7 @@
 	const mainMenuItems = [
 		{ label: 'Dashboard', path: '/', icon: HouseIcon },
 		{ label: 'Overview', path: '/cases', icon: ViewIcon },
-		{ label: 'Welcome page', path: '/', hash: '#welcome', icon: DoorOpenIcon }
+		{ label: 'Welcome page', path: '/welcome', icon: DoorOpenIcon }
 	];
 
 	const investigationMenuItems = $derived([

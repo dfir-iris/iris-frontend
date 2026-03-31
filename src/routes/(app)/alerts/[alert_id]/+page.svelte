@@ -148,7 +148,7 @@
 </script>
 
 <svelte:head>
-	<title>Alert | DFIR-IRIS</title>
+	<title>Alert #{alert_id} | DFIR-IRIS</title>
 </svelte:head>
 
 <div class="flex grow flex-col gap-4 p-4">
@@ -156,7 +156,7 @@
 		<h1>Loading...</h1>
 	{:then alert}
 		{#if alert}
-			<h1>Alert #{alert.alert_id}</h1>
+			<h1>Alert #{alert_id}</h1>
 
 			<ul class="flex flex-col gap-4">
 				<li class="flex items-center gap-4">

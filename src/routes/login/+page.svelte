@@ -116,8 +116,6 @@
 					return async ({ result }) => {
 						isLoading = false;
 
-						console.log('result?', result);
-
 						if (result.type === 'success') {
 							const { responseData, tokenInfo, redirectTo } = result.data as {
 								responseData: LoginResponse;
@@ -126,6 +124,8 @@
 							};
 
 							auth.setAuth(responseData, tokenInfo, authSettings.mfa_enabled);
+
+							console.log('authSettings:', authSettings)
 
 							if (authSettings.mfa_enabled) {
 								if (!responseData.mfa_setup_complete) {
