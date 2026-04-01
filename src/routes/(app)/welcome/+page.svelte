@@ -6,13 +6,9 @@
 
 	let expandedSection = $state<'rules' | 'disclaimer' | null>(null);
 
-	const toggleRules = () => {
-		expandedSection = expandedSection === 'rules' ? null : 'rules';
-	};
-
-	const toggleDisclaimer = () => {
-		expandedSection = expandedSection === 'disclaimer' ? null : 'disclaimer';
-	};
+	const toggleRules = () => (expandedSection = expandedSection === 'rules' ? null : 'rules');
+	const toggleDisclaimer = () =>
+		(expandedSection = expandedSection === 'disclaimer' ? null : 'disclaimer');
 </script>
 
 <svelte:head>

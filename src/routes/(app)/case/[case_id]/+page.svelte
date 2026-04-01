@@ -1,6 +1,7 @@
 <script lang="ts">
 	import DOMPurify from 'dompurify';
 	import {
+		AlertTriangleIcon,
 		ChartLineIcon,
 		ClipboardCheckIcon,
 		ClipboardPasteIcon,
@@ -15,6 +16,8 @@
 	import Badge from '$lib/components/ui/badge/badge.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { Ace, converter } from '$lib/components/common/Ace';
+	import RequestReviewDialog from './components/RequestReviewDialog.svelte';
+	import type { UserInfo } from '$lib/services/auth.service';
 
 	const cases = getContext<CasesContext>(CASES_CTX);
 
@@ -30,6 +33,7 @@
 	let loading = $state(false);
 	let saving = $state(false);
 	let lastError = $state<string | null>(null);
+	let showRequestReview = $state(false);
 
 	let dirty = $derived(caseDescription !== baseDescription);
 	let safeHtml = $derived(DOMPurify.sanitize(converter.makeHtml(caseDescription ?? '')));
@@ -65,6 +69,20 @@
 		loadedTime = new Date();
 		saving = false;
 	};
+
+	const setReviewer = async (admin: UserInfo) => {
+		if (!currentCase) return;
+
+		saving = true;
+
+		await cases.patch(case_id, {
+			reviewer_id: admin.user_id,
+			// TODO: Add API to retrieve list of review statuses and find a proper one
+			review_status_id: 3
+		});
+
+		saving = false;
+	};
 </script>
 
 <svelte:head>
@@ -73,6 +91,15 @@
 
 <div class="flex w-full flex-col border-b bg-muted/20 p-4">
 	{#if currentCase}
+		{#if currentCase.review_status?.id && currentCase.reviewer?.id}
+			<Card.Root
+				class="mb-4 flex w-full flex-row items-center gap-2 bg-amber-400 px-6 py-4 text-black"
+			>
+				<AlertTriangleIcon class="text-red-600" />
+				{currentCase.review_status.status_name} by {currentCase.reviewer.user_name}
+			</Card.Root>
+		{/if}
+
 		<Card.Root class="mb-4 flex w-full">
 			<Card.Content>
 				<div class="overflow-x-auto">
@@ -96,9 +123,11 @@
 						</div>
 
 						<div class="flex">
-							<Button variant="secondary" class="mr-2">
-								<ClipboardCheckIcon /> Request review
-							</Button>
+							{#if currentCase.review_status === null}
+								<Button variant="secondary" class="mr-2" onclick={() => (showRequestReview = true)}>
+									<ClipboardCheckIcon /> Request review
+								</Button>
+							{/if}
 
 							<Button class="mr-2">
 								<ClipboardPasteIcon /> Generate report
@@ -170,3 +199,5 @@
 		<div>Loading...</div>
 	{/if}
 </div>
+
+<RequestReviewDialog bind:open={showRequestReview} onConfirm={(admin) => setReviewer(admin)} />

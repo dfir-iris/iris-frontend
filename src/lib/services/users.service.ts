@@ -1,5 +1,6 @@
 import { ApiService } from './api.service';
 import type { ApiOptions, RequestResponse } from './api.service';
+import type { UserInfo } from './auth.service';
 
 export type UserIdentifier = number;
 
@@ -22,10 +23,7 @@ export interface User {
 	external_id: string | null;
 }
 
-export interface CreateUserBody {
-	user_name: string;
-	user_login: string;
-	user_email: string;
+export interface CreateUserBody extends UserInfo {
 	user_password: string;
 }
 

@@ -1,6 +1,7 @@
 import { ApiService } from './api.service';
 import type { ApiOptions, RequestResponse, Paginated } from './api.service';
 import type { Case } from '$lib/types/resources/case';
+import type { UserInfo } from './auth.service';
 
 export type CaseIdentifier = number;
 export type SortDir = 'asc' | 'desc';
@@ -50,6 +51,7 @@ export interface UpdateCaseBody {
 	status_id?: number;
 	case_customer?: number;
 	reviewer_id?: number;
+    review_status_id?: number;
 	protagonists?: unknown[];
 	case_tags?: string;
 	custom_attributes?: Record<string, unknown>;
@@ -58,12 +60,8 @@ export interface UpdateCaseBody {
 
 export type CaseAccessLevel = 1 | 2 | 4;
 
-export interface CaseAccessUserRow {
-	user_id: number;
-	user_name: string;
-	user_login: string;
+export interface CaseAccessUserRow extends UserInfo {
 	user_access_level: CaseAccessLevel;
-	user_email?: string;
 }
 
 export type FilterCasesParams = Omit<ListCasesParams, 'order_by' | 'is_open'>;

@@ -19,14 +19,18 @@ export interface RefreshTokensResponse {
 	tokens: RefreshTokens;
 }
 
-export interface LoginResponse {
-	success: boolean;
-	redirect?: string;
+export interface UserInfo {
+	id?: number;
+	user_id?: number;
 	user_name: string;
 	user_login: string;
 	user_email: string;
+}
+
+export interface LoginResponse extends UserInfo {
+	success: boolean;
+	redirect?: string;
 	user_is_service_account: boolean;
-	id: number;
 	uuid: string;
 	active: boolean;
 	external_id: string | null;
