@@ -1,5 +1,6 @@
 <script lang="ts">
 	import DOMPurify from 'dompurify';
+	import { getContext, onMount } from 'svelte';
 	import {
 		AlertTriangleIcon,
 		ChartLineIcon,
@@ -9,15 +10,23 @@
 		SettingsIcon,
 		ZapIcon
 	} from 'lucide-svelte';
-	import { getContext } from 'svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import type { Case } from '$lib/types/resources/case';
 	import * as Card from '$lib/components/ui/card';
+	import {
+		DropdownMenu,
+		DropdownMenuContent,
+		DropdownMenuItem,
+		DropdownMenuTrigger
+	} from '$lib/components/ui/dropdown-menu';
 	import Badge from '$lib/components/ui/badge/badge.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
+	import { toast } from '$lib/components/ui/toast';
 	import { Ace, converter } from '$lib/components/common/Ace';
 	import RequestReviewDialog from './components/RequestReviewDialog.svelte';
 	import type { UserInfo } from '$lib/services/auth.service';
+	import { HooksService, type HookOption } from '$lib/services/hooks.service';
+	import type { RequestResponse } from '$lib/services/api.service';
 
 	const cases = getContext<CasesContext>(CASES_CTX);
 
@@ -26,6 +35,7 @@
 
 	let caseDescription = $state('');
 	let baseDescription = $state('');
+	let hookOptions = $state<HookOption[]>([]);
 
 	let loadedTime = $state(new Date());
 	let editing = $state(false);
@@ -37,15 +47,6 @@
 
 	let dirty = $derived(caseDescription !== baseDescription);
 	let safeHtml = $derived(DOMPurify.sanitize(converter.makeHtml(caseDescription ?? '')));
-
-	$effect(() => {
-		if (!currentCase) return;
-
-		baseDescription = currentCase.case_description ?? '';
-		caseDescription = baseDescription;
-
-		loadedTime = new Date();
-	});
 
 	const refresh = async () => {
 		loading = true;
@@ -83,6 +84,41 @@
 
 		saving = false;
 	};
+
+	const callModule = async (hookOption: HookOption) => {
+		const result = (
+			(await HooksService.call({
+				cid: case_id,
+				type: 'case',
+				hook_name: hookOption.hook_name,
+				module_name: hookOption.module_name,
+				hook_ui_name: hookOption.manual_hook_ui_name,
+				targets: [case_id]
+			})) as RequestResponse<unknown>
+		).data as { status: string; message: string };
+
+		toast({
+			variant: result?.status === 'error' ? 'destructive' : 'success',
+			title: result?.message
+		});
+	};
+
+	$effect(() => {
+		if (!currentCase) return;
+
+		baseDescription = currentCase.case_description ?? '';
+		caseDescription = baseDescription;
+
+		loadedTime = new Date();
+	});
+
+	onMount(async () => {
+		const hooksResponse = (await HooksService.list('case')).data as unknown as RequestResponse<
+			HookOption[]
+		>;
+
+		hookOptions = hooksResponse.data as HookOption[];
+	});
 </script>
 
 <svelte:head>
@@ -113,9 +149,23 @@
 								<SettingsIcon /> Manage
 							</Button>
 
-							<Button variant="secondary" class="mr-2">
-								<ZapIcon />Processors
-							</Button>
+							{#if hookOptions.length}
+								<DropdownMenu>
+									<DropdownMenuTrigger>
+										<Button variant="secondary" class="mr-2">
+											<ZapIcon />Processors
+										</Button>
+									</DropdownMenuTrigger>
+
+									<DropdownMenuContent align="start">
+										{#each hookOptions as hookOption}
+											<DropdownMenuItem onclick={() => callModule(hookOption)}
+												>{hookOption.manual_hook_ui_name}</DropdownMenuItem
+											>
+										{/each}
+									</DropdownMenuContent>
+								</DropdownMenu>
+							{/if}
 
 							<Button variant="secondary">
 								<HardDriveUploadIcon />Pipelines

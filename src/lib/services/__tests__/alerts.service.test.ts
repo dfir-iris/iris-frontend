@@ -114,7 +114,8 @@ describe('AlertService', () => {
 			alert_severity_id: 2,
 			alert_customer_id: 1,
 			alert_classification_id: 3,
-			alert_description: 'desc'
+			alert_description: 'desc',
+			cases: []
 		};
 
 		const options: ApiOptions = { skipTokenRefresh: true };
@@ -176,21 +177,35 @@ describe('AlertService', () => {
 	});
 
 	it('getRelatedAlerts() should call ApiService.get with /api/v2/alerts/{id}/related-alerts + options', async () => {
+		const params = {};
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const mockResponse = {
 			ok: true,
 			status: 200,
-			data: { assets: [], iocs: [] }
+			data: { nodes: [], edges: [] }
 		};
 
+		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+			'/api/v2/alerts/10/related-alerts'
+		);
 		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
-		const res = await AlertService.getRelatedAlerts(10, options);
+		const res = await AlertService.getRelatedAlerts(10, params, options);
+
+		expect(ApiService.withQuery).toHaveBeenCalledTimes(1);
+		expect(ApiService.withQuery).toHaveBeenCalledWith('/api/v2/alerts/10/related-alerts', {
+			'open-alerts': undefined,
+			'closed-alerts': undefined,
+			'open-cases': undefined,
+			'closed-cases': undefined,
+			'days-back': undefined,
+			'number-of-nodes': undefined
+		});
 
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
 		expect(ApiService.get).toHaveBeenCalledWith('/api/v2/alerts/10/related-alerts', options);
-		expect(res).toBe(mockResponse);
+		expect(res).toEqual(mockResponse);
 	});
 
 	it('merge() should call ApiService.post with /alerts/merge/{id}, body, options', async () => {

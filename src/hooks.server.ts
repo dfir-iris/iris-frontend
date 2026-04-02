@@ -231,13 +231,16 @@ export const handle: Handle = async ({ event, resolve }) => {
 			pathname.startsWith('/api/v2/alerts/merge') ||
 			pathname.startsWith('/api/v2/alerts/escalate');
 
+		const isDimHooksRoute = pathname.startsWith('/api/v2/dim/hooks');
+
 		const isManageRoute = pathname.startsWith('/api/v2/manage/') && !pathname.endsWith('customers');
 
-		const upstreamPath = isAlertsRoute
-			? pathname.replace(/^\/api\/v2/, '')
-			: isManageRoute
-				? pathname.replace(/^\/api\/v2\/manage/, '/manage')
-				: pathname;
+		const upstreamPath =
+			isAlertsRoute || isDimHooksRoute
+				? pathname.replace(/^\/api\/v2/, '')
+				: isManageRoute
+					? pathname.replace(/^\/api\/v2\/manage/, '/manage')
+					: pathname;
 
 		const apiUrl = `${base.replace(/\/$/, '')}${upstreamPath}${event.url.search}`;
 
