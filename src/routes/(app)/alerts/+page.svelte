@@ -537,18 +537,19 @@
 	<title>Alerts | DFIR-IRIS</title>
 </svelte:head>
 
-<div class="flex grow flex-col gap-4 p-4">
+<div class="flex grow flex-col gap-5 p-6">
 	{#if status === 'initial'}
 		<div class="flex h-full w-full items-center justify-center">
 			<Loading size={32} />
 		</div>
 	{:else}
-		<div class:opacity-60={status === 'loading'} class="flex grow flex-col gap-4">
-			<h1>{getTotal({ data: alertsData } as RequestResponse<Paginated<Alert>>)} Alerts</h1>
+		<div class:opacity-60={status === 'loading'} class="flex grow flex-col gap-5">
+			<h2 class="text-lg font-semibold">{getTotal({ data: alertsData } as RequestResponse<Paginated<Alert>>)} Alerts</h2>
 
 			<div class="flex items-center justify-between">
-				<div class="flex gap-4">
+				<div class="flex gap-2">
 					<Button
+						size="xs"
 						variant={filtersOpen ? 'default' : 'outline'}
 						onclick={() => (filtersOpen = !filtersOpen)}
 					>
@@ -587,23 +588,25 @@
 					{/if}
 				</div>
 
-				<div class="flex gap-4">
+				<div class="flex gap-2">
 					{#if selecting}
-						<Button variant="outline" onclick={cancelSelect}>Cancel</Button>
+						<Button variant="outline" size="xs" onclick={cancelSelect}>Cancel</Button>
 
 						<Button
 							variant="outline"
+							size="xs"
 							onclick={() => {
 								selected = {};
 								selectedAll = true;
 							}}>Select All</Button
 						>
 					{:else}
-						<Button variant="outline" onclick={() => (selecting = true)}>Select</Button>
+						<Button variant="outline" size="xs" onclick={() => (selecting = true)}>Select</Button>
 					{/if}
 
 					<Button
 						variant="outline"
+						size="xs"
 						onclick={() => {
 							expanded = {};
 
@@ -616,11 +619,11 @@
 						{query.expanded ? 'Collapse All' : 'Expand All'}
 					</Button>
 
-					<Button variant="outline" onclick={refreshAlerts} disabled={status === 'loading'}>
+					<Button variant="outline" size="xs" onclick={refreshAlerts} disabled={status === 'loading'}>
 						Refresh
 					</Button>
 
-					<Button variant="outline" onclick={toggleSort} disabled={status === 'loading'}>
+					<Button variant="outline" size="xs" onclick={toggleSort} disabled={status === 'loading'}>
 						{#if query.filters.sort === 'asc'}
 							<ArrowDownNarrowWide class="h-4 w-4" />
 						{:else}
@@ -682,14 +685,14 @@
 			{/if}
 
 			{#if getSelectedCount() > 0}
-				<div class="flex gap-4">
-					<Button variant="outline" onclick={() => (showMerge = true)}>Merge</Button>
+				<div class="flex gap-2">
+					<Button variant="outline" size="xs" onclick={() => (showMerge = true)}>Merge</Button>
 
 					<DropdownMenu>
 						<DropdownMenuTrigger>
-							<Button variant="outline">
+							<Button variant="outline" size="xs">
 								Assign
-								<ChevronDownIcon />
+								<ChevronDownIcon size="14" />
 							</Button>
 						</DropdownMenuTrigger>
 
@@ -724,9 +727,9 @@
 
 					<DropdownMenu>
 						<DropdownMenuTrigger>
-							<Button variant="outline">
+							<Button variant="outline" size="xs">
 								Set status
-								<ChevronDownIcon />
+								<ChevronDownIcon size="14" />
 							</Button>
 						</DropdownMenuTrigger>
 
@@ -739,9 +742,9 @@
 						</DropdownMenuContent>
 					</DropdownMenu>
 
-					<Button variant="destructive" onclick={() => (showClose = true)}>Close with note</Button>
+					<Button variant="destructive" size="xs" onclick={() => (showClose = true)}>Close with note</Button>
 
-					<Button variant="destructive" onclick={() => (showConfirmDelete = true)}
+					<Button variant="destructive" size="xs" onclick={() => (showConfirmDelete = true)}
 						><TrashIcon /> Delete</Button
 					>
 				</div>

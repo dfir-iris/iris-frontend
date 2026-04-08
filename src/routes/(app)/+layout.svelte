@@ -35,13 +35,13 @@
 	});
 </script>
 
-<div class="flex h-screen w-full overflow-hidden dark:bg-background">
+<div class="flex h-screen w-full overflow-hidden bg-background">
 	<SideBar />
 
 	<main class="flex min-w-0 grow flex-col">
 		<TopBar />
 
-		<div class="flex min-w-0 grow overflow-auto">
+		<div class="flex min-w-0 grow overflow-auto bg-background">
 			{@render children()}
 		</div>
 	</main>

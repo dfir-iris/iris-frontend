@@ -38,9 +38,10 @@
 </script>
 
 <div class="space-y-4">
-	<div class="flex gap-2">
+	<div class="flex flex-wrap gap-2">
 		<Button
 			type="button"
+			size="xs"
 			variant={value.openAlerts ? 'default' : 'outline'}
 			onclick={() => toggle('openAlerts')}
 		>
@@ -49,6 +50,7 @@
 
 		<Button
 			type="button"
+			size="xs"
 			variant={value.closedAlerts ? 'default' : 'outline'}
 			onclick={() => toggle('closedAlerts')}
 		>
@@ -57,6 +59,7 @@
 
 		<Button
 			type="button"
+			size="xs"
 			variant={value.openCases ? 'default' : 'outline'}
 			onclick={() => toggle('openCases')}
 		>
@@ -65,6 +68,7 @@
 
 		<Button
 			type="button"
+			size="xs"
 			variant={value.closedCases ? 'default' : 'outline'}
 			onclick={() => toggle('closedCases')}
 		>
@@ -72,10 +76,10 @@
 		</Button>
 	</div>
 
-	<div class="flex gap-4">
+	<div class="flex flex-wrap gap-4">
 		<div class="flex">
 			<div
-				class="flex h-9 items-center text-nowrap rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm text-muted-foreground shadow-sm"
+				class="flex h-7 items-center text-nowrap rounded-l-md border border-r-0 border-input bg-muted px-2.5 text-xs text-muted-foreground"
 			>
 				Nodes limit
 			</div>
@@ -84,7 +88,7 @@
 				type="number"
 				min="0"
 				step="1"
-				class="rounded-l-none"
+				class="h-7 rounded-l-none text-xs"
 				value={String(value.numberOfNodes)}
 				oninput={(event) =>
 					(value.numberOfNodes = parsePositiveInt(
@@ -96,7 +100,7 @@
 
 		<div class="flex">
 			<div
-				class="flex h-9 items-center text-nowrap rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm text-muted-foreground shadow-sm"
+				class="flex h-7 items-center text-nowrap rounded-l-md border border-r-0 border-input bg-muted px-2.5 text-xs text-muted-foreground"
 			>
 				Lookback (days)
 			</div>
@@ -105,7 +109,7 @@
 				type="number"
 				min="0"
 				step="1"
-				class="rounded-l-none"
+				class="h-7 rounded-l-none text-xs"
 				value={String(value.daysBack)}
 				oninput={(event) =>
 					(value.numberOfNodes = parsePositiveInt(

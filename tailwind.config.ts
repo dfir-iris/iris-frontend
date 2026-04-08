@@ -81,6 +81,16 @@ const config: Config = {
 				card: {
 					DEFAULT: 'hsl(var(--card) / <alpha-value>)',
 					foreground: 'hsl(var(--card-foreground) / <alpha-value>)'
+				},
+				sidebar: {
+					DEFAULT: 'hsl(var(--sidebar) / <alpha-value>)',
+					foreground: 'hsl(var(--sidebar-foreground) / <alpha-value>)',
+					accent: 'hsl(var(--sidebar-accent) / <alpha-value>)',
+					border: 'hsl(var(--sidebar-border) / <alpha-value>)',
+					hover: 'hsl(var(--sidebar-hover) / <alpha-value>)'
+				},
+				iris: {
+					blue: 'hsl(var(--iris-blue) / <alpha-value>)'
 				}
 			},
 			borderRadius: {

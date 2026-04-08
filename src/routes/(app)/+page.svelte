@@ -46,14 +46,13 @@
 	<title>Dashboard | DFIR-IRIS</title>
 </svelte:head>
 
-<div class="flex flex-col space-y-4 p-2">
-	<!-- Page Header -->
-	<div class="flex items-center justify-between space-y-2 py-2">
-		<h1 class="">Dashboard</h1>
+<div class="flex flex-col space-y-6 p-6">
+	<div class="flex items-center justify-between py-2">
+		<h1>Dashboard</h1>
 		<div class="flex items-center space-x-2"></div>
 	</div>
 
-	<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+	<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
 		<!-- Current cases KPI -->
 		{#await casesPromise ?? Promise.resolve(undefined)}
 			<BaseKpi title="Current Cases" icon={LayersIcon} value={0} isLoading></BaseKpi>

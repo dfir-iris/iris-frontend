@@ -64,7 +64,7 @@
 </script>
 
 <ul
-	class={`flex h-auto w-full flex-col items-center overflow-hidden text-gray-600 transition-all dark:text-gray-200`}
+	class={`flex h-auto w-full flex-col items-center overflow-hidden text-sidebar-foreground transition-all`}
 >
 	{#each mainMenuItems as item}
 		<MenuItem
@@ -76,7 +76,7 @@
 		/>
 	{/each}
 
-	<li class="my-4 ml-4 flex w-full text-sm uppercase text-gray-400">
+	<li class="my-4 ml-4 flex w-full text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
 		{#if collapsed}
 			&nbsp;
 		{:else}
@@ -94,7 +94,7 @@
 		/>
 	{/each}
 
-	<li class="my-4 ml-4 flex w-full text-sm uppercase text-gray-400">
+	<li class="my-4 ml-4 flex w-full text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
 		{#if collapsed}
 			&nbsp;
 		{:else}

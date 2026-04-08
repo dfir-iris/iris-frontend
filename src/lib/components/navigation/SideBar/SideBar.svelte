@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { MenuIcon } from 'lucide-svelte';
-	import { UserMenu, SideNav } from '.';
+	import UserMenu from './UserMenu.svelte';
+	import SideNav from './SideNav.svelte';
 
 	let collapsed = false;
 	let hovered = false;
@@ -8,35 +9,36 @@
 	const isCollapsed = () => (collapsed ? !hovered : collapsed);
 </script>
 
-<div class="sticky top-0 flex flex-col">
+<div class="sticky top-0 flex h-screen flex-col bg-sidebar">
 	<div
-		class={`flex max-h-16 min-h-16 justify-center bg-primary-gradient p-4 drop-shadow-lg transition-all ${
-			isCollapsed() ? 'min-w-0' : 'w-full min-w-64 justify-between'
+		style="background-color: hsl(var(--iris-blue));"
+		class={`flex max-h-14 min-h-14 items-center justify-center p-4 transition-all ${
+			isCollapsed() ? 'min-w-0' : 'w-full min-w-60 justify-between'
 		}`}
 	>
 		{#if !isCollapsed()}
-			<img src="/img/logo/logo-white.png" alt="IRIS Logo" class="mx-4 h-7" />
+			<img src="/img/logo/logo-white.png" alt="IRIS Logo" class="mx-3 h-6" />
 		{/if}
 
 		<div
-			class="mx-1 flex items-center justify-center text-gray-100 transition-all hover:opacity-80"
+			class="mx-1 flex items-center justify-center text-white/70 transition-colors hover:text-white"
 		>
-			<MenuIcon class="size-7 cursor-pointer" onclick={() => (collapsed = !collapsed)} />
+			<MenuIcon class="size-5 cursor-pointer" onclick={() => (collapsed = !collapsed)} />
 		</div>
 	</div>
 
 	<div
-		class="flex flex-col overflow-y-auto px-4"
+		class="flex flex-1 flex-col overflow-y-auto border-r border-[hsl(var(--sidebar-border))] px-3"
 		onmouseenter={() => (hovered = true)}
 		onmouseleave={() => (hovered = false)}
 		role="button"
 		tabindex="0"
 	>
-		<div class="border-b border-b-gray-200 p-2">
+		<div class="border-b border-[hsl(var(--sidebar-border))] py-3">
 			<UserMenu collapsed={isCollapsed()} />
 		</div>
 
-		<div class="flex w-full p-2">
+		<div class="flex w-full py-3">
 			<SideNav collapsed={isCollapsed()} />
 		</div>
 	</div>
