@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Network } from 'vis-network';
-	import { DataSet } from 'vis-data';
-	import type { Options } from 'vis-network';
+	import { Network, DataSet, type Options } from 'vis-network/standalone';
 
 	type Node = Record<string, unknown>;
 	type Edge = Record<string, unknown>;
