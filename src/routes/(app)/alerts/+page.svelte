@@ -544,7 +544,9 @@
 		</div>
 	{:else}
 		<div class:opacity-60={status === 'loading'} class="flex grow flex-col gap-5">
-			<h2 class="text-lg font-semibold">{getTotal({ data: alertsData } as RequestResponse<Paginated<Alert>>)} Alerts</h2>
+			<h2 class="text-lg font-semibold">
+				{getTotal({ data: alertsData } as RequestResponse<Paginated<Alert>>)} Alerts
+			</h2>
 
 			<div class="flex items-center justify-between">
 				<div class="flex gap-2">
@@ -619,7 +621,12 @@
 						{query.expanded ? 'Collapse All' : 'Expand All'}
 					</Button>
 
-					<Button variant="outline" size="xs" onclick={refreshAlerts} disabled={status === 'loading'}>
+					<Button
+						variant="outline"
+						size="xs"
+						onclick={refreshAlerts}
+						disabled={status === 'loading'}
+					>
 						Refresh
 					</Button>
 
@@ -742,7 +749,9 @@
 						</DropdownMenuContent>
 					</DropdownMenu>
 
-					<Button variant="destructive" size="xs" onclick={() => (showClose = true)}>Close with note</Button>
+					<Button variant="destructive" size="xs" onclick={() => (showClose = true)}
+						>Close with note</Button
+					>
 
 					<Button variant="destructive" size="xs" onclick={() => (showConfirmDelete = true)}
 						><TrashIcon /> Delete</Button

@@ -79,6 +79,13 @@
 	let isAssignMenuOpen = $state(false);
 	let isSetStatusMenuOpen = $state(false);
 	let isMenuOpen = $state(false);
+	let detailsLoaded = $state(alwaysExpanded || expanded);
+
+	$effect(() => {
+		if (alwaysExpanded || expanded) {
+			detailsLoaded = true;
+		}
+	});
 
 	const showHeaderActions = $derived(
 		isAssignMenuOpen || isSetStatusMenuOpen || isMenuOpen || alwaysExpanded
@@ -138,10 +145,10 @@
 
 					<DropdownMenu bind:open={isAssignMenuOpen}>
 						<DropdownMenuTrigger>
-						<Button variant="outline" size="xs">
-							Assign
+							<Button variant="outline" size="xs">
+								Assign
 
-							<ChevronDownIcon size="14" />
+								<ChevronDownIcon size="14" />
 							</Button>
 						</DropdownMenuTrigger>
 
@@ -158,10 +165,10 @@
 
 					<DropdownMenu bind:open={isSetStatusMenuOpen}>
 						<DropdownMenuTrigger>
-						<Button variant="outline" size="xs">
-							Set status
+							<Button variant="outline" size="xs">
+								Set status
 
-							<ChevronDownIcon size="14" />
+								<ChevronDownIcon size="14" />
 							</Button>
 						</DropdownMenuTrigger>
 
@@ -175,8 +182,11 @@
 					</DropdownMenu>
 
 					{#if alert.status.status_name.toLowerCase() === 'in progress'}
-						<Button variant="destructive" size="xs" onclick={() => onShowClose(true)}>Close with note</Button>
-						<Button variant="destructive" size="xs" onclick={() => onShowClose(false)}>Close</Button>
+						<Button variant="destructive" size="xs" onclick={() => onShowClose(true)}
+							>Close with note</Button
+						>
+						<Button variant="destructive" size="xs" onclick={() => onShowClose(false)}>Close</Button
+						>
 					{:else}
 						<Button
 							variant="default"
@@ -190,13 +200,13 @@
 					{/if}
 				</div>
 
-				<div class="flex items-center gap-3">
+				<div class="relative flex items-center gap-3">
 					<button
 						title="comments"
 						onclick={onShowComments}
 						class="relative flex text-muted-foreground transition-colors hover:text-foreground"
 					>
-						<MessagesSquareIcon class="absolute right-0 top-0.5" size="16" />
+						<MessagesSquareIcon class="absolute -bottom-2 right-0" size="16" />
 
 						{#if alert.comments?.length}
 							<div
@@ -207,13 +217,20 @@
 						{/if}
 					</button>
 
-					<button title="edit" onclick={onShowEdit} class="text-muted-foreground transition-colors hover:text-foreground">
+					<button
+						title="edit"
+						onclick={onShowEdit}
+						class="text-muted-foreground transition-colors hover:text-foreground"
+					>
 						<PencilIcon size="16" />
 					</button>
 
 					<DropdownMenu bind:open={isMenuOpen}>
 						<DropdownMenuTrigger>
-							<button title="menu" class="text-muted-foreground transition-colors hover:text-foreground">
+							<button
+								title="menu"
+								class="text-muted-foreground transition-colors hover:text-foreground"
+							>
 								<EllipsisVerticalIcon size="16" />
 							</button>
 						</DropdownMenuTrigger>
@@ -282,7 +299,9 @@
 			<Collapsible.Content
 				class="overflow-hidden pt-4 data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down"
 			>
-				<AlertCardDetails {alert} />
+				{#if detailsLoaded}
+					<AlertCardDetails {alert} />
+				{/if}
 			</Collapsible.Content>
 		</Card.Content>
 

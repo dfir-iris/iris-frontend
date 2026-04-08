@@ -283,23 +283,25 @@
 				<Searchbar placeholder="Search cases" bind:value={search} />
 			</div>
 
-			<Select
-				value={String(perPage)}
-				onValueChange={(value) => {
-					perPage = Number(value);
-					currentPage = 1;
-					updateUrl({ page: 1 });
-				}}
-				type="single"
-			>
-				<SelectTrigger>{perPage} entries per page</SelectTrigger>
+			<div class="flex h-10">
+				<Select
+					value={String(perPage)}
+					onValueChange={(value) => {
+						perPage = Number(value);
+						currentPage = 1;
+						updateUrl({ page: 1 });
+					}}
+					type="single"
+				>
+					<SelectTrigger>{perPage} entries per page</SelectTrigger>
 
-				<SelectContent>
-					{#each perPageOptions as perPageOption}
-						<SelectItem value={perPageOption.value}>{perPageOption.label}</SelectItem>
-					{/each}
-				</SelectContent>
-			</Select>
+					<SelectContent>
+						{#each perPageOptions as perPageOption}
+							<SelectItem value={perPageOption.value}>{perPageOption.label}</SelectItem>
+						{/each}
+					</SelectContent>
+				</Select>
+			</div>
 		</div>
 	</div>
 

@@ -1,18 +1,37 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import { mode } from 'mode-watcher';
-	import type { Options } from 'vis-network';
+	import type { IdType, Options } from 'vis-network';
+	import { EyeIcon } from 'lucide-svelte';
 	import alertSvg from 'lucide-static/icons/bell.svg?raw';
 	import iocSvg from 'lucide-static/icons/link.svg?raw';
 	import caseSvg from 'lucide-static/icons/briefcase-business.svg?raw';
 	import caseClosedSvg from 'lucide-static/icons/briefcase-business.svg?raw';
+	import { goto } from '$app/navigation';
 	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
 	import type { RelatedAlert } from '$lib/services/alerts.service';
 	import VisNetwork from '$lib/components/common/VisNetwork.svelte';
+	import Button from '$lib/components/ui/button/button.svelte';
 	import { AlertRelationshipsFilters, defaultAlertRelationshipsFilters } from '.';
 
-	type VisNode = Record<string, unknown>;
+	type VisNodeDetails = {
+		id?: IdType;
+		group?: string;
+		label?: string;
+		title?: string | HTMLElement;
+		image?: string;
+	};
+
+	type VisNode = Record<string, unknown> & VisNodeDetails;
+
 	type VisEdge = Record<string, unknown>;
+
+	type ContextMenuState = {
+		open: boolean;
+		x: number;
+		y: number;
+		node?: VisNode;
+	};
 
 	const svgToDataUrl = (svg: string) =>
 		`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
@@ -21,6 +40,17 @@
 		svg
 			.replace(/stroke="currentColor"/g, `stroke="${color}"`)
 			.replace(/<svg /, '<svg fill="none" ');
+
+	const createTooltip = (html: string) => {
+		if (typeof document === 'undefined') return html;
+
+		const el = document.createElement('div');
+
+		el.className = 'related-alert-tooltip';
+		el.innerHTML = html;
+
+		return el;
+	};
 
 	let {
 		alertId
@@ -46,6 +76,12 @@
 
 	let filters = $state(defaultAlertRelationshipsFilters());
 
+	let contextMenu = $state<ContextMenuState>({
+		open: false,
+		x: 0,
+		y: 0
+	});
+
 	const options = $derived({
 		autoResize: true,
 		layout: {
@@ -58,7 +94,8 @@
 			}
 		},
 		interaction: {
-			zoomView: false
+			zoomView: false,
+			hover: true
 		},
 		physics: {
 			enabled: true,
@@ -78,6 +115,7 @@
 
 		loading = true;
 		error = null;
+		contextMenu = { open: false, x: 0, y: 0 };
 
 		const data = await alerts.getRelatedAlerts(alertId, {
 			open_alerts: filters.openAlerts,
@@ -111,9 +149,12 @@
 				color: strokeColor
 			};
 
+			const title = node.title?.includes('<') ? createTooltip(node.title) : node.title;
+
 			if (node.group === 'alert') {
 				return {
 					...node,
+					title,
 					shape: 'image',
 					image: alertIcon,
 					font
@@ -123,6 +164,7 @@
 			if (node.group === 'ioc') {
 				return {
 					...node,
+					title,
 					shape: 'image',
 					image: iocIcon,
 					font
@@ -132,6 +174,7 @@
 			if (node.group === 'case') {
 				return {
 					...node,
+					title,
 					shape: 'image',
 					image:
 						typeof node.label === 'string' && node.label.startsWith('[Closed]')
@@ -147,6 +190,7 @@
 
 				return {
 					...node,
+					title,
 					image: `${node.image}${separator}theme=${theme}`,
 					font
 				};
@@ -154,12 +198,62 @@
 
 			return {
 				...node,
+				title,
 				font
 			};
 		}) as VisNode[]
 	);
 
 	const edges = $derived(graph.edges as VisEdge[]);
+
+	const closeContextMenu = () => (contextMenu = { open: false, x: 0, y: 0 });
+
+	const openContextMenu = (detail: { x: number; y: number; nodeId?: IdType }) => {
+		if (!detail.nodeId) {
+			closeContextMenu();
+			return;
+		}
+
+		const node = nodes.find((n) => n.id === detail.nodeId);
+
+		if (!node) {
+			closeContextMenu();
+			return;
+		}
+
+		contextMenu = {
+			...detail,
+			open: true,
+			node
+		};
+	};
+
+	const getId = (nodeId: string): string => nodeId.split(/_/)[1];
+
+	const handleNodeAction = () => {
+		if (!contextMenu.node) return;
+
+		if (contextMenu.node.group === 'case') {
+			goto(`/case/${getId(contextMenu.node.id as string)}`);
+		} else if (contextMenu.node.group === 'alert') {
+			goto(`/alerts/${getId(contextMenu.node.id as string)}`);
+		} else if (contextMenu.node.group === 'asset' || contextMenu.node.group === 'ioc') {
+			const id = getId(contextMenu.node.id as string);
+			const url = new URL(window.location.href);
+			const isAlertsPage = url.pathname === '/alerts' || url.pathname === '/alerts/';
+
+			if (!isAlertsPage) {
+				url.pathname = '/alerts/';
+				url.search = '';
+			}
+
+			url.searchParams.set(contextMenu.node.group === 'asset' ? 'alert_assets' : 'alert_iocs', id);
+
+			goto(`${url.pathname}?${url.searchParams.toString()}`);
+		}
+
+		closeContextMenu();
+	};
 </script>
 
 <div class="mb-4 flex">
@@ -173,7 +267,30 @@
 			{edges}
 			{options}
 			className="h-full w-full"
+			onClick={closeContextMenu}
+			onContextMenu={openContextMenu}
 		/>
+	{/if}
+
+	{#if contextMenu.open && contextMenu.node}
+		<div
+			class="absolute z-20 rounded-2xl border bg-background px-2 shadow-xl"
+			style={`left:${contextMenu.x}px;top:${contextMenu.y}px;transform:translate(8px, 8px);`}
+		>
+			{#if contextMenu.node.group === 'case' || contextMenu.node.group === 'alert'}
+				<Button variant="link" size="xs" onclick={() => handleNodeAction()}>
+					<EyeIcon class="size-4" />
+					View {contextMenu.node.group}
+					#{getId(contextMenu.node.id as string)}
+				</Button>
+			{:else}
+				<Button size="xs" variant="link" onclick={() => handleNodeAction()}>
+					<EyeIcon class="size-4" />
+					Pivot on {contextMenu.node.group}
+					{contextMenu.node.label}
+				</Button>
+			{/if}
+		</div>
 	{/if}
 
 	{#if loading}
