@@ -3,11 +3,12 @@
 	import type { Snippet } from "svelte";
 
 	let {
+		ref = $bindable(null),
 		children,
 		...restProps
-	}: DialogPrimitive.PortalProps & { children?: Snippet } = $props();
+	}: DialogPrimitive.TriggerProps & { children?: Snippet } = $props();
 </script>
 
-<DialogPrimitive.Portal {...restProps}>
+<DialogPrimitive.Trigger bind:ref {...restProps}>
 	{@render children?.()}
-</DialogPrimitive.Portal>
+</DialogPrimitive.Trigger>

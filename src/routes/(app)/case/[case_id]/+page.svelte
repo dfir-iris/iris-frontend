@@ -140,11 +140,11 @@
 			<Card.Content>
 				<div class="overflow-x-auto">
 					<div class="flex min-w-max flex-nowrap justify-between">
-						<div class="mr-2 flex">
+						<div class="flex gap-2">
 							<Button
 								onclick={() => (cases.ui.showManageModal = true)}
 								variant="secondary"
-								class="mr-2"
+								size="xs"
 							>
 								<SettingsIcon /> Manage
 							</Button>
@@ -152,7 +152,7 @@
 							{#if hookOptions.length}
 								<DropdownMenu>
 									<DropdownMenuTrigger>
-										<Button variant="secondary" class="mr-2">
+										<Button variant="secondary" size="xs">
 											<ZapIcon />Processors
 										</Button>
 									</DropdownMenuTrigger>
@@ -167,23 +167,23 @@
 								</DropdownMenu>
 							{/if}
 
-							<Button variant="secondary">
+							<Button variant="secondary" size="xs">
 								<HardDriveUploadIcon />Pipelines
 							</Button>
 						</div>
 
-						<div class="flex">
+						<div class="flex gap-2">
 							{#if currentCase.review_status === null}
-								<Button variant="secondary" class="mr-2" onclick={() => (showRequestReview = true)}>
+								<Button variant="secondary" size="xs" onclick={() => (showRequestReview = true)}>
 									<ClipboardCheckIcon /> Request review
 								</Button>
 							{/if}
 
-							<Button class="mr-2">
+							<Button size="xs">
 								<ClipboardPasteIcon /> Generate report
 							</Button>
 
-							<Button>
+							<Button size="xs">
 								<ChartLineIcon /> Activity report
 							</Button>
 						</div>
@@ -195,9 +195,9 @@
 		<Card.Root class="flex w-full grow">
 			<Card.Header>
 				<div class="flex items-center justify-between">
-					<div class="mr-2 flex text-xl font-bold">Case summary</div>
+					<div class="mr-2 flex text-sm font-semibold">Case summary</div>
 
-					<div class="flex items-center">
+					<div class="flex items-center gap-2">
 						{#if lastError}
 							<Badge variant="compromised" class="flex px-2 py-0.5">Error</Badge>
 						{:else if saving}
@@ -210,13 +210,13 @@
 
 						<div class="mx-2 flex text-sm">Last synced: {loadedTime.toLocaleTimeString()}</div>
 
-						<Button variant="secondary" class="mr-2" onclick={() => (editing = !editing)}>
+						<Button variant="secondary" size="xs" onclick={() => (editing = !editing)}>
 							{#if editing}Close editor{:else}Edit{/if}
 						</Button>
 
 						<Button
 							variant="secondary"
-							class="mr-2"
+							size="xs"
 							disabled={loading || saving}
 							onclick={editing ? save : refresh}
 						>

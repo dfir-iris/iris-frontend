@@ -83,31 +83,32 @@
 </script>
 
 <header
-	class="sticky top-0 flex max-h-16 min-h-16 items-center justify-between bg-primary-gradient p-4 text-gray-100 drop-shadow-lg"
+	style="background-color: hsl(var(--iris-blue));"
+	class="sticky top-0 z-10 flex max-h-14 min-h-14 items-center justify-between px-5 text-white shadow-elevation-1"
 >
 	{#if case_id !== null && pathname.startsWith('/case') && pathname !== '/cases'}
 		<div class="flex items-center overflow-auto">
 			<button
 				onclick={() => (showSwitchContext = true)}
-				class="whitespace-nowrap text-sm hover:underline hover:opacity-80"
+				class="whitespace-nowrap text-sm font-medium text-white/90 transition-colors hover:text-white"
 			>
 				{currentCaseTitle}
 			</button>
 		</div>
 
-		<div class="mx-2 flex flex-nowrap items-center overflow-auto rounded-lg bg-white/10">
+		<div class="mx-2 flex flex-nowrap items-center overflow-auto rounded-lg bg-white/15 p-0.5">
 			{#each caseButtons as button}
 				<a href={button.path === '' ? caseBasePath : `${caseBasePath}/${button.path}`}>
 					<button
-						class={`rounded-lg px-3 py-2 hover:bg-white/10 ${
+						class={`rounded-md px-3.5 py-1.5 text-sm font-medium transition-all duration-150 ${
 							button.path === ''
 								? pathname === caseBasePath || pathname === `${caseBasePath}/`
-									? 'bg-white/10'
-									: ''
+									? 'bg-white text-iris-blue shadow-sm'
+									: 'text-white/70 hover:text-white'
 								: pathname === `${caseBasePath}/${button.path}` ||
 									  pathname === `${caseBasePath}/${button.path}/`
-									? 'bg-white/10'
-									: ''
+									? 'bg-white text-iris-blue shadow-sm'
+									: 'text-white/70 hover:text-white'
 						}`}
 					>
 						{button.label}
@@ -122,7 +123,7 @@
 				onOpenChange={(open: boolean) => (showGoToCase = open)}
 			>
 				<DropdownMenu.Trigger class="w-full sm:w-auto">
-					<button onclick={gotoCase} class="pt-1 transition-all hover:opacity-80">
+					<button onclick={gotoCase} class="pt-1 transition-colors hover:text-white/80">
 						<TooltipProvider>
 							<Tooltip>
 								<TooltipTrigger>
@@ -147,7 +148,7 @@
 
 			<button
 				onclick={() => (showSwitchContext = true)}
-				class="ml-2 text-sm hover:underline hover:opacity-80"
+				class="ml-2 text-sm font-medium hover:text-white/80 transition-colors"
 			>
 				{currentCaseTitle}
 			</button>

@@ -21,7 +21,7 @@
 	</button>
 
 	<ul
-		class={`flex h-auto w-full flex-col items-center overflow-hidden pl-4 text-gray-600 transition-all dark:text-gray-200 ${minimized ? 'max-h-0' : 'max-h-96'} ${collapsed ? 'pl-2.5' : 'pl-1'}`}
+		class={`flex h-auto w-full flex-col items-center overflow-hidden pl-4 text-sidebar-foreground transition-all duration-200 ${minimized ? 'max-h-0' : 'max-h-96'} ${collapsed ? 'pl-2.5' : 'pl-1'}`}
 	>
 		<slot name="menu"></slot>
 	</ul>

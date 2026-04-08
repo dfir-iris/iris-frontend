@@ -49,7 +49,7 @@
 	};
 </script>
 
-<Card.Footer class="flex flex-col items-start gap-2">
+<Card.Footer class="flex flex-col items-start gap-2 !px-4 !py-3">
 	{#if alert.cases}
 		<div class="flex items-center gap-8">
 			{#each alert.cases as linkedCase}
@@ -86,12 +86,12 @@
 		</div>
 	{/if}
 
-	<div class="flex items-center gap-6">
+	<div class="flex flex-wrap items-center gap-3">
 		{#if alert.resolution_status}
 			<TooltipProvider>
 				<Tooltip>
 					<TooltipTrigger class="cursor-default">
-						<div class="rounded-full bg-orange-300 px-2 py-1 text-2xs text-black">
+						<div class="rounded-md bg-orange-100 px-2 py-0.5 text-2xs font-medium text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">
 							{alert.resolution_status.resolution_status_name}
 						</div>
 					</TooltipTrigger>
@@ -106,7 +106,7 @@
 		<TooltipProvider>
 			<Tooltip>
 				<TooltipTrigger class="cursor-default">
-					<div class="rounded-full bg-gray-200 px-2 py-1 text-2xs text-black">
+					<div class="rounded-md bg-muted px-2 py-0.5 text-2xs font-medium text-foreground">
 						{alert.status.status_name}
 					</div>
 				</TooltipTrigger>
@@ -120,8 +120,8 @@
 		<TooltipProvider>
 			<Tooltip>
 				<TooltipTrigger class="cursor-default">
-					<div class="flex items-center gap-1 text-xs opacity-50">
-						<CalendarIcon size="14" />
+					<div class="flex items-center gap-1 text-xs text-muted-foreground">
+						<CalendarIcon size="12" />
 
 						{mediumDateTimeFormatter(new Date(alert.alert_source_event_time))}
 					</div>
@@ -136,8 +136,8 @@
 		<TooltipProvider>
 			<Tooltip>
 				<TooltipTrigger class="cursor-default">
-					<div class="flex items-center gap-1 text-xs opacity-50">
-						<ZapIcon size="14" />
+					<div class="flex items-center gap-1 text-xs text-muted-foreground">
+						<ZapIcon size="12" />
 
 						{alert.severity.severity_name}
 					</div>
@@ -152,8 +152,8 @@
 		<TooltipProvider>
 			<Tooltip>
 				<TooltipTrigger class="cursor-default">
-					<div class="flex items-center gap-1 text-xs opacity-50">
-						<CloudDownloadIcon size="14" />
+					<div class="flex items-center gap-1 text-xs text-muted-foreground">
+						<CloudDownloadIcon size="12" />
 
 						{alert.alert_source}
 					</div>
@@ -168,8 +168,8 @@
 		<TooltipProvider>
 			<Tooltip>
 				<TooltipTrigger class="cursor-default">
-					<div class="flex items-center gap-1 text-xs opacity-50">
-						<UserCircleIcon size="14" />
+					<div class="flex items-center gap-1 text-xs text-muted-foreground">
+						<UserCircleIcon size="12" />
 
 						{alert.customer.customer_name}
 					</div>
@@ -184,8 +184,8 @@
 		<TooltipProvider>
 			<Tooltip>
 				<TooltipTrigger class="cursor-default">
-					<div class="flex gap-1 rounded-full bg-gray-200 px-2 py-1 text-2xs text-black">
-						<ShieldAlertIcon size="14" />
+					<div class="flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-2xs font-medium text-foreground">
+						<ShieldAlertIcon size="12" />
 
 						{alert.classification.name}
 					</div>
@@ -201,7 +201,7 @@
 	{#if alert.alert_tags}
 		<div class="flex items-center gap-2">
 			{#each alert.alert_tags.split(/,/).map((tag) => tag.trim()) as tag}
-				<div class="rounded-full bg-gray-200 px-2 py-1 text-2xs text-black">
+				<div class="rounded-md bg-muted px-2 py-0.5 text-2xs font-medium text-muted-foreground">
 					{tag}
 				</div>
 			{/each}

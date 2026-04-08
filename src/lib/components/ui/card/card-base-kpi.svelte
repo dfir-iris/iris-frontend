@@ -16,30 +16,32 @@
 </script>
 
 <Card.Root
-	class="cursor-pointer transition-all hover:scale-105 {isActive
-		? 'border-primary/20 bg-muted/10 text-foreground shadow-md'
-		: ''}"
+	class="cursor-pointer transition-all duration-200 hover:shadow-elevation-3 hover:-translate-y-0.5 {isActive
+		? 'border-primary/30 shadow-glow-primary ring-1 ring-primary/20'
+		: ''} h-full"
 	onclick={onClick}
 >
-	<Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
-		<Card.Title class="text-sm font-medium">{title}</Card.Title>
-		<svelte:component this={icon} class="!h-6 !w-6 text-muted-foreground" />
+	<Card.Header class="flex flex-row items-center justify-between space-y-0 p-5 pb-2">
+		<Card.Title class="text-sm font-medium text-muted-foreground">{title}</Card.Title>
+		<div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+			<svelte:component this={icon} class="!h-5 !w-5 text-primary" />
+		</div>
 	</Card.Header>
 
-	<Card.Content>
+	<Card.Content class="p-5 pt-0">
 		{#if isLoading}
 			<Skeleton class="h-8 w-[100px]" />
 			<Skeleton class="mt-2 h-4 w-[70px]" />
 		{:else}
 			<div class="flex items-center gap-2">
-				<span class="text-2xl font-bold">{value > 0 ? value : 'All clear'}</span>
+				<span class="text-3xl font-bold tracking-tight">{value > 0 ? value : 'All clear'}</span>
 				<Tooltip.Provider>
 					<Tooltip.Root>
 						<Tooltip.Trigger>
 							{#if value > 0}
 								<CircleFadingArrowUp class="h-4 w-4 text-orange-500 transition-colors" />
 							{:else}
-								<CircleCheckBig class="h-4 w-4 text-green-500 transition-colors" />
+								<CircleCheckBig class="h-4 w-4 text-emerald-500 transition-colors" />
 							{/if}
 						</Tooltip.Trigger>
 						<Tooltip.Content>
@@ -49,7 +51,7 @@
 				</Tooltip.Provider>
 			</div>
 			{#if subtitle && value > 0}
-				<p class="text-xs text-muted-foreground">{subtitle}</p>
+				<p class="mt-1 text-xs text-muted-foreground">{subtitle}</p>
 			{/if}
 		{/if}
 	</Card.Content>

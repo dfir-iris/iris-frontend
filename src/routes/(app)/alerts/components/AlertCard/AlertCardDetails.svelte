@@ -18,14 +18,14 @@
 </script>
 
 <div class="flex flex-col">
-	<div class="my-4 text-lg font-bold">General Info</div>
+	<div class="mb-3 mt-4 text-sm font-semibold">General Info</div>
 
-	<div class="grid w-auto max-w-xl grid-cols-3 gap-1 text-sm">
-		<div class="font-bold">Source:</div>
-		<div class="col-span-2">{alert.alert_source}</div>
+	<div class="grid w-auto max-w-xl grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+		<div class="text-muted-foreground">Source:</div>
+		<div>{alert.alert_source}</div>
 
-		<div class="font-bold">Source Link:</div>
-		<div class="col-span-2">
+		<div class="text-muted-foreground">Source Link:</div>
+		<div>
 			<a target="_blank" href={alert.alert_source_link}>{alert.alert_source_link}</a>
 
 			<ClipboardCopy
@@ -36,8 +36,8 @@
 			/>
 		</div>
 
-		<div class="font-bold">Source Reference:</div>
-		<div class="col-span-2">
+		<div class="text-muted-foreground">Source Reference:</div>
+		<div>
 			{alert.alert_source_ref}
 
 			<ClipboardCopy
@@ -48,8 +48,8 @@
 			/>
 		</div>
 
-		<div class="font-bold">Source Event Time:</div>
-		<div class="col-span-2">
+		<div class="text-muted-foreground">Source Event Time:</div>
+		<div>
 			{mediumDateTimeFormatter(new Date(alert.alert_source_event_time))}
 
 			<ClipboardCopy
@@ -60,8 +60,8 @@
 			/>
 		</div>
 
-		<div class="font-bold">IRIS Creation Time:</div>
-		<div class="col-span-2">
+		<div class="text-muted-foreground">IRIS Creation Time:</div>
+		<div>
 			{mediumDateTimeFormatter(new Date(alert.alert_creation_time))}
 
 			<ClipboardCopy
@@ -73,37 +73,37 @@
 		</div>
 	</div>
 
-	<div class="my-4 border-t border-t-gray-300 pt-4 text-lg font-bold">Alert note</div>
+	<div class="mb-3 mt-4 border-t border-border pt-4 text-sm font-semibold">Alert note</div>
 
 	<pre
 		class="w-full overflow-auto whitespace-pre-wrap break-words text-xs opacity-80">{alert.alert_note}</pre>
 
-	<div class="my-4 border-t border-t-gray-300 pt-4 text-lg font-bold">Context</div>
+	<div class="mb-3 mt-4 border-t border-border pt-4 text-sm font-semibold">Context</div>
 
-	<div class="grid w-auto max-w-xl grid-cols-3 gap-1 text-sm">
+	<div class="grid w-auto max-w-xl grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
 		{#each Object.keys(alert.alert_context) as context_key}
-			<div class="font-bold">{context_key}</div>
-			<div class="col-span-2">{alert.alert_context[context_key]}</div>
+			<div class="text-muted-foreground">{context_key}</div>
+			<div>{alert.alert_context[context_key]}</div>
 		{/each}
 	</div>
 
-	<div class="my-4 border-t border-t-gray-300 pt-4 text-lg font-bold">Relationships</div>
+	<div class="mb-3 mt-4 border-t border-border pt-4 text-sm font-semibold">Relationships</div>
 
 	<AlertRelatedGraph alertId={alert.alert_id} />
 
 	{#if alert.iocs.length}
-		<div class="my-4 border-t border-t-gray-300 pt-4 text-lg font-bold">IOCs</div>
+		<div class="mb-3 mt-4 border-t border-border pt-4 text-sm font-semibold">IOCs</div>
 
 		<IocDataTable iocs={alert.iocs} className="border-0" />
 	{/if}
 
 	{#if alert.assets.length}
-		<div class="my-4 border-t border-t-gray-300 pt-4 text-lg font-bold">Assets</div>
+		<div class="mb-3 mt-4 border-t border-border pt-4 text-sm font-semibold">Assets</div>
 
 		<AssetDataTable assets={alert.assets} className="border-0" />
 	{/if}
 
-	<div class="my-4 border-t border-t-gray-300 pt-4 text-lg font-bold">Raw Alert</div>
+	<div class="mb-3 mt-4 border-t border-border pt-4 text-sm font-semibold">Raw Alert</div>
 
 	<Collapsible.Root open={showRawAlert}>
 		<Collapsible.Trigger>

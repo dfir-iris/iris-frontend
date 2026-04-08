@@ -1,6 +1,5 @@
 <script lang="ts">
 	import '../app.css';
-	import '../app.postcss';
 
 	import { ModeWatcher, mode } from 'mode-watcher';
 	import { goto } from '$app/navigation';

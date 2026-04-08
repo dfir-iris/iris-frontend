@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import { Dialog as DialogPrimitive } from 'bits-ui';
+	import DialogContent from './dialog-content.svelte';
+	import DialogHeader from './dialog-header.svelte';
+	import DialogTitle from './dialog-title.svelte';
+	import DialogDescription from './dialog-description.svelte';
+	import DialogFooter from './dialog-footer.svelte';
 	import { AlertTriangleIcon } from 'lucide-svelte';
 
 	let {
@@ -40,22 +45,22 @@
 	}
 </script>
 
-<Dialog.Root bind:open>
-	<Dialog.Content class="sm:max-w-[425px]">
-		<Dialog.Header>
-			<Dialog.Title class="flex items-center">
+<DialogPrimitive.Root bind:open>
+	<DialogContent class="sm:max-w-[425px]">
+		<DialogHeader>
+			<DialogTitle class="flex items-center">
 				{#if showIcon}
 					<AlertTriangleIcon class="h-5 w-5 mr-2 text-destructive" />
 				{/if}
 				{title}
-			</Dialog.Title>
-			<Dialog.Description>
+			</DialogTitle>
+			<DialogDescription>
 				{message}
-			</Dialog.Description>
-		</Dialog.Header>
-		<Dialog.Footer class="pt-4">
+			</DialogDescription>
+		</DialogHeader>
+		<DialogFooter class="pt-4">
 			<Button variant="outline" onclick={handleCancel}>{cancelText}</Button>
 			<Button variant={confirmButtonVariant} onclick={handleConfirm}>{confirmText}</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+		</DialogFooter>
+	</DialogContent>
+</DialogPrimitive.Root>

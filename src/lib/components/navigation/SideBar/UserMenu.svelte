@@ -42,8 +42,8 @@
 			class={`flex w-full items-center justify-between overflow-hidden transition-all ${collapsed ? 'ml-0 max-w-0' : 'ml-2 max-w-96'}`}
 		>
 			<div class="flex w-full flex-col items-start justify-center">
-				<span class="text-xs font-bold">{$username}</span>
-				<span class="whitespace-nowrap text-2xs font-light text-gray-400"
+				<span class="text-[13px] font-semibold text-foreground">{$username}</span>
+				<span class="whitespace-nowrap text-2xs font-normal text-muted-foreground"
 					>{new Date().toLocaleString()}</span
 				>
 			</div>

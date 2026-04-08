@@ -1,5 +1,9 @@
 <script lang="ts">
-	import * as Dialog from '$lib/components/ui/dialog';
+	import { Dialog as DialogPrimitive } from 'bits-ui';
+	import DialogContent from '$lib/components/ui/dialog/dialog-content.svelte';
+	import DialogHeader from '$lib/components/ui/dialog/dialog-header.svelte';
+	import DialogTitle from '$lib/components/ui/dialog/dialog-title.svelte';
+	import DialogFooter from '$lib/components/ui/dialog/dialog-footer.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { CaseService } from '$lib/services/case.service';
 	import type { Case } from '$lib/types/resources/case';
@@ -95,11 +99,11 @@
 	});
 </script>
 
-<Dialog.Root bind:open {onOpenChange}>
-	<Dialog.Content class="sm:max-w-[525px]">
-		<Dialog.Header>
-			<Dialog.Title>{title}</Dialog.Title>
-		</Dialog.Header>
+<DialogPrimitive.Root bind:open {onOpenChange}>
+	<DialogContent class="sm:max-w-[525px]">
+		<DialogHeader>
+			<DialogTitle>{title}</DialogTitle>
+		</DialogHeader>
 
 		<div class="grid gap-4 py-4">
 			<SearchSelect
@@ -120,9 +124,9 @@
 			{/if}
 		</div>
 
-		<Dialog.Footer>
+		<DialogFooter>
 			<Button variant="outline" onclick={() => onOpenChange(false)}>Close</Button>
 			<Button onclick={handleConfirm} disabled={selectedCaseId === '' || loading}>Switch</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+		</DialogFooter>
+	</DialogContent>
+</DialogPrimitive.Root>
