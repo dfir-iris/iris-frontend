@@ -1,19 +1,14 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import type { RequestResponse } from '$lib/services/api.service';
-	import { AlertStatusService, type AlertStatus } from '$lib/services/alert-status.service';
-	import {
-		type CaseClassification,
-		CaseClassificationsService
-	} from '$lib/services/case-classifications.service';
-	import { SeveritiesService, type Severity } from '$lib/services/severities.service';
+	import { type AlertResolution } from '$lib/services/alert-resolutions.service';
+	import { type AlertStatus } from '$lib/services/alert-status.service';
+	import { type CaseClassification } from '$lib/services/case-classifications.service';
+	import { type Severity } from '$lib/services/severities.service';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import SearchSelect, {
 		type SelectOption
 	} from '$lib/components/common/selects/SearchSelect.svelte';
-	import SaveAlertFiltersModal from './SaveAlertFiltersModal.svelte';
-	import { defaultFilters, type Filters } from '.';
+	import { SaveAlertFiltersModal, defaultFilters, type Filters } from '.';
 
 	type Preset = {
 		filter_id: number;
@@ -36,6 +31,10 @@
 		onPresetSelect?: (id: number) => void;
 		onSaveAsFilter?: (filters: Filters, meta: SaveMeta) => void;
 		saving?: boolean;
+		alertResolutions: AlertResolution[];
+		alertStatuses: AlertStatus[];
+		caseClassifications: CaseClassification[];
+		severities: Severity[];
 	};
 
 	let {
@@ -45,7 +44,11 @@
 		onClear,
 		presets = [],
 		onSaveAsFilter,
-		saving = false
+		saving = false,
+		alertResolutions,
+		alertStatuses,
+		caseClassifications,
+		severities
 	}: Props = $props();
 
 	const strOrUndef = (v: string): string | undefined => {
@@ -98,9 +101,12 @@
 		onApply();
 	};
 
-	let alertStatuses = $state<AlertStatus[]>([]);
-	let caseClassifications = $state<CaseClassification[]>([]);
-	let severities = $state<Severity[]>([]);
+	const resolutionOptions = $derived.by<SelectOption[]>(() =>
+		alertResolutions.map((resolution) => ({
+			value: String(resolution.resolution_status_id),
+			label: resolution.resolution_status_name
+		}))
+	);
 
 	const statusOptions = $derived.by<SelectOption[]>(() =>
 		alertStatuses.map((status) => ({
@@ -116,24 +122,6 @@
 	const severityOptions = $derived.by<SelectOption[]>(() =>
 		severities.map((s) => ({ value: String(s.severity_id), label: s.severity_name }))
 	);
-
-	onMount(async () => {
-		const alertStatusResponse = (await AlertStatusService.list())
-			.data as unknown as RequestResponse<AlertStatus[]>;
-
-		alertStatuses = alertStatusResponse.data as AlertStatus[];
-
-		const caseClassificationsResponse = (await CaseClassificationsService.list())
-			.data as unknown as RequestResponse<CaseClassification[]>;
-
-		caseClassifications = caseClassificationsResponse.data as CaseClassification[];
-
-		const severitiesResponse = (await SeveritiesService.list()).data as unknown as RequestResponse<
-			Severity[]
-		>;
-
-		severities = severitiesResponse.data as Severity[];
-	});
 </script>
 
 <form class="rounded-xl border bg-background p-4" onsubmit={submit}>
@@ -243,6 +231,56 @@
 		</div>
 
 		<div class="space-y-1">
+			<div class="text-sm font-medium">Creation Start Date</div>
+			<Input
+				type="date"
+				value={value.creation_start_date ?? ''}
+				oninput={(e) => setStr('creation_start_date', (e.currentTarget as HTMLInputElement).value)}
+			/>
+		</div>
+
+		<div class="space-y-1">
+			<div class="text-sm font-medium">Creation End Date</div>
+			<Input
+				type="date"
+				value={value.creation_end_date ?? ''}
+				oninput={(e) => setStr('creation_end_date', (e.currentTarget as HTMLInputElement).value)}
+			/>
+		</div>
+
+		<div class="space-y-1">
+			<div class="text-sm font-medium">Asset(s) name</div>
+			<Input
+				value={typeof value.alert_assets === 'string' ? value.alert_assets : ''}
+				oninput={(e) => setStr('alert_assets', (e.currentTarget as HTMLInputElement).value)}
+			/>
+		</div>
+
+		<div class="space-y-1">
+			<div class="text-sm font-medium">IOC(s)</div>
+			<Input
+				value={typeof value.alert_iocs === 'string' ? value.alert_iocs : ''}
+				oninput={(e) => setStr('alert_iocs', (e.currentTarget as HTMLInputElement).value)}
+			/>
+		</div>
+
+		<div class="space-y-1">
+			<div class="text-sm font-medium">Alert(s) ID</div>
+			<Input
+				value={typeof value.alert_ids === 'string' ? value.alert_ids : ''}
+				oninput={(e) => setStr('alert_ids', (e.currentTarget as HTMLInputElement).value)}
+			/>
+		</div>
+
+		<div class="space-y-1">
+			<div class="text-sm font-medium">Source Reference</div>
+			<Input
+				value={value.source_reference ?? ''}
+				oninput={(e) => setStr('source_reference', (e.currentTarget as HTMLInputElement).value)}
+			/>
+		</div>
+
+		<div class="space-y-1">
 			<div class="text-sm font-medium">Case ID</div>
 			<Input
 				inputmode="numeric"
@@ -257,6 +295,21 @@
 				inputmode="numeric"
 				value={value.alert_owner_id == null ? '' : String(value.alert_owner_id)}
 				oninput={(e) => setNum('alert_owner_id', (e.currentTarget as HTMLInputElement).value)}
+			/>
+		</div>
+
+		<div class="space-y-1">
+			<div class="text-sm font-medium">Resolution Status</div>
+			<SearchSelect
+				value={value.resolution_status_id == null ? '' : String(value.resolution_status_id)}
+				options={resolutionOptions}
+				placeholder="Resolution Status"
+				searchPlaceholder="Search resolution status..."
+				onChange={(next) =>
+					onChange({
+						...value,
+						resolution_status_id: next ? Number(next) : undefined
+					})}
 			/>
 		</div>
 	</div>

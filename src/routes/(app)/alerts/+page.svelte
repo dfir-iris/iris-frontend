@@ -6,6 +6,8 @@
 		ChevronDownIcon,
 		TrashIcon
 	} from 'lucide-svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { getTotal, isFiniteNumberString, toApiDate } from '$lib/utils';
 	import type { Alert } from '$lib/types/resources/alert';
 	import { DEFAULT_ITEMS_PER_PAGE } from '$lib/config/api.config';
@@ -13,7 +15,17 @@
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import type { RequestResponse, Paginated } from '$lib/services/api.service';
 	import type { UpdateAlertBody } from '$lib/services/alerts.service';
-	import type { AlertStatus } from '$lib/services/alert-status.service';
+	import {
+		AlertResolutionService,
+		type AlertResolution
+	} from '$lib/services/alert-resolutions.service';
+	import { AlertStatusService, type AlertStatus } from '$lib/services/alert-status.service';
+	import {
+		CaseClassificationsService,
+		type CaseClassification
+	} from '$lib/services/case-classifications.service';
+	import { SeveritiesService, type Severity } from '$lib/services/severities.service';
+	import AlertFilterLabels from './components/AlertFilters/AlertFilterLabels.svelte';
 	import { current_user } from '$lib/stores/auth.store';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
@@ -43,7 +55,6 @@
 	import AlertsMergeDialog, {
 		type MergeAlertPayload
 	} from './components/alerts-merge-dialog.svelte';
-	import { loadAlertStatuses } from './helpers/alert-status';
 	import { mergeAlerts } from './helpers/alerts-merge';
 	import { closeAlerts } from './helpers/alerts-close';
 	import { assignAlertsToOwner, reassignAlertOwner } from './helpers/alerts-assign';
@@ -69,8 +80,15 @@
 		'alert_customer_id',
 		'alert_start_date',
 		'alert_end_date',
+		'creation_start_date',
+		'creation_end_date',
+		'alert_assets',
+		'alert_iocs',
+		'alert_ids',
+		'source_reference',
 		'case_id',
 		'alert_owner_id',
+		'resolution_status_id',
 		'sort'
 	];
 
@@ -102,7 +120,10 @@
 		next_page: null
 	});
 
+	let alertResolutions = $state<AlertResolution[]>([]);
 	let alertStatuses = $state<AlertStatus[]>([]);
+	let caseClassifications = $state<CaseClassification[]>([]);
+	let severities = $state<Severity[]>([]);
 
 	let reassignOpen = $state(false);
 	let reassignAlert = $state<Alert | null>(null);
@@ -140,7 +161,8 @@
 				key === 'alert_classification_id' ||
 				key === 'alert_customer_id' ||
 				key === 'case_id' ||
-				key === 'alert_owner_id'
+				key === 'alert_owner_id' ||
+				key === 'resolution_status_id'
 			) {
 				if (isFiniteNumberString(raw)) {
 					(filters as Record<FilterKey, unknown>)[key] = Number(raw);
@@ -163,7 +185,7 @@
 		};
 	};
 
-	const writeQueryToUrl = (queryState: QueryState) => {
+	const writeQueryToUrl = async (queryState: QueryState) => {
 		const url = new URL(window.location.href);
 
 		if (queryState.page <= 1) url.searchParams.delete('page');
@@ -198,7 +220,11 @@
 		const currentHref = `${window.location.pathname}${window.location.search}`;
 		if (nextHref === currentHref) return;
 
-		window.history.replaceState(window.history.state, '', nextHref);
+		await goto(nextHref, {
+			replaceState: true,
+			keepFocus: true,
+			noScroll: true
+		});
 	};
 
 	const loadAlerts = async (next: QueryState) => {
@@ -208,6 +234,8 @@
 			...next.filters,
 			alert_start_date: toApiDate(next.filters.alert_start_date),
 			alert_end_date: toApiDate(next.filters.alert_end_date, true),
+			creation_start_date: toApiDate(next.filters.creation_start_date),
+			creation_end_date: toApiDate(next.filters.creation_end_date, true),
 			page: next.page,
 			per_page: next.per_page
 		});
@@ -521,15 +549,66 @@
 		getAlertFromPage(selectedAlertId) ?? alerts.byId[selectedAlertId] ?? null
 	);
 
-	onMount(async () => {
-		const nextQuery = readQueryFromUrl(new URL(window.location.href));
+	const removeFilter = async (key: keyof Filters) => {
+		clearSavedFilterSelection();
+
+		await commitQuery({
+			...query,
+			page: 1,
+			filters: {
+				...query.filters,
+				[key]: undefined
+			}
+		});
+	};
+
+	const hasActiveFilters = (filters: Filters): boolean => {
+		for (const key of FILTER_KEYS) {
+			if (key === 'sort') continue;
+
+			const value = filters[key];
+
+			if (value == null) continue;
+			if (typeof value === 'number') {
+				if (Number.isFinite(value)) return true;
+				continue;
+			}
+
+			if (String(value).trim() !== '') return true;
+		}
+
+		return false;
+	};
+
+	$effect(() => {
+		const nextQuery = readQueryFromUrl(new URL(page.url));
 		query = nextQuery;
+		filtersOpen = hasActiveFilters(nextQuery.filters);
 
-		await loadAlerts(nextQuery);
+		void loadAlerts(nextQuery);
+	});
 
-		alerts.loadSavedFilters({ filter_type: 'alerts', include_public: 1 });
+	onMount(async () => {
+		const alertResolutionResponse = (await AlertResolutionService.list())
+			.data as unknown as RequestResponse<AlertResolution[]>;
 
-		alertStatuses = await loadAlertStatuses();
+		alertResolutions = alertResolutionResponse.data as AlertResolution[];
+
+		const alertStatusResponse = (await AlertStatusService.list())
+			.data as unknown as RequestResponse<AlertStatus[]>;
+
+		alertStatuses = alertStatusResponse.data as AlertStatus[];
+
+		const caseClassificationsResponse = (await CaseClassificationsService.list())
+			.data as unknown as RequestResponse<CaseClassification[]>;
+
+		caseClassifications = caseClassificationsResponse.data as CaseClassification[];
+
+		const severitiesResponse = (await SeveritiesService.list()).data as unknown as RequestResponse<
+			Severity[]
+		>;
+
+		severities = severitiesResponse.data as Severity[];
 	});
 </script>
 
@@ -688,8 +767,21 @@
 					presets={alerts.savedFilters.items}
 					onSaveAsFilter={saveAsFilter}
 					saving={savingFilter}
+					{alertResolutions}
+					{alertStatuses}
+					{caseClassifications}
+					{severities}
 				/>
 			{/if}
+
+			<AlertFilterLabels
+				value={query.filters}
+				onRemove={(key) => void removeFilter(key)}
+				{alertResolutions}
+				{alertStatuses}
+				{caseClassifications}
+				{severities}
+			/>
 
 			{#if getSelectedCount() > 0}
 				<div class="flex gap-2">

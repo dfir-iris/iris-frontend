@@ -2,6 +2,8 @@ import type { FilterAlertsParams } from '$lib/services/alerts.service';
 
 export { uiFiltersToSavedFilterData, savedFilterToUiFilters } from './saved-filters-mapper';
 export { default as AlertFilters } from './AlertFilters.svelte';
+export { default as AlertFilterLabels } from './AlertFilterLabels.svelte';
+export { default as SaveAlertFiltersModal } from './SaveAlertFiltersModal.svelte';
 
 export type Filters = Pick<
 	FilterAlertsParams,
@@ -15,8 +17,15 @@ export type Filters = Pick<
 	| 'alert_customer_id'
 	| 'alert_start_date'
 	| 'alert_end_date'
+	| 'creation_start_date'
+	| 'creation_end_date'
+	| 'alert_assets'
+	| 'alert_iocs'
+	| 'alert_ids'
+	| 'source_reference'
 	| 'case_id'
 	| 'alert_owner_id'
+	| 'resolution_status_id'
 	| 'sort'
 >;
 
