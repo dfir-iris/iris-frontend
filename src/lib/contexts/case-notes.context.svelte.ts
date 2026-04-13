@@ -18,6 +18,14 @@ const getNoteId = (note: Note): number => note.note_id;
 
 const getDirectoryId = (directory: NoteFolder): number => directory.id;
 
+const normalizeFolder = (folder: NoteFolder): NoteFolder => ({
+	...folder,
+	subdirectories: Array.isArray(folder.subdirectories)
+		? folder.subdirectories.map(normalizeFolder)
+		: [],
+	notes: []
+});
+
 const collectDirectories = (
 	folders: NoteFolder[],
 	byId: Record<number, NoteFolder>,
@@ -52,6 +60,30 @@ const collectNotes = (folders: NoteFolder[], byId: Record<number, Note>, ordered
 			collectNotes(folder.subdirectories, byId, orderedIds);
 		}
 	}
+};
+
+const attachNotesToFolders = (folders: NoteFolder[], notes: Note[]) => {
+	const notesByDirectory = new Map<number, Note[]>();
+
+	for (const note of notes) {
+		if (typeof note.directory_id !== 'number') continue;
+
+		const current = notesByDirectory.get(note.directory_id);
+
+		if (current) {
+			current.push(note);
+		} else {
+			notesByDirectory.set(note.directory_id, [note]);
+		}
+	}
+
+	const apply = (folder: NoteFolder): NoteFolder => ({
+		...folder,
+		notes: notesByDirectory.get(folder.id) ?? [],
+		subdirectories: folder.subdirectories.map(apply)
+	});
+
+	return folders.map(apply);
 };
 
 export const createCaseNotesContext = (getCaseId: () => number | null) => {
@@ -122,15 +154,32 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 		list.status = 'loading';
 		list.error = null;
 
-		const res = await CaseNotesService.listDirectories(caseId, options);
+		const [directoriesRes, notesRes] = await Promise.all([
+			CaseNotesService.listDirectories(caseId, options),
+			CaseNotesService.listNotes(caseId, {}, options)
+		]);
 
-		if (!res.ok || res.error || res.data === null || typeof res.data === 'string') {
+		if (
+			!directoriesRes.ok ||
+			directoriesRes.error ||
+			directoriesRes.data === null ||
+			typeof directoriesRes.data === 'string'
+		) {
 			list.status = 'error';
-			list.error = res.error?.message ?? 'Failed to load notes';
+			list.error = directoriesRes.error?.message ?? 'Failed to load note directories';
 			return;
 		}
 
-		replaceTreeState(res.data);
+		if (!notesRes.ok || notesRes.error || notesRes.data === null || typeof notesRes.data === 'string') {
+			list.status = 'error';
+			list.error = notesRes.error?.message ?? 'Failed to load notes';
+			return;
+		}
+
+		const folders = directoriesRes.data.data.map(normalizeFolder);
+		const tree = attachNotesToFolders(folders, notesRes.data);
+
+		replaceTreeState(tree);
 		list.status = 'idle';
 	};
 
@@ -167,7 +216,7 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 		const id = ui.selectedNoteId;
 		if (id === null) return null;
 
-		if (byId[id]) return byId[id];
+		if (byId[id]?.note_content) return byId[id];
 
 		return await getNote(id, options);
 	};
@@ -260,7 +309,7 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 
 		if (res.ok && !res.error && res.data !== null && typeof res.data !== 'string') {
 			await refresh(options);
-			return directoriesById[res.data.id] ?? res.data;
+			return res.data;
 		}
 
 		await refresh(options);

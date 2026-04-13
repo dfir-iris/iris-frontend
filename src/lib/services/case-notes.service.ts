@@ -1,5 +1,5 @@
 import { ApiService } from './api.service';
-import type { ApiOptions, RequestResponse } from './api.service';
+import type { ApiOptions, Paginated, RequestResponse } from './api.service';
 import type { Note, NoteFolder } from '$lib/types/resources/note';
 
 export type CaseNoteIdentifier = number;
@@ -27,12 +27,32 @@ export interface UpdateNoteDirectoryBody {
 	parent_id?: number;
 }
 
+export interface ListCaseNotesParams {
+	search_input?: string;
+}
+
 export class CaseNotesService {
 	static async listDirectories(
 		caseId: number,
 		options: ApiOptions = {}
-	): Promise<RequestResponse<NoteFolder[]>> {
-		return ApiService.get<NoteFolder[]>(`/api/v2/cases/${caseId}/notes-directories`, options);
+	): Promise<RequestResponse<Paginated<NoteFolder>>> {
+		return ApiService.get<Paginated<NoteFolder>>(
+			`/api/v2/cases/${caseId}/notes-directories`,
+			options
+		);
+	}
+
+	static async listNotes(
+		caseId: number,
+		params: ListCaseNotesParams = {},
+		options: ApiOptions = {}
+	): Promise<RequestResponse<Note[]>> {
+		const path = ApiService.withQuery(
+			`/api/v2/cases/${caseId}/notes`,
+			params as Record<string, unknown>
+		);
+
+		return ApiService.get<Note[]>(path, options);
 	}
 
 	static async getDirectory(

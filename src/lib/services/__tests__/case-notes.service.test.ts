@@ -13,7 +13,7 @@ vi.mock('../api.service', () => ({
 import { CaseNotesService } from '../case-notes.service';
 import { ApiService } from '../api.service';
 
-import type { ApiOptions } from '../api.service';
+import type { ApiOptions, Paginated } from '../api.service';
 import type { Note, NoteFolder } from '$lib/types/resources/note';
 import type {
 	CreateCaseNoteBody,
@@ -37,15 +37,21 @@ describe('CaseNotesService', () => {
 		const mockResponse = {
 			ok: true,
 			status: 200,
-			data: [
-				{
-					id: 5,
-					name: 'Folder A',
-					note_count: 1,
-					subdirectories: [],
-					notes: []
-				}
-			] as NoteFolder[]
+			data: {
+				total: 1,
+				data: [
+					{
+						id: 5,
+						name: 'Folder A',
+						note_count: 1,
+						subdirectories: [],
+						notes: []
+					} as NoteFolder
+				],
+				last_page: 1,
+				current_page: 1,
+				next_page: null
+			} satisfies Paginated<NoteFolder>
 		};
 
 		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
