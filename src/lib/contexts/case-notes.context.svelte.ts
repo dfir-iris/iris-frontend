@@ -14,17 +14,127 @@ export const CASE_NOTES_CTX = Symbol('case-notes');
 
 type Status = 'idle' | 'loading' | 'error';
 
+type UIState = {
+	selectedNoteId?: number;
+	selectedFolderId?: number;
+	showAddNoteModal: boolean;
+	showAddFolderModal: boolean;
+};
+
+type RawNoteFolder = NoteFolder & {
+	parent_id?: number;
+	subdirectories?: Array<NoteFolder | string>;
+	notes?: Array<Note | string>;
+};
+
+type NormalizedNoteFolder = NoteFolder & {
+	parent_id?: number;
+	subdirectories: NormalizedNoteFolder[];
+	notes: Note[];
+};
+
+type FolderNode = {
+	id: number;
+	name: string;
+	parent_id?: number;
+	subdirectoryIds: number[];
+};
+
+type FolderMap = Record<number, NormalizedNoteFolder>;
+
 const getNoteId = (note: Note): number => note.note_id;
 
 const getDirectoryId = (directory: NoteFolder): number => directory.id;
 
-const normalizeFolder = (folder: NoteFolder): NoteFolder => ({
-	...folder,
-	subdirectories: Array.isArray(folder.subdirectories)
-		? folder.subdirectories.map(normalizeFolder)
-		: [],
-	notes: []
+const parseDirectoryRefId = (value: unknown): number | null => {
+	if (typeof value === 'object' && value !== null && 'id' in value) {
+		const id = (value as { id?: unknown }).id;
+		return typeof id === 'number' ? id : null;
+	}
+
+	if (typeof value !== 'string') return null;
+
+	const match = value.match(/<NoteDirectory\s+(\d+)>/);
+	return match ? Number(match[1]) : null;
+};
+
+const toFolderNode = (folder: RawNoteFolder): FolderNode => ({
+	id: folder.id,
+	name: folder.name,
+	parent_id: folder.parent_id,
+	subdirectoryIds: Array.isArray(folder.subdirectories)
+		? folder.subdirectories
+				.map(parseDirectoryRefId)
+				.filter((id): id is number => typeof id === 'number')
+		: []
 });
+
+const buildFoldersTree = (rawFolders: RawNoteFolder[], notes: Note[]): NormalizedNoteFolder[] => {
+	const folderNodes = rawFolders.map(toFolderNode);
+	const folderNodeById = new Map<number, FolderNode>(
+		folderNodes.map((folder) => [folder.id, folder])
+	);
+
+	const notesByDirectory = new Map<number, Note[]>();
+
+	for (const note of notes) {
+		if (typeof note.directory_id !== 'number') continue;
+
+		const current = notesByDirectory.get(note.directory_id);
+
+		if (current) {
+			current.push(note);
+		} else {
+			notesByDirectory.set(note.directory_id, [note]);
+		}
+	}
+
+	const folderMap: FolderMap = {};
+
+	for (const folder of folderNodes) {
+		folderMap[folder.id] = {
+			id: folder.id,
+			name: folder.name,
+			parent_id: folder.parent_id,
+			subdirectories: [],
+			notes: notesByDirectory.get(folder.id) ?? []
+		};
+	}
+
+	const childIds = new Set<number>();
+
+	for (const folder of folderNodes) {
+		for (const childId of folder.subdirectoryIds) {
+			const child = folderMap[childId];
+			if (!child) continue;
+
+			folderMap[folder.id].subdirectories.push(child);
+			childIds.add(childId);
+
+			if (!child.parent_id) {
+				child.parent_id = folder.id;
+			}
+		}
+	}
+
+	const roots: NormalizedNoteFolder[] = [];
+
+	for (const folder of folderNodes) {
+		const current = folderMap[folder.id];
+		if (!current) continue;
+
+		const hasParentByField =
+			typeof current.parent_id === 'number' && folderNodeById.has(current.parent_id);
+
+		const hasParentByRelationship = childIds.has(current.id);
+
+		if (!hasParentByField && !hasParentByRelationship) {
+			roots.push(current);
+		}
+	}
+
+	return roots;
+};
 
 const collectDirectories = (
 	folders: NoteFolder[],
@@ -62,33 +172,9 @@ const collectNotes = (folders: NoteFolder[], byId: Record<number, Note>, ordered
 	}
 };
 
-const attachNotesToFolders = (folders: NoteFolder[], notes: Note[]) => {
-	const notesByDirectory = new Map<number, Note[]>();
-
-	for (const note of notes) {
-		if (typeof note.directory_id !== 'number') continue;
-
-		const current = notesByDirectory.get(note.directory_id);
-
-		if (current) {
-			current.push(note);
-		} else {
-			notesByDirectory.set(note.directory_id, [note]);
-		}
-	}
-
-	const apply = (folder: NoteFolder): NoteFolder => ({
-		...folder,
-		notes: notesByDirectory.get(folder.id) ?? [],
-		subdirectories: folder.subdirectories.map(apply)
-	});
-
-	return folders.map(apply);
-};
-
 export const createCaseNotesContext = (getCaseId: () => number | null) => {
 	const byId = $state<Record<number, Note>>({});
-	const directoriesById = $state<Record<number, NoteFolder>>({});
+	const foldersById = $state<Record<number, NoteFolder>>({});
 
 	const list = $state<{
 		tree: NoteFolder[];
@@ -104,22 +190,22 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 		error: null
 	});
 
-	const ui = $state({
-		selectedNoteId: null as number | null,
+	const ui = $state<UIState>({
+		selectedNoteId: undefined,
+		selectedFolderId: undefined,
 		showAddNoteModal: false,
 		showAddFolderModal: false
 	});
 
 	const currentCaseId = $derived(() => getCaseId());
 
-	const currentNote = $derived(() => {
-		const id = ui.selectedNoteId;
-		return id === null ? null : (byId[id] ?? null);
-	});
+	const currentNote = $derived(() =>
+		ui.selectedNoteId !== undefined ? byId[ui.selectedNoteId] : undefined
+	);
 
-	const directories = $derived(() =>
+	const folders = $derived(() =>
 		list.directoryIds
-			.map((id) => directoriesById[id])
+			.map((id) => foldersById[id])
 			.filter((folder): folder is NoteFolder => !!folder)
 	);
 
@@ -128,13 +214,13 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 	);
 
 	const replaceTreeState = (tree: NoteFolder[]) => {
-		for (const k of Object.keys(directoriesById)) delete directoriesById[Number(k)];
+		for (const k of Object.keys(foldersById)) delete foldersById[Number(k)];
 		for (const k of Object.keys(byId)) delete byId[Number(k)];
 
 		const directoryIds: number[] = [];
 		const noteIds: number[] = [];
 
-		collectDirectories(tree, directoriesById, directoryIds);
+		collectDirectories(tree, foldersById, directoryIds);
 		collectNotes(tree, byId, noteIds);
 
 		list.tree = tree;
@@ -170,14 +256,18 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 			return;
 		}
 
-		if (!notesRes.ok || notesRes.error || notesRes.data === null || typeof notesRes.data === 'string') {
+		if (
+			!notesRes.ok ||
+			notesRes.error ||
+			notesRes.data === null ||
+			typeof notesRes.data === 'string'
+		) {
 			list.status = 'error';
 			list.error = notesRes.error?.message ?? 'Failed to load notes';
 			return;
 		}
 
-		const folders = directoriesRes.data.data.map(normalizeFolder);
-		const tree = attachNotesToFolders(folders, notesRes.data);
+		const tree = buildFoldersTree(directoriesRes.data.data as RawNoteFolder[], notesRes.data);
 
 		replaceTreeState(tree);
 		list.status = 'idle';
@@ -214,11 +304,14 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 
 	const ensureSelectedLoaded = async (options: ApiOptions = {}): Promise<Note | null> => {
 		const id = ui.selectedNoteId;
-		if (id === null) return null;
 
-		if (byId[id]?.note_content) return byId[id];
+		if (id) {
+			if (byId[id]?.note_content) return byId[id];
 
-		return await getNote(id, options);
+			return await getNote(id, options);
+		}
+
+		return null;
 	};
 
 	const createNote = async (
@@ -235,6 +328,7 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 			const note = res.data;
 			byId[getNoteId(note)] = note;
 			ui.selectedNoteId = getNoteId(note);
+			ui.selectedFolderId = note.directory_id;
 
 			await refresh(options);
 			return byId[note.note_id] ?? note;
@@ -280,7 +374,7 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 
 		if (prev) delete byId[id];
 		if (list.noteIds.includes(id)) list.noteIds = list.noteIds.filter((x) => x !== id);
-		if (ui.selectedNoteId === id) ui.selectedNoteId = null;
+		if (ui.selectedNoteId === id) ui.selectedNoteId = undefined;
 
 		const res = await CaseNotesService.removeNote(caseId, id, options);
 
@@ -297,7 +391,7 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 		return false;
 	};
 
-	const createDirectory = async (
+	const createFolder = async (
 		body: CreateNoteDirectoryBody,
 		options: ApiOptions = {}
 	): Promise<NoteFolder | null> => {
@@ -308,6 +402,7 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 		const res = await CaseNotesService.createDirectory(caseId, body, options);
 
 		if (res.ok && !res.error && res.data !== null && typeof res.data !== 'string') {
+			ui.selectedFolderId = res.data.id;
 			await refresh(options);
 			return res.data;
 		}
@@ -316,7 +411,7 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 		return null;
 	};
 
-	const patchDirectory = async (
+	const patchFolder = async (
 		id: NoteDirectoryIdentifier,
 		body: UpdateNoteDirectoryBody,
 		options: ApiOptions = {}
@@ -325,23 +420,23 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 
 		if (caseId === null) return null;
 
-		const prev = directoriesById[id];
-		if (prev) directoriesById[id] = { ...prev, ...(body as Partial<NoteFolder>) };
+		const prev = foldersById[id];
+		if (prev) foldersById[id] = { ...prev, ...(body as Partial<NoteFolder>) };
 
 		const res = await CaseNotesService.updateDirectory(caseId, id, body, options);
 
 		if (res.ok && !res.error && res.data !== null && typeof res.data !== 'string') {
-			directoriesById[id] = res.data;
+			foldersById[id] = res.data;
 
 			await refresh(options);
-			return directoriesById[id] ?? res.data;
+			return foldersById[id] ?? res.data;
 		}
 
 		await refresh(options);
-		return directoriesById[id] ?? null;
+		return foldersById[id] ?? null;
 	};
 
-	const removeDirectory = async (
+	const removeFolder = async (
 		id: NoteDirectoryIdentifier,
 		options: ApiOptions = {}
 	): Promise<boolean> => {
@@ -360,13 +455,17 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 		return false;
 	};
 
-	const selectNote = (id: number | null) => {
+	const selectNote = (id?: number) => {
 		ui.selectedNoteId = id;
+	};
+
+	const selectFolder = (id?: number) => {
+		ui.selectedFolderId = id;
 	};
 
 	const reset = () => {
 		for (const k of Object.keys(byId)) delete byId[Number(k)];
-		for (const k of Object.keys(directoriesById)) delete directoriesById[Number(k)];
+		for (const k of Object.keys(foldersById)) delete foldersById[Number(k)];
 
 		list.tree = [];
 		list.noteIds = [];
@@ -374,19 +473,20 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 		list.status = 'idle';
 		list.error = null;
 
-		ui.selectedNoteId = null;
+		ui.selectedNoteId = undefined;
+		ui.selectedFolderId = undefined;
 		ui.showAddNoteModal = false;
 		ui.showAddFolderModal = false;
 	};
 
 	return {
 		byId,
-		directoriesById,
+		foldersById,
 		list,
 		ui,
 		currentCaseId,
 		currentNote,
-		directories,
+		folders,
 		notes,
 		loadTree,
 		refresh,
@@ -395,10 +495,11 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 		createNote,
 		patchNote,
 		removeNote,
-		createDirectory,
-		patchDirectory,
-		removeDirectory,
+		createFolder,
+		patchFolder,
+		removeFolder,
 		selectNote,
+		selectFolder,
 		reset
 	};
 };
