@@ -1,23 +1,32 @@
 <script lang="ts">
 	import { setContext, type Snippet } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { FilePlusIcon, FolderPlusIcon } from 'lucide-svelte';
 	import { page } from '$app/state';
+	import { toast } from '$lib/stores/toast.store';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { FilePlusIcon, FolderPlusIcon } from 'lucide-svelte';
 	import {
 		CASE_NOTES_CTX,
 		createCaseNotesContext,
 		type CaseNotesContext
 	} from '$lib/contexts/case-notes.context.svelte';
-	import NotesTree from './notes-tree.svelte';
 	import type { ContextMenu, ContextMenuSource } from './types';
+	import NotesTree from './components/notes-tree.svelte';
+	import NotesContextMenu from './components/notes-context-menu.svelte';
+	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
+	import NotesRenameDialog from './components/notes-rename-dialog.svelte';
+	import NotesMoveItemDialog from './components/notes-move-item-dialog.svelte';
+	import { getNoteUrl, newNote } from './helpers';
 
 	let { children }: { children: Snippet } = $props();
 
 	const notes = createCaseNotesContext(() => Number(page.params.case_id));
 
 	setContext<CaseNotesContext>(CASE_NOTES_CTX, notes);
+
+	let showConfirmDelete = $state<boolean>(false);
+	let showRename = $state<boolean>(false);
+	let showMove = $state<boolean>(false);
 
 	let contextMenu = $state<ContextMenu>({
 		open: false,
@@ -47,14 +56,12 @@
 		contextMenu.open = false;
 		contextMenu.x = 0;
 		contextMenu.y = 0;
-		contextMenu.source = undefined;
-		contextMenu.noteId = undefined;
-		contextMenu.folderId = undefined;
 	};
 
 	const openContextMenu = (
 		event: MouseEvent,
 		source: ContextMenuSource,
+		name: string,
 		folderId: number,
 		noteId?: number
 	) => {
@@ -75,6 +82,7 @@
 		contextMenu.y = event.clientY;
 		contextMenu.source = source;
 		contextMenu.folderId = folderId;
+		contextMenu.name = name;
 	};
 
 	const newFolder = async (parentId?: number) => {
@@ -86,21 +94,37 @@
 		});
 	};
 
-	const newNote = async (folderId?: number) => {
-		closeContextMenu();
+	const renameItem = (name: string) => {
+		if (contextMenu.source === 'folder' && contextMenu.folderId) {
+			notes.patchFolder(contextMenu.folderId, { name });
+		}
 
-		const targetFolderId = folderId ?? notes.ui.selectedFolderId ?? notes.list.tree[0]?.id ?? null;
+		if (contextMenu.source === 'note' && contextMenu.noteId) {
+			notes.patchNote(contextMenu.noteId, { note_title: name });
+		}
 
-		if (targetFolderId === null) return;
+		showRename = false;
+	};
 
-		const note = await notes.createNote({
-			note_title: 'New note',
-			note_content: '',
-			directory_id: targetFolderId
-		});
+	const moveItem = (folderId: number | null) => {
+		if (contextMenu.source === 'folder' && contextMenu.folderId) {
+			notes.patchFolder(contextMenu.folderId, { parent_id: folderId ?? undefined });
+		}
 
-		if (note) {
-			await goto(`/case/${page.params.case_id}/notes/${note.note_id}`);
+		if (contextMenu.source === 'note' && contextMenu.noteId) {
+			notes.patchNote(contextMenu.noteId, { directory_id: folderId ?? undefined });
+		}
+
+		showMove = false;
+	};
+
+	const deleteItem = () => {
+		if (contextMenu.source === 'folder' && contextMenu.folderId) {
+			notes.removeFolder(contextMenu.folderId);
+		}
+
+		if (contextMenu.source === 'note' && contextMenu.noteId) {
+			notes.removeNote(contextMenu.noteId);
 		}
 	};
 </script>
@@ -108,7 +132,7 @@
 <svelte:document onclick={closeContextMenu} />
 
 <div class="flex h-full w-full flex-row overflow-hidden">
-	<div class="relative flex h-full min-h-0 w-1/4 max-w-[250px] flex-col border-r bg-background/60">
+	<div class="relative flex h-full min-h-0 w-1/4 max-w-[250px] flex-col border-r">
 		<div class="flex flex-row items-center gap-2 px-4 pb-2 pt-4">
 			<h2 class="w-full">Notes</h2>
 
@@ -118,15 +142,15 @@
 				aria-label="Add folder"
 				onclick={() => newFolder(notes.ui.selectedFolderId)}
 			>
-				<FolderPlusIcon size={18} class="!stroke-[1.75]" />
+				<FolderPlusIcon />
 			</Button>
 
-			<Button variant="ghost" size="icon" aria-label="Add note" onclick={() => newNote()}>
-				<FilePlusIcon size={18} class="!stroke-[1.75]" />
+			<Button variant="ghost" size="icon" aria-label="Add note" onclick={() => newNote(notes)}>
+				<FilePlusIcon />
 			</Button>
 		</div>
 
-		<div class="min-h-0 flex-1 overflow-y-auto pb-4">
+		<div class="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
 			{#if notes.list.status === 'loading' && notes.list.tree.length === 0}
 				<div class="space-y-2 px-4">
 					<Skeleton class="h-8 w-full" />
@@ -145,41 +169,66 @@
 		</div>
 
 		{#if contextMenu.open}
-			<div
-				class="fixed z-50 min-w-[180px] rounded-md border bg-background p-1 shadow-md"
-				style:left="{contextMenu.x}px"
-				style:top="{contextMenu.y}px"
-				tabindex="0"
-				role="menu"
-				onclick={(event) => event.stopPropagation()}
-				onkeydown={(event) => event.stopPropagation()}
-			>
-				{#if contextMenu.source === 'folder' && contextMenu.folderId}
-					<Button
-						variant="ghost"
-						class="w-full justify-start"
-						onclick={() => newNote(contextMenu.folderId)}
-					>
-						New note
-					</Button>
+			<NotesContextMenu
+				{contextMenu}
+				onNewNote={() => {
+					closeContextMenu();
 
-					<Button
-						variant="ghost"
-						class="w-full justify-start"
-						onclick={() => newFolder(contextMenu.folderId)}
-					>
-						New folder
-					</Button>
-				{:else if contextMenu.source === 'note'}
-					<Button
-						variant="ghost"
-						class="w-full justify-start"
-						onclick={() => newNote(contextMenu.folderId)}
-					>
-						New note
-					</Button>
-				{/if}
-			</div>
+					newNote(notes, contextMenu.folderId);
+				}}
+				onNewFolder={newFolder}
+				onCopyLink={(noteId?: number) => {
+					navigator.clipboard
+						.writeText(getNoteUrl(noteId))
+						.then(() => {
+							toast({
+								title: 'Link copied',
+								variant: 'success'
+							});
+						})
+						.catch((e) => {
+							console.error('Clipboard copy error:', e);
+
+							toast({
+								title: 'Could not copy link',
+								variant: 'destructive'
+							});
+						});
+				}}
+				onCopyMdLink={(noteId?: number) => {
+					navigator.clipboard
+						.writeText(`[<i class="fa-solid fa-bell"></i> #25](${getNoteUrl(noteId)})`)
+						.then(() => {
+							toast({
+								title: 'Link copied',
+								variant: 'success'
+							});
+						})
+						.catch((e) => {
+							console.error('Clipboard copy error:', e);
+
+							toast({
+								title: 'Could not copy link',
+								variant: 'destructive'
+							});
+						});
+				}}
+				onRename={() => {
+					closeContextMenu();
+
+					showRename = true;
+				}}
+				onMove={() => {
+					closeContextMenu();
+
+					showMove = true;
+				}}
+				onDelete={() => {
+					closeContextMenu();
+
+					showConfirmDelete = true;
+				}}
+			/>
 		{/if}
 	</div>
 
@@ -189,3 +238,27 @@
 		</div>
 	</div>
 </div>
+
+<NotesRenameDialog
+	bind:open={showRename}
+	initialValue={contextMenu.name}
+	itemType={contextMenu.source ?? 'folder'}
+	onSubmit={(value) => renameItem(value)}
+	onCancel={() => (showRename = false)}
+/>
+
+<NotesMoveItemDialog
+	bind:open={showMove}
+	tree={notes.list.tree}
+	itemType={contextMenu.source ?? 'folder'}
+	onSubmit={moveItem}
+	onCancel={() => (showMove = false)}
+/>
+
+<ConfirmationDialog
+	bind:open={showConfirmDelete}
+	title="Are you sure?"
+	message="You are about to delete this forever. This cannot be reverted. All associated data will be deleted."
+	onConfirm={deleteItem}
+	onCancel={() => (showConfirmDelete = false)}
+/>
