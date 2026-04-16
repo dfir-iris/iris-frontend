@@ -42,7 +42,7 @@
 			return;
 		}
 
-		void notes.loadTree();
+		notes.loadTree();
 
 		return () => notes.reset();
 	});
@@ -232,10 +232,8 @@
 		{/if}
 	</div>
 
-	<div class="h-full w-full overflow-hidden p-8">
-		<div class="flex h-full w-full flex-col rounded border bg-background shadow">
-			{@render children()}
-		</div>
+	<div class="h-full w-full overflow-auto bg-background">
+		{@render children()}
 	</div>
 </div>
 
