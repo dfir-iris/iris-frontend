@@ -37,7 +37,7 @@
 			<div class="flex h-7 w-7 shrink-0 items-center justify-center text-xs text-muted-foreground">...</div>
 		{:else}
 			<button
-				class={`flex h-7 min-w-7 shrink-0 items-center justify-center rounded-md border px-1.5 text-xs transition-colors ${page === item ? 'bg-iris-blue text-white shadow-sm' : 'hover:bg-muted'}`}
+				class={`flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full border px-1.5 text-xs transition-colors ${page === item ? 'bg-iris-blue border-iris-blue text-white shadow-sm' : 'hover:bg-muted'}`}
 				onclick={() => onPageChange(item)}
 			>
 				{item}
@@ -47,12 +47,12 @@
 
 	{#if page < pages}
 		<button
-			class="flex h-7 shrink-0 items-center rounded-md border px-2 text-xs transition-colors hover:bg-muted"
+			class="flex h-7 shrink-0 items-center rounded-full border px-2.5 text-xs transition-colors hover:bg-muted"
 			onclick={() => onPageChange(page + 1)}>Next</button
 		>
 
 		<button
-			class="flex h-7 shrink-0 items-center rounded-md border px-2 text-xs transition-colors hover:bg-muted"
+			class="flex h-7 shrink-0 items-center rounded-full border px-2.5 text-xs transition-colors hover:bg-muted"
 			onclick={() => onPageChange(pages)}>Last page</button
 		>
 	{/if}
