@@ -64,8 +64,10 @@
 	const strokeColor = $derived(isDark ? '#f9fafb' : '#111827');
 	const caseOpenColor = $derived(isDark ? '#4ade80' : '#16a34a');
 	const caseClosedColor = $derived(isDark ? '#fb923c' : '#c2410c');
+	const alertClosedColor = $derived(isDark ? '#fb923c' : '#c2410c');
 
 	const alertIcon = $derived(svgToDataUrl(withStroke(alertSvg, strokeColor)));
+	const alertClosedIcon = $derived(svgToDataUrl(withStroke(alertSvg, alertClosedColor)));
 	const iocIcon = $derived(svgToDataUrl(withStroke(iocSvg, strokeColor)));
 	const caseOpenIcon = $derived(svgToDataUrl(withStroke(caseSvg, caseOpenColor)));
 	const caseClosedIcon = $derived(svgToDataUrl(withStroke(caseClosedSvg, caseClosedColor)));
@@ -93,8 +95,9 @@
 				color: strokeColor
 			}
 		},
+		clickToUse: true,
 		interaction: {
-			zoomView: false,
+			zoomView: true,
 			hover: true
 		},
 		physics: {
@@ -152,11 +155,13 @@
 			const title = node.title?.includes('<') ? createTooltip(node.title) : node.title;
 
 			if (node.group === 'alert') {
+				const isClosed =
+					typeof node.label === 'string' && node.label.startsWith('[Closed]');
 				return {
 					...node,
 					title,
 					shape: 'image',
-					image: alertIcon,
+					image: isClosed ? alertClosedIcon : alertIcon,
 					font
 				};
 			}
