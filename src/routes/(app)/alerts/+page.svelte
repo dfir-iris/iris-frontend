@@ -583,7 +583,6 @@
 	$effect(() => {
 		const nextQuery = readQueryFromUrl(new URL(page.url));
 		query = nextQuery;
-		filtersOpen = hasActiveFilters(nextQuery.filters);
 
 		void loadAlerts(nextQuery);
 	});
