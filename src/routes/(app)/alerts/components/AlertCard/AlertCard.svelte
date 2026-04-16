@@ -96,13 +96,17 @@
 		return name !== 'new' && name !== 'unspecified';
 	});
 
+	const isFocused = $derived(alwaysExpanded || expanded);
+
 	const getAlertUrl = () => {
 		const url = new URL(page.url);
 		return `${url.origin}${url.pathname}/${alert.alert_id}`;
 	};
 </script>
 
-<Card.Root class={`group flex grow ${isProcessed() ? 'opacity-60 border-border/40' : ''}`}>
+<Card.Root
+	class={`group min-w-0 flex grow overflow-hidden transition-shadow duration-300 ${isFocused ? 'ring-1 ring-iris-blue/30 shadow-glow-blue' : ''} ${isProcessed() ? 'opacity-60 border-border/40' : ''}`}
+>
 	<Collapsible.Root
 		open={alwaysExpanded ? true : expanded}
 		onOpenChange={alwaysExpanded ? undefined : onExpandedChange}
@@ -142,9 +146,9 @@
 				</Collapsible.Trigger>
 			</div>
 
-			<div class="flex shrink-0 flex-wrap items-center gap-3 sm:gap-6">
+			<div class="flex min-w-0 flex-wrap items-center gap-3 sm:gap-6">
 				<div
-					class={`flex flex-wrap items-center gap-2 transition-opacity ${showHeaderActions ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+					class={`hidden flex-wrap items-center gap-2 transition-opacity sm:flex ${showHeaderActions ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
 				>
 					<Button variant="outline" size="xs" onclick={onShowMerge}>Merge</Button>
 

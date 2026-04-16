@@ -89,7 +89,7 @@
 	{#if alert.iocs.length}
 		<div class="rounded-lg border border-border/50 bg-muted/30 p-4">
 			<h4 class="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">IOCs</h4>
-			<IocDataTable iocs={alert.iocs} className="border-0" />
+			<IocDataTable iocs={alert.iocs} />
 		</div>
 	{/if}
 
@@ -97,16 +97,16 @@
 	{#if alert.assets.length}
 		<div class="rounded-lg border border-border/50 bg-muted/30 p-4">
 			<h4 class="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Assets</h4>
-			<AssetDataTable assets={alert.assets} className="border-0" />
+			<AssetDataTable assets={alert.assets} />
 		</div>
 	{/if}
 
 	<!-- Raw Alert -->
 	<div class="rounded-lg border border-border/50 bg-muted/30 p-4">
 		<h4 class="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Raw Alert</h4>
-		<Collapsible.Root open={showRawAlert}>
+		<Collapsible.Root bind:open={showRawAlert}>
 			<Collapsible.Trigger>
-				<Button variant="outline" size="sm" onclick={() => (showRawAlert = !showRawAlert)}>
+				<Button variant="outline" size="sm">
 					{showRawAlert ? 'Hide' : 'Show'} Raw Alert
 				</Button>
 			</Collapsible.Trigger>

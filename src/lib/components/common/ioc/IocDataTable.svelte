@@ -2,13 +2,7 @@
 	import type { Ioc } from '$lib/types/resources/ioc';
 	import { renderComponent, type ColumnDef } from '@tanstack/svelte-table';
 	import DataTable from '$lib/components/ui/data-table-tanstack/data-table.svelte';
-	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte'; // Or a TLPBadge if more appropriate
 	import { LinkCell } from '$lib/components/ui/table';
-	import { Button } from '$lib/components/ui/button';
-	import { Trash2 } from 'lucide-svelte';
-	import { iocsStore } from '$lib/stores/iocs.store';
-	import { ApiService } from '$lib/services/api.service';
-	import { ENDPOINTS } from '$lib/constants/endpoints';
 
 	export let iocs: Ioc[];
 	export let caseId: string | number | null = null;
@@ -29,14 +23,13 @@
 		{
 			accessorKey: 'ioc_value',
 			header: () => 'Value',
-			cell: (cell) => {
-				// Link to individual IOC view if it exists, e.g., /case/[case_id]/ioc/[ioc_id]
-				// For now, just display the value or link to a placeholder/details view
-				return renderComponent(LinkCell, {
-					href: `/case/${caseId}/iocs/${cell.row.original.ioc_id}`,
-					label: `${cell.getValue()}`
-				});
-			}
+			...(caseId != null && {
+				cell: (cell) =>
+					renderComponent(LinkCell, {
+						href: `/case/${caseId}/iocs/${cell.row.original.ioc_id}`,
+						label: `${cell.getValue()}`
+					})
+			})
 		},
 		{
 			accessorKey: 'ioc_type.type_name',
@@ -63,7 +56,7 @@
 	];
 </script>
 
-<div class="{className} flex overflow-auto rounded border bg-card pt-1">
+<div class="{className} flex overflow-auto">
 	{#if !iocs || iocs.length === 0}
 		<div class="w-full p-4 text-center">
 			<p>No IOCs to display.</p>

@@ -1,11 +1,23 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { LinkIcon, ListIcon, ListOrderedIcon, SheetIcon } from 'lucide-svelte';
-	import ace from 'ace-builds/src-noconflict/ace';
-	import type { Ace } from 'ace-builds';
-	import 'ace-builds/src-noconflict/mode-markdown';
-	import 'ace-builds/src-noconflict/ext-language_tools';
-	import Preview from './Preview.svelte';
+	import {
+		BoldIcon,
+		CodeIcon,
+		Heading1Icon,
+		Heading2Icon,
+		Heading3Icon,
+		ItalicIcon,
+		LinkIcon,
+		ListIcon,
+		ListOrderedIcon,
+		QuoteIcon,
+		StrikethroughIcon
+	} from 'lucide-svelte';
+	import { Editor } from '@tiptap/core';
+	import StarterKit from '@tiptap/starter-kit';
+	import Link from '@tiptap/extension-link';
+	import Placeholder from '@tiptap/extension-placeholder';
+	import { Markdown } from 'tiptap-markdown';
 
 	let { value, onChange, onSave } = $props<{
 		value: string;
@@ -14,187 +26,171 @@
 	}>();
 
 	let editorElement: HTMLDivElement;
-	let editor: Ace.Editor | null = null;
-
-	const insertSnippet = (editor: Ace.Editor, snippet: string) => {
-		const snippetManager = ace.require('ace/snippets').snippetManager as {
-			insertSnippet: (ed: Ace.Editor, s: string) => void;
-		};
-
-		snippetManager.insertSnippet(editor, snippet);
-		editor.focus();
-	};
+	let editor: Editor | null = null;
+	let skipUpdate = false;
 
 	onMount(() => {
-		editor = ace.edit(editorElement, {
-			mode: 'ace/mode/markdown',
-			value: value ?? '',
-			showPrintMargin: false,
-			wrap: true,
-			useWorker: false
-		});
+		editor = new Editor({
+			element: editorElement,
+			extensions: [
+				StarterKit.configure({
+					heading: { levels: [1, 2, 3] }
+				}),
+				Link.configure({
+					openOnClick: false,
+					HTMLAttributes: { class: 'text-blue-500 underline' }
+				}),
+				Placeholder.configure({
+					placeholder: 'Write a comment…'
+				}),
+				Markdown
+			],
+			content: value ?? '',
+			editorProps: {
+				attributes: {
+					class: 'outline-none min-h-[5rem] px-3 py-2 text-sm prose prose-sm dark:prose-invert max-w-none'
+				},
+				handleKeyDown: (_view, event) => {
+					if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+						onSave();
+						return true;
+					}
 
-		(editor as Ace.Editor).setOptions({
-			enableBasicAutocompletion: true,
-			enableLiveAutocompletion: true
-		});
+					if ((event.metaKey || event.ctrlKey) && event.key === 's') {
+						event.preventDefault();
+						onSave();
+						return true;
+					}
 
-		(editor as Ace.Editor).getSession().on('change', () => {
-			if (!editor) return;
-
-			const md = editor.getValue();
-			onChange(md);
-		});
-
-		(editor as Ace.Editor).commands.addCommand({
-			name: 'bold',
-			bindKey: { win: 'Ctrl-B', mac: 'Cmd-B' },
-			exec: (e) => insertSnippet(e, '**${1:$SELECTION}**')
-		});
-
-		(editor as Ace.Editor).commands.addCommand({
-			name: 'italic',
-			bindKey: { win: 'Ctrl-I', mac: 'Cmd-I' },
-			exec: (e) => insertSnippet(e, '*${1:$SELECTION}*')
-		});
-
-		(editor as Ace.Editor).commands.addCommand({
-			name: 'save',
-			bindKey: { win: 'Ctrl-S', mac: 'Cmd-S' },
-			exec: () => onSave()
-		});
-
-		(editor as Ace.Editor).commands.addCommand({
-			name: 'save',
-			bindKey: { win: 'Ctrl-Enter', mac: 'Cmd-Enter' },
-			exec: () => onSave()
-		});
-
-		(editor as Ace.Editor).commands.addCommand({
-			name: 'head_1',
-			bindKey: { win: 'Ctrl-Shift-1', mac: 'Cmd-Shift-1' },
-			exec: (e) => insertSnippet(e, '# ${1:$SELECTION}')
-		});
-
-		(editor as Ace.Editor).commands.addCommand({
-			name: 'head_2',
-			bindKey: { win: 'Ctrl-Shift-2', mac: 'Cmd-Shift-2' },
-			exec: (e) => insertSnippet(e, '## ${1:$SELECTION}')
-		});
-
-		(editor as Ace.Editor).commands.addCommand({
-			name: 'head_3',
-			bindKey: { win: 'Ctrl-Shift-3', mac: 'Cmd-Shift-3' },
-			exec: (e) => insertSnippet(e, '### ${1:$SELECTION}')
-		});
-
-		(editor as Ace.Editor).commands.addCommand({
-			name: 'head_4',
-			bindKey: { win: 'Ctrl-Shift-4', mac: 'Cmd-Shift-4' },
-			exec: (e) => insertSnippet(e, '#### ${1:$SELECTION}')
+					return false;
+				}
+			},
+			onUpdate: ({ editor: e }) => {
+				skipUpdate = true;
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				onChange((e.storage as any).markdown.getMarkdown());
+			}
 		});
 	});
 
 	$effect(() => {
-		if (!editor) return;
+		if (!editor || skipUpdate) {
+			skipUpdate = false;
+			return;
+		}
 
-		const current = editor.getValue();
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const currentMd = (editor.storage as any).markdown.getMarkdown();
 
-		if ((value ?? '') !== current) {
-			editor.setValue(value ?? '', -1);
+		if ((value ?? '') !== currentMd) {
+			editor.commands.setContent(value ?? '');
 		}
 	});
 
 	onDestroy(() => editor?.destroy());
+
+	const btn = (active: boolean) =>
+		`rounded p-1 transition-colors ${active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`;
 </script>
 
-<div class="space-y-2">
-	<div class="flex flex-wrap gap-2">
+<div class="flex flex-col overflow-hidden rounded-md border border-border/50">
+	<div class="flex items-center gap-0.5 border-b border-border/30 bg-muted/30 px-1.5 py-1">
 		<button
-			class="rounded-md border px-3 py-1"
-			onclick={() => insertSnippet(editor as Ace.Editor, '**${1:$SELECTION}**')}
+			class={btn(editor?.isActive('bold') ?? false)}
+			onclick={() => editor?.chain().focus().toggleBold().run()}
 		>
-			B
+			<BoldIcon size="12" />
 		</button>
 
 		<button
-			class="rounded-md border px-3 py-1 italic"
-			onclick={() => insertSnippet(editor as Ace.Editor, '*${1:$SELECTION}*')}
+			class={btn(editor?.isActive('italic') ?? false)}
+			onclick={() => editor?.chain().focus().toggleItalic().run()}
 		>
-			I
+			<ItalicIcon size="12" />
 		</button>
 
 		<button
-			class="rounded-md border px-3 py-1"
-			onclick={() => insertSnippet(editor as Ace.Editor, '# ${1:$SELECTION}')}
+			class={btn(editor?.isActive('strike') ?? false)}
+			onclick={() => editor?.chain().focus().toggleStrike().run()}
 		>
-			H1
+			<StrikethroughIcon size="12" />
+		</button>
+
+		<div class="mx-0.5 h-3.5 w-px bg-border/50"></div>
+
+		<button
+			class={btn(editor?.isActive('heading', { level: 1 }) ?? false)}
+			onclick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
+		>
+			<Heading1Icon size="12" />
 		</button>
 
 		<button
-			class="rounded-md border px-3 py-1"
-			onclick={() => insertSnippet(editor as Ace.Editor, '## ${1:$SELECTION}')}
+			class={btn(editor?.isActive('heading', { level: 2 }) ?? false)}
+			onclick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
 		>
-			H2
+			<Heading2Icon size="12" />
 		</button>
 
 		<button
-			class="rounded-md border px-3 py-1"
-			onclick={() => insertSnippet(editor as Ace.Editor, '### ${1:$SELECTION}')}
+			class={btn(editor?.isActive('heading', { level: 3 }) ?? false)}
+			onclick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
 		>
-			H3
+			<Heading3Icon size="12" />
+		</button>
+
+		<div class="mx-0.5 h-3.5 w-px bg-border/50"></div>
+
+		<button
+			class={btn(editor?.isActive('bulletList') ?? false)}
+			onclick={() => editor?.chain().focus().toggleBulletList().run()}
+		>
+			<ListIcon size="12" />
 		</button>
 
 		<button
-			class="rounded-md border px-3 py-1"
-			onclick={() => insertSnippet(editor as Ace.Editor, '#### ${1:$SELECTION}')}
+			class={btn(editor?.isActive('orderedList') ?? false)}
+			onclick={() => editor?.chain().focus().toggleOrderedList().run()}
 		>
-			H4
+			<ListOrderedIcon size="12" />
 		</button>
 
 		<button
-			class="rounded-md border px-3 py-1"
-			onclick={() => insertSnippet(editor as Ace.Editor, '```\\n${1:$SELECTION}\\n```')}
+			class={btn(editor?.isActive('blockquote') ?? false)}
+			onclick={() => editor?.chain().focus().toggleBlockquote().run()}
 		>
-			{'</>'}
+			<QuoteIcon size="12" />
 		</button>
 
 		<button
-			class="rounded-md border px-3 py-1"
-			onclick={() => insertSnippet(editor as Ace.Editor, '[${1:$SELECTION}](url)')}
+			class={btn(editor?.isActive('codeBlock') ?? false)}
+			onclick={() => editor?.chain().focus().toggleCodeBlock().run()}
 		>
-			<LinkIcon />
+			<CodeIcon size="12" />
 		</button>
 
-		<button
-			class="rounded-md border px-3 py-1"
-			onclick={() => insertSnippet(editor as Ace.Editor, '|\t|\t|\t|\n|--|--|--|\n|\t|\t|\t|\n')}
-		>
-			<SheetIcon />
-		</button>
+		<div class="mx-0.5 h-3.5 w-px bg-border/50"></div>
 
 		<button
-			class="rounded-md border px-3 py-1"
-			onclick={() => insertSnippet(editor as Ace.Editor, '\n- ')}
+			class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+			onclick={() => {
+				const url = window.prompt('URL');
+				if (url) editor?.chain().focus().setLink({ href: url }).run();
+			}}
 		>
-			<ListIcon />
-		</button>
-
-		<button
-			class="rounded-md border px-3 py-1"
-			onclick={() => insertSnippet(editor as Ace.Editor, '\n1. ')}
-		>
-			<ListOrderedIcon />
+			<LinkIcon size="12" />
 		</button>
 	</div>
 
-	<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-		<div class="rounded-md border bg-background">
-			<div bind:this={editorElement} class="h-full min-h-24 w-full"></div>
-		</div>
-
-		<div class="rounded-md border bg-background p-3">
-			<Preview markdown={value} />
-		</div>
-	</div>
+	<div bind:this={editorElement} class="bg-background"></div>
 </div>
+
+<style>
+	:global(.tiptap p.is-editor-empty:first-child::before) {
+		content: attr(data-placeholder);
+		float: left;
+		pointer-events: none;
+		height: 0;
+		color: hsl(var(--muted-foreground) / 0.5);
+	}
+</style>

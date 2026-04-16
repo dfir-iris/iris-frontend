@@ -858,9 +858,9 @@
 				</div>
 			{/if}
 
-			<ul class="flex flex-col gap-4">
+			<ul class="flex min-w-0 flex-col gap-4">
 				{#each alertsData.data as alert (alert.alert_id)}
-					<li class="flex items-center gap-4">
+					<li class="flex min-w-0 items-center gap-4">
 						{#if selecting}
 							<Checkbox
 								checked={selected[alert.alert_id] ?? selectedAll}

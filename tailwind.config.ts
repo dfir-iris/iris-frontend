@@ -93,6 +93,12 @@ const config: Config = {
 					blue: 'hsl(var(--iris-blue) / <alpha-value>)'
 				}
 			},
+			maxWidth: {
+				'8xl': '96rem'
+			},
+			boxShadow: {
+				'glow-blue': '0 0 24px -2px rgba(30, 64, 120, 0.3)'
+			},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
