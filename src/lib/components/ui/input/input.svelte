@@ -24,7 +24,7 @@
 	<input
 		bind:this={ref}
 		class={cn(
-			"border-input placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-lg border bg-background/50 px-3.5 py-2 text-sm shadow-sm transition-all duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium hover:border-ring/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50",
+			"border-input placeholder:text-muted-foreground flex h-10 w-full rounded-lg border bg-background px-3.5 py-2 text-sm shadow-sm transition-colors duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium hover:border-ring/40 focus:border-ring focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
 			className
 		)}
 		type="file"
@@ -36,7 +36,7 @@
 	<input
 		bind:this={ref}
 		class={cn(
-			"border-input placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-lg border bg-background/50 px-3.5 py-2 text-sm shadow-sm transition-all duration-150 hover:border-ring/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50",
+			"border-input placeholder:text-muted-foreground flex h-10 w-full rounded-lg border bg-background px-3.5 py-2 text-sm shadow-sm transition-colors duration-150 hover:border-ring/40 focus:border-ring focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
 			className
 		)}
 		{type}

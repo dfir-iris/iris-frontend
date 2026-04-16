@@ -1,19 +1,14 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import type { RequestResponse } from '$lib/services/api.service';
-	import { AlertStatusService, type AlertStatus } from '$lib/services/alert-status.service';
-	import {
-		type CaseClassification,
-		CaseClassificationsService
-	} from '$lib/services/case-classifications.service';
-	import { SeveritiesService, type Severity } from '$lib/services/severities.service';
+	import { type AlertResolution } from '$lib/services/alert-resolutions.service';
+	import { type AlertStatus } from '$lib/services/alert-status.service';
+	import { type CaseClassification } from '$lib/services/case-classifications.service';
+	import { type Severity } from '$lib/services/severities.service';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import SearchSelect, {
 		type SelectOption
 	} from '$lib/components/common/selects/SearchSelect.svelte';
-	import SaveAlertFiltersModal from './SaveAlertFiltersModal.svelte';
-	import { defaultFilters, type Filters } from '.';
+	import { SaveAlertFiltersModal, defaultFilters, type Filters } from '.';
 
 	type Preset = {
 		filter_id: number;
@@ -36,6 +31,10 @@
 		onPresetSelect?: (id: number) => void;
 		onSaveAsFilter?: (filters: Filters, meta: SaveMeta) => void;
 		saving?: boolean;
+		alertResolutions: AlertResolution[];
+		alertStatuses: AlertStatus[];
+		caseClassifications: CaseClassification[];
+		severities: Severity[];
 	};
 
 	let {
@@ -45,7 +44,11 @@
 		onClear,
 		presets = [],
 		onSaveAsFilter,
-		saving = false
+		saving = false,
+		alertResolutions,
+		alertStatuses,
+		caseClassifications,
+		severities
 	}: Props = $props();
 
 	const strOrUndef = (v: string): string | undefined => {
@@ -98,9 +101,12 @@
 		onApply();
 	};
 
-	let alertStatuses = $state<AlertStatus[]>([]);
-	let caseClassifications = $state<CaseClassification[]>([]);
-	let severities = $state<Severity[]>([]);
+	const resolutionOptions = $derived.by<SelectOption[]>(() =>
+		alertResolutions.map((resolution) => ({
+			value: String(resolution.resolution_status_id),
+			label: resolution.resolution_status_name
+		}))
+	);
 
 	const statusOptions = $derived.by<SelectOption[]>(() =>
 		alertStatuses.map((status) => ({
@@ -116,161 +122,252 @@
 	const severityOptions = $derived.by<SelectOption[]>(() =>
 		severities.map((s) => ({ value: String(s.severity_id), label: s.severity_name }))
 	);
-
-	onMount(async () => {
-		const alertStatusResponse = (await AlertStatusService.list())
-			.data as unknown as RequestResponse<AlertStatus[]>;
-
-		alertStatuses = alertStatusResponse.data as AlertStatus[];
-
-		const caseClassificationsResponse = (await CaseClassificationsService.list())
-			.data as unknown as RequestResponse<CaseClassification[]>;
-
-		caseClassifications = caseClassificationsResponse.data as CaseClassification[];
-
-		const severitiesResponse = (await SeveritiesService.list()).data as unknown as RequestResponse<
-			Severity[]
-		>;
-
-		severities = severitiesResponse.data as Severity[];
-	});
 </script>
 
-<form class="rounded-xl border bg-background p-4" onsubmit={submit}>
-	<div class="grid gap-4 md:grid-cols-4">
-		<div class="space-y-1">
-			<div class="text-sm font-medium">Title</div>
-			<Input
-				value={value.alert_title ?? ''}
-				oninput={(e) => setStr('alert_title', (e.currentTarget as HTMLInputElement).value)}
-			/>
+<form class="mx-auto max-w-9xl rounded-xl border bg-muted/100 p-5 shadow-sm" onsubmit={submit}>
+	<div class="space-y-4">
+		<div class="grid grid-cols-2 gap-x-3 gap-y-3 md:grid-cols-4">
+			<div class="space-y-0.5">
+				<label class="text-xs text-muted-foreground">Title</label>
+				<Input
+					class="h-8 text-xs"
+					placeholder="Filter by title..."
+					value={value.alert_title ?? ''}
+					oninput={(e) => setStr('alert_title', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</div>
+
+			<div class="space-y-0.5">
+				<label class="text-xs text-muted-foreground">Description</label>
+				<Input
+					class="h-8 text-xs"
+					placeholder="Filter by description..."
+					value={value.alert_description ?? ''}
+					oninput={(e) => setStr('alert_description', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</div>
+
+			<div class="space-y-0.5">
+				<label class="text-xs text-muted-foreground">Source</label>
+				<Input
+					class="h-8 text-xs"
+					placeholder="Filter by source..."
+					value={value.alert_source ?? ''}
+					oninput={(e) => setStr('alert_source', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</div>
+
+			<div class="space-y-0.5">
+				<label class="text-xs text-muted-foreground">Tags</label>
+				<Input
+					class="h-8 text-xs"
+					placeholder="Filter by tags..."
+					value={typeof value.alert_tags === 'string' ? value.alert_tags : ''}
+					oninput={(e) => setStr('alert_tags', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</div>
 		</div>
 
-		<div class="space-y-1">
-			<div class="text-sm font-medium">Description</div>
-			<Input
-				value={value.alert_description ?? ''}
-				oninput={(e) => setStr('alert_description', (e.currentTarget as HTMLInputElement).value)}
-			/>
+		<hr class="border-border/50" />
+
+		<div class="grid grid-cols-2 gap-x-3 gap-y-3 md:grid-cols-4">
+			<div class="space-y-0.5">
+				<label class="text-xs text-muted-foreground">Status</label>
+				<SearchSelect
+					size="sm"
+					value={value.alert_status_id == null ? '' : String(value.alert_status_id)}
+					options={statusOptions}
+					placeholder="Status"
+					searchPlaceholder="Search status..."
+					onChange={(next) =>
+						onChange({
+							...value,
+							alert_status_id: next ? Number(next) : undefined
+						})}
+				/>
+			</div>
+
+			<div class="space-y-0.5">
+				<label class="text-xs text-muted-foreground">Severity</label>
+				<SearchSelect
+					size="sm"
+					value={value.alert_severity_id == null ? '' : String(value.alert_severity_id)}
+					options={severityOptions}
+					placeholder="Severity"
+					searchPlaceholder="Search severity..."
+					onChange={(next) =>
+						onChange({
+							...value,
+							alert_severity_id: next ? Number(next) : undefined
+						})}
+				/>
+			</div>
+
+			<div class="space-y-0.5">
+				<label class="text-xs text-muted-foreground">Classification</label>
+				<SearchSelect
+					size="sm"
+					value={value.alert_classification_id == null ? '' : String(value.alert_classification_id)}
+					options={classificationOptions}
+					placeholder="Classification"
+					searchPlaceholder="Search classification..."
+					onChange={(next) =>
+						onChange({
+							...value,
+							alert_classification_id: next ? Number(next) : undefined
+						})}
+				/>
+			</div>
+
+			<div class="space-y-0.5">
+				<label class="text-xs text-muted-foreground">Resolution Status</label>
+				<SearchSelect
+					size="sm"
+					value={value.resolution_status_id == null ? '' : String(value.resolution_status_id)}
+					options={resolutionOptions}
+					placeholder="Resolution Status"
+					searchPlaceholder="Search resolution status..."
+					onChange={(next) =>
+						onChange({
+							...value,
+							resolution_status_id: next ? Number(next) : undefined
+						})}
+				/>
+			</div>
+
+			<div class="space-y-0.5">
+				<label class="text-xs text-muted-foreground">Customer</label>
+				<Input
+					class="h-8 text-xs"
+					inputmode="numeric"
+					placeholder="Customer ID"
+					value={value.alert_customer_id == null ? '' : String(value.alert_customer_id)}
+					oninput={(e) => setNum('alert_customer_id', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</div>
+
+			<div class="space-y-0.5">
+				<label class="text-xs text-muted-foreground">Owner</label>
+				<Input
+					class="h-8 text-xs"
+					inputmode="numeric"
+					placeholder="Owner ID"
+					value={value.alert_owner_id == null ? '' : String(value.alert_owner_id)}
+					oninput={(e) => setNum('alert_owner_id', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</div>
 		</div>
 
-		<div class="space-y-1">
-			<div class="text-sm font-medium">Source</div>
-			<Input
-				value={value.alert_source ?? ''}
-				oninput={(e) => setStr('alert_source', (e.currentTarget as HTMLInputElement).value)}
-			/>
+		<hr class="border-border/50" />
+
+		<div class="grid grid-cols-2 gap-x-3 gap-y-3 md:grid-cols-4">
+			<div class="space-y-0.5">
+				<label class="text-xs text-muted-foreground">Source Start Date</label>
+				<Input
+					class="h-8 text-xs"
+					type="date"
+					value={value.alert_start_date ?? ''}
+					oninput={(e) => setStr('alert_start_date', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</div>
+
+			<div class="space-y-0.5">
+				<label class="text-xs text-muted-foreground">Source End Date</label>
+				<Input
+					class="h-8 text-xs"
+					type="date"
+					value={value.alert_end_date ?? ''}
+					oninput={(e) => setStr('alert_end_date', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</div>
+
+			<div class="space-y-0.5">
+				<label class="text-xs text-muted-foreground">Creation Start Date</label>
+				<Input
+					class="h-8 text-xs"
+					type="date"
+					value={value.creation_start_date ?? ''}
+					oninput={(e) => setStr('creation_start_date', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</div>
+
+			<div class="space-y-0.5">
+				<label class="text-xs text-muted-foreground">Creation End Date</label>
+				<Input
+					class="h-8 text-xs"
+					type="date"
+					value={value.creation_end_date ?? ''}
+					oninput={(e) => setStr('creation_end_date', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</div>
 		</div>
 
-		<div class="space-y-1">
-			<div class="text-sm font-medium">Tags</div>
-			<Input
-				value={typeof value.alert_tags === 'string' ? value.alert_tags : ''}
-				oninput={(e) => setStr('alert_tags', (e.currentTarget as HTMLInputElement).value)}
-			/>
-		</div>
+		<hr class="border-border/50" />
 
-		<div class="space-y-1">
-			<div class="text-sm font-medium">Status</div>
-			<SearchSelect
-				value={value.alert_status_id == null ? '' : String(value.alert_status_id)}
-				options={statusOptions}
-				placeholder="Status"
-				searchPlaceholder="Search status..."
-				onChange={(next) =>
-					onChange({
-						...value,
-						alert_status_id: next ? Number(next) : undefined
-					})}
-			/>
-		</div>
+		<div class="grid grid-cols-2 gap-x-3 gap-y-3 md:grid-cols-4">
+			<div class="space-y-0.5">
+				<label class="text-xs text-muted-foreground">Asset(s) name</label>
+				<Input
+					class="h-8 text-xs"
+					placeholder="Filter by asset..."
+					value={typeof value.alert_assets === 'string' ? value.alert_assets : ''}
+					oninput={(e) => setStr('alert_assets', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</div>
 
-		<div class="space-y-1">
-			<div class="text-sm font-medium">Severity</div>
-			<SearchSelect
-				value={value.alert_severity_id == null ? '' : String(value.alert_severity_id)}
-				options={severityOptions}
-				placeholder="Severity"
-				searchPlaceholder="Search severity..."
-				onChange={(next) =>
-					onChange({
-						...value,
-						alert_severity_id: next ? Number(next) : undefined
-					})}
-			/>
-		</div>
+			<div class="space-y-0.5">
+				<label class="text-xs text-muted-foreground">IOC(s)</label>
+				<Input
+					class="h-8 text-xs"
+					placeholder="Filter by IOC..."
+					value={typeof value.alert_iocs === 'string' ? value.alert_iocs : ''}
+					oninput={(e) => setStr('alert_iocs', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</div>
 
-		<div class="space-y-1">
-			<div class="text-sm font-medium">Classification</div>
-			<SearchSelect
-				value={value.alert_classification_id == null ? '' : String(value.alert_classification_id)}
-				options={classificationOptions}
-				placeholder="Classification"
-				searchPlaceholder="Search classification..."
-				onChange={(next) =>
-					onChange({
-						...value,
-						alert_classification_id: next ? Number(next) : undefined
-					})}
-			/>
-		</div>
+			<div class="space-y-0.5">
+				<label class="text-xs text-muted-foreground">Alert(s) ID</label>
+				<Input
+					class="h-8 text-xs"
+					placeholder="Alert IDs..."
+					value={typeof value.alert_ids === 'string' ? value.alert_ids : ''}
+					oninput={(e) => setStr('alert_ids', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</div>
 
-		<div class="space-y-1">
-			<div class="text-sm font-medium">Customer</div>
-			<Input
-				inputmode="numeric"
-				value={value.alert_customer_id == null ? '' : String(value.alert_customer_id)}
-				oninput={(e) => setNum('alert_customer_id', (e.currentTarget as HTMLInputElement).value)}
-			/>
-		</div>
+			<div class="space-y-0.5">
+				<label class="text-xs text-muted-foreground">Source Reference</label>
+				<Input
+					class="h-8 text-xs"
+					placeholder="Source reference..."
+					value={value.source_reference ?? ''}
+					oninput={(e) => setStr('source_reference', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</div>
 
-		<div class="space-y-1">
-			<div class="text-sm font-medium">Source Start Date</div>
-			<Input
-				type="date"
-				value={value.alert_start_date ?? ''}
-				oninput={(e) => setStr('alert_start_date', (e.currentTarget as HTMLInputElement).value)}
-			/>
-		</div>
-
-		<div class="space-y-1">
-			<div class="text-sm font-medium">Source End Date</div>
-			<Input
-				type="date"
-				value={value.alert_end_date ?? ''}
-				oninput={(e) => setStr('alert_end_date', (e.currentTarget as HTMLInputElement).value)}
-			/>
-		</div>
-
-		<div class="space-y-1">
-			<div class="text-sm font-medium">Case ID</div>
-			<Input
-				inputmode="numeric"
-				value={value.case_id == null ? '' : String(value.case_id)}
-				oninput={(e) => setNum('case_id', (e.currentTarget as HTMLInputElement).value)}
-			/>
-		</div>
-
-		<div class="space-y-1">
-			<div class="text-sm font-medium">Owner</div>
-			<Input
-				inputmode="numeric"
-				value={value.alert_owner_id == null ? '' : String(value.alert_owner_id)}
-				oninput={(e) => setNum('alert_owner_id', (e.currentTarget as HTMLInputElement).value)}
-			/>
+			<div class="space-y-0.5">
+				<label class="text-xs text-muted-foreground">Case ID</label>
+				<Input
+					class="h-8 text-xs"
+					inputmode="numeric"
+					placeholder="Case ID"
+					value={value.case_id == null ? '' : String(value.case_id)}
+					oninput={(e) => setNum('case_id', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</div>
 		</div>
 	</div>
 
-	<div class="mt-4 flex items-center justify-between">
+	<div class="mt-4 flex items-center justify-between border-t border-border/50 pt-4">
 		<div class="flex gap-2">
-			<Button type="submit">Apply Filters</Button>
-			<Button type="button" variant="outline" onclick={clear}>Clear</Button>
+			<Button type="submit" size="sm">Apply Filters</Button>
+			<Button type="button" size="sm" variant="outline" onclick={clear}>Clear</Button>
 		</div>
 
 		{#if presets.length > 0 || onSaveAsFilter}
 			<div class="flex items-center gap-2">
 				{#if onSaveAsFilter}
-					<Button type="button" variant="outline" disabled={saving} onclick={openSave}>
+					<Button type="button" size="sm" variant="outline" disabled={saving} onclick={openSave}>
 						Save as filter
 					</Button>
 				{/if}

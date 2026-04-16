@@ -16,11 +16,15 @@ export interface FilterAlertsParams {
 	alert_customer_id?: number;
 	alert_start_date?: string;
 	alert_end_date?: string;
+	creation_start_date?: string;
+	creation_end_date?: string;
 	alert_assets?: string | string[];
 	alert_iocs?: string | string[];
 	alert_ids?: string | number[];
+	source_reference?: string;
 	case_id?: number;
 	alert_owner_id?: number;
+	resolution_status_id?: number;
 	page?: number;
 	per_page?: number;
 	sort?: SortDir;

@@ -15,111 +15,111 @@
 	} = $props();
 
 	let showRawAlert = $state(false);
+
+	const contextEntries: { key: string; value: string }[] = $derived(
+		Object.keys(alert.alert_context).map((k) => ({ key: k, value: String(alert.alert_context[k]) }))
+	);
 </script>
 
-<div class="flex flex-col">
-	<div class="mb-3 mt-4 text-sm font-semibold">General Info</div>
+<div class="flex min-w-0 flex-col gap-4 pt-2">
+	<!-- General Info + Alert Note side by side -->
+	<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+		<div class="rounded-lg border border-border/50 bg-muted/30 p-4">
+			<h4 class="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">General Info</h4>
 
-	<div class="grid w-auto max-w-xl grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-		<div class="text-muted-foreground">Source:</div>
-		<div>{alert.alert_source}</div>
+			<div class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-xs">
+				<div class="text-muted-foreground">Source</div>
+				<div class="font-medium">{alert.alert_source}</div>
 
-		<div class="text-muted-foreground">Source Link:</div>
-		<div>
-			<a target="_blank" href={alert.alert_source_link}>{alert.alert_source_link}</a>
+				<div class="text-muted-foreground">Source Link</div>
+				<div class="flex min-w-0 items-center gap-1">
+					<a target="_blank" href={alert.alert_source_link} class="truncate text-blue-500 hover:underline">{alert.alert_source_link}</a>
+					<ClipboardCopy value={alert.alert_source_link} tooltipText="Copy" alwaysVisible={true} size={11} />
+				</div>
 
-			<ClipboardCopy
-				value={alert.alert_source_link}
-				tooltipText="Copy"
-				alwaysVisible={true}
-				size={12}
-			/>
+				<div class="text-muted-foreground">Source Reference</div>
+				<div class="flex min-w-0 items-center gap-1">
+					<span class="truncate">{alert.alert_source_ref}</span>
+					<ClipboardCopy value={alert.alert_source_ref} tooltipText="Copy" alwaysVisible={true} size={11} />
+				</div>
+
+				<div class="text-muted-foreground">Source Event Time</div>
+				<div class="flex items-center gap-1">
+					{mediumDateTimeFormatter(new Date(alert.alert_source_event_time))}
+					<ClipboardCopy value={alert.alert_source_event_time} tooltipText="Copy" alwaysVisible={true} size={11} />
+				</div>
+
+				<div class="text-muted-foreground">IRIS Creation Time</div>
+				<div class="flex items-center gap-1">
+					{mediumDateTimeFormatter(new Date(alert.alert_creation_time))}
+					<ClipboardCopy value={alert.alert_creation_time} tooltipText="Copy" alwaysVisible={true} size={11} />
+				</div>
+			</div>
 		</div>
 
-		<div class="text-muted-foreground">Source Reference:</div>
-		<div>
-			{alert.alert_source_ref}
+		<div class="flex flex-col gap-4">
+			{#if alert.alert_note}
+				<div class="rounded-lg border border-border/50 bg-muted/30 p-4">
+					<h4 class="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Alert Note</h4>
+					<pre class="w-full overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed">{alert.alert_note}</pre>
+				</div>
+			{/if}
 
-			<ClipboardCopy
-				value={alert.alert_source_ref}
-				tooltipText="Copy"
-				alwaysVisible={true}
-				size={12}
-			/>
-		</div>
-
-		<div class="text-muted-foreground">Source Event Time:</div>
-		<div>
-			{mediumDateTimeFormatter(new Date(alert.alert_source_event_time))}
-
-			<ClipboardCopy
-				value={alert.alert_source_event_time}
-				tooltipText="Copy"
-				alwaysVisible={true}
-				size={12}
-			/>
-		</div>
-
-		<div class="text-muted-foreground">IRIS Creation Time:</div>
-		<div>
-			{mediumDateTimeFormatter(new Date(alert.alert_creation_time))}
-
-			<ClipboardCopy
-				value={alert.alert_creation_time}
-				tooltipText="Copy"
-				alwaysVisible={true}
-				size={12}
-			/>
+			{#if Object.keys(alert.alert_context).length}
+				<div class="rounded-lg border border-border/50 bg-muted/30 p-4">
+					<h4 class="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Context</h4>
+					<div class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-xs">
+						{#each contextEntries as entry (entry.key)}
+							<div class="text-muted-foreground">{entry.key}</div>
+							<div class="break-all">{entry.value}</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
 		</div>
 	</div>
 
-	<div class="mb-3 mt-4 border-t border-border pt-4 text-sm font-semibold">Alert note</div>
-
-	<pre
-		class="w-full overflow-auto whitespace-pre-wrap break-words text-xs opacity-80">{alert.alert_note}</pre>
-
-	<div class="mb-3 mt-4 border-t border-border pt-4 text-sm font-semibold">Context</div>
-
-	<div class="grid w-auto max-w-xl grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-		{#each Object.keys(alert.alert_context) as context_key}
-			<div class="text-muted-foreground">{context_key}</div>
-			<div>{alert.alert_context[context_key]}</div>
-		{/each}
+	<!-- Relationships -->
+	<div class="rounded-lg border border-border/50 bg-muted/30 p-4">
+		<h4 class="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Relationships</h4>
+		<AlertRelatedGraph alertId={alert.alert_id} />
 	</div>
 
-	<div class="mb-3 mt-4 border-t border-border pt-4 text-sm font-semibold">Relationships</div>
-
-	<AlertRelatedGraph alertId={alert.alert_id} />
-
+	<!-- IOCs -->
 	{#if alert.iocs.length}
-		<div class="mb-3 mt-4 border-t border-border pt-4 text-sm font-semibold">IOCs</div>
-
-		<IocDataTable iocs={alert.iocs} className="border-0" />
+		<div class="rounded-lg border border-border/50 bg-muted/30 p-4">
+			<h4 class="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">IOCs</h4>
+			<IocDataTable iocs={alert.iocs} />
+		</div>
 	{/if}
 
+	<!-- Assets -->
 	{#if alert.assets.length}
-		<div class="mb-3 mt-4 border-t border-border pt-4 text-sm font-semibold">Assets</div>
-
-		<AssetDataTable assets={alert.assets} className="border-0" />
+		<div class="rounded-lg border border-border/50 bg-muted/30 p-4">
+			<h4 class="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Assets</h4>
+			<AssetDataTable assets={alert.assets} />
+		</div>
 	{/if}
 
-	<div class="mb-3 mt-4 border-t border-border pt-4 text-sm font-semibold">Raw Alert</div>
+	<!-- Raw Alert -->
+	<div class="rounded-lg border border-border/50 bg-muted/30 p-4">
+		<h4 class="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Raw Alert</h4>
+		<Collapsible.Root bind:open={showRawAlert}>
+			<Collapsible.Trigger>
+				<Button variant="outline" size="sm">
+					{showRawAlert ? 'Hide' : 'Show'} Raw Alert
+				</Button>
+			</Collapsible.Trigger>
 
-	<Collapsible.Root open={showRawAlert}>
-		<Collapsible.Trigger>
-			<Button variant="outline" onclick={() => (showRawAlert = !showRawAlert)}>
-				Toggle Raw Alert
-			</Button>
-		</Collapsible.Trigger>
-
-		<Collapsible.Content
-			class="w-full overflow-auto data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down"
-		>
-			<pre class="mt-4 whitespace-pre-wrap break-words text-xs opacity-80">{JSON.stringify(
-					alert.alert_source_content,
-					null,
-					2
-				)}</pre>
-		</Collapsible.Content>
-	</Collapsible.Root>
+			<Collapsible.Content
+				class="w-full overflow-auto data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down"
+			>
+				<pre class="mt-3 rounded-md bg-muted/50 p-3 whitespace-pre-wrap break-words text-xs leading-relaxed">{JSON.stringify(
+						alert.alert_source_content,
+						null,
+						2
+					)}</pre>
+			</Collapsible.Content>
+		</Collapsible.Root>
+	</div>
 </div>

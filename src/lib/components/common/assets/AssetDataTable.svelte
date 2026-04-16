@@ -20,11 +20,13 @@
 		{
 			accessorKey: 'asset_name',
 			header: () => 'Name',
-			cell: (cell) =>
-				renderComponent(LinkCell, {
-					href: `/case/${caseId}/assets/${cell.row.original.asset_id}`,
-					label: `${cell.getValue()}`
-				})
+			...(caseId != null && {
+				cell: (cell) =>
+					renderComponent(LinkCell, {
+						href: `/case/${caseId}/assets/${cell.row.original.asset_id}`,
+						label: `${cell.getValue()}`
+					})
+			})
 		},
 		{
 			accessorKey: 'asset_type.asset_name',
@@ -46,7 +48,7 @@
 	];
 </script>
 
-<div class="{className} flex overflow-auto rounded border bg-card pt-1">
+<div class="{className} flex overflow-auto">
 	{#if !assets || assets.length === 0}
 		<div class="w-full p-4 text-center">
 			<p>No assets to display.</p>

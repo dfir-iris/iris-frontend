@@ -79,10 +79,24 @@
 	let isAssignMenuOpen = $state(false);
 	let isSetStatusMenuOpen = $state(false);
 	let isMenuOpen = $state(false);
+	let detailsLoaded = $state(alwaysExpanded || expanded);
+
+	$effect(() => {
+		if (alwaysExpanded || expanded) {
+			detailsLoaded = true;
+		}
+	});
 
 	const showHeaderActions = $derived(
 		isAssignMenuOpen || isSetStatusMenuOpen || isMenuOpen || alwaysExpanded
 	);
+
+	const isProcessed = $derived(() => {
+		const name = alert.status?.status_name?.toLowerCase().trim() ?? '';
+		return name !== 'new' && name !== 'unspecified';
+	});
+
+	const isFocused = $derived(alwaysExpanded || expanded);
 
 	const getAlertUrl = () => {
 		const url = new URL(page.url);
@@ -90,13 +104,15 @@
 	};
 </script>
 
-<Card.Root class="group flex grow">
+<Card.Root
+	class={`group min-w-0 flex grow overflow-hidden transition-shadow duration-300 ${isFocused ? 'ring-1 ring-iris-blue/30 shadow-glow-blue' : ''} ${isProcessed() ? 'opacity-60 border-border/40' : ''}`}
+>
 	<Collapsible.Root
 		open={alwaysExpanded ? true : expanded}
 		onOpenChange={alwaysExpanded ? undefined : onExpandedChange}
 		disabled={alwaysExpanded}
 	>
-		<Card.Header class="!flex !flex-row !items-center !justify-between !space-y-0 !p-4 !pb-2">
+		<Card.Header class="!flex !flex-col !gap-3 !space-y-0 !p-4 !pb-2 sm:!flex-row sm:!items-center sm:!justify-between">
 			<div class="flex min-w-0 flex-1 items-center gap-3">
 				<div class="relative flex h-10 w-12 shrink-0">
 					<Collapsible.Trigger>
@@ -123,25 +139,25 @@
 				<Collapsible.Trigger
 					class={`min-w-0 flex-1 text-left transition-colors ${alwaysExpanded ? '' : 'cursor-pointer hover:text-primary'}`}
 				>
-					<h3 class="truncate text-sm font-semibold">{alert.alert_title}</h3>
+					<h3 class="text-sm font-semibold sm:truncate">{alert.alert_title}</h3>
 					<p class="truncate text-xs text-muted-foreground">
 						#{alert.alert_id} - {alert.alert_uuid}
 					</p>
 				</Collapsible.Trigger>
 			</div>
 
-			<div class="flex shrink-0 items-center gap-6">
+			<div class="flex min-w-0 flex-wrap items-center gap-3 sm:gap-6">
 				<div
-					class={`flex items-center gap-2 transition-opacity ${showHeaderActions ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+					class={`hidden flex-wrap items-center gap-2 transition-opacity sm:flex ${showHeaderActions ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
 				>
 					<Button variant="outline" size="xs" onclick={onShowMerge}>Merge</Button>
 
 					<DropdownMenu bind:open={isAssignMenuOpen}>
 						<DropdownMenuTrigger>
-						<Button variant="outline" size="xs">
-							Assign
+							<Button variant="outline" size="xs">
+								Assign
 
-							<ChevronDownIcon size="14" />
+								<ChevronDownIcon size="14" />
 							</Button>
 						</DropdownMenuTrigger>
 
@@ -158,10 +174,10 @@
 
 					<DropdownMenu bind:open={isSetStatusMenuOpen}>
 						<DropdownMenuTrigger>
-						<Button variant="outline" size="xs">
-							Set status
+							<Button variant="outline" size="xs">
+								Set status
 
-							<ChevronDownIcon size="14" />
+								<ChevronDownIcon size="14" />
 							</Button>
 						</DropdownMenuTrigger>
 
@@ -175,8 +191,11 @@
 					</DropdownMenu>
 
 					{#if alert.status.status_name.toLowerCase() === 'in progress'}
-						<Button variant="destructive" size="xs" onclick={() => onShowClose(true)}>Close with note</Button>
-						<Button variant="destructive" size="xs" onclick={() => onShowClose(false)}>Close</Button>
+						<Button variant="destructive" size="xs" onclick={() => onShowClose(true)}
+							>Close with note</Button
+						>
+						<Button variant="destructive" size="xs" onclick={() => onShowClose(false)}>Close</Button
+						>
 					{:else}
 						<Button
 							variant="default"
@@ -190,13 +209,13 @@
 					{/if}
 				</div>
 
-				<div class="flex items-center gap-3">
+				<div class="relative flex items-center gap-3">
 					<button
 						title="comments"
 						onclick={onShowComments}
 						class="relative flex text-muted-foreground transition-colors hover:text-foreground"
 					>
-						<MessagesSquareIcon class="absolute right-0 top-0.5" size="16" />
+						<MessagesSquareIcon class="absolute -bottom-2 right-0" size="16" />
 
 						{#if alert.comments?.length}
 							<div
@@ -207,13 +226,20 @@
 						{/if}
 					</button>
 
-					<button title="edit" onclick={onShowEdit} class="text-muted-foreground transition-colors hover:text-foreground">
+					<button
+						title="edit"
+						onclick={onShowEdit}
+						class="text-muted-foreground transition-colors hover:text-foreground"
+					>
 						<PencilIcon size="16" />
 					</button>
 
 					<DropdownMenu bind:open={isMenuOpen}>
 						<DropdownMenuTrigger>
-							<button title="menu" class="text-muted-foreground transition-colors hover:text-foreground">
+							<button
+								title="menu"
+								class="text-muted-foreground transition-colors hover:text-foreground"
+							>
 								<EllipsisVerticalIcon size="16" />
 							</button>
 						</DropdownMenuTrigger>
@@ -276,13 +302,15 @@
 			</div>
 		</Card.Header>
 
-		<Card.Content class="!px-4 !py-3">
+		<Card.Content class="min-w-0 !px-4 !py-3">
 			<p class="text-sm text-muted-foreground">{alert.alert_description}</p>
 
 			<Collapsible.Content
 				class="overflow-hidden pt-4 data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down"
 			>
-				<AlertCardDetails {alert} />
+				{#if detailsLoaded}
+					<AlertCardDetails {alert} />
+				{/if}
 			</Collapsible.Content>
 		</Card.Content>
 
