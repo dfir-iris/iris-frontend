@@ -608,6 +608,8 @@
 		>;
 
 		severities = severitiesResponse.data as Severity[];
+
+		await alerts.loadSavedFilters();
 	});
 </script>
 
