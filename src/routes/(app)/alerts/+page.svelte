@@ -617,7 +617,7 @@
 	<title>Alerts | DFIR-IRIS</title>
 </svelte:head>
 
-<div class="flex grow flex-col gap-5 p-6">
+<div class="mx-auto flex w-full max-w-8xl grow flex-col gap-5 p-6">
 	{#if status === 'initial'}
 		<div class="flex h-full w-full items-center justify-center">
 			<Loading size={32} />

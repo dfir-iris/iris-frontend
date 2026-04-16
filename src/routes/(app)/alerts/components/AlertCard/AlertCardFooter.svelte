@@ -51,7 +51,7 @@
 
 <Card.Footer class="flex flex-col items-start gap-2 !px-4 !py-3">
 	{#if alert.cases}
-		<div class="flex items-center gap-8">
+		<div class="flex flex-wrap items-center gap-3">
 			{#each alert.cases as linkedCase}
 				<DropdownMenu>
 					<DropdownMenuTrigger>
@@ -91,7 +91,7 @@
 			<TooltipProvider>
 				<Tooltip>
 					<TooltipTrigger class="cursor-default">
-						<div class="rounded-md bg-orange-100 px-2 py-0.5 text-2xs font-medium text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">
+						<div class="rounded-full bg-orange-100 px-2.5 py-0.5 text-2xs font-medium text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">
 							{alert.resolution_status.resolution_status_name}
 						</div>
 					</TooltipTrigger>
@@ -106,7 +106,7 @@
 		<TooltipProvider>
 			<Tooltip>
 				<TooltipTrigger class="cursor-default">
-					<div class="rounded-md bg-muted px-2 py-0.5 text-2xs font-medium text-foreground">
+					<div class="rounded-full bg-muted px-2.5 py-0.5 text-2xs font-medium text-foreground">
 						{alert.status.status_name}
 					</div>
 				</TooltipTrigger>
@@ -184,7 +184,7 @@
 		<TooltipProvider>
 			<Tooltip>
 				<TooltipTrigger class="cursor-default">
-					<div class="flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-2xs font-medium text-foreground">
+					<div class="flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-2xs font-medium text-foreground">
 						<ShieldAlertIcon size="12" />
 
 						{alert.classification.name}
@@ -201,7 +201,7 @@
 	{#if alert.alert_tags}
 		<div class="flex items-center gap-2">
 			{#each alert.alert_tags.split(/,/).map((tag) => tag.trim()) as tag}
-				<div class="rounded-md bg-muted px-2 py-0.5 text-2xs font-medium text-muted-foreground">
+				<div class="rounded-full bg-muted px-2.5 py-0.5 text-2xs font-medium text-muted-foreground">
 					{tag}
 				</div>
 			{/each}
