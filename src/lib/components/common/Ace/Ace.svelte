@@ -6,6 +6,7 @@
 		Heading1Icon,
 		Heading2Icon,
 		Heading3Icon,
+		ImageIcon,
 		ItalicIcon,
 		LinkIcon,
 		ListIcon,
@@ -16,18 +17,118 @@
 	import { Editor } from '@tiptap/core';
 	import StarterKit from '@tiptap/starter-kit';
 	import Link from '@tiptap/extension-link';
+	import Image from '@tiptap/extension-image';
 	import Placeholder from '@tiptap/extension-placeholder';
 	import { Markdown } from 'tiptap-markdown';
+	import { ApiService } from '$lib/services/api.service';
 
-	let { value, onChange, onSave } = $props<{
+	let { value, onChange, onSave, caseId } = $props<{
 		value: string;
 		onChange: (v: string) => void;
 		onSave: () => void;
+		caseId?: number | string | null;
 	}>();
 
 	let editorElement: HTMLDivElement;
 	let editor: Editor | null = null;
 	let skipUpdate = false;
+	let uploading = $state(false);
+
+	const uploadImage = async (file: File): Promise<string | null> => {
+		if (!caseId) return null;
+
+		const base64 = await new Promise<string>((resolve) => {
+			const reader = new FileReader();
+			reader.onload = () => {
+				const result = reader.result as string;
+				resolve(result.split(';base64,')[1]);
+			};
+			reader.readAsDataURL(file);
+		});
+
+		const filename = file.name || `image-${Date.now()}.png`;
+
+		const res = await ApiService.post<{ file_url: string }>(
+			`/datastore/file/add-interactive?cid=${caseId}`,
+			{ file_content: base64, file_original_name: filename },
+			{ useApiPrefix: false }
+		);
+
+		if (res.ok && res.data && typeof res.data === 'object' && 'file_url' in res.data) {
+			return (res.data as { file_url: string }).file_url;
+		}
+
+		// Handle nested response: { data: { file_url: "..." } }
+		const d = res.data as Record<string, unknown> | null;
+		if (d && typeof d === 'object' && 'data' in d) {
+			const inner = d.data as Record<string, unknown>;
+			if (inner && typeof inner === 'object' && 'file_url' in inner) {
+				return inner.file_url as string;
+			}
+		}
+
+		return null;
+	};
+
+	const handleImageUpload = async (file: File) => {
+		if (!editor || !caseId) return;
+
+		uploading = true;
+		try {
+			const url = await uploadImage(file);
+			if (url) {
+				editor.chain().focus().setImage({ src: url, alt: file.name || 'image' }).run();
+			}
+		} finally {
+			uploading = false;
+		}
+	};
+
+	const handlePaste = (_view: unknown, event: ClipboardEvent) => {
+		if (!caseId) return false;
+
+		const items = event.clipboardData?.items;
+		if (!items) return false;
+
+		for (const item of items) {
+			if (item.kind === 'file' && item.type.startsWith('image/')) {
+				event.preventDefault();
+				const file = item.getAsFile();
+				if (file) handleImageUpload(file);
+				return true;
+			}
+		}
+
+		return false;
+	};
+
+	const handleDrop = (_view: unknown, event: DragEvent) => {
+		if (!caseId) return false;
+
+		const files = event.dataTransfer?.files;
+		if (!files?.length) return false;
+
+		for (const file of files) {
+			if (file.type.startsWith('image/')) {
+				event.preventDefault();
+				handleImageUpload(file);
+				return true;
+			}
+		}
+
+		return false;
+	};
+
+	const triggerFileInput = () => {
+		const input = document.createElement('input');
+		input.type = 'file';
+		input.accept = 'image/*';
+		input.onchange = () => {
+			const file = input.files?.[0];
+			if (file) handleImageUpload(file);
+		};
+		input.click();
+	};
 
 	onMount(() => {
 		editor = new Editor({
@@ -39,6 +140,10 @@
 				Link.configure({
 					openOnClick: false,
 					HTMLAttributes: { class: 'text-blue-500 underline' }
+				}),
+				Image.configure({
+					inline: true,
+					allowBase64: false
 				}),
 				Placeholder.configure({
 					placeholder: 'Write a comment…'
@@ -63,7 +168,9 @@
 					}
 
 					return false;
-				}
+				},
+				handlePaste,
+				handleDrop
 			},
 			onUpdate: ({ editor: e }) => {
 				skipUpdate = true;
@@ -184,9 +291,27 @@
 		>
 			<LinkIcon size="12" />
 		</button>
+
+		{#if caseId}
+			<button
+				class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+				disabled={uploading}
+				onclick={triggerFileInput}
+			>
+				<ImageIcon size="12" />
+			</button>
+		{/if}
 	</div>
 
-	<div bind:this={editorElement} class="bg-background"></div>
+	<div class="relative">
+		<div bind:this={editorElement} class="bg-background"></div>
+
+		{#if uploading}
+			<div class="absolute inset-0 flex items-center justify-center bg-background/60">
+				<span class="text-xs text-muted-foreground">Uploading image…</span>
+			</div>
+		{/if}
+	</div>
 </div>
 
 <style>
@@ -196,5 +321,11 @@
 		pointer-events: none;
 		height: 0;
 		color: hsl(var(--muted-foreground) / 0.5);
+	}
+
+	:global(.tiptap img) {
+		max-width: 100%;
+		height: auto;
+		border-radius: 0.375rem;
 	}
 </style>

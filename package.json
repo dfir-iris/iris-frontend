@@ -64,6 +64,7 @@
 		"@sveltejs/adapter-static": "^3.0.6",
 		"@tailwindcss/postcss": "^4.0.8",
 		"@tiptap/core": "^3.22.3",
+		"@tiptap/extension-image": "^3.22.3",
 		"@tiptap/extension-link": "^3.22.3",
 		"@tiptap/extension-placeholder": "^3.22.3",
 		"@tiptap/pm": "^3.22.3",

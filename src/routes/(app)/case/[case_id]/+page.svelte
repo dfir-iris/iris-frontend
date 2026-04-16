@@ -1,5 +1,4 @@
 <script lang="ts">
-	import DOMPurify from 'dompurify';
 	import { getContext, onMount } from 'svelte';
 	import {
 		AlertTriangleIcon,
@@ -22,7 +21,7 @@
 	import Badge from '$lib/components/ui/badge/badge.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { toast } from '$lib/components/ui/toast';
-	import { Ace, converter } from '$lib/components/common/Ace';
+	import { Ace } from '$lib/components/common/Ace';
 	import RequestReviewDialog from './components/RequestReviewDialog.svelte';
 	import type { UserInfo } from '$lib/services/auth.service';
 	import { HooksService, type HookOption } from '$lib/services/hooks.service';
@@ -38,7 +37,6 @@
 	let hookOptions = $state<HookOption[]>([]);
 
 	let loadedTime = $state(new Date());
-	let editing = $state(false);
 
 	let loading = $state(false);
 	let saving = $state(false);
@@ -46,7 +44,6 @@
 	let showRequestReview = $state(false);
 
 	let dirty = $derived(caseDescription !== baseDescription);
-	let safeHtml = $derived(DOMPurify.sanitize(converter.makeHtml(caseDescription ?? '')));
 
 	const refresh = async () => {
 		loading = true;
@@ -125,7 +122,7 @@
 	<title>Case #{case_id} | IRIS</title>
 </svelte:head>
 
-<div class="flex w-full flex-col border-b bg-muted/20 p-4">
+<div class="flex w-full flex-col p-4">
 	{#if currentCase}
 		{#if currentCase.review_status?.id && currentCase.reviewer?.id}
 			<Card.Root
@@ -210,17 +207,22 @@
 
 						<div class="mx-2 flex text-sm">Last synced: {loadedTime.toLocaleTimeString()}</div>
 
-						<Button variant="secondary" size="xs" onclick={() => (editing = !editing)}>
-							{#if editing}Close editor{:else}Edit{/if}
-						</Button>
-
 						<Button
 							variant="secondary"
 							size="xs"
-							disabled={loading || saving}
-							onclick={editing ? save : refresh}
+							disabled={loading}
+							onclick={refresh}
 						>
-							{#if editing}Save{:else}Refresh{/if}
+							Refresh
+						</Button>
+
+						<Button
+							variant="default"
+							size="xs"
+							disabled={saving || !dirty}
+							onclick={save}
+						>
+							Save
 						</Button>
 					</div>
 				</div>
@@ -231,18 +233,12 @@
 			</Card.Header>
 
 			<Card.Content>
-				{#if editing}
-					<Ace
-						value={caseDescription}
-						onChange={(v) => (caseDescription = v)}
-						onSave={() => save()}
-					/>
-				{:else}
-					<div class="prose dark:prose-invert max-w-none">
-						<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-						{@html safeHtml}
-					</div>
-				{/if}
+				<Ace
+					value={caseDescription}
+					onChange={(v) => (caseDescription = v)}
+					onSave={() => save()}
+					caseId={case_id}
+				/>
 			</Card.Content>
 		</Card.Root>
 	{:else}
