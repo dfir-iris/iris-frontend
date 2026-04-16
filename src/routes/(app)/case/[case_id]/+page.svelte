@@ -42,6 +42,7 @@
 	let saving = $state(false);
 	let lastError = $state<string | null>(null);
 	let showRequestReview = $state(false);
+	let savedAt = $state(0);
 
 	let dirty = $derived(caseDescription !== baseDescription);
 
@@ -66,6 +67,13 @@
 		baseDescription = caseDescription;
 		loadedTime = new Date();
 		saving = false;
+		savedAt = Date.now();
+	};
+
+	const handleRemoteSave = (content: string) => {
+		caseDescription = content;
+		baseDescription = content;
+		loadedTime = new Date();
 	};
 
 	const setReviewer = async (admin: UserInfo) => {
@@ -238,6 +246,8 @@
 					onChange={(v) => (caseDescription = v)}
 					onSave={() => save()}
 					caseId={case_id}
+					{savedAt}
+					onRemoteSave={handleRemoteSave}
 				/>
 			</Card.Content>
 		</Card.Root>
