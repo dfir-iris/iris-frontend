@@ -74,7 +74,11 @@
 	});
 
 	$effect(() => {
-		if (!editor || skipUpdate) {
+		const v = value ?? '';
+
+		if (!editor) return;
+
+		if (skipUpdate) {
 			skipUpdate = false;
 			return;
 		}
@@ -82,8 +86,8 @@
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const currentMd = (editor.storage as any).markdown.getMarkdown();
 
-		if ((value ?? '') !== currentMd) {
-			editor.commands.setContent(value ?? '');
+		if (v !== currentMd) {
+			editor.commands.setContent(v);
 		}
 	});
 

@@ -143,7 +143,7 @@
 			<Dialog.Footer class="w-full justify-between px-4 pb-3 pt-2">
 				<Button variant="outline" size="sm" onclick={refresh}>Refresh</Button>
 
-				<Button variant="default" size="sm" onclick={saveComment}>Comment</Button>
+				<Button variant="default" size="sm" onclick={saveComment}>{editing_comment_id ? 'Save' : 'Comment'}</Button>
 			</Dialog.Footer>
 		{/if}
 	</Dialog.Content>
