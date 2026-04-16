@@ -583,7 +583,6 @@
 	$effect(() => {
 		const nextQuery = readQueryFromUrl(new URL(page.url));
 		query = nextQuery;
-		filtersOpen = hasActiveFilters(nextQuery.filters);
 
 		void loadAlerts(nextQuery);
 	});
@@ -609,6 +608,8 @@
 		>;
 
 		severities = severitiesResponse.data as Severity[];
+
+		await alerts.loadSavedFilters();
 	});
 </script>
 
@@ -616,7 +617,7 @@
 	<title>Alerts | DFIR-IRIS</title>
 </svelte:head>
 
-<div class="flex grow flex-col gap-5 p-6">
+<div class="mx-auto flex w-full max-w-8xl grow flex-col gap-5 p-6">
 	{#if status === 'initial'}
 		<div class="flex h-full w-full items-center justify-center">
 			<Loading size={32} />
@@ -857,9 +858,9 @@
 				</div>
 			{/if}
 
-			<ul class="flex flex-col gap-4">
+			<ul class="flex min-w-0 flex-col gap-4">
 				{#each alertsData.data as alert (alert.alert_id)}
-					<li class="flex items-center gap-4">
+					<li class="flex min-w-0 items-center gap-4">
 						{#if selecting}
 							<Checkbox
 								checked={selected[alert.alert_id] ?? selectedAll}

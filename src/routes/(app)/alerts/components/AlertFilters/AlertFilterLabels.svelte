@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { XIcon } from 'lucide-svelte';
-	import Button from '$lib/components/ui/button/button.svelte';
 	import type { AlertResolution } from '$lib/services/alert-resolutions.service';
 	import type { AlertStatus } from '$lib/services/alert-status.service';
 	import type { CaseClassification } from '$lib/services/case-classifications.service';
@@ -65,25 +64,23 @@
 </script>
 
 {#if items.length}
-	<div class="flex flex-wrap items-center gap-2">
+	<div class="flex flex-wrap items-center gap-1.5">
 		{#each items as item, i (`${String(item.key)}:${i}`)}
-			<div class="flex items-center gap-2">
-				<div class="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-sm">
+			<div class="flex items-center gap-1.5">
+				<div class="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs">
 					<span>{item.value}</span>
 
-					<Button
+					<button
 						type="button"
-						variant="ghost"
-						size="xs"
-						class="h-auto p-0"
+						class="text-muted-foreground transition-colors hover:text-foreground"
 						onclick={() => onRemove(item.key)}
 					>
-						<XIcon />
-					</Button>
+						<XIcon class="size-3" />
+					</button>
 				</div>
 
 				{#if i < items.length - 1}
-					<span class="text-sm opacity-70">+</span>
+					<span class="text-xs opacity-70">+</span>
 				{/if}
 			</div>
 		{/each}

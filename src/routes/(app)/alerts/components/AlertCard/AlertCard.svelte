@@ -91,19 +91,28 @@
 		isAssignMenuOpen || isSetStatusMenuOpen || isMenuOpen || alwaysExpanded
 	);
 
+	const isProcessed = $derived(() => {
+		const name = alert.status?.status_name?.toLowerCase().trim() ?? '';
+		return name !== 'new' && name !== 'unspecified';
+	});
+
+	const isFocused = $derived(alwaysExpanded || expanded);
+
 	const getAlertUrl = () => {
 		const url = new URL(page.url);
 		return `${url.origin}${url.pathname}/${alert.alert_id}`;
 	};
 </script>
 
-<Card.Root class="group flex grow">
+<Card.Root
+	class={`group min-w-0 flex grow overflow-hidden transition-shadow duration-300 ${isFocused ? 'ring-1 ring-iris-blue/30 shadow-glow-blue' : ''} ${isProcessed() ? 'opacity-60 border-border/40' : ''}`}
+>
 	<Collapsible.Root
 		open={alwaysExpanded ? true : expanded}
 		onOpenChange={alwaysExpanded ? undefined : onExpandedChange}
 		disabled={alwaysExpanded}
 	>
-		<Card.Header class="!flex !flex-row !items-center !justify-between !space-y-0 !p-4 !pb-2">
+		<Card.Header class="!flex !flex-col !gap-3 !space-y-0 !p-4 !pb-2 sm:!flex-row sm:!items-center sm:!justify-between">
 			<div class="flex min-w-0 flex-1 items-center gap-3">
 				<div class="relative flex h-10 w-12 shrink-0">
 					<Collapsible.Trigger>
@@ -130,16 +139,16 @@
 				<Collapsible.Trigger
 					class={`min-w-0 flex-1 text-left transition-colors ${alwaysExpanded ? '' : 'cursor-pointer hover:text-primary'}`}
 				>
-					<h3 class="truncate text-sm font-semibold">{alert.alert_title}</h3>
+					<h3 class="text-sm font-semibold sm:truncate">{alert.alert_title}</h3>
 					<p class="truncate text-xs text-muted-foreground">
 						#{alert.alert_id} - {alert.alert_uuid}
 					</p>
 				</Collapsible.Trigger>
 			</div>
 
-			<div class="flex shrink-0 items-center gap-6">
+			<div class="flex min-w-0 flex-wrap items-center gap-3 sm:gap-6">
 				<div
-					class={`flex items-center gap-2 transition-opacity ${showHeaderActions ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+					class={`hidden flex-wrap items-center gap-2 transition-opacity sm:flex ${showHeaderActions ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
 				>
 					<Button variant="outline" size="xs" onclick={onShowMerge}>Merge</Button>
 
@@ -293,7 +302,7 @@
 			</div>
 		</Card.Header>
 
-		<Card.Content class="!px-4 !py-3">
+		<Card.Content class="min-w-0 !px-4 !py-3">
 			<p class="text-sm text-muted-foreground">{alert.alert_description}</p>
 
 			<Collapsible.Content

@@ -53,7 +53,7 @@
 			return;
 		}
 
-		const commentsResponse = await CommentsService.list('alerts', alert.alert_id, {});
+		const commentsResponse = await CommentsService.list('alerts', alert.alert_id, { per_page: 10000 });
 
 		const data = commentsResponse.data;
 		comments = data && typeof data === 'object' && Array.isArray(data.data) ? data.data : [];
@@ -115,15 +115,15 @@
 		}
 	}}
 >
-	<Dialog.Content class="flex max-h-[80vh] max-w-[880px] flex-col p-0">
+	<Dialog.Content class="flex max-h-[80vh] max-w-[640px] flex-col gap-0 p-0">
 		{#if alert}
-			<Dialog.Header class="border-b px-6 py-4">
-				<Dialog.Title class="text-base font-medium"
-					>Comments on <i>Alert #{alert.alert_id}</i></Dialog.Title
+			<Dialog.Header class="border-b border-border/50 px-4 py-3">
+				<Dialog.Title class="text-sm font-medium"
+					>Comments on <span class="font-semibold">Alert #{alert.alert_id}</span></Dialog.Title
 				>
 			</Dialog.Header>
 
-			<div bind:this={commentsContainer} class="flex-1 overflow-auto px-8 pb-8">
+			<div bind:this={commentsContainer} class="flex-1 overflow-auto px-4 py-3">
 				<Comments
 					{comments}
 					onEdit={editComment}
@@ -132,7 +132,7 @@
 				/>
 			</div>
 
-			<div class="h-32 px-6">
+			<div class="border-t border-border/30 px-4 pt-3">
 				<Ace
 					value={comment_text}
 					onChange={(value) => (comment_text = value)}
@@ -140,10 +140,10 @@
 				/>
 			</div>
 
-			<Dialog.Footer class="w-full justify-between px-6 pb-6 pt-4">
-				<Button variant="outline" onclick={refresh}>Refresh</Button>
+			<Dialog.Footer class="w-full justify-between px-4 pb-3 pt-2">
+				<Button variant="outline" size="sm" onclick={refresh}>Refresh</Button>
 
-				<Button variant="default" onclick={saveComment}>Comment</Button>
+				<Button variant="default" size="sm" onclick={saveComment}>{editing_comment_id ? 'Save' : 'Comment'}</Button>
 			</Dialog.Footer>
 		{/if}
 	</Dialog.Content>

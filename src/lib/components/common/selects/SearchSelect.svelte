@@ -16,6 +16,7 @@
 		searchPlaceholder: string;
 		disabled?: boolean;
 		multiple?: boolean;
+		size?: 'default' | 'xs' | 'sm' | 'lg' | 'icon';
 		onChange: (value: string | string[]) => void;
 	};
 
@@ -26,6 +27,7 @@
 		searchPlaceholder,
 		disabled = false,
 		multiple = false,
+		size = 'default',
 		onChange
 	}: SearchSelectProps = $props();
 
@@ -109,19 +111,19 @@
 <Popover.Root bind:open>
 	<Popover.Trigger>
 		{#snippet child({ props })}
-			<Button {...props} type="button" variant="outline" class="w-full justify-between" {disabled}>
+			<Button {...props} type="button" variant="outline" {size} class="w-full justify-between" {disabled}>
 				<span class="truncate">{selectedLabel}</span>
 				<ChevronDownIcon size="16" />
 			</Button>
 		{/snippet}
 	</Popover.Trigger>
 
-	<Popover.Content class="w-[calc(525px-3rem)] max-w-[calc(100vw-3rem)] p-2">
+	<Popover.Content class="w-[--bits-popover-trigger-width] min-w-48 max-w-[calc(100vw-3rem)] p-1.5">
 		<Input
 			type="text"
 			placeholder={searchPlaceholder}
 			bind:value={filter}
-			class="mb-2 w-full"
+			class="mb-1.5 h-8 w-full text-xs"
 			{disabled}
 		/>
 
@@ -129,7 +131,7 @@
 			{#if multiple}
 				<button
 					type="button"
-					class="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-muted"
+					class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted"
 					onclick={toggleAll}
 					{disabled}
 				>
@@ -145,12 +147,12 @@
 			{/if}
 
 			{#if filteredOptions.length === 0}
-				<div class="px-2 py-2 text-sm opacity-70">No matches</div>
+				<div class="px-2 py-1.5 text-xs opacity-70">No matches</div>
 			{:else}
 				{#each filteredOptions as o (o.value)}
 					<button
 						type="button"
-						class="flex w-full items-center justify-between rounded-md px-2 py-2 text-left hover:bg-muted"
+						class="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted"
 						onclick={() => choose(o.value)}
 						{disabled}
 					>
@@ -167,7 +169,7 @@
 						{:else}
 							<span class="truncate">{o.label}</span>
 							{#if value === o.value}
-								<CheckIcon size="16" />
+								<CheckIcon size="14" />
 							{/if}
 						{/if}
 					</button>

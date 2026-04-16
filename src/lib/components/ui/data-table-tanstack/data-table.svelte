@@ -203,45 +203,45 @@
 </script>
 
 <div class={`w-full overflow-auto ${className}`}>
-	<table class="w-full table-fixed rounded-lg border text-sm">
+	<table class="w-full table-auto text-xs">
 		<thead>
-			<tr class="border-b">
+			<tr class="border-b border-border/50">
 				{#each cols as col (col.key)}
-					<th class="px-3 py-2 align-top">
+					<th class="px-3 py-2 text-left align-top font-medium text-muted-foreground">
 						<div class="flex w-full items-center justify-between gap-2">
-							<span class="min-w-0 truncate font-medium">{col.header}</span>
+							<span class="min-w-0 truncate">{col.header}</span>
 
-							<div class="flex shrink-0 items-center gap-1">
+							<div class="flex shrink-0 items-center gap-0.5 opacity-40 transition-opacity hover:opacity-100">
 								<button
 									type="button"
-									class="shrink-0"
+									class="shrink-0 rounded p-0.5 hover:bg-muted"
 									aria-label={`Filter ${col.header}`}
 									onclick={() => toggleFilter(col.key as string)}
 								>
-									<FilterIcon class="h-4 w-4" />
+									<FilterIcon class="size-3" />
 								</button>
 
 								<button
 									type="button"
-									class="shrink-0"
+									class="shrink-0 rounded p-0.5 hover:bg-muted"
 									aria-label={`Sort ${col.header}`}
 									onclick={() => toggleSort(col.key as string)}
 								>
 									{#if sort?.id === col.key && sort?.dir === 'asc'}
-										<ArrowUpIcon class="h-4 w-4" />
+										<ArrowUpIcon class="size-3" />
 									{:else if sort?.id === col.key && sort?.dir === 'desc'}
-										<ArrowDownIcon class="h-4 w-4" />
+										<ArrowDownIcon class="size-3" />
 									{:else}
-										<ArrowUpDownIcon class="h-4 w-4" />
+										<ArrowUpDownIcon class="size-3" />
 									{/if}
 								</button>
 							</div>
 						</div>
 
 						{#if filterColumn === col.key}
-							<div class="mt-2 flex min-w-0 items-center gap-2">
+							<div class="mt-1.5 flex min-w-0 items-center gap-1.5">
 								<input
-									class="h-8 w-full min-w-0 rounded border px-2 text-sm"
+									class="h-7 w-full min-w-0 rounded-md border border-border/50 bg-background px-2 text-xs focus:border-ring focus:outline-none"
 									placeholder="Filter…"
 									value={filters[col.key] ?? ''}
 									oninput={(e) =>
@@ -249,11 +249,11 @@
 								/>
 
 								<button
-									class="shrink-0"
+									class="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
 									aria-label={`Clear filter ${col.header}`}
 									onclick={() => clearFilter(col.key as string)}
 								>
-									<XIcon class="h-4 w-4" />
+									<XIcon class="size-3" />
 								</button>
 							</div>
 						{/if}
@@ -265,19 +265,17 @@
 		<tbody>
 			{#if paged.length === 0}
 				<tr>
-					<td class="px-3 py-6 text-center" colspan={cols.length}>No results</td>
+					<td class="px-3 py-4 text-center text-muted-foreground" colspan={cols.length}>No results</td>
 				</tr>
 			{:else}
 				{#each paged as row, i (i)}
-					<tr class="border-b last:border-b-0">
+					<tr class="border-b border-border/30 transition-colors last:border-b-0 hover:bg-muted/40">
 						{#each cols as col (col.key)}
 							{@const v = columnCell(col.c, row, () => columnValue(col.c, row))}
 
 							<td class="px-3 py-2">
 								{#if typeof v === 'function'}
-									<!-- <svelte:component this={v} /> -->
 									{@const Comp = v as Component}
-
 									<Comp />
 								{:else}
 									{v}
@@ -290,23 +288,25 @@
 		</tbody>
 	</table>
 
-	<div class="mt-2 flex items-center justify-end gap-2">
-		<button
-			class="rounded border px-2 py-1"
-			disabled={clampedPage <= 1}
-			onclick={() => (page = clampedPage - 1)}
-		>
-			<ChevronLeftIcon class="h-4 w-4" />
-		</button>
+	{#if totalPages > 1}
+		<div class="mt-2 flex items-center justify-end gap-1.5 pt-1">
+			<button
+				class="rounded-md border border-border/50 p-1 text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
+				disabled={clampedPage <= 1}
+				onclick={() => (page = clampedPage - 1)}
+			>
+				<ChevronLeftIcon class="size-3.5" />
+			</button>
 
-		<span class="text-sm">Page {clampedPage} / {totalPages}</span>
+			<span class="px-1 text-xs text-muted-foreground">{clampedPage} / {totalPages}</span>
 
-		<button
-			class="rounded border px-2 py-1"
-			disabled={clampedPage >= totalPages}
-			onclick={() => (page = clampedPage + 1)}
-		>
-			<ChevronRightIcon class="h-4 w-4" />
-		</button>
-	</div>
+			<button
+				class="rounded-md border border-border/50 p-1 text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
+				disabled={clampedPage >= totalPages}
+				onclick={() => (page = clampedPage + 1)}
+			>
+				<ChevronRightIcon class="size-3.5" />
+			</button>
+		</div>
+	{/if}
 </div>

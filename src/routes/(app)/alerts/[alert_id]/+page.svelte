@@ -151,38 +151,32 @@
 	<title>Alert #{alert_id} | DFIR-IRIS</title>
 </svelte:head>
 
-<div class="flex grow flex-col gap-4 p-4">
+<div class="mx-auto flex w-full max-w-8xl grow flex-col gap-4 p-4">
 	{#await alertPromise}
-		<h1>Loading...</h1>
+		<div class="flex items-center gap-2 text-sm text-muted-foreground">Loading...</div>
 	{:then alert}
 		{#if alert}
-			<h1>Alert #{alert_id}</h1>
-
-			<ul class="flex flex-col gap-4">
-				<li class="flex items-center gap-4">
-					<AlertCard
-						{alert}
-						{alertStatuses}
-						onAssign={() => assign(alert)}
-						onAssignToCurrentUser={() => assignToCurrentUser(alert)}
-						onSetStatus={(s) => setStatus(s)}
-						onShowEdit={() => (showAlertEdit = true)}
-						onShowHistory={() => (showAlertHistory = true)}
-						onShowComments={() => (showAlertComments = true)}
-						onShowMerge={() => (showAlertMerge = true)}
-						onShowClose={(withNote) => {
-							if (withNote) {
-								showAlertClose = true;
-							} else {
-								closeWithNote({});
-							}
-						}}
-						onUnlinkCase={(case_id) => unlinkCase(case_id)}
-						onDelete={() => (showConfirmDelete = true)}
-						alwaysExpanded
-					/>
-				</li>
-			</ul>
+			<AlertCard
+				{alert}
+				{alertStatuses}
+				onAssign={() => assign(alert)}
+				onAssignToCurrentUser={() => assignToCurrentUser(alert)}
+				onSetStatus={(s) => setStatus(s)}
+				onShowEdit={() => (showAlertEdit = true)}
+				onShowHistory={() => (showAlertHistory = true)}
+				onShowComments={() => (showAlertComments = true)}
+				onShowMerge={() => (showAlertMerge = true)}
+				onShowClose={(withNote) => {
+					if (withNote) {
+						showAlertClose = true;
+					} else {
+						closeWithNote({});
+					}
+				}}
+				onUnlinkCase={(case_id) => unlinkCase(case_id)}
+				onDelete={() => (showConfirmDelete = true)}
+				alwaysExpanded
+			/>
 		{/if}
 	{/await}
 </div>
