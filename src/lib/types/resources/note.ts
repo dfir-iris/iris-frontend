@@ -1,9 +1,12 @@
+import type { HistoryData } from "$lib/components/common/ActivityHistory.svelte";
+
 export interface Note {
 	note_id: number;
 	note_title: string;
 	note_uuid?: string;
 	note_content?: string;
 	directory_id?: number;
+    modification_history?: HistoryData;
 }
 
 export interface NoteFolder {

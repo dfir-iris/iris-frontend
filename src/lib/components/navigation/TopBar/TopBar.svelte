@@ -105,8 +105,8 @@
 								? pathname === caseBasePath || pathname === `${caseBasePath}/`
 									? 'bg-white text-iris-blue shadow-sm'
 									: 'text-white/70 hover:text-white'
-								: pathname === `${caseBasePath}/${button.path}` ||
-									  pathname === `${caseBasePath}/${button.path}/`
+								: pathname.includes(`${caseBasePath}/${button.path}`) ||
+									  pathname.includes(`${caseBasePath}/${button.path}/`)
 									? 'bg-white text-iris-blue shadow-sm'
 									: 'text-white/70 hover:text-white'
 						}`}

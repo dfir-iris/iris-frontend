@@ -1,4 +1,12 @@
 <script lang="ts">
+	import {
+		DownloadIcon,
+		FileSymlinkIcon,
+		ForwardIcon,
+		HistoryIcon,
+		MessagesSquareIcon,
+		TrashIcon
+	} from 'lucide-svelte';
 	import type { Note } from '$lib/types/resources/note';
 	import { toast } from '$lib/stores/toast.store';
 	import { Button } from '$lib/components/ui/button';
@@ -9,15 +17,9 @@
 		TooltipProvider,
 		TooltipTrigger
 	} from '$lib/components/ui/tooltip';
-	import {
-		DownloadIcon,
-		FileSymlinkIcon,
-		ForwardIcon,
-		HistoryIcon,
-		MessagesSquareIcon,
-		TrashIcon
-	} from 'lucide-svelte';
 	import { getNoteUrl } from '../helpers';
+	import NoteCommentsDialog from './note-comments-dialog.svelte';
+	import NoteHistoryDialog from './note-history-dialog.svelte';
 
 	type Props = {
 		note: Note;
@@ -26,6 +28,8 @@
 
 	let { note, onDeleteNote }: Props = $props();
 
+	let showNoteHistory = $state<boolean>(false);
+	let showNoteComments = $state<boolean>(false);
 	let showConfirmDelete = $state<boolean>(false);
 </script>
 
@@ -39,7 +43,7 @@
 			<TooltipProvider>
 				<Tooltip>
 					<TooltipTrigger>
-						<Button variant="link" size="xs">
+						<Button variant="link" size="xs" onclick={() => (showNoteHistory = true)}>
 							<HistoryIcon class="transition-all hover:opacity-50" />
 						</Button>
 					</TooltipTrigger>
@@ -54,7 +58,7 @@
 		<TooltipProvider>
 			<Tooltip>
 				<TooltipTrigger>
-					<Button variant="link" size="xs">
+					<Button variant="link" size="xs" onclick={() => (showNoteComments = true)}>
 						<MessagesSquareIcon />
 					</Button>
 				</TooltipTrigger>
@@ -178,6 +182,14 @@
 		</TooltipProvider>
 	</div>
 </div>
+
+<NoteHistoryDialog bind:open={showNoteHistory} {note} onClose={() => (showNoteHistory = false)} />
+
+<NoteCommentsDialog
+	bind:open={showNoteComments}
+	{note}
+	onClose={() => (showNoteComments = false)}
+/>
 
 <ConfirmationDialog
 	bind:open={showConfirmDelete}

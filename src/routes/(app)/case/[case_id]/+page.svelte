@@ -21,7 +21,7 @@
 	import Badge from '$lib/components/ui/badge/badge.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { toast } from '$lib/components/ui/toast';
-	import { Ace } from '$lib/components/common/Ace';
+	import { MarkDownEditor } from '$lib/components/common/MarkDown';
 	import RequestReviewDialog from './components/RequestReviewDialog.svelte';
 	import type { UserInfo } from '$lib/services/auth.service';
 	import { HooksService, type HookOption } from '$lib/services/hooks.service';
@@ -241,7 +241,7 @@
 			</Card.Header>
 
 			<Card.Content>
-				<Ace
+				<MarkDownEditor
 					value={caseDescription}
 					onChange={(v) => (caseDescription = v)}
 					onSave={() => save()}

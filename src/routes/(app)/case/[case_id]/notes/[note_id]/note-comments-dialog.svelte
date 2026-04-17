@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import type { Alert } from '$lib/types/resources/alert';
+	import type { Note } from '$lib/types/resources/note';
 	import { CommentsService, type Comment } from '$lib/services/comments.service';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
@@ -10,16 +10,16 @@
 	type Props = {
 		open: boolean;
 		onClose: () => void;
-		alert: Alert | null;
+		note: Note;
 	};
 
-	let { open = $bindable(), onClose, alert }: Props = $props();
+	let { open = $bindable(), onClose, note }: Props = $props();
 
 	let comments = $state<Comment[]>([]);
 	let comment_text = $state('');
 	let editing_comment_id = <number | null>$state(null);
 	let commentsContainer: HTMLDivElement | undefined = $state();
-	let lastLoadedAlertId = $state<number | null>(null);
+	let lastLoadedNoteId = $state<number | null>(null);
 	let wasOpen = $state(false);
 
 	const scrollToBottom = async () => {
@@ -40,41 +40,44 @@
 	};
 
 	const deleteComment = async (comment_id: number) => {
-		if (alert) {
-			await CommentsService.remove('alerts', alert.alert_id, comment_id);
+		if (note) {
+			await CommentsService.remove('notes', note.note_id, comment_id);
 
 			return refresh();
 		}
 	};
 
 	const refresh = async () => {
-		if (!alert) {
+		if (!note) {
 			comments = [];
+
 			return;
 		}
 
-		const commentsResponse = await CommentsService.list('alerts', alert.alert_id, { per_page: 10000 });
+		const commentsResponse = await CommentsService.list('notes', note.note_id, {
+			per_page: 10000
+		});
 
 		const data = commentsResponse.data;
 		comments = data && typeof data === 'object' && Array.isArray(data.data) ? data.data : [];
 
-		lastLoadedAlertId = alert.alert_id;
+		lastLoadedNoteId = note.note_id;
 
 		await scrollToBottom();
 	};
 
 	const saveComment = async () => {
 		const text = comment_text.trim();
-		if (!text || !alert) return;
+		if (!text || !note) return;
 
 		if (editing_comment_id) {
 			const comment = getCommentById(editing_comment_id);
-			await CommentsService.update('alerts', alert.alert_id, editing_comment_id, {
+			await CommentsService.update('notes', note.note_id, editing_comment_id, {
 				...comment,
 				comment_text
 			});
 		} else {
-			await CommentsService.create('alerts', alert.alert_id, {
+			await CommentsService.create('notes', note.note_id, {
 				comment_text: text
 			});
 		}
@@ -86,22 +89,22 @@
 	};
 
 	$effect(() => {
-		const alertId = alert?.alert_id ?? null;
+		const noteId = note?.note_id ?? null;
 
 		if (!open) {
 			comments = [];
 			comment_text = '';
-			lastLoadedAlertId = null;
+			lastLoadedNoteId = null;
 			wasOpen = false;
 			return;
 		}
 
 		const justOpened = !wasOpen;
-		const alertChanged = alertId !== null && alertId !== lastLoadedAlertId;
+		const noteChanged = noteId !== null && noteId !== lastLoadedNoteId;
 
 		wasOpen = true;
 
-		if (alertId !== null && (justOpened || alertChanged)) {
+		if (noteId !== null && (justOpened || noteChanged)) {
 			void refresh();
 		}
 	});
@@ -116,10 +119,10 @@
 	}}
 >
 	<Dialog.Content class="flex max-h-[80vh] max-w-[640px] flex-col gap-0 p-0">
-		{#if alert}
+		{#if note}
 			<Dialog.Header class="border-b border-border/50 px-4 py-3">
 				<Dialog.Title class="text-sm font-medium"
-					>Comments on <span class="font-semibold">Alert #{alert.alert_id}</span></Dialog.Title
+					>Comments on <span class="font-semibold">Note #{note.note_id}</span></Dialog.Title
 				>
 			</Dialog.Header>
 
@@ -143,7 +146,9 @@
 			<Dialog.Footer class="w-full justify-between px-4 pb-3 pt-2">
 				<Button variant="outline" size="sm" onclick={refresh}>Refresh</Button>
 
-				<Button variant="default" size="sm" onclick={saveComment}>{editing_comment_id ? 'Save' : 'Comment'}</Button>
+				<Button variant="default" size="sm" onclick={saveComment}
+					>{editing_comment_id ? 'Save' : 'Comment'}</Button
+				>
 			</Dialog.Footer>
 		{/if}
 	</Dialog.Content>

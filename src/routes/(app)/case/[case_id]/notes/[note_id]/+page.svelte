@@ -7,6 +7,7 @@
 		createCaseNotesContext,
 		type CaseNotesContext
 	} from '$lib/contexts/case-notes.context.svelte';
+	import MarkDownEditor from '$lib/components/common/MarkDown/MarkDownEditor.svelte';
 	import { getNoteUrl } from '../helpers';
 	import NoteHeader from './note-header.svelte';
 
@@ -20,7 +21,7 @@
 	});
 </script>
 
-<div class="flex h-full w-full grow flex-col px-4 pt-2">
+<div class="flex h-full w-full grow flex-col gap-y-8 px-4 pt-2">
 	{#if note}
 		<NoteHeader
 			{note}
@@ -29,6 +30,12 @@
 
 				goto(getNoteUrl(notes.list.noteIds[0]));
 			}}
+		/>
+
+		<MarkDownEditor
+			value={note.note_content ?? ''}
+			onChange={(v) => (note.note_content = v)}
+			onSave={() => notes.patchNote(note.note_id, { note_content: note.note_content })}
 		/>
 	{/if}
 </div>

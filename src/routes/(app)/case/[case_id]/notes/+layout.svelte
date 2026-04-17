@@ -17,6 +17,7 @@
 	import NotesRenameDialog from './components/notes-rename-dialog.svelte';
 	import NotesMoveItemDialog from './components/notes-move-item-dialog.svelte';
 	import { getNoteUrl, newNote } from './helpers';
+	import NotesNewFolderDialog from './components/notes-new-folder-dialog.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -24,6 +25,7 @@
 
 	setContext<CaseNotesContext>(CASE_NOTES_CTX, notes);
 
+	let showNewFolder = $state<boolean>(false);
 	let showConfirmDelete = $state<boolean>(false);
 	let showRename = $state<boolean>(false);
 	let showMove = $state<boolean>(false);
@@ -85,12 +87,14 @@
 		contextMenu.name = name;
 	};
 
-	const newFolder = async (parentId?: number) => {
+	const newFolder = async (name = 'New Folder') => {
+		showNewFolder = false;
+
 		closeContextMenu();
 
 		await notes.createFolder({
-			name: 'New folder',
-			parent_id: parentId
+			name,
+			parent_id: notes.ui.selectedFolderId
 		});
 	};
 
@@ -140,7 +144,7 @@
 				variant="ghost"
 				size="icon"
 				aria-label="Add folder"
-				onclick={() => newFolder(notes.ui.selectedFolderId)}
+				onclick={() => (showNewFolder = true)}
 			>
 				<FolderPlusIcon />
 			</Button>
@@ -176,7 +180,11 @@
 
 					newNote(notes, contextMenu.folderId);
 				}}
-				onNewFolder={newFolder}
+				onNewFolder={() => {
+					closeContextMenu();
+
+					showNewFolder = true;
+				}}
 				onCopyLink={(noteId?: number) => {
 					navigator.clipboard
 						.writeText(getNoteUrl(noteId))
@@ -259,4 +267,10 @@
 	message="You are about to delete this forever. This cannot be reverted. All associated data will be deleted."
 	onConfirm={deleteItem}
 	onCancel={() => (showConfirmDelete = false)}
+/>
+
+<NotesNewFolderDialog
+	bind:open={showNewFolder}
+	onSubmit={(name) => newFolder(name)}
+	onCancel={() => (showNewFolder = false)}
 />

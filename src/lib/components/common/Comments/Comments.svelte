@@ -1,8 +1,8 @@
 <script lang="ts">
+    import { SquarePenIcon, Trash2Icon } from 'lucide-svelte';
 	import type { Comment } from '$lib/services/comments.service';
 	import { getInitials } from '$lib/utils';
-	import { SquarePenIcon, Trash2Icon } from 'lucide-svelte';
-	import Preview from '../Ace/Preview.svelte';
+	import { MarkDownPreview } from '../MarkDown';
 
 	type Props = {
 		comments: Comment[];
@@ -59,7 +59,7 @@
 			</div>
 
 			<div class="mt-1.5 pl-8 text-xs [&_.prose]:text-xs">
-				<Preview markdown={comment.comment_text} />
+				<MarkDownPreview markdown={comment.comment_text} />
 			</div>
 		</li>
 	{/each}
