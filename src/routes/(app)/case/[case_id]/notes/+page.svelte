@@ -18,7 +18,7 @@
 	};
 </script>
 
-<div class="flex h-full w-full flex-col items-center gap-2 pt-8 text-lg">
+<div class="flex h-full w-full flex-col items-center gap-2 bg-white pt-8 text-lg dark:bg-black/80">
 	<p class="flex gap-2">It looks pretty empty <CoffeeIcon /></p>
 
 	<Button variant="link" size="lg" onclick={() => (showNewFolder = true)}>

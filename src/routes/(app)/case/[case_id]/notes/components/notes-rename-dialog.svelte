@@ -15,7 +15,7 @@
 
 	let { open = $bindable(), itemType, initialValue = '', onSubmit, onCancel }: Props = $props();
 
-	let value = $state(initialValue);
+	let value = $state('');
 	let submitting = $state(false);
 	let inputEl = $state<HTMLInputElement | null>(null);
 	let wasOpen = $state(false);
@@ -40,6 +40,10 @@
 			submitting = false;
 		}
 	};
+
+	$effect(() => {
+		value = initialValue;
+	});
 
 	$effect(() => {
 		if (!open) {

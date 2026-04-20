@@ -1,41 +1,42 @@
 <script lang="ts">
-	import { setContext } from 'svelte';
+	import { getContext } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import {
-		CASE_NOTES_CTX,
-		createCaseNotesContext,
-		type CaseNotesContext
-	} from '$lib/contexts/case-notes.context.svelte';
+	import { CASE_NOTES_CTX, type CaseNotesContext } from '$lib/contexts/case-notes.context.svelte';
 	import MarkDownEditor from '$lib/components/common/MarkDown/MarkDownEditor.svelte';
-	import { getNoteUrl } from '../helpers';
 	import NoteHeader from './note-header.svelte';
 
-	const notes = createCaseNotesContext(() => Number(page.params.case_id));
+	const notes = getContext<CaseNotesContext>(CASE_NOTES_CTX);
 	const note = $derived(notes.byId[Number(page.params.note_id)]);
-
-	setContext<CaseNotesContext>(CASE_NOTES_CTX, notes);
 
 	$effect(() => {
 		notes.loadTree();
 	});
+
+	const saveNote = async () => {
+		await notes.patchNote(note.note_id, {
+			note_title: note.note_title,
+			note_content: note.note_content
+		});
+	};
 </script>
 
-<div class="flex h-full w-full grow flex-col gap-y-8 px-4 pt-2">
+<div class="flex h-full w-full grow flex-col gap-y-8 bg-white px-4 pt-2 dark:bg-black/80">
 	{#if note}
 		<NoteHeader
 			{note}
+			onSaveNote={saveNote}
 			onDeleteNote={() => {
 				notes.removeNote(note.note_id);
 
-				goto(getNoteUrl(notes.list.noteIds[0]));
+				goto(`/case/${page.params.case_id}/notes`);
 			}}
 		/>
 
 		<MarkDownEditor
 			value={note.note_content ?? ''}
 			onChange={(v) => (note.note_content = v)}
-			onSave={() => notes.patchNote(note.note_id, { note_content: note.note_content })}
+			onSave={saveNote}
 		/>
 	{/if}
 </div>

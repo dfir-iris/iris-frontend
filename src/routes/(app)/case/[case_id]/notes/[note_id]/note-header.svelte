@@ -5,10 +5,13 @@
 		ForwardIcon,
 		HistoryIcon,
 		MessagesSquareIcon,
+		SaveIcon,
 		TrashIcon
 	} from 'lucide-svelte';
 	import type { Note } from '$lib/types/resources/note';
+	import { username } from '$lib/stores/auth.store';
 	import { toast } from '$lib/stores/toast.store';
+	import type { HistoryEventBase } from '$lib/components/common/ActivityHistory.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
 	import {
@@ -20,24 +23,93 @@
 	import { getNoteUrl } from '../helpers';
 	import NoteCommentsDialog from './note-comments-dialog.svelte';
 	import NoteHistoryDialog from './note-history-dialog.svelte';
+	import { mediumDateTimeFormatter } from '$lib/utils/time-formatter';
+	import NotesRenameDialog from '../components/notes-rename-dialog.svelte';
+	import { CommentsService } from '$lib/services/comments.service';
+
+	interface LastSaved extends HistoryEventBase {
+		date: Date;
+	}
 
 	type Props = {
 		note: Note;
+		onSaveNote: () => void;
 		onDeleteNote: () => void;
 	};
 
-	let { note, onDeleteNote }: Props = $props();
+	let { note, onSaveNote, onDeleteNote }: Props = $props();
 
-	let showNoteHistory = $state<boolean>(false);
-	let showNoteComments = $state<boolean>(false);
-	let showConfirmDelete = $state<boolean>(false);
+	let showNoteRename = $state(false);
+	let showNoteHistory = $state(false);
+	let showNoteComments = $state(false);
+	let showConfirmDelete = $state(false);
+
+	let entered = $state(new Date());
+
+	let comments = $state(0);
+
+	const getModificationDate = (date: string): Date => new Date(Math.floor(Number(date) * 1000));
+
+	const lastSaved = $derived.by<LastSaved | null>(() => {
+		if (!note.modification_history) return null;
+
+		const lastModification = Object.keys(note.modification_history)
+			.sort((a: string, b: string) =>
+				getModificationDate(b).getDate() < getModificationDate(a).getTime() ? 1 : -1
+			)
+			.pop();
+
+		if (!lastModification) return null;
+
+		const lastModificationHistoryEvent = (
+			note.modification_history as Record<string, HistoryEventBase>
+		)[lastModification];
+
+		return {
+			...lastModificationHistoryEvent,
+			date: getModificationDate(lastModification)
+		};
+	});
+
+	const renameNote = (name: string) => {
+		note.note_title = name;
+		showNoteRename = false;
+		onSaveNote();
+	};
+
+	const loadComments = async () => {
+		const commentsResponse = await CommentsService.list('notes', note.note_id, {
+			per_page: 10000
+		});
+
+		const data = commentsResponse.data;
+		comments = (data && typeof data === 'object' && Array.isArray(data.data) ? data.data : [])
+			.length;
+	};
+
+	$effect(() => {
+		loadComments();
+	});
 </script>
 
 <div class="flex items-start justify-between">
 	<div class="flex flex-col">
-		<div class="text-3xl font-bold">{note.note_title}</div>
+		<div
+			role="button"
+			tabindex="0"
+			class="cursor-pointer text-3xl font-bold"
+			onclick={() => (showNoteRename = true)}
+			onkeydown={(e) => {
+				if (e.key === 'Enter' || e.key === ' ') {
+					e.preventDefault();
+					showNoteRename = true;
+				}
+			}}
+		>
+			{note.note_title}
+		</div>
 
-		<div class="italicgap-4 flex items-center text-sm">
+		<div class="flex items-center gap-4 text-sm italic">
 			<span class="opacity-50">#{note.note_id} - {note.note_uuid}</span>
 
 			<TooltipProvider>
@@ -55,12 +127,42 @@
 	</div>
 
 	<div class="flex">
+		{#if lastSaved && lastSaved.date > entered}
+			<div class="flex items-center text-xs opacity-50">
+				Last Saved: {mediumDateTimeFormatter(lastSaved.date)} by {lastSaved.user === $username
+					? 'you'
+					: lastSaved.user}
+			</div>
+		{/if}
+
 		<TooltipProvider>
 			<Tooltip>
 				<TooltipTrigger>
-					<Button variant="link" size="xs" onclick={() => (showNoteComments = true)}>
-						<MessagesSquareIcon />
+					<Button variant="link" size="xs" onclick={() => onSaveNote()}>
+						<SaveIcon />
 					</Button>
+				</TooltipTrigger>
+
+				<TooltipContent align="center" side="bottom">Save note</TooltipContent>
+			</Tooltip>
+		</TooltipProvider>
+
+		<TooltipProvider>
+			<Tooltip>
+				<TooltipTrigger>
+					<div class="relative">
+						<Button variant="link" size="xs" onclick={() => (showNoteComments = true)}>
+							<MessagesSquareIcon />
+
+							{#if comments > 0}
+								<div
+									class="absolute right-[0.025rem] top-[.025rem] flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-2xs text-white"
+								>
+									{comments}
+								</div>
+							{/if}
+						</Button>
+					</div>
 				</TooltipTrigger>
 
 				<TooltipContent align="center" side="bottom">Comments</TooltipContent>
@@ -108,7 +210,9 @@
 						size="xs"
 						onclick={() => {
 							navigator.clipboard
-								.writeText(`[<i class="fa-solid fa-bell"></i> #25](${getNoteUrl(note.note_id)})`)
+								.writeText(
+									`[<i class="fa-solid fa-bell"></i> #(${getNoteUrl(note.note_id)})](${getNoteUrl(note.note_id)})`
+								)
 								.then(() => {
 									toast({
 										title: 'Link copied',
@@ -197,4 +301,12 @@
 	message="You are about to delete this forever. This cannot be reverted. All associated data will be deleted."
 	onConfirm={onDeleteNote}
 	onCancel={() => (showConfirmDelete = false)}
+/>
+
+<NotesRenameDialog
+	bind:open={showNoteRename}
+	itemType="note"
+	initialValue={note.note_title}
+	onSubmit={renameNote}
+	onCancel={() => (showNoteRename = false)}
 />
