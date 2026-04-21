@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { setContext, type Snippet } from 'svelte';
+	import { setContext, type Snippet, onDestroy } from 'svelte';
 	import { FilePlusIcon, FolderPlusIcon } from 'lucide-svelte';
 	import { page } from '$app/state';
 	import { toast } from '$lib/stores/toast.store';
@@ -10,8 +10,9 @@
 		createCaseNotesContext,
 		type CaseNotesContext
 	} from '$lib/contexts/case-notes.context.svelte';
+	import type { NoteFolder } from '$lib/types/resources/note';
 	import type { ContextMenu, ContextMenuSource } from './types';
-	import NotesTree from './components/notes-tree.svelte';
+	import NotesTree, { type DragItem } from './components/notes-tree.svelte';
 	import NotesContextMenu from './components/notes-context-menu.svelte';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
 	import NotesRenameDialog from './components/notes-rename-dialog.svelte';
@@ -25,10 +26,15 @@
 
 	setContext<CaseNotesContext>(CASE_NOTES_CTX, notes);
 
+	let previousCaseId = $state<number | null>(null);
+
 	let showNewFolder = $state<boolean>(false);
 	let showConfirmDelete = $state<boolean>(false);
 	let showRename = $state<boolean>(false);
 	let showMove = $state<boolean>(false);
+
+	let dragItem = $state<DragItem | null>(null);
+	let dragOverFolderId = $state<number | null>(null);
 
 	let contextMenu = $state<ContextMenu>({
 		open: false,
@@ -41,13 +47,18 @@
 
 		if (!Number.isFinite(caseId)) {
 			notes.reset();
+			previousCaseId = null;
+
 			return;
 		}
 
-		notes.loadTree();
-
-		return () => notes.reset();
+		if (previousCaseId !== caseId) {
+			previousCaseId = caseId;
+			notes.loadTree();
+		}
 	});
+
+	onDestroy(() => notes.reset());
 
 	const clickFolder = (folderId: number) => {
 		notes.selectFolder(folderId);
@@ -131,13 +142,70 @@
 			notes.removeNote(contextMenu.noteId);
 		}
 	};
+
+	const clearDrag = () => {
+		dragItem = null;
+		dragOverFolderId = null;
+	};
+
+	const findFolder = (folders: NoteFolder[], folderId: number): NoteFolder | undefined => {
+		for (const folder of folders) {
+			if (folder.id === folderId) {
+				return folder;
+			}
+
+			return findFolder(folder.subdirectories ?? [], folderId);
+		}
+	};
+
+	const containsFolder = (folder: NoteFolder, folderId: number): boolean => {
+		for (const subfolder of folder.subdirectories ?? []) {
+			if (subfolder.id === folderId || containsFolder(subfolder, folderId)) {
+				return true;
+			}
+		}
+
+		return false;
+	};
+
+	const dropOnFolder = async (targetFolderId: number) => {
+		if (!dragItem) {
+			return;
+		}
+
+		if (dragItem.type === 'note') {
+			await notes.patchNote(dragItem.id, { directory_id: targetFolderId });
+
+			clearDrag();
+
+			return;
+		}
+
+		if (dragItem.id === targetFolderId) {
+			clearDrag();
+
+			return;
+		}
+
+		const folder = findFolder(notes.list.tree, dragItem.id);
+
+		if (folder && containsFolder(folder, targetFolderId)) {
+			clearDrag();
+
+			return;
+		}
+
+		await notes.patchFolder(dragItem.id, { parent_id: targetFolderId });
+
+		clearDrag();
+	};
 </script>
 
 <svelte:document onclick={closeContextMenu} />
 
 <div class="flex h-full w-full flex-row overflow-hidden">
 	<div class="relative flex h-full min-h-0 w-1/4 max-w-[250px] flex-col border-r">
-		<div class="flex flex-row items-center gap-2 px-4 pb-2 pt-4">
+		<div class="flex flex-row items-center gap-2 px-4 pt-4">
 			<h2 class="w-full">Notes</h2>
 
 			<Button
@@ -154,7 +222,7 @@
 			</Button>
 		</div>
 
-		<div class="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+		<div class="min-h-0 flex-1 overflow-y-auto px-4 py-2">
 			{#if notes.list.status === 'loading' && notes.list.tree.length === 0}
 				<div class="space-y-2 px-4">
 					<Skeleton class="h-8 w-full" />
@@ -167,7 +235,23 @@
 				</div>
 			{:else}
 				{#each notes.list.tree as folder (folder.id)}
-					<NotesTree {folder} onClickFolder={clickFolder} onContextMenu={openContextMenu} />
+					<NotesTree
+						{folder}
+						onClickFolder={clickFolder}
+						onContextMenu={openContextMenu}
+						{dragItem}
+						{dragOverFolderId}
+						onDragStartFolder={(folderId) => (dragItem = { type: 'folder', id: folderId })}
+						onDragStartNote={(noteId) => (dragItem = { type: 'note', id: noteId })}
+						onDragEnd={clearDrag}
+						onDragEnterFolder={(folderId) => (dragOverFolderId = folderId)}
+						onDragLeaveFolder={(folderId) => {
+							if (dragOverFolderId === folderId) {
+								dragOverFolderId = null;
+							}
+						}}
+						onDropOnFolder={dropOnFolder}
+					/>
 				{/each}
 			{/if}
 		</div>
