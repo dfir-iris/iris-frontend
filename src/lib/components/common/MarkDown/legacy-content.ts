@@ -52,7 +52,39 @@ const stripFontAwesomeTags = (text: string): string => {
 	return text.replace(/<i\b[^>]*\bclass=["'][^"']*\bfa[-\w]*[^"']*["'][^>]*>\s*<\/i>/gi, '');
 };
 
+/**
+ * Legacy IRIS stored markdown with the image/link brackets backslash-escaped
+ * (e.g. `!\[alt\](url)` instead of `![alt](url)`) — likely an artifact of an
+ * old templating/sanitization pass. markdown-it treats `\[` as a literal `[`,
+ * so these never render as actual images or links.
+ *
+ * We unescape the specific bracket pairs here so the content renders
+ * correctly. The pattern is targeted (only `\[ ... \]` followed by `(`) so
+ * intentionally-escaped brackets in prose are left alone.
+ *
+ * Also:
+ *  - Strip backticks that legacy content wrapped around the alt text
+ *    (e.g. ``!\[`file.png`\](url)``). Tiptap's image node does not preserve
+ *    alt markup, and the backticks were purely cosmetic.
+ *  - Strip the non-standard `=WxH%` size suffix inside the URL parens
+ *    (e.g. `![alt](url =60%x40%)`) — this is a markdown-it-imsize extension
+ *    that the default parser doesn't understand, so it breaks the URL match
+ *    and the image falls back to literal text. We drop the dimension hint
+ *    since the editor supports drag-to-resize and stores width as an
+ *    <img width> attribute, which is the source of truth going forward.
+ */
+const unescapeLegacyMarkdownLinks = (text: string): string => {
+	return text
+		.replace(/(!?)\\\[([^\]]*)\\\]\(/g, (_match, bang, inner) => {
+			// Drop surrounding backticks from the alt/link text — a common
+			// legacy pattern: `!\[`filename.png`\]`.
+			const cleaned = inner.replace(/^`([^`]*)`$/, '$1');
+			return `${bang}[${cleaned}](`;
+		})
+		.replace(/(!\[[^\]]*\]\()([^)\s]+)\s+=\d+%?x\d+%?(\))/g, '$1$2$3');
+};
+
 export const normalizeLegacyContent = (text: string): string => {
 	if (!text) return text;
-	return stripFontAwesomeTags(rewriteDatastoreUrls(text));
+	return stripFontAwesomeTags(rewriteDatastoreUrls(unescapeLegacyMarkdownLinks(text)));
 };

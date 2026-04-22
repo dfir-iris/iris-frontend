@@ -20,7 +20,6 @@
 	} from 'lucide-svelte';
 	import { Editor } from '@tiptap/core';
 	import StarterKit from '@tiptap/starter-kit';
-	import Link from '@tiptap/extension-link';
 	import Image from '@tiptap/extension-image';
 	import { normalizeLegacyContent } from './legacy-content';
 	import { ResizableImageNodeView } from './resizable-image';
@@ -325,11 +324,15 @@
 			element: editorElement,
 			extensions: [
 				StarterKit.configure({
-					heading: { levels: [1, 2, 3] }
-				}),
-				Link.configure({
-					openOnClick: false,
-					HTMLAttributes: { class: 'text-blue-500 underline' }
+					heading: { levels: [1, 2, 3] },
+					// StarterKit v3 ships Link. Configure it here instead of
+					// registering a second Link extension — which triggers a
+					// `Duplicate extension names found: ['link']` warning and
+					// the second registration wins unpredictably.
+					link: {
+						openOnClick: false,
+						HTMLAttributes: { class: 'text-blue-500 underline' }
+					}
 				}),
 				// Image node extended with:
 				//  - a `width` attribute so users can resize and round-trip
