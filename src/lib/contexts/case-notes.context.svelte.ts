@@ -213,6 +213,29 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 		list.noteIds.map((id) => byId[id]).filter((note): note is Note => !!note)
 	);
 
+	const updateNoteInTree = (note: Note) => {
+		const id = getNoteId(note);
+
+		const visit = (folders: NoteFolder[]): boolean => {
+			for (const folder of folders) {
+				for (let i = 0; i < folder.notes.length; i++) {
+					if (getNoteId(folder.notes[i]) === id) {
+						folder.notes[i] = note;
+						return true;
+					}
+				}
+
+				if (folder.subdirectories.length > 0 && visit(folder.subdirectories)) {
+					return true;
+				}
+			}
+
+			return false;
+		};
+
+		visit(list.tree);
+	};
+
 	const replaceTreeState = (tree: NoteFolder[]) => {
 		for (const k of Object.keys(foldersById)) delete foldersById[Number(k)];
 		for (const k of Object.keys(byId)) delete byId[Number(k)];
@@ -356,7 +379,21 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 			const note = res.data;
 			byId[getNoteId(note)] = note;
 
-			await refresh(options);
+			// Update the note reference inside the cached tree so the sidebar reflects
+			// any title/directory changes without triggering a full tree reload.
+			const didMove =
+				prev !== undefined &&
+				typeof prev.directory_id === 'number' &&
+				typeof note.directory_id === 'number' &&
+				prev.directory_id !== note.directory_id;
+
+			if (didMove) {
+				// Directory changed — the tree structure needs a refresh.
+				await refresh(options);
+			} else {
+				updateNoteInTree(note);
+			}
+
 			return byId[id] ?? note;
 		}
 

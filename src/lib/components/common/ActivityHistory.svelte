@@ -15,21 +15,23 @@
 	import { cn } from '$lib/utils';
 	import { mediumDateTimeFormatter } from '$lib/utils/time-formatter';
 
-	type HistoryEvent = {
+	export interface HistoryEventBase {
+		user: string;
+		user_id: number;
+		action: string;
+	}
+
+	interface HistoryEvent extends HistoryEventBase {
 		date: Date;
 		timestamp: number;
 		user: string;
 		userId: number;
 		action: string;
-	};
+	}
 
 	export type HistoryData =
 		| {
-				[timestamp: string]: {
-					user: string;
-					user_id: number;
-					action: string;
-				};
+				[timestamp: string]: HistoryEventBase;
 		  }
 		| object
 		| null;

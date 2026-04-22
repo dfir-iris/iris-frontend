@@ -1,22 +1,25 @@
 <script lang="ts">
-	import { setContext, type Snippet } from 'svelte';
+	import { setContext, type Snippet, onDestroy } from 'svelte';
 	import { FilePlusIcon, FolderPlusIcon } from 'lucide-svelte';
 	import { page } from '$app/state';
 	import { toast } from '$lib/stores/toast.store';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import * as Resizable from '$lib/components/ui/resizable/index.js';
 	import {
 		CASE_NOTES_CTX,
 		createCaseNotesContext,
 		type CaseNotesContext
 	} from '$lib/contexts/case-notes.context.svelte';
+	import type { NoteFolder } from '$lib/types/resources/note';
 	import type { ContextMenu, ContextMenuSource } from './types';
-	import NotesTree from './components/notes-tree.svelte';
+	import NotesTree, { type DragItem } from './components/notes-tree.svelte';
 	import NotesContextMenu from './components/notes-context-menu.svelte';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
 	import NotesRenameDialog from './components/notes-rename-dialog.svelte';
 	import NotesMoveItemDialog from './components/notes-move-item-dialog.svelte';
 	import { getNoteUrl, newNote } from './helpers';
+	import NotesNewFolderDialog from './components/notes-new-folder-dialog.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -24,9 +27,13 @@
 
 	setContext<CaseNotesContext>(CASE_NOTES_CTX, notes);
 
+	let showNewFolder = $state<boolean>(false);
 	let showConfirmDelete = $state<boolean>(false);
 	let showRename = $state<boolean>(false);
 	let showMove = $state<boolean>(false);
+
+	let dragItem = $state<DragItem | null>(null);
+	let dragOverFolderId = $state<number | null>(null);
 
 	let contextMenu = $state<ContextMenu>({
 		open: false,
@@ -34,18 +41,31 @@
 		y: 0
 	});
 
+	const defaultSidebarSize = 22;
+	const minSidebarSize = 12;
+	const maxSidebarSize = 50;
+
+	let loadedCaseId = $state<number | null>(null);
+
 	$effect(() => {
 		const caseId = Number(page.params.case_id);
 
 		if (!Number.isFinite(caseId)) {
 			notes.reset();
+			loadedCaseId = null;
 			return;
 		}
 
-		void notes.loadTree();
+		// Only reload the tree when the case id actually changes. Navigating between
+		// notes within the same case keeps `page.params.case_id` stable but still
+		// re-runs this effect — we don't want to wipe and refetch the tree then.
+		if (caseId === loadedCaseId) return;
 
-		return () => notes.reset();
+		loadedCaseId = caseId;
+		notes.loadTree();
 	});
+
+	onDestroy(() => notes.reset());
 
 	const clickFolder = (folderId: number) => {
 		notes.selectFolder(folderId);
@@ -85,12 +105,14 @@
 		contextMenu.name = name;
 	};
 
-	const newFolder = async (parentId?: number) => {
+	const newFolder = async (name = 'New Folder') => {
+		showNewFolder = false;
+
 		closeContextMenu();
 
 		await notes.createFolder({
-			name: 'New folder',
-			parent_id: parentId
+			name,
+			parent_id: notes.ui.selectedFolderId
 		});
 	};
 
@@ -127,116 +149,209 @@
 			notes.removeNote(contextMenu.noteId);
 		}
 	};
+
+	const clearDrag = () => {
+		dragItem = null;
+		dragOverFolderId = null;
+	};
+
+	const findFolder = (folders: NoteFolder[], folderId: number): NoteFolder | undefined => {
+		for (const folder of folders) {
+			if (folder.id === folderId) {
+				return folder;
+			}
+
+			return findFolder(folder.subdirectories ?? [], folderId);
+		}
+	};
+
+	const containsFolder = (folder: NoteFolder, folderId: number): boolean => {
+		for (const subfolder of folder.subdirectories ?? []) {
+			if (subfolder.id === folderId || containsFolder(subfolder, folderId)) {
+				return true;
+			}
+		}
+
+		return false;
+	};
+
+	const dropOnFolder = async (targetFolderId: number) => {
+		if (!dragItem) {
+			return;
+		}
+
+		if (dragItem.type === 'note') {
+			await notes.patchNote(dragItem.id, { directory_id: targetFolderId });
+
+			clearDrag();
+
+			return;
+		}
+
+		if (dragItem.id === targetFolderId) {
+			clearDrag();
+
+			return;
+		}
+
+		const folder = findFolder(notes.list.tree, dragItem.id);
+
+		if (folder && containsFolder(folder, targetFolderId)) {
+			clearDrag();
+
+			return;
+		}
+
+		await notes.patchFolder(dragItem.id, { parent_id: targetFolderId });
+
+		clearDrag();
+	};
 </script>
 
 <svelte:document onclick={closeContextMenu} />
 
-<div class="flex h-full w-full flex-row overflow-hidden">
-	<div class="relative flex h-full min-h-0 w-1/4 max-w-[250px] flex-col border-r">
-		<div class="flex flex-row items-center gap-2 px-4 pb-2 pt-4">
-			<h2 class="w-full">Notes</h2>
+<div class="flex h-full w-full">
+	<Resizable.PaneGroup direction="horizontal" class="h-full w-full">
+		<Resizable.Pane
+			defaultSize={defaultSidebarSize}
+			minSize={minSidebarSize}
+			maxSize={maxSidebarSize}
+			class="relative flex h-full min-h-0 flex-col border-r border-border/50 bg-background"
+		>
+			<div class="flex flex-row items-center gap-1 px-3 pb-2 pt-3">
+				<h2 class="w-full text-lg font-semibold">Notes</h2>
 
-			<Button
-				variant="ghost"
-				size="icon"
-				aria-label="Add folder"
-				onclick={() => newFolder(notes.ui.selectedFolderId)}
-			>
-				<FolderPlusIcon />
-			</Button>
+				<Button
+					variant="ghost"
+					size="icon"
+					aria-label="Add folder"
+					title="New folder"
+					class="h-8 w-8"
+					onclick={() => (showNewFolder = true)}
+				>
+					<FolderPlusIcon class="h-4 w-4" />
+				</Button>
 
-			<Button variant="ghost" size="icon" aria-label="Add note" onclick={() => newNote(notes)}>
-				<FilePlusIcon />
-			</Button>
-		</div>
+				<Button
+					variant="ghost"
+					size="icon"
+					aria-label="Add note"
+					title="New note"
+					class="h-8 w-8"
+					onclick={() => newNote(notes)}
+				>
+					<FilePlusIcon class="h-4 w-4" />
+				</Button>
+			</div>
 
-		<div class="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-			{#if notes.list.status === 'loading' && notes.list.tree.length === 0}
-				<div class="space-y-2 px-4">
-					<Skeleton class="h-8 w-full" />
-					<Skeleton class="h-8 w-full" />
-					<Skeleton class="h-8 w-full" />
-				</div>
-			{:else if notes.list.error}
-				<div class="px-4 py-2 text-sm text-destructive">
-					{notes.list.error}
-				</div>
-			{:else}
-				{#each notes.list.tree as folder (folder.id)}
-					<NotesTree {folder} onClickFolder={clickFolder} onContextMenu={openContextMenu} />
-				{/each}
+			<div class="notes-tree-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-4">
+				{#if notes.list.status === 'loading' && notes.list.tree.length === 0}
+					<div class="space-y-2 px-2">
+						<Skeleton class="h-7 w-full" />
+						<Skeleton class="h-7 w-full" />
+						<Skeleton class="h-7 w-full" />
+					</div>
+				{:else if notes.list.error}
+					<div class="px-2 py-2 text-sm text-destructive">
+						{notes.list.error}
+					</div>
+				{:else}
+					{#each notes.list.tree as folder (folder.id)}
+						<NotesTree
+							{folder}
+							onClickFolder={clickFolder}
+							onContextMenu={openContextMenu}
+							{dragItem}
+							{dragOverFolderId}
+							onDragStartFolder={(folderId) => (dragItem = { type: 'folder', id: folderId })}
+							onDragStartNote={(noteId) => (dragItem = { type: 'note', id: noteId })}
+							onDragEnd={clearDrag}
+							onDragEnterFolder={(folderId) => (dragOverFolderId = folderId)}
+							onDragLeaveFolder={(folderId) => {
+								if (dragOverFolderId === folderId) {
+									dragOverFolderId = null;
+								}
+							}}
+							onDropOnFolder={dropOnFolder}
+						/>
+					{/each}
+				{/if}
+			</div>
+
+			{#if contextMenu.open}
+				<NotesContextMenu
+					{contextMenu}
+					onNewNote={() => {
+						closeContextMenu();
+
+						newNote(notes, contextMenu.folderId);
+					}}
+					onNewFolder={() => {
+						closeContextMenu();
+
+						showNewFolder = true;
+					}}
+					onCopyLink={(noteId?: number) => {
+						navigator.clipboard
+							.writeText(getNoteUrl(noteId))
+							.then(() => {
+								toast({
+									title: 'Link copied',
+									variant: 'success'
+								});
+							})
+							.catch((e) => {
+								console.error('Clipboard copy error:', e);
+
+								toast({
+									title: 'Could not copy link',
+									variant: 'destructive'
+								});
+							});
+					}}
+					onCopyMdLink={(noteId?: number) => {
+						navigator.clipboard
+							.writeText(`[<i class="fa-solid fa-bell"></i> #25](${getNoteUrl(noteId)})`)
+							.then(() => {
+								toast({
+									title: 'Link copied',
+									variant: 'success'
+								});
+							})
+							.catch((e) => {
+								console.error('Clipboard copy error:', e);
+
+								toast({
+									title: 'Could not copy link',
+									variant: 'destructive'
+								});
+							});
+					}}
+					onRename={() => {
+						closeContextMenu();
+
+						showRename = true;
+					}}
+					onMove={() => {
+						closeContextMenu();
+
+						showMove = true;
+					}}
+					onDelete={() => {
+						closeContextMenu();
+
+						showConfirmDelete = true;
+					}}
+				/>
 			{/if}
-		</div>
+		</Resizable.Pane>
 
-		{#if contextMenu.open}
-			<NotesContextMenu
-				{contextMenu}
-				onNewNote={() => {
-					closeContextMenu();
+		<Resizable.Handle withHandle class="bg-muted hover:bg-muted-foreground/20" />
 
-					newNote(notes, contextMenu.folderId);
-				}}
-				onNewFolder={newFolder}
-				onCopyLink={(noteId?: number) => {
-					navigator.clipboard
-						.writeText(getNoteUrl(noteId))
-						.then(() => {
-							toast({
-								title: 'Link copied',
-								variant: 'success'
-							});
-						})
-						.catch((e) => {
-							console.error('Clipboard copy error:', e);
-
-							toast({
-								title: 'Could not copy link',
-								variant: 'destructive'
-							});
-						});
-				}}
-				onCopyMdLink={(noteId?: number) => {
-					navigator.clipboard
-						.writeText(`[<i class="fa-solid fa-bell"></i> #25](${getNoteUrl(noteId)})`)
-						.then(() => {
-							toast({
-								title: 'Link copied',
-								variant: 'success'
-							});
-						})
-						.catch((e) => {
-							console.error('Clipboard copy error:', e);
-
-							toast({
-								title: 'Could not copy link',
-								variant: 'destructive'
-							});
-						});
-				}}
-				onRename={() => {
-					closeContextMenu();
-
-					showRename = true;
-				}}
-				onMove={() => {
-					closeContextMenu();
-
-					showMove = true;
-				}}
-				onDelete={() => {
-					closeContextMenu();
-
-					showConfirmDelete = true;
-				}}
-			/>
-		{/if}
-	</div>
-
-	<div class="h-full w-full overflow-hidden p-8">
-		<div class="flex h-full w-full flex-col rounded border bg-background shadow">
+		<Resizable.Pane class="flex h-full min-h-0 flex-col overflow-hidden bg-background">
 			{@render children()}
-		</div>
-	</div>
+		</Resizable.Pane>
+	</Resizable.PaneGroup>
 </div>
 
 <NotesRenameDialog
@@ -262,3 +377,77 @@
 	onConfirm={deleteItem}
 	onCancel={() => (showConfirmDelete = false)}
 />
+
+<NotesNewFolderDialog
+	bind:open={showNewFolder}
+	onSubmit={(name) => newFolder(name)}
+	onCancel={() => (showNewFolder = false)}
+/>
+
+<style>
+	/* Keep the sidebar scrollbar out of the way until the user hovers the pane. */
+	.notes-tree-scroll {
+		scrollbar-width: thin;
+		scrollbar-color: transparent transparent;
+		transition: scrollbar-color 0.2s ease;
+	}
+
+	.notes-tree-scroll:hover {
+		scrollbar-color: hsl(var(--muted-foreground) / 0.35) transparent;
+	}
+
+	.notes-tree-scroll::-webkit-scrollbar {
+		width: 6px;
+	}
+
+	.notes-tree-scroll::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	.notes-tree-scroll::-webkit-scrollbar-thumb {
+		background-color: transparent;
+		border-radius: 999px;
+		transition: background-color 0.2s ease;
+	}
+
+	.notes-tree-scroll:hover::-webkit-scrollbar-thumb {
+		background-color: hsl(var(--muted-foreground) / 0.35);
+	}
+
+	.notes-tree-scroll::-webkit-scrollbar-thumb:hover {
+		background-color: hsl(var(--muted-foreground) / 0.55);
+	}
+
+	:global(.resizable-handle) {
+		position: relative;
+	}
+
+	:global(.resizable-handle[data-resize-handle-active]) {
+		background-color: var(--muted-foreground);
+	}
+
+	:global(.resizable-handle-with-handle) {
+		position: relative;
+		width: 2px;
+		transition: background-color 0.2s;
+	}
+
+	:global(.resizable-handle-with-handle::before) {
+		content: '';
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		width: 4px;
+		height: 24px;
+		border-radius: 2px;
+		background-color: var(--muted-foreground);
+		opacity: 0.5;
+		transition: opacity 0.2s;
+	}
+
+	:global(.resizable-handle-with-handle:hover::before),
+	:global(.resizable-handle-with-handle[data-resize-handle-active]::before) {
+		opacity: 1;
+	}
+</style>

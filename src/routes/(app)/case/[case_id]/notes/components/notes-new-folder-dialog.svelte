@@ -3,26 +3,19 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
-	import type { ContextMenuSource } from '../types';
 
 	type Props = {
 		open: boolean;
-		itemType: ContextMenuSource;
-		initialValue?: string;
 		onSubmit: (value: string) => void;
 		onCancel: () => void;
 	};
 
-	let { open = $bindable(), itemType, initialValue = '', onSubmit, onCancel }: Props = $props();
+	let { open = $bindable(), onSubmit, onCancel }: Props = $props();
 
 	let value = $state('');
 	let submitting = $state(false);
 	let inputEl = $state<HTMLInputElement | null>(null);
 	let wasOpen = $state(false);
-
-	const title = $derived(`Rename ${itemType}`);
-	const description = $derived(`Enter a new name for the ${itemType}`);
-	const submitLabel = $derived('Rename');
 
 	const focusInput = async () => {
 		await tick();
@@ -42,20 +35,18 @@
 	};
 
 	$effect(() => {
-		value = initialValue;
-	});
-
-	$effect(() => {
 		if (!open) {
-			value = initialValue;
+			value = '';
 			wasOpen = false;
+
 			return;
 		}
 
 		if (!wasOpen) {
-			value = initialValue;
+			value = '';
 			wasOpen = true;
-			void focusInput();
+
+			focusInput();
 		}
 	});
 </script>
@@ -72,11 +63,11 @@
 		<div class="flex flex-col p-4">
 			<Dialog.Header class="items-center text-center">
 				<Dialog.Title class="text-2xl font-semibold tracking-tight">
-					{title}
+					Name the new folder
 				</Dialog.Title>
 
 				<Dialog.Description class="text-lg text-muted-foreground">
-					{description}
+					Enter a new name for the folder
 				</Dialog.Description>
 			</Dialog.Header>
 
@@ -98,7 +89,7 @@
 				<Button variant="outline" onclick={onCancel}>Cancel</Button>
 
 				<Button variant="destructive" disabled={!value.trim() || submitting} onclick={handleSubmit}>
-					{submitLabel}
+					Create
 				</Button>
 			</Dialog.Footer>
 		</div>

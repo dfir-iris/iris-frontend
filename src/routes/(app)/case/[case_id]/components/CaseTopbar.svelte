@@ -8,8 +8,7 @@
 		Tag,
 		UserRound,
 		Shield,
-		Activity,
-		HashIcon
+		Activity
 	} from 'lucide-svelte';
 	import type { Case } from '$lib/types/resources/case';
 	import type { CaseStatus, Severity } from '$lib/components/ui/badge/types';
@@ -25,7 +24,6 @@
 	import SeverityBadge from '$lib/components/ui/badge/severity-badge.svelte';
 	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { Separator } from '$lib/components/ui/separator';
 	import CaseAddDropdown from './CaseAddDropdown.svelte';
 
 	const cases = getContext<CasesContext>(CASES_CTX);
@@ -99,92 +97,92 @@
 </script>
 
 <div
-	class="flex min-h-28 flex-col border-b bg-background p-2 shadow-sm xl:flex-row xl:items-center"
+	class="flex items-center gap-3 border-b bg-background px-4 py-2"
 >
-	<div class="flex grow items-center">
-		<!-- Case Icon Badge -->
-		<div class="flex">
-			<div
-				class={`mr-2 flex h-10 w-10 items-center justify-center rounded-full ${icon.iconBg} ring-2 ${icon.ring} ${icon.glow ? 'shadow-glow-danger' : ''}`}
-			>
-				<icon.Icon size={20} class={icon.iconColor} />
-			</div>
+	<!-- Case icon badge: a single compact glyph that conveys severity at a glance. -->
+	<div
+		class={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${icon.iconBg} ${icon.glow ? 'shadow-glow-danger' : ''}`}
+	>
+		<icon.Icon size={16} class={icon.iconColor} />
+	</div>
+
+	<!-- Title + inline metadata. One line when there's room; wraps gracefully when narrow. -->
+	<div class="flex min-w-0 flex-1 flex-col">
+		<div class="flex items-center gap-2">
+			<h2 class="truncate text-sm font-semibold leading-tight">
+				{caseData?.case_name.split(' - ')[1] ?? caseData?.case_name}
+			</h2>
+
+			{#if caseData?.case_id}
+				<span class="shrink-0 font-mono text-2xs text-muted-foreground">#{caseData.case_id}</span>
+			{/if}
 		</div>
 
-		<div class="ml-1 flex flex-col flex-wrap overflow-hidden">
-			<!-- Case Name -->
-			<div class="flex items-center gap-2">
-				<h2 class="truncate text-lg font-semibold">{caseData?.case_name.split(' - ')[1]}</h2>
-			</div>
+		<div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-2xs text-muted-foreground">
+			{#if caseData?.case_customer?.customer_name}
+				<div class="flex items-center gap-1">
+					<Building2 size={11} />
+					<span class="truncate">{caseData.case_customer.customer_name}</span>
+				</div>
+			{/if}
 
-			<!-- Additional case information -->
-			<div
-				class="mt-1.5 flex flex-nowrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground"
-			>
-				{#if caseData?.case_id}
-					<div class="flex items-center gap-1">
-						<HashIcon size={12} />
-						<span class="font-medium">{caseData.case_id}</span>
-					</div>
-				{/if}
+			{#if caseData?.case_soc_id}
+				<div class="flex items-center gap-1">
+					<FileDigit size={11} />
+					<span>SOC #{caseData.case_soc_id}</span>
+				</div>
+			{/if}
 
-				{#if caseData?.case_customer?.customer_name}
-					<div class="flex items-center gap-1">
-						<Building2 size={12} />
-						<span class="font-medium">{caseData.case_customer.customer_name}</span>
-					</div>
-				{/if}
+			{#if caseData?.owner?.user_name}
+				<div class="flex items-center gap-1">
+					<UserRound size={11} />
+					<span class="truncate">{caseData.owner.user_name}</span>
+				</div>
+			{/if}
 
-				{#if caseData?.case_soc_id}
-					<div class="flex items-center gap-1">
-						<FileDigit size={12} />
-						<span>SOC #{caseData.case_soc_id}</span>
-					</div>
-				{/if}
-
-				<Separator orientation="vertical" />
-
-				{#if caseData?.owner?.user_name}
-					<div class="flex items-center gap-1">
-						<UserRound size={12} />
-						<span>Owned by {caseData.owner.user_name}</span>
-					</div>
-				{/if}
-
-				<Separator orientation="vertical" />
-
-				{#if formattedDate}
-					<div class="flex items-center gap-1">
-						<Clock size={12} />
-						<span>Opened {formattedDate}</span>
-					</div>
-				{/if}
-			</div>
+			{#if formattedDate}
+				<div class="flex items-center gap-1">
+					<Clock size={11} />
+					<span>{formattedDate}</span>
+				</div>
+			{/if}
 		</div>
 	</div>
 
-	<div class="mt-2 flex justify-start gap-2 xl:mt-0 xl:justify-end">
-		<div class="hidden gap-1 sm:flex">
-			{#each caseData?.tags as tag}
-				<div class="flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-xs">
-					<Tag size={12} />
-					<span>{tag.tag_title}</span>
+	<!-- Tags: show a couple inline, collapse the rest into a +N pill so they don't push the badges off screen. -->
+	{#if caseData?.tags?.length}
+		<div class="hidden items-center gap-1 md:flex">
+			{#each caseData.tags.slice(0, 2) as tag}
+				<div class="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-2xs">
+					<Tag size={10} />
+					<span class="max-w-[8rem] truncate">{tag.tag_title}</span>
 				</div>
 			{/each}
-		</div>
 
+			{#if caseData.tags.length > 2}
+				<div
+					class="rounded-full bg-muted px-2 py-0.5 text-2xs text-muted-foreground"
+					title={caseData.tags
+						.slice(2)
+						.map((t) => t.tag_title)
+						.join(', ')}
+				>
+					+{caseData.tags.length - 2}
+				</div>
+			{/if}
+		</div>
+	{/if}
+
+	<div class="flex shrink-0 items-center gap-1.5">
 		<StatusBadge {status} />
 		<SeverityBadge {severity} />
 
-		<!-- Case Add Dropdown -->
-		<CaseAddDropdown buttonClass="h-8" />
-
-		<div class="flex grow xl:hidden"></div>
+		<CaseAddDropdown buttonClass="h-7" />
 
 		<DropdownMenu>
 			<DropdownMenuTrigger>
-				<Button variant="ghost" size="icon" class="h-8 w-8">
-					<MoreHorizontal size={18} />
+				<Button variant="ghost" size="icon" class="h-7 w-7">
+					<MoreHorizontal size={16} />
 					<span class="sr-only">Case menu</span>
 				</Button>
 			</DropdownMenuTrigger>
