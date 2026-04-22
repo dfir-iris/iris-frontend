@@ -3,6 +3,7 @@
 	import {
 		BoldIcon,
 		CodeIcon,
+		Columns3Icon,
 		Heading1Icon,
 		Heading2Icon,
 		Heading3Icon,
@@ -12,13 +13,22 @@
 		ListIcon,
 		ListOrderedIcon,
 		QuoteIcon,
-		StrikethroughIcon
+		Rows3Icon,
+		StrikethroughIcon,
+		TableIcon,
+		Trash2Icon
 	} from 'lucide-svelte';
 	import { Editor } from '@tiptap/core';
 	import StarterKit from '@tiptap/starter-kit';
 	import Link from '@tiptap/extension-link';
 	import Image from '@tiptap/extension-image';
+	import { normalizeLegacyContent } from './legacy-content';
+	import { ResizableImageNodeView } from './resizable-image';
 	import Placeholder from '@tiptap/extension-placeholder';
+	import { Table } from '@tiptap/extension-table';
+	import { TableRow } from '@tiptap/extension-table-row';
+	import { TableHeader } from '@tiptap/extension-table-header';
+	import { TableCell } from '@tiptap/extension-table-cell';
 	import { Markdown } from 'tiptap-markdown';
 	import { Step } from '@tiptap/pm/transform';
 	import { ApiService } from '$lib/services/api.service';
@@ -26,13 +36,26 @@
 	import { io, type Socket } from 'socket.io-client';
 	import { env } from '$env/dynamic/public';
 
-	let { value, onChange, onSave, caseId, savedAt, onRemoteSave } = $props<{
+	let {
+		value,
+		onChange,
+		onSave,
+		caseId,
+		noteId,
+		collabMode,
+		savedAt,
+		onRemoteSave,
+		onRemoteChange
+	} = $props<{
 		value: string;
 		onChange: (v: string) => void;
 		onSave: () => void;
 		caseId?: number | string | null;
+		noteId?: number | string | null;
+		collabMode?: 'case' | 'note';
 		savedAt?: number;
 		onRemoteSave?: (content: string) => void;
+		onRemoteChange?: (user: string) => void;
 	}>();
 
 	let editorElement: HTMLDivElement;
@@ -41,16 +64,44 @@
 	let uploading = $state(false);
 	let typingUser = $state<string | null>(null);
 	let typingTimeout: ReturnType<typeof setTimeout> | null = null;
+	// Reactive flag for the contextual table toolbar. Updated from the tiptap
+	// selection-update hook so Svelte re-renders the toolbar when the caret
+	// moves into or out of a table cell.
+	let inTable = $state(false);
 
 	// --- Socket.IO collaboration ---
 	let socket: Socket | null = null;
 	// Flag: true when applying remote changes OR prop-sync setContent — prevents
 	// re-emitting on the socket and prevents onChange from firing back to the parent.
 	let suppressLocal = false;
-	const channel = $derived(caseId ? `case-${caseId}` : null);
+	// Track which room we've asked the server to put us in, so the channel-change
+	// $effect below can re-join when the caller swaps caseId / noteId without
+	// remounting the editor.
+	let joinedChannel: string | null = null;
+
+	// Collaboration mode: 'case' (summary) uses case-wide channel + generic change/save
+	// events; 'note' uses a per-note channel + change-note/save-note events so two
+	// notes in the same case don't clobber each other's edits.
+	//
+	// Channel format MUST start with `case-{caseId}` because the backend's
+	// ac_socket_requires decorator parses the case id from the channel string as
+	// `int(chan_id.replace('case-', '').split('-')[0])` to check access rights.
+	const mode = $derived(collabMode ?? (noteId ? 'note' : 'case'));
+	const channel = $derived(
+		mode === 'note'
+			? caseId && noteId
+				? `case-${caseId}-note-${noteId}`
+				: null
+			: caseId
+				? `case-${caseId}`
+				: null
+	);
+	const joinEvent = $derived(mode === 'note' ? 'join-notes' : 'join');
+	const changeEvent = $derived(mode === 'note' ? 'change-note' : 'change');
+	const saveEvent = $derived(mode === 'note' ? 'save-note' : 'save');
 
 	const connectSocket = () => {
-		if (!caseId || !channel) return;
+		if (!channel) return;
 
 		const token = auth.getAccessToken();
 		const baseUrl = env.PUBLIC_EXTERNAL_API_URL?.replace(/\/$/, '') ?? '';
@@ -61,41 +112,47 @@
 		});
 
 		socket.on('connect', () => {
-			socket?.emit('join', { channel });
+			if (!channel) return;
+			socket?.emit(joinEvent, { channel });
+			joinedChannel = channel;
 		});
 
 		socket.on('connect_error', (err) => {
 			console.error('Socket connection error:', err.message);
 		});
 
-		socket.on('change', (data: { steps?: unknown[]; channel?: string; last_change?: string }) => {
-			if (!editor || !data.steps?.length) return;
+		socket.on(
+			changeEvent,
+			(data: { steps?: unknown[]; channel?: string; last_change?: string }) => {
+				if (!editor || !data.steps?.length) return;
 
-			// Show typing indicator
-			if (data.last_change) {
-				typingUser = data.last_change;
-				if (typingTimeout) clearTimeout(typingTimeout);
-				typingTimeout = setTimeout(() => (typingUser = null), 2000);
-			}
-
-			suppressLocal = true;
-			try {
-				const tr = editor.state.tr;
-				for (const stepJson of data.steps) {
-					const step = Step.fromJSON(editor.state.schema, stepJson as Record<string, unknown>);
-					tr.step(step);
+				// Show typing indicator
+				if (data.last_change) {
+					typingUser = data.last_change;
+					onRemoteChange?.(data.last_change);
+					if (typingTimeout) clearTimeout(typingTimeout);
+					typingTimeout = setTimeout(() => (typingUser = null), 2000);
 				}
-				editor.view.dispatch(tr);
-			} catch (e) {
-				// Steps couldn't be applied (e.g. position mismatch from concurrent edits).
-				// Fall back to a full re-fetch of the description so clients converge.
-				console.warn('Collab step apply failed, requesting full sync', e);
-			} finally {
-				suppressLocal = false;
-			}
-		});
 
-		socket.on('save', (data: { content?: string; last_saved?: string }) => {
+				suppressLocal = true;
+				try {
+					const tr = editor.state.tr;
+					for (const stepJson of data.steps) {
+						const step = Step.fromJSON(editor.state.schema, stepJson as Record<string, unknown>);
+						tr.step(step);
+					}
+					editor.view.dispatch(tr);
+				} catch (e) {
+					// Steps couldn't be applied (e.g. position mismatch from concurrent edits).
+					// Fall back to a full re-fetch of the description so clients converge.
+					console.warn('Collab step apply failed, requesting full sync', e);
+				} finally {
+					suppressLocal = false;
+				}
+			}
+		);
+
+		socket.on(saveEvent, (data: { content?: string; last_saved?: string }) => {
 			typingUser = null;
 
 			if (!data.content || !editor) return;
@@ -103,11 +160,12 @@
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const localMd = (editor.storage as any).markdown.getMarkdown() as string;
 
-			if (localMd !== data.content) {
+			const normalized = normalizeLegacyContent(data.content);
+			if (localMd !== normalized) {
 				// Out of sync — replace content with what was saved
 				suppressLocal = true;
 				try {
-					editor.commands.setContent(data.content);
+					editor.commands.setContent(normalized);
 				} finally {
 					suppressLocal = false;
 				}
@@ -141,22 +199,17 @@
 
 		const filename = file.name || `image-${Date.now()}.png`;
 
+		// v2 case-scoped datastore upload. The backend returns a full
+		// `/api/v2/cases/{caseId}/datastore/files/{fileId}` URL which is
+		// directly usable as an <img src> — cid is part of the path, no
+		// query param or proxy rewriting needed.
 		const res = await ApiService.post<{ file_url: string }>(
-			`/datastore/file/add-interactive?cid=${caseId}`,
-			{ file_content: base64, file_original_name: filename },
-			{ useApiPrefix: false }
+			`/api/v2/cases/${caseId}/datastore/files/interactive`,
+			{ file_content: base64, file_original_name: filename }
 		);
 
 		if (res.ok && res.data && typeof res.data === 'object' && 'file_url' in res.data) {
 			return (res.data as { file_url: string }).file_url;
-		}
-
-		const d = res.data as Record<string, unknown> | null;
-		if (d && typeof d === 'object' && 'data' in d) {
-			const inner = d.data as Record<string, unknown>;
-			if (inner && typeof inner === 'object' && 'file_url' in inner) {
-				return inner.file_url as string;
-			}
 		}
 
 		return null;
@@ -176,17 +229,61 @@
 		}
 	};
 
+	// Heuristic: does this text contain markdown syntax we want to interpret
+	// rather than insert literally? Headings, lists, tables, fenced code, blockquotes,
+	// bold/italic, inline code, links — we parse anything that has a telltale
+	// markdown token. Plain prose without any markdown falls through to the
+	// default paste path.
+	const looksLikeMarkdown = (text: string): boolean => {
+		if (!text) return false;
+		return (
+			/^\s{0,3}#{1,6}\s/m.test(text) || // headings
+			/^\s{0,3}[-*+]\s+/m.test(text) || // unordered list
+			/^\s{0,3}\d+\.\s+/m.test(text) || // ordered list
+			/^\s{0,3}>\s/m.test(text) || // blockquote
+			/^\s{0,3}```/m.test(text) || // fenced code
+			/^\s{0,3}\|.*\|\s*$/m.test(text) || // table row
+			/\*\*[^*]+\*\*/.test(text) || // bold
+			/(^|[^*])\*[^*\s][^*]*\*/.test(text) || // italic
+			/`[^`]+`/.test(text) || // inline code
+			/\[[^\]]+\]\([^)]+\)/.test(text) // link
+		);
+	};
+
 	const handlePaste = (_view: unknown, event: ClipboardEvent) => {
-		if (!caseId) return false;
-
 		const items = event.clipboardData?.items;
-		if (!items) return false;
+		const clipboard = event.clipboardData;
 
-		for (const item of items) {
-			if (item.kind === 'file' && item.type.startsWith('image/')) {
+		// 1. Image files on the clipboard — upload and insert as <img>.
+		//    Covers: screenshots (Cmd-Shift-4), "copy image" from browsers,
+		//    pasting a file from the OS file manager.
+		if (items && caseId) {
+			for (const item of items) {
+				if (item.kind === 'file' && item.type.startsWith('image/')) {
+					event.preventDefault();
+					const file = item.getAsFile();
+					if (file) handleImageUpload(file);
+					return true;
+				}
+			}
+		}
+
+		// 2. Markdown source pasted as text. Browsers often include an HTML
+		//    representation alongside plain text (e.g. copying from GitHub's
+		//    rendered view), which makes tiptap-markdown's built-in
+		//    clipboardTextParser bail out — it only runs when there's no HTML.
+		//    So we look at text/plain ourselves and, if it contains markdown
+		//    syntax, route it through the markdown parser.
+		if (editor && clipboard) {
+			const text = clipboard.getData('text/plain');
+			if (text && looksLikeMarkdown(text)) {
 				event.preventDefault();
-				const file = item.getAsFile();
-				if (file) handleImageUpload(file);
+				// Parse with inline:false so block elements (headings, tables,
+				// fenced code, lists) are produced as blocks rather than being
+				// unwrapped into inline content.
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				const parsed = (editor.storage as any).markdown.parser.parse(text);
+				editor.chain().focus().insertContent(parsed).run();
 				return true;
 			}
 		}
@@ -234,19 +331,62 @@
 					openOnClick: false,
 					HTMLAttributes: { class: 'text-blue-500 underline' }
 				}),
-				Image.configure({
+				// Image node extended with:
+				//  - a `width` attribute so users can resize and round-trip
+				//    (serialized as <img width> since markdown ![]() has no
+				//    width syntax — tiptap-markdown ships markdown-it with
+				//    html: true so raw <img> tags survive both load and save).
+				//  - a NodeView that renders a corner drag handle on hover.
+				Image.extend({
+					addAttributes() {
+						return {
+							...this.parent?.(),
+							width: {
+								default: null,
+								parseHTML: (element) => element.getAttribute('width') || element.style.width || null,
+								renderHTML: (attributes) => {
+									if (!attributes.width) return {};
+									// Expose as both the `width` attribute (markdown-it friendly)
+									// and inline style so it renders consistently.
+									return {
+										width: attributes.width,
+										style: `width: ${attributes.width}`
+									};
+								}
+							}
+						};
+					},
+					addNodeView() {
+						return ResizableImageNodeView;
+					}
+				}).configure({
 					inline: true,
 					allowBase64: false
 				}),
 				Placeholder.configure({
 					placeholder: 'Write a comment…'
 				}),
-				Markdown
+				// GitHub-flavored tables. `resizable` lets users drag column widths.
+				Table.configure({ resizable: true }),
+				TableRow,
+				TableHeader,
+				TableCell,
+				// transformPastedText: parse raw markdown strings pasted as plain text
+				//   (so "# heading" becomes an H1 instead of a literal "# heading").
+				// transformCopiedText: copy selections back out as markdown, matching
+				//   how users expect to round-trip content.
+				Markdown.configure({
+					transformPastedText: true,
+					transformCopiedText: true
+				})
 			],
-			content: value ?? '',
+			content: normalizeLegacyContent(value ?? ''),
 			editorProps: {
 				attributes: {
-					class: 'outline-none min-h-[5rem] px-3 py-2 text-sm prose prose-sm dark:prose-invert max-w-none [&_p]:my-1.5 [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:mt-3 [&_h2]:mb-1.5 [&_h3]:mt-2 [&_h3]:mb-1 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_blockquote]:my-2 [&_pre]:my-2'
+					// Tight `py-1` + `first:mt-0` on headings keeps the first
+				// block flush to the toolbar without sacrificing vertical
+				// rhythm between subsequent blocks.
+				class: 'outline-none min-h-[5rem] px-3 py-1 text-sm prose prose-sm dark:prose-invert max-w-none [&_p]:my-1.5 [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:mt-3 [&_h2]:mb-1.5 [&_h3]:mt-2 [&_h3]:mb-1 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_blockquote]:my-2 [&_pre]:my-2 [&>:first-child]:mt-0'
 				},
 				handleKeyDown: (_view, event) => {
 					if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
@@ -269,7 +409,7 @@
 				if (suppressLocal || !transaction.docChanged || !socket?.connected || !channel) return;
 
 				const steps = transaction.steps.map((step) => step.toJSON());
-				socket.emit('change', { steps, channel });
+				socket.emit(changeEvent, { steps, channel });
 			},
 			onUpdate: ({ editor: e }) => {
 				// Don't push changes back to parent during remote or prop-sync updates
@@ -278,12 +418,29 @@
 				skipUpdate = true;
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				onChange((e.storage as any).markdown.getMarkdown());
+			},
+			onSelectionUpdate: ({ editor: e }) => {
+				// Tracks whether the caret is inside a table so we can reveal
+				// the row/column controls contextually.
+				inTable = e.isActive('table');
 			}
 		});
 
-		if (caseId) {
+		if (channel) {
 			connectSocket();
 		}
+	});
+
+	// When the channel changes (e.g. navigating between notes without
+	// remounting the editor), join the new room on the server so we receive
+	// broadcasts for the new target.
+	$effect(() => {
+		const current = channel;
+		if (!current || !socket?.connected) return;
+		if (current === joinedChannel) return;
+
+		socket.emit(joinEvent, { channel: current });
+		joinedChannel = current;
 	});
 
 	// Emit socket save when parent signals a successful save
@@ -293,14 +450,14 @@
 		if (ts && ts !== prevSavedAt && socket?.connected && channel && editor) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const md = (editor.storage as any).markdown.getMarkdown() as string;
-			socket.emit('save', { channel, content: md });
+			socket.emit(saveEvent, { channel, content: md });
 		}
 		prevSavedAt = ts;
 	});
 
 	// Sync editor content when value prop changes externally
 	$effect(() => {
-		const v = value ?? '';
+		const v = normalizeLegacyContent(value ?? '');
 
 		if (!editor) return;
 
@@ -328,11 +485,25 @@
 	});
 
 	const btn = (active: boolean) =>
-		`rounded p-1 transition-colors ${active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`;
+		`rounded p-1 transition-colors ${active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`;
 </script>
 
-<div class="flex flex-col overflow-hidden rounded-md border border-border/50">
-	<div class="flex items-center gap-0.5 border-b border-border/30 bg-muted/30 px-1.5 py-1">
+<div class="markdown-editor-shell flex flex-col">
+	<!--
+		Toolbar sticks to the top of the scroll container so formatting buttons
+		remain reachable while editing long notes.
+
+		Background and stacking are set via scoped CSS rather than Tailwind
+		utilities: the prose content below can carry its own stacking context
+		(selection highlights, tables, resize handles), and Tailwind's `bg-*`
+		utilities were being painted over in practice. The scoped rules use
+		the raw HSL variables and `isolation: isolate` on the shell so paint
+		order is unambiguous regardless of what the ProseMirror DOM sets.
+	-->
+	<div
+		class="markdown-editor-toolbar flex items-center gap-0.5 rounded-md border border-border px-1.5 py-1"
+		style="position: sticky; top: -1rem; z-index: 10; background-color: hsl(var(--muted)); isolation: isolate;"
+	>
 		<button
 			class={btn(editor?.isActive('bold') ?? false)}
 			onclick={() => editor?.chain().focus().toggleBold().run()}
@@ -429,13 +600,75 @@
 			</button>
 		{/if}
 
+		<button
+			class={btn(editor?.isActive('table') ?? false)}
+			title="Insert table"
+			onclick={() =>
+				editor
+					?.chain()
+					.focus()
+					.insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+					.run()}
+		>
+			<TableIcon size="12" />
+		</button>
+
+		{#if inTable}
+			<div class="mx-0.5 h-3.5 w-px bg-border/50"></div>
+
+			<button
+				class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+				title="Add row below"
+				onclick={() => editor?.chain().focus().addRowAfter().run()}
+			>
+				<Rows3Icon size="12" />
+				<span class="sr-only">Add row</span>
+			</button>
+
+			<button
+				class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+				title="Delete row"
+				onclick={() => editor?.chain().focus().deleteRow().run()}
+			>
+				<Rows3Icon size="12" class="text-red-500" />
+				<span class="sr-only">Delete row</span>
+			</button>
+
+			<button
+				class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+				title="Add column after"
+				onclick={() => editor?.chain().focus().addColumnAfter().run()}
+			>
+				<Columns3Icon size="12" />
+				<span class="sr-only">Add column</span>
+			</button>
+
+			<button
+				class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+				title="Delete column"
+				onclick={() => editor?.chain().focus().deleteColumn().run()}
+			>
+				<Columns3Icon size="12" class="text-red-500" />
+				<span class="sr-only">Delete column</span>
+			</button>
+
+			<button
+				class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+				title="Delete table"
+				onclick={() => editor?.chain().focus().deleteTable().run()}
+			>
+				<Trash2Icon size="12" class="text-red-500" />
+				<span class="sr-only">Delete table</span>
+			</button>
+		{/if}
+
 		{#if typingUser}
 			<span class="ml-auto text-2xs text-muted-foreground">{typingUser} is typing…</span>
 		{/if}
 	</div>
 
-	<div class="relative">
-		<div bind:this={editorElement} class="bg-background"></div>
+	<div class="markdown-editor-body relative mt-2 rounded-md border border-border/50 bg-background">
+		<div bind:this={editorElement}></div>
 
 		{#if uploading}
 			<div class="absolute inset-0 flex items-center justify-center bg-background/60">
@@ -446,6 +679,40 @@
 </div>
 
 <style>
+	/*
+	 * Editor shell creates its own stacking context so sticky z-index
+	 * values inside stay coherent regardless of what the surrounding
+	 * page does. Without `isolation: isolate` the prose content could
+	 * paint over the sticky toolbar if an ancestor or ProseMirror's
+	 * own styles introduced a competing stacking context.
+	 */
+	.markdown-editor-shell {
+		isolation: isolate;
+	}
+
+	/*
+	 * Sticky toolbar. The inline `style` attribute on the element itself
+	 * holds `position: sticky`, `top`, `z-index`, and `background-color`
+	 * so the properties are immune to Tailwind utility or prose-plugin
+	 * cascade conflicts — which bit us repeatedly when these lived in
+	 * stylesheet rules. The subtle shadow here just separates the sticky
+	 * bar visually from the prose scrolling beneath it.
+	 *
+	 * Note on `top: -1rem`: the parent scroll container (.note-content-scroll)
+	 * has `pt-4` (1rem) padding, so a naive `top: 0` leaves a 1rem gray
+	 * band above the toolbar once sticky activates. Pulling up by the
+	 * padding amount makes the toolbar sit flush against the scroll
+	 * viewport edge.
+	 */
+	.markdown-editor-toolbar {
+		box-shadow: 0 2px 4px hsl(var(--foreground) / 0.08);
+	}
+
+	.markdown-editor-body {
+		position: relative;
+		z-index: 0;
+	}
+
 	:global(.tiptap p.is-editor-empty:first-child::before) {
 		content: attr(data-placeholder);
 		float: left;
@@ -458,5 +725,71 @@
 		max-width: 100%;
 		height: auto;
 		border-radius: 0.375rem;
+	}
+
+	/* The resizable image wrapper replaces the default <img> node via a
+	   custom NodeView. When it's selected, show a subtle outline to hint
+	   that it's an interactive element. */
+	:global(.tiptap .resizable-image-wrapper.ProseMirror-selectednode img) {
+		outline: 2px solid hsl(var(--primary));
+		outline-offset: 2px;
+	}
+
+	:global(.tiptap .resizable-image-wrapper:hover .resizable-image-handle),
+	:global(.tiptap .resizable-image-wrapper.ProseMirror-selectednode .resizable-image-handle) {
+		opacity: 1 !important;
+	}
+
+	/* Table rendering — prosemirror-tables wraps each <table> in a scrollable
+	   wrapper and needs border-collapse for cells to line up. */
+	:global(.tiptap .tableWrapper) {
+		overflow-x: auto;
+		margin: 0.75rem 0;
+	}
+
+	:global(.tiptap table) {
+		border-collapse: collapse;
+		table-layout: fixed;
+		width: 100%;
+		margin: 0;
+	}
+
+	:global(.tiptap table td),
+	:global(.tiptap table th) {
+		border: 1px solid hsl(var(--border));
+		padding: 0.35rem 0.5rem;
+		vertical-align: top;
+		position: relative;
+		min-width: 3rem;
+	}
+
+	:global(.tiptap table th) {
+		background: hsl(var(--muted) / 0.5);
+		font-weight: 600;
+		text-align: left;
+	}
+
+	/* Highlight selected cells so users see what they're editing. */
+	:global(.tiptap table .selectedCell::after) {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background: hsl(var(--primary) / 0.15);
+		pointer-events: none;
+	}
+
+	/* Column-resize handle rendered by prosemirror-tables when resizable: true. */
+	:global(.tiptap table .column-resize-handle) {
+		position: absolute;
+		right: -2px;
+		top: 0;
+		bottom: 0;
+		width: 4px;
+		background: hsl(var(--primary) / 0.5);
+		pointer-events: none;
+	}
+
+	:global(.tiptap.resize-cursor) {
+		cursor: col-resize;
 	}
 </style>

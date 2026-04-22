@@ -1,3 +1,7 @@
+<script lang="ts" module>
+	export type DragItem = { type: 'note'; id: number } | { type: 'folder'; id: number };
+</script>
+
 <script lang="ts">
 	import { FileTextIcon, FolderIcon, FolderOpenIcon } from 'lucide-svelte';
 	import { page } from '$app/state';
@@ -5,8 +9,6 @@
 	import type { Note, NoteFolder } from '$lib/types/resources/note';
 	import Self from './notes-tree.svelte';
 	import type { ContextMenuSource } from '../types';
-
-	export type DragItem = { type: 'note'; id: number } | { type: 'folder'; id: number };
 
 	type Props = {
 		folder: NoteFolder;
@@ -105,17 +107,19 @@
 		onContextMenu(event, 'folder', folder.name, folder.id);
 	}}
 	variant="ghost"
-	class="w-full justify-start gap-x-1.5 px-4 {selectedFolderId === folder.id
+	size="sm"
+	title={folder.name}
+	class="h-7 w-full justify-start gap-x-1.5 px-2 text-sm font-medium {selectedFolderId === folder.id
 		? 'bg-accent'
 		: ''} {!isDraggedFolder && isDropTarget ? 'bg-accent/50 ring-1 ring-primary' : ''}"
 >
 	{@const Icon = open ? FolderOpenIcon : FolderIcon}
-	<Icon />
+	<Icon class="h-4 w-4 shrink-0 text-muted-foreground" />
 	<span class="truncate">{folder.name}</span>
 </Button>
 
 {#if open}
-	<div class="pl-4">
+	<div class="ml-2 border-l border-border/60 pl-1">
 		{#each subdirectories as subfolder (subfolder.id)}
 			<Self
 				{onClickFolder}
@@ -137,17 +141,22 @@
 
 		{#if !selectable}
 			{#each notes as note (getNoteId(note))}
+				{@const isActive = Number(page.params.note_id) === getNoteId(note)}
 				<Button
 					draggable={true}
 					ondragstart={() => onDragStartNote?.(getNoteId(note))}
 					ondragend={() => onDragEnd?.()}
 					variant="ghost"
-					class="w-full justify-start gap-x-1.5"
+					size="sm"
+					title={getNoteTitle(note)}
+					class="h-7 w-full justify-start gap-x-1.5 px-2 text-sm font-normal {isActive
+						? 'bg-accent text-accent-foreground'
+						: ''}"
 					href="/case/{page.params.case_id}/notes/{getNoteId(note)}"
 					oncontextmenu={(event) =>
 						onContextMenu(event, 'note', note.note_title, folder.id, getNoteId(note))}
 				>
-					<FileTextIcon />
+					<FileTextIcon class="h-4 w-4 shrink-0 text-muted-foreground" />
 					<span class="truncate">{getNoteTitle(note)}</span>
 				</Button>
 			{/each}

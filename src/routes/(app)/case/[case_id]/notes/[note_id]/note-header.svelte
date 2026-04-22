@@ -13,6 +13,7 @@
 	import { toast } from '$lib/stores/toast.store';
 	import type { HistoryEventBase } from '$lib/components/common/ActivityHistory.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import Badge from '$lib/components/ui/badge/badge.svelte';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
 	import {
 		Tooltip,
@@ -33,11 +34,23 @@
 
 	type Props = {
 		note: Note;
+		dirty?: boolean;
+		saving?: boolean;
+		lastError?: string | null;
+		typingUser?: string | null;
 		onSaveNote: () => void;
 		onDeleteNote: () => void;
 	};
 
-	let { note, onSaveNote, onDeleteNote }: Props = $props();
+	let {
+		note,
+		dirty = false,
+		saving = false,
+		lastError = null,
+		typingUser = null,
+		onSaveNote,
+		onDeleteNote
+	}: Props = $props();
 
 	let showNoteRename = $state(false);
 	let showNoteHistory = $state(false);
@@ -77,8 +90,10 @@
 		onSaveNote();
 	};
 
-	const loadComments = async () => {
-		const commentsResponse = await CommentsService.list('notes', note.note_id, {
+	let loadedCommentsForNoteId = $state<number | undefined>(undefined);
+
+	const loadComments = async (noteId: number) => {
+		const commentsResponse = await CommentsService.list('notes', noteId, {
 			per_page: 10000
 		});
 
@@ -88,16 +103,24 @@
 	};
 
 	$effect(() => {
-		loadComments();
+		// Only reload comments when the note id actually changes — not on every
+		// reassignment of `note` (which happens after each save).
+		const id = note.note_id;
+
+		if (id === loadedCommentsForNoteId) return;
+
+		loadedCommentsForNoteId = id;
+		loadComments(id);
 	});
 </script>
 
-<div class="flex items-start justify-between">
-	<div class="flex flex-col">
+<div class="flex items-start justify-between gap-4">
+	<div class="flex min-w-0 flex-col">
 		<div
 			role="button"
 			tabindex="0"
-			class="cursor-pointer text-3xl font-bold"
+			title={note.note_title}
+			class="cursor-pointer truncate rounded-sm px-1 text-xl font-semibold leading-tight transition-colors hover:bg-muted/60"
 			onclick={() => (showNoteRename = true)}
 			onkeydown={(e) => {
 				if (e.key === 'Enter' || e.key === ' ') {
@@ -109,8 +132,8 @@
 			{note.note_title}
 		</div>
 
-		<div class="flex items-center gap-4 text-sm italic">
-			<span class="opacity-50">#{note.note_id} - {note.note_uuid}</span>
+		<div class="mt-1 flex items-center gap-2 px-1 text-xs text-muted-foreground">
+			<span class="truncate">#{note.note_id} · {note.note_uuid}</span>
 
 			<TooltipProvider>
 				<Tooltip>
@@ -126,7 +149,21 @@
 		</div>
 	</div>
 
-	<div class="flex">
+	<div class="flex items-center gap-2">
+		{#if typingUser}
+			<span class="text-xs italic text-muted-foreground">{typingUser} is typing…</span>
+		{/if}
+
+		{#if lastError}
+			<Badge variant="compromised" class="flex px-2 py-0.5">Error</Badge>
+		{:else if saving}
+			<Badge variant="destructive" class="flex px-2 py-0.5">Saving...</Badge>
+		{:else if dirty}
+			<Badge variant="destructive" class="flex px-2 py-0.5">Unsaved changes</Badge>
+		{:else}
+			<Badge variant="green" class="flex px-2 py-0.5">Changes saved</Badge>
+		{/if}
+
 		{#if lastSaved && lastSaved.date > entered}
 			<div class="flex items-center text-xs opacity-50">
 				Last Saved: {mediumDateTimeFormatter(lastSaved.date)} by {lastSaved.user === $username
