@@ -18,11 +18,15 @@ type UIState = {
 
 const getAssetId = (asset: Asset): number => asset.asset_id;
 
-const normalizeListParams = (params: ListCaseAssetsParams): Required<ListCaseAssetsParams> => ({
+const normalizeListParams = (
+	params: ListCaseAssetsParams
+): Required<Omit<ListCaseAssetsParams, 'custom_conditions'>> &
+	Pick<ListCaseAssetsParams, 'custom_conditions'> => ({
 	page: params.page ?? 1,
 	per_page: params.per_page ?? 10,
 	order_by: params.order_by ?? 'asset_id',
-	sort_dir: params.sort_dir ?? 'desc'
+	sort_dir: params.sort_dir ?? 'desc',
+	custom_conditions: params.custom_conditions
 });
 
 export const createCaseAssetsContext = (getCaseId: () => number | null) => {
@@ -30,7 +34,8 @@ export const createCaseAssetsContext = (getCaseId: () => number | null) => {
 
 	const list = $state<{
 		ids: number[];
-		params: Required<ListCaseAssetsParams>;
+		params: Required<Omit<ListCaseAssetsParams, 'custom_conditions'>> &
+			Pick<ListCaseAssetsParams, 'custom_conditions'>;
 		total: number;
 		currentPage: number;
 		nextPage: number | null;

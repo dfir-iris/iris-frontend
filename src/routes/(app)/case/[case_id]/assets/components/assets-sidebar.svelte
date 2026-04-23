@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getContext, onMount, onDestroy } from 'svelte';
-	import { RefreshCwIcon, List, Grid, CheckIcon } from 'lucide-svelte';
+	import { RefreshCwIcon, List, Grid } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import {
@@ -20,8 +20,6 @@
 	import AssetDataTable from '$lib/components/common/assets/AssetDataTable.svelte';
 
 	const caseAssets = getContext<CaseAssetsContext>(CASE_ASSETS_CTX);
-
-	type QueryParams = ListCaseAssetsParams & { custom_conditions?: string };
 
 	let isLoading = $state(false);
 	let isRefreshing = $state(false);
@@ -77,13 +75,25 @@
 
 		searchConditions.forEach((c) => {
 			if (c.field === '_raw') {
-				out.push({ field: 'asset_name', operator: 'like', value: c.value });
+				out.push(
+					{ field: 'asset_name', operator: 'like', value: c.value },
+					{ field: 'asset_ip', operator: 'like', value: c.value },
+					{ field: 'asset_domain', operator: 'like', value: c.value }
+				);
 
 				return;
 			}
 
 			out.push({ field: c.field, operator: c.operator, value: c.value });
 		});
+
+		if (searchTerm.trim() && searchConditions.length === 0) {
+			out.push(
+				{ field: 'asset_name', operator: 'like', value: searchTerm.trim() },
+				{ field: 'asset_ip', operator: 'like', value: searchTerm.trim() },
+				{ field: 'asset_domain', operator: 'like', value: searchTerm.trim() }
+			);
+		}
 
 		selectedFilters.forEach((id) => {
 			const filter = filterOptions.find((x) => x.id === id);
@@ -102,16 +112,13 @@
 		isRefreshing = true;
 
 		try {
-			const params: QueryParams = {
-				page: pageNumber,
-				per_page: caseAssets.list.params.per_page
-			};
-
 			const conditions = buildConditions();
 
-			if (conditions.length > 0) {
-				params.custom_conditions = JSON.stringify(conditions);
-			}
+			const params: ListCaseAssetsParams = {
+				page: pageNumber,
+				per_page: caseAssets.list.params.per_page,
+				custom_conditions: conditions.length > 0 ? JSON.stringify(conditions) : undefined
+			};
 
 			await caseAssets.listPaginated(params as ListCaseAssetsParams, { fetch });
 		} finally {
@@ -166,14 +173,6 @@
 		};
 	};
 
-	const toggleSelectionMode = () => {
-		selectionMode = !selectionMode;
-
-		if (!selectionMode) {
-			selectedAssets = new Set();
-		}
-	};
-
 	const toggleAssetSelection = (assetId: string) => {
 		if (selectedAssets.has(assetId)) {
 			selectedAssets.delete(assetId);
@@ -201,9 +200,16 @@
 	});
 
 	$effect(() => {
+		const currentSearchTerm = searchTerm;
+		const currentConditions = searchConditions;
+
 		clearTimeout(searchDebounceTimer);
 
-		searchDebounceTimer = window.setTimeout(() => refreshAssets(1), 300);
+		searchDebounceTimer = window.setTimeout(() => {
+			void currentSearchTerm;
+			void currentConditions;
+			refreshAssets(1);
+		}, 300);
 	});
 </script>
 
@@ -218,10 +224,6 @@
 
 			<Button size="icon" variant="ghost" onclick={() => (viewMode = 'table')}>
 				<Grid size={16} />
-			</Button>
-
-			<Button size="icon" variant="ghost" onclick={toggleSelectionMode}>
-				<CheckIcon size={16} />
 			</Button>
 
 			<Button size="icon" variant="ghost" onclick={() => refreshAssets(1)}>

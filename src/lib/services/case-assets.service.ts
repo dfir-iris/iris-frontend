@@ -10,6 +10,7 @@ export interface ListCaseAssetsParams {
 	per_page?: number;
 	order_by?: string;
 	sort_dir?: SortDir;
+	custom_conditions?: string;
 }
 
 export interface CreateCaseAssetBody {

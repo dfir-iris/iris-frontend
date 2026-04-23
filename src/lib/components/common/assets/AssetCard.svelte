@@ -1,277 +1,234 @@
 <script lang="ts">
-  import { 
-    Server, 
-    Globe, 
-    Laptop, 
-    Network,
-    Shield,
-    Database,
-    HardDrive,
-    Smartphone,
-    Printer,
-    Router,
-    Cpu,
-    Cloud,
-    Users,
-    Mail,
-    FileText,
-    Lock,
-    Cog,
-    HelpCircle,
-    BiohazardIcon,
-    ChevronDown,
-    ChevronUp
-    // ShieldCheckIcon and ShieldQuestionIcon are no longer directly needed here
-  } from 'lucide-svelte';
-  import { Badge } from '$lib/components/ui/badge';
-  import { Button } from '$lib/components/ui/button';
-  import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
-  import type { Asset } from '$lib/types/resources/asset';
-  import { goto } from '$app/navigation';
-  import { page } from '$app/state';
-  import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
-  import TagDisplay from '../tag/TagDisplay.svelte';
-  import { marked } from 'marked';
-  import CompromiseStatusBadge from '$lib/components/ui/badge/compromise-status-badge.svelte'; // Added
+	import {
+		Server,
+		Globe,
+		Laptop,
+		Network,
+		Shield,
+		Database,
+		HardDrive,
+		Smartphone,
+		Printer,
+		Router,
+		Cpu,
+		Cloud,
+		Users,
+		Mail,
+		FileText,
+		Lock,
+		Cog,
+		HelpCircle,
+		BiohazardIcon
+	} from 'lucide-svelte';
+	import { cn } from '$lib/utils';
+	import type { Asset } from '$lib/types/resources/asset';
+	import type { CaseStatus } from '$lib/components/ui/badge/types';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import CompromiseStatusBadge from '$lib/components/ui/badge/compromise-status-badge.svelte';
+	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
+	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
+	import { MarkDownPreview } from '$lib/components/common/MarkDown';
+	import TagDisplay from '../tag/TagDisplay.svelte';
 
-  export let asset: Asset;
-  export let isSelected: boolean = false;
+	type Props = {
+		asset: Asset;
+		isSelected?: boolean;
+	};
 
-  // Asset type to icon mapping
-  const assetTypeIcons = {
-    server: Server,
-    domain: Globe,
-    website: Globe,
-    workstation: Laptop,
-    network: Network,
-    firewall: Shield,
-    database: Database,
-    storage: HardDrive,
-    mobile: Smartphone,
-    printer: Printer,
-    router: Router,
-    switch: Router,
-    iot: Cpu,
-    cloud: Cloud,
-    account: Users,
-    email: Mail,
-    document: FileText,
-    application: Cog,
-    security: Lock,
-    // Add more mappings as needed
-  };
-  
-  // Get asset type icon
-  function getAssetTypeIcon(typeName: string) {
-    
-    // Check for exact matches first
-    if (typeName in assetTypeIcons) {
-      return assetTypeIcons[typeName as keyof typeof assetTypeIcons];
-    }
-    
-    // Check for partial matches
-    for (const [key, value] of Object.entries(assetTypeIcons)) {
-      if (typeName.includes(key)) {
-        return value;
-      }
-    }
-    
-    // Fallback to a generic icon for unknown types
-    return HelpCircle;
-  }
+	let { asset, isSelected = false }: Props = $props();
 
-  // Computed properties
-  $: AssetTypeIcon = getAssetTypeIcon(asset.asset_type?.asset_name.toLowerCase() || '');  
-  $: hasIocs = (asset.iocs ?? []).length > 0;
-  $: hasTags = asset.asset_tags?.split(',')?.length - 1 >= 0;
-  $: assetIp = asset.asset_ip || '';
-  $: assetDomain = asset.asset_domain || '';
-  $: isCompromised = asset.asset_compromise_status_id === 1;
-  $: assetDescription = asset.asset_description || '';
-  $: parsedDescription = assetDescription ? marked(assetDescription) : '';
-  
-  // State for description expansion
-  let isDescriptionExpanded = false;
-  
-  // Toggle description expansion
-  function toggleDescription(e) {
-    e.stopPropagation(); // Prevent card click
-    isDescriptionExpanded = !isDescriptionExpanded;
-  }
+	const assetTypeIcons = {
+		server: Server,
+		domain: Globe,
+		website: Globe,
+		workstation: Laptop,
+		network: Network,
+		firewall: Shield,
+		database: Database,
+		storage: HardDrive,
+		mobile: Smartphone,
+		printer: Printer,
+		router: Router,
+		switch: Router,
+		iot: Cpu,
+		cloud: Cloud,
+		account: Users,
+		email: Mail,
+		document: FileText,
+		application: Cog,
+		security: Lock
+	} as const;
 
-  // Handle click to navigate to asset details
-  function handleClick() {
-    goto(`/case/${page.params.case_id}/assets/${asset.asset_id}`);
-  }
+	const getAssetTypeIcon = (typeName: string) => {
+		const normalized = typeName.trim().toLowerCase();
+
+		if (!normalized) return HelpCircle;
+
+		if (normalized in assetTypeIcons) {
+			return assetTypeIcons[normalized as keyof typeof assetTypeIcons];
+		}
+
+		for (const [key, icon] of Object.entries(assetTypeIcons)) {
+			if (normalized.includes(key)) {
+				return icon;
+			}
+		}
+
+		return HelpCircle;
+	};
+
+	const assetTypeName = $derived(asset.asset_type?.asset_name ?? '');
+	const AssetTypeIcon = $derived(getAssetTypeIcon(assetTypeName));
+	const hasIocs = $derived((asset.iocs ?? []).length > 0);
+	const hasTags = $derived(Boolean(asset.asset_tags?.trim()));
+	const assetIp = $derived(asset.asset_ip ?? '');
+	const assetDomain = $derived(asset.asset_domain ?? '');
+	const isCompromised = $derived(asset.asset_compromise_status_id === 1);
+	const assetDescription = $derived(asset.asset_description ?? '');
+
+	let isDescriptionExpanded = $state(false);
+
+	const toggleDescription = (event: MouseEvent) => {
+		event.stopPropagation();
+		isDescriptionExpanded = !isDescriptionExpanded;
+	};
 </script>
 
-<button type="button" 
-  id={`asset-card-${asset.asset_id}`}
-  class="w-full text-left rounded-xl border p-3 text-sm transition-all duration-200 ease-in-out group {
-    isSelected
-      ? 'bg-accent text-accent-foreground border-primary/30 hover:brightness-95'
-      : 'bg-background hover:bg-muted'
-  }"
-  onclick={handleClick}
-  aria-label={`View details for asset ${asset.asset_name}`}
+<div
+	id={`asset-card-${asset.asset_id}`}
+	class={cn(
+		'group w-full rounded-xl border p-3 text-sm transition-all duration-200 ease-in-out',
+		isSelected ? 'border-primary/30 bg-accent text-accent-foreground' : 'bg-background'
+	)}
 >
-  <!-- Asset header with name and status -->
-  <div class="flex items-center justify-between">
-    <div class="flex items-center gap-2 w-full overflow-hidden">
-      <div 
-        class={`flex h-8 w-8 items-center justify-center rounded-full ${
-          isSelected ? 'bg-primary/20' : 'bg-muted'
-        }`}
-      >
-        <AssetTypeIcon
-          size={16} 
-          class={isCompromised ? 'text-red-500' : (isSelected ? 'text-primary' : 'text-muted-foreground')} 
-        />
-      </div>
-      
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-1 group">
-          <span class="truncate text-base font-semibold">
-            {asset.asset_name}
-          </span>
-          
-          <ClipboardCopy 
-            value={asset.asset_name} 
-            tooltipText="Copy asset name" 
-            className="ml-1 opacity-0 group-hover:opacity-100"
-          />
-        </div>
-        
-        <div class="text-xs text-muted-foreground truncate">
-          {asset.asset_type?.asset_name || asset.asset_type_id || 'Unknown type'}
-        </div>
-      </div>
-    </div>
-    
-    <div class="flex items-center gap-1 flex-shrink-0 ml-2">
-      {#if isCompromised}
-        <Badge variant="compromised">Compromised</Badge>
-      {:else if asset.asset_compromise_status_id === 2 || asset.asset_compromise_status_id === 3}
-        <CompromiseStatusBadge status_id={asset.asset_compromise_status_id} icon_only={true} prefix="Compromise" />
-      {/if}
-      <!-- Analysis Status Badge -->
-      {#if asset.analysis_status}
-        <div class="flex-shrink-0">
-          <div class={`px-1.5 py-0.5 rounded-md text-xs font-medium flex items-center gap-1`}>
-            <StatusBadge status={asset.analysis_status.name} icon_only={true} prefix={"Analysis"} />
-          </div>
-        </div>
-      {/if}
-      
-      {#if hasIocs}
-        <Badge tooltip="Contains IOCs" icon={BiohazardIcon} variant="outline" class="p-1 border-0 bg-transparent hover:bg-muted/50">{asset.iocs?.length}</Badge>
-      {/if}
-    </div>
-  </div>
-  
-  <!-- Asset Description (if available) -->
-  {#if assetDescription}
-    <div class="mt-3 mb-2 bg-muted/30 rounded-lg p-2 relative">
-      <!-- Copy button positioned in top right -->
-      <div class="absolute top-1 right-1">
-        <ClipboardCopy 
-          value={assetDescription} 
-          tooltipText="Copy" 
-          className="text-muted-foreground hover:text-primary text-xs"
-        />
-      </div>
-      
-      <div 
-        class={`prose prose-sm max-w-none text-xs overflow-hidden transition-all duration-200 ${
-          isDescriptionExpanded ? 'max-h-64 overflow-y-auto' : 'max-h-16'
-        }`}
-      >
-        {@html parsedDescription}
-      </div>
-      
-      {#if !isDescriptionExpanded && assetDescription.length > 100}
-        <div class="mt-1">
-          <Button 
-            variant="link"
-            type="button"
-            class="text-xs text-primary hover:underline p-0 h-auto"
-            onclick={toggleDescription}
-          >
-            Show more
-          </Button>
-        </div>
-      {/if}
-    </div>
-  {/if}
-  
-  <!-- Asset details (IP/Domain and Tags) with wrapping support -->
-  <div class="mt-4">
-    <div class="flex flex-wrap items-center gap-2">
-      <!-- IP and Domain items -->
-      {#if assetIp}
-        <div class="inline-flex gap-1 border border-dashed px-2 py-1 rounded-md text-xs font-mono group hover:bg-muted/70 transition-colors">
-          <Network class="h-3 w-3 flex-shrink-0 text-muted-foreground" />
-          <span class="truncate max-w-[120px]">{assetIp}</span>
-          <ClipboardCopy 
-            value={assetIp} 
-            className="ml-1 hidden group-hover:inline-block flex-shrink-0"
-          />
-        </div>
-      {/if}
-      
-      {#if assetDomain}
-        <div class="inline-flex gap-1 border border-dashed px-2 py-1 rounded-md text-xs font-mono group hover:bg-muted/70 transition-colors">
-          <Globe class="h-3 w-3 flex-shrink-0 text-muted-foreground" />
-          <span class="truncate max-w-[120px]">{assetDomain}</span>
-          <ClipboardCopy 
-            value={assetDomain} 
-            className="ml-1 hidden group-hover:inline-block flex-shrink-0"
-          />
-        </div>
-      {/if}
-      
-      <!-- Tags with wrapping support -->
-      {#if hasTags}
-        <TagDisplay 
-          tags={asset.asset_tags} 
-          size="default"
-        />
-      {/if}
-    </div>
-  </div>
-</button>
+	<div class="flex items-center justify-between gap-3">
+		<div class="flex min-w-0 flex-1 items-center gap-2">
+			<div
+				class={cn(
+					'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+					isSelected ? 'bg-primary/20' : 'bg-muted'
+				)}
+			>
+				<AssetTypeIcon
+					size={16}
+					class={cn(
+						isCompromised ? 'text-red-500' : isSelected ? 'text-primary' : 'text-muted-foreground'
+					)}
+				/>
+			</div>
 
-<style>
-  /* Ensure proper styling for the markdown content */
-  :global(.prose) {
-    @apply text-foreground;
-  }
-  
-  :global(.prose a) {
-    @apply text-primary hover:underline;
-  }
-  
-  :global(.prose p) {
-    @apply my-1;
-  }
-  
-  :global(.prose ul, .prose ol) {
-    @apply pl-5 my-1;
-  }
-  
-  :global(.prose li) {
-    @apply my-0.5;
-  }
-  
-  :global(.prose h1, .prose h2, .prose h3, .prose h4) {
-    @apply font-semibold my-2;
-  }
-  
-  :global(.prose code) {
-    @apply bg-muted/70 px-1 py-0.5 rounded text-xs font-mono;
-  }
-  
-  :global(.prose pre) {
-    @apply bg-muted/70 p-2 rounded my-2 overflow-x-auto;
-  }
-</style>
+			<div class="min-w-0 flex-1">
+				<div class="flex items-center gap-1">
+					<span class="truncate text-base font-semibold">{asset.asset_name}</span>
+
+					<ClipboardCopy
+						value={asset.asset_name}
+						tooltipText="Copy asset name"
+						className="ml-1 opacity-0 group-hover:opacity-100"
+					/>
+				</div>
+
+				<div class="truncate text-xs text-muted-foreground">
+					{assetTypeName || asset.asset_type_id || 'Unknown type'}
+				</div>
+			</div>
+		</div>
+
+		<div class="ml-2 flex shrink-0 items-center gap-1">
+			{#if isCompromised}
+				<Badge variant="compromised">Compromised</Badge>
+			{:else if asset.asset_compromise_status_id === 2 || asset.asset_compromise_status_id === 3}
+				<CompromiseStatusBadge
+					status_id={asset.asset_compromise_status_id}
+					icon_only={true}
+					prefix="Compromise"
+				/>
+			{/if}
+
+			{#if asset.analysis_status}
+				<StatusBadge
+					status={asset.analysis_status.name as CaseStatus}
+					icon_only={true}
+					prefix="Analysis"
+				/>
+			{/if}
+
+			{#if hasIocs}
+				<Badge
+					tooltip="Contains IOCs"
+					icon={BiohazardIcon}
+					variant="outline"
+					class="border-0 bg-transparent p-1 hover:bg-muted/50"
+				>
+					{asset.iocs?.length}
+				</Badge>
+			{/if}
+		</div>
+	</div>
+
+	{#if assetDescription}
+		<div class="relative mb-2 mt-3 rounded-lg bg-muted/30 p-2">
+			<div class="absolute right-1 top-1">
+				<ClipboardCopy
+					value={assetDescription}
+					tooltipText="Copy"
+					className="text-xs text-muted-foreground hover:text-primary"
+				/>
+			</div>
+
+			<div
+				class={cn(isDescriptionExpanded ? 'max-h-64 overflow-y-auto' : 'max-h-16 overflow-hidden')}
+			>
+				<MarkDownPreview markdown={assetDescription} />
+			</div>
+
+			{#if assetDescription.length > 100}
+				<div class="mt-1">
+					<Button
+						variant="link"
+						type="button"
+						class="h-auto p-0 text-xs text-primary hover:underline"
+						onclick={toggleDescription}
+					>
+						{isDescriptionExpanded ? 'Show less' : 'Show more'}
+					</Button>
+				</div>
+			{/if}
+		</div>
+	{/if}
+
+	<div class="mt-4">
+		<div class="flex flex-wrap items-center gap-2">
+			{#if assetIp}
+				<div
+					class="group inline-flex rounded-md border border-dashed px-2 py-1 font-mono text-xs transition-colors hover:bg-muted/70"
+				>
+					<Network class="mr-1 h-3 w-3 shrink-0 text-muted-foreground" />
+					<span class="max-w-[120px] truncate">{assetIp}</span>
+					<ClipboardCopy
+						value={assetIp}
+						className="ml-1 hidden shrink-0 group-hover:inline-block"
+					/>
+				</div>
+			{/if}
+
+			{#if assetDomain}
+				<div
+					class="group inline-flex rounded-md border border-dashed px-2 py-1 font-mono text-xs transition-colors hover:bg-muted/70"
+				>
+					<Globe class="mr-1 h-3 w-3 shrink-0 text-muted-foreground" />
+					<span class="max-w-[120px] truncate">{assetDomain}</span>
+					<ClipboardCopy
+						value={assetDomain}
+						className="ml-1 hidden shrink-0 group-hover:inline-block"
+					/>
+				</div>
+			{/if}
+
+			{#if hasTags}
+				<TagDisplay tags={asset.asset_tags} size="default" />
+			{/if}
+		</div>
+	</div>
+</div>

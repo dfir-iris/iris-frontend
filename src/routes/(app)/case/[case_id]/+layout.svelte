@@ -28,7 +28,11 @@
 			app.state.currentCaseID = case_id;
 		}
 
-		cases.load({ case_ids: [cases.currentCaseId()] });
+		const current = cases.currentCase();
+
+		if (!current || current.case_id !== case_id) {
+			cases.load({ case_ids: [case_id] });
+		}
 	});
 </script>
 
