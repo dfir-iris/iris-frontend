@@ -11,16 +11,14 @@
 	} from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ENDPOINTS } from '$lib/constants/endpoints';
-	import { analysisStatuses } from '$lib/stores/analysis-status.store';
-	import { assetTypes } from '$lib/stores/asset-types.store';
-	import { tagsStore, type Tag } from '$lib/stores/tags.store';
 	import type { Asset } from '$lib/types/resources/asset';
+	import type { Tag } from '$lib/types/resources/tag';
 	import {
 		CASE_ASSETS_CTX,
 		type CaseAssetsContext
 	} from '$lib/contexts/case-assets.context.svelte';
 	import type { UpdateCaseAssetBody } from '$lib/services/case-assets.service';
+	import { normalizeTags, stringToTags, tagsToString } from '$lib/utils/tags';
 	import ErrorAlert from '$lib/components/ui/alert/ErrorAlert.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Card, CardContent } from '$lib/components/ui/card';
@@ -69,13 +67,12 @@
 
 	const formatDate = (dateString: string) => new Date(dateString).toLocaleString();
 
-	const syncTagsFromAsset = (currentAsset: Asset | undefined) =>
-		(currentTags = currentAsset?.asset_tags
-			? tagsStore.normalizeTags(currentAsset.asset_tags)
-			: []);
+	const syncTagsFromAsset = (currentAsset: Asset | undefined) => {
+		currentTags = normalizeTags(currentAsset?.asset_tags);
+	};
 
-	const resetEditData = (currentAsset: Asset) =>
-		(editData = {
+	const resetEditData = (currentAsset: Asset) => {
+		editData = {
 			asset_name: currentAsset.asset_name,
 			asset_description: currentAsset.asset_description || '',
 			asset_ip: currentAsset.asset_ip || '',
@@ -84,7 +81,8 @@
 			analysis_status_id: currentAsset.analysis_status_id ?? currentAsset.analysis_status?.id,
 			asset_compromise_status_id: currentAsset.asset_compromise_status_id,
 			asset_tags: currentAsset.asset_tags || ''
-		});
+		};
+	};
 
 	const loadAsset = async () => {
 		isLoading = true;
@@ -100,23 +98,13 @@
 		}
 	};
 
-	const handleAssetChange = (updatedAsset: Partial<Asset>) => {
-		const currentAsset = caseAssets.byId[assetId];
-		if (!currentAsset) return;
-
-		caseAssets.byId[assetId] = {
-			...currentAsset,
-			...updatedAsset
-		};
-	};
-
 	const handleUpdateEditData = (field: string, value: string | number | Tag[]) => {
 		if (field === 'asset_tags') {
 			if (Array.isArray(value)) {
 				currentTags = [...value];
-				editData.asset_tags = value.map((tag) => tag.tag_title).join(',');
+				editData.asset_tags = tagsToString(value);
 			} else if (typeof value === 'string') {
-				currentTags = tagsStore.stringToTags(value);
+				currentTags = stringToTags(value);
 				editData.asset_tags = value;
 			}
 
@@ -189,7 +177,7 @@
 				asset_type_id: editData.asset_type_id,
 				analysis_status_id: editData.analysis_status_id,
 				asset_compromise_status_id: editData.asset_compromise_status_id,
-				asset_tags: currentTags.map((tag) => tag.tag_title).join(',')
+				asset_tags: tagsToString(currentTags)
 			};
 
 			const updated = await caseAssets.patchAsset(assetId, payload, { fetch });
@@ -235,11 +223,6 @@
 	};
 
 	$effect(() => {
-		assetTypes.fetch();
-		analysisStatuses.fetch();
-	});
-
-	$effect(() => {
 		void caseId;
 		void assetId;
 
@@ -248,7 +231,7 @@
 </script>
 
 {#if isLoading && !asset}
-	<Card class="overflow-hidden border shadow-lg">
+	<Card class="h-full overflow-hidden border shadow-lg">
 		<div class="border-b bg-gradient-to-r from-background to-muted/30">
 			<div class="p-6">
 				<div class="flex flex-col items-start gap-4 lg:flex-row lg:items-center">
@@ -296,7 +279,7 @@
 		</div>
 	</Card>
 {:else if loadError}
-	<div in:fade>
+	<div in:fade class="p-6">
 		<ErrorAlert>
 			<div class="flex items-center gap-2">
 				<AlertTriangleIcon class="h-5 w-5" />
@@ -305,11 +288,11 @@
 		</ErrorAlert>
 	</div>
 {:else if asset?.asset_id}
-	<div in:fade={{ duration: 150 }}>
-		<div class="overflow-hidden">
-			<CardContent class="bg-background p-0">
-				<Tabs bind:value={activeTab} class="w-full">
-					<div class="border-b bg-muted/20">
+	<div in:fade={{ duration: 150 }} class="flex h-full min-h-0 flex-col">
+		<div class="flex h-full min-h-0 flex-col overflow-hidden">
+			<CardContent class="flex min-h-0 flex-1 flex-col bg-background p-0">
+				<Tabs bind:value={activeTab} class="flex min-h-0 flex-1 flex-col">
+					<div class="shrink-0 border-b bg-muted/20">
 						<TabsList class="h-auto w-full rounded-none border-0 bg-transparent p-0">
 							<TabsTrigger
 								value="details"
@@ -344,7 +327,7 @@
 
 								{#if asset.iocs?.length}
 									<span
-										class="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors data-[state=active]:bg-primary/20 data-[state=active]:text-primary"
+										class="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors"
 									>
 										{asset.iocs.length}
 									</span>
@@ -361,7 +344,7 @@
 						</TabsList>
 					</div>
 
-					<div class="p-6">
+					<div class="min-h-0 flex-1 overflow-y-auto p-6">
 						<TabsContent value="details">
 							<DetailsTab
 								{asset}
@@ -369,13 +352,12 @@
 								{editData}
 								onUpdateEditData={handleUpdateEditData}
 								{currentTags}
-								onAssetChange={handleAssetChange}
 								onStartEditing={startEditing}
 								onCancelEditing={cancelEditing}
 								onSaveChanges={saveChanges}
 								onDeleteAsset={handleAssetDeleted}
 								{isSaving}
-								deleteUrl={ENDPOINTS.case.assets.delete(caseId, asset.asset_id.toString())}
+								deleteUrl={`/api/v2/cases/${caseId}/assets/${asset.asset_id}`}
 							/>
 						</TabsContent>
 
@@ -390,7 +372,7 @@
 				</Tabs>
 			</CardContent>
 
-			<div class="border-t bg-muted/30 px-6 py-4">
+			<div class="shrink-0 border-t bg-muted/30 px-6 py-4">
 				<div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
 					<div class="flex-grow text-xs text-muted-foreground">
 						<div class="flex flex-wrap items-center gap-3">
@@ -415,7 +397,7 @@
 		</div>
 	</div>
 {:else}
-	<div in:fade class="flex h-[calc(100vh-200px)] flex-col items-center justify-center text-center">
+	<div in:fade class="flex h-full flex-col items-center justify-center text-center">
 		<SearchIcon class="mb-4 h-16 w-16 text-muted-foreground/50" />
 		<h2 class="mb-2 text-xl font-semibold text-muted-foreground">Asset Not Found</h2>
 		<p class="text-muted-foreground">The asset with ID #{assetId} could not be found or loaded.</p>

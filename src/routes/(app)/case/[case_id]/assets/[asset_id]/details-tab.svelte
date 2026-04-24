@@ -1,170 +1,108 @@
 <script lang="ts">
-	import { marked } from 'marked';
 	import type { Asset } from '$lib/types/resources/asset';
-	import { 
-		ServerIcon, 
-		GlobeIcon, 
+	import type { Tag } from '$lib/types/resources/tag';
+	import {
+		ServerIcon,
+		GlobeIcon,
 		NetworkIcon,
 		FileTextIcon,
 		CheckCircleIcon,
 		ShieldIcon,
 		ComponentIcon,
-		HashIcon,
-
 		XIcon,
-
 		SaveIcon,
-
 		EditIcon
-
-
-
 	} from 'lucide-svelte';
-	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { assetTypes } from '$lib/stores/asset-types.store';
-	import { analysisStatuses } from '$lib/stores/analysis-status.store';
 	import { page } from '$app/state';
-	import { AnalysisStatus } from '$lib/components/common/analysis-status';
-	import { CompromiseStatus } from '$lib/components/common/compromise-status';
-	import { assetsStore } from '$lib/stores/assets.store';
-	import { TagInput, TagDisplay } from '$lib/components/common/tag';
-	import type { Tag } from '$lib/stores/tags.store';
+	import { AssetTypesService, type AssetType } from '$lib/services/asset-types.service';
+	import {
+		AnalysisStatusService,
+		type AnalysisStatusItem
+	} from '$lib/services/analysis-status.service';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import { Button } from '$lib/components/ui/button';
 	import DeleteButton from '$lib/components/common/DeleteButton.svelte';
+	import MarkDownPreview from '$lib/components/common/MarkDown/MarkDownPreview.svelte';
+	import { CompromiseStatus } from '$lib/components/common/compromise-status';
+	import { TagInput, TagDisplay } from '$lib/components/common/tag';
+	import AssetDetailField from './components/asset-detail-field.svelte';
+	import AssetEditField from './components/asset-edit-field.svelte';
 
-	let { 
-		asset, 
-		isEditing = false, 
-		editData,
-		onUpdateEditData = (field: string, value: string | number | Tag[]) => {},
-		currentTags = [],
-		onAssetChange = (updatedAsset: Partial<Asset>) => {},
-		onStartEditing = () => {},
-		onCancelEditing = () => {},
-		onSaveChanges = () => {},
-		onDeleteAsset = () => {},
-		isSaving = false,
-		deleteUrl = ''
-	} = $props<{ 
+	type EditData = {
+		asset_name: string;
+		asset_description: string;
+		asset_ip: string;
+		asset_domain: string;
+		asset_type_id?: number;
+		analysis_status_id?: number;
+		asset_compromise_status_id?: number;
+		asset_tags?: string;
+	};
+
+	type Props = {
 		asset: Asset;
 		isEditing?: boolean;
-		editData?: {
-			asset_name: string;
-			asset_description: string;
-			asset_ip: string;
-			asset_domain: string;
-			asset_type_id?: number;
-			analysis_status_id?: number;
-			asset_compromise_status_id?: number;
-			asset_tags?: string;
-		};
+		editData?: EditData;
 		onUpdateEditData?: (field: string, value: string | number | Tag[]) => void;
 		currentTags?: Tag[];
-		onAssetChange?: (updatedAsset: Partial<Asset>) => void;
 		onStartEditing?: () => void;
 		onCancelEditing?: () => void;
 		onSaveChanges?: () => void;
 		onDeleteAsset?: () => void;
 		isSaving?: boolean;
 		deleteUrl?: string;
-	}>();
-	
-	let descriptionHtml = $derived(marked(asset.asset_description || 'No description provided'));
-	
-	// Initialize stores only once when the component mounts
-	let storesInitialized = $state(false);
-	
-	$effect(() => {
-		if (!storesInitialized) {
-			// Use Promise.all to fetch both in parallel
-			Promise.all([
-				assetTypes.fetch(),
-				analysisStatuses.fetch()
-			]).then(() => {
-				storesInitialized = true;
-			});
-		}
-	});
-	
-	// Make sure editData has all required fields
-	$effect(() => {
-		if (isEditing && editData && storesInitialized) {
-			if (editData.asset_type_id === undefined && asset.asset_type) {
-				onUpdateEditData('asset_type_id', asset.asset_type.id);
-			}
-			
-			if (editData.analysis_status_id === undefined && asset.analysis_status) {
-				onUpdateEditData('analysis_status_id', asset.analysis_status.id);
-			}
-			
-			if (editData.asset_compromise_status_id === undefined) {
-				onUpdateEditData('asset_compromise_status_id', asset.asset_compromise_status_id || 3);
-			}
-		}
-	});
-	
-	function handleStatusChange(newStatus: any) {
-		// Instead of directly modifying asset, call the callback
-		onAssetChange({ 
-			analysis_status: newStatus
-		});
-	}
-	
-	function handleTagsChange(newTags: Tag[]) {
-		console.log('Tags changed in details-tab:', newTags);
-		// Make sure we're passing an array of Tag objects
-		if (Array.isArray(newTags)) {
-			onUpdateEditData('asset_tags', newTags);
-		} else {
-			console.error('Expected array of tags but got:', newTags);
-		}
-	}
-	
-	function handleCompromiseStatusChange(newStatus: any) {
-		// Instead of directly modifying asset, call the callback
-		onAssetChange({ 
-			asset_compromise_status_id: newStatus.id
-		});
-	}
+	};
 
-	// Function to update a specific field
-	function updateField(field: string, value: string | number) {
-		if (!isEditing || !asset || !onUpdateEditData) return;
-		
-		// Create an update object with just the changed field
-		const update = { [field]: value };
-		
-		// Call the parent's onUpdate function
-		onUpdateEditData(field, value);
-		
-		// If we have the asset ID, also update the store directly for immediate UI updates
-		if (asset?.asset_id) {
-			const assetId = asset.asset_id.toString();
-			const existingAsset = assetsStore.getAsset(assetId);
-			
-			if (existingAsset) {
-				// Create a new asset object with the updated field
-				const updatedAsset = {
-					...existingAsset,
-					...update
-				};
-				
-				// Update the store
-				console.log(`Updating ${field} in store from details-tab:`, assetId, updatedAsset);
-				assetsStore.updateAsset(assetId, updatedAsset);
-			}
-		} else {
-			console.error('Asset ID is not available for updating the store');
+	let {
+		asset,
+		isEditing = false,
+		editData,
+		onUpdateEditData = () => {},
+		currentTags = [],
+		onStartEditing = () => {},
+		onCancelEditing = () => {},
+		onSaveChanges = () => {},
+		onDeleteAsset = () => {},
+		isSaving = false,
+		deleteUrl = ''
+	}: Props = $props();
+
+	let assetTypes = $state<AssetType[]>([]);
+	let analysisStatuses = $state<AnalysisStatusItem[]>([]);
+
+	const caseId = $derived(Number(page.params.case_id));
+
+	const loadOptions = async () => {
+		const [assetTypesRes, analysisStatusesRes] = await Promise.all([
+			AssetTypesService.list(caseId, { fetch }),
+			AnalysisStatusService.list(caseId, { fetch })
+		]);
+
+		if (assetTypesRes.ok && Array.isArray(assetTypesRes.data)) {
+			assetTypes = assetTypesRes.data;
 		}
-	}
+
+		if (analysisStatusesRes.ok && Array.isArray(analysisStatusesRes.data)) {
+			analysisStatuses = analysisStatusesRes.data;
+		}
+	};
+
+	const updateField = (field: string, value: string | number) => {
+		onUpdateEditData(field, value);
+	};
+
+	const handleTagsChange = (tags: Tag[]) => {
+		onUpdateEditData('asset_tags', tags);
+	};
+
+	$effect(() => {
+		loadOptions();
+	});
 </script>
 
 <div class="space-y-8 p-1">
-	<!-- General Information -->
 	<section>
-		<div class="flex items-center justify-between gap-2 mb-4 border-b pb-2">
+		<div class="mb-4 flex items-center justify-between gap-2 border-b pb-2">
 			<div class="flex items-center gap-2">
 				<ServerIcon class="h-5 w-5 text-primary" />
 				<h2 class="text-lg font-semibold">General Information</h2>
@@ -172,41 +110,26 @@
 
 			<div class="flex items-center gap-2">
 				{#if isEditing}
-					<Button 
-						variant="outline" 
-						size="sm" 
-						onclick={onCancelEditing}
-						class="flex items-center gap-2 hover:bg-muted/80 transition-colors" 
-						disabled={isSaving}
-					>
+					<Button variant="outline" size="sm" onclick={onCancelEditing} disabled={isSaving}>
 						<XIcon class="h-4 w-4" />
-						<span>Cancel</span>
+						Cancel
 					</Button>
-					<Button 
-						variant="default" 
-						size="sm" 
-						onclick={onSaveChanges}
-						class="flex items-center gap-2 bg-primary hover:bg-primary/90 transition-colors" 
-						disabled={isSaving}
-					>
+
+					<Button size="sm" onclick={onSaveChanges} disabled={isSaving}>
 						{#if isSaving}
 							<span class="animate-spin">⟳</span>
-							<span>Saving...</span>
+							Saving...
 						{:else}
 							<SaveIcon class="h-4 w-4" />
-							<span>Save Changes</span>
+							Save Changes
 						{/if}
 					</Button>
 				{:else}
-					<Button 
-						variant="outline" 
-						size="sm" 
-						onclick={onStartEditing}
-						class="flex items-center gap-2 hover:bg-muted/80 transition-colors"
-					>
+					<Button variant="outline" size="sm" onclick={onStartEditing}>
 						<EditIcon class="h-4 w-4" />
-						<span>Edit Asset</span>
+						Edit Asset
 					</Button>
+
 					<DeleteButton
 						url={deleteUrl}
 						onrefresh={onDeleteAsset}
@@ -216,82 +139,76 @@
 				{/if}
 			</div>
 		</div>
-		
-		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+
+		<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 			{#if isEditing && editData}
-				<div class="group bg-card/40 p-4 rounded-lg">
+				<AssetEditField
+					label="Asset Name"
+					field="asset_name"
+					value={editData.asset_name}
+					Icon={ServerIcon}
+					onChange={updateField}
+				/>
+
+				<div class="rounded-lg bg-card/40 p-4">
 					<div class="flex items-start gap-3">
-						<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
-							<ServerIcon class="h-4 w-4" />
-						</div>
-						<div class="min-w-0 flex-1">				
-							<p class="text-sm font-medium text-muted-foreground">Asset Name</p>
-							<Input 
-								value={editData.asset_name} 
-								onchange={(e) => {
-									if (e.target) {
-										updateField('asset_name', (e.target as HTMLInputElement).value);
-									}
-								}}
-								class="mt-1" 
-							/>
-						</div>
-					</div>
-				</div>
-				
-				<div class="group bg-card/40 p-4 rounded-lg">
-					<div class="flex items-start gap-3">
-						<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
+						<div class="shrink-0 rounded-md bg-primary/10 p-2 text-primary">
 							<ComponentIcon class="h-4 w-4" />
 						</div>
-						<div class="min-w-0 flex-1">				
+
+						<div class="min-w-0 flex-1">
 							<p class="text-sm font-medium text-muted-foreground">Asset Type</p>
-							<select 
-								value={editData.asset_type_id} 
-								onchange={(e) => updateField('asset_type_id', parseInt((e.target as HTMLSelectElement).value))}
-								class="mt-1 w-full px-3 py-2 bg-background border border-input rounded-md text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+
+							<select
+								value={editData.asset_type_id}
+								onchange={(e) =>
+									updateField('asset_type_id', Number((e.target as HTMLSelectElement).value))}
+								class="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
 							>
 								<option value="" disabled>Select asset type</option>
-								{#each $assetTypes as type}
+								{#each assetTypes as type}
 									<option value={type.asset_id}>{type.asset_name}</option>
 								{/each}
 							</select>
-							{#if editData.asset_type_id}
-								{@const selectedType = $assetTypes.find(t => t.id === editData.asset_type_id)}
-							{/if}
 						</div>
 					</div>
 				</div>
-				
-				<div class="group bg-card/40 p-4 rounded-lg">
+
+				<div class="rounded-lg bg-card/40 p-4">
 					<div class="flex items-start gap-3">
-						<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
+						<div class="shrink-0 rounded-md bg-primary/10 p-2 text-primary">
 							<CheckCircleIcon class="h-4 w-4" />
 						</div>
-						<div class="min-w-0 flex-1">				
+
+						<div class="min-w-0 flex-1">
 							<p class="text-sm font-medium text-muted-foreground">Analysis Status</p>
-							<div class="mt-1">
-								<AnalysisStatus 
-									isEditing={true}
-									editValue={editData.analysis_status_id}
-									status={asset.analysis_status}
-									onEditValueChange={(value) => updateField('analysis_status_id', value)}
-								/>
-							</div>
+
+							<select
+								value={editData.analysis_status_id}
+								onchange={(e) =>
+									updateField('analysis_status_id', Number((e.target as HTMLSelectElement).value))}
+								class="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+							>
+								<option value="" disabled>Select analysis status</option>
+								{#each analysisStatuses as status}
+									<option value={status.id}>{status.name}</option>
+								{/each}
+							</select>
 						</div>
 					</div>
 				</div>
-				
-				<!-- Compromise Status (Edit Mode) -->
-				<div class="group bg-card/40 p-4 rounded-lg">
+
+				<div class="rounded-lg bg-card/40 p-4">
 					<div class="flex items-start gap-3">
-						<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
+						<div class="shrink-0 rounded-md bg-primary/10 p-2 text-primary">
 							<ShieldIcon class="h-4 w-4" />
 						</div>
-						<div class="min-w-0 flex-1">				
+
+						<div class="min-w-0 flex-1">
 							<p class="text-sm font-medium text-muted-foreground">Compromise Status</p>
+
 							<div class="mt-1">
-								<CompromiseStatus 
+								<CompromiseStatus
 									isEditing={true}
 									editValue={editData.asset_compromise_status_id}
 									status={asset.asset_compromise_status_id || 3}
@@ -302,44 +219,30 @@
 					</div>
 				</div>
 			{:else}
-				{@render fieldWithIcon('Asset Name', asset.asset_name, ServerIcon)}
-				{@render fieldWithIcon('Asset Type', asset.asset_type?.asset_name, ComponentIcon)}
-				
-				<!-- Analysis Status with click-to-change functionality -->
-				<div class="group bg-card/40 p-4 rounded-lg">
+				<AssetDetailField label="Asset Name" value={asset.asset_name} Icon={ServerIcon} />
+				<AssetDetailField
+					label="Asset Type"
+					value={asset.asset_type?.asset_name ?? 'N/A'}
+					Icon={ComponentIcon}
+				/>
+
+				<AssetDetailField
+					label="Analysis Status"
+					value={asset.analysis_status?.name ?? 'N/A'}
+					Icon={CheckCircleIcon}
+				/>
+
+				<div class="rounded-lg bg-card/40 p-4">
 					<div class="flex items-start gap-3">
-						<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
-							<CheckCircleIcon class="h-4 w-4" />
-						</div>
-						<div class="min-w-0 flex-1">				
-							<p class="text-sm font-medium text-muted-foreground">Analysis Status</p>
-							<div class="mt-1">
-								<AnalysisStatus 
-									status={asset.analysis_status}
-									caseId={page.params.case_id}
-									assetId={asset.asset_id.toString()}
-									onStatusChange={handleStatusChange}
-								/>
-							</div>
-						</div>
-					</div>
-				</div>
-				
-				<!-- Compromise Status with click-to-change functionality -->
-				<div class="group bg-card/40 p-4 rounded-lg">
-					<div class="flex items-start gap-3">
-						<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
+						<div class="shrink-0 rounded-md bg-primary/10 p-2 text-primary">
 							<ShieldIcon class="h-4 w-4" />
 						</div>
-						<div class="min-w-0 flex-1">				
+
+						<div class="min-w-0 flex-1">
 							<p class="text-sm font-medium text-muted-foreground">Compromise Status</p>
+
 							<div class="mt-1">
-								<CompromiseStatus 
-									status={asset.asset_compromise_status_id || 3} 
-									caseId={page.params.case_id}
-									assetId={asset.asset_id.toString()}
-									onStatusChange={handleCompromiseStatusChange}
-								/>
+								<CompromiseStatus status={asset.asset_compromise_status_id || 3} />
 							</div>
 						</div>
 					</div>
@@ -348,155 +251,81 @@
 		</div>
 	</section>
 
-	<!-- Description -->
 	<section>
-		<div class="flex items-center gap-2 mb-4 border-b pb-2">
+		<div class="mb-4 flex items-center gap-2 border-b pb-2">
 			<FileTextIcon class="h-5 w-5 text-primary" />
 			<h2 class="text-lg font-semibold">Description</h2>
 		</div>
-		
-		{#if isEditing && editData}
-			<div class="bg-card/40 p-4 rounded-lg">
-				<Textarea 
+
+		<div class="rounded-lg bg-card/40 p-4">
+			{#if isEditing && editData}
+				<Textarea
 					value={editData.asset_description}
-					onchange={(e) => updateField('asset_description', (e.target as HTMLTextAreaElement).value)}
+					onchange={(e) =>
+						updateField('asset_description', (e.target as HTMLTextAreaElement).value)}
 					placeholder="Provide a detailed description of this asset"
 					rows={5}
 					class="w-full"
 				/>
-				<p class="text-xs text-muted-foreground mt-2">Markdown formatting is supported</p>
-			</div>
-		{:else}
-			<div class="bg-card/40 p-4 rounded-lg">
-				{#if asset.asset_description}
-					<div class="prose prose-sm max-w-none">
-						{@html descriptionHtml}
-					</div>
-				{:else}
-					<p class="text-muted-foreground italic">No description provided</p>
-				{/if}
-			</div>
-		{/if}
-	</section>
 
-	<!-- Network Information -->
-	<section>
-		<div class="flex items-center gap-2 mb-4 border-b pb-2">
-			<NetworkIcon class="h-5 w-5 text-primary" />
-			<h2 class="text-lg font-semibold">Network Information</h2>
-		</div>
-		
-		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-			{#if isEditing && editData}
-				<div class="group bg-card/40 p-4 rounded-lg">
-					<div class="flex items-start gap-3">
-						<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
-							<NetworkIcon class="h-4 w-4" />
-						</div>
-						<div class="min-w-0 flex-1">				
-							<p class="text-sm font-medium text-muted-foreground">IP Address</p>
-							<Input 
-								value={editData.asset_ip}
-								onchange={(e) => updateField('asset_ip', (e.target as HTMLInputElement).value)}
-								class="mt-1" 
-								placeholder="e.g. 192.168.1.1" 
-							/>
-						</div>
-					</div>
-				</div>
-				
-				<div class="group bg-card/40 p-4 rounded-lg">
-					<div class="flex items-start gap-3">
-						<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
-							<GlobeIcon class="h-4 w-4" />
-						</div>
-						<div class="min-w-0 flex-1">				
-							<p class="text-sm font-medium text-muted-foreground">Domain</p>
-							<Input 
-								value={editData.asset_domain}
-								onchange={(e) => updateField('asset_domain', (e.target as HTMLInputElement).value)}
-								class="mt-1" 
-								placeholder="e.g. example.com" 
-							/>
-						</div>
-					</div>
-				</div>
+				<p class="mt-2 text-xs text-muted-foreground">Markdown formatting is supported</p>
+			{:else if asset.asset_description}
+				<MarkDownPreview markdown={asset.asset_description} />
 			{:else}
-				{@render fieldWithIcon('IP Address', asset.asset_ip || 'N/A', NetworkIcon)}
-				{@render fieldWithIcon('Domain', asset.asset_domain || 'N/A', GlobeIcon)}
+				<p class="italic text-muted-foreground">No description provided</p>
 			{/if}
 		</div>
 	</section>
 
-	<section>		
-		<div class="grid grid-cols-1">
-			<div class="bg-card/40  rounded-lg">
-				{#if isEditing}
-					<TagInput 
-						tags={currentTags} 
-						outputFormat="array"
-						onchange={handleTagsChange}
-						placeholder="Add tags..."
-						maxTags={20}
-					/>
-					<p class="text-xs text-muted-foreground mt-2">Press Enter or comma to add a tag</p>
-				{:else}
-					{#if asset.asset_tags || asset.tags}
-						<TagDisplay 
-							tags={asset.asset_tags || asset.tags || []} 
-							size="default"
-						/>
-					{:else}
-						<p class="text-muted-foreground italic">No tags</p>
-					{/if}
-				{/if}
-			</div>
+	<section>
+		<div class="mb-4 flex items-center gap-2 border-b pb-2">
+			<NetworkIcon class="h-5 w-5 text-primary" />
+			<h2 class="text-lg font-semibold">Network Information</h2>
+		</div>
+
+		<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+			{#if isEditing && editData}
+				<AssetEditField
+					label="IP Address"
+					field="asset_ip"
+					value={editData.asset_ip}
+					Icon={NetworkIcon}
+					placeholder="e.g. 192.168.1.1"
+					onChange={updateField}
+				/>
+
+				<AssetEditField
+					label="Domain"
+					field="asset_domain"
+					value={editData.asset_domain}
+					Icon={GlobeIcon}
+					placeholder="e.g. example.com"
+					onChange={updateField}
+				/>
+			{:else}
+				<AssetDetailField label="IP Address" value={asset.asset_ip || 'N/A'} Icon={NetworkIcon} />
+				<AssetDetailField label="Domain" value={asset.asset_domain || 'N/A'} Icon={GlobeIcon} />
+			{/if}
+		</div>
 	</section>
 
-</div>
-	
+	<section>
+		<div class="rounded-lg bg-card/40 p-4">
+			{#if isEditing}
+				<TagInput
+					tags={currentTags}
+					outputFormat="array"
+					onchange={handleTagsChange}
+					placeholder="Add tags..."
+					maxTags={20}
+				/>
 
-{#snippet fieldWithIcon(label: string, value: string | number, Icon: any, hint: string | null = null)}
-	<div class="group bg-card/40 p-4 rounded-lg">
-		<div class="flex items-start gap-3">
-			<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
-				<Icon class="h-4 w-4" />
-			</div>
-			<div class="min-w-0 flex-1">				
-				<p class="text-sm font-medium text-muted-foreground">{label}</p>
-				<div class="flex items-center gap-1">
-					<p class="font-semibold text-foreground break-all">{value}</p>
-					{#if value && value.toString().length > 0 && value !== 'N/A'}
-						<ClipboardCopy value={value.toString()}/>
-					{/if}
-				</div>
-				{#if hint}
-					<p class="text-xs text-muted-foreground mt-1">{hint}</p>
-				{/if}
-			</div>
+				<p class="mt-2 text-xs text-muted-foreground">Press Enter or comma to add a tag</p>
+			{:else if asset.asset_tags}
+				<TagDisplay tags={asset.asset_tags} size="default" />
+			{:else}
+				<p class="italic text-muted-foreground">No tags</p>
+			{/if}
 		</div>
-	</div>
-{/snippet}
-
-<style>
-	section {
-		position: relative;
-	}
-	
-	section::after {
-		content: '';
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		pointer-events: none;
-		background: linear-gradient(to right, transparent, transparent);
-		opacity: 0;
-		transition: opacity 0.3s ease;
-	}
-	
-	section:hover::after {
-		opacity: 0.5;
-	}
-</style>
+	</section>
+</div>
