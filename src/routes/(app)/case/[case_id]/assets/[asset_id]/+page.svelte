@@ -303,22 +303,6 @@
 							</TabsTrigger>
 
 							<TabsTrigger
-								value="alerts"
-								class="flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
-							>
-								<AlertTriangleIcon class="h-4 w-4" />
-								<span>Alerts</span>
-							</TabsTrigger>
-
-							<TabsTrigger
-								value="graph"
-								class="flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
-							>
-								<CalendarRange class="h-4 w-4" />
-								<span>Timeline</span>
-							</TabsTrigger>
-
-							<TabsTrigger
 								value="ioc"
 								class="relative flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
 							>

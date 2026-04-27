@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { BiohazardIcon, CheckCheckIcon, ComputerIcon, FileIcon, PlusIcon } from 'lucide-svelte';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { createCaseNotesContext } from '$lib/contexts/case-notes.context.svelte';
 	import {
@@ -36,7 +37,7 @@
 			<CheckCheckIcon class="mr-2 h-4 w-4" />
 			<span>Task</span>
 		</DropdownMenuItem>
-		<DropdownMenuItem>
+		<DropdownMenuItem onclick={() => goto(`/case/${page.params.case_id}/assets/add`)}>
 			<ComputerIcon class="mr-2 h-4 w-4" />
 			<span>Asset</span>
 		</DropdownMenuItem>
