@@ -2,10 +2,9 @@
 	import { getContext } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import {
-		AlertTriangleIcon,
-		CalendarRange,
 		HistoryIcon,
 		InfoIcon,
+		MessagesSquareIcon,
 		SearchIcon,
 		ShieldAlertIcon
 	} from 'lucide-svelte';
@@ -19,15 +18,14 @@
 	} from '$lib/contexts/case-assets.context.svelte';
 	import type { UpdateCaseAssetBody } from '$lib/services/case-assets.service';
 	import { normalizeTags, stringToTags, tagsToString } from '$lib/utils/tags';
-	import ErrorAlert from '$lib/components/ui/alert/ErrorAlert.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { Card, CardContent } from '$lib/components/ui/card';
-	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
 	import { toast } from '$lib/components/ui/toast';
+	import CommentsTab from './comments-tab.svelte';
 	import DetailsTab from './details-tab.svelte';
 	import HistoryTab from './history-tab.svelte';
 	import IOCsTab from './ioc-tab.svelte';
+	import { CommentsService, type Comment } from '$lib/services/comments.service';
 
 	type EditData = {
 		asset_name: string;
@@ -49,10 +47,9 @@
 	let activeTab = $state('details');
 	let isEditing = $state(false);
 	let isSaving = $state(false);
-	let isLoading = $state(true);
-	let loadError = $state<string | null>(null);
 
 	let currentTags = $state<Tag[]>([]);
+	let comments = $state<Comment[]>([]);
 
 	let editData = $state<EditData>({
 		asset_name: '',
@@ -85,17 +82,14 @@
 	};
 
 	const loadAsset = async () => {
-		isLoading = true;
-		loadError = null;
+		await caseAssets.getAsset(assetId, { fetch });
 
-		try {
-			await caseAssets.getAsset(assetId, { fetch });
-			syncTagsFromAsset(caseAssets.byId[assetId]);
-		} catch (error) {
-			loadError = error instanceof Error ? error.message : 'Failed to load asset';
-		} finally {
-			isLoading = false;
-		}
+		const res = await CommentsService.list('assets', asset.asset_id);
+
+		const data = res.data;
+		comments = data && typeof data === 'object' && Array.isArray(data.data) ? data.data : [];
+
+		syncTagsFromAsset(caseAssets.byId[assetId]);
 	};
 
 	const handleUpdateEditData = (field: string, value: string | number | Tag[]) => {
@@ -230,67 +224,10 @@
 	});
 </script>
 
-{#if isLoading && !asset}
-	<Card class="h-full overflow-hidden border shadow-lg">
-		<div class="border-b bg-gradient-to-r from-background to-muted/30">
-			<div class="p-6">
-				<div class="flex flex-col items-start gap-4 lg:flex-row lg:items-center">
-					<div class="flex flex-1 items-center gap-4">
-						<Skeleton class="h-14 w-14 rounded-xl"></Skeleton>
-						<div class="min-w-0 flex-grow space-y-2">
-							<Skeleton class="h-8 w-64"></Skeleton>
-							<Skeleton class="h-5 w-40"></Skeleton>
-						</div>
-					</div>
-
-					<div class="flex gap-2">
-						<Skeleton class="h-8 w-24"></Skeleton>
-						<Skeleton class="h-8 w-20"></Skeleton>
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<div class="border-b bg-muted/20 p-0">
-			<div class="flex">
-				{#each Array(5)}
-					<Skeleton class="m-2 h-12 w-24 rounded-none"></Skeleton>
-				{/each}
-			</div>
-		</div>
-
-		<div class="p-6">
-			<div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-				{#each Array(9)}
-					<div class="space-y-2">
-						<Skeleton class="h-4 w-24"></Skeleton>
-						<Skeleton class="h-6 w-full"></Skeleton>
-					</div>
-				{/each}
-			</div>
-		</div>
-
-		<div class="border-t bg-muted/30 px-6 py-4">
-			<div class="flex gap-4">
-				<Skeleton class="h-3 w-32"></Skeleton>
-				<Skeleton class="h-3 w-32"></Skeleton>
-				<Skeleton class="h-3 w-20"></Skeleton>
-			</div>
-		</div>
-	</Card>
-{:else if loadError}
-	<div in:fade class="p-6">
-		<ErrorAlert>
-			<div class="flex items-center gap-2">
-				<AlertTriangleIcon class="h-5 w-5" />
-				<span>There was a problem loading asset #{assetId}!</span>
-			</div>
-		</ErrorAlert>
-	</div>
-{:else if asset?.asset_id}
+{#if asset?.asset_id}
 	<div in:fade={{ duration: 150 }} class="flex h-full min-h-0 flex-col">
 		<div class="flex h-full min-h-0 flex-col overflow-hidden">
-			<CardContent class="flex min-h-0 flex-1 flex-col bg-background p-0">
+			<div class="flex min-h-0 flex-1 flex-col bg-background p-0">
 				<Tabs bind:value={activeTab} class="flex min-h-0 flex-1 flex-col">
 					<div class="shrink-0 border-b bg-muted/20">
 						<TabsList class="h-auto w-full rounded-none border-0 bg-transparent p-0">
@@ -298,7 +235,7 @@
 								value="details"
 								class="flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
 							>
-								<InfoIcon class="h-4 w-4" />
+								<InfoIcon class="mr-1 h-4 w-4" />
 								<span>Details</span>
 							</TabsTrigger>
 
@@ -306,7 +243,7 @@
 								value="ioc"
 								class="relative flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
 							>
-								<ShieldAlertIcon class="h-4 w-4" />
+								<ShieldAlertIcon class="mr-1 h-4 w-4" />
 								<span>IOCs</span>
 
 								{#if asset.iocs?.length}
@@ -322,8 +259,24 @@
 								value="history"
 								class="flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
 							>
-								<HistoryIcon class="h-4 w-4" />
+								<HistoryIcon class="mr-1 h-4 w-4" />
 								<span>History</span>
+							</TabsTrigger>
+
+							<TabsTrigger
+								value="comments"
+								class="relative flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+							>
+								<MessagesSquareIcon class="mr-1 h-4 w-4" />
+								<span>Comments</span>
+
+								{#if comments?.length}
+									<span
+										class="absolute left-8 top-3 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-2xs text-white"
+									>
+										{comments.length}
+									</span>
+								{/if}
 							</TabsTrigger>
 						</TabsList>
 					</div>
@@ -352,9 +305,13 @@
 						<TabsContent value="history">
 							<HistoryTab {asset} />
 						</TabsContent>
+
+						<TabsContent value="comments">
+							<CommentsTab {asset} />
+						</TabsContent>
 					</div>
 				</Tabs>
-			</CardContent>
+			</div>
 
 			<div class="shrink-0 border-t bg-muted/30 px-6 py-4">
 				<div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
@@ -383,8 +340,13 @@
 {:else}
 	<div in:fade class="flex h-full flex-col items-center justify-center text-center">
 		<SearchIcon class="mb-4 h-16 w-16 text-muted-foreground/50" />
+
 		<h2 class="mb-2 text-xl font-semibold text-muted-foreground">Asset Not Found</h2>
-		<p class="text-muted-foreground">The asset with ID #{assetId} could not be found or loaded.</p>
+
+		<p class="text-muted-foreground">
+			The asset with ID #{assetId} could not be found or loaded.
+		</p>
+
 		<p class="mt-1 text-muted-foreground">
 			Please select an asset from the list on the left, or try refreshing the page.
 		</p>

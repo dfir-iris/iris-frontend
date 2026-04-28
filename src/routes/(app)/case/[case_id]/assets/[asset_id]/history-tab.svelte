@@ -5,7 +5,7 @@
 	let { asset }: { asset: Asset } = $props();
 </script>
 
-<ActivityHistory 
+<ActivityHistory
 	modificationHistory={asset.modification_history}
 	entityType="asset"
 	title="Activity History"
