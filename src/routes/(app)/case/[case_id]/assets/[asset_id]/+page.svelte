@@ -294,7 +294,6 @@
 								onSaveChanges={saveChanges}
 								onDeleteAsset={handleAssetDeleted}
 								{isSaving}
-								deleteUrl={`/api/v2/cases/${caseId}/assets/${asset.asset_id}`}
 							/>
 						</TabsContent>
 

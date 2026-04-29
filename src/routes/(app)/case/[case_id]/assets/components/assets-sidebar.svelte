@@ -18,6 +18,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import AssetCard from '$lib/components/common/assets/AssetCard.svelte';
 	import AssetDataTable from '$lib/components/common/assets/AssetDataTable.svelte';
+	import { getAssetUrl } from '../helpers';
 
 	const caseAssets = getContext<CaseAssetsContext>(CASE_ASSETS_CTX);
 
@@ -183,7 +184,7 @@
 		selectedAssets = new Set(selectedAssets);
 	};
 
-	const openAsset = (assetId: number) => goto(`/case/${page.params.case_id}/assets/${assetId}`);
+	const openAsset = (assetId: number) => goto(getAssetUrl(page.params.case_id, assetId));
 
 	onMount(async () => {
 		await refreshAssets(1);

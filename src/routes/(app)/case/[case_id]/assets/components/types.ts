@@ -1,5 +1,4 @@
-export type AssetEditData = {
-	asset_name: string;
+export type AssetData = {
 	asset_description: string;
 	asset_ip: string;
 	asset_domain: string;

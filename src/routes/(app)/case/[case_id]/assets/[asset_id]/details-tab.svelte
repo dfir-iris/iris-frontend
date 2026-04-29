@@ -24,7 +24,7 @@
 	import MarkDownPreview from '$lib/components/common/MarkDown/MarkDownPreview.svelte';
 	import { CompromiseStatus } from '$lib/components/common/compromise-status';
 	import { TagDisplay } from '$lib/components/common/tag';
-	import { AssetEditForm, type AssetEditData } from '../components/AssetEditForm';
+	import AssetEditForm, { type AssetEditData } from '../components/asset-edit-form.svelte';
 	import AssetDetailField from './components/asset-detail-field.svelte';
 
 	type Props = {
@@ -38,7 +38,6 @@
 		onSaveChanges?: () => void;
 		onDeleteAsset?: () => void;
 		isSaving?: boolean;
-		deleteUrl?: string;
 	};
 
 	let {
@@ -51,8 +50,7 @@
 		onCancelEditing = () => {},
 		onSaveChanges = () => {},
 		onDeleteAsset = () => {},
-		isSaving = false,
-		deleteUrl = ''
+		isSaving = false
 	}: Props = $props();
 
 	let assetTypes = $state<AssetType[]>([]);
@@ -111,7 +109,7 @@
 					</Button>
 
 					<DeleteButton
-						url={deleteUrl}
+						url={`/api/v2/cases/${caseId}/assets/${asset.asset_id}`}
 						onrefresh={onDeleteAsset}
 						buttonText="Delete"
 						deletion_prompt_message={`Are you sure you want to delete the asset "${asset.asset_name}"? This action cannot be undone.`}

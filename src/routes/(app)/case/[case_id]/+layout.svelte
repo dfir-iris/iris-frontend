@@ -1,17 +1,33 @@
 <script lang="ts">
-	import { getContext, type Snippet } from 'svelte';
+	import { getContext, setContext, type Snippet } from 'svelte';
 	import { page } from '$app/state';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
+	import {
+		CASE_ASSETS_CTX,
+		createCaseAssetsContext,
+		type CaseAssetsContext
+	} from '$lib/contexts/case-assets.context.svelte';
+	import {
+		CASE_NOTES_CTX,
+		createCaseNotesContext,
+		type CaseNotesContext
+	} from '$lib/contexts/case-notes.context.svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import CaseTopbar from './components/CaseTopbar.svelte';
 	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
 	import type { Case } from '$lib/types/resources/case';
 	import { CaseManageModal } from '../../[components]/CaseModals';
+	import AssetAddDialog from './assets/components/asset-add-dialog.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
 	const app = getContext<AppContext>(APP_CTX);
 	const cases = getContext<CasesContext>(CASES_CTX);
+	const caseAssets = createCaseAssetsContext(() => Number(page.params.case_id));
+	const caseNotes = createCaseNotesContext(() => Number(page.params.case_id));
+
+	setContext<CaseAssetsContext>(CASE_ASSETS_CTX, caseAssets);
+	setContext<CaseNotesContext>(CASE_NOTES_CTX, caseNotes);
 
 	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
 
@@ -65,4 +81,9 @@
 			refresh();
 		}
 	}}
+/>
+
+<AssetAddDialog
+	open={caseAssets.ui.showAddModal}
+	onOpenChange={(open) => (caseAssets.ui.showAddModal = open)}
 />

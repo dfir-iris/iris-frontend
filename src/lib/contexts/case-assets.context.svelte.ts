@@ -14,6 +14,7 @@ type Status = 'idle' | 'loading' | 'error';
 
 type UIState = {
 	selectedAssetId?: number;
+	showAddModal: boolean;
 };
 
 const getAssetId = (asset: Asset): number => asset.asset_id;
@@ -54,7 +55,8 @@ export const createCaseAssetsContext = (getCaseId: () => number | null) => {
 	});
 
 	const ui = $state<UIState>({
-		selectedAssetId: undefined
+		selectedAssetId: undefined,
+		showAddModal: false
 	});
 
 	const currentCaseId = $derived(() => getCaseId());

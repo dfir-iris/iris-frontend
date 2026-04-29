@@ -1,10 +1,8 @@
 <script lang="ts">
-	import { setContext, type Snippet } from 'svelte';
-	import { page } from '$app/state';
+	import { getContext, setContext, type Snippet } from 'svelte';
 	import * as Resizable from '$lib/components/ui/resizable/index.js';
 	import {
 		CASE_ASSETS_CTX,
-		createCaseAssetsContext,
 		type CaseAssetsContext
 	} from '$lib/contexts/case-assets.context.svelte';
 	import AssetsSidebar from './components/assets-sidebar.svelte';
@@ -12,7 +10,7 @@
 
 	let { children }: { children: Snippet } = $props();
 
-	const caseAssets = createCaseAssetsContext(() => Number(page.params.case_id));
+	const caseAssets = getContext<CaseAssetsContext>(CASE_ASSETS_CTX);
 
 	setContext<CaseAssetsContext>(CASE_ASSETS_CTX, caseAssets);
 </script>

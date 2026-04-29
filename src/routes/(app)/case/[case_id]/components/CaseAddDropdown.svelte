@@ -1,8 +1,11 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
 	import { BiohazardIcon, CheckCheckIcon, ComputerIcon, FileIcon, PlusIcon } from 'lucide-svelte';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
-	import { createCaseNotesContext } from '$lib/contexts/case-notes.context.svelte';
+	import {
+		CASE_ASSETS_CTX,
+		type CaseAssetsContext
+	} from '$lib/contexts/case-assets.context.svelte';
+	import { CASE_NOTES_CTX, type CaseNotesContext } from '$lib/contexts/case-notes.context.svelte';
 	import {
 		DropdownMenu,
 		DropdownMenuContent,
@@ -10,11 +13,13 @@
 		DropdownMenuTrigger
 	} from '$lib/components/ui/dropdown-menu';
 	import { Button } from '$lib/components/ui/button';
+	import { newAsset } from '../assets/helpers';
 	import { newNote } from '../notes/helpers';
 
 	export let buttonClass: string = '';
 
-	const notes = createCaseNotesContext(() => Number(page.params.case_id));
+	const caseNotes = getContext<CaseNotesContext>(CASE_NOTES_CTX);
+	const caseAssets = getContext<CaseAssetsContext>(CASE_ASSETS_CTX);
 </script>
 
 <DropdownMenu>
@@ -29,7 +34,7 @@
 
 	<!-- Dropdown items -->
 	<DropdownMenuContent class="shadow" align={'end'} side={'bottom'}>
-		<DropdownMenuItem onclick={() => newNote(notes)}>
+		<DropdownMenuItem onclick={() => newNote(caseNotes)}>
 			<FileIcon class="mr-2 h-4 w-4" />
 			<span>Note</span>
 		</DropdownMenuItem>
@@ -37,7 +42,7 @@
 			<CheckCheckIcon class="mr-2 h-4 w-4" />
 			<span>Task</span>
 		</DropdownMenuItem>
-		<DropdownMenuItem onclick={() => goto(`/case/${page.params.case_id}/assets/add`)}>
+		<DropdownMenuItem onclick={() => newAsset(caseAssets)}>
 			<ComputerIcon class="mr-2 h-4 w-4" />
 			<span>Asset</span>
 		</DropdownMenuItem>

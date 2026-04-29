@@ -11,23 +11,29 @@
 	import type { Tag } from '$lib/types/resources/tag';
 	import type { AssetType } from '$lib/services/asset-types.service';
 	import type { AnalysisStatusItem } from '$lib/services/analysis-status.service';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import { CompromiseStatus } from '$lib/components/common/compromise-status';
+	import { MarkDownEditor } from '$lib/components/common/MarkDown';
 	import { TagInput } from '$lib/components/common/tag';
 	import SearchSelect, {
 		type SelectOption
 	} from '$lib/components/common/selects/SearchSelect.svelte';
-	import { MarkDownEditor } from '$lib/components/common/MarkDown';
-	import { AssetEditField, type AssetEditData } from './';
+	import AssetEditField from './asset-edit-field.svelte';
+	import type { AssetData } from './types';
+
+	export interface AssetAddData extends AssetData {
+		asset_names: string;
+	}
 
 	type Props = {
-		editData: AssetEditData;
+		addData: AssetAddData;
 		currentTags: Tag[];
 		assetTypes: AssetType[];
 		analysisStatuses: AnalysisStatusItem[];
 		onUpdateField: (field: string, value: string | number | Tag[]) => void;
 	};
 
-	let { editData, currentTags, assetTypes, analysisStatuses, onUpdateField }: Props = $props();
+	let { addData, currentTags, assetTypes, analysisStatuses, onUpdateField }: Props = $props();
 
 	const assetTypeOptions = $derived<SelectOption[]>(
 		assetTypes.map((type) => ({
@@ -50,13 +56,25 @@
 <div class="space-y-8">
 	<section>
 		<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-			<AssetEditField
-				label="Asset Name"
-				field="asset_name"
-				value={editData.asset_name}
-				Icon={ServerIcon}
-				onChange={updateField}
-			/>
+			<div class="rounded-lg bg-card/40 p-4 md:col-span-2">
+				<div class="flex items-start gap-3">
+					<div class="shrink-0 rounded-md bg-primary/10 p-2 text-primary">
+						<ServerIcon class="h-4 w-4" />
+					</div>
+
+					<div class="min-w-0 flex-1">
+						<p class="text-sm font-medium text-muted-foreground">Asset Names</p>
+
+						<Textarea
+							value={addData.asset_names}
+							onchange={(e) => updateField('asset_names', (e.target as HTMLTextAreaElement).value)}
+							placeholder="One asset per line"
+							rows={5}
+							class="mt-1 w-full"
+						/>
+					</div>
+				</div>
+			</div>
 
 			<div class="rounded-lg bg-card/40 p-4">
 				<div class="flex items-start gap-3">
@@ -69,7 +87,7 @@
 
 						<div class="mt-1">
 							<SearchSelect
-								value={editData.asset_type_id ? String(editData.asset_type_id) : ''}
+								value={addData.asset_type_id ? String(addData.asset_type_id) : ''}
 								options={assetTypeOptions}
 								placeholder="Select asset type"
 								searchPlaceholder="Search asset type..."
@@ -91,7 +109,7 @@
 
 						<div class="mt-1">
 							<SearchSelect
-								value={editData.analysis_status_id ? String(editData.analysis_status_id) : ''}
+								value={addData.analysis_status_id ? String(addData.analysis_status_id) : ''}
 								options={analysisStatusOptions}
 								placeholder="Select analysis status"
 								searchPlaceholder="Search analysis status..."
@@ -114,8 +132,8 @@
 						<div class="mt-1">
 							<CompromiseStatus
 								isEditing={true}
-								editValue={editData.asset_compromise_status_id}
-								status={editData.asset_compromise_status_id || 3}
+								editValue={addData.asset_compromise_status_id}
+								status={addData.asset_compromise_status_id || 3}
 								onEditValueChange={(value) => updateField('asset_compromise_status_id', value)}
 							/>
 						</div>
@@ -133,7 +151,7 @@
 
 		<div class="rounded-lg bg-card/40 p-4">
 			<MarkDownEditor
-				value={editData.asset_description}
+				value={addData.asset_description}
 				onChange={(value) => updateField('asset_description', value)}
 				onSave={() => {}}
 			/>
@@ -150,7 +168,7 @@
 			<AssetEditField
 				label="IP Address"
 				field="asset_ip"
-				value={editData.asset_ip}
+				value={addData.asset_ip}
 				Icon={NetworkIcon}
 				placeholder="e.g. 192.168.1.1"
 				onChange={updateField}
@@ -159,7 +177,7 @@
 			<AssetEditField
 				label="Domain"
 				field="asset_domain"
-				value={editData.asset_domain}
+				value={addData.asset_domain}
 				Icon={GlobeIcon}
 				placeholder="e.g. example.com"
 				onChange={updateField}
