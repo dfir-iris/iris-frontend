@@ -202,18 +202,9 @@
 	};
 
 	const handleAssetDeleted = async () => {
-		const removed = await caseAssets.removeAsset(assetId, { fetch });
+		await caseAssets.removeAsset(assetId, { fetch });
 
-		if (!removed) {
-			toast({
-				title: 'Delete failed',
-				description: 'There was a problem deleting the asset.',
-				variant: 'destructive'
-			});
-			return;
-		}
-
-		await goto(`/case/${caseId}/assets`, { replaceState: true });
+		goto(`/case/${caseId}/assets`);
 	};
 
 	$effect(() => {

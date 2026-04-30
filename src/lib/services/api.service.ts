@@ -232,14 +232,18 @@ export class ApiService {
 					}
 				}
 
-				// Parse the response
 				let responseData;
-				const contentType = response.headers.get('Content-Type');
-
-				if (contentType && contentType.includes('application/json')) {
-					responseData = await response.json();
+				if (method.toLowerCase() == 'delete') {
+					responseData = '';
 				} else {
-					responseData = await response.text();
+					// Parse the response
+					const contentType = response.headers.get('Content-Type');
+
+					if (contentType && contentType.includes('application/json')) {
+						responseData = await response.json();
+					} else {
+						responseData = await response.text();
+					}
 				}
 
 				// Return the response data, status, and headers
