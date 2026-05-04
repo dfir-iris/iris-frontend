@@ -124,11 +124,11 @@
 	);
 </script>
 
-<form class="mx-auto max-w-9xl rounded-xl border bg-muted/100 p-5 shadow-sm" onsubmit={submit}>
+<form class="max-w-9xl mx-auto rounded-xl border bg-muted/100 p-5 shadow-sm" onsubmit={submit}>
 	<div class="space-y-4">
 		<div class="grid grid-cols-2 gap-x-3 gap-y-3 md:grid-cols-4">
 			<div class="space-y-0.5">
-				<label class="text-xs text-muted-foreground">Title</label>
+				<div class="text-xs text-muted-foreground">Title</div>
 				<Input
 					class="h-8 text-xs"
 					placeholder="Filter by title..."
@@ -138,7 +138,7 @@
 			</div>
 
 			<div class="space-y-0.5">
-				<label class="text-xs text-muted-foreground">Description</label>
+				<div class="text-xs text-muted-foreground">Description</div>
 				<Input
 					class="h-8 text-xs"
 					placeholder="Filter by description..."
@@ -148,7 +148,7 @@
 			</div>
 
 			<div class="space-y-0.5">
-				<label class="text-xs text-muted-foreground">Source</label>
+				<div class="text-xs text-muted-foreground">Source</div>
 				<Input
 					class="h-8 text-xs"
 					placeholder="Filter by source..."
@@ -158,7 +158,7 @@
 			</div>
 
 			<div class="space-y-0.5">
-				<label class="text-xs text-muted-foreground">Tags</label>
+				<div class="text-xs text-muted-foreground">Tags</div>
 				<Input
 					class="h-8 text-xs"
 					placeholder="Filter by tags..."
@@ -172,7 +172,7 @@
 
 		<div class="grid grid-cols-2 gap-x-3 gap-y-3 md:grid-cols-4">
 			<div class="space-y-0.5">
-				<label class="text-xs text-muted-foreground">Status</label>
+				<div class="text-xs text-muted-foreground">Status</div>
 				<SearchSelect
 					size="sm"
 					value={value.alert_status_id == null ? '' : String(value.alert_status_id)}
@@ -188,7 +188,7 @@
 			</div>
 
 			<div class="space-y-0.5">
-				<label class="text-xs text-muted-foreground">Severity</label>
+				<div class="text-xs text-muted-foreground">Severity</div>
 				<SearchSelect
 					size="sm"
 					value={value.alert_severity_id == null ? '' : String(value.alert_severity_id)}
@@ -204,7 +204,7 @@
 			</div>
 
 			<div class="space-y-0.5">
-				<label class="text-xs text-muted-foreground">Classification</label>
+				<div class="text-xs text-muted-foreground">Classification</div>
 				<SearchSelect
 					size="sm"
 					value={value.alert_classification_id == null ? '' : String(value.alert_classification_id)}
@@ -220,7 +220,7 @@
 			</div>
 
 			<div class="space-y-0.5">
-				<label class="text-xs text-muted-foreground">Resolution Status</label>
+				<div class="text-xs text-muted-foreground">Resolution Status</div>
 				<SearchSelect
 					size="sm"
 					value={value.resolution_status_id == null ? '' : String(value.resolution_status_id)}
@@ -236,7 +236,7 @@
 			</div>
 
 			<div class="space-y-0.5">
-				<label class="text-xs text-muted-foreground">Customer</label>
+				<div class="text-xs text-muted-foreground">Customer</div>
 				<Input
 					class="h-8 text-xs"
 					inputmode="numeric"
@@ -247,7 +247,7 @@
 			</div>
 
 			<div class="space-y-0.5">
-				<label class="text-xs text-muted-foreground">Owner</label>
+				<div class="text-xs text-muted-foreground">Owner</div>
 				<Input
 					class="h-8 text-xs"
 					inputmode="numeric"
@@ -262,7 +262,7 @@
 
 		<div class="grid grid-cols-2 gap-x-3 gap-y-3 md:grid-cols-4">
 			<div class="space-y-0.5">
-				<label class="text-xs text-muted-foreground">Source Start Date</label>
+				<div class="text-xs text-muted-foreground">Source Start Date</div>
 				<Input
 					class="h-8 text-xs"
 					type="date"
@@ -272,7 +272,7 @@
 			</div>
 
 			<div class="space-y-0.5">
-				<label class="text-xs text-muted-foreground">Source End Date</label>
+				<div class="text-xs text-muted-foreground">Source End Date</div>
 				<Input
 					class="h-8 text-xs"
 					type="date"
@@ -282,17 +282,18 @@
 			</div>
 
 			<div class="space-y-0.5">
-				<label class="text-xs text-muted-foreground">Creation Start Date</label>
+				<div class="text-xs text-muted-foreground">Creation Start Date</div>
 				<Input
 					class="h-8 text-xs"
 					type="date"
 					value={value.creation_start_date ?? ''}
-					oninput={(e) => setStr('creation_start_date', (e.currentTarget as HTMLInputElement).value)}
+					oninput={(e) =>
+						setStr('creation_start_date', (e.currentTarget as HTMLInputElement).value)}
 				/>
 			</div>
 
 			<div class="space-y-0.5">
-				<label class="text-xs text-muted-foreground">Creation End Date</label>
+				<div class="text-xs text-muted-foreground">Creation End Date</div>
 				<Input
 					class="h-8 text-xs"
 					type="date"
@@ -306,7 +307,7 @@
 
 		<div class="grid grid-cols-2 gap-x-3 gap-y-3 md:grid-cols-4">
 			<div class="space-y-0.5">
-				<label class="text-xs text-muted-foreground">Asset(s) name</label>
+				<div class="text-xs text-muted-foreground">Asset(s) name</div>
 				<Input
 					class="h-8 text-xs"
 					placeholder="Filter by asset..."
@@ -316,7 +317,7 @@
 			</div>
 
 			<div class="space-y-0.5">
-				<label class="text-xs text-muted-foreground">IOC(s)</label>
+				<div class="text-xs text-muted-foreground">IOC(s)</div>
 				<Input
 					class="h-8 text-xs"
 					placeholder="Filter by IOC..."
@@ -326,7 +327,7 @@
 			</div>
 
 			<div class="space-y-0.5">
-				<label class="text-xs text-muted-foreground">Alert(s) ID</label>
+				<div class="text-xs text-muted-foreground">Alert(s) ID</div>
 				<Input
 					class="h-8 text-xs"
 					placeholder="Alert IDs..."
@@ -336,7 +337,7 @@
 			</div>
 
 			<div class="space-y-0.5">
-				<label class="text-xs text-muted-foreground">Source Reference</label>
+				<div class="text-xs text-muted-foreground">Source Reference</div>
 				<Input
 					class="h-8 text-xs"
 					placeholder="Source reference..."
@@ -346,7 +347,7 @@
 			</div>
 
 			<div class="space-y-0.5">
-				<label class="text-xs text-muted-foreground">Case ID</label>
+				<div class="text-xs text-muted-foreground">Case ID</div>
 				<Input
 					class="h-8 text-xs"
 					inputmode="numeric"

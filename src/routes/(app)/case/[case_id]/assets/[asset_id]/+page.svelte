@@ -24,7 +24,7 @@
 	import CommentsTab from './comments-tab.svelte';
 	import DetailsTab from './details-tab.svelte';
 	import HistoryTab from './history-tab.svelte';
-	import IOCsTab from './ioc-tab.svelte';
+	import IOCTab from './ioc-tab.svelte';
 	import { CommentsService, type Comment } from '$lib/services/comments.service';
 
 	type EditData = {
@@ -289,7 +289,7 @@
 						</TabsContent>
 
 						<TabsContent value="ioc">
-							<IOCsTab bind:asset={caseAssets.byId[assetId]} />
+							<IOCTab bind:asset={caseAssets.byId[assetId]} />
 						</TabsContent>
 
 						<TabsContent value="history">

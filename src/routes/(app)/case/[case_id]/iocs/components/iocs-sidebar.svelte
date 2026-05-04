@@ -3,12 +3,9 @@
 	import { RefreshCwIcon, List, Grid } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import {
-		CASE_ASSETS_CTX,
-		type CaseAssetsContext
-	} from '$lib/contexts/case-assets.context.svelte';
-	import type { ListCaseAssetsParams } from '$lib/services/case-assets.service';
-	import type { Asset } from '$lib/types/resources/asset';
+	import { CASE_IOCS_CTX, type CaseIocsContext } from '$lib/contexts/case-iocs.context.svelte';
+	import type { ListCaseIocsParams } from '$lib/services/case-iocs.service';
+	import type { Ioc } from '$lib/types/resources/ioc';
 	import { Button } from '$lib/components/ui/button';
 	import {
 		AdvancedSearch,
@@ -16,11 +13,10 @@
 		type SearchCondition
 	} from '$lib/components/ui/advanced-search';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import AssetCard from '$lib/components/common/assets/AssetCard.svelte';
-	import AssetDataTable from '$lib/components/common/assets/AssetDataTable.svelte';
-	import { getAssetUrl } from '../helpers';
+	import IOCCard from '$lib/components/common/ioc/IOCCard.svelte';
+	import IocDataTable from '$lib/components/common/ioc/IocDataTable.svelte';
 
-	const caseAssets = getContext<CaseAssetsContext>(CASE_ASSETS_CTX);
+	const caseIocs = getContext<CaseIocsContext>(CASE_IOCS_CTX);
 
 	let isLoading = $state(false);
 	let isRefreshing = $state(false);
@@ -31,44 +27,47 @@
 	let viewMode = $state<'cards' | 'table'>('cards');
 	let selectedFilters = $state<string[]>([]);
 	let selectionMode = $state(false);
-	let selectedAssets = $state<Set<string>>(new Set());
+	let selectedIocs = $state<Set<string>>(new Set());
 
 	let observer: IntersectionObserver | null = null;
 	let loadMoreTrigger: HTMLDivElement | null = null;
 
-	const displayAssets = $derived(
-		caseAssets.list.ids.map((id) => caseAssets.byId[id]).filter((a): a is Asset => !!a)
+	const displayIocs = $derived(
+		caseIocs.list.ids.map((id) => caseIocs.byId[id]).filter((ioc): ioc is Ioc => !!ioc)
 	);
 
 	const filterOptions = [
-		{
-			id: 'compromised',
-			label: 'Compromised',
-			field: 'asset_compromise_status_id',
-			value: 1,
-			operator: 'eq'
-		},
-		{
-			id: 'non_compromised',
-			label: 'Non Compromised',
-			field: 'asset_compromise_status_id',
-			value: 1,
-			operator: 'not'
-		},
 		{
 			id: 'analysis_done',
 			label: 'Analysis Done',
 			field: 'analysis_status_id',
 			value: 6,
 			operator: 'eq'
+		},
+		{
+			id: 'analysis_started',
+			label: 'Analysis Started',
+			field: 'analysis_status_id',
+			value: 3,
+			operator: 'eq'
+		},
+		{
+			id: 'analysis_todo',
+			label: 'Analysis To Be Done',
+			field: 'analysis_status_id',
+			value: 2,
+			operator: 'eq'
 		}
 	];
 
 	const searchFields: SearchField[] = [
-		{ key: 'asset_name', label: 'Asset Name', type: 'text' },
-		{ key: 'asset_ip', label: 'IP Address', type: 'text' },
-		{ key: 'asset_domain', label: 'Domain', type: 'text' },
-		{ key: 'asset_id', label: 'Asset ID', type: 'number' }
+		{ key: 'ioc_value', label: 'IOC Value', type: 'text' },
+		{ key: 'ioc_description', label: 'Description', type: 'text' },
+		{ key: 'ioc_tags', label: 'Tags', type: 'text' },
+		{ key: 'ioc_type', label: 'Type', type: 'text' },
+		{ key: 'ioc_type_id', label: 'Type ID', type: 'number' },
+		{ key: 'ioc_tlp_id', label: 'TLP ID', type: 'number' },
+		{ key: 'ioc_id', label: 'IOC ID', type: 'number' }
 	];
 
 	const buildConditions = () => {
@@ -77,9 +76,10 @@
 		searchConditions.forEach((c) => {
 			if (c.field === '_raw') {
 				out.push(
-					{ field: 'asset_name', operator: 'like', value: c.value },
-					{ field: 'asset_ip', operator: 'like', value: c.value },
-					{ field: 'asset_domain', operator: 'like', value: c.value }
+					{ field: 'ioc_value', operator: 'like', value: c.value },
+					{ field: 'ioc_description', operator: 'like', value: c.value },
+					{ field: 'ioc_tags', operator: 'like', value: c.value },
+					{ field: 'ioc_type', operator: 'like', value: c.value }
 				);
 
 				return;
@@ -90,9 +90,10 @@
 
 		if (searchTerm.trim() && searchConditions.length === 0) {
 			out.push(
-				{ field: 'asset_name', operator: 'like', value: searchTerm.trim() },
-				{ field: 'asset_ip', operator: 'like', value: searchTerm.trim() },
-				{ field: 'asset_domain', operator: 'like', value: searchTerm.trim() }
+				{ field: 'ioc_value', operator: 'like', value: searchTerm.trim() },
+				{ field: 'ioc_description', operator: 'like', value: searchTerm.trim() },
+				{ field: 'ioc_tags', operator: 'like', value: searchTerm.trim() },
+				{ field: 'ioc_type', operator: 'like', value: searchTerm.trim() }
 			);
 		}
 
@@ -107,7 +108,7 @@
 		return out;
 	};
 
-	const refreshAssets = async (pageNumber = 1) => {
+	const refreshIocs = async (pageNumber = 1) => {
 		if (isRefreshing) return;
 
 		isRefreshing = true;
@@ -115,35 +116,35 @@
 		try {
 			const conditions = buildConditions();
 
-			const params: ListCaseAssetsParams = {
+			const params: ListCaseIocsParams = {
 				page: pageNumber,
-				per_page: caseAssets.list.params.per_page,
+				per_page: caseIocs.list.params.per_page,
 				custom_conditions: conditions.length > 0 ? JSON.stringify(conditions) : undefined
 			};
 
-			await caseAssets.listPaginated(params as ListCaseAssetsParams, { fetch });
+			await caseIocs.listPaginated(params, { fetch });
 		} finally {
 			isRefreshing = false;
 		}
 	};
 
 	const loadMore = async () => {
-		if (caseAssets.list.nextPage === null || isLoading) return;
+		if (caseIocs.list.nextPage === null || isLoading) return;
 
 		isLoading = true;
 
 		try {
-			const previousIds = [...caseAssets.list.ids];
+			const previousIds = [...caseIocs.list.ids];
 
-			await caseAssets.listPaginated(
+			await caseIocs.listPaginated(
 				{
-					page: caseAssets.list.currentPage + 1,
-					per_page: caseAssets.list.params.per_page
+					page: caseIocs.list.currentPage + 1,
+					per_page: caseIocs.list.params.per_page
 				},
 				{ fetch }
 			);
 
-			caseAssets.list.ids = [...new Set([...previousIds, ...caseAssets.list.ids])];
+			caseIocs.list.ids = [...new Set([...previousIds, ...caseIocs.list.ids])];
 		} finally {
 			isLoading = false;
 		}
@@ -174,21 +175,20 @@
 		};
 	};
 
-	const toggleAssetSelection = (assetId: string) => {
-		if (selectedAssets.has(assetId)) {
-			selectedAssets.delete(assetId);
+	const toggleIocSelection = (iocId: string) => {
+		if (selectedIocs.has(iocId)) {
+			selectedIocs.delete(iocId);
 		} else {
-			selectedAssets.add(assetId);
+			selectedIocs.add(iocId);
 		}
 
-		selectedAssets = new Set(selectedAssets);
+		selectedIocs = new Set(selectedIocs);
 	};
 
-	const openAsset = (assetId: number) =>
-		goto(getAssetUrl(Number(page.params.case_id), String(assetId)));
+	const openIoc = (iocId: number) => goto(`/case/${page.params.case_id}/ioc/${iocId}`);
 
 	onMount(async () => {
-		await refreshAssets(1);
+		await refreshIocs(1);
 
 		setupObserver();
 	});
@@ -210,14 +210,14 @@
 		searchDebounceTimer = window.setTimeout(() => {
 			void currentSearchTerm;
 			void currentConditions;
-			refreshAssets(1);
+			refreshIocs(1);
 		}, 300);
 	});
 </script>
 
 <div class="flex h-full min-h-0 flex-col gap-3 p-3">
 	<div class="flex items-center gap-2">
-		<h2 class="text-lg font-semibold">Assets</h2>
+		<h2 class="text-lg font-semibold">Indicators</h2>
 
 		<div class="ml-auto flex items-center gap-2">
 			<Button size="icon" variant="ghost" onclick={() => (viewMode = 'cards')}>
@@ -228,14 +228,14 @@
 				<Grid size={16} />
 			</Button>
 
-			<Button size="icon" variant="ghost" onclick={() => refreshAssets(1)}>
+			<Button size="icon" variant="ghost" onclick={() => refreshIocs(1)}>
 				<RefreshCwIcon size={16} class={isRefreshing ? 'animate-spin' : ''} />
 			</Button>
 		</div>
 	</div>
 
 	<AdvancedSearch
-		placeholder="Search assets..."
+		placeholder="Search IOCs..."
 		bind:value={searchTerm}
 		bind:conditions={searchConditions}
 		fields={searchFields}
@@ -243,25 +243,25 @@
 
 	<div class="min-h-0 flex-1">
 		{#if viewMode === 'table'}
-			<AssetDataTable
+			<IocDataTable
 				className="h-full w-full"
-				assets={displayAssets}
+				iocs={displayIocs}
 				caseId={page.params.case_id}
-				tablePage={caseAssets.list.currentPage}
-				totalPages={caseAssets.list.lastPage}
-				on:pageChange={(e) => refreshAssets(e.detail.page)}
+				tablePage={caseIocs.list.currentPage}
+				totalPages={caseIocs.list.lastPage}
+				on:pageChange={(e) => refreshIocs(e.detail.page)}
 			/>
 		{:else}
 			<div class="flex h-full min-h-0 flex-col gap-3 overflow-y-auto">
-				{#each displayAssets as asset (asset.asset_id)}
+				{#each displayIocs as ioc (ioc.ioc_id)}
 					<div
 						role="button"
 						tabindex="0"
 						onclick={() => {
 							if (selectionMode) {
-								toggleAssetSelection(asset.asset_id.toString());
+								toggleIocSelection(ioc.ioc_id.toString());
 							} else {
-								openAsset(asset.asset_id);
+								openIoc(ioc.ioc_id);
 							}
 						}}
 						onkeydown={(e) => {
@@ -269,21 +269,21 @@
 								e.preventDefault();
 
 								if (selectionMode) {
-									toggleAssetSelection(asset.asset_id.toString());
+									toggleIocSelection(ioc.ioc_id.toString());
 								} else {
-									openAsset(asset.asset_id);
+									openIoc(ioc.ioc_id);
 								}
 							}
 						}}
 					>
-						<AssetCard {asset} />
+						<IOCCard {ioc} />
 					</div>
 				{/each}
 
 				<div use:handleTriggerRef class="flex h-20 shrink-0 items-center justify-center">
 					{#if isLoading}
 						<Skeleton class="h-8 w-8 rounded-full" />
-					{:else if caseAssets.list.nextPage !== null}
+					{:else if caseIocs.list.nextPage !== null}
 						<Button onclick={loadMore}>Load More</Button>
 					{/if}
 				</div>

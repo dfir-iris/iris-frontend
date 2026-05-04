@@ -6,7 +6,7 @@
 		type CaseAssetsContext
 	} from '$lib/contexts/case-assets.context.svelte';
 	import AssetsSidebar from './components/assets-sidebar.svelte';
-	import { DEFAULT_SIDEBAR_SIZE, MAX_SIDEBAR_SIZE, MIN_SIDEBAR_SIZE } from './constants';
+	import { DEFAULT_SIDEBAR_SIZE, MAX_SIDEBAR_SIZE, MIN_SIDEBAR_SIZE } from '../constants';
 
 	let { children }: { children: Snippet } = $props();
 

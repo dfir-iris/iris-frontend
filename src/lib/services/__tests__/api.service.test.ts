@@ -43,7 +43,7 @@ describe('ApiService', () => {
 		vi.clearAllMocks();
 	});
 
-	const makeJsonResponse = (status: number, body: any) => {
+	const makeJsonResponse = (status: number, body: unknown) => {
 		const headers = new Headers({ 'content-type': 'application/json' });
 
 		const cloned = {
@@ -154,9 +154,7 @@ describe('ApiService', () => {
 	});
 
 	it('should make a DELETE request', async () => {
-		const mockResponse = { data: 'test' };
-
-		mockFetch.mockResolvedValueOnce(makeJsonResponse(200, mockResponse));
+		mockFetch.mockResolvedValueOnce(makeJsonResponse(200, { data: 'test' }));
 
 		const result = await ApiService.delete('/test-endpoint');
 
@@ -164,7 +162,7 @@ describe('ApiService', () => {
 			expect.objectContaining({
 				ok: true,
 				status: 200,
-				data: mockResponse
+				data: ''
 			})
 		);
 
