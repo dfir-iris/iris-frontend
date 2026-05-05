@@ -14,7 +14,6 @@ export const newAsset = async (assets: CaseAssetsContext) => {
 	const url = new URL(page.url);
 
 	if (!(url.href.includes('/case/') && url.href.includes('/assets'))) {
-		console.log('going to:', `${url.origin}/case/${assets.currentCaseId()}`);
 		await goto(`${url.origin}/case/${assets.currentCaseId()}/assets`);
 	}
 };

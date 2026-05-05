@@ -185,7 +185,7 @@
 		selectedIocs = new Set(selectedIocs);
 	};
 
-	const openIoc = (iocId: number) => goto(`/case/${page.params.case_id}/ioc/${iocId}`);
+	const openIoc = (iocId: number) => goto(`/case/${page.params.case_id}/iocs/${iocId}`);
 
 	onMount(async () => {
 		await refreshIocs(1);

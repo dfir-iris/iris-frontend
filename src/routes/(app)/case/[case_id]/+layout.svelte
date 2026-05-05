@@ -8,6 +8,11 @@
 		type CaseAssetsContext
 	} from '$lib/contexts/case-assets.context.svelte';
 	import {
+		CASE_IOCS_CTX,
+		createCaseIocsContext,
+		type CaseIocsContext
+	} from '$lib/contexts/case-iocs.context.svelte';
+	import {
 		CASE_NOTES_CTX,
 		createCaseNotesContext,
 		type CaseNotesContext
@@ -18,15 +23,19 @@
 	import type { Case } from '$lib/types/resources/case';
 	import { CaseManageModal } from '../../[components]/CaseModals';
 	import AssetAddDialog from './assets/components/asset-add-dialog.svelte';
+	import IocAddDialog from './iocs/components/ioc-add-dialog.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
 	const app = getContext<AppContext>(APP_CTX);
 	const cases = getContext<CasesContext>(CASES_CTX);
+
 	const caseAssets = createCaseAssetsContext(() => Number(page.params.case_id));
+	const caseIocs = createCaseIocsContext(() => Number(page.params.case_id));
 	const caseNotes = createCaseNotesContext(() => Number(page.params.case_id));
 
 	setContext<CaseAssetsContext>(CASE_ASSETS_CTX, caseAssets);
+	setContext<CaseIocsContext>(CASE_IOCS_CTX, caseIocs);
 	setContext<CaseNotesContext>(CASE_NOTES_CTX, caseNotes);
 
 	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
@@ -86,4 +95,9 @@
 <AssetAddDialog
 	open={caseAssets.ui.showAddModal}
 	onOpenChange={(open) => (caseAssets.ui.showAddModal = open)}
+/>
+
+<IocAddDialog
+	open={caseIocs.ui.showAddModal}
+	onOpenChange={(open) => (caseIocs.ui.showAddModal = open)}
 />
