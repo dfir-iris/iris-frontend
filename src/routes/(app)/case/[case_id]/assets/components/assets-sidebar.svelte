@@ -19,6 +19,8 @@
 	import AssetCard from '$lib/components/common/assets/AssetCard.svelte';
 	import AssetDataTable from '$lib/components/common/assets/AssetDataTable.svelte';
 	import { getAssetUrl } from '../helpers';
+	import TooltipContent from '$lib/components/ui/tooltip/tooltip-content.svelte';
+	import { Tooltip, TooltipProvider, TooltipTrigger } from '$lib/components/ui/tooltip';
 
 	const caseAssets = getContext<CaseAssetsContext>(CASE_ASSETS_CTX);
 
@@ -220,17 +222,41 @@
 		<h2 class="text-lg font-semibold">Assets</h2>
 
 		<div class="ml-auto flex items-center gap-2">
-			<Button size="icon" variant="ghost" onclick={() => (viewMode = 'cards')}>
-				<List size={16} />
-			</Button>
+			<TooltipProvider>
+				<Tooltip>
+					<TooltipTrigger>
+						<Button size="icon" variant="ghost" onclick={() => (viewMode = 'cards')}>
+							<List size={16} />
+						</Button>
+					</TooltipTrigger>
 
-			<Button size="icon" variant="ghost" onclick={() => (viewMode = 'table')}>
-				<Grid size={16} />
-			</Button>
+					<TooltipContent align="center" side="bottom">List View</TooltipContent>
+				</Tooltip>
+			</TooltipProvider>
 
-			<Button size="icon" variant="ghost" onclick={() => refreshAssets(1)}>
-				<RefreshCwIcon size={16} class={isRefreshing ? 'animate-spin' : ''} />
-			</Button>
+			<TooltipProvider>
+				<Tooltip>
+					<TooltipTrigger>
+						<Button size="icon" variant="ghost" onclick={() => (viewMode = 'table')}>
+							<Grid size={16} />
+						</Button>
+					</TooltipTrigger>
+
+					<TooltipContent align="center" side="bottom">Grid View</TooltipContent>
+				</Tooltip>
+			</TooltipProvider>
+
+			<TooltipProvider>
+				<Tooltip>
+					<TooltipTrigger>
+						<Button size="icon" variant="ghost" onclick={() => refreshAssets(1)}>
+							<RefreshCwIcon size={16} class={isRefreshing ? 'animate-spin' : ''} />
+						</Button>
+					</TooltipTrigger>
+
+					<TooltipContent align="center" side="bottom">Refresh</TooltipContent>
+				</Tooltip>
+			</TooltipProvider>
 		</div>
 	</div>
 
