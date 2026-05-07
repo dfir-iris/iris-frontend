@@ -3,26 +3,28 @@
 	import { fade } from 'svelte/transition';
 	import {
 		AlertTriangleIcon,
-		CalendarRange,
 		HistoryIcon,
 		InfoIcon,
+		MessagesSquareIcon,
 		SearchIcon
 	} from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { CASE_IOCS_CTX, type CaseIocsContext } from '$lib/contexts/case-iocs.context.svelte';
+	import type { UpdateCaseIocBody } from '$lib/services/case-iocs.service';
+	import { CommentsService, type Comment } from '$lib/services/comments.service';
+	import { normalizeTags, stringToTags, tagsToString } from '$lib/utils/tags';
+	import type { Ioc } from '$lib/types/resources/ioc';
+	import type { Tag } from '$lib/types/resources/tag';
 	import ErrorAlert from '$lib/components/ui/alert/ErrorAlert.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
 	import { toast } from '$lib/components/ui/toast';
-	import { CASE_IOCS_CTX, type CaseIocsContext } from '$lib/contexts/case-iocs.context.svelte';
-	import type { UpdateCaseIocBody } from '$lib/services/case-iocs.service';
-	import type { Ioc } from '$lib/types/resources/ioc';
-	import type { Tag } from '$lib/types/resources/tag';
-	import { normalizeTags, stringToTags, tagsToString } from '$lib/utils/tags';
 	import DetailsTab from './details-tab.svelte';
 	import HistoryTab from './history-tab.svelte';
+	import CommentsTab from './comments-tab.svelte';
 
 	type EditData = {
 		ioc_value: string;
@@ -45,6 +47,7 @@
 	let loadError = $state<string | null>(null);
 
 	let currentTags = $state<Tag[]>([]);
+	let comments = $state<Comment[]>([]);
 
 	let editData = $state<EditData>({
 		ioc_value: '',
@@ -68,6 +71,13 @@
 		};
 	};
 
+	const loadComments = async () => {
+		const res = await CommentsService.list('iocs', ioc.ioc_id);
+
+		const data = res.data;
+		comments = data && typeof data === 'object' && Array.isArray(data.data) ? data.data : [];
+	};
+
 	const loadIoc = async () => {
 		isLoading = true;
 		loadError = null;
@@ -79,6 +89,8 @@
 				loadError = 'Failed to load IOC';
 				return;
 			}
+
+			await loadComments();
 
 			syncTagsFromIoc(loaded);
 			resetEditData(loaded);
@@ -247,27 +259,27 @@
 							</TabsTrigger>
 
 							<TabsTrigger
-								value="alerts"
-								class="flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
-							>
-								<AlertTriangleIcon class="h-4 w-4" />
-								<span>Alerts</span>
-							</TabsTrigger>
-
-							<TabsTrigger
-								value="graph"
-								class="flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
-							>
-								<CalendarRange class="h-4 w-4" />
-								<span>Timeline</span>
-							</TabsTrigger>
-
-							<TabsTrigger
 								value="history"
 								class="flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
 							>
 								<HistoryIcon class="h-4 w-4" />
 								<span>History</span>
+							</TabsTrigger>
+
+							<TabsTrigger
+								value="comments"
+								class="relative flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+							>
+								<MessagesSquareIcon class="mr-1 h-4 w-4" />
+								<span>Comments</span>
+
+								{#if comments?.length}
+									<span
+										class="absolute left-8 top-3 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-2xs text-white"
+									>
+										{comments.length}
+									</span>
+								{/if}
 							</TabsTrigger>
 						</TabsList>
 					</div>
@@ -292,6 +304,10 @@
 
 						<TabsContent value="history">
 							<HistoryTab {ioc} />
+						</TabsContent>
+
+						<TabsContent value="comments">
+							<CommentsTab {ioc} onRefresh={() => loadComments()} />
 						</TabsContent>
 					</div>
 				</Tabs>

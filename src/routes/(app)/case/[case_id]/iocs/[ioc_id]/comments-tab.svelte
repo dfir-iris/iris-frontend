@@ -1,18 +1,18 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import type { Asset } from '$lib/types/resources/asset';
+	import type { Ioc } from '$lib/types/resources/ioc';
 	import { Comments } from '$lib/components/common/Comments';
 	import { MarkDownEditor } from '$lib/components/common/MarkDown';
 	import { Button } from '$lib/components/ui/button';
 	import { CommentsService, type Comment } from '$lib/services/comments.service';
 
-	let { asset, onRefresh }: { asset: Asset; onRefresh: () => void } = $props();
+	let { ioc, onRefresh }: { ioc: Ioc; onRefresh: () => void } = $props();
 
 	let comments = $state<Comment[]>([]);
 	let comment_text = $state('');
 	let editing_comment_id = $state<number | null>(null);
 	let commentsContainer = $state<HTMLDivElement | undefined>();
-	let lastLoadedAssetId = $state<number | null>(null);
+	let lastLoadedIocId = $state<number | null>(null);
 
 	const scrollToBottom = async () => {
 		await tick();
@@ -34,17 +34,17 @@
 	};
 
 	const deleteComment = async (commentId: number) => {
-		await CommentsService.remove('assets', asset.asset_id, commentId);
+		await CommentsService.remove('iocs', ioc.ioc_id, commentId);
 		await refresh();
 	};
 
 	const refresh = async () => {
-		const res = await CommentsService.list('assets', asset.asset_id);
+		const res = await CommentsService.list('iocs', ioc.ioc_id);
 
 		const data = res.data;
 		comments = data && typeof data === 'object' && Array.isArray(data.data) ? data.data : [];
 
-		lastLoadedAssetId = asset.asset_id;
+		lastLoadedIocId = ioc.ioc_id;
 
 		await scrollToBottom();
 
@@ -59,12 +59,12 @@
 			const comment = getCommentById(editing_comment_id);
 			if (!comment) return;
 
-			await CommentsService.update('assets', asset.asset_id, editing_comment_id, {
+			await CommentsService.update('iocs', ioc.ioc_id, editing_comment_id, {
 				...comment,
 				comment_text: text
 			});
 		} else {
-			await CommentsService.create('assets', asset.asset_id, {
+			await CommentsService.create('iocs', ioc.ioc_id, {
 				comment_text: text
 			});
 		}
@@ -76,7 +76,7 @@
 	};
 
 	$effect(() => {
-		if (asset.asset_id !== lastLoadedAssetId) {
+		if (ioc.ioc_id !== lastLoadedIocId) {
 			void refresh();
 		}
 	});

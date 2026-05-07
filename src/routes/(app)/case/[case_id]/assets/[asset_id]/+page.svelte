@@ -17,6 +17,7 @@
 		type CaseAssetsContext
 	} from '$lib/contexts/case-assets.context.svelte';
 	import type { UpdateCaseAssetBody } from '$lib/services/case-assets.service';
+	import { CommentsService, type Comment } from '$lib/services/comments.service';
 	import { normalizeTags, stringToTags, tagsToString } from '$lib/utils/tags';
 	import { Button } from '$lib/components/ui/button';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
@@ -25,7 +26,6 @@
 	import DetailsTab from './details-tab.svelte';
 	import HistoryTab from './history-tab.svelte';
 	import IOCTab from './ioc-tab.svelte';
-	import { CommentsService, type Comment } from '$lib/services/comments.service';
 
 	type EditData = {
 		asset_name: string;
@@ -81,13 +81,17 @@
 		};
 	};
 
-	const loadAsset = async () => {
-		await caseAssets.getAsset(assetId, { fetch });
-
+	const loadComments = async () => {
 		const res = await CommentsService.list('assets', asset.asset_id);
 
 		const data = res.data;
 		comments = data && typeof data === 'object' && Array.isArray(data.data) ? data.data : [];
+	};
+
+	const loadAsset = async () => {
+		await caseAssets.getAsset(assetId, { fetch });
+
+		await loadComments();
 
 		syncTagsFromAsset(caseAssets.byId[assetId]);
 	};
@@ -297,7 +301,7 @@
 						</TabsContent>
 
 						<TabsContent value="comments">
-							<CommentsTab {asset} />
+							<CommentsTab {asset} onRefresh={() => loadComments()} />
 						</TabsContent>
 					</div>
 				</Tabs>
