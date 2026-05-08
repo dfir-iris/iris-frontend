@@ -10,22 +10,23 @@
 		XIcon
 	} from 'lucide-svelte';
 	import { page } from '$app/state';
+	import { cn } from '$lib/utils';
+	import type { Asset } from '$lib/types/resources/asset';
+	import type { Ioc } from '$lib/types/resources/ioc';
+	import { CaseAssetsService } from '$lib/services/case-assets.service';
+	import { CaseIocsService } from '$lib/services/case-iocs.service';
+	import {
+		CASE_ASSETS_CTX,
+		type CaseAssetsContext
+	} from '$lib/contexts/case-assets.context.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { toast } from '$lib/components/ui/toast';
-	import { cn } from '$lib/utils';
 	import IOCCard from '$lib/components/common/ioc/IOCCard.svelte';
 	import IocLinkButton from '$lib/components/common/ioc/IOCLinkButton.svelte';
-	import type { Asset } from '$lib/types/resources/asset';
-	import type { Ioc } from '$lib/types/resources/ioc';
-	import { CaseIocsService } from '$lib/services/case-iocs.service';
-	import {
-		CASE_ASSETS_CTX,
-		type CaseAssetsContext
-	} from '$lib/contexts/case-assets.context.svelte';
 
 	let { asset = $bindable() }: { asset: Asset } = $props();
 
@@ -43,10 +44,15 @@
 	let selectedIocs = $state<Set<number>>(new Set());
 	let isRemoving = $state(false);
 
-	const linkedIocIds = $derived(asset.iocs ?? []);
+	const getLinkedIocIds = (currentAsset: Asset) =>
+		(currentAsset.iocs ?? [])
+			.map((ioc) => (typeof ioc === 'number' ? ioc : ioc.ioc_id))
+			.filter((id): id is number => typeof id === 'number');
 
-	const fetchIocs = async () => {
-		if (linkedIocIds.length === 0) {
+	const linkedIocIds = $derived(getLinkedIocIds(asset));
+
+	const fetchIocs = async (ids = linkedIocIds) => {
+		if (ids.length === 0) {
 			isLoading = false;
 			iocs = [];
 			filteredIocs = [];
@@ -61,10 +67,8 @@
 				caseId,
 				{
 					page: 1,
-					per_page: linkedIocIds.length,
-					custom_conditions: JSON.stringify([
-						{ field: 'ioc_id', operator: 'in', value: linkedIocIds }
-					])
+					per_page: ids.length,
+					custom_conditions: JSON.stringify([{ field: 'ioc_id', operator: 'in', value: ids }])
 				},
 				{ fetch }
 			);
@@ -74,13 +78,28 @@
 			}
 
 			iocs = response.data.data;
-			filteredIocs = [...iocs];
+
+			filterIocs();
 		} catch (err) {
 			console.error('Error fetching IOCs:', err);
 			error = 'An error occurred while loading IOCs';
 		} finally {
 			isLoading = false;
 		}
+	};
+
+	const refreshAssetAndIocs = async () => {
+		const response = await CaseAssetsService.get(caseId, asset.asset_id, { fetch });
+
+		if (!response.ok || response.error || !response.data || typeof response.data === 'string') {
+			await fetchIocs();
+			return;
+		}
+
+		asset = response.data;
+		caseAssets.byId[asset.asset_id] = response.data;
+
+		await fetchIocs(getLinkedIocIds(response.data));
 	};
 
 	const filterIocs = () => {
@@ -193,7 +212,7 @@
 
 	$effect(() => {
 		void asset.asset_id;
-		void linkedIocIds.length;
+		void linkedIocIds.join(',');
 
 		fetchIocs();
 	});
@@ -211,11 +230,7 @@
 	$effect(() => {
 		if (!needsRefresh) return;
 
-		caseAssets.getAsset(asset.asset_id, { fetch }).then((updated) => {
-			if (updated) {
-				asset = updated;
-			}
-
+		refreshAssetAndIocs().finally(() => {
 			needsRefresh = false;
 		});
 	});
@@ -228,55 +243,47 @@
 			<h2 class="text-xl font-semibold">Indicators of Compromise</h2>
 		</div>
 
-		<div class="flex w-full justify-end gap-2 sm:ml-auto sm:w-auto">
+		<div class="flex w-full items-center justify-end gap-2 sm:ml-auto sm:w-auto">
 			{#if selectionMode}
-				<div class="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1 text-sm">
+				<div
+					class="flex h-10 items-center gap-2 text-nowrap rounded-md bg-muted/50 px-4 py-1 text-sm"
+				>
 					<span class="font-medium">{selectedIocs.size} selected</span>
 				</div>
 
 				<Button
 					variant="outline"
-					size="sm"
 					onclick={selectAllIocs}
 					disabled={filteredIocs.length === 0 || selectedIocs.size === filteredIocs.length}
-					class="text-xs"
 				>
 					Select All
 				</Button>
 
-				<Button
-					variant="outline"
-					size="sm"
-					onclick={deselectAllIocs}
-					disabled={selectedIocs.size === 0}
-					class="text-xs"
-				>
+				<Button variant="outline" onclick={deselectAllIocs} disabled={selectedIocs.size === 0}>
 					Deselect All
 				</Button>
 
 				<Button
 					variant="destructive"
-					size="sm"
 					onclick={removeSelectedIocs}
 					disabled={selectedIocs.size === 0 || isRemoving}
-					class="text-xs"
 				>
 					{#if isRemoving}
 						<span class="mr-1 animate-spin">⟳</span>
 						Removing...
 					{:else}
-						<Trash2Icon class="mr-1 h-3.5 w-3.5" />
+						<Trash2Icon class="mr-1" />
 						Remove Selected
 					{/if}
 				</Button>
 
-				<Button variant="ghost" size="sm" onclick={exitSelectionMode} class="text-xs">
-					<XIcon class="mr-1 h-3.5 w-3.5" />
+				<Button variant="outline" onclick={exitSelectionMode} class="text-xs">
+					<XIcon class="mr-1" />
 					Cancel
 				</Button>
 			{:else}
 				<div class="relative w-full sm:w-64 md:w-80">
-					<SearchIcon class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+					<SearchIcon class="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
 
 					<Input
 						type="search"
@@ -290,12 +297,11 @@
 
 				<Button
 					variant="outline"
-					size="sm"
 					onclick={toggleSelectionMode}
 					disabled={filteredIocs.length === 0}
 					class="whitespace-nowrap"
 				>
-					<CheckIcon class="mr-2 h-4 w-4" />
+					<CheckIcon class="mr-2" />
 					Select
 				</Button>
 
@@ -336,7 +342,7 @@
 
 			<p>{error}</p>
 
-			<Button variant="outline" class="mt-3" onclick={fetchIocs}>Retry</Button>
+			<Button variant="outline" class="mt-3" onclick={() => fetchIocs()}>Retry</Button>
 		</div>
 	{:else if linkedIocIds.length === 0}
 		<div

@@ -246,7 +246,7 @@
 <div class="flex gap-2">
 	<Popover bind:open={showIOCDropdown}>
 		<PopoverTrigger>
-			<Button variant="outline" size="sm" class="whitespace-nowrap">
+			<Button variant="outline" class="whitespace-nowrap">
 				<Link class="mr-2 h-4 w-4" />
 
 				{#if mode === 'link'}
