@@ -6,14 +6,27 @@
 		FileWarningIcon,
 		XIcon,
 		SaveIcon,
-		EditIcon
+		EditIcon,
+		EllipsisVerticalIcon,
+		ForwardIcon,
+		FileSymlinkIcon
 	} from 'lucide-svelte';
 	import type { Ioc } from '$lib/types/resources/ioc';
 	import type { Tag } from '$lib/types/resources/tag';
+	import { toast } from '$lib/stores/toast.store';
+	import type { RequestResponse } from '$lib/services/api.service';
+	import { HooksService, type HookOption } from '$lib/services/hooks.service';
 	import { IocTypesService, type IocType } from '$lib/services/ioc-types.service';
 	import { TlpService, type TlpItem } from '$lib/services/tlp.service';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
+	import {
+		DropdownMenu,
+		DropdownMenuContent,
+		DropdownMenuItem,
+		DropdownMenuTrigger,
+		Separator
+	} from '$lib/components/ui/dropdown-menu';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { TagInput, TagDisplay } from '$lib/components/common/tag';
 	import TlpBadge from '$lib/components/common/tlp/TlpBadge.svelte';
@@ -23,6 +36,8 @@
 	import SearchSelect, {
 		type SelectOption
 	} from '$lib/components/common/selects/SearchSelect.svelte';
+	import { callHook } from '../../utils/hooks';
+	import { getIocUrl } from '../helpers';
 
 	type IconComponent = typeof ServerIcon;
 
@@ -65,6 +80,8 @@
 
 	let iocTypes = $state<IocType[]>([]);
 	let tlps = $state<TlpItem[]>([]);
+	let isMenuOpen = $state<boolean>(false);
+	let hookOptions = $state<HookOption[]>([]);
 
 	const iocTypeOptions = $derived<SelectOption[]>(
 		iocTypes.map((type) => ({
@@ -90,11 +107,26 @@
 		if (tlpRes.ok && tlpRes.data) {
 			tlps = tlpRes.data as TlpItem[];
 		}
+
+		const hooksResponse = (await HooksService.list('ioc')).data as unknown as RequestResponse<
+			HookOption[]
+		>;
+
+		hookOptions = hooksResponse.data as HookOption[];
 	};
 
 	const updateField = (field: string, value: string | number) => onUpdateEditData(field, value);
 
 	const handleTagsChange = (tags: Tag[]) => onUpdateEditData('ioc_tags', tags);
+
+	const callModule = async (hookOption: HookOption) => {
+		const result = await callHook(Number(ioc.case_id), 'ioc', [ioc.ioc_id], hookOption);
+
+		toast({
+			variant: result?.status === 'error' ? 'destructive' : 'success',
+			title: result?.message
+		});
+	};
 
 	$effect(() => {
 		loadOptions();
@@ -146,6 +178,73 @@
 						deletion_prompt_message={`Are you sure you want to delete the IOC "${ioc.ioc_value}"? This action cannot be undone.`}
 					/>
 				{/if}
+
+				<DropdownMenu bind:open={isMenuOpen}>
+					<DropdownMenuTrigger>
+						<button
+							title="menu"
+							class="text-muted-foreground transition-colors hover:text-foreground"
+						>
+							<EllipsisVerticalIcon size="16" />
+						</button>
+					</DropdownMenuTrigger>
+
+					<DropdownMenuContent align="end">
+						<DropdownMenuItem
+							onclick={() => {
+								navigator.clipboard
+									.writeText(getIocUrl(ioc.case_id, String(ioc.ioc_id)))
+									.then(() => {
+										toast({
+											title: 'Link copied',
+											variant: 'success'
+										});
+									})
+									.catch((e) => {
+										console.error('Clipboard copy error:', e);
+
+										toast({
+											title: 'Could not copy link',
+											variant: 'destructive'
+										});
+									});
+							}}><ForwardIcon /> Share</DropdownMenuItem
+						>
+
+						<DropdownMenuItem
+							onclick={() => {
+								navigator.clipboard
+									.writeText(
+										`[<i class="fa-solid fa-bell"></i> #25](${getIocUrl(ioc.case_id, String(ioc.ioc_id))})`
+									)
+									.then(() => {
+										toast({
+											title: 'Link copied',
+											variant: 'success'
+										});
+									})
+									.catch((e) => {
+										console.error('Clipboard copy error:', e);
+
+										toast({
+											title: 'Could not copy link',
+											variant: 'destructive'
+										});
+									});
+							}}><FileSymlinkIcon /> Markdown Link</DropdownMenuItem
+						>
+
+						<Separator />
+
+						{#if hookOptions.length}
+							{#each hookOptions as hookOption}
+								<DropdownMenuItem onclick={() => callModule(hookOption)}
+									>{hookOption.manual_hook_ui_name}</DropdownMenuItem
+								>
+							{/each}
+						{/if}
+					</DropdownMenuContent>
+				</DropdownMenu>
 			</div>
 		</div>
 

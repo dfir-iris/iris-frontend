@@ -9,23 +9,38 @@
 		ComponentIcon,
 		XIcon,
 		SaveIcon,
-		EditIcon
+		EditIcon,
+		EllipsisVerticalIcon,
+		ForwardIcon,
+		FileSymlinkIcon
 	} from 'lucide-svelte';
 	import { page } from '$app/state';
 	import type { Asset } from '$lib/types/resources/asset';
 	import type { Tag } from '$lib/types/resources/tag';
+	import { toast } from '$lib/stores/toast.store';
 	import { AssetTypesService, type AssetType } from '$lib/services/asset-types.service';
 	import {
 		AnalysisStatusService,
 		type AnalysisStatusItem
 	} from '$lib/services/analysis-status.service';
+	import type { RequestResponse } from '$lib/services/api.service';
+	import { HooksService, type HookOption } from '$lib/services/hooks.service';
 	import { Button } from '$lib/components/ui/button';
+	import {
+		DropdownMenu,
+		DropdownMenuContent,
+		DropdownMenuItem,
+		DropdownMenuTrigger,
+		Separator
+	} from '$lib/components/ui/dropdown-menu';
 	import DeleteButton from '$lib/components/common/DeleteButton.svelte';
 	import MarkDownPreview from '$lib/components/common/MarkDown/MarkDownPreview.svelte';
 	import { CompromiseStatus } from '$lib/components/common/compromise-status';
 	import { TagDisplay } from '$lib/components/common/tag';
 	import AssetEditForm, { type AssetEditData } from '../components/asset-edit-form.svelte';
 	import AssetDetailField from './components/asset-detail-field.svelte';
+	import { callHook } from '../../utils/hooks';
+	import { getAssetUrl } from '../helpers';
 
 	type Props = {
 		asset: Asset;
@@ -55,6 +70,8 @@
 
 	let assetTypes = $state<AssetType[]>([]);
 	let analysisStatuses = $state<AnalysisStatusItem[]>([]);
+	let isMenuOpen = $state<boolean>(false);
+	let hookOptions = $state<HookOption[]>([]);
 
 	const caseId = $derived(Number(page.params.case_id));
 
@@ -71,6 +88,21 @@
 		if (analysisStatusesRes.ok && Array.isArray(analysisStatusesRes.data)) {
 			analysisStatuses = analysisStatusesRes.data;
 		}
+
+		const hooksResponse = (await HooksService.list('asset')).data as unknown as RequestResponse<
+			HookOption[]
+		>;
+
+		hookOptions = hooksResponse.data as HookOption[];
+	};
+
+	const callModule = async (hookOption: HookOption) => {
+		const result = await callHook(Number(asset.case_id), 'asset', [asset.asset_id], hookOption);
+
+		toast({
+			variant: result?.status === 'error' ? 'destructive' : 'success',
+			title: result?.message
+		});
 	};
 
 	$effect(() => {
@@ -115,6 +147,73 @@
 						deletion_prompt_message={`Are you sure you want to delete the asset "${asset.asset_name}"? This action cannot be undone.`}
 					/>
 				{/if}
+
+				<DropdownMenu bind:open={isMenuOpen}>
+					<DropdownMenuTrigger>
+						<button
+							title="menu"
+							class="text-muted-foreground transition-colors hover:text-foreground"
+						>
+							<EllipsisVerticalIcon size="16" />
+						</button>
+					</DropdownMenuTrigger>
+
+					<DropdownMenuContent align="end">
+						<DropdownMenuItem
+							onclick={() => {
+								navigator.clipboard
+									.writeText(getAssetUrl(asset.case_id, String(asset.asset_id)))
+									.then(() => {
+										toast({
+											title: 'Link copied',
+											variant: 'success'
+										});
+									})
+									.catch((e) => {
+										console.error('Clipboard copy error:', e);
+
+										toast({
+											title: 'Could not copy link',
+											variant: 'destructive'
+										});
+									});
+							}}><ForwardIcon /> Share</DropdownMenuItem
+						>
+
+						<DropdownMenuItem
+							onclick={() => {
+								navigator.clipboard
+									.writeText(
+										`[<i class="fa-solid fa-bell"></i> #25](${getAssetUrl(asset.case_id, String(asset.asset_id))})`
+									)
+									.then(() => {
+										toast({
+											title: 'Link copied',
+											variant: 'success'
+										});
+									})
+									.catch((e) => {
+										console.error('Clipboard copy error:', e);
+
+										toast({
+											title: 'Could not copy link',
+											variant: 'destructive'
+										});
+									});
+							}}><FileSymlinkIcon /> Markdown Link</DropdownMenuItem
+						>
+
+						<Separator />
+
+						{#if hookOptions.length}
+							{#each hookOptions as hookOption}
+								<DropdownMenuItem onclick={() => callModule(hookOption)}
+									>{hookOption.manual_hook_ui_name}</DropdownMenuItem
+								>
+							{/each}
+						{/if}
+					</DropdownMenuContent>
+				</DropdownMenu>
 			</div>
 		</div>
 
