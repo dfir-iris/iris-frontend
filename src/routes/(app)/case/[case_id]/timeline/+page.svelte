@@ -1,22 +1,37 @@
 <script lang="ts">
+	import { setContext } from 'svelte';
 	import { page } from '$app/state';
-	import TimelineTopbar from './components/timeline-topbar.svelte';
-	import TimelineDetailsCard from './components/timeline-details-card.svelte';
-	import TimelineSideToolbar from './components/timeline-side-toolbar.svelte';
 	import type { CaseTimelineEvent } from '$lib/services/case-timeline.service';
+	import {
+		CASE_TIMELINE_CTX,
+		createCaseTimelineContext,
+		type CaseTimelineContext
+	} from '$lib/contexts/case-timeline.context.svelte';
+	import TimelineTopbar from './components/timeline-topbar.svelte';
+	import TimelineSideToolbar from './components/timeline-side-toolbar.svelte';
+	import TimelineNormalView from './components/timeline-normal-view.svelte';
+	import TimelineTreeView from './components/timeline-tree-view.svelte';
 
 	type TimelineView = 'normal' | 'tree';
 
-	let events = $state<CaseTimelineEvent[]>([]);
+	type TimelineGroup = {
+		date: string;
+		events: CaseTimelineEvent[];
+	};
+
+	const timeline = createCaseTimelineContext(() => Number(page.params.case_id));
+
+	setContext<CaseTimelineContext>(CASE_TIMELINE_CTX, timeline);
+
 	let filter = $state<string>('');
 	let view = $state<TimelineView>('normal');
 	let compact = $state<boolean>(false);
 	let folded = $state<Set<number>>(new Set());
 
-	const caseId = $derived(Number(page.url.searchParams.get('cid') ?? page.params.case_id));
-
 	const filteredEvents = $derived(
-		events.filter((event) => event.event_title.toLowerCase().includes(filter.toLowerCase()))
+		timeline
+			.events()
+			.filter((event) => event.event_title.toLowerCase().includes(filter.toLowerCase()))
 	);
 
 	const rootEvents = $derived(filteredEvents.filter((event) => !event.parent_event_id));
@@ -35,9 +50,23 @@
 		return map;
 	});
 
-	const toggleView = () => {
-		view = view === 'normal' ? 'tree' : 'normal';
-	};
+	const groupedRootEvents = $derived.by(() => {
+		const groups = new Map<string, CaseTimelineEvent[]>();
+
+		for (const event of rootEvents) {
+			const date = new Date(event.event_date).toLocaleDateString();
+
+			groups.set(date, [...(groups.get(date) ?? []), event]);
+		}
+
+		return [...groups.entries()].map(([date, events]) => ({ date, events })) satisfies TimelineGroup[];
+	});
+
+	$effect(() => {
+		timeline.loadEvents();
+	});
+
+	const toggleView = () => (view = view === 'normal' ? 'tree' : 'normal');
 
 	const toggleFold = (eventId: number) => {
 		const next = new Set(folded);
@@ -51,12 +80,8 @@
 		folded = next;
 	};
 
-	const refresh = async () => {
-		console.log('refresh timeline', caseId);
-	};
-
 	const addEvent = () => {
-		console.log('add event', caseId);
+		console.log('add event');
 	};
 </script>
 
@@ -65,42 +90,36 @@
 		bind:filter
 		{compact}
 		{view}
-		onRefresh={refresh}
+		onRefresh={timeline.refresh}
 		onAddEvent={addEvent}
 		onToggleView={toggleView}
 		onToggleCompact={() => (compact = !compact)}
 	/>
 
-	<div class="relative min-h-0 flex-1 overflow-auto px-6 py-6">
-		<div class={view === 'tree' ? 'mx-auto max-w-5xl' : 'mx-auto max-w-6xl'}>
-			<div class={view === 'tree' ? 'relative border-l-2 border-slate-900 pl-8' : 'relative'}>
-				{#each rootEvents as event (event.event_id)}
-					<TimelineDetailsCard
-						{event}
-						{compact}
-						{view}
-						childCount={childrenByParent.get(event.event_id)?.length ?? 0}
-						folded={folded.has(event.event_id)}
-						onToggleFold={() => toggleFold(event.event_id)}
-					/>
-
-					{#if !folded.has(event.event_id)}
-						{#each childrenByParent.get(event.event_id) ?? [] as child (child.event_id)}
-							<div class={view === 'tree' ? 'ml-8' : 'ml-10'}>
-								<TimelineDetailsCard
-									event={child}
-									{compact}
-									{view}
-									childCount={0}
-									folded={false}
-									onToggleFold={() => toggleFold(child.event_id)}
-								/>
-							</div>
-						{/each}
-					{/if}
-				{/each}
-			</div>
-		</div>
+	<div class="relative min-h-0 flex-1 overflow-auto py-6 pl-6 pr-20">
+		{#if timeline.list.status === 'loading'}
+			<div class="p-6 text-sm text-muted-foreground">Loading timeline...</div>
+		{:else if timeline.list.error}
+			<div class="p-6 text-sm text-destructive">{timeline.list.error}</div>
+		{:else if groupedRootEvents.length === 0}
+			<div class="p-6 text-sm text-muted-foreground">No timeline events found.</div>
+		{:else if view === 'normal'}
+			<TimelineNormalView
+				groups={groupedRootEvents}
+				{childrenByParent}
+				{compact}
+				{folded}
+				onToggleFold={toggleFold}
+			/>
+		{:else}
+			<TimelineTreeView
+				groups={groupedRootEvents}
+				{childrenByParent}
+				{compact}
+				{folded}
+				onToggleFold={toggleFold}
+			/>
+		{/if}
 
 		<TimelineSideToolbar />
 	</div>

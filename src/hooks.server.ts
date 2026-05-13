@@ -235,8 +235,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 		const isManageRoute = pathname.startsWith('/api/v2/manage/') && !pathname.endsWith('customers');
 
+		const isTimelineRoute = pathname.startsWith('/api/v2/case/timeline');
+
 		const upstreamPath =
-			isAlertsRoute || isDimHooksRoute
+			isAlertsRoute || isDimHooksRoute || isTimelineRoute
 				? pathname.replace(/^\/api\/v2/, '')
 				: isManageRoute
 					? pathname.replace(/^\/api\/v2\/manage/, '/manage')
@@ -246,6 +248,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 		if (DEV) {
 			console.log(`Proxying ${event.request.method} request to ${apiUrl}`);
+			console.log('authorization:', event.request.headers.get('authorization'));
 		}
 
 		try {

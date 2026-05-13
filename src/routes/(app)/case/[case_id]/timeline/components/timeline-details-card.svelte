@@ -7,8 +7,9 @@
 		MessageCircleIcon,
 		SettingsIcon
 	} from 'lucide-svelte';
-	import { Button } from '$lib/components/ui/button';
 	import type { CaseTimelineEvent } from '$lib/services/case-timeline.service';
+	import { Button } from '$lib/components/ui/button';
+	import MarkDownPreview from '$lib/components/common/MarkDown/MarkDownPreview.svelte';
 
 	type TimelineView = 'normal' | 'tree';
 
@@ -28,11 +29,10 @@
 </script>
 
 <article
-	class={[
-		'mb-4 rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/70 dark:border-slate-800 dark:bg-slate-950',
-		view === 'normal' ? 'ml-20' : '',
-		compact ? 'px-4 py-3' : 'px-5 py-4'
-	]}
+    class={[
+	'mb-4 rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/70 dark:border-slate-800 dark:bg-slate-950',
+	compact ? 'px-4 py-3' : 'px-5 py-4'
+    ]}
 >
 	<div class="flex items-start gap-4">
 		<div class="min-w-0 flex-1">
@@ -43,7 +43,7 @@
 
 			{#if !compact && event.event_content}
 				<div class="mt-4 whitespace-pre-wrap text-slate-700 dark:text-slate-300">
-					{event.event_content}
+				    <MarkDownPreview markdown={event.event_content} />
 				</div>
 			{/if}
 
@@ -54,6 +54,7 @@
 					{:else}
 						<ChevronDownIcon class="mr-1 size-4" />
 					{/if}
+
 					Child events
 				</Button>
 			{/if}
