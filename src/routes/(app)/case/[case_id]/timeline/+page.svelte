@@ -3,6 +3,10 @@
 	import { page } from '$app/state';
 	import type { CaseTimelineEvent } from '$lib/services/case-timeline.service';
 	import {
+		EventCategoriesService,
+		type EventCategory
+	} from '$lib/services/event-categories.service';
+	import {
 		CASE_TIMELINE_CTX,
 		createCaseTimelineContext,
 		type CaseTimelineContext
@@ -11,6 +15,8 @@
 	import TimelineSideToolbar from './components/timeline-side-toolbar.svelte';
 	import TimelineNormalView from './components/timeline-normal-view.svelte';
 	import TimelineTreeView from './components/timeline-tree-view.svelte';
+	import TimelineEventDialog from './components/timeline-event-dialog.svelte';
+	import type { RequestResponse } from '$lib/services/api.service';
 
 	type TimelineView = 'normal' | 'tree';
 
@@ -27,11 +33,18 @@
 	let view = $state<TimelineView>('normal');
 	let compact = $state<boolean>(false);
 	let folded = $state<Set<number>>(new Set());
+	let eventDialogOpen = $state(false);
+	let selectedEvent = $state<CaseTimelineEvent | undefined>(undefined);
+	let eventCategories = $state<EventCategory[]>([]);
 
 	const filteredEvents = $derived(
 		timeline
 			.events()
 			.filter((event) => event.event_title.toLowerCase().includes(filter.toLowerCase()))
+	);
+
+	const parentEventCandidates = $derived(
+		timeline.events().filter((event) => event.event_id !== selectedEvent?.event_id)
 	);
 
 	const rootEvents = $derived(filteredEvents.filter((event) => !event.parent_event_id));
@@ -59,11 +72,10 @@
 			groups.set(date, [...(groups.get(date) ?? []), event]);
 		}
 
-		return [...groups.entries()].map(([date, events]) => ({ date, events })) satisfies TimelineGroup[];
-	});
-
-	$effect(() => {
-		timeline.loadEvents();
+		return [...groups.entries()].map(([date, events]) => ({
+			date,
+			events
+		})) satisfies TimelineGroup[];
 	});
 
 	const toggleView = () => (view = view === 'normal' ? 'tree' : 'normal');
@@ -81,8 +93,27 @@
 	};
 
 	const addEvent = () => {
-		console.log('add event');
+		selectedEvent = undefined;
+		eventDialogOpen = true;
 	};
+
+	const editEvent = async (eventId: number) => {
+		selectedEvent = (await timeline.getEvent(eventId)) as CaseTimelineEvent;
+		eventDialogOpen = true;
+	};
+
+	const loadEventCategories = async () => {
+		const res = (await EventCategoriesService.list({ fetch }))
+			.data as unknown as RequestResponse<EventCategoriesService>;
+
+		eventCategories = res.data as EventCategory[];
+	};
+
+	$effect(() => {
+		timeline.loadEvents();
+
+		loadEventCategories();
+	});
 </script>
 
 <div class="flex h-full min-h-0 w-full flex-col bg-slate-50 dark:bg-black">
@@ -110,6 +141,7 @@
 				{compact}
 				{folded}
 				onToggleFold={toggleFold}
+				onEdit={(eventId: number) => editEvent(eventId)}
 			/>
 		{:else}
 			<TimelineTreeView
@@ -118,9 +150,18 @@
 				{compact}
 				{folded}
 				onToggleFold={toggleFold}
+				onEdit={(eventId: number) => editEvent(eventId)}
 			/>
 		{/if}
 
 		<TimelineSideToolbar />
 	</div>
 </div>
+
+<TimelineEventDialog
+	bind:open={eventDialogOpen}
+	event={selectedEvent}
+	{eventCategories}
+	parentEvents={parentEventCandidates}
+	onOpenChange={(open) => (eventDialogOpen = open)}
+/>

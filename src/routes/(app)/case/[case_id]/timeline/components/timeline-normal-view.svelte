@@ -13,10 +13,30 @@
 		compact: boolean;
 		folded: Set<number>;
 		onToggleFold: (eventId: number) => void;
+		onEdit: (eventId: number) => void;
 	};
 
-	let { groups, childrenByParent, compact, folded, onToggleFold }: Props = $props();
+	let { groups, childrenByParent, compact, folded, onToggleFold, onEdit }: Props = $props();
 </script>
+
+{#snippet renderEvent(event: CaseTimelineEvent, depth = 0)}
+	<div class={depth > 0 ? 'ml-8' : ''}>
+		<TimelineDetailsCard
+			{event}
+			{compact}
+			childCount={childrenByParent.get(event.event_id)?.length ?? 0}
+			folded={folded.has(event.event_id)}
+			onToggleFold={() => onToggleFold(event.event_id)}
+			{onEdit}
+		/>
+
+		{#if !folded.has(event.event_id)}
+			{#each childrenByParent.get(event.event_id) ?? [] as child (child.event_id)}
+				{@render renderEvent(child, depth + 1)}
+			{/each}
+		{/if}
+	</div>
+{/snippet}
 
 <div class="relative mx-auto max-w-5xl pl-28">
 	<div class="absolute bottom-0 left-12 top-0 w-px bg-border"></div>
@@ -30,29 +50,7 @@
 			</div>
 
 			{#each group.events as event (event.event_id)}
-				<TimelineDetailsCard
-					{event}
-					{compact}
-					view="normal"
-					childCount={childrenByParent.get(event.event_id)?.length ?? 0}
-					folded={folded.has(event.event_id)}
-					onToggleFold={() => onToggleFold(event.event_id)}
-				/>
-
-				{#if !folded.has(event.event_id)}
-					{#each childrenByParent.get(event.event_id) ?? [] as child (child.event_id)}
-						<div class="ml-8">
-							<TimelineDetailsCard
-								event={child}
-								{compact}
-								view="normal"
-								childCount={0}
-								folded={false}
-								onToggleFold={() => onToggleFold(child.event_id)}
-							/>
-						</div>
-					{/each}
-				{/if}
+				{@render renderEvent(event)}
 			{/each}
 		</section>
 	{/each}
