@@ -16,12 +16,20 @@
 		event?: CaseTimelineEvent;
 		eventCategories: EventCategory[];
 		parentEvents: CaseTimelineEvent[];
+		selectedParent?: CaseTimelineEvent;
 		onOpenChange: (open: boolean) => void;
 	};
 
 	type FieldValue = string | number | boolean | number[] | null;
 
-	let { open = $bindable(), event, eventCategories, parentEvents, onOpenChange }: Props = $props();
+	let {
+		open = $bindable(),
+		event,
+		eventCategories,
+		parentEvents,
+		selectedParent,
+		onOpenChange
+	}: Props = $props();
 
 	const timeline = getContext<CaseTimelineContext>(CASE_TIMELINE_CTX);
 
@@ -71,7 +79,7 @@
 			event_source: event?.event_source ?? '',
 			event_tags: event?.event_tags ?? '',
 			event_category_id: event?.event_category_id ?? null,
-			parent_event_id: event?.parent_event_id ?? null,
+			parent_event_id: event?.parent_event_id ?? selectedParent?.event_id ?? null,
 			event_assets: event?.event_assets ?? [],
 			event_iocs: event?.event_iocs ?? [],
 			event_in_summary: event?.event_in_summary ?? false,

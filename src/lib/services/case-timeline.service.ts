@@ -11,6 +11,7 @@ export type CaseTimelineState = {
 export type CaseTimelineListResponse = {
 	timeline?: CaseTimelineEvent[];
 	tim?: CaseTimelineEvent[];
+	comments_map?: Record<number, number[]>;
 	state: CaseTimelineState;
 };
 
@@ -94,6 +95,7 @@ export interface UpdateCaseTimelineEventBody {
 	event_source?: string;
 	event_in_summary?: boolean;
 	event_in_graph?: boolean;
+	event_is_flagged?: boolean;
 	event_color?: string;
 	event_sync_iocs_assets?: boolean;
 	event_tags?: string;

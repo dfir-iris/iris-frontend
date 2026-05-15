@@ -14,9 +14,28 @@
 		folded: Set<number>;
 		onToggleFold: (eventId: number) => void;
 		onEdit: (eventId: number) => void;
+		onAddChild: (eventId: number) => void;
+		onFlag: (eventId: number) => void;
+		onComments: (eventId: number) => void;
+		onDuplicate: (eventId: number) => void;
+		onDelete: (eventId: number) => void;
+		commentCounts: Record<number, number>;
 	};
 
-	let { groups, childrenByParent, compact, folded, onToggleFold, onEdit }: Props = $props();
+	let {
+		groups,
+		childrenByParent,
+		compact,
+		folded,
+		onToggleFold,
+		onEdit,
+		onAddChild,
+		onFlag,
+		onComments,
+		onDuplicate,
+		onDelete,
+		commentCounts
+	}: Props = $props();
 </script>
 
 {#snippet renderEvent(event: CaseTimelineEvent, right = true)}
@@ -25,9 +44,15 @@
 			{event}
 			{compact}
 			childCount={childrenByParent.get(event.event_id)?.length ?? 0}
+			commentsCount={commentCounts[event.event_id] ?? 0}
 			folded={folded.has(event.event_id)}
 			onToggleFold={() => onToggleFold(event.event_id)}
 			{onEdit}
+			{onAddChild}
+			{onFlag}
+			{onComments}
+			{onDuplicate}
+			{onDelete}
 		/>
 	</div>
 
