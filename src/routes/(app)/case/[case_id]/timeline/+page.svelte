@@ -61,6 +61,12 @@
 		timeline.events().filter((event) => event.event_id !== selectedEvent?.event_id)
 	);
 
+	const defaultEventCategoryId = $derived(
+		eventCategories.find((category) => category.name === 'Unspecified')?.id ??
+			eventCategories[0]?.id ??
+			1
+	);
+
 	const rootEvents = $derived(filteredEvents.filter((event) => !event.parent_event_id));
 
 	const childrenByParent = $derived.by(() => {
@@ -252,6 +258,123 @@
 		}
 	};
 
+	const csvEscape = (value: string | number | boolean | null | undefined) => {
+		const text = value === null || value === undefined ? '' : String(value);
+
+		return `"${text.replaceAll('"', '""')}"`;
+	};
+
+	const csvDescription = (value: string | null | undefined) =>
+		(value ?? '').replaceAll('\n', ' - ');
+
+	const downloadTimelineCsv = (withUserInfo = false) => {
+		const headers = [
+			'event_date(UTC)',
+			'event_title',
+			'event_description',
+			'event_tz',
+			'event_date_wtz',
+			'event_category',
+			'event_tags',
+			'linked_assets',
+			'linked_iocs',
+			...(withUserInfo ? ['created_by', 'creation_date'] : [])
+		];
+
+		const rows = timeline.events();
+
+		const csv = [
+			headers.join(','),
+			...rows.map((event) =>
+				[
+					event.event_date,
+					event.event_title,
+					csvDescription(event.event_content),
+					event.event_tz,
+					event.event_date_wtz,
+					event.category_name,
+					event.event_tags,
+					event.assets?.map((asset) => asset.name).join(';') ?? '',
+					event.iocs?.map((ioc) => ioc.name).join('|') ?? '',
+					...(withUserInfo ? [event.user, event.event_added] : [])
+				]
+					.map(csvEscape)
+					.join(',')
+			)
+		].join('\n');
+
+		const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+
+		link.href = url;
+		link.download = `case-${page.params.case_id}-timeline${withUserInfo ? '-with-user-info' : ''}.csv`;
+		link.click();
+
+		URL.revokeObjectURL(url);
+	};
+
+	const parseCsvLine = (line: string) => {
+		const matches = [...line.matchAll(/"((?:[^"]|"")*)"|([^,]+)/g)];
+
+		return matches.map((match) => (match[1] ?? match[2] ?? '').replaceAll('""', '"').trim());
+	};
+
+	const uploadTimelineCsv = async () => {
+		const input = document.createElement('input');
+
+		input.type = 'file';
+		input.accept = '.csv,text/csv';
+
+		input.onchange = async () => {
+			const file = input.files?.[0];
+
+			if (!file) return;
+
+			const text = await file.text();
+
+			const lines = text
+				.split(/\r?\n/)
+				.map((line) => line.trim())
+				.filter(Boolean);
+
+			if (lines.length <= 1) return;
+
+			const headers = parseCsvLine(lines[0] ?? '');
+
+			const getIndex = (name: string) => headers.indexOf(name);
+
+			const rows = lines.slice(1);
+
+			for (const row of rows) {
+				const values = parseCsvLine(row);
+
+				const payload: CreateCaseTimelineEventBody = {
+					event_title: values[getIndex('event_title')] ?? '',
+					event_date: values[getIndex('event_date(UTC)')] ?? '',
+					event_tz: values[getIndex('event_tz')] ?? '+00:00',
+					event_content: (values[getIndex('event_description')] ?? '').replaceAll(' - ', '\n'),
+					event_tags: values[getIndex('event_tags')] ?? '',
+					event_source: '',
+					event_raw: '',
+					event_assets: [],
+					event_iocs: [],
+					event_in_summary: false,
+					event_in_graph: true,
+					event_sync_iocs_assets: false,
+					parent_event_id: null,
+					event_category_id: defaultEventCategoryId
+				};
+
+				await timeline.createEvent(payload, { fetch });
+			}
+
+			await timeline.refresh({}, { fetch });
+		};
+
+		input.click();
+	};
+
 	$effect(() => {
 		timeline.loadEvents({}, { fetch });
 		loadEventCategories();
@@ -273,6 +396,9 @@
 		onAddEvent={addEvent}
 		onToggleView={toggleView}
 		onToggleCompact={() => (compact = !compact)}
+		onDownloadCsv={() => downloadTimelineCsv(false)}
+		onDownloadCsvWithUserInfo={() => downloadTimelineCsv(true)}
+		onUploadCsv={uploadTimelineCsv}
 	/>
 
 	<div class="relative min-h-0 flex-1 overflow-auto py-6 pl-6 pr-20">

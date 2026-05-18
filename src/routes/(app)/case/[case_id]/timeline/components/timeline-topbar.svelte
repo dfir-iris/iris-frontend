@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
+	import { DropdownMenu, DropdownMenuTrigger } from '$lib/components/ui/dropdown-menu';
+	import { EllipsisVerticalIcon } from 'lucide-svelte';
+	import DropdownMenuContent from '$lib/components/ui/dropdown-menu/dropdown-menu-content.svelte';
+	import DropdownMenuItem from '$lib/components/ui/dropdown-menu/dropdown-menu-item.svelte';
+	import Separator from '$lib/components/ui/separator/separator.svelte';
 
 	type TimelineView = 'normal' | 'tree';
 
@@ -12,6 +17,9 @@
 		onAddEvent: () => void;
 		onToggleView: () => void;
 		onToggleCompact: () => void;
+		onDownloadCsv: () => void;
+		onDownloadCsvWithUserInfo: () => void;
+		onUploadCsv: () => void;
 	};
 
 	let {
@@ -21,8 +29,13 @@
 		onRefresh,
 		onAddEvent,
 		onToggleView,
-		onToggleCompact
+		onToggleCompact,
+		onDownloadCsv,
+		onDownloadCsvWithUserInfo,
+		onUploadCsv
 	}: Props = $props();
+
+	let isMenuOpen = $state<boolean>(false);
 </script>
 
 <div class="flex items-center gap-2 bg-primary px-6 py-3">
@@ -37,12 +50,34 @@
 
 		<Button variant="secondary" size="sm" onclick={onAddEvent}>Add event</Button>
 
-		<Button variant="secondary" size="sm" onclick={onToggleView}>
-			{view === 'normal' ? 'Tree view' : 'Normal view'}
-		</Button>
+		<DropdownMenu bind:open={isMenuOpen}>
+			<DropdownMenuTrigger>
+				<Button variant="ghost" size="sm" class="text-white hover:bg-white/10 hover:text-white">
+					<EllipsisVerticalIcon />
+				</Button>
+			</DropdownMenuTrigger>
 
-		<Button variant="secondary" size="sm" onclick={onToggleCompact}>
-			{compact ? 'Detailed' : 'Compact'}
-		</Button>
+			<DropdownMenuContent align="end">
+				<DropdownMenuItem onclick={onToggleView}>
+					Toggle {view === 'normal' ? 'Tree' : 'Normal'} View
+				</DropdownMenuItem>
+
+				<DropdownMenuItem onclick={onToggleCompact}>
+					Toggle {compact ? 'Detailed' : 'Compact'} View
+				</DropdownMenuItem>
+
+				<Separator class="my-2" />
+
+				<DropdownMenuItem onclick={onDownloadCsv}>Download as CSV</DropdownMenuItem>
+
+				<DropdownMenuItem onclick={onDownloadCsvWithUserInfo}>
+					Download as CSV with user info
+				</DropdownMenuItem>
+
+				<Separator class="my-2" />
+
+				<DropdownMenuItem onclick={onUploadCsv}>Upload CSV of events</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
 	</div>
 </div>

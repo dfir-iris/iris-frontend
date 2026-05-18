@@ -38,6 +38,18 @@ export type CaseTimelineApiResponse<T> = {
 	data: T;
 };
 
+export interface CaseTimelineLinkedAsset {
+	name: string;
+	ip?: string | null;
+	description?: string | null;
+	compromised?: boolean;
+}
+
+export interface CaseTimelineLinkedIoc {
+	name: string;
+	description?: string | null;
+}
+
 export interface CaseTimelineEvent {
 	event_id: number;
 	event_uuid?: string;
@@ -49,8 +61,8 @@ export interface CaseTimelineEvent {
 	category_name?: string;
 	event_assets?: number[];
 	event_iocs?: number[];
-	assets?: Array<Record<string, unknown>>;
-	iocs?: Array<Record<string, unknown>>;
+	assets?: CaseTimelineLinkedAsset[];
+	iocs?: CaseTimelineLinkedIoc[];
 	event_raw?: string;
 	event_source?: string;
 	event_in_summary?: boolean;
