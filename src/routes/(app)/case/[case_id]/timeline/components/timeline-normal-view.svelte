@@ -12,6 +12,9 @@
 		childrenByParent: Map<number, CaseTimelineEvent[]>;
 		compact: boolean;
 		folded: Set<number>;
+		selected: Set<number>;
+		selecting: boolean;
+		onToggleSelect: (eventId: number) => void;
 		onToggleFold: (eventId: number) => void;
 		onEdit: (eventId: number) => void;
 		onAddChild: (eventId: number) => void;
@@ -27,6 +30,9 @@
 		childrenByParent,
 		compact,
 		folded,
+		selected,
+		selecting,
+		onToggleSelect,
 		onToggleFold,
 		onEdit,
 		onAddChild,
@@ -46,6 +52,9 @@
 			childCount={childrenByParent.get(event.event_id)?.length ?? 0}
 			commentsCount={commentCounts[event.event_id] ?? 0}
 			folded={folded.has(event.event_id)}
+			selected={selected.has(event.event_id)}
+			{selecting}
+			{onToggleSelect}
 			onToggleFold={() => onToggleFold(event.event_id)}
 			{onEdit}
 			{onAddChild}

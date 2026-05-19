@@ -5,3 +5,5 @@ export const getSharedEventUrl = (eventId: number) => {
 
 	return `${url.origin}/case/${page.params.case_id}/timeline/?sharedEventId=${eventId}`;
 };
+
+export const getSharedEventId = (): number => Number(page.url.searchParams.get('sharedEventId'));

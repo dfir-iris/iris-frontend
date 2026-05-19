@@ -43,13 +43,31 @@
 	let view = $state<TimelineView>('normal');
 	let compact = $state<boolean>(false);
 	let folded = $state<Set<number>>(new Set());
-	let eventDialogOpen = $state(false);
-	let eventCommentsDialogOpen = $state(false);
-	let showConfirmDelete = $state(false);
+	let selected = $state<Set<number>>(new Set());
+	let selecting = $state<boolean>(false);
+	let eventDialogOpen = $state<boolean>(false);
+	let eventCommentsDialogOpen = $state<boolean>(false);
+	let showConfirmDelete = $state<boolean>(false);
 	let selectedEvent = $state<CaseTimelineEvent | undefined>(undefined);
 	let selectedParent = $state<CaseTimelineEvent | undefined>(undefined);
 	let eventCategories = $state<EventCategory[]>([]);
 	let commentCounts = $state<Record<number, number>>({});
+	let timelineScrollContainer = $state<HTMLDivElement | undefined>(undefined);
+
+	const scrollTop = () => {
+		timelineScrollContainer?.scrollTo({
+			top: 0,
+			behavior: 'smooth'
+		});
+	};
+
+	const scrollBottom = () => {
+		if (!timelineScrollContainer) return;
+		timelineScrollContainer.scrollTo({
+			top: timelineScrollContainer.scrollHeight,
+			behavior: 'smooth'
+		});
+	};
 
 	const filteredEvents = $derived(
 		timeline
@@ -100,6 +118,24 @@
 
 	const toggleView = () => (view = view === 'normal' ? 'tree' : 'normal');
 
+	const toggleSelecting = () => {
+		selecting = !selecting;
+
+		if (!selecting) selected = new Set();
+	};
+
+	const toggleSelect = (eventId: number) => {
+		const next = new Set(selected);
+
+		if (next.has(eventId)) {
+			next.delete(eventId);
+		} else {
+			next.add(eventId);
+		}
+
+		selected = next;
+	};
+
 	const toggleFold = (eventId: number) => {
 		const next = new Set(folded);
 
@@ -110,6 +146,14 @@
 		}
 
 		folded = next;
+	};
+
+	const toggleFoldAll = () => {
+		if (folded.size > 0) {
+			folded = new Set();
+		} else {
+			folded = new Set(timeline.events().map((event) => event.event_id));
+		}
 	};
 
 	const loadCommentCount = async (eventId: number) => {
@@ -147,11 +191,18 @@
 		eventDialogOpen = true;
 	};
 
-	const commitDeleteEvent = async () => {
-		if (!selectedEvent) return;
+	const commitDeleteEvents = async () => {
+		if (selected.size === 0 && !selectedEvent) return;
 
-		await timeline.removeEvent(selectedEvent.event_id, { fetch });
+		const eventIds =
+			selected.size > 0 ? [...selected] : selectedEvent ? [selectedEvent.event_id] : [];
 
+		for (const eventId of eventIds) {
+			await timeline.removeEvent(eventId, { fetch });
+		}
+
+		selected = new Set();
+		selecting = false;
 		selectedEvent = undefined;
 		showConfirmDelete = false;
 	};
@@ -401,7 +452,10 @@
 		onUploadCsv={uploadTimelineCsv}
 	/>
 
-	<div class="relative min-h-0 flex-1 overflow-auto py-6 pl-6 pr-20">
+	<div
+		bind:this={timelineScrollContainer}
+		class="relative min-h-0 flex-1 overflow-auto py-6 pl-6 pr-20"
+	>
 		{#if timeline.list.status === 'loading'}
 			<div class="p-6 text-sm text-muted-foreground">Loading timeline...</div>
 		{:else if timeline.list.error}
@@ -415,6 +469,9 @@
 				{commentCounts}
 				{compact}
 				{folded}
+				{selected}
+				{selecting}
+				onToggleSelect={toggleSelect}
 				onToggleFold={toggleFold}
 				onEdit={editEvent}
 				onAddChild={addChildEvent}
@@ -430,6 +487,9 @@
 				{commentCounts}
 				{compact}
 				{folded}
+				{selected}
+				{selecting}
+				onToggleSelect={toggleSelect}
 				onToggleFold={toggleFold}
 				onEdit={editEvent}
 				onAddChild={addChildEvent}
@@ -440,7 +500,16 @@
 			/>
 		{/if}
 
-		<TimelineSideToolbar />
+		<TimelineSideToolbar
+			{selecting}
+			onToggleSelecting={toggleSelecting}
+			onDelete={() => (showConfirmDelete = true)}
+			onAddEvent={addEvent}
+			onToggleFoldAll={toggleFoldAll}
+			onRefresh={() => timeline.refresh({}, { fetch })}
+			onScrollTop={scrollTop}
+			onScrollBottom={scrollBottom}
+		/>
 	</div>
 </div>
 
@@ -462,7 +531,7 @@
 <ConfirmationDialog
 	bind:open={showConfirmDelete}
 	title="Are you sure?"
-	message="You are about to delete this timeline event forever. This cannot be reverted. All associated data will be deleted."
-	onConfirm={commitDeleteEvent}
+	message={`You are about to delete this timeline ${selected.size > 1 ? 'events' : 'event'} forever. This cannot be reverted. All associated data will be deleted.`}
+	onConfirm={commitDeleteEvents}
 	onCancel={() => (showConfirmDelete = false)}
 />

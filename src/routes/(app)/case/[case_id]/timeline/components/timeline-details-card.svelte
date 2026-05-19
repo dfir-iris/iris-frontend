@@ -29,7 +29,7 @@
 	} from '$lib/components/ui/tooltip';
 	import MarkDownPreview from '$lib/components/common/MarkDown/MarkDownPreview.svelte';
 	import { toast } from '$lib/stores/toast.store';
-	import { getSharedEventUrl } from '../helpers';
+	import { getSharedEventId, getSharedEventUrl } from '../helpers';
 
 	type Props = {
 		event: CaseTimelineEvent;
@@ -37,7 +37,10 @@
 		childCount: number;
 		commentsCount: number;
 		folded: boolean;
+		selected: boolean;
+		selecting: boolean;
 		onToggleFold: () => void;
+		onToggleSelect: (eventId: number) => void;
 		onEdit: (eventId: number) => void;
 		onAddChild: (eventId: number) => void;
 		onFlag: (eventId: number) => void;
@@ -52,7 +55,10 @@
 		childCount,
 		commentsCount,
 		folded,
+		selected,
+		selecting,
 		onToggleFold,
+		onToggleSelect,
 		onEdit,
 		onAddChild,
 		onFlag,
@@ -67,11 +73,30 @@
 	let isMenuOpen = $state(false);
 </script>
 
-<article
+<div
 	class={[
 		'mb-4 rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/70 dark:border-slate-800 dark:bg-slate-950',
-		compact ? 'px-4 py-3' : 'px-5 py-4'
+		compact ? 'px-4 py-3' : 'px-5 py-4',
+		selected
+			? 'ring ring-amber-500'
+			: event.event_id === getSharedEventId()
+				? 'ring  ring-red-500'
+				: ''
 	]}
+	role="button"
+	tabindex="0"
+	onclick={(e) => {
+		if (!selecting) return;
+		e.stopPropagation();
+		onToggleSelect(event.event_id);
+	}}
+	onkeydown={(e) => {
+		if (!selecting) return;
+		if (e.key !== 'Enter' && e.key !== ' ') return;
+		e.preventDefault();
+		e.stopPropagation();
+		onToggleSelect(event.event_id);
+	}}
 >
 	<div class="flex items-start gap-4">
 		<div class="min-w-0 flex-1">
@@ -246,4 +271,4 @@
 			</TooltipProvider>
 		</div>
 	</div>
-</article>
+</div>
