@@ -84,7 +84,7 @@
 
 <header
 	style="background-color: hsl(var(--iris-blue));"
-	class="sticky top-0 z-10 flex max-h-14 min-h-14 items-center justify-between px-5 text-white shadow-elevation-1"
+	class="shadow-elevation-1 sticky top-0 z-10 flex max-h-14 min-h-14 items-center justify-between px-5 text-white"
 >
 	{#if case_id !== null && pathname.startsWith('/case') && pathname !== '/cases'}
 		<div class="flex items-center overflow-auto">
@@ -148,7 +148,7 @@
 
 			<button
 				onclick={() => (showSwitchContext = true)}
-				class="ml-2 text-sm font-medium hover:text-white/80 transition-colors"
+				class="ml-2 text-sm font-medium transition-colors hover:text-white/80"
 			>
 				{currentCaseTitle}
 			</button>

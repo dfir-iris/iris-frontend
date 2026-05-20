@@ -7,3 +7,6 @@ export const getSharedEventUrl = (eventId: number) => {
 };
 
 export const getSharedEventId = (): number => Number(page.url.searchParams.get('sharedEventId'));
+
+export const toSingleValue = (value: string | string[]) =>
+	Array.isArray(value) ? (value[0] ?? '') : value;

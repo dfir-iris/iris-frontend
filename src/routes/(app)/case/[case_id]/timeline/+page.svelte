@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import type {
 		CaseTimelineEvent,
+		CaseTimelineFilterQuery,
 		CreateCaseTimelineEventBody,
 		UpdateCaseTimelineEventBody
 	} from '$lib/services/case-timeline.service';
@@ -23,6 +24,7 @@
 	import TimelineTreeView from './components/timeline-tree-view.svelte';
 	import TimelineEventDialog from './components/timeline-event-dialog.svelte';
 	import TimelineEventCommentsDialog from './components/timeline-event-comments-dialog.svelte';
+	import type { TimelineFilterData, TimelineFilterFieldValue } from './types';
 
 	type TimelineView = 'normal' | 'tree';
 
@@ -35,11 +37,24 @@
 		children?: EventWithChildren[];
 	};
 
+	const emptyFilters = (): TimelineFilterData => ({
+		title: '',
+		description: '',
+		source: '',
+		tag: '',
+		asset: '',
+		ioc: '',
+		category: '',
+		startDate: '',
+		endDate: '',
+		flag: ''
+	});
+
 	const timeline = createCaseTimelineContext(() => Number(page.params.case_id));
 
 	setContext<CaseTimelineContext>(CASE_TIMELINE_CTX, timeline);
 
-	let filter = $state<string>('');
+	let filters = $state<TimelineFilterData>(emptyFilters());
 	let view = $state<TimelineView>('normal');
 	let compact = $state<boolean>(false);
 	let folded = $state<Set<number>>(new Set());
@@ -63,17 +78,14 @@
 
 	const scrollBottom = () => {
 		if (!timelineScrollContainer) return;
+
 		timelineScrollContainer.scrollTo({
 			top: timelineScrollContainer.scrollHeight,
 			behavior: 'smooth'
 		});
 	};
 
-	const filteredEvents = $derived(
-		timeline
-			.events()
-			.filter((event) => event.event_title.toLowerCase().includes(filter.toLowerCase()))
-	);
+	const filteredEvents = $derived(timeline.events());
 
 	const parentEventCandidates = $derived(
 		timeline.events().filter((event) => event.event_id !== selectedEvent?.event_id)
@@ -85,7 +97,13 @@
 			1
 	);
 
-	const rootEvents = $derived(filteredEvents.filter((event) => !event.parent_event_id));
+	const rootEvents = $derived.by(() => {
+		const ids = new Set(filteredEvents.map((event) => event.event_id));
+
+		return filteredEvents.filter(
+			(event) => !event.parent_event_id || !ids.has(event.parent_event_id)
+		);
+	});
 
 	const childrenByParent = $derived.by(() => {
 		const map = new Map<number, CaseTimelineEvent[]>();
@@ -115,6 +133,40 @@
 			events
 		})) satisfies TimelineGroup[];
 	});
+
+	const toQuery = (): CaseTimelineFilterQuery => {
+		const query: CaseTimelineFilterQuery = {};
+
+		if (filters.title.trim()) query.title = [filters.title.trim()];
+		if (filters.description.trim()) query.description = [filters.description.trim()];
+		if (filters.source.trim()) query.source = [filters.source.trim()];
+		if (filters.tag.trim()) query.tag = [filters.tag.trim()];
+		if (filters.asset.trim()) query.asset = [filters.asset.trim()];
+		if (filters.ioc.trim()) query.ioc = [filters.ioc.trim()];
+		if (filters.category.trim()) query.category = [filters.category.trim()];
+		if (filters.startDate) query.startDate = [filters.startDate];
+		if (filters.endDate) query.endDate = [filters.endDate];
+		if (filters.flag) query.flag = [filters.flag];
+
+		return query;
+	};
+
+	const updateFilter = (field: keyof TimelineFilterData, value: TimelineFilterFieldValue) => {
+		filters[field] = value;
+	};
+
+	const applyFilters = async () => {
+		await timeline.loadEvents(toQuery(), { fetch });
+	};
+
+	const clearFilters = async () => {
+		filters = emptyFilters();
+		await timeline.loadEvents({}, { fetch });
+	};
+
+	const refreshTimeline = async () => {
+		await timeline.refresh(toQuery(), { fetch });
+	};
 
 	const toggleView = () => (view = view === 'normal' ? 'tree' : 'normal');
 
@@ -280,7 +332,7 @@
 		if (!event) return;
 
 		await duplicateBranch(event, event.parent_event_id ?? null);
-		await timeline.refresh({}, { fetch });
+		await refreshTimeline();
 	};
 
 	const showComments = async (eventId: number) => {
@@ -345,8 +397,8 @@
 					event.event_date_wtz,
 					event.category_name,
 					event.event_tags,
-					event.assets?.map((asset) => asset.name).join(';') ?? '',
-					event.iocs?.map((ioc) => ioc.name).join('|') ?? '',
+					event.assets?.map((asset) => String(asset.name ?? '')).join(';') ?? '',
+					event.iocs?.map((ioc) => String(ioc.name ?? '')).join('|') ?? '',
 					...(withUserInfo ? [event.user, event.event_added] : [])
 				]
 					.map(csvEscape)
@@ -420,7 +472,7 @@
 				await timeline.createEvent(payload, { fetch });
 			}
 
-			await timeline.refresh({}, { fetch });
+			await refreshTimeline();
 		};
 
 		input.click();
@@ -440,10 +492,14 @@
 
 <div class="flex h-full min-h-0 w-full flex-col bg-slate-50 dark:bg-black">
 	<TimelineTopbar
-		bind:filter
+		{filters}
+		{eventCategories}
 		{compact}
 		{view}
-		onRefresh={() => timeline.refresh({}, { fetch })}
+		onUpdateFilter={updateFilter}
+		onApplyFilters={applyFilters}
+		onClearFilters={clearFilters}
+		onRefresh={refreshTimeline}
 		onAddEvent={addEvent}
 		onToggleView={toggleView}
 		onToggleCompact={() => (compact = !compact)}
@@ -506,7 +562,7 @@
 			onDelete={() => (showConfirmDelete = true)}
 			onAddEvent={addEvent}
 			onToggleFoldAll={toggleFoldAll}
-			onRefresh={() => timeline.refresh({}, { fetch })}
+			onRefresh={refreshTimeline}
 			onScrollTop={scrollTop}
 			onScrollBottom={scrollBottom}
 		/>

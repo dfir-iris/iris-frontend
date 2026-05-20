@@ -17,10 +17,9 @@ export type CaseTimelineListResponse = {
 
 export type CaseTimelineFilterQuery = {
 	asset?: string[];
-	asset_id?: string[];
-	event_id?: string[];
+	asset_id?: number[];
 	ioc?: string[];
-	ioc_id?: string[];
+	ioc_id?: number[];
 	tag?: string[];
 	title?: string[];
 	description?: string[];
@@ -29,6 +28,7 @@ export type CaseTimelineFilterQuery = {
 	source?: string[];
 	startDate?: string[];
 	endDate?: string[];
+	event_id?: number[];
 	flag?: string[];
 };
 
@@ -121,16 +121,31 @@ export class CaseTimelineService {
 		caseId: number,
 		query: CaseTimelineFilterQuery = {},
 		options: ApiOptions = {}
-	): Promise<RequestResponse<CaseTimelineApiResponse<CaseTimelineListResponse>>> {
-		const path = ApiService.withQuery('/api/v2/case/timeline/advanced-filter', {
+	): Promise<RequestResponse<CaseTimelineListResponse>> {
+		const path = ApiService.withQuery('/case/timeline/advanced-filter', {
 			cid: caseId,
 			q: JSON.stringify(query)
 		});
 
-		return ApiService.get<CaseTimelineApiResponse<CaseTimelineListResponse>>(path, {
-			useApiPrefix: false,
-			...options
-		});
+		const res = await ApiService.get<
+			CaseTimelineListResponse | CaseTimelineApiResponse<CaseTimelineListResponse>
+		>(path, options);
+
+		if (!res.ok || res.error || res.data === null || typeof res.data === 'string') {
+			return res as RequestResponse<CaseTimelineListResponse>;
+		}
+
+		const data = 'data' in res.data ? res.data.data : res.data;
+
+		return {
+			...res,
+			data: {
+				timeline: data.timeline ?? data.tim ?? [],
+				tim: data.tim,
+				comments_map: data.comments_map,
+				state: data.state
+			}
+		};
 	}
 
 	static async getEvent(

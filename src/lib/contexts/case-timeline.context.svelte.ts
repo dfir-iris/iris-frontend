@@ -72,22 +72,14 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 
 		const res = await CaseTimelineService.listEvents(caseId, query, options);
 
-		if (!res.ok || !res.data || typeof res.data === 'string') {
+		if (!res.ok || res.error || res.data === null || typeof res.data === 'string') {
 			list.status = 'error';
 			list.error = res.error?.message ?? 'Failed to load timeline';
 			return;
 		}
 
-		if (res.data.status !== 'success') {
-			list.status = 'error';
-			list.error = res.data.message ?? 'Failed to load timeline';
-			return;
-		}
-
-		const data = res.data.data;
-
-		replaceEventsState(data.timeline ?? data.tim ?? []);
-		list.state = data.state;
+		replaceEventsState(res.data.timeline ?? res.data.tim ?? []);
+		list.state = res.data.state ?? null;
 		list.status = 'idle';
 	};
 
