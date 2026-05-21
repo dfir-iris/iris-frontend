@@ -7,6 +7,7 @@
 	import DropdownMenuItem from '$lib/components/ui/dropdown-menu/dropdown-menu-item.svelte';
 	import Separator from '$lib/components/ui/separator/separator.svelte';
 	import type { TimelineFilterData, TimelineFilterFieldValue } from '../types';
+	import { visualize } from '../visualize/helpers';
 	import TimelineFilters from './timeline-filters.svelte';
 
 	type TimelineView = 'normal' | 'tree';
@@ -73,13 +74,25 @@
 					<DropdownMenuItem onclick={onToggleView}>
 						Toggle {view === 'normal' ? 'Tree' : 'Normal'} View
 					</DropdownMenuItem>
+
 					<DropdownMenuItem onclick={onToggleCompact}>
 						Toggle {compact ? 'Detailed' : 'Compact'} View
 					</DropdownMenuItem>
 
 					<Separator class="my-2" />
 
+					<DropdownMenuItem onclick={() => visualize()}>Visualize</DropdownMenuItem>
+
+					<DropdownMenuItem onclick={() => visualize('asset')}>Visualize by asset</DropdownMenuItem>
+
+					<DropdownMenuItem onclick={() => visualize('category')}
+						>Visualize by category</DropdownMenuItem
+					>
+
+					<Separator class="my-2" />
+
 					<DropdownMenuItem onclick={onDownloadCsv}>Download as CSV</DropdownMenuItem>
+
 					<DropdownMenuItem onclick={onDownloadCsvWithUserInfo}>
 						Download as CSV with user info
 					</DropdownMenuItem>

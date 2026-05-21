@@ -86,7 +86,8 @@
 		"tiptap-markdown": "^0.9.0",
 		"uuid": "^11.1.0",
 		"vis-data": "^8.0.3",
-		"vis-network": "^10.0.2"
+		"vis-network": "^10.0.2",
+		"vis-timeline": "^8.5.1"
 	},
 	"overrides": {
 		"cookie": "^0.7.0",
