@@ -75,6 +75,20 @@
 	});
 
 	const reset = () => {
+		const resolveAssetIds = (): number[] => {
+			if (event?.event_assets !== undefined) return event.event_assets;
+			return (event?.assets ?? [])
+				.map((a) => assets.find((ca) => ca.asset_name === a.name)?.asset_id)
+				.filter((id): id is number => id !== undefined);
+		};
+
+		const resolveIocIds = (): number[] => {
+			if (event?.event_iocs !== undefined) return event.event_iocs;
+			return (event?.iocs ?? [])
+				.map((i) => iocs.find((ci) => ci.ioc_value === i.name)?.ioc_id)
+				.filter((id): id is number => id !== undefined);
+		};
+
 		form = {
 			event_title: event?.event_title ?? '',
 			event_date: dateFromEvent(event?.event_date),
@@ -86,8 +100,8 @@
 			event_tags: event?.event_tags ?? '',
 			event_category_id: event?.event_category_id ?? null,
 			parent_event_id: event?.parent_event_id ?? selectedParent?.event_id ?? null,
-			event_assets: event?.event_assets ?? [],
-			event_iocs: event?.event_iocs ?? [],
+			event_assets: resolveAssetIds(),
+			event_iocs: resolveIocIds(),
 			event_in_summary: event?.event_in_summary ?? false,
 			event_in_graph: event?.event_in_graph ?? true,
 			event_sync_iocs_assets: false,

@@ -94,11 +94,17 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		const caseId = getCaseId();
 		if (caseId === null) return null;
 
+		const cached = byId[id];
 		const res = await CaseTimelineService.getEvent(caseId, id, options);
 
 		if (!res.ok || !res.data || typeof res.data === 'string') return null;
 
-		const event = res.data;
+		const event: CaseTimelineEvent = {
+			...res.data,
+			event_assets: res.data.event_assets ?? cached?.event_assets,
+			event_iocs: res.data.event_iocs ?? cached?.event_iocs
+		};
+
 		byId[getEventId(event)] = event;
 
 		if (!list.eventIds.includes(id)) {
@@ -139,11 +145,20 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 
 		if (!res.ok || !res.data || typeof res.data === 'string') return null;
 
-		const event = res.data;
-		byId[getEventId(event)] = event;
+		const savedEvent = res.data;
+		byId[getEventId(savedEvent)] = savedEvent;
 
 		await refresh({}, options);
-		return byId[id] ?? event;
+
+		if (byId[id]) {
+			byId[id] = {
+				...byId[id],
+				event_assets: savedEvent.event_assets ?? byId[id].event_assets,
+				event_iocs: savedEvent.event_iocs ?? byId[id].event_iocs
+			};
+		}
+
+		return byId[id] ?? savedEvent;
 	};
 
 	const removeEvent = async (
