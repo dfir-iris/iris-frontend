@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import type { EventCategory } from '$lib/services/event-categories.service';
+	import type { Asset } from '$lib/types/resources/asset';
+	import type { Ioc } from '$lib/types/resources/ioc';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { toast } from '$lib/components/ui/toast';
@@ -16,6 +18,8 @@
 		event?: CaseTimelineEvent;
 		eventCategories: EventCategory[];
 		parentEvents: CaseTimelineEvent[];
+		assets: Asset[];
+		iocs: Ioc[];
 		selectedParent?: CaseTimelineEvent;
 		onOpenChange: (open: boolean) => void;
 	};
@@ -27,6 +31,8 @@
 		event,
 		eventCategories,
 		parentEvents,
+		assets,
+		iocs,
 		selectedParent,
 		onOpenChange
 	}: Props = $props();
@@ -184,7 +190,14 @@
 		</Dialog.Header>
 
 		<div class="min-h-0 flex-1 overflow-auto px-6 py-5">
-			<TimelineEventForm data={form} {eventCategories} {parentEvents} onUpdateField={updateField} />
+			<TimelineEventForm
+				data={form}
+				{eventCategories}
+				{parentEvents}
+				{assets}
+				{iocs}
+				onUpdateField={updateField}
+			/>
 		</div>
 
 		<div class="flex shrink-0 items-center justify-end gap-2 border-t px-6 py-4">

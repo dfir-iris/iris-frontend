@@ -11,6 +11,10 @@
 		EventCategoriesService,
 		type EventCategory
 	} from '$lib/services/event-categories.service';
+	import { CaseAssetsService } from '$lib/services/case-assets.service';
+	import { CaseIocsService } from '$lib/services/case-iocs.service';
+	import type { Asset } from '$lib/types/resources/asset';
+	import type { Ioc } from '$lib/types/resources/ioc';
 	import { CommentsService } from '$lib/services/comments.service';
 	import {
 		CASE_TIMELINE_CTX,
@@ -66,6 +70,8 @@
 	let selectedEvent = $state<CaseTimelineEvent | undefined>(undefined);
 	let selectedParent = $state<CaseTimelineEvent | undefined>(undefined);
 	let eventCategories = $state<EventCategory[]>([]);
+	let caseAssets = $state<Asset[]>([]);
+	let caseIocs = $state<Ioc[]>([]);
 	let commentCounts = $state<Record<number, number>>({});
 	let timelineScrollContainer = $state<HTMLDivElement | undefined>(undefined);
 
@@ -361,6 +367,24 @@
 		}
 	};
 
+	const loadCaseAssets = async () => {
+		const caseId = Number(page.params.case_id);
+		const res = await CaseAssetsService.list(caseId, { per_page: 500 }, { fetch });
+
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			caseAssets = res.data.data;
+		}
+	};
+
+	const loadCaseIocs = async () => {
+		const caseId = Number(page.params.case_id);
+		const res = await CaseIocsService.list(caseId, { per_page: 500 }, { fetch });
+
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			caseIocs = res.data.data;
+		}
+	};
+
 	const csvEscape = (value: string | number | boolean | null | undefined) => {
 		const text = value === null || value === undefined ? '' : String(value);
 
@@ -481,6 +505,8 @@
 	$effect(() => {
 		timeline.loadEvents({}, { fetch });
 		loadEventCategories();
+		loadCaseAssets();
+		loadCaseIocs();
 	});
 
 	$effect(() => {
@@ -574,6 +600,8 @@
 	event={selectedEvent}
 	{eventCategories}
 	parentEvents={parentEventCandidates}
+	assets={caseAssets}
+	iocs={caseIocs}
 	{selectedParent}
 	onOpenChange={(open) => (eventDialogOpen = open)}
 />

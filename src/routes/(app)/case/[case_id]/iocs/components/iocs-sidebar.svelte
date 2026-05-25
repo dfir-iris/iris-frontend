@@ -95,7 +95,7 @@
 				{ field: 'ioc_value', operator: 'like', value: searchTerm.trim() },
 				{ field: 'ioc_description', operator: 'like', value: searchTerm.trim() },
 				{ field: 'ioc_tags', operator: 'like', value: searchTerm.trim() },
-				{ field: 'ioc_type.type_name', operator: 'like', value: searchTerm.value }
+				{ field: 'ioc_type.type_name', operator: 'like', value: searchTerm.trim() }
 			);
 		}
 

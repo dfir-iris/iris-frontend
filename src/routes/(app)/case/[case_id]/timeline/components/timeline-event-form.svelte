@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { CaseTimelineEvent } from '$lib/services/case-timeline.service';
 	import type { EventCategory } from '$lib/services/event-categories.service';
+	import type { Asset } from '$lib/types/resources/asset';
+	import type { Ioc } from '$lib/types/resources/ioc';
 	import { Input } from '$lib/components/ui/input';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { MarkDownEditor } from '$lib/components/common/MarkDown';
@@ -33,10 +35,12 @@
 		data: TimelineEventFormData;
 		parentEvents: CaseTimelineEvent[];
 		eventCategories: EventCategory[];
+		assets: Asset[];
+		iocs: Ioc[];
 		onUpdateField: (field: keyof TimelineEventFormData, value: FieldValue) => void;
 	};
 
-	let { data, parentEvents, eventCategories, onUpdateField }: Props = $props();
+	let { data, parentEvents, eventCategories, assets, iocs, onUpdateField }: Props = $props();
 
 	const parentEventOptions = $derived<SelectOption[]>(
 		parentEvents.map((event) => ({
@@ -52,6 +56,20 @@
 		}))
 	);
 
+	const assetOptions = $derived<SelectOption[]>(
+		assets.map((asset) => ({
+			value: String(asset.asset_id),
+			label: asset.asset_name
+		}))
+	);
+
+	const iocOptions = $derived<SelectOption[]>(
+		iocs.map((ioc) => ({
+			value: String(ioc.ioc_id),
+			label: ioc.ioc_value
+		}))
+	);
+
 	const colorOptions = [
 		'#1572E899',
 		'#6861CE99',
@@ -63,16 +81,6 @@
 
 	const updateTextField = (field: keyof TimelineEventFormData, value: string) => {
 		onUpdateField(field, value);
-	};
-
-	const updateCsvNumberField = (field: keyof TimelineEventFormData, value: string) => {
-		onUpdateField(
-			field,
-			value
-				.split(',')
-				.map((id) => Number(id.trim()))
-				.filter((id) => Number.isFinite(id))
-		);
 	};
 </script>
 
@@ -217,24 +225,31 @@
 			<div class="rounded-lg bg-card/40 p-4">
 				<p class="text-sm font-medium text-muted-foreground">Link to Assets</p>
 
-				<Input
-					value={data.event_assets.join(',')}
-					oninput={(e) =>
-						updateCsvNumberField('event_assets', (e.target as HTMLInputElement).value)}
-					placeholder="Asset IDs separated by comma"
-					class="mt-1"
-				/>
+				<div class="mt-1">
+					<SearchSelect
+						multiple
+						value={data.event_assets.map(String)}
+						options={assetOptions}
+						placeholder="Select assets"
+						searchPlaceholder="Search assets..."
+						onChange={(value) => onUpdateField('event_assets', (value as string[]).map(Number))}
+					/>
+				</div>
 			</div>
 
 			<div class="rounded-lg bg-card/40 p-4">
 				<p class="text-sm font-medium text-muted-foreground">Link to IOCs</p>
 
-				<Input
-					value={data.event_iocs.join(',')}
-					oninput={(e) => updateCsvNumberField('event_iocs', (e.target as HTMLInputElement).value)}
-					placeholder="IOC IDs separated by comma"
-					class="mt-1"
-				/>
+				<div class="mt-1">
+					<SearchSelect
+						multiple
+						value={data.event_iocs.map(String)}
+						options={iocOptions}
+						placeholder="Select IOCs"
+						searchPlaceholder="Search IOCs..."
+						onChange={(value) => onUpdateField('event_iocs', (value as string[]).map(Number))}
+					/>
+				</div>
 			</div>
 		</div>
 	</section>
