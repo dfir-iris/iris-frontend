@@ -2,13 +2,11 @@
 	import { onMount } from 'svelte';
 	import { Network, DataSet } from 'vis-network/standalone';
 	import type { Options, IdType, Position } from 'vis-network/standalone';
-
-	type Node = Record<string, unknown>;
-	type Edge = Record<string, unknown>;
+	import type { VisNode, VisEdge } from './types';
 
 	type Props = {
-		nodes: Node[];
-		edges: Edge[];
+		nodes: VisNode[];
+		edges: VisEdge[];
 		options?: Options;
 		className?: string;
 		onClick?: () => void;
@@ -26,8 +24,8 @@
 
 	let container = $state<HTMLDivElement | null>(null);
 	let network = $state<Network | null>(null);
-	let nodesDataSet = $state<DataSet<Node> | null>(null);
-	let edgesDataSet = $state<DataSet<Edge> | null>(null);
+	let nodesDataSet = $state<DataSet<VisNode> | null>(null);
+	let edgesDataSet = $state<DataSet<VisEdge> | null>(null);
 
 	const hideTooltip = () => {
 		container?.querySelectorAll('.vis-tooltip').forEach((element) => {
@@ -48,8 +46,8 @@
 	onMount(() => {
 		if (!container) return;
 
-		nodesDataSet = new DataSet<Node>(nodes);
-		edgesDataSet = new DataSet<Edge>(edges);
+		nodesDataSet = new DataSet<VisNode>(nodes);
+		edgesDataSet = new DataSet<VisEdge>(edges);
 
 		network = new Network(
 			container,
