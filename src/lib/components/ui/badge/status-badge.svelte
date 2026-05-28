@@ -64,6 +64,11 @@
 			color: 'bg-gray-100 text-gray-800 hover:bg-gray-200',
 			icon: Circle
 		},
+		'On hold': {
+			color:
+				'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-700/30 dark:text-yellow-400 dark:hover:bg-yellow-700/40',
+			icon: Clock
+		},
 		'To be done': {
 			color:
 				'bg-orange-100 text-orange-800 hover:bg-orange-200 dark:bg-orange-700/30 dark:text-orange-400 dark:hover:bg-orange-700/40',
@@ -74,11 +79,6 @@
 				'bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-700/30 dark:text-red-400 dark:hover:bg-red-700/40',
 			icon: XCircleIcon
 		},
-		Canceled: {
-			color:
-				'bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-700/30 dark:text-red-400 dark:hover:bg-red-700/40',
-			icon: XCircleIcon
-		}
 	};
 
 	$: config = statusConfig[status] || statusConfig.Unspecified;

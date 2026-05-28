@@ -17,6 +17,11 @@
 		createCaseNotesContext,
 		type CaseNotesContext
 	} from '$lib/contexts/case-notes.context.svelte';
+	import {
+		CASE_TASKS_CTX,
+		createCaseTasksContext,
+		type CaseTasksContext
+	} from '$lib/contexts/case-tasks.context.svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import CaseTopbar from './components/CaseTopbar.svelte';
 	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
@@ -33,10 +38,12 @@
 	const caseAssets = createCaseAssetsContext(() => Number(page.params.case_id));
 	const caseIocs = createCaseIocsContext(() => Number(page.params.case_id));
 	const caseNotes = createCaseNotesContext(() => Number(page.params.case_id));
+	const caseTasks = createCaseTasksContext(() => Number(page.params.case_id));
 
 	setContext<CaseAssetsContext>(CASE_ASSETS_CTX, caseAssets);
 	setContext<CaseIocsContext>(CASE_IOCS_CTX, caseIocs);
 	setContext<CaseNotesContext>(CASE_NOTES_CTX, caseNotes);
+	setContext<CaseTasksContext>(CASE_TASKS_CTX, caseTasks);
 
 	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
 

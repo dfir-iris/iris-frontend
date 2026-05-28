@@ -55,7 +55,7 @@
 				return ClockIcon;
 			case 'To be done':
 				return AlertCircleIcon;
-			case 'Canceled':
+			case 'Cancelled':
 				return XCircleIcon;
 			default:
 				return HelpCircleIcon;
@@ -72,7 +72,7 @@
 				return 'bg-yellow-200 text-yellow-800';
 			case 'To be done':
 				return 'bg-orange-200 text-orange-800';
-			case 'Canceled':
+			case 'Cancelled':
 				return 'bg-red-200 text-red-800';
 			default:
 				return 'bg-gray-200 text-gray-800';
