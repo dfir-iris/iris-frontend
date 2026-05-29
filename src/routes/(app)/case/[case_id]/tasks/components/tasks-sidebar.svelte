@@ -171,7 +171,7 @@
 	<div class="flex h-full min-h-0 flex-col gap-2 overflow-y-auto">
 		{#each displayTasks as task (task.id)}
 			<button
-				class="flex w-full flex-col gap-1 rounded-md border bg-card p-3 text-left hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-ring"
+				class="flex w-full flex-col gap-1 rounded-md border bg-card p-3 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 				onclick={() => openTask(task.id)}
 			>
 				<div class="flex items-start justify-between gap-2">
