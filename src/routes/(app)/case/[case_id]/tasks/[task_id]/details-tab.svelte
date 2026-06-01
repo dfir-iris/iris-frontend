@@ -12,15 +12,15 @@
 		ForwardIcon,
 		FileSymlinkIcon
 	} from 'lucide-svelte';
-	import type { Task } from '$lib/types/resources/task';
+	import { page } from '$app/state';
+	import type { Task, TaskStatus } from '$lib/types/resources/task';
 	import type { Tag } from '$lib/types/resources/tag';
 	import { toast } from '$lib/stores/toast.store';
 	import type { RequestResponse } from '$lib/services/api.service';
 	import { HooksService, type HookOption } from '$lib/services/hooks.service';
 	import { TaskStatusService } from '$lib/services/task-status.service';
-	import { UsersService, type User } from '$lib/services/users.service';
+	import { CaseService, type CaseAccessUserRow } from '$lib/services/case.service';
 	import Button from '$lib/components/ui/button/button.svelte';
-	import { Input } from '$lib/components/ui/input';
 	import {
 		DropdownMenu,
 		DropdownMenuContent,
@@ -28,15 +28,12 @@
 		DropdownMenuTrigger,
 		Separator
 	} from '$lib/components/ui/dropdown-menu';
-	import { TagInput, TagDisplay } from '$lib/components/common/tag';
+	import { TagDisplay } from '$lib/components/common/tag';
 	import DeleteButton from '$lib/components/common/DeleteButton.svelte';
 	import MarkDownPreview from '$lib/components/common/MarkDown/MarkDownPreview.svelte';
-	import { MarkDownEditor } from '$lib/components/common/MarkDown';
-	import SearchSelect, {
-		type SelectOption
-	} from '$lib/components/common/selects/SearchSelect.svelte';
 	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
 	import type { CaseStatus } from '$lib/components/ui/badge/types';
+	import TaskForm from '../components/task-form.svelte';
 	import { callHook } from '../../utils/hooks';
 	import { getTaskUrl } from '../helpers';
 
@@ -78,39 +75,23 @@
 		deleteUrl = ''
 	}: Props = $props();
 
-	let taskStatuses = $state<{ id: number; status_name: string }[]>([]);
-	let users = $state<User[]>([]);
+	let taskStatuses = $state<TaskStatus[]>([]);
+	let users = $state<CaseAccessUserRow[]>([]);
 	let isMenuOpen = $state<boolean>(false);
 	let hookOptions = $state<HookOption[]>([]);
 
-	const statusOptions = $derived<SelectOption[]>(
-		taskStatuses.map((s) => ({
-			value: String(s.id),
-			label: s.status_name
-		}))
-	);
-
-	const userOptions = $derived<SelectOption[]>(
-		users.map((u) => ({
-			value: String(u.user_id),
-			label: `${u.user_login} (${u.user_name})`
-		}))
-	);
-
 	const loadOptions = async () => {
-		const [statusRes, usersRes] = await Promise.all([
+		const caseId = Number(page.params.case_id);
+		const [statusRes, loadedUsers] = await Promise.all([
 			TaskStatusService.list(),
-			UsersService.list()
+			CaseService.listUsers(caseId)
 		]);
 
 		if (statusRes.ok && Array.isArray(statusRes.data)) {
-			taskStatuses = statusRes.data;
+			taskStatuses = statusRes.data as TaskStatus[];
 		}
 
-		if (usersRes.ok && usersRes.data) {
-			const envelope = usersRes.data as unknown as RequestResponse<User[]>;
-			users = (envelope.data ?? []).filter((u) => !u.user_is_service_account);
-		}
+		users = loadedUsers;
 
 		const hooksResponse = (await HooksService.list('task')).data as unknown as RequestResponse<
 			HookOption[]
@@ -119,10 +100,8 @@
 		hookOptions = hooksResponse.data as HookOption[];
 	};
 
-	const updateField = (field: string, value: string | number | number[]) =>
+	const updateField = (field: string, value: string | number | number[] | Tag[]) =>
 		onUpdateEditData(field, value);
-
-	const handleTagsChange = (tags: Tag[]) => onUpdateEditData('task_tags', tags);
 
 	const callModule = async (hookOption: HookOption) => {
 		const result = await callHook(Number(task.case?.case_id), 'task', [task.id], hookOption);
@@ -253,76 +232,17 @@
 			</div>
 		</div>
 
-		<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-			{#if isEditing && editData}
-				<div class="rounded-lg bg-card/40 p-4 md:col-span-2">
-					<div class="flex items-start gap-3">
-						<div class="shrink-0 rounded-md bg-primary/10 p-2 text-primary">
-							<ClipboardListIcon class="h-4 w-4" />
-						</div>
-
-						<div class="min-w-0 flex-1">
-							<p class="text-sm font-medium text-muted-foreground">Title *</p>
-
-							<Input
-								value={editData.task_title}
-								oninput={(e) =>
-									updateField('task_title', (e.currentTarget as HTMLInputElement).value)}
-								class="mt-1"
-							/>
-						</div>
-					</div>
-				</div>
-
-				<div class="rounded-lg bg-card/40 p-4">
-					<div class="flex items-start gap-3">
-						<div class="shrink-0 rounded-md bg-primary/10 p-2 text-primary">
-							<CheckCircleIcon class="h-4 w-4" />
-						</div>
-
-						<div class="min-w-0 flex-1">
-							<p class="text-sm font-medium text-muted-foreground">Status *</p>
-
-							<div class="mt-1">
-								<SearchSelect
-									value={editData.task_status_id ? String(editData.task_status_id) : ''}
-									options={statusOptions}
-									placeholder="Select status"
-									searchPlaceholder="Search status..."
-									onChange={(value) => updateField('task_status_id', Number(value))}
-								/>
-							</div>
-						</div>
-					</div>
-				</div>
-
-				<div class="rounded-lg bg-card/40 p-4">
-					<div class="flex items-start gap-3">
-						<div class="shrink-0 rounded-md bg-primary/10 p-2 text-primary">
-							<UserIcon class="h-4 w-4" />
-						</div>
-
-						<div class="min-w-0 flex-1">
-							<p class="text-sm font-medium text-muted-foreground">Assignees</p>
-
-							<div class="mt-1">
-								<SearchSelect
-									value={editData.task_assignees_id?.map(String) ?? []}
-									options={userOptions}
-									multiple
-									placeholder="Select assignees"
-									searchPlaceholder="Search users..."
-									onChange={(value) =>
-										updateField(
-											'task_assignees_id',
-											(Array.isArray(value) ? value : [value]).map(Number)
-										)}
-								/>
-							</div>
-						</div>
-					</div>
-				</div>
-			{:else}
+		{#if isEditing && editData}
+			<TaskForm
+				formData={editData}
+				{currentTags}
+				{taskStatuses}
+				{users}
+				onUpdateField={updateField}
+				onSave={onSaveChanges}
+			/>
+		{:else}
+			<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 				{@render fieldWithIcon('Title', task.task_title, ClipboardListIcon, null, 'md:col-span-2')}
 
 				<div class="rounded-lg bg-card/40 p-4">
@@ -330,10 +250,8 @@
 						<div class="shrink-0 rounded-md bg-primary/10 p-2 text-primary">
 							<CheckCircleIcon class="h-4 w-4" />
 						</div>
-
 						<div class="min-w-0 flex-1">
 							<p class="text-sm font-medium text-muted-foreground">Status</p>
-
 							<div class="mt-1">
 								{#if task.status}
 									<StatusBadge status={task.status.status_name as CaseStatus} />
@@ -350,10 +268,8 @@
 						<div class="shrink-0 rounded-md bg-primary/10 p-2 text-primary">
 							<UserIcon class="h-4 w-4" />
 						</div>
-
 						<div class="min-w-0 flex-1">
 							<p class="text-sm font-medium text-muted-foreground">Assignees</p>
-
 							<div class="mt-1">
 								{#if task.task_assignees?.length}
 									<div class="flex flex-wrap gap-1">
@@ -374,47 +290,32 @@
 				</div>
 
 				{@render fieldWithIcon('Open Date', task.task_open_date ?? 'N/A', CalendarIcon)}
-			{/if}
-		</div>
-	</section>
+			</div>
 
-	<section>
-		<div class="mb-4 flex items-center gap-2 border-b pb-2">
-			<FileTextIcon class="h-5 w-5 text-primary" />
-			<h2 class="text-lg font-semibold">Description</h2>
-		</div>
+			<section class="mt-6">
+				<div class="mb-4 flex items-center gap-2 border-b pb-2">
+					<FileTextIcon class="h-5 w-5 text-primary" />
+					<h2 class="text-lg font-semibold">Description</h2>
+				</div>
+				<div class="rounded-lg bg-card/40 p-4">
+					{#if task.task_description}
+						<MarkDownPreview markdown={task.task_description} />
+					{:else}
+						<p class="italic text-muted-foreground">No description provided</p>
+					{/if}
+				</div>
+			</section>
 
-		<div class="rounded-lg bg-card/40 p-4">
-			{#if isEditing && editData}
-				<MarkDownEditor
-					value={editData.task_description}
-					onChange={(value) => updateField('task_description', value)}
-					onSave={onSaveChanges}
-				/>
-			{:else if task.task_description}
-				<MarkDownPreview markdown={task.task_description} />
-			{:else}
-				<p class="italic text-muted-foreground">No description provided</p>
-			{/if}
-		</div>
-	</section>
-
-	<section>
-		<div class="rounded-lg bg-card/40 p-4">
-			{#if isEditing}
-				<TagInput
-					tags={currentTags}
-					outputFormat="array"
-					onchange={handleTagsChange}
-					placeholder="Add tags..."
-					maxTags={20}
-				/>
-			{:else if task.task_tags}
-				<TagDisplay tags={task.task_tags} size="default" />
-			{:else}
-				<p class="italic text-muted-foreground">No tags</p>
-			{/if}
-		</div>
+			<section class="mt-6">
+				<div class="rounded-lg bg-card/40 p-4">
+					{#if task.task_tags}
+						<TagDisplay tags={task.task_tags} size="default" />
+					{:else}
+						<p class="italic text-muted-foreground">No tags</p>
+					{/if}
+				</div>
+			</section>
+		{/if}
 	</section>
 </div>
 

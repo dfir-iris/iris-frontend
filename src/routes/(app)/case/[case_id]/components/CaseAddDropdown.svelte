@@ -7,6 +7,7 @@
 	} from '$lib/contexts/case-assets.context.svelte';
 	import { CASE_IOCS_CTX, type CaseIocsContext } from '$lib/contexts/case-iocs.context.svelte';
 	import { CASE_NOTES_CTX, type CaseNotesContext } from '$lib/contexts/case-notes.context.svelte';
+	import { CASE_TASKS_CTX, type CaseTasksContext } from '$lib/contexts/case-tasks.context.svelte';
 	import {
 		DropdownMenu,
 		DropdownMenuContent,
@@ -17,12 +18,14 @@
 	import { newAsset } from '../assets/helpers';
 	import { newIoc } from '../iocs/helpers';
 	import { newNote } from '../notes/helpers';
+	import { newTask } from '../tasks/helpers';
 
 	export let buttonClass: string = '';
 
 	const caseNotes = getContext<CaseNotesContext>(CASE_NOTES_CTX);
 	const caseIocs = getContext<CaseIocsContext>(CASE_IOCS_CTX);
 	const caseAssets = getContext<CaseAssetsContext>(CASE_ASSETS_CTX);
+	const caseTasks = getContext<CaseTasksContext>(CASE_TASKS_CTX);
 </script>
 
 <DropdownMenu>
@@ -41,7 +44,7 @@
 			<FileIcon class="mr-2 h-4 w-4" />
 			<span>Note</span>
 		</DropdownMenuItem>
-		<DropdownMenuItem>
+		<DropdownMenuItem onclick={() => newTask(caseTasks)}>
 			<CheckCheckIcon class="mr-2 h-4 w-4" />
 			<span>Task</span>
 		</DropdownMenuItem>

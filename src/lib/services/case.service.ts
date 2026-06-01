@@ -51,7 +51,7 @@ export interface UpdateCaseBody {
 	status_id?: number;
 	case_customer?: number;
 	reviewer_id?: number;
-    review_status_id?: number;
+	review_status_id?: number;
 	protagonists?: unknown[];
 	case_tags?: string;
 	custom_attributes?: Record<string, unknown>;
@@ -145,5 +145,15 @@ export class CaseService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<CaseAccessUserRow[]>> {
 		return ApiService.get<CaseAccessUserRow[]>(`/api/v2/cases/${caseId}/access/users`, options);
+	}
+
+	static async listUsers(
+		caseId: CaseIdentifier,
+		options: ApiOptions = {}
+	): Promise<CaseAccessUserRow[]> {
+		const res = await ApiService.get<CaseAccessUserRow[]>(`/api/v2/cases/${caseId}/users`, options);
+		const data: CaseAccessUserRow[] = (res.data as unknown as CaseAccessUserRow[]) ?? [];
+
+		return data.filter((u) => u.user_access_level === 4);
 	}
 }

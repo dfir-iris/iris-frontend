@@ -29,6 +29,7 @@
 	import { CaseManageModal } from '../../[components]/CaseModals';
 	import AssetAddDialog from './assets/components/asset-add-dialog.svelte';
 	import IocAddDialog from './iocs/components/ioc-add-dialog.svelte';
+	import TaskAddDialog from './tasks/components/task-add-dialog.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -107,4 +108,9 @@
 <IocAddDialog
 	open={caseIocs.ui.showAddModal}
 	onOpenChange={(open) => (caseIocs.ui.showAddModal = open)}
+/>
+
+<TaskAddDialog
+	open={caseTasks.ui.showAddModal}
+	onOpenChange={(open) => (caseTasks.ui.showAddModal = open)}
 />
