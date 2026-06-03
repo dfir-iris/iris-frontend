@@ -24,14 +24,9 @@
 	let isRefreshing = $state(false);
 	let searchTerm = $state('');
 	let searchConditions = $state<SearchCondition[]>([]);
-	let searchDebounceTimer: number | undefined;
 
 	let observer: IntersectionObserver | null = null;
 	let loadMoreTrigger: HTMLDivElement | null = null;
-
-	const displayTasks = $derived(
-		caseTasks.list.ids.map((id) => caseTasks.byId[id]).filter((t): t is Task => !!t)
-	);
 
 	const searchFields: SearchField[] = [
 		{ key: 'task_title', label: 'Title', type: 'text' },
@@ -40,31 +35,67 @@
 		{ key: 'id', label: 'Task ID', type: 'number' }
 	];
 
-	const buildConditions = () => {
-		const out: Array<{ field: string; operator: string; value: string | number }> = [];
+	const norm = (s: string | null | undefined) => (s ?? '').toLowerCase();
 
-		searchConditions.forEach((c) => {
-			if (c.field === '_raw') {
-				out.push(
-					{ field: 'task_title', operator: 'like', value: c.value },
-					{ field: 'task_description', operator: 'like', value: c.value },
-					{ field: 'task_tags', operator: 'like', value: c.value }
-				);
-				return;
-			}
-			out.push({ field: c.field, operator: c.operator, value: c.value });
-		});
+	const conditionMatchesTask = (task: Task, c: SearchCondition): boolean => {
+		const q = c.value.toLowerCase();
 
-		if (searchTerm.trim() && searchConditions.length === 0) {
-			out.push(
-				{ field: 'task_title', operator: 'like', value: searchTerm.trim() },
-				{ field: 'task_description', operator: 'like', value: searchTerm.trim() },
-				{ field: 'task_tags', operator: 'like', value: searchTerm.trim() }
+		if (c.field === '_raw') {
+			return (
+				norm(task.task_title).includes(q) ||
+				norm(task.task_description).includes(q) ||
+				norm(task.task_tags).includes(q)
 			);
 		}
 
-		return out;
+		const fieldValue = (() => {
+			switch (c.field) {
+				case 'task_title':
+					return norm(task.task_title);
+				case 'task_description':
+					return norm(task.task_description);
+				case 'task_tags':
+					return norm(task.task_tags);
+				case 'id':
+					return String(task.id);
+				default:
+					return '';
+			}
+		})();
+
+		switch (c.operator) {
+			case 'like':
+				return fieldValue.includes(q);
+			case 'eq':
+				return fieldValue === q;
+			case 'not':
+				return fieldValue !== q;
+			default:
+				return true;
+		}
 	};
+
+	const matchesTask = (task: Task, term: string, conditions: SearchCondition[]): boolean => {
+		if (!term && conditions.length === 0) return true;
+
+		if (conditions.length > 0) {
+			return conditions.every((c) => conditionMatchesTask(task, c));
+		}
+
+		const q = term.toLowerCase();
+		return (
+			norm(task.task_title).includes(q) ||
+			norm(task.task_description).includes(q) ||
+			norm(task.task_tags).includes(q)
+		);
+	};
+
+	const displayTasks = $derived(
+		caseTasks.list.ids
+			.map((id) => caseTasks.byId[id])
+			.filter((t): t is Task => !!t)
+			.filter((t) => matchesTask(t, searchTerm.trim(), searchConditions))
+	);
 
 	const refreshTasks = async (pageNumber = 1) => {
 		if (isRefreshing) return;
@@ -72,12 +103,9 @@
 		isRefreshing = true;
 
 		try {
-			const conditions = buildConditions();
-
 			const params: ListCaseTasksParams = {
 				page: pageNumber,
-				per_page: caseTasks.list.params.per_page,
-				custom_conditions: conditions.length > 0 ? JSON.stringify(conditions) : undefined
+				per_page: caseTasks.list.params.per_page
 			};
 			await caseTasks.listPaginated(params, { fetch });
 		} finally {
@@ -125,21 +153,6 @@
 
 	onDestroy(() => {
 		observer?.disconnect();
-
-		if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
-	});
-
-	$effect(() => {
-		const currentSearchTerm = searchTerm;
-		const currentConditions = searchConditions;
-
-		clearTimeout(searchDebounceTimer);
-
-		searchDebounceTimer = window.setTimeout(() => {
-			void currentSearchTerm;
-			void currentConditions;
-			refreshTasks(1);
-		}, 300);
 	});
 </script>
 
