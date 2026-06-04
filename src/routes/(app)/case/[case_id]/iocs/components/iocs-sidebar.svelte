@@ -283,24 +283,24 @@
 			<TooltipProvider>
 				<Tooltip>
 					<TooltipTrigger>
-						<Button size="icon" variant="ghost" onclick={() => (viewMode = 'cards')}>
+						<Button size="icon" variant="ghost" onclick={() => (viewMode = 'table')}>
 							<List size={16} />
 						</Button>
 					</TooltipTrigger>
 
-					<TooltipContent align="center" side="bottom">List View</TooltipContent>
+					<TooltipContent align="center" side="bottom">Table View</TooltipContent>
 				</Tooltip>
 			</TooltipProvider>
 
 			<TooltipProvider>
 				<Tooltip>
 					<TooltipTrigger>
-						<Button size="icon" variant="ghost" onclick={() => (viewMode = 'table')}>
+						<Button size="icon" variant="ghost" onclick={() => (viewMode = 'cards')}>
 							<Grid size={16} />
 						</Button>
 					</TooltipTrigger>
 
-					<TooltipContent align="center" side="bottom">Grid View</TooltipContent>
+					<TooltipContent align="center" side="bottom">Cards View</TooltipContent>
 				</Tooltip>
 			</TooltipProvider>
 

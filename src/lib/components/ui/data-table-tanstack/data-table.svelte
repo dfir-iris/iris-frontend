@@ -18,6 +18,7 @@
 		data: T[];
 		columns: ColumnDef<T>[];
 		class?: string;
+		tableClass?: string;
 		page?: number;
 		pageSize?: number;
 		totalPages?: number;
@@ -27,6 +28,7 @@
 		data,
 		columns,
 		class: className = '',
+		tableClass = 'w-full table-auto text-xs',
 		page = $bindable(),
 		pageSize = 10,
 		totalPages: totalPagesProp
@@ -203,11 +205,12 @@
 </script>
 
 <div class={`w-full overflow-auto ${className}`}>
-	<table class="w-full table-auto text-xs">
+	<table class={tableClass}>
 		<thead>
 			<tr class="border-b border-border/50">
 				{#each cols as col (col.key)}
-					<th class="px-3 py-2 text-left align-top font-medium text-muted-foreground">
+					{@const colMeta = (col.c as { meta?: { thClass?: string; tdClass?: string } }).meta}
+					<th class="px-3 py-2 text-left align-top font-medium text-muted-foreground {colMeta?.thClass ?? ''}">
 						<div class="flex w-full items-center justify-between gap-2">
 							<span class="min-w-0 truncate">{col.header}</span>
 
@@ -272,8 +275,9 @@
 					<tr class="border-b border-border/30 transition-colors last:border-b-0 hover:bg-muted/40">
 						{#each cols as col (col.key)}
 							{@const v = columnCell(col.c, row, () => columnValue(col.c, row))}
+							{@const colMeta = (col.c as { meta?: { thClass?: string; tdClass?: string } }).meta}
 
-							<td class="px-3 py-2">
+							<td class="px-3 py-2 {colMeta?.tdClass ?? ''}">
 								{#if typeof v === 'function'}
 									{@const Comp = v as Component}
 									<Comp />
