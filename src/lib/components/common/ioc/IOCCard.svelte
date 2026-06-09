@@ -100,10 +100,10 @@
 <button
   type="button"
   id={`ioc-card-${ioc.ioc_id}`}
-  class="w-full text-left rounded-xl border p-3 text-sm transition-all duration-200 ease-in-out group {
+  class="relative w-full text-left rounded-xl border p-3 text-sm transition-all duration-200 ease-in-out group {
     isSelected
-      ? 'bg-accent text-accent-foreground border-primary/30 hover:brightness-95'
-      : 'bg-background hover:bg-muted'
+      ? 'bg-primary/10 text-foreground border-primary/60 shadow-md ring-2 ring-primary/30 before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-r-full before:bg-primary'
+      : 'border-border/60 bg-card hover:border-border hover:bg-muted/40 hover:shadow-sm'
   }"
   onclick={handleClick}
   aria-label={`View details for IOC ${ioc.ioc_value}`}

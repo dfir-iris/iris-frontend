@@ -42,6 +42,10 @@
 		caseAssets.list.ids.map((id) => caseAssets.byId[id]).filter((a): a is Asset => !!a)
 	);
 
+	const selectedAssetId = $derived(
+		page.params.asset_id ? Number(page.params.asset_id) : null
+	);
+
 	const filterOptions = [
 		{
 			id: 'compromised',
@@ -215,6 +219,14 @@
 			refreshAssets(1);
 		}, 300);
 	});
+
+	$effect(() => {
+		if (selectedAssetId !== null) return;
+		if (displayAssets.length === 0) return;
+
+		const first = displayAssets[0];
+		if (first) openAsset(first.asset_id);
+	});
 </script>
 
 <div class="flex h-full min-h-0 flex-col gap-3 p-3">
@@ -302,7 +314,7 @@
 							}
 						}}
 					>
-						<AssetCard {asset} />
+						<AssetCard {asset} isSelected={selectedAssetId === asset.asset_id} />
 					</div>
 				{/each}
 

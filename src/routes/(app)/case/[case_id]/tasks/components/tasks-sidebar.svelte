@@ -98,6 +98,10 @@
 			.filter((t) => matchesTask(t, searchTerm.trim(), searchConditions))
 	);
 
+	const selectedTaskId = $derived(
+		page.params.task_id ? Number(page.params.task_id) : null
+	);
+
 	const refreshTasks = async (pageNumber = 1) => {
 		if (isRefreshing) return;
 
@@ -154,6 +158,14 @@
 
 	onDestroy(() => {
 		observer?.disconnect();
+	});
+
+	$effect(() => {
+		if (selectedTaskId !== null) return;
+		if (displayTasks.length === 0) return;
+
+		const first = displayTasks[0];
+		if (first) openTask(first.id);
 	});
 </script>
 
@@ -228,7 +240,7 @@
 							}
 						}}
 					>
-						<TaskCard {task} />
+						<TaskCard {task} isSelected={selectedTaskId === task.id} />
 					</div>
 				{/each}
 

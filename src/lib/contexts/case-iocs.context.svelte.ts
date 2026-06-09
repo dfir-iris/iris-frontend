@@ -184,16 +184,23 @@ export const createCaseIocsContext = (getCaseId: () => number | null) => {
 
 		const prev = byId[id];
 		if (prev) {
-			byId[id] = { ...prev, ...(body as Partial<Ioc>) };
+			const merged: Ioc = { ...prev, ...(body as Partial<Ioc>) };
+
+			if (body.ioc_type_id !== undefined && body.ioc_type_id !== prev.ioc_type_id) {
+				merged.ioc_type = undefined;
+			}
+			if (body.ioc_tlp_id !== undefined && body.ioc_tlp_id !== prev.ioc_tlp_id) {
+				merged.tlp = undefined;
+			}
+
+			byId[id] = merged;
 		}
 
 		const res = await CaseIocsService.update(caseId, id, body, options);
 
 		if (res.ok && !res.error && res.data !== null && typeof res.data !== 'string') {
 			byId[id] = res.data;
-
-			await refresh(options);
-			return byId[id] ?? res.data;
+			return res.data;
 		}
 
 		await refresh(options);

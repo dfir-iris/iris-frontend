@@ -28,6 +28,7 @@
 	import TimelineTreeView from './components/timeline-tree-view.svelte';
 	import TimelineEventDialog from './components/timeline-event-dialog.svelte';
 	import TimelineEventCommentsDialog from './components/timeline-event-comments-dialog.svelte';
+	import CaseWorkspace from '../components/CaseWorkspace.svelte';
 	import type { TimelineFilterData, TimelineFilterFieldValue } from './types';
 
 	type TimelineView = 'normal' | 'tree';
@@ -516,7 +517,8 @@
 	});
 </script>
 
-<div class="flex h-full min-h-0 w-full flex-col bg-slate-50 dark:bg-black">
+<CaseWorkspace>
+<div class="flex h-full min-h-0 w-full flex-col">
 	<TimelineTopbar
 		{filters}
 		{eventCategories}
@@ -594,6 +596,7 @@
 		/>
 	</div>
 </div>
+</CaseWorkspace>
 
 <TimelineEventDialog
 	bind:open={eventDialogOpen}

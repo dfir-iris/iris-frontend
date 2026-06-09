@@ -1,13 +1,20 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
 	import { page } from '$app/state';
 	import { ShieldIcon, ShieldAlertIcon, ShieldQuestionIcon, ShieldCheckIcon } from 'lucide-svelte';
 	import { Popover, PopoverContent, PopoverTrigger } from '$lib/components/ui/popover';
 	import { Button } from '$lib/components/ui/button';
 	import { toast } from '$lib/components/ui/toast';
 	import { CaseAssetsService } from '$lib/services/case-assets.service';
+	import {
+		CASE_ASSETS_CTX,
+		type CaseAssetsContext
+	} from '$lib/contexts/case-assets.context.svelte';
 	import SearchSelect, {
 		type SelectOption
 	} from '$lib/components/common/selects/SearchSelect.svelte';
+
+	const caseAssets = getContext<CaseAssetsContext | undefined>(CASE_ASSETS_CTX);
 
 	export interface CompromiseStatusData {
 		id: number;
@@ -92,12 +99,22 @@
 		isSaving = true;
 
 		try {
-			const res = await CaseAssetsService.update(caseId, assetId, {
-				asset_compromise_status_id: id
-			});
+			if (caseAssets) {
+				const updated = await caseAssets.patchAsset(assetId, {
+					asset_compromise_status_id: id
+				});
 
-			if (!res.ok || res.error) {
-				throw new Error(res.error?.message ?? 'Failed to update compromise status');
+				if (!updated) {
+					throw new Error('Failed to update compromise status');
+				}
+			} else {
+				const res = await CaseAssetsService.update(caseId, assetId, {
+					asset_compromise_status_id: id
+				});
+
+				if (!res.ok || res.error) {
+					throw new Error(res.error?.message ?? 'Failed to update compromise status');
+				}
 			}
 
 			const next = STATUSES.find((item) => item.id === id);

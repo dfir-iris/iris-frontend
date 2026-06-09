@@ -38,6 +38,10 @@
 		caseIocs.list.ids.map((id) => caseIocs.byId[id]).filter((ioc): ioc is Ioc => !!ioc)
 	);
 
+	const selectedIocId = $derived(
+		page.params.ioc_id ? Number(page.params.ioc_id) : null
+	);
+
 	const filterOptions = [
 		{
 			id: 'analysis_done',
@@ -273,6 +277,14 @@
 			refreshIocs(1);
 		}, 300);
 	});
+
+	$effect(() => {
+		if (selectedIocId !== null) return;
+		if (displayIocs.length === 0) return;
+
+		const first = displayIocs[0];
+		if (first) openIoc(first.ioc_id);
+	});
 </script>
 
 <div class="flex h-full min-h-0 flex-col gap-3 p-3">
@@ -372,7 +384,7 @@
 							}
 						}}
 					>
-						<IOCCard {ioc} />
+						<IOCCard {ioc} isSelected={selectedIocId === ioc.ioc_id} />
 					</div>
 				{/each}
 

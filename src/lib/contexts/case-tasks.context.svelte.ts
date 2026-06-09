@@ -189,16 +189,20 @@ export const createCaseTasksContext = (getCaseId: () => number | null) => {
 
 		const prev = byId[id];
 		if (prev) {
-			byId[id] = { ...prev, ...(body as Partial<Task>) };
+			const merged: Task = { ...prev, ...(body as Partial<Task>) };
+
+			if (body.task_status_id !== undefined && body.task_status_id !== prev.task_status_id) {
+				merged.status = undefined;
+			}
+
+			byId[id] = merged;
 		}
 
 		const res = await CaseTasksService.update(caseId, id, body, options);
 
 		if (res.ok && !res.error && res.data !== null && typeof res.data !== 'string') {
 			byId[id] = res.data;
-
-			await refresh(options);
-			return byId[id] ?? res.data;
+			return res.data;
 		}
 
 		await refresh(options);

@@ -28,6 +28,12 @@ export interface ListCasesParams {
 	end_open_date?: string;
 
 	is_open?: boolean;
+
+	/**
+	 * Free-text search across case name, customer name, and (numeric) case id.
+	 * Used by the context switcher's search box.
+	 */
+	quick_search?: string;
 }
 
 export interface CreateCaseBody {

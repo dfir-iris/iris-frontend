@@ -20,6 +20,7 @@
 	import NotesMoveItemDialog from './components/notes-move-item-dialog.svelte';
 	import { getNoteUrl, newNote } from './helpers';
 	import NotesNewFolderDialog from './components/notes-new-folder-dialog.svelte';
+	import CaseWorkspace from '../components/CaseWorkspace.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -210,13 +211,13 @@
 
 <svelte:document onclick={closeContextMenu} />
 
-<div class="flex h-full w-full">
+<CaseWorkspace>
 	<Resizable.PaneGroup direction="horizontal" class="h-full w-full">
 		<Resizable.Pane
 			defaultSize={defaultSidebarSize}
 			minSize={minSidebarSize}
 			maxSize={maxSidebarSize}
-			class="relative flex h-full min-h-0 flex-col border-r border-border/50 bg-background"
+			class="relative flex h-full min-h-0 flex-col border-r border-border/50"
 		>
 			<div class="flex flex-row items-center gap-1 px-3 pb-2 pt-3">
 				<h2 class="w-full text-lg font-semibold">Notes</h2>
@@ -346,13 +347,13 @@
 			{/if}
 		</Resizable.Pane>
 
-		<Resizable.Handle withHandle class="bg-muted hover:bg-muted-foreground/20" />
+		<Resizable.Handle class="bg-transparent hover:bg-border" />
 
-		<Resizable.Pane class="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+		<Resizable.Pane class="flex h-full min-h-0 flex-col overflow-hidden">
 			{@render children()}
 		</Resizable.Pane>
 	</Resizable.PaneGroup>
-</div>
+</CaseWorkspace>
 
 <NotesRenameDialog
 	bind:open={showRename}

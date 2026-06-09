@@ -17,6 +17,7 @@
 		makeIocIcon,
 		applyAssetImageTheme
 	} from '$lib/components/common/VisNetwork';
+	import CaseWorkspace from '../components/CaseWorkspace.svelte';
 
 	type ContextMenuState = { open: boolean; x: number; y: number; node?: VisNode };
 
@@ -210,8 +211,9 @@
 	});
 </script>
 
-<div class="flex h-full min-h-0 w-full flex-col bg-slate-50 dark:bg-black">
-	<div class="bg-primary">
+<CaseWorkspace>
+<div class="flex h-full min-h-0 w-full flex-col">
+	<div class="border-b bg-muted/40">
 		<div class="flex px-6 py-3">
 			<div class="ml-auto flex items-center gap-2">
 				<Button variant="secondary" size="sm" onclick={load} disabled={loading}>Refresh</Button>
@@ -261,3 +263,4 @@
 		</div>
 	</div>
 </div>
+</CaseWorkspace>

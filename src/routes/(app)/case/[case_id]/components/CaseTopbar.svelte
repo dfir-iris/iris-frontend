@@ -4,12 +4,14 @@
 		Building2,
 		Clock,
 		FileDigit,
+		InfoIcon,
 		MoreHorizontal,
 		Tag,
 		UserRound,
 		Shield,
 		Activity
 	} from 'lucide-svelte';
+	import * as Popover from '$lib/components/ui/popover';
 	import type { Case } from '$lib/types/resources/case';
 	import type { CaseStatus, Severity } from '$lib/components/ui/badge/types';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
@@ -25,6 +27,13 @@
 	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import CaseAddDropdown from './CaseAddDropdown.svelte';
+	import type { Snippet } from 'svelte';
+
+	type Props = {
+		menuItems?: Snippet;
+	};
+
+	let { menuItems }: Props = $props();
 
 	const cases = getContext<CasesContext>(CASES_CTX);
 
@@ -42,6 +51,7 @@
 	let severity = $state<Severity>('Unspecified' as Severity);
 	let status = $state<CaseStatus>('Unspecified' as CaseStatus);
 	let formattedDate = $state('');
+	let isClosed = $state(false);
 
 	let icon = $state<IconState>({
 		Icon: Shield,
@@ -51,16 +61,30 @@
 		glow: false
 	});
 
+	const CLOSED_ICON: IconState = {
+		Icon: Shield,
+		iconColor: 'text-muted-foreground',
+		iconBg: 'bg-muted',
+		ring: 'ring-muted',
+		glow: false
+	};
+
 	$effect(() => {
 		caseData = cases.currentCase() ?? null;
 
 		const severityName = caseData?.severity?.severity_name ?? 'Unspecified';
-		const statusName = caseData?.state?.state_name ?? 'Unspecified';
+		const stateName = caseData?.state?.state_name ?? 'Unspecified';
 
 		severity = severityName as Severity;
-		status = statusName as CaseStatus;
+		status = stateName as CaseStatus;
+		isClosed = stateName === 'Closed';
 
 		formattedDate = new Date(caseData?.open_date as string).toLocaleDateString();
+
+		if (isClosed) {
+			icon = CLOSED_ICON;
+			return;
+		}
 
 		switch (severityName.toLowerCase()) {
 			case 'critical':
@@ -97,71 +121,155 @@
 </script>
 
 <div
-	class="flex items-center gap-3 border-b bg-background px-4 py-2"
+	class="relative flex items-center gap-2 border-b bg-card px-3 py-2 sm:gap-4 sm:px-5 sm:py-2.5"
 >
-	<!-- Case icon badge: a single compact glyph that conveys severity at a glance. -->
+
+	<!-- Case icon badge -->
 	<div
-		class={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${icon.iconBg} ${icon.glow ? 'shadow-glow-danger' : ''}`}
+		class="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset ring-black/5 sm:flex {icon.iconBg} {icon.glow
+			? 'shadow-glow-danger'
+			: ''}"
 	>
 		<icon.Icon size={16} class={icon.iconColor} />
 	</div>
 
-	<!-- Title + inline metadata. One line when there's room; wraps gracefully when narrow. -->
-	<div class="flex min-w-0 flex-1 flex-col">
-		<div class="flex items-center gap-2">
-			<h2 class="truncate text-sm font-semibold leading-tight">
-				{caseData?.case_name.split(' - ')[1] ?? caseData?.case_name}
+	<!-- Title + metadata column -->
+	<div class="flex min-w-0 flex-1 flex-col gap-0.5">
+		<div class="flex min-w-0 items-center gap-2">
+			{#if caseData?.case_id}
+				<span class="shrink-0 font-mono text-xs text-muted-foreground">#{caseData.case_id}</span>
+			{/if}
+
+			<h2
+				class="min-w-0 truncate text-[15px] font-semibold leading-tight tracking-tight {isClosed
+					? 'text-muted-foreground line-through decoration-muted-foreground/40'
+					: 'text-foreground'}"
+				title={caseData?.case_name}
+			>
+				{caseData?.case_name?.split(' - ')[1] ?? caseData?.case_name}
 			</h2>
 
-			{#if caseData?.case_id}
-				<span class="shrink-0 font-mono text-2xs text-muted-foreground">#{caseData.case_id}</span>
+			{#if isClosed}
+				<span
+					class="shrink-0 rounded-md bg-muted-foreground/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+				>
+					Closed
+				</span>
 			{/if}
+
+			<!-- Small-screen metadata: collapse all the meta chips into a popover trigger. -->
+			<Popover.Root>
+				<Popover.Trigger class="md:hidden">
+					<span
+						class="inline-flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+						aria-label="Case details"
+					>
+						<InfoIcon size={13} />
+					</span>
+				</Popover.Trigger>
+				<Popover.Content align="start" class="w-64 p-3">
+					<div class="flex flex-col gap-2 text-xs">
+						{#if caseData?.case_customer?.customer_name}
+							<div class="flex items-center gap-2">
+								<Building2 size={13} class="shrink-0 opacity-70" />
+								<span class="truncate">{caseData.case_customer.customer_name}</span>
+							</div>
+						{/if}
+						{#if caseData?.case_soc_id}
+							<div class="flex items-center gap-2">
+								<FileDigit size={13} class="shrink-0 opacity-70" />
+								<span>SOC #{caseData.case_soc_id}</span>
+							</div>
+						{/if}
+						{#if caseData?.owner?.user_name}
+							<div class="flex items-center gap-2">
+								<UserRound size={13} class="shrink-0 opacity-70" />
+								<span class="truncate">{caseData.owner.user_name}</span>
+							</div>
+						{/if}
+						{#if formattedDate}
+							<div class="flex items-center gap-2">
+								<Clock size={13} class="shrink-0 opacity-70" />
+								<span>{formattedDate}</span>
+							</div>
+						{/if}
+						{#if caseData?.tags?.length}
+							<div class="mt-1 flex flex-wrap gap-1 border-t pt-2">
+								{#each caseData.tags as tag}
+									<div
+										class="flex items-center gap-1 rounded-full border bg-muted/50 px-2 py-0.5 text-2xs"
+									>
+										<Tag size={10} class="opacity-70" />
+										<span class="max-w-[10rem] truncate">{tag.tag_title}</span>
+									</div>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				</Popover.Content>
+			</Popover.Root>
 		</div>
 
-		<div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-2xs text-muted-foreground">
+		<!-- Inline metadata: only on md+ to keep small screens uncluttered. -->
+		<div
+			class="hidden flex-wrap items-center gap-x-1 gap-y-0.5 text-2xs text-muted-foreground md:flex"
+		>
 			{#if caseData?.case_customer?.customer_name}
-				<div class="flex items-center gap-1">
-					<Building2 size={11} />
-					<span class="truncate">{caseData.case_customer.customer_name}</span>
-				</div>
+				<span
+					class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors hover:bg-muted"
+				>
+					<Building2 size={11} class="opacity-70" />
+					<span class="max-w-[14rem] truncate">{caseData.case_customer.customer_name}</span>
+				</span>
 			{/if}
 
 			{#if caseData?.case_soc_id}
-				<div class="flex items-center gap-1">
-					<FileDigit size={11} />
+				<span class="opacity-30">·</span>
+				<span
+					class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors hover:bg-muted"
+				>
+					<FileDigit size={11} class="opacity-70" />
 					<span>SOC #{caseData.case_soc_id}</span>
-				</div>
+				</span>
 			{/if}
 
 			{#if caseData?.owner?.user_name}
-				<div class="flex items-center gap-1">
-					<UserRound size={11} />
-					<span class="truncate">{caseData.owner.user_name}</span>
-				</div>
+				<span class="opacity-30">·</span>
+				<span
+					class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors hover:bg-muted"
+				>
+					<UserRound size={11} class="opacity-70" />
+					<span class="max-w-[10rem] truncate">{caseData.owner.user_name}</span>
+				</span>
 			{/if}
 
 			{#if formattedDate}
-				<div class="flex items-center gap-1">
-					<Clock size={11} />
+				<span class="opacity-30">·</span>
+				<span
+					class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors hover:bg-muted"
+				>
+					<Clock size={11} class="opacity-70" />
 					<span>{formattedDate}</span>
-				</div>
+				</span>
 			{/if}
 		</div>
 	</div>
 
-	<!-- Tags: show a couple inline, collapse the rest into a +N pill so they don't push the badges off screen. -->
+	<!-- Tags: only on xl+ to avoid crowding the right cluster. -->
 	{#if caseData?.tags?.length}
-		<div class="hidden items-center gap-1 md:flex">
+		<div class="hidden items-center gap-1 xl:flex">
 			{#each caseData.tags.slice(0, 2) as tag}
-				<div class="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-2xs">
-					<Tag size={10} />
+				<div
+					class="flex items-center gap-1 rounded-full border bg-muted/50 px-2 py-0.5 text-2xs"
+				>
+					<Tag size={10} class="opacity-70" />
 					<span class="max-w-[8rem] truncate">{tag.tag_title}</span>
 				</div>
 			{/each}
 
 			{#if caseData.tags.length > 2}
 				<div
-					class="rounded-full bg-muted px-2 py-0.5 text-2xs text-muted-foreground"
+					class="rounded-full border bg-muted/50 px-2 py-0.5 text-2xs text-muted-foreground"
 					title={caseData.tags
 						.slice(2)
 						.map((t) => t.tag_title)
@@ -173,26 +281,49 @@
 		</div>
 	{/if}
 
-	<div class="flex shrink-0 items-center gap-1.5">
-		<StatusBadge {status} />
-		<SeverityBadge {severity} />
+	<!-- Right cluster: status/severity grouped, then action buttons -->
+	<div class="flex shrink-0 items-center gap-1 sm:gap-2">
+		<!-- Full pill on sm+ -->
+		<div
+			class="hidden items-center gap-1 rounded-lg border bg-muted/30 px-1 py-0.5 sm:flex"
+		>
+			{#if !isClosed}
+				<StatusBadge {status} />
+			{/if}
+			<SeverityBadge {severity} />
+		</div>
 
-		<CaseAddDropdown buttonClass="h-7" />
+		<!-- Icon-only on small screens, no surrounding pill -->
+		<div class="flex items-center sm:hidden">
+			{#if !isClosed}
+				<StatusBadge {status} icon_only />
+			{/if}
+			<SeverityBadge {severity} icon_only />
+		</div>
+
+		<div class="hidden h-6 w-px bg-border sm:block" aria-hidden="true"></div>
+
+		<CaseAddDropdown buttonClass="h-8" />
 
 		<DropdownMenu>
 			<DropdownMenuTrigger>
-				<Button variant="ghost" size="icon" class="h-7 w-7">
+				<Button variant="ghost" size="icon" class="h-8 w-8">
 					<MoreHorizontal size={16} />
 					<span class="sr-only">Case menu</span>
 				</Button>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent align="end">
+			<DropdownMenuContent align="end" class="min-w-[200px]">
 				<DropdownMenuLabel>Manage Case</DropdownMenuLabel>
 				<DropdownMenuSeparator />
 
 				<DropdownMenuItem onclick={() => (cases.ui.showManageModal = true)}>
 					Edit Case Details
 				</DropdownMenuItem>
+
+				{#if menuItems}
+					<DropdownMenuSeparator />
+					{@render menuItems()}
+				{/if}
 
 				<DropdownMenuSeparator />
 				<DropdownMenuItem>Export Case</DropdownMenuItem>

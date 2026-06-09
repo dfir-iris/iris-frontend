@@ -189,16 +189,26 @@ export const createCaseAssetsContext = (getCaseId: () => number | null) => {
 
 		const prev = byId[id];
 		if (prev) {
-			byId[id] = { ...prev, ...(body as Partial<Asset>) };
+			const merged: Asset = { ...prev, ...(body as Partial<Asset>) };
+
+			if (body.asset_type_id !== undefined && body.asset_type_id !== prev.asset_type_id) {
+				merged.asset_type = undefined;
+			}
+			if (
+				body.analysis_status_id !== undefined &&
+				body.analysis_status_id !== prev.analysis_status_id
+			) {
+				merged.analysis_status = undefined;
+			}
+
+			byId[id] = merged;
 		}
 
 		const res = await CaseAssetsService.update(caseId, id, body, options);
 
 		if (res.ok && !res.error && res.data !== null && typeof res.data !== 'string') {
 			byId[id] = res.data;
-
-			await refresh(options);
-			return byId[id] ?? res.data;
+			return res.data;
 		}
 
 		await refresh(options);

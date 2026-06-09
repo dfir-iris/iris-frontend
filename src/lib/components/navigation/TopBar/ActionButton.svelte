@@ -7,7 +7,10 @@
 	export let tooltip;
 </script>
 
-<button onclick={action} class="rounded-lg p-2 text-white/70 transition-colors hover:bg-white/15 hover:text-white">
+<button
+	onclick={action}
+	class="rounded-lg p-2 text-white/80 backdrop-blur-md transition-all duration-150 hover:bg-white/15 hover:text-white hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.18)]"
+>
 	<TooltipProvider>
 		<Tooltip>
 			<TooltipTrigger>

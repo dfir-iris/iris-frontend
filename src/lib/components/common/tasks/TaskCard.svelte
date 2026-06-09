@@ -22,8 +22,10 @@
 <div
 	id={`task-card-${task.id}`}
 	class={cn(
-		'group w-full rounded-xl border p-3 text-sm transition-all duration-200 ease-in-out',
-		isSelected ? 'border-primary/30 bg-accent text-accent-foreground' : 'bg-background'
+		'group relative w-full rounded-xl border p-3 text-sm transition-all duration-200 ease-in-out',
+		isSelected
+			? 'border-primary/60 bg-primary/10 text-foreground shadow-md ring-2 ring-primary/30 before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-r-full before:bg-primary'
+			: 'border-border/60 bg-card hover:border-border hover:bg-muted/40 hover:shadow-sm'
 	)}
 >
 	<div class="flex items-start justify-between gap-3">

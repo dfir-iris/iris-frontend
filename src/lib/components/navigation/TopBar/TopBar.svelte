@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import { getContext } from 'svelte';
 	import {
+		ChevronDownIcon,
 		DatabaseIcon,
 		GripIcon,
 		LeafIcon,
@@ -80,49 +81,81 @@
 		{ label: 'Tasks', path: 'tasks' },
 		{ label: 'Evidence', path: 'evidence' }
 	];
+
+	const isCaseButtonActive = (path: string) => {
+		if (path === '') return pathname === caseBasePath || pathname === `${caseBasePath}/`;
+		return (
+			pathname.includes(`${caseBasePath}/${path}`) ||
+			pathname.includes(`${caseBasePath}/${path}/`)
+		);
+	};
+
+	const activeCaseButton = $derived(
+		caseButtons.find((b) => isCaseButtonActive(b.path)) ?? caseButtons[0]
+	);
 </script>
 
 <header
 	style="background-color: hsl(var(--iris-blue));"
-	class="shadow-elevation-1 sticky top-0 z-10 flex max-h-14 min-h-14 items-center justify-between px-5 text-white"
+	class="shadow-elevation-1 sticky top-0 z-10 grid max-h-14 min-h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-3 text-white sm:px-5"
 >
 	{#if case_id !== null && pathname.startsWith('/case') && pathname !== '/cases'}
-		<div class="flex items-center overflow-auto">
+		<div class="flex min-w-0 items-center gap-2">
 			<button
 				onclick={() => (showSwitchContext = true)}
-				class="whitespace-nowrap text-sm font-medium text-white/90 transition-colors hover:text-white"
+				title={currentCaseTitle}
+				class="min-w-0 truncate text-sm font-medium text-white/90 transition-colors hover:text-white"
 			>
 				{currentCaseTitle}
 			</button>
 		</div>
 
-		<div class="mx-2 flex flex-nowrap items-center overflow-auto rounded-lg bg-white/15 p-0.5">
+		<!-- Tabs: full pill on lg+, dropdown on smaller screens -->
+		<div
+			class="hidden flex-nowrap items-center rounded-lg border border-white/10 bg-white/5 p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-md lg:flex"
+		>
 			{#each caseButtons as button}
 				<a href={button.path === '' ? caseBasePath : `${caseBasePath}/${button.path}`}>
 					<button
-						class={`rounded-md px-3.5 py-1.5 text-sm font-medium transition-all duration-150 ${
-							button.path === ''
-								? pathname === caseBasePath || pathname === `${caseBasePath}/`
-									? 'bg-white text-iris-blue shadow-sm'
-									: 'text-white/70 hover:text-white'
-								: pathname.includes(`${caseBasePath}/${button.path}`) ||
-									  pathname.includes(`${caseBasePath}/${button.path}/`)
-									? 'bg-white text-iris-blue shadow-sm'
-									: 'text-white/70 hover:text-white'
-						}`}
+						class="rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-150 {isCaseButtonActive(
+							button.path
+						)
+							? 'border border-white/15 bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur'
+							: 'text-white/75 hover:bg-white/10 hover:text-white'}"
 					>
 						{button.label}
 					</button>
 				</a>
 			{/each}
 		</div>
+
+		<DropdownMenu.Root>
+			<DropdownMenu.Trigger class="lg:hidden">
+				<span
+					class="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-sm font-medium backdrop-blur-md transition-colors hover:bg-white/10"
+				>
+					{activeCaseButton.label}
+					<ChevronDownIcon size="14" />
+				</span>
+			</DropdownMenu.Trigger>
+			<DropdownMenu.Content align="center" class="min-w-[180px]">
+				{#each caseButtons as button}
+					<DropdownMenu.Item
+						onclick={() =>
+							goto(button.path === '' ? caseBasePath : `${caseBasePath}/${button.path}`)}
+					>
+						{button.label}
+					</DropdownMenu.Item>
+				{/each}
+			</DropdownMenu.Content>
+		</DropdownMenu.Root>
 	{:else}
-		<div class="flex items-center">
+		<div class="col-span-2 flex min-w-0 items-center justify-start gap-2">
 			<DropdownMenu.Root
 				open={showGoToCase}
 				onOpenChange={(open: boolean) => (showGoToCase = open)}
 			>
-				<DropdownMenu.Trigger class="w-full sm:w-auto">
+				<DropdownMenu.Trigger>
 					<button onclick={gotoCase} class="pt-1 transition-colors hover:text-white/80">
 						<TooltipProvider>
 							<Tooltip>
@@ -148,14 +181,14 @@
 
 			<button
 				onclick={() => (showSwitchContext = true)}
-				class="ml-2 text-sm font-medium transition-colors hover:text-white/80"
+				class="min-w-0 truncate text-sm font-medium transition-colors hover:text-white/80"
 			>
 				{currentCaseTitle}
 			</button>
 		</div>
 	{/if}
 
-	<div class="flex">
+	<div class="flex shrink-0 items-center justify-end gap-0.5">
 		{#each topBarButtons as topBarButton}
 			<ActionButton
 				icon={topBarButton.icon}
