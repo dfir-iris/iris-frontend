@@ -10,21 +10,15 @@
 	import { goto } from '$app/navigation';
 	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
 	import type { RelatedAlert } from '$lib/services/alerts.service';
-	import VisNetwork from '$lib/components/common/VisNetwork.svelte';
+	import VisNetwork, {
+		type VisNode,
+		type VisEdge,
+		svgToDataUrl,
+		withStroke,
+		applyAssetImageTheme
+	} from '$lib/components/common/VisNetwork';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { AlertRelationshipsFilters, defaultAlertRelationshipsFilters } from '.';
-
-	type VisNodeDetails = {
-		id?: IdType;
-		group?: string;
-		label?: string;
-		title?: string | HTMLElement;
-		image?: string;
-	};
-
-	type VisNode = Record<string, unknown> & VisNodeDetails;
-
-	type VisEdge = Record<string, unknown>;
 
 	type ContextMenuState = {
 		open: boolean;
@@ -33,15 +27,7 @@
 		node?: VisNode;
 	};
 
-	const svgToDataUrl = (svg: string) =>
-		`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-
-	const withStroke = (svg: string, color: string) =>
-		svg
-			.replace(/stroke="currentColor"/g, `stroke="${color}"`)
-			.replace(/<svg /, '<svg fill="none" ');
-
-	const createTooltip = (html: string) => {
+const createTooltip = (html: string) => {
 		if (typeof document === 'undefined') return html;
 
 		const el = document.createElement('div');
@@ -190,13 +176,10 @@
 			}
 
 			if (node.group === 'asset' && typeof node.image === 'string') {
-				const theme = isDark ? 'dark' : 'light';
-				const separator = node.image.includes('?') ? '&' : '?';
-
 				return {
 					...node,
 					title,
-					image: `${node.image}${separator}theme=${theme}`,
+					image: applyAssetImageTheme(node.image, isDark),
 					font
 				};
 			}

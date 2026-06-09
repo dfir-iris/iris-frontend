@@ -1,57 +1,58 @@
 <script lang="ts">
-	import type { Ioc } from '$lib/types/resources/ioc';
+	import { createEventDispatcher } from 'svelte';
 	import { renderComponent, type ColumnDef } from '@tanstack/svelte-table';
+	import { page } from '$app/stores';
+	import type { Ioc } from '$lib/types/resources/ioc';
 	import DataTable from '$lib/components/ui/data-table-tanstack/data-table.svelte';
-	import { LinkCell } from '$lib/components/ui/table';
+	import TlpBadge from '../tlp/TlpBadge.svelte';
+	import IocNameCell from './IocNameCell.svelte';
 
 	export let iocs: Ioc[];
 	export let caseId: string | number | null = null;
 	export let className: string = '';
 	export let totalPages: number | null = null;
-	// page number prop for this table (renamed to avoid collision with $page store)
 	export let tablePage: number | null = null;
 
-	// import SvelteKit page store for fallback when parent doesn't pass tablePage
-	import { page } from '$app/stores';
-
-	import { createEventDispatcher } from 'svelte';
-	import TlpBadge from '../tlp/TlpBadge.svelte';
 	const dispatch = createEventDispatcher();
 
-	// Columns configuration for IOCs
+	let currentPage: number = (tablePage ?? $page.data.iocs?.current_page) || 1;
+	let prevPage = currentPage;
+	$: if (currentPage !== prevPage) {
+		prevPage = currentPage;
+		dispatch('pageChange', currentPage);
+	}
+
 	const columns: ColumnDef<Ioc>[] = [
 		{
 			accessorKey: 'ioc_value',
-			header: () => 'Value',
-			...(caseId != null && {
-				cell: (cell) =>
-					renderComponent(LinkCell, {
-						href: `/case/${caseId}/iocs/${cell.row.original.ioc_id}`,
-						label: `${cell.getValue()}`
-					})
-			})
+			header: () => 'Name',
+			meta: { tdClass: 'max-w-0' },
+			cell: (cell) => {
+				const ioc = cell.row.original;
+				if (caseId != null) {
+					return renderComponent(IocNameCell, {
+						href: `/case/${caseId}/iocs/${ioc.ioc_id}`,
+						id: ioc.ioc_id,
+						value: ioc.ioc_value
+					});
+				}
+				return ioc.ioc_value;
+			}
 		},
 		{
 			accessorKey: 'ioc_type.type_name',
-			header: () => 'Type'
+			header: () => 'Type',
+			meta: { thClass: 'w-1/4' },
+			cell: (cell) => cell.getValue() || '-'
 		},
 		{
 			accessorKey: 'tlp.tlp_name',
 			header: () => 'TLP',
+			meta: { thClass: 'w-[30%]' },
 			cell: (cell) => {
 				const tlpName = cell.getValue() as string;
 				return renderComponent(TlpBadge, { tlp_name: tlpName });
 			}
-		},
-		{
-			accessorKey: 'ioc_description',
-			header: () => 'Description',
-			cell: (cell) => cell.getValue() || '-'
-		},
-		{
-			accessorKey: 'ioc_tags',
-			header: () => 'Tags',
-			cell: (cell) => cell.getValue() || '-'
 		}
 	];
 </script>
@@ -63,12 +64,11 @@
 		</div>
 	{:else}
 		<DataTable
-			{columns}
+			columns={columns as ColumnDef<unknown>[]}
+			tableClass="w-full table-fixed text-xs"
 			data={iocs}
-			page={(tablePage ?? $page.data.iocs?.current_page) || 1}
-			{totalPages}
-			on:pageChange={(e) => dispatch('pageChange', e.detail)}
-		></DataTable>
-		<!-- Note: Pagination might need to be handled by passing total/last_page from store/API response -->
+			bind:page={currentPage}
+			totalPages={totalPages ?? undefined}
+		/>
 	{/if}
 </div>

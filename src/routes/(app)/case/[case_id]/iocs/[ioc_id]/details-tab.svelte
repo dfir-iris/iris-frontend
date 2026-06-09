@@ -1,67 +1,58 @@
 <script lang="ts">
-	import { marked } from 'marked';
-	import type { Ioc } from '$lib/types/resources/ioc';
-	import { 
-		ServerIcon, 
-		GlobeIcon, 
-		NetworkIcon,
+	import {
+		ServerIcon,
 		FileTextIcon,
-		CheckCircleIcon,
-		ShieldIcon,
 		ComponentIcon,
-		HashIcon,
-
-		AlarmCheck,
-
 		FileWarningIcon,
-
 		XIcon,
-
 		SaveIcon,
-
-		EditIcon
-
-
-
-
-
+		EditIcon,
+		EllipsisVerticalIcon,
+		ForwardIcon,
+		FileSymlinkIcon
 	} from 'lucide-svelte';
-	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-  import { iocTypes } from '$lib/stores/ioc-types.store';
-	import { analysisStatuses } from '$lib/stores/analysis-status.store';
-	import { iocsStore } from '$lib/stores/iocs.store';
-	import { TagInput, TagDisplay } from '$lib/components/common/tag';
-	import type { Tag } from '$lib/stores/tags.store';
-	import { tlpList } from '$lib/stores/tlp.store';
-	import TlpBadge from '$lib/components/common/tlp/TlpBadge.svelte';
+	import type { Ioc } from '$lib/types/resources/ioc';
+	import type { Tag } from '$lib/types/resources/tag';
+	import { toast } from '$lib/stores/toast.store';
+	import type { RequestResponse } from '$lib/services/api.service';
+	import { HooksService, type HookOption } from '$lib/services/hooks.service';
+	import { IocTypesService, type IocType } from '$lib/services/ioc-types.service';
+	import { TlpService, type TlpItem } from '$lib/services/tlp.service';
 	import Button from '$lib/components/ui/button/button.svelte';
+	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
+	import {
+		DropdownMenu,
+		DropdownMenuContent,
+		DropdownMenuItem,
+		DropdownMenuTrigger,
+		Separator
+	} from '$lib/components/ui/dropdown-menu';
+	import { Textarea } from '$lib/components/ui/textarea';
+	import { TagInput, TagDisplay } from '$lib/components/common/tag';
+	import TlpBadge from '$lib/components/common/tlp/TlpBadge.svelte';
 	import DeleteButton from '$lib/components/common/DeleteButton.svelte';
+	import MarkDownPreview from '$lib/components/common/MarkDown/MarkDownPreview.svelte';
+	import { MarkDownEditor } from '$lib/components/common/MarkDown';
+	import SearchSelect, {
+		type SelectOption
+	} from '$lib/components/common/selects/SearchSelect.svelte';
+	import { callHook } from '../../utils/hooks';
+	import { getIocUrl } from '../helpers';
 
-	let { 
-		ioc, 
-		isEditing = false, 
-		editData,
-		onUpdateEditData = (field: string, value: string | number | Tag[]) => {},
-		currentTags = [],
-		onIocChange = (updatedIoc: Partial<Ioc>) => {},
-		onStartEditing = () => {},
-		onCancelEditing = () => {},
-		onSaveChanges = () => {},
-		onDeleteIoc = () => {},
-		isSaving = false,
-		deleteUrl = ''
-	} = $props<{ 
+	type IconComponent = typeof ServerIcon;
+
+	type EditData = {
+		ioc_value: string;
+		ioc_description: string;
+		ioc_type_id?: number;
+		ioc_tlp_id?: number;
+		ioc_tags?: string;
+	};
+
+	type Props = {
 		ioc: Ioc;
 		isEditing?: boolean;
-		editData?: {
-			ioc_value: string;
-			ioc_description: string;
-			ioc_type_id?: number;
-      ioc_tlp_id?: number;
-			ioc_tags?: string;
-		};
+		editData?: EditData;
 		onUpdateEditData?: (field: string, value: string | number | Tag[]) => void;
 		currentTags?: Tag[];
 		onIocChange?: (updatedIoc: Partial<Ioc>) => void;
@@ -71,354 +62,353 @@
 		onDeleteIoc?: () => void;
 		isSaving?: boolean;
 		deleteUrl?: string;
-	}>();
-	
-	let descriptionHtml = $derived(marked(ioc.ioc_description || 'No description provided'));
-	
-	// Initialize stores only once when the component mounts
-	let storesInitialized = $state(false);
-	
-	$effect(() => {
-		if (!storesInitialized) {
-			// Use Promise.all to fetch both in parallel
-			Promise.all([
-				iocTypes.fetch(),
-				tlpList.fetch() // Also fetch TLP list
-			]).then(() => {
-				storesInitialized = true;
-			});
-		}
-	});
-	
-	// Make sure editData has all required fields
-	$effect(() => {
-		if (isEditing && editData && storesInitialized) {
-			if (editData.ioc_type_id === undefined && ioc.ioc_type) {
-				onUpdateEditData('ioc_type_id', ioc.ioc_type.type_id);
-			}
-			
-			if (editData.ioc_tlp_id === undefined && ioc.ioc_tlp_id) {
-				onUpdateEditData('ioc_tlp_id', ioc.ioc_tlp_id);
-			}
-			
-			if (editData.analysis_status_id === undefined && ioc.analysis_status) {
-				onUpdateEditData('analysis_status_id', ioc.analysis_status.id);
-			}
-			
-			if (editData.ioc_compromise_status_id === undefined) {
-				onUpdateEditData('ioc_compromise_status_id', ioc.ioc_compromise_status_id || 3);
-			}
-		}
-	});
-	
-	function handleStatusChange(newStatus: any) {
-		// Instead of directly modifying ioc, call the callback
-		onIocChange({ 
-			analysis_status: newStatus
-		});
-	}
-	
-	function handleTagsChange(newTags: Tag[]) {
-		console.log('Tags changed in details-tab:', newTags);
-		// Make sure we're passing an array of Tag objects
-		if (Array.isArray(newTags)) {
-			onUpdateEditData('ioc_tags', newTags);
-		} else {
-			console.error('Expected array of tags but got:', newTags);
-		}
-	}
-	
-	function handleCompromiseStatusChange(newStatus: any) {
-		// Instead of directly modifying ioc, call the callback
-		onIocChange({ 
-			ioc_compromise_status_id: newStatus.id
-		});
-	}
+	};
 
-	// Function to update a specific field
-	function updateField(field: string, value: string | number) {
-		if (!isEditing || !ioc || !onUpdateEditData) return;
-		
-		// Create an update object with just the changed field
-		const update = { [field]: value };
-		
-		// Call the parent's onUpdate function
-		onUpdateEditData(field, value);
-		
-		// If we have the ioc ID, also update the store directly for immediate UI updates
-		if (ioc?.ioc_id) {
-			const iocId = ioc.ioc_id.toString();
-			const existingIoc = iocsStore.getIoc(iocId);
-			
-			if (existingIoc) {
-				// Create a new ioc object with the updated field
-				const updatedIoc = {
-					...existingIoc,
-					...update
-				};
-				
-				// Update the store
-				console.log(`Updating ${field} in store from details-tab:`, iocId, updatedIoc);
-				iocsStore.updateIoc(iocId, updatedIoc);
-			}
-		} else {
-			console.error('Ioc ID is not available for updating the store');
+	let {
+		ioc,
+		isEditing = false,
+		editData,
+		onUpdateEditData = () => {},
+		currentTags = [],
+		onStartEditing = () => {},
+		onCancelEditing = () => {},
+		onSaveChanges = () => {},
+		onDeleteIoc = () => {},
+		isSaving = false,
+		deleteUrl = ''
+	}: Props = $props();
+
+	let iocTypes = $state<IocType[]>([]);
+	let tlps = $state<TlpItem[]>([]);
+	let isMenuOpen = $state<boolean>(false);
+	let hookOptions = $state<HookOption[]>([]);
+
+	const iocTypeOptions = $derived<SelectOption[]>(
+		iocTypes.map((type) => ({
+			value: String(type.type_id),
+			label: type.type_name
+		}))
+	);
+
+	const tlpOptions = $derived<SelectOption[]>(
+		tlps.map((tlp) => ({
+			value: String(tlp.tlp_id),
+			label: tlp.tlp_name
+		}))
+	);
+
+	const loadOptions = async () => {
+		const [iocTypesRes, tlpRes] = await Promise.all([IocTypesService.list(), TlpService.list()]);
+
+		if (iocTypesRes.ok && iocTypesRes.data) {
+			iocTypes = iocTypesRes.data as IocType[];
 		}
-	}
+
+		if (tlpRes.ok && tlpRes.data) {
+			tlps = tlpRes.data as TlpItem[];
+		}
+
+		const hooksResponse = (await HooksService.list('ioc')).data as unknown as RequestResponse<
+			HookOption[]
+		>;
+
+		hookOptions = hooksResponse.data as HookOption[];
+	};
+
+	const updateField = (field: string, value: string | number) => onUpdateEditData(field, value);
+
+	const handleTagsChange = (tags: Tag[]) => onUpdateEditData('ioc_tags', tags);
+
+	const callModule = async (hookOption: HookOption) => {
+		const result = await callHook(Number(ioc.case_id), 'ioc', [ioc.ioc_id], hookOption);
+
+		toast({
+			variant: result?.status === 'error' ? 'destructive' : 'success',
+			title: result?.message
+		});
+	};
+
+	$effect(() => {
+		loadOptions();
+	});
 </script>
 
 <div class="space-y-8 p-1">
-	<!-- General Information -->
 	<section>
-		<div class="flex items-center justify-between gap-2 mb-4 border-b pb-2">
-			<div class="flex items-center gap-2">
-				<ServerIcon class="h-5 w-5 text-primary" />
-				<h2 class="text-lg font-semibold">General Information</h2>
+		<div class="mb-4 flex items-start justify-between gap-2 border-b pb-4">
+			<div class="min-w-0">
+				<div class="flex items-center gap-2">
+					<ServerIcon class="h-5 w-5 text-primary" />
+					<h2 class="text-lg font-semibold">IOC #{ioc.ioc_id}</h2>
+				</div>
+
+				{#if ioc.ioc_uuid}
+					<p class="mt-1 break-all font-mono text-xs italic text-muted-foreground">
+						#{ioc.ioc_uuid}
+					</p>
+				{/if}
 			</div>
 
-			<div class="flex items-center gap-2">
+			<div class="flex shrink-0 items-center gap-2">
 				{#if isEditing}
-					<Button 
-						variant="outline" 
-						size="sm" 
-						onclick={onCancelEditing}
-						class="flex items-center gap-2 hover:bg-muted/80 transition-colors" 
-						disabled={isSaving}
-					>
+					<Button variant="outline" size="sm" onclick={onCancelEditing} disabled={isSaving}>
 						<XIcon class="h-4 w-4" />
-						<span>Cancel</span>
+						Cancel
 					</Button>
-					<Button 
-						variant="default" 
-						size="sm" 
-						onclick={onSaveChanges}
-						class="flex items-center gap-2 bg-primary hover:bg-primary/90 transition-colors" 
-						disabled={isSaving}
-					>
+
+					<Button variant="default" size="sm" onclick={onSaveChanges} disabled={isSaving}>
 						{#if isSaving}
 							<span class="animate-spin">⟳</span>
-							<span>Saving...</span>
+							Saving...
 						{:else}
 							<SaveIcon class="h-4 w-4" />
-							<span>Save Changes</span>
+							Save Changes
 						{/if}
 					</Button>
 				{:else}
-					<Button 
-						variant="outline" 
-						size="sm" 
-						onclick={onStartEditing}
-						class="flex items-center gap-2 hover:bg-muted/80 transition-colors"
-					>
+					<Button variant="outline" size="sm" onclick={onStartEditing}>
 						<EditIcon class="h-4 w-4" />
-						<span>Edit</span>
+						Edit
 					</Button>
+
 					<DeleteButton
 						url={deleteUrl}
 						onrefresh={onDeleteIoc}
 						buttonText="Delete"
-						deletion_prompt_message={`Are you sure you want to delete the ioc "${ioc.ioc_value}"? This action cannot be undone.`}
+						deletion_prompt_message={`Are you sure you want to delete the IOC "${ioc.ioc_value}"? This action cannot be undone.`}
 					/>
 				{/if}
+
+				<DropdownMenu bind:open={isMenuOpen}>
+					<DropdownMenuTrigger>
+						<button
+							title="menu"
+							class="text-muted-foreground transition-colors hover:text-foreground"
+						>
+							<EllipsisVerticalIcon size="16" />
+						</button>
+					</DropdownMenuTrigger>
+
+					<DropdownMenuContent align="end">
+						<DropdownMenuItem
+							onclick={() => {
+								navigator.clipboard
+									.writeText(getIocUrl(ioc.case_id, String(ioc.ioc_id)))
+									.then(() => {
+										toast({
+											title: 'Link copied',
+											variant: 'success'
+										});
+									})
+									.catch((e) => {
+										console.error('Clipboard copy error:', e);
+
+										toast({
+											title: 'Could not copy link',
+											variant: 'destructive'
+										});
+									});
+							}}><ForwardIcon /> Share</DropdownMenuItem
+						>
+
+						<DropdownMenuItem
+							onclick={() => {
+								navigator.clipboard
+									.writeText(
+										`[<i class="fa-solid fa-bell"></i> #25](${getIocUrl(ioc.case_id, String(ioc.ioc_id))})`
+									)
+									.then(() => {
+										toast({
+											title: 'Link copied',
+											variant: 'success'
+										});
+									})
+									.catch((e) => {
+										console.error('Clipboard copy error:', e);
+
+										toast({
+											title: 'Could not copy link',
+											variant: 'destructive'
+										});
+									});
+							}}><FileSymlinkIcon /> Markdown Link</DropdownMenuItem
+						>
+
+						<Separator />
+
+						{#if hookOptions.length}
+							{#each hookOptions as hookOption}
+								<DropdownMenuItem onclick={() => callModule(hookOption)}
+									>{hookOption.manual_hook_ui_name}</DropdownMenuItem
+								>
+							{/each}
+						{/if}
+					</DropdownMenuContent>
+				</DropdownMenu>
 			</div>
 		</div>
-    <div class="grid">
-      {#if isEditing && editData}
-        <div class="group bg-card/40 p-4 rounded-lg">
+
+		<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+			{#if isEditing && editData}
+				<div class="rounded-lg bg-card/40 p-4">
 					<div class="flex items-start gap-3">
-						<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
+						<div class="shrink-0 rounded-md bg-primary/10 p-2 text-primary">
+							<ComponentIcon class="h-4 w-4" />
+						</div>
+
+						<div class="min-w-0 flex-1">
+							<p class="text-sm font-medium text-muted-foreground">Type *</p>
+
+							<div class="mt-1">
+								<SearchSelect
+									value={editData.ioc_type_id ? String(editData.ioc_type_id) : ''}
+									options={iocTypeOptions}
+									placeholder="Select type"
+									searchPlaceholder="Search type..."
+									onChange={(value) => updateField('ioc_type_id', Number(value))}
+								/>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="rounded-lg bg-card/40 p-4">
+					<div class="flex items-start gap-3">
+						<div class="shrink-0 rounded-md bg-primary/10 p-2 text-primary">
+							<FileWarningIcon class="h-4 w-4" />
+						</div>
+
+						<div class="min-w-0 flex-1">
+							<p class="text-sm font-medium text-muted-foreground">TLP *</p>
+
+							<div class="mt-1">
+								<SearchSelect
+									value={editData.ioc_tlp_id ? String(editData.ioc_tlp_id) : ''}
+									options={tlpOptions}
+									placeholder="Select TLP"
+									searchPlaceholder="Search TLP..."
+									onChange={(value) => updateField('ioc_tlp_id', Number(value))}
+								/>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="rounded-lg bg-card/40 p-4 md:col-span-2">
+					<div class="flex items-start gap-3">
+						<div class="shrink-0 rounded-md bg-primary/10 p-2 text-primary">
 							<ServerIcon class="h-4 w-4" />
 						</div>
-						<div class="min-w-0 flex-1">				
-							<p class="text-sm font-medium text-muted-foreground">Value</p>
-							<Input 
-								value={editData.ioc_value} 
-								onchange={(e) => {
-									if (e.target) {
-										updateField('ioc_value', (e.target as HTMLInputElement).value);
-									}
-								}}
-								class="mt-1" 
+
+						<div class="min-w-0 flex-1">
+							<p class="text-sm font-medium text-muted-foreground">IOC Value *</p>
+
+							<Textarea
+								value={editData.ioc_value}
+								oninput={(e) =>
+									updateField('ioc_value', (e.currentTarget as HTMLTextAreaElement).value)}
+								rows={5}
+								class="mt-1"
 							/>
 						</div>
 					</div>
 				</div>
-      {:else}
-        {@render fieldWithIcon('Value', ioc.ioc_value, ServerIcon)}
-      {/if}
-    </div>
-		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-			{#if isEditing && editData}				
-        <div class="group bg-card/40 p-4 rounded-lg">
-          <div class="flex items-start gap-3">
-            <div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
-              <ComponentIcon class="h-4 w-4" />
-            </div>
-            <div class="min-w-0 flex-1">				
-              <p class="text-sm font-medium text-muted-foreground">Type</p>
-              <select 
-                value={editData.ioc_type_id} 
-                onchange={(e) => updateField('ioc_type_id', parseInt((e.target as HTMLSelectElement).value))}
-                class="mt-1 w-full px-3 py-2 bg-background border border-input rounded-md text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="" disabled>Select type</option>
-                {#if storesInitialized && $iocTypes}
-                  {#each $iocTypes as type}
-                    <option value={type.type_id}>{type.type_name}</option>
-                  {/each}
-                {/if}
-              </select>
-            </div>
-          </div>
-        </div>
-        <div class="group bg-card/40 p-4 rounded-lg">
-          <div class="flex items-start gap-3">
-            <div class="flex items-start gap-3">
-              <div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
-                <FileWarningIcon class="h-4 w-4" />
-              </div>
-              <div class="min-w-0 flex-1">				
-                <p class="text-sm font-medium text-muted-foreground">TLP</p>
-                <select 
-                  value={editData.ioc_tlp_id} 
-                  onchange={(e) => updateField('ioc_tlp_id', parseInt((e.target as HTMLSelectElement).value))}
-                  class="mt-1 w-full px-3 py-2 bg-background border border-input rounded-md text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="" disabled>Select TLP</option>
-                    {#each $tlpList as tlp}
-                      <option value={tlp.tlp_id}>{tlp.tlp_name}</option>
-                    {/each}
-                </select>
-              </div>
-            </div>
-				</div>
-        </div>  
-
-				
 			{:else}
-				{@render fieldWithIcon('Type', ioc.ioc_type?.type_name, ComponentIcon)}
-        <div class="group bg-card/40 p-4 rounded-lg">
-          <div class="flex items-start gap-3">
-            <div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
-              <FileWarningIcon class="h-4 w-4" />
-            </div>
-            <div class="min-w-0 flex-1">				
-              <p class="text-sm font-medium text-muted-foreground">TLP</p>
-              <div class="flex items-center gap-1">
-                <TlpBadge tlp_name={ioc.tlp?.tlp_name} />
-                {#if ioc.tlp?.tlp_name && ioc.tlp?.tlp_name.toString().length > 0 && ioc.tlp?.tlp_name !== 'N/A'}
-                  <ClipboardCopy value='TLP:{ioc.tlp?.tlp_name.toString()}'/>
-                {/if}
-              </div>
-            </div>
-          </div>
-        </div>
+				{@render fieldWithIcon('Type', ioc.ioc_type?.type_name ?? 'N/A', ComponentIcon)}
 
-				
+				<div class="rounded-lg bg-card/40 p-4">
+					<div class="flex items-start gap-3">
+						<div class="shrink-0 rounded-md bg-primary/10 p-2 text-primary">
+							<FileWarningIcon class="h-4 w-4" />
+						</div>
+
+						<div class="min-w-0 flex-1">
+							<p class="text-sm font-medium text-muted-foreground">TLP</p>
+
+							<div class="flex items-center gap-1">
+								<TlpBadge tlp_name={ioc.tlp?.tlp_name} />
+
+								{#if ioc.tlp?.tlp_name}
+									<ClipboardCopy value={`TLP:${ioc.tlp.tlp_name}`} />
+								{/if}
+							</div>
+						</div>
+					</div>
+				</div>
+
+				{@render fieldWithIcon('IOC Value', ioc.ioc_value, ServerIcon, null, 'md:col-span-2')}
 			{/if}
 		</div>
 	</section>
 
-	<!-- Description -->
 	<section>
-		<div class="flex items-center gap-2 mb-4 border-b pb-2">
+		<div class="mb-4 flex items-center gap-2 border-b pb-2">
 			<FileTextIcon class="h-5 w-5 text-primary" />
 			<h2 class="text-lg font-semibold">Description</h2>
 		</div>
-		
-		{#if isEditing && editData}
-			<div class="bg-card/40 p-4 rounded-lg">
-				<Textarea 
+
+		<div class="rounded-lg bg-card/40 p-4">
+			{#if isEditing && editData}
+				<MarkDownEditor
 					value={editData.ioc_description}
-					onchange={(e) => updateField('ioc_description', (e.target as HTMLTextAreaElement).value)}
-					placeholder="Provide a detailed description of this ioc"
-					rows={5}
-					class="w-full"
+					onChange={(value) => updateField('ioc_description', value)}
+					onSave={onSaveChanges}
 				/>
-				<p class="text-xs text-muted-foreground mt-2">Markdown formatting is supported</p>
-			</div>
-		{:else}
-			<div class="bg-card/40 p-4 rounded-lg">
-				{#if ioc.ioc_description}
-					<div class="prose prose-sm max-w-none">
-						{@html descriptionHtml}
-					</div>
-				{:else}
-					<p class="text-muted-foreground italic">No description provided</p>
-				{/if}
-			</div>
-		{/if}
+			{:else if ioc.ioc_description}
+				<MarkDownPreview markdown={ioc.ioc_description} />
+			{:else}
+				<p class="italic text-muted-foreground">No description provided</p>
+			{/if}
+		</div>
 	</section>
 
-	<section>		
-		<div class="grid grid-cols-1">
-			<div class="bg-card/40  rounded-lg">
-				{#if isEditing}
-					<TagInput 
-						tags={currentTags} 
-						outputFormat="array"
-						onchange={handleTagsChange}
-						placeholder="Add tags..."
-						maxTags={20}
-					/>
-					<p class="text-xs text-muted-foreground mt-2">Press Enter or comma to add a tag</p>
-				{:else}
-					{#if ioc.ioc_tags || ioc.tags}
-						<TagDisplay 
-							tags={ioc.ioc_tags || ioc.tags || []} 
-							size="default"
-						/>
-					{:else}
-						<p class="text-muted-foreground italic">No tags</p>
-					{/if}
-				{/if}
-			</div>
+	<section>
+		<div class="rounded-lg bg-card/40 p-4">
+			{#if isEditing}
+				<TagInput
+					tags={currentTags}
+					outputFormat="array"
+					onchange={handleTagsChange}
+					placeholder="Add tags..."
+					maxTags={20}
+				/>
+			{:else if ioc.ioc_tags}
+				<TagDisplay tags={ioc.ioc_tags} size="default" />
+			{:else}
+				<p class="italic text-muted-foreground">No tags</p>
+			{/if}
+		</div>
 	</section>
-
 </div>
-	
 
-{#snippet fieldWithIcon(label: string, value: string | number, Icon: any, hint: string | null = null)}
-	<div class="group bg-card/40 p-4 rounded-lg">
+{#snippet fieldWithIcon(
+	label: string,
+	value: string | number,
+	Icon: IconComponent,
+	hint: string | null = null,
+	className = ''
+)}
+	<div class={`rounded-lg bg-card/40 p-4 ${className}`}>
 		<div class="flex items-start gap-3">
-			<div class="bg-primary/10 p-2 rounded-md text-primary shrink-0">
+			<div class="shrink-0 rounded-md bg-primary/10 p-2 text-primary">
 				<Icon class="h-4 w-4" />
 			</div>
-			<div class="min-w-0 flex-1">				
+
+			<div class="min-w-0 flex-1">
 				<p class="text-sm font-medium text-muted-foreground">{label}</p>
+
 				<div class="flex items-center gap-1">
-					<p class="font-semibold text-foreground break-all">{value}</p>
+					<p class="whitespace-pre-wrap break-all font-semibold text-foreground">{value}</p>
+
 					{#if value && value.toString().length > 0 && value !== 'N/A'}
-						<ClipboardCopy value={value.toString()}/>
+						<ClipboardCopy value={value.toString()} />
 					{/if}
 				</div>
+
 				{#if hint}
-					<p class="text-xs text-muted-foreground mt-1">{hint}</p>
+					<p class="mt-1 text-xs text-muted-foreground">{hint}</p>
 				{/if}
 			</div>
 		</div>
 	</div>
 {/snippet}
-
-<style>
-	section {
-		position: relative;
-	}
-	
-	section::after {
-		content: '';
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		pointer-events: none;
-		background: linear-gradient(to right, transparent, transparent);
-		opacity: 0;
-		transition: opacity 0.3s ease;
-	}
-	
-	section:hover::after {
-		opacity: 0.5;
-	}
-</style>

@@ -1,7 +1,13 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
 	import { BiohazardIcon, CheckCheckIcon, ComputerIcon, FileIcon, PlusIcon } from 'lucide-svelte';
-	import { page } from '$app/state';
-	import { createCaseNotesContext } from '$lib/contexts/case-notes.context.svelte';
+	import {
+		CASE_ASSETS_CTX,
+		type CaseAssetsContext
+	} from '$lib/contexts/case-assets.context.svelte';
+	import { CASE_IOCS_CTX, type CaseIocsContext } from '$lib/contexts/case-iocs.context.svelte';
+	import { CASE_NOTES_CTX, type CaseNotesContext } from '$lib/contexts/case-notes.context.svelte';
+	import { CASE_TASKS_CTX, type CaseTasksContext } from '$lib/contexts/case-tasks.context.svelte';
 	import {
 		DropdownMenu,
 		DropdownMenuContent,
@@ -9,11 +15,17 @@
 		DropdownMenuTrigger
 	} from '$lib/components/ui/dropdown-menu';
 	import { Button } from '$lib/components/ui/button';
+	import { newAsset } from '../assets/helpers';
+	import { newIoc } from '../iocs/helpers';
 	import { newNote } from '../notes/helpers';
+	import { newTask } from '../tasks/helpers';
 
 	export let buttonClass: string = '';
 
-	const notes = createCaseNotesContext(() => Number(page.params.case_id));
+	const caseNotes = getContext<CaseNotesContext>(CASE_NOTES_CTX);
+	const caseIocs = getContext<CaseIocsContext>(CASE_IOCS_CTX);
+	const caseAssets = getContext<CaseAssetsContext>(CASE_ASSETS_CTX);
+	const caseTasks = getContext<CaseTasksContext>(CASE_TASKS_CTX);
 </script>
 
 <DropdownMenu>
@@ -28,19 +40,19 @@
 
 	<!-- Dropdown items -->
 	<DropdownMenuContent class="shadow" align={'end'} side={'bottom'}>
-		<DropdownMenuItem onclick={() => newNote(notes)}>
+		<DropdownMenuItem onclick={() => newNote(caseNotes)}>
 			<FileIcon class="mr-2 h-4 w-4" />
 			<span>Note</span>
 		</DropdownMenuItem>
-		<DropdownMenuItem>
+		<DropdownMenuItem onclick={() => newTask(caseTasks)}>
 			<CheckCheckIcon class="mr-2 h-4 w-4" />
 			<span>Task</span>
 		</DropdownMenuItem>
-		<DropdownMenuItem>
+		<DropdownMenuItem onclick={() => newAsset(caseAssets)}>
 			<ComputerIcon class="mr-2 h-4 w-4" />
 			<span>Asset</span>
 		</DropdownMenuItem>
-		<DropdownMenuItem>
+		<DropdownMenuItem onclick={() => newIoc(caseIocs)}>
 			<BiohazardIcon class="mr-2 h-4 w-4" />
 			<span>IOC</span>
 		</DropdownMenuItem>

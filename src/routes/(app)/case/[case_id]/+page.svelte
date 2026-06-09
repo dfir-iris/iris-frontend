@@ -11,6 +11,7 @@
 	} from 'lucide-svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import type { Case } from '$lib/types/resources/case';
+	import { callHook } from './utils/hooks';
 	import * as Card from '$lib/components/ui/card';
 	import {
 		DropdownMenu,
@@ -91,16 +92,7 @@
 	};
 
 	const callModule = async (hookOption: HookOption) => {
-		const result = (
-			(await HooksService.call({
-				cid: case_id,
-				type: 'case',
-				hook_name: hookOption.hook_name,
-				module_name: hookOption.module_name,
-				hook_ui_name: hookOption.manual_hook_ui_name,
-				targets: [case_id]
-			})) as RequestResponse<unknown>
-		).data as { status: string; message: string };
+		const result = await callHook(case_id, 'case', [case_id], hookOption);
 
 		toast({
 			variant: result?.status === 'error' ? 'destructive' : 'success',
@@ -215,21 +207,11 @@
 
 						<div class="mx-2 flex text-sm">Last synced: {loadedTime.toLocaleTimeString()}</div>
 
-						<Button
-							variant="secondary"
-							size="xs"
-							disabled={loading}
-							onclick={refresh}
-						>
+						<Button variant="secondary" size="xs" disabled={loading} onclick={refresh}>
 							Refresh
 						</Button>
 
-						<Button
-							variant="default"
-							size="xs"
-							disabled={saving || !dirty}
-							onclick={save}
-						>
+						<Button variant="default" size="xs" disabled={saving || !dirty} onclick={save}>
 							Save
 						</Button>
 					</div>

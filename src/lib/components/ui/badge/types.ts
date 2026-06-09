@@ -10,6 +10,7 @@ export type CaseStatus =
 	| 'New'
 	| 'Started'
 	| 'Cancelled'
+	| 'On hold'
 	| 'Done';
 
 export type Severity = 'Unspecified' | 'Low' | 'Medium' | 'High' | 'Critical';

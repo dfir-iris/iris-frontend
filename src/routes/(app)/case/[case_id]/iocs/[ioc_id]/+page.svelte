@@ -1,445 +1,340 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
+	import { fade } from 'svelte/transition';
+	import {
+		AlertTriangleIcon,
+		HistoryIcon,
+		InfoIcon,
+		MessagesSquareIcon,
+		SearchIcon
+	} from 'lucide-svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { CASE_IOCS_CTX, type CaseIocsContext } from '$lib/contexts/case-iocs.context.svelte';
+	import type { UpdateCaseIocBody } from '$lib/services/case-iocs.service';
+	import { CommentsService, type Comment } from '$lib/services/comments.service';
+	import { normalizeTags, stringToTags, tagsToString } from '$lib/utils/tags';
+	import type { Ioc } from '$lib/types/resources/ioc';
+	import type { Tag } from '$lib/types/resources/tag';
 	import ErrorAlert from '$lib/components/ui/alert/ErrorAlert.svelte';
+	import { Button } from '$lib/components/ui/button';
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
-	import { Button } from '$lib/components/ui/button';
-	import { 
-		ComputerIcon, 
-		AlertTriangleIcon, 
-		HistoryIcon, 
-		ShieldAlertIcon,
-		EditIcon,
-		Trash2Icon,
-		InfoIcon,
-		SaveIcon,
-		XIcon,
-		SearchIcon, 
-		CalendarRange
-	} from 'lucide-svelte';
-	import type { PageData } from './$types';
+	import { toast } from '$lib/components/ui/toast';
 	import DetailsTab from './details-tab.svelte';
 	import HistoryTab from './history-tab.svelte';
-	import { fade } from 'svelte/transition';
-	import { IocService } from '$lib/services/ioc.service';
-	import { toast } from '$lib/components/ui/toast';
-	import type { Ioc } from '$lib/types/resources/ioc';
-	import { iocTypes } from '$lib/stores/ioc-types.store'
-	import { analysisStatuses } from '$lib/stores/analysis-status.store';
-	import { iocsStore } from '$lib/stores/iocs.store';
-	import ScrollArea from '$lib/components/ui/scroll-area/scroll-area.svelte';
-	import type { Tag, TagInput } from '$lib/stores/tags.store';
-	import { tagsStore } from '$lib/stores/tags.store';
-	import DeleteButton from '$lib/components/common/DeleteButton.svelte'; // Import DeleteButton
-	import { goto } from '$app/navigation'; // Import goto for navigation
-	import { ENDPOINTS } from '$lib/constants/endpoints'; // Import ENDPOINTS
+	import CommentsTab from './comments-tab.svelte';
 
-	let { data } = $props<{ data: PageData }>();
-	$inspect(data);
+	type EditData = {
+		ioc_value: string;
+		ioc_description: string;
+		ioc_type_id: number | undefined;
+		ioc_tlp_id: number | undefined;
+		ioc_tags: string;
+	};
 
-	function formatDate(dateString: string) {
-		return new Date(dateString).toLocaleString();
-	}
+	const caseIocs = getContext<CaseIocsContext>(CASE_IOCS_CTX);
 
-	$effect(() => {
-		// Fetch the stores data once
-		iocTypes.fetch();
-		analysisStatuses.fetch();
-	});
-	
+	const caseId = $derived(Number(page.params.case_id));
+	const iocId = $derived(Number(page.params.ioc_id));
+	const ioc = $derived(caseIocs.byId[iocId]);
+
 	let activeTab = $state('details');
 	let isEditing = $state(false);
 	let isSaving = $state(false);
-	let isLoading = $state(false);
-	let hasError = $state(false);
-	let shouldShowLoading = $state(false);
-	
-	// Keep track of tags separately to ensure they're properly updated
+	let isLoading = $state(true);
+	let loadError = $state<string | null>(null);
+
 	let currentTags = $state<Tag[]>([]);
-	
-	let editData = $state<{
-		ioc_value: string;
-		ioc_description: string;
-		ioc_ip: string;
-		ioc_domain: string;
-		ioc_type_id: number | undefined;
-		analysis_status_id: number | undefined;
-		ioc_compromise_status_id: number | undefined;
-		ioc_tags: string;
-	}>({
+	let comments = $state<Comment[]>([]);
+
+	let editData = $state<EditData>({
 		ioc_value: '',
 		ioc_description: '',
-		ioc_ip: '',
-		ioc_domain: '',
 		ioc_type_id: undefined,
-		analysis_status_id: undefined,
-		ioc_compromise_status_id: undefined,
+		ioc_tlp_id: undefined,
 		ioc_tags: ''
 	});
-	
-	// This state will be used to update the UI directly
-	let displayIocData = $state<Ioc | null>(null);
 
-	// When data.ioc resolves, store the result
-	$effect(() => {
-		(async () => {
-			try {
-				// Set loading state
-				isLoading = true;
-				
-				// Start a timer to show loading state only if it takes longer than 150ms
-				const loadingTimer = setTimeout(() => {
-					if (isLoading) {
-						shouldShowLoading = true;
-					}
-				}, 150);
-				
-				// Fetch the ioc data
-				const iocResponse = await data.ioc;
-				displayIocData = iocResponse?.data;
-				
-				// Initialize currentTags from ioc_tags if it exists
-				if (displayIocData?.ioc_tags) {
-					currentTags = tagsStore.normalizeTags(displayIocData.ioc_tags);
-				}
-				
-				hasError = false;
-				
-				// Clear the timer if it hasn't fired yet
-				clearTimeout(loadingTimer);
-			} catch (error) {
-				console.error('Error resolving ioc data:', error);
-				hasError = true;
-			} finally {
-				// Set loading to false
-				isLoading = false;
-				// If we've already shown the loading state, add a small delay before hiding it
-				if (shouldShowLoading) {
-					setTimeout(() => {
-						shouldShowLoading = false;
-					}, 50);
-				} else {
-					shouldShowLoading = false;
-				}
+	const syncTagsFromIoc = (currentIoc: Ioc | undefined) => {
+		currentTags = normalizeTags(currentIoc?.ioc_tags);
+	};
+
+	const resetEditData = (currentIoc: Ioc) => {
+		editData = {
+			ioc_value: currentIoc.ioc_value,
+			ioc_description: currentIoc.ioc_description || '',
+			ioc_type_id: currentIoc.ioc_type_id ?? currentIoc.ioc_type?.type_id,
+			ioc_tlp_id: currentIoc.ioc_tlp_id,
+			ioc_tags: currentIoc.ioc_tags || ''
+		};
+	};
+
+	const loadComments = async () => {
+		const res = await CommentsService.list('iocs', ioc.ioc_id);
+
+		const data = res.data;
+		comments = data && typeof data === 'object' && Array.isArray(data.data) ? data.data : [];
+	};
+
+	const loadIoc = async () => {
+		isLoading = true;
+		loadError = null;
+
+		try {
+			const loaded = await caseIocs.getIoc(iocId, { fetch });
+
+			if (!loaded) {
+				loadError = 'Failed to load IOC';
+				return;
 			}
-		})();
-	});
-	
-	// Add a function to handle ioc changes from the details tab
-	function handleIocChange(updatedIoc: Partial<Ioc>) {
-		if (!displayIocData) return;
-		
-		// Create a new ioc object with the updated fields
-		displayIocData = { 
-			...displayIocData, 
+
+			await loadComments();
+
+			syncTagsFromIoc(loaded);
+			resetEditData(loaded);
+		} catch (error) {
+			loadError = error instanceof Error ? error.message : 'Failed to load IOC';
+		} finally {
+			isLoading = false;
+		}
+	};
+
+	const handleIocChange = (updatedIoc: Partial<Ioc>) => {
+		const currentIoc = caseIocs.byId[iocId];
+		if (!currentIoc) return;
+
+		caseIocs.byId[iocId] = {
+			...currentIoc,
 			...updatedIoc
 		};
-		
-		// If we have the ioc ID, also update the store
-		if (displayIocData.ioc_id) {
-			const iocId = displayIocData.ioc_id.toString();
-			iocsStore.updateIoc(iocId, displayIocData);
-		}
-	}
-	
-	function handleUpdateEditData(field: string, value: string | number | Tag[]) {
-		console.log(`Updating ${field} with:`, value);
-		
-		// Handle tags specifically
+	};
+
+	const handleUpdateEditData = (field: string, value: string | number | Tag[]) => {
 		if (field === 'ioc_tags') {
 			if (Array.isArray(value)) {
-				// Store the Tag objects for later use
 				currentTags = [...value];
-				// Convert tag array to string format for the API
-				editData.ioc_tags = value.map(tag => tag.tag_title).join(',');
-				console.log('Updated tags array:', currentTags);
-				console.log('Updated ioc_tags string:', editData.ioc_tags);
+				editData.ioc_tags = tagsToString(value);
 			} else if (typeof value === 'string') {
-				// If we received a string, normalize it to tags and then back to a string
-				currentTags = tagsStore.stringToTags(value);
+				currentTags = stringToTags(value);
 				editData.ioc_tags = value;
-				console.log('Updated tags from string:', currentTags);
 			}
-		} else {
-			// Handle other fields normally
-			editData[field] = value;
-		}
-	}
-	
-	function startEditing() {
-		if (!displayIocData) {
-			console.error('Ioc data not available');
+
 			return;
 		}
-		
-		// Initialize currentTags from ioc_tags if it exists
-		if (displayIocData.ioc_tags) {
-			currentTags = tagsStore.normalizeTags(displayIocData.ioc_tags);
-		} else {
-			currentTags = [];
+
+		if (field === 'ioc_value' && typeof value === 'string') {
+			editData.ioc_value = value;
+			return;
 		}
-		
-		// Initialize edit data with current values
-		editData = {
-			ioc_value: displayIocData.ioc_value,
-			ioc_description: displayIocData.ioc_description || '',
-			ioc_type_id: displayIocData.ioc_type?.type_id,
-			ioc_tlp_id: displayIocData.ioc_tlp_id,
-			ioc_tags: displayIocData.ioc_tags || '' 
-		};
-		
+
+		if (field === 'ioc_description' && typeof value === 'string') {
+			editData.ioc_description = value;
+			return;
+		}
+
+		if (field === 'ioc_type_id') {
+			editData.ioc_type_id = typeof value === 'number' ? value : undefined;
+			return;
+		}
+
+		if (field === 'ioc_tlp_id') {
+			editData.ioc_tlp_id = typeof value === 'number' ? value : undefined;
+		}
+	};
+
+	const startEditing = () => {
+		if (!ioc) return;
+
+		syncTagsFromIoc(ioc);
+		resetEditData(ioc);
 		isEditing = true;
-	}
-	
-	function cancelEditing() {
-		isEditing = false;
-		// Reset currentTags to match the original ioc
-		if (displayIocData?.ioc_tags) {
-			currentTags = tagsStore.normalizeTags(displayIocData.ioc_tags);
-		} else {
-			currentTags = [];
+	};
+
+	const cancelEditing = () => {
+		if (ioc) {
+			syncTagsFromIoc(ioc);
+			resetEditData(ioc);
 		}
-	}
-	
-	async function saveChanges() {
-		if (!displayIocData) return;
-		
+
+		isEditing = false;
+	};
+
+	const saveChanges = async () => {
+		if (!ioc) return;
+
 		isSaving = true;
-		
+
 		try {
-			const iocId = displayIocData.ioc_id.toString();
-			
-			// Ensure ioc_tags is up to date with currentTags
-			if (currentTags.length > 0) {
-				editData.ioc_tags = currentTags.map(tag => tag.tag_title).join(',');
-			}
-			
-			// Create a complete updated ioc object
-			const updatedIocData = {
-				...displayIocData,  // Start with all existing data
-				...editData,          // Apply our edits
-				date_update: new Date().toISOString()
-			};
-			
-			// If we're updating the ioc type, make sure the objects are preserved
-			if (editData.ioc_type_id && displayIocData.ioc_type) {
-				const iocType = $iocTypes.find(t => t.type_id === editData.ioc_type_id);
-				if (iocType) {
-					updatedIocData.ioc_type = iocType;
-				}
-			}
-			
-			if (editData.analysis_status_id && displayIocData.analysis_status) {
-				const analysisStatus = $analysisStatuses.find(s => s.id === editData.analysis_status_id);
-				if (analysisStatus) {
-					updatedIocData.analysis_status = analysisStatus;
-				}
-			}
-			
-			// Ensure tags are properly set in the updated ioc data
-			updatedIocData.ioc_tags = editData.ioc_tags;
-			updatedIocData.tags = currentTags;
-			
-			// Create a payload with only the fields we want to update
-			const updatePayload = {
+			const payload: UpdateCaseIocBody = {
 				ioc_value: editData.ioc_value,
 				ioc_description: editData.ioc_description,
 				ioc_type_id: editData.ioc_type_id,
-                ioc_tlp_id: editData.ioc_tlp_id,
-				ioc_tags: editData.ioc_tags  
+				ioc_tlp_id: editData.ioc_tlp_id,
+				ioc_tags: tagsToString(currentTags)
 			};
-						
-			// Send the update to the API
-			const response = await IocService.updateIoc(
-				data.caseId, 
-				iocId, 
-				updatePayload  // Send our explicit payload
-			);
 
-			if (!response.ok) {
-				throw new Error(response.data?.message || `Unknown error. ${response.status}`);
+			const updated = await caseIocs.patchIoc(iocId, payload, { fetch });
+
+			if (!updated) {
+				throw new Error('Failed to update IOC');
 			}
-			
-			// If we got a response, use it to update our data
-			if (response?.data) {
-				// Merge the response data with our updated data to ensure we have everything
-				Object.assign(updatedIocData, response.data);
-				
-				// Make sure tags are preserved even if the API response doesn't include them
-				if (!response.data.ioc_tags && editData.ioc_tags) {
-					updatedIocData.ioc_tags = editData.ioc_tags;
-				}
-				if (!response.data.tags && currentTags.length > 0) {
-					updatedIocData.tags = currentTags;
-				}
-			}
-			
-			// Update the local display data
-			displayIocData = updatedIocData;
-			
-			// Update the ioc in the store with the complete ioc object
-			console.log('Updating ioc in store from page:', iocId, updatedIocData);
-			iocsStore.updateIoc(iocId, updatedIocData);
-			
-			toast({
-				title: "Ioc updated",
-				description: "Ioc details have been successfully updated.",
-				variant: "success"
-			});
-			
+
+			syncTagsFromIoc(updated);
 			isEditing = false;
-		} catch (error) {
-			console.error('Error updating ioc:', error);
+
 			toast({
-				title: "Update failed",
-				description: `There was a problem updating the ioc details.${error.message ? ` Error: ${error.message}` : ''}`,
-				variant: "destructive"
+				title: 'IOC updated',
+				description: 'IOC details have been successfully updated.',
+				variant: 'success'
+			});
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Unknown error';
+
+			toast({
+				title: 'Update failed',
+				description: `There was a problem updating the IOC. Error: ${message}`,
+				variant: 'destructive'
 			});
 		} finally {
 			isSaving = false;
 		}
-	}
+	};
 
-	function handleAssetDeleted() {
-		const assetName = displayIocData?.ioc_value || 'Unknown';
-		const iocId = displayIocData!.ioc_id.toString();
-		
-		iocsStore.removeIoc(iocId); // Remove from local store for immediate UI update if any part of this page relies on it
-		
-		// Navigate first
-		goto(ENDPOINTS.case.ioc.list(data.caseId), { replaceState: true }).then(() => {
-			// Then trigger a list refresh via the store
-			iocsStore.triggerListRefresh();
-		});
-	}
-	
+	const handleIocDeleted = async () => {
+		const removed = await caseIocs.removeIoc(iocId, { fetch });
+
+		await goto(`/case/${caseId}/iocs`, { replaceState: true });
+	};
+
+	$effect(() => {
+		void caseId;
+		void iocId;
+
+		loadIoc();
+	});
 </script>
 
-<div class="">
-	{#if shouldShowLoading}
-		<div class="space-y-4">
-			<Card class="border-0 shadow-lg overflow-hidden">
-				<Skeleton class="h-12 w-48 rounded-lg"></Skeleton>
-			</Card>
-			<Card>
-				<CardContent class="p-8">
-					<div class="flex items-center gap-4 mb-6">
-						<Skeleton class="h-10 w-10 rounded-full"></Skeleton>
-						<Skeleton class="h-8 w-64"></Skeleton>
+{#if isLoading && !ioc}
+	<Card class="overflow-hidden border shadow-lg">
+		<CardContent class="p-8">
+			<div class="mb-6 flex items-center gap-4">
+				<Skeleton class="h-10 w-10 rounded-full"></Skeleton>
+				<Skeleton class="h-8 w-64"></Skeleton>
+			</div>
+
+			<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+				{#each Array(9)}
+					<div class="space-y-2">
+						<Skeleton class="h-4 w-24"></Skeleton>
+						<Skeleton class="h-6 w-full"></Skeleton>
 					</div>
-					<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-						{#each Array(12) as _}
-							<div class="space-y-2">
-								<Skeleton class="h-4 w-24"></Skeleton>
-								<Skeleton class="h-6 w-full"></Skeleton>
-							</div>
-						{/each}
+				{/each}
+			</div>
+		</CardContent>
+	</Card>
+{:else if loadError}
+	<div in:fade>
+		<ErrorAlert>
+			<div class="flex items-center gap-2">
+				<AlertTriangleIcon class="h-5 w-5" />
+				<span>There was a problem loading IOC #{iocId}!</span>
+			</div>
+		</ErrorAlert>
+	</div>
+{:else if ioc?.ioc_id}
+	<div in:fade={{ duration: 150 }} class="flex h-full min-h-0 flex-col">
+		<div class="flex h-full min-h-0 flex-col overflow-hidden">
+			<div class="flex min-h-0 flex-1 flex-col bg-background p-0">
+				<Tabs bind:value={activeTab} class="flex min-h-0 flex-1 flex-col">
+					<div class="shrink-0 border-b bg-muted/20">
+						<TabsList class="h-auto w-full rounded-none border-0 bg-transparent p-0">
+							<TabsTrigger
+								value="details"
+								class="flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+							>
+								<InfoIcon class="h-4 w-4" />
+								<span>Details</span>
+							</TabsTrigger>
+
+							<TabsTrigger
+								value="history"
+								class="flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+							>
+								<HistoryIcon class="h-4 w-4" />
+								<span>History</span>
+							</TabsTrigger>
+
+							<TabsTrigger
+								value="comments"
+								class="relative flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+							>
+								<MessagesSquareIcon class="mr-1 h-4 w-4" />
+								<span>Comments</span>
+
+								{#if comments?.length}
+									<span
+										class="absolute left-8 top-3 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-2xs text-white"
+									>
+										{comments.length}
+									</span>
+								{/if}
+							</TabsTrigger>
+						</TabsList>
 					</div>
-				</CardContent>
-			</Card>
-		</div>
-	{:else if hasError}
-		<div in:fade>
-			<ErrorAlert>
-				<div class="flex items-center gap-2">
-					<AlertTriangleIcon class="h-5 w-5" />
-					<span>There was a problem loading ioc #{data.iocId}!</span>
-				</div>
-			</ErrorAlert>
-		</div>
-	{:else if displayIocData?.ioc_id}
-		<div in:fade={{ duration: 150 }}>
-			<ScrollArea class="h-[calc(100vh-220px)]">
-				<div class="shadow-md overflow-hidden">
-					<CardContent class="p-0 bg-background">
-						<Tabs bind:value={activeTab} class="w-full">
-							<div class="border-b">
-								<TabsList class="p-0 h-auto bg-transparent border-0 w-full rounded-none">
-									<TabsTrigger 
-										value="details" 
-										class="flex items-center gap-2 py-4 px-6 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-									>
-										<InfoIcon class="h-4 w-4" />
-										<span>Details</span>
-									</TabsTrigger>
-									<TabsTrigger 
-										value="alerts" 
-										class="flex items-center gap-2 py-4 px-6 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-									>
-										<AlertTriangleIcon class="h-4 w-4" />
-										<span>Alerts</span>
-									</TabsTrigger>
-									<TabsTrigger 
-										value="graph" 
-										class="flex items-center gap-2 py-4 px-6 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-									>
-										<CalendarRange class="h-4 w-4" />
-										<span>Timeline</span>
-									</TabsTrigger>
-									<TabsTrigger 
-										value="history" 
-										class="flex items-center gap-2 py-4 px-6 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-									>
-										<HistoryIcon class="h-4 w-4" />
-										<span>History</span>
-									</TabsTrigger>
-								</TabsList>
-							</div>
-							
-							<div class="p-6">
-								<TabsContent value="details">
-									<DetailsTab 
-										ioc={displayIocData}
-										isEditing={isEditing}
-										editData={editData}
-										onUpdateEditData={handleUpdateEditData}
-										currentTags={currentTags}
-										onIocChange={handleIocChange}
-										onStartEditing={startEditing}
-										onCancelEditing={cancelEditing}
-										onSaveChanges={saveChanges}
-										onDeleteIoc={handleAssetDeleted}
-										isSaving={isSaving}
-										deleteUrl={ENDPOINTS.case.ioc.delete(data.caseId, displayIocData.ioc_id.toString())}
-									/>
-								</TabsContent>
-								<TabsContent value="history">
-									<HistoryTab ioc={displayIocData} />
-								</TabsContent>
-							</div>
-						</Tabs>
-					</CardContent>
-				</div>
-				<div class="py-6 px-2">
-					<div class="flex flex-col md:flex-row items-start md:items-center gap-4">
-						<div class="flex-grow text-xs">
-							<p class="text-muted-foreground">ID #{displayIocData.ioc_id || 'Unknown ID'} - UUID #{displayIocData.ioc_uuid || 'Unknown ID'}</p>
-						</div>
+
+					<div class="min-h-0 flex-1 overflow-y-auto p-6">
+						<TabsContent value="details">
+							<DetailsTab
+								{ioc}
+								{isEditing}
+								{editData}
+								onUpdateEditData={handleUpdateEditData}
+								{currentTags}
+								onIocChange={handleIocChange}
+								onStartEditing={startEditing}
+								onCancelEditing={cancelEditing}
+								onSaveChanges={saveChanges}
+								onDeleteIoc={handleIocDeleted}
+								{isSaving}
+								deleteUrl={`/api/v2/cases/${caseId}/iocs/${ioc.ioc_id}`}
+							/>
+						</TabsContent>
+
+						<TabsContent value="history">
+							<HistoryTab {ioc} />
+						</TabsContent>
+
+						<TabsContent value="comments">
+							<CommentsTab {ioc} onRefresh={() => loadComments()} />
+						</TabsContent>
 					</div>
+				</Tabs>
+			</div>
+
+			<div class="shrink-0 border-t bg-muted/30 px-6 py-4">
+				<div class="text-xs text-muted-foreground">
+					ID #{ioc.ioc_id || 'Unknown ID'} - UUID #{ioc.ioc_uuid || 'Unknown ID'}
 				</div>
-			</ScrollArea>
+			</div>
 		</div>
-	{:else if isLoading && !shouldShowLoading}
-		<!-- Invisible placeholder while loading but not showing loading UI -->
-		<div class="invisible">
-			<Card class="border-0 shadow-lg overflow-hidden">
-				<div class="p-4 h-[68px]"></div>
-			</Card>
-		</div>
-	{:else if !isLoading && !displayIocData?.ioc_id}
-		<!-- Ioc not found or not loaded -->
-		<div in:fade class="flex flex-col items-center justify-center h-[calc(100vh-200px)] text-center">
-			<SearchIcon class="h-16 w-16 text-muted-foreground/50 mb-4" />
-			<h2 class="text-xl font-semibold text-muted-foreground mb-2">Ioc Not Found</h2>
-			<p class="text-muted-foreground">
-				The ioc with ID #{data.ioc_id} could not be found or loaded.
-			</p>
-			<p class="text-muted-foreground mt-1">
-				Please select an ioc from the list on the left, or try refreshing the page.
-			</p>
-			<Button variant="outline" class="mt-6" onclick={() => goto(ENDPOINTS.case.ioc.list(data.caseId), { replaceState: true })}>
-				Go to Assets List
-			</Button>
-		</div>
-	{/if}
-</div>
+	</div>
+{:else}
+	<div in:fade class="flex h-full flex-col items-center justify-center text-center">
+		<SearchIcon class="mb-4 h-16 w-16 text-muted-foreground/50" />
+		<h2 class="mb-2 text-xl font-semibold text-muted-foreground">IOC Not Found</h2>
+		<p class="text-muted-foreground">The IOC with ID #{iocId} could not be found or loaded.</p>
+		<p class="mt-1 text-muted-foreground">
+			Please select an IOC from the list on the left, or try refreshing the page.
+		</p>
+
+		<Button
+			variant="outline"
+			class="mt-6"
+			onclick={() => goto(`/case/${caseId}/ioc`, { replaceState: true })}
+		>
+			Go to IOC List
+		</Button>
+	</div>
+{/if}
