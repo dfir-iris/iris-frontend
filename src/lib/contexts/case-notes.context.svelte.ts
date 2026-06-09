@@ -180,12 +180,20 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 		tree: NoteFolder[];
 		noteIds: number[];
 		directoryIds: number[];
+		searchResultIds: number[];
+		searchTerm: string;
+		searchStatus: Status;
+		searchError: string | null;
 		status: Status;
 		error: string | null;
 	}>({
 		tree: [],
 		noteIds: [],
 		directoryIds: [],
+		searchResultIds: [],
+		searchTerm: '',
+		searchStatus: 'idle',
+		searchError: null,
 		status: 'idle',
 		error: null
 	});
@@ -335,6 +343,45 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 		}
 
 		return null;
+	};
+
+	const searchNotes = async (term: string, options: ApiOptions = {}): Promise<Note[]> => {
+		const caseId = getCaseId();
+		const trimmed = term.trim();
+
+		list.searchTerm = trimmed;
+
+		if (caseId === null || trimmed.length === 0) {
+			list.searchResultIds = [];
+			list.searchStatus = 'idle';
+			list.searchError = null;
+			return [];
+		}
+
+		list.searchStatus = 'loading';
+		list.searchError = null;
+
+		const res = await CaseNotesService.searchNotes(caseId, trimmed, options);
+
+		if (!res.ok || res.error || res.data === null || typeof res.data === 'string') {
+			list.searchStatus = 'error';
+			list.searchError = res.error?.message ?? 'Failed to search notes';
+			list.searchResultIds = [];
+			return [];
+		}
+
+		const items = res.data;
+		const resultIds: number[] = [];
+
+		for (const note of items) {
+			const id = getNoteId(note);
+			byId[id] = { ...(byId[id] ?? {}), ...note };
+			resultIds.push(id);
+		}
+
+		list.searchResultIds = resultIds;
+		list.searchStatus = 'idle';
+		return items;
 	};
 
 	const createNote = async (
@@ -507,6 +554,10 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 		list.tree = [];
 		list.noteIds = [];
 		list.directoryIds = [];
+		list.searchResultIds = [];
+		list.searchTerm = '';
+		list.searchStatus = 'idle';
+		list.searchError = null;
 		list.status = 'idle';
 		list.error = null;
 
@@ -529,6 +580,7 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 		refresh,
 		getNote,
 		ensureSelectedLoaded,
+		searchNotes,
 		createNote,
 		patchNote,
 		removeNote,

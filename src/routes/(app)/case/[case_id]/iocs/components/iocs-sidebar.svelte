@@ -357,7 +357,12 @@
 				caseId={page.params.case_id}
 				tablePage={caseIocs.list.currentPage}
 				totalPages={caseIocs.list.lastPage}
+				perPage={caseIocs.list.params.per_page}
 				on:pageChange={(e) => refreshIocs(e.detail.page)}
+				on:pageSizeChange={(e) => {
+					caseIocs.list.params.per_page = e.detail.pageSize;
+					refreshIocs(1);
+				}}
 			/>
 		{:else}
 			<div class="flex h-full min-h-0 flex-col gap-3 overflow-y-auto">

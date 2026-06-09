@@ -22,6 +22,7 @@
 		page?: number;
 		pageSize?: number;
 		totalPages?: number;
+		pageSizeOptions?: number[];
 	};
 
 	let {
@@ -30,8 +31,9 @@
 		class: className = '',
 		tableClass = 'w-full table-auto text-xs',
 		page = $bindable(),
-		pageSize = 10,
-		totalPages: totalPagesProp
+		pageSize = $bindable(10),
+		totalPages: totalPagesProp,
+		pageSizeOptions = [10, 25, 50, 100]
 	}: Props<unknown> = $props();
 
 	if (page === undefined) page = 1;
@@ -292,8 +294,27 @@
 		</tbody>
 	</table>
 
-	{#if totalPages > 1}
-		<div class="mt-2 flex items-center justify-end gap-1.5 pt-1">
+	<div class="mt-2 flex items-center justify-end gap-3 pt-1">
+		<label class="flex items-center gap-1.5 text-xs text-muted-foreground">
+			<span>Rows</span>
+			<select
+				class="h-7 rounded-md border border-border/50 bg-background px-1.5 text-xs focus:border-ring focus:outline-none"
+				value={pageSize}
+				onchange={(e) => {
+					const next = Number((e.currentTarget as HTMLSelectElement).value);
+					if (Number.isFinite(next) && next > 0) {
+						pageSize = next;
+						page = 1;
+					}
+				}}
+			>
+				{#each pageSizeOptions as opt (opt)}
+					<option value={opt}>{opt}</option>
+				{/each}
+			</select>
+		</label>
+
+		<div class="flex items-center gap-1.5">
 			<button
 				class="rounded-md border border-border/50 p-1 text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
 				disabled={clampedPage <= 1}
@@ -312,5 +333,5 @@
 				<ChevronRightIcon class="size-3.5" />
 			</button>
 		</div>
-	{/if}
+	</div>
 </div>

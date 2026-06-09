@@ -12,14 +12,30 @@
 	export let className: string = '';
 	export let totalPages: number | null = null;
 	export let tablePage: number | null = null;
+	export let perPage: number = 10;
 
 	const dispatch = createEventDispatcher();
 
 	let currentPage: number = (tablePage ?? $page.data.iocs?.current_page) || 1;
 	let prevPage = currentPage;
+	$: if (tablePage != null && tablePage !== currentPage) {
+		currentPage = tablePage;
+		prevPage = tablePage;
+	}
 	$: if (currentPage !== prevPage) {
 		prevPage = currentPage;
-		dispatch('pageChange', currentPage);
+		dispatch('pageChange', { page: currentPage });
+	}
+
+	let currentPageSize: number = perPage;
+	let prevPageSize = currentPageSize;
+	$: if (perPage !== currentPageSize && perPage !== prevPageSize) {
+		currentPageSize = perPage;
+		prevPageSize = perPage;
+	}
+	$: if (currentPageSize !== prevPageSize) {
+		prevPageSize = currentPageSize;
+		dispatch('pageSizeChange', { pageSize: currentPageSize });
 	}
 
 	const columns: ColumnDef<Ioc>[] = [
@@ -68,6 +84,7 @@
 			tableClass="w-full table-fixed text-xs"
 			data={iocs}
 			bind:page={currentPage}
+			bind:pageSize={currentPageSize}
 			totalPages={totalPages ?? undefined}
 		/>
 	{/if}

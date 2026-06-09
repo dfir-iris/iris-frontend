@@ -9,12 +9,34 @@
 	export let className: string = '';
 	export let totalPages: number | null = null;
 	export let tablePage: number | null = null;
+	export let perPage: number = 10;
 
 	import { page } from '$app/stores';
 
-	// Re-dispatch events so parent layouts can react
 	import { createEventDispatcher } from 'svelte';
 	const dispatch = createEventDispatcher();
+
+	let currentPage: number = (tablePage ?? $page.data.assets?.current_page) || 1;
+	let prevPage = currentPage;
+	$: if (tablePage != null && tablePage !== currentPage) {
+		currentPage = tablePage;
+		prevPage = tablePage;
+	}
+	$: if (currentPage !== prevPage) {
+		prevPage = currentPage;
+		dispatch('pageChange', { page: currentPage });
+	}
+
+	let currentPageSize: number = perPage;
+	let prevPageSize = currentPageSize;
+	$: if (perPage !== currentPageSize && perPage !== prevPageSize) {
+		currentPageSize = perPage;
+		prevPageSize = perPage;
+	}
+	$: if (currentPageSize !== prevPageSize) {
+		prevPageSize = currentPageSize;
+		dispatch('pageSizeChange', { pageSize: currentPageSize });
+	}
 
 	const columns: ColumnDef<Asset>[] = [
 		{
@@ -57,9 +79,9 @@
 		<DataTable
 			{columns}
 			data={assets}
-			page={(tablePage ?? $page.data.assets?.current_page) || 1}
-			{totalPages}
-			on:pageChange={(e) => dispatch('pageChange', e.detail)}
+			bind:page={currentPage}
+			bind:pageSize={currentPageSize}
+			totalPages={totalPages ?? undefined}
 		></DataTable>
 	{/if}
 </div>

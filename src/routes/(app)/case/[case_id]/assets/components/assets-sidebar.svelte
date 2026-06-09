@@ -287,7 +287,12 @@
 				caseId={page.params.case_id}
 				tablePage={caseAssets.list.currentPage}
 				totalPages={caseAssets.list.lastPage}
+				perPage={caseAssets.list.params.per_page}
 				on:pageChange={(e) => refreshAssets(e.detail.page)}
+				on:pageSizeChange={(e) => {
+					caseAssets.list.params.per_page = e.detail.pageSize;
+					refreshAssets(1);
+				}}
 			/>
 		{:else}
 			<div class="flex h-full min-h-0 flex-col gap-3 overflow-y-auto">

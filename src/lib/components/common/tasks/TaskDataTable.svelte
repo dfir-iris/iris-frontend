@@ -13,8 +13,31 @@
 	export let className: string = '';
 	export let totalPages: number | null = null;
 	export let tablePage: number | null = null;
+	export let perPage: number = 10;
 
 	const dispatch = createEventDispatcher();
+
+	let currentPage: number = (tablePage ?? $page.data.tasks?.current_page) || 1;
+	let prevPage = currentPage;
+	$: if (tablePage != null && tablePage !== currentPage) {
+		currentPage = tablePage;
+		prevPage = tablePage;
+	}
+	$: if (currentPage !== prevPage) {
+		prevPage = currentPage;
+		dispatch('pageChange', { page: currentPage });
+	}
+
+	let currentPageSize: number = perPage;
+	let prevPageSize = currentPageSize;
+	$: if (perPage !== currentPageSize && perPage !== prevPageSize) {
+		currentPageSize = perPage;
+		prevPageSize = perPage;
+	}
+	$: if (currentPageSize !== prevPageSize) {
+		prevPageSize = currentPageSize;
+		dispatch('pageSizeChange', { pageSize: currentPageSize });
+	}
 
 	const columns: ColumnDef<Task>[] = [
 		{
@@ -67,9 +90,9 @@
 		<DataTable
 			{columns}
 			data={tasks}
-			page={(tablePage ?? $page.data.tasks?.current_page) || 1}
-			{totalPages}
-			on:pageChange={(e) => dispatch('pageChange', e.detail)}
+			bind:page={currentPage}
+			bind:pageSize={currentPageSize}
+			totalPages={totalPages ?? undefined}
 		></DataTable>
 	{/if}
 </div>

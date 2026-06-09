@@ -55,6 +55,18 @@ export class CaseNotesService {
 		return ApiService.get<Note[]>(path, options);
 	}
 
+	static async searchNotes(
+		caseId: number,
+		searchInput: string,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<Note[]>> {
+		const path = ApiService.withQuery(`/api/v2/cases/${caseId}/notes/search`, {
+			search_input: searchInput
+		});
+
+		return ApiService.get<Note[]>(path, options);
+	}
+
 	static async getDirectory(
 		caseId: number,
 		directoryId: NoteDirectoryIdentifier,

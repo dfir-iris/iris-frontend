@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { setContext, type Snippet, onDestroy } from 'svelte';
-	import { FilePlusIcon, FolderPlusIcon } from 'lucide-svelte';
+	import { FilePlusIcon, FolderPlusIcon, FileText, SearchIcon, XIcon } from 'lucide-svelte';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { toast } from '$lib/stores/toast.store';
 	import { Button } from '$lib/components/ui/button';
@@ -35,6 +36,45 @@
 
 	let dragItem = $state<DragItem | null>(null);
 	let dragOverFolderId = $state<number | null>(null);
+
+	let searchTerm = $state('');
+	let searchDebounceTimer: number | undefined;
+
+	const searchResults = $derived(
+		notes.list.searchResultIds
+			.map((id) => notes.byId[id])
+			.filter((n): n is NonNullable<typeof n> => !!n)
+	);
+
+	const folderNameById = $derived.by(() => {
+		const out: Record<number, string> = {};
+		for (const id of notes.list.directoryIds) {
+			const folder = notes.foldersById[id];
+			if (folder) out[id] = folder.name;
+		}
+		return out;
+	});
+
+	$effect(() => {
+		const term = searchTerm;
+
+		clearTimeout(searchDebounceTimer);
+
+		searchDebounceTimer = window.setTimeout(() => {
+			notes.searchNotes(term);
+		}, 250);
+	});
+
+	const clearSearch = () => {
+		searchTerm = '';
+		notes.searchNotes('');
+	};
+
+	const openSearchResult = (noteId: number, directoryId?: number) => {
+		if (directoryId !== undefined) notes.selectFolder(directoryId);
+		notes.selectNote(noteId);
+		goto(getNoteUrl(noteId));
+	};
 
 	let contextMenu = $state<ContextMenu>({
 		open: false,
@@ -245,8 +285,74 @@
 				</Button>
 			</div>
 
+			<div class="px-3 pb-2">
+				<div class="relative">
+					<SearchIcon
+						class="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+					/>
+					<input
+						type="text"
+						placeholder="Search notes…"
+						bind:value={searchTerm}
+						class="h-8 w-full rounded-md border border-border/50 bg-background pl-7 pr-7 text-xs focus:border-ring focus:outline-none"
+					/>
+					{#if searchTerm}
+						<button
+							type="button"
+							aria-label="Clear search"
+							class="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+							onclick={clearSearch}
+						>
+							<XIcon class="size-3.5" />
+						</button>
+					{/if}
+				</div>
+			</div>
+
 			<div class="notes-tree-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-4">
-				{#if notes.list.status === 'loading' && notes.list.tree.length === 0}
+				{#if notes.list.searchTerm}
+					{#if notes.list.searchStatus === 'loading'}
+						<div class="space-y-2 px-2">
+							<Skeleton class="h-7 w-full" />
+							<Skeleton class="h-7 w-full" />
+						</div>
+					{:else if notes.list.searchError}
+						<div class="px-2 py-2 text-sm text-destructive">{notes.list.searchError}</div>
+					{:else if searchResults.length === 0}
+						<div class="px-2 py-4 text-center text-xs text-muted-foreground">
+							No notes match “{notes.list.searchTerm}”
+						</div>
+					{:else}
+						<ul class="space-y-0.5">
+							{#each searchResults as note (note.note_id)}
+								{@const folderName =
+									note.directory_id !== undefined ? folderNameById[note.directory_id] : undefined}
+								<li>
+									<button
+										type="button"
+										class="group flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted/60 {notes
+											.ui.selectedNoteId === note.note_id
+											? 'bg-muted/80 font-medium'
+											: ''}"
+										onclick={() => openSearchResult(note.note_id, note.directory_id)}
+									>
+										<FileText
+											class="mt-0.5 size-3.5 shrink-0 text-muted-foreground group-hover:text-foreground"
+										/>
+										<span class="min-w-0 flex-1">
+											<span class="block truncate">{note.note_title || 'Untitled note'}</span>
+											{#if folderName}
+												<span class="block truncate text-[10px] text-muted-foreground"
+													>in {folderName}</span
+												>
+											{/if}
+										</span>
+									</button>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				{:else if notes.list.status === 'loading' && notes.list.tree.length === 0}
 					<div class="space-y-2 px-2">
 						<Skeleton class="h-7 w-full" />
 						<Skeleton class="h-7 w-full" />

@@ -53,6 +53,67 @@
 	let formattedDate = $state('');
 	let isClosed = $state(false);
 
+	let tagsContainerEl = $state<HTMLDivElement | null>(null);
+	let visibleTagCount = $state(0);
+
+	const measureVisibleTags = () => {
+		const el = tagsContainerEl;
+		const total = caseData?.tags?.length ?? 0;
+
+		if (!el || total === 0) {
+			visibleTagCount = total;
+			return;
+		}
+
+		const containerWidth = el.clientWidth;
+		const gapPx = 4;
+		const overflowChipPx = 36;
+
+		const tagChips = Array.from(
+			el.querySelectorAll<HTMLElement>('[data-tag-chip]')
+		);
+
+		let used = 0;
+		let fit = 0;
+
+		for (let i = 0; i < tagChips.length; i++) {
+			const chip = tagChips[i];
+
+			const prevHidden = chip.classList.contains('hidden');
+			if (prevHidden) chip.classList.remove('hidden');
+			const chipWidth = chip.scrollWidth;
+			if (prevHidden) chip.classList.add('hidden');
+
+			const remaining = total - (fit + 1);
+			const reserve = remaining > 0 ? overflowChipPx + gapPx : 0;
+			const additional = (fit > 0 ? gapPx : 0) + chipWidth + reserve;
+
+			if (used + additional <= containerWidth) {
+				used += (fit > 0 ? gapPx : 0) + chipWidth;
+				fit += 1;
+			} else {
+				break;
+			}
+		}
+
+		visibleTagCount = fit;
+	};
+
+	$effect(() => {
+		void caseData?.tags;
+
+		if (!tagsContainerEl) {
+			visibleTagCount = caseData?.tags?.length ?? 0;
+			return;
+		}
+
+		const ro = new ResizeObserver(() => measureVisibleTags());
+		ro.observe(tagsContainerEl);
+		measureVisibleTags();
+
+		return () => ro.disconnect();
+	});
+
 	let icon = $state<IconState>({
 		Icon: Shield,
 		iconColor: 'text-blue-500',
@@ -255,28 +316,47 @@
 		</div>
 	</div>
 
-	<!-- Tags: only on xl+ to avoid crowding the right cluster. -->
+	<!-- Tags: show as many as fit, collapse the rest into a clickable +N popover. -->
 	{#if caseData?.tags?.length}
-		<div class="hidden items-center gap-1 xl:flex">
-			{#each caseData.tags.slice(0, 2) as tag}
+		{@const totalTags = caseData.tags.length}
+		<div
+			bind:this={tagsContainerEl}
+			class="hidden min-w-0 flex-1 items-center justify-end gap-1 overflow-hidden md:flex"
+		>
+			{#each caseData.tags as tag, i}
 				<div
-					class="flex items-center gap-1 rounded-full border bg-muted/50 px-2 py-0.5 text-2xs"
+					data-tag-chip
+					class="flex shrink-0 items-center gap-1 rounded-full border bg-muted/50 px-2 py-0.5 text-2xs"
+					class:hidden={i >= visibleTagCount}
 				>
 					<Tag size={10} class="opacity-70" />
 					<span class="max-w-[8rem] truncate">{tag.tag_title}</span>
 				</div>
 			{/each}
 
-			{#if caseData.tags.length > 2}
-				<div
-					class="rounded-full border bg-muted/50 px-2 py-0.5 text-2xs text-muted-foreground"
-					title={caseData.tags
-						.slice(2)
-						.map((t) => t.tag_title)
-						.join(', ')}
-				>
-					+{caseData.tags.length - 2}
-				</div>
+			{#if visibleTagCount < totalTags}
+				<Popover.Root>
+					<Popover.Trigger>
+						<div
+							class="shrink-0 cursor-pointer rounded-full border bg-muted/50 px-2 py-0.5 text-2xs text-muted-foreground transition-colors hover:bg-muted"
+						>
+							+{totalTags - visibleTagCount}
+						</div>
+					</Popover.Trigger>
+					<Popover.Content align="start" class="w-64 p-3">
+						<div class="mb-2 text-xs font-semibold">Tags</div>
+						<div class="flex flex-wrap gap-1">
+							{#each caseData.tags as tag}
+								<div
+									class="flex items-center gap-1 rounded-full border bg-muted/50 px-2 py-0.5 text-2xs"
+								>
+									<Tag size={10} class="opacity-70" />
+									<span class="max-w-[10rem] truncate">{tag.tag_title}</span>
+								</div>
+							{/each}
+						</div>
+					</Popover.Content>
+				</Popover.Root>
 			{/if}
 		</div>
 	{/if}
