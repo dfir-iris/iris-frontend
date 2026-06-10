@@ -279,7 +279,20 @@
 			<TooltipProvider>
 				<Tooltip>
 					<TooltipTrigger>
-						<Button size="icon" variant="ghost" onclick={() => (viewMode = 'table')}>
+						<Button
+							size="icon"
+							variant="ghost"
+							onclick={() => {
+								viewMode = 'table';
+								// Card view appends pages into one growing list via
+								// infinite scroll, so list.ids may hold N pages worth
+								// of items. The table widget expects exactly one
+								// server page of data at a time, so reset before
+								// switching to avoid showing "page 6/6" with all
+								// items rendered and broken pagination.
+								refreshAssets(1);
+							}}
+						>
 							<List size={16} />
 						</Button>
 					</TooltipTrigger>
@@ -291,7 +304,14 @@
 			<TooltipProvider>
 				<Tooltip>
 					<TooltipTrigger>
-						<Button size="icon" variant="ghost" onclick={() => (viewMode = 'cards')}>
+						<Button
+							size="icon"
+							variant="ghost"
+							onclick={() => {
+								viewMode = 'cards';
+								refreshAssets(1);
+							}}
+						>
 							<Grid size={16} />
 						</Button>
 					</TooltipTrigger>

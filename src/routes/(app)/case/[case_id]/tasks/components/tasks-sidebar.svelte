@@ -214,7 +214,17 @@
 			<TooltipProvider>
 				<Tooltip>
 					<TooltipTrigger>
-						<Button size="icon" variant="ghost" onclick={() => (viewMode = 'table')}>
+						<Button
+							size="icon"
+							variant="ghost"
+							onclick={() => {
+								viewMode = 'table';
+								// See assets-sidebar: card view accumulates pages via
+								// infinite scroll; table view expects exactly one
+								// server page at a time.
+								refreshTasks(1);
+							}}
+						>
 							<List size={16} />
 						</Button>
 					</TooltipTrigger>
@@ -225,7 +235,14 @@
 			<TooltipProvider>
 				<Tooltip>
 					<TooltipTrigger>
-						<Button size="icon" variant="ghost" onclick={() => (viewMode = 'cards')}>
+						<Button
+							size="icon"
+							variant="ghost"
+							onclick={() => {
+								viewMode = 'cards';
+								refreshTasks(1);
+							}}
+						>
 							<Grid size={16} />
 						</Button>
 					</TooltipTrigger>

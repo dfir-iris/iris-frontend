@@ -17,23 +17,34 @@
 
 	const dispatch = createEventDispatcher();
 
+	// See AssetDataTable for the rationale on this two-step sync — it avoids
+	// the race where the parent's lagging tablePage snaps back the user's
+	// click before the server response arrives.
 	let currentPage: number = (tablePage ?? $page.data.tasks?.current_page) || 1;
-	let prevPage = currentPage;
-	$: if (tablePage != null && tablePage !== currentPage) {
+	let lastTablePage: number | null = tablePage ?? null;
+	$: if (tablePage != null && tablePage !== lastTablePage && tablePage !== currentPage) {
 		currentPage = tablePage;
-		prevPage = tablePage;
+		lastTablePage = tablePage;
+	} else if (tablePage != null && tablePage !== lastTablePage) {
+		lastTablePage = tablePage;
 	}
+
+	let prevPage = currentPage;
 	$: if (currentPage !== prevPage) {
 		prevPage = currentPage;
 		dispatch('pageChange', { page: currentPage });
 	}
 
 	let currentPageSize: number = perPage;
-	let prevPageSize = currentPageSize;
-	$: if (perPage !== currentPageSize && perPage !== prevPageSize) {
+	let lastPerPage = perPage;
+	$: if (perPage !== lastPerPage && perPage !== currentPageSize) {
 		currentPageSize = perPage;
-		prevPageSize = perPage;
+		lastPerPage = perPage;
+	} else if (perPage !== lastPerPage) {
+		lastPerPage = perPage;
 	}
+
+	let prevPageSize = currentPageSize;
 	$: if (currentPageSize !== prevPageSize) {
 		prevPageSize = currentPageSize;
 		dispatch('pageSizeChange', { pageSize: currentPageSize });

@@ -16,23 +16,44 @@
 	import { createEventDispatcher } from 'svelte';
 	const dispatch = createEventDispatcher();
 
+	// Page state sync. Two-way binding with the DataTable's internal page,
+	// plus dispatching `pageChange` upward so the parent can refetch.
+	//
+	// The naive reactive sync (`if tablePage !== currentPage, override`) races
+	// with the user's click: clicking ">" sets currentPage=2, but tablePage is
+	// still 1 until the server responds, so the reactive block immediately
+	// snaps currentPage back to 1 and the click appears to do nothing.
+	//
+	// Fix: track the last `tablePage` value we accepted. Only honor an external
+	// `tablePage` change when it differs from BOTH currentPage and that last
+	// acknowledged value — i.e., only when the parent genuinely pushed a new
+	// page (e.g. on view-mode reset), not when it's lagging behind our click.
 	let currentPage: number = (tablePage ?? $page.data.assets?.current_page) || 1;
-	let prevPage = currentPage;
-	$: if (tablePage != null && tablePage !== currentPage) {
+	let lastTablePage: number | null = tablePage ?? null;
+	$: if (tablePage != null && tablePage !== lastTablePage && tablePage !== currentPage) {
 		currentPage = tablePage;
-		prevPage = tablePage;
+		lastTablePage = tablePage;
+	} else if (tablePage != null && tablePage !== lastTablePage) {
+		// Parent caught up to our local value — acknowledge without overriding.
+		lastTablePage = tablePage;
 	}
+
+	let prevPage = currentPage;
 	$: if (currentPage !== prevPage) {
 		prevPage = currentPage;
 		dispatch('pageChange', { page: currentPage });
 	}
 
 	let currentPageSize: number = perPage;
-	let prevPageSize = currentPageSize;
-	$: if (perPage !== currentPageSize && perPage !== prevPageSize) {
+	let lastPerPage = perPage;
+	$: if (perPage !== lastPerPage && perPage !== currentPageSize) {
 		currentPageSize = perPage;
-		prevPageSize = perPage;
+		lastPerPage = perPage;
+	} else if (perPage !== lastPerPage) {
+		lastPerPage = perPage;
 	}
+
+	let prevPageSize = currentPageSize;
 	$: if (currentPageSize !== prevPageSize) {
 		prevPageSize = currentPageSize;
 		dispatch('pageSizeChange', { pageSize: currentPageSize });
