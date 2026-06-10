@@ -365,7 +365,7 @@
 				}}
 			/>
 		{:else}
-			<div class="flex h-full min-h-0 flex-col gap-3 overflow-y-auto">
+			<div class="flex h-full min-h-0 flex-col gap-2 overflow-y-auto pr-1">
 				{#each displayIocs as ioc (ioc.ioc_id)}
 					<div
 						role="button"

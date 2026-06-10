@@ -100,10 +100,10 @@
 <button
   type="button"
   id={`ioc-card-${ioc.ioc_id}`}
-  class="relative w-full text-left rounded-xl border p-3 text-sm transition-all duration-200 ease-in-out group {
+  class="relative w-full text-left overflow-hidden rounded-lg border p-2 text-xs transition-colors duration-150 group {
     isSelected
-      ? 'bg-primary/10 text-foreground border-primary/60 shadow-md ring-2 ring-primary/30 before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-r-full before:bg-primary'
-      : 'border-border/60 bg-card hover:border-border hover:bg-muted/40 hover:shadow-sm'
+      ? 'bg-primary/10 text-foreground border-l-4 border-l-primary border-primary/40 shadow-sm'
+      : 'border-border/60 bg-card hover:border-border hover:bg-muted/40'
   }"
   onclick={handleClick}
   aria-label={`View details for IOC ${ioc.ioc_value}`}
@@ -115,28 +115,28 @@
     <div class="flex items-center gap-2 flex-1 min-w-0">
       <div
         class={cn(
-          "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full",
+          "flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full",
           isSelected ? 'bg-primary/20' : 'bg-muted'
         )}
       >
         <IocTypeIcon
-          size={16}
+          size={12}
           class={isSelected ? 'text-primary' : 'text-muted-foreground'}
         />
       </div>
       <div class="flex-1 min-w-0">
         <div class="group/item flex items-center gap-1">
-          <code class="font-mono text-foreground/90 break-all text-sm leading-tight">
+          <code class="font-mono text-foreground/90 break-all text-xs leading-tight">
             {compact ? formatIOCValue(ioc.ioc_value, ioc.ioc_type?.type_name) : ioc.ioc_value}
           </code>
           <ClipboardCopy
             value={ioc.ioc_value}
             tooltipText="Copy IOC value"
             className="ml-1 opacity-0 group-hover/item:opacity-100 transition-opacity flex-shrink-0"
-            iconSize={14}
+            iconSize={12}
           />
         </div>
-        <div class="text-xs text-muted-foreground truncate mt-0.5" title={ioc.ioc_type?.type_name}>
+        <div class="text-2xs text-muted-foreground truncate mt-0.5" title={ioc.ioc_type?.type_name}>
           {ioc.ioc_type?.type_name || 'Unknown type'}
         </div>
       </div>
@@ -150,37 +150,37 @@
 
   <!-- Description (if available and not compact) -->
   {#if !compact && iocDescription}
-    <div class="mt-2.5 mb-1.5 bg-muted/30 rounded-md p-2 relative text-xs">
+    <div class="mt-2 mb-1 bg-muted/30 rounded-md p-1.5 relative text-2xs">
       <div class="absolute top-1 right-1">
         <ClipboardCopy
           value={iocDescription}
           tooltipText="Copy description"
           className="text-muted-foreground hover:text-primary"
-          iconSize={14}
+          iconSize={12}
         />
       </div>
       <div
         class={cn(
           "prose prose-sm max-w-none text-foreground/80 overflow-hidden transition-all duration-300 ease-in-out",
-          isDescriptionExpanded ? 'max-h-[200px] overflow-y-auto' : 'max-h-[60px]'
+          isDescriptionExpanded ? 'max-h-[160px] overflow-y-auto' : 'max-h-[48px]'
         )}
       >
         {@html parsedDescription}
       </div>
       {#if showDescriptionToggle || isDescriptionExpanded}
-        <div class="mt-1 text-right">
+        <div class="mt-0.5 text-right">
           <Button
             variant="link"
             type="button"
-            class="text-xs text-primary hover:underline p-0 h-auto"
+            class="text-2xs text-primary hover:underline p-0 h-auto"
             onclick={toggleDescription}
             aria-expanded={isDescriptionExpanded}
           >
             {isDescriptionExpanded ? 'Show less' : 'Show more'}
             {#if isDescriptionExpanded}
-              <ChevronUp size={14} class="ml-1" />
+              <ChevronUp size={12} class="ml-1" />
             {:else}
-              <ChevronDown size={14} class="ml-1" />
+              <ChevronDown size={12} class="ml-1" />
             {/if}
           </Button>
         </div>
@@ -190,7 +190,7 @@
 
   <!-- Tags (if available and not compact) -->
   {#if !compact && ioc.ioc_tags && ioc.ioc_tags.length > 0}
-    <div class="mt-2 pt-1">
+    <div class="mt-1.5">
       <TagDisplay tags={ioc.ioc_tags} size="small" />
     </div>
   {/if}

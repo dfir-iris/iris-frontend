@@ -432,18 +432,18 @@
 
 <div class="relative w-full">
 	<!-- Search container with auto-expanding height -->
-	<div class="group relative rounded-lg border border-input bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 transition-all duration-200">
-		
+	<div class="group relative rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 transition-all duration-150">
+
 		<!-- Search header with icon and input -->
-		<div class="flex items-start p-3 gap-2">
-			<SearchIcon class="h-4 w-4 shrink-0 opacity-50 mt-1" />
+		<div class="flex items-start px-2 py-1.5 gap-1.5">
+			<SearchIcon class="h-3.5 w-3.5 shrink-0 opacity-50 mt-0.5" />
 			
 			<div class="flex-1 min-w-0">
 				<!-- Condition badges - shown above input when present -->
 				{#if conditions.length > 0}
-					<div class="flex flex-wrap gap-2 mb-3">
+					<div class="flex flex-wrap gap-1.5 mb-2">
 						{#each conditions as condition, index (condition.field + condition.operator + condition.value + index)}
-							<div class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-secondary/50 hover:bg-secondary/70 rounded-md text-sm border border-secondary/50 transition-all duration-200 group/badge">
+							<div class="inline-flex items-center gap-1 px-2 py-0.5 bg-secondary/50 hover:bg-secondary/70 rounded text-xs border border-secondary/50 transition-all duration-150 group/badge">
 								{#if condition.field === '_raw'}
 									<span class="text-muted-foreground font-medium">search:</span>
 									<span class="font-medium">"{condition.value}"</span>
@@ -465,12 +465,12 @@
 				{/if}
 
 				<!-- Main input area -->
-				<div class="flex items-center min-h-[28px]">
+				<div class="flex items-center min-h-[20px]">
 					<input
 						bind:this={inputRef}
 						bind:value
 						placeholder={conditions.length > 0 ? "Add another condition..." : placeholder}
-						class="flex-1 bg-transparent outline-none placeholder:text-muted-foreground text-sm resize-none"
+						class="flex-1 bg-transparent outline-none placeholder:text-muted-foreground text-xs resize-none"
 						autocomplete="off"
 						spellcheck="false"
 						oninput={handleInputChange}
@@ -482,11 +482,11 @@
 			<!-- Clear all button -->
 			{#if conditions.length > 0 || value}
 				<button
-					class="rounded-full p-1.5 hover:bg-muted transition-colors shrink-0 mt-0.5"
+					class="rounded-full p-1 hover:bg-muted transition-colors shrink-0"
 					onclick={clearAll}
 					aria-label="Clear all"
 				>
-					<XIcon class="h-4 w-4 opacity-70 hover:opacity-100" />
+					<XIcon class="h-3.5 w-3.5 opacity-70 hover:opacity-100" />
 				</button>
 			{/if}
 		</div>

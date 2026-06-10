@@ -295,7 +295,7 @@
 				}}
 			/>
 		{:else}
-			<div class="flex h-full min-h-0 flex-col gap-3 overflow-y-auto">
+			<div class="flex h-full min-h-0 flex-col gap-2 overflow-y-auto pr-1">
 				{#each displayAssets as asset (asset.asset_id)}
 					<div
 						role="button"

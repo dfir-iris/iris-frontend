@@ -98,22 +98,22 @@
 <div
 	id={`asset-card-${asset.asset_id}`}
 	class={cn(
-		'group relative w-full rounded-xl border p-3 text-sm transition-all duration-200 ease-in-out',
+		'group relative w-full overflow-hidden rounded-lg border p-2 text-xs transition-colors duration-150',
 		isSelected
-			? 'border-primary/60 bg-primary/10 text-foreground shadow-md ring-2 ring-primary/30 before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-r-full before:bg-primary'
-			: 'border-border/60 bg-card hover:border-border hover:bg-muted/40 hover:shadow-sm'
+			? 'border-l-4 border-l-primary border-primary/40 bg-primary/10 text-foreground shadow-sm'
+			: 'border-border/60 bg-card hover:border-border hover:bg-muted/40'
 	)}
 >
-	<div class="flex items-center justify-between gap-3">
+	<div class="flex items-center justify-between gap-2">
 		<div class="flex min-w-0 flex-1 items-center gap-2">
 			<div
 				class={cn(
-					'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+					'flex h-6 w-6 shrink-0 items-center justify-center rounded-full',
 					isSelected ? 'bg-primary/20' : 'bg-muted'
 				)}
 			>
 				<AssetTypeIcon
-					size={16}
+					size={12}
 					class={cn(
 						isCompromised ? 'text-red-500' : isSelected ? 'text-primary' : 'text-muted-foreground'
 					)}
@@ -122,7 +122,7 @@
 
 			<div class="min-w-0 flex-1">
 				<div class="flex items-center gap-1">
-					<span class="truncate text-base font-semibold">{asset.asset_name}</span>
+					<span class="truncate text-sm font-semibold">{asset.asset_name}</span>
 
 					<ClipboardCopy
 						value={asset.asset_name}
@@ -131,13 +131,13 @@
 					/>
 				</div>
 
-				<div class="truncate text-xs text-muted-foreground">
+				<div class="truncate text-2xs text-muted-foreground">
 					{assetTypeName || asset.asset_type_id || 'Unknown type'}
 				</div>
 			</div>
 		</div>
 
-		<div class="ml-2 flex shrink-0 items-center gap-1">
+		<div class="ml-1 flex shrink-0 items-center gap-0.5">
 			{#if isCompromised}
 				<Badge variant="compromised">Compromised</Badge>
 			{:else if asset.asset_compromise_status_id === 2 || asset.asset_compromise_status_id === 3}
@@ -170,27 +170,27 @@
 	</div>
 
 	{#if assetDescription}
-		<div class="relative mb-2 mt-3 rounded-lg bg-muted/30 p-2">
+		<div class="relative mb-1 mt-2 rounded-md bg-muted/30 p-1.5">
 			<div class="absolute right-1 top-1">
 				<ClipboardCopy
 					value={assetDescription}
 					tooltipText="Copy"
-					className="text-xs text-muted-foreground hover:text-primary"
+					className="text-2xs text-muted-foreground hover:text-primary"
 				/>
 			</div>
 
 			<div
-				class={cn(isDescriptionExpanded ? 'max-h-64 overflow-y-auto' : 'max-h-16 overflow-hidden')}
+				class={cn(isDescriptionExpanded ? 'max-h-48 overflow-y-auto' : 'max-h-12 overflow-hidden')}
 			>
 				<MarkDownPreview markdown={assetDescription} />
 			</div>
 
 			{#if assetDescription.length > 100}
-				<div class="mt-1">
+				<div class="mt-0.5">
 					<Button
 						variant="link"
 						type="button"
-						class="h-auto p-0 text-xs text-primary hover:underline"
+						class="h-auto p-0 text-2xs text-primary hover:underline"
 						onclick={toggleDescription}
 					>
 						{isDescriptionExpanded ? 'Show less' : 'Show more'}
@@ -200,14 +200,14 @@
 		</div>
 	{/if}
 
-	<div class="mt-4">
-		<div class="flex flex-wrap items-center gap-2">
+	{#if assetIp || assetDomain || hasTags}
+		<div class="mt-2 flex flex-wrap items-center gap-1">
 			{#if assetIp}
 				<div
-					class="group inline-flex rounded-md border border-dashed px-2 py-1 font-mono text-xs transition-colors hover:bg-muted/70"
+					class="group inline-flex items-center rounded border border-dashed px-1.5 py-0.5 font-mono text-2xs transition-colors hover:bg-muted/70"
 				>
-					<Network class="mr-1 h-3 w-3 shrink-0 text-muted-foreground" />
-					<span class="max-w-[120px] truncate">{assetIp}</span>
+					<Network class="mr-1 h-2.5 w-2.5 shrink-0 text-muted-foreground" />
+					<span class="max-w-[100px] truncate">{assetIp}</span>
 					<ClipboardCopy
 						value={assetIp}
 						className="ml-1 hidden shrink-0 group-hover:inline-block"
@@ -217,10 +217,10 @@
 
 			{#if assetDomain}
 				<div
-					class="group inline-flex rounded-md border border-dashed px-2 py-1 font-mono text-xs transition-colors hover:bg-muted/70"
+					class="group inline-flex items-center rounded border border-dashed px-1.5 py-0.5 font-mono text-2xs transition-colors hover:bg-muted/70"
 				>
-					<Globe class="mr-1 h-3 w-3 shrink-0 text-muted-foreground" />
-					<span class="max-w-[120px] truncate">{assetDomain}</span>
+					<Globe class="mr-1 h-2.5 w-2.5 shrink-0 text-muted-foreground" />
+					<span class="max-w-[100px] truncate">{assetDomain}</span>
 					<ClipboardCopy
 						value={assetDomain}
 						className="ml-1 hidden shrink-0 group-hover:inline-block"
@@ -232,5 +232,5 @@
 				<TagDisplay tags={asset.asset_tags} size="default" />
 			{/if}
 		</div>
-	</div>
+	{/if}
 </div>

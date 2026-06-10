@@ -232,7 +232,7 @@
 				}}
 			/>
 		{:else}
-			<div class="flex h-full min-h-0 flex-col gap-2 overflow-y-auto">
+			<div class="flex h-full min-h-0 flex-col gap-2 overflow-y-auto pr-1">
 				{#each displayTasks as task (task.id)}
 					<div
 						role="button"

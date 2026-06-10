@@ -1,9 +1,13 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
+	import DOMPurify from 'dompurify';
+	import { converter } from './converter';
 	import {
 		BoldIcon,
+		CheckIcon,
 		CodeIcon,
 		Columns3Icon,
+		EyeIcon,
 		Heading1Icon,
 		Heading2Icon,
 		Heading3Icon,
@@ -12,6 +16,7 @@
 		LinkIcon,
 		ListIcon,
 		ListOrderedIcon,
+		PencilIcon,
 		QuoteIcon,
 		Rows3Icon,
 		StrikethroughIcon,
@@ -34,6 +39,18 @@
 	import { auth } from '$lib/stores/auth.store';
 	import { io, type Socket } from 'socket.io-client';
 	import { env } from '$env/dynamic/public';
+	import { createMentionNode } from './mention-node';
+	import { buildSuggestion } from './mentions.svelte';
+	import type { MentionItem } from './MentionList.svelte';
+	import { UsersService, type User } from '$lib/services/users.service';
+	import { CASE_ASSETS_CTX, type CaseAssetsContext } from '$lib/contexts/case-assets.context.svelte';
+	import { CASE_IOCS_CTX, type CaseIocsContext } from '$lib/contexts/case-iocs.context.svelte';
+	import { CASE_NOTES_CTX, type CaseNotesContext } from '$lib/contexts/case-notes.context.svelte';
+	import { CASE_TASKS_CTX, type CaseTasksContext } from '$lib/contexts/case-tasks.context.svelte';
+	import { getContext, mount, unmount } from 'svelte';
+	import MentionPopover, { type MentionPopoverPayload } from './MentionPopover.svelte';
+	import AssetDetailDialog from '../../../../routes/(app)/case/[case_id]/assets/[asset_id]/AssetDetailDialog.svelte';
+	import { goto } from '$app/navigation';
 
 	let {
 		value,
@@ -56,6 +73,27 @@
 		onRemoteSave?: (content: string) => void;
 		onRemoteChange?: (user: string) => void;
 	}>();
+
+	type ViewMode = 'view' | 'edit' | 'edit-preview';
+	let viewMode = $state<ViewMode>('view');
+
+	const renderedHtml = $derived(DOMPurify.sanitize(converter.makeHtml(value ?? '')));
+
+	const enterEdit = async () => {
+		if (viewMode === 'view') {
+			viewMode = 'edit';
+			await tick();
+			editor?.commands.focus();
+		}
+	};
+
+	const exitEdit = () => {
+		viewMode = 'view';
+	};
+
+	const togglePreview = () => {
+		viewMode = viewMode === 'edit' ? 'edit-preview' : 'edit';
+	};
 
 	let editorElement: HTMLDivElement;
 	let editor: Editor | null = null;
@@ -307,6 +345,426 @@
 		return false;
 	};
 
+	// --- Mentions: users (@) and assets (#) ---
+	//
+	// Users are fetched once on first trigger and reused; the user list is
+	// small (workspace members) and rarely changes during an edit session.
+	// Assets come from the case-scoped context so they stay in sync with the
+	// rest of the UI without an extra fetch.
+	const caseAssets = getContext<CaseAssetsContext | undefined>(CASE_ASSETS_CTX);
+	const caseIocs = getContext<CaseIocsContext | undefined>(CASE_IOCS_CTX);
+	const caseNotes = getContext<CaseNotesContext | undefined>(CASE_NOTES_CTX);
+	const caseTasks = getContext<CaseTasksContext | undefined>(CASE_TASKS_CTX);
+
+	let usersCache: User[] | null = null;
+	let usersPromise: Promise<User[]> | null = null;
+
+	const loadUsers = async (): Promise<User[]> => {
+		if (usersCache) return usersCache;
+		if (!usersPromise) {
+			usersPromise = (async () => {
+				// /manage/users/list returns the legacy IRIS wrapper
+				//   { status, message, data: User[] }
+				// nested inside our RequestResponse.data — same indirection every
+				// other caller in the app uses.
+				const res = await UsersService.list();
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				const inner = (res?.data as any)?.data;
+				if (Array.isArray(inner)) {
+					usersCache = inner as User[];
+					return usersCache;
+				}
+				if (Array.isArray(res?.data)) {
+					usersCache = res.data as User[];
+					return usersCache;
+				}
+				usersCache = [];
+				return [];
+			})();
+		}
+		return usersPromise;
+	};
+
+	const fuzzy = (haystack: string, needle: string) =>
+		haystack.toLowerCase().includes(needle.toLowerCase());
+
+	const fetchUserItems = async (query: string): Promise<MentionItem[]> => {
+		const users = await loadUsers();
+		const q = query.trim();
+		const filtered = q
+			? users.filter((u) => fuzzy(u.user_name, q) || fuzzy(u.user_login, q))
+			: users;
+		return filtered.slice(0, 8).map((u) => ({
+			id: u.user_id,
+			label: u.user_name,
+			sublabel: u.user_login,
+			kind: 'user' as const
+		}));
+	};
+
+	// Generic lazy-loader factory. Mention chips are usable from anywhere in
+	// the case (e.g. typing `#asset` in a note even though the assets sidebar
+	// hasn't loaded yet). When the context's cache is empty on first trigger
+	// we kick off a single fetch — subsequent triggers reuse the populated
+	// cache.
+	const makeLazyLoader = <T,>(
+		hasData: () => boolean,
+		load: () => Promise<T[] | unknown> | undefined
+	) => {
+		let pending: Promise<unknown> | null = null;
+		return async (): Promise<void> => {
+			if (hasData()) return;
+			if (!pending) {
+				try {
+					pending = Promise.resolve(load());
+				} catch {
+					pending = null;
+					return;
+				}
+			}
+			try {
+				await pending;
+			} finally {
+				pending = null;
+			}
+		};
+	};
+
+	const ensureAssetsLoaded = makeLazyLoader(
+		() => (caseAssets?.assets()?.length ?? 0) > 0,
+		() => caseAssets?.listPaginated({ per_page: 100 }, { fetch })
+	);
+
+	const ensureIocsLoaded = makeLazyLoader(
+		() => (caseIocs?.iocs()?.length ?? 0) > 0,
+		() => caseIocs?.listPaginated({ per_page: 100 }, { fetch })
+	);
+
+	const ensureNotesLoaded = makeLazyLoader(
+		() => (caseNotes?.notes()?.length ?? 0) > 0,
+		() => caseNotes?.loadTree({ fetch })
+	);
+
+	const ensureTasksLoaded = makeLazyLoader(
+		() => (caseTasks?.tasks()?.length ?? 0) > 0,
+		() => caseTasks?.listPaginated({ per_page: 100 }, { fetch })
+	);
+
+	// Unified case-object fetcher. A single `#` trigger surfaces assets,
+	// IOCs, notes, and tasks together — the suggestion list shows their kind
+	// icon next to each match so users can pick the right reference. We cap
+	// each kind at 4 hits per query so one large bucket can't crowd the
+	// others out of an 8-row dropdown.
+	const fetchCaseItems = async (query: string): Promise<MentionItem[]> => {
+		const q = query.trim();
+		await Promise.all([
+			ensureAssetsLoaded(),
+			ensureIocsLoaded(),
+			ensureNotesLoaded(),
+			ensureTasksLoaded()
+		]);
+
+		const out: MentionItem[] = [];
+		const PER_KIND = 4;
+
+		if (caseAssets) {
+			const assets = caseAssets.assets() ?? [];
+			const filtered = q ? assets.filter((a) => fuzzy(a.asset_name ?? '', q)) : assets;
+			for (const a of filtered.slice(0, PER_KIND)) {
+				out.push({
+					id: a.asset_id,
+					label: a.asset_name ?? `Asset #${a.asset_id}`,
+					sublabel: a.asset_type?.asset_name,
+					kind: 'asset'
+				});
+			}
+		}
+
+		if (caseIocs) {
+			const iocs = caseIocs.iocs() ?? [];
+			const filtered = q
+				? iocs.filter(
+						(i) =>
+							fuzzy(i.ioc_value ?? '', q) || fuzzy(i.ioc_type?.type_name ?? '', q)
+					)
+				: iocs;
+			for (const i of filtered.slice(0, PER_KIND)) {
+				out.push({
+					id: i.ioc_id,
+					label: i.ioc_value ?? `IOC #${i.ioc_id}`,
+					sublabel: i.ioc_type?.type_name,
+					kind: 'ioc'
+				});
+			}
+		}
+
+		if (caseNotes) {
+			const notes = caseNotes.notes() ?? [];
+			const filtered = q ? notes.filter((n) => fuzzy(n.note_title ?? '', q)) : notes;
+			for (const n of filtered.slice(0, PER_KIND)) {
+				out.push({
+					id: n.note_id,
+					label: n.note_title ?? `Note #${n.note_id}`,
+					kind: 'note'
+				});
+			}
+		}
+
+		if (caseTasks) {
+			const tasks = caseTasks.tasks() ?? [];
+			const filtered = q ? tasks.filter((t) => fuzzy(t.task_title ?? '', q)) : tasks;
+			for (const t of filtered.slice(0, PER_KIND)) {
+				out.push({
+					id: t.id,
+					label: t.task_title ?? `Task #${t.id}`,
+					sublabel: t.status?.status_name,
+					kind: 'task'
+				});
+			}
+		}
+
+		return out;
+	};
+
+	// --- Chip click popover ---
+	//
+	// Single delegated handler on the editor body. Works for both:
+	//   - view/preview HTML rendered via {@html renderedHtml}
+	//   - tiptap atomic mention nodes in edit mode
+	// Atomic mentions still bubble click events normally; we preventDefault
+	// so the click doesn't move the cursor to the chip's left edge.
+
+	let popoverHandle: { destroy: () => void } | null = null;
+
+	// Asset detail dialog state. Lives in this component so the dialog inherits
+	// the surrounding Svelte context (CASE_ASSETS_CTX) — needed because
+	// AssetDetailView reads it via getContext.
+	let assetDialogId = $state<number | null>(null);
+	let assetDialogOpen = $state(false);
+
+	const openAssetDialog = (id: number) => {
+		assetDialogId = id;
+		assetDialogOpen = true;
+	};
+
+	const closePopover = () => {
+		popoverHandle?.destroy();
+		popoverHandle = null;
+		activeChip = null;
+	};
+
+	const openPopoverFor = async (el: HTMLElement) => {
+		closePopover();
+
+		const kind = el.getAttribute('data-kind') ?? 'user';
+		const id = el.getAttribute('data-id') ?? '';
+		const label = el.getAttribute('data-label') ?? el.textContent?.replace(/^[@#]/, '') ?? '';
+		const numericId = Number(id);
+		const caseRef = caseId ?? caseAssets?.currentCaseId?.() ?? null;
+
+		let payload: MentionPopoverPayload;
+
+		if (kind === 'asset') {
+			const asset = caseAssets?.byId[numericId];
+			payload = {
+				kind: 'asset',
+				id,
+				label,
+				asset_type: asset?.asset_type?.asset_name ?? null,
+				asset_ip: asset?.asset_ip ?? null,
+				asset_domain: asset?.asset_domain ?? null,
+				onOpen: Number.isFinite(numericId) ? () => openAssetDialog(numericId) : undefined
+			};
+		} else if (kind === 'ioc') {
+			const ioc = caseIocs?.byId[numericId];
+			payload = {
+				kind: 'ioc',
+				id,
+				label,
+				ioc_type: ioc?.ioc_type?.type_name ?? null,
+				ioc_description: ioc?.ioc_description ?? null,
+				onOpen:
+					caseRef && Number.isFinite(numericId)
+						? () => goto(`/case/${caseRef}/iocs/${numericId}`)
+						: undefined
+			};
+		} else if (kind === 'note') {
+			const note = caseNotes?.byId[numericId];
+			const folder = note?.directory_id ? caseNotes?.foldersById[note.directory_id] : null;
+			payload = {
+				kind: 'note',
+				id,
+				label,
+				directory: folder?.name ?? null,
+				onOpen:
+					caseRef && Number.isFinite(numericId)
+						? () => goto(`/case/${caseRef}/notes/${numericId}`)
+						: undefined
+			};
+		} else if (kind === 'task') {
+			const task = caseTasks?.byId[numericId];
+			payload = {
+				kind: 'task',
+				id,
+				label,
+				status: task?.status?.status_name ?? null,
+				assignees:
+					task?.task_assignees?.map((a) => a.name || a.user).join(', ') || null,
+				onOpen:
+					caseRef && Number.isFinite(numericId)
+						? () => goto(`/case/${caseRef}/tasks/${numericId}`)
+						: undefined
+			};
+		} else {
+			const users = await loadUsers();
+			const user = users.find((u) => String(u.user_id) === id);
+			payload = {
+				kind: 'user',
+				id,
+				label,
+				user_login: user?.user_login ?? null
+			};
+		}
+
+		const rect = el.getBoundingClientRect();
+		const host = document.createElement('div');
+		host.style.position = 'absolute';
+		host.style.zIndex = '60';
+		host.style.top = `${rect.bottom + window.scrollY + 4}px`;
+		host.style.left = `${rect.left + window.scrollX}px`;
+		document.body.appendChild(host);
+		popoverHostEl = host;
+
+		// Hovering the popover keeps it open; leaving it (to anywhere other
+		// than the chip) starts the close grace period.
+		host.addEventListener('mouseenter', cancelCloseTimer);
+		host.addEventListener('mouseleave', (e) => {
+			const toEl = e.relatedTarget as Node | null;
+			if (toEl && activeChip?.contains(toEl)) return;
+			scheduleClose();
+		});
+
+		const onClose = () => {
+			closePopover();
+		};
+
+		const component = mount(MentionPopover, {
+			target: host,
+			props: { payload, onClose }
+		});
+
+		popoverHandle = {
+			destroy: () => {
+				unmount(component);
+				host.remove();
+				if (popoverHostEl === host) popoverHostEl = null;
+			}
+		};
+	};
+
+	// --- Hover-driven popover ---
+	//
+	// Show the popover when the cursor lingers on a chip; hide it when the
+	// cursor leaves both the chip AND the popover for a brief grace period.
+	// The grace period lets users slide their pointer from chip → popover
+	// without it disappearing en route.
+
+	const HOVER_OPEN_DELAY = 300;
+	const HOVER_CLOSE_DELAY = 200;
+
+	let activeChip: HTMLElement | null = null;
+	let openTimer: ReturnType<typeof setTimeout> | null = null;
+	let closeTimer: ReturnType<typeof setTimeout> | null = null;
+	let popoverHostEl = $state<HTMLElement | null>(null);
+
+	const cancelOpenTimer = () => {
+		if (openTimer) {
+			clearTimeout(openTimer);
+			openTimer = null;
+		}
+	};
+
+	const cancelCloseTimer = () => {
+		if (closeTimer) {
+			clearTimeout(closeTimer);
+			closeTimer = null;
+		}
+	};
+
+	const scheduleClose = () => {
+		cancelCloseTimer();
+		closeTimer = setTimeout(() => {
+			closePopover();
+			activeChip = null;
+		}, HOVER_CLOSE_DELAY);
+	};
+
+	const handleChipMouseEnter = (chip: HTMLElement) => {
+		cancelCloseTimer();
+		if (activeChip === chip && popoverHandle) return; // already showing for this chip
+		cancelOpenTimer();
+		openTimer = setTimeout(() => {
+			openTimer = null;
+			activeChip = chip;
+			openPopoverFor(chip);
+		}, HOVER_OPEN_DELAY);
+	};
+
+	const handleChipMouseLeave = (e: MouseEvent) => {
+		cancelOpenTimer();
+		// If the cursor is moving onto the popover itself, don't close.
+		const toEl = e.relatedTarget as Node | null;
+		if (toEl && popoverHostEl?.contains(toEl)) return;
+		scheduleClose();
+	};
+
+	const handleBodyMouseOver = (e: MouseEvent) => {
+		const target = e.target as HTMLElement | null;
+		if (!target) return;
+		const chip = target.closest('.mention-chip') as HTMLElement | null;
+		if (!chip) return;
+		// `mouseenter` doesn't bubble, so we synthesize per-chip enter detection
+		// here. Each chip is entered exactly once per pointer-in event because
+		// we early-out when activeChip already matches.
+		handleChipMouseEnter(chip);
+	};
+
+	const handleBodyMouseOut = (e: MouseEvent) => {
+		const target = e.target as HTMLElement | null;
+		if (!target) return;
+		const chip = target.closest('.mention-chip') as HTMLElement | null;
+		if (!chip) return;
+		// Only react when the pointer has truly left the chip's bounds — when
+		// it's still inside, relatedTarget will be a child of the chip.
+		const toEl = e.relatedTarget as Node | null;
+		if (toEl && chip.contains(toEl)) return;
+		handleChipMouseLeave(e);
+	};
+
+	// Keyboard equivalents: focusing a chip via Tab opens the popover; blurring
+	// closes it (unless focus moved into the popover). Required by the a11y
+	// linter and genuinely useful for keyboard users.
+	const handleBodyFocusIn = (e: FocusEvent) => {
+		const target = e.target as HTMLElement | null;
+		if (!target) return;
+		const chip = target.closest('.mention-chip') as HTMLElement | null;
+		if (!chip) return;
+		cancelCloseTimer();
+		cancelOpenTimer();
+		activeChip = chip;
+		openPopoverFor(chip);
+	};
+
+	const handleBodyFocusOut = (e: FocusEvent) => {
+		const target = e.target as HTMLElement | null;
+		if (!target) return;
+		const chip = target.closest('.mention-chip') as HTMLElement | null;
+		if (!chip) return;
+		const toEl = e.relatedTarget as Node | null;
+		if (toEl && (chip.contains(toEl) || popoverHostEl?.contains(toEl))) return;
+		scheduleClose();
+	};
+
 	const triggerFileInput = () => {
 		const input = document.createElement('input');
 		input.type = 'file';
@@ -381,7 +839,23 @@
 				Markdown.configure({
 					transformPastedText: true,
 					transformCopiedText: true
-				})
+				}),
+				// @ users — kept separate from case objects since the user list
+				// is workspace-wide rather than case-scoped.
+				createMentionNode(
+					'userMention',
+					'user',
+					buildSuggestion('@', { nodeName: 'userMention', fetchItems: fetchUserItems })
+				),
+				// # case objects (assets / iocs / notes / tasks) all share one
+				// trigger. The suggestion item's `kind` drives chip rendering
+				// and which detail panel/route opens on click.
+				createMentionNode(
+					'caseMention',
+					'asset',
+					buildSuggestion('#', { nodeName: 'caseMention', fetchItems: fetchCaseItems }),
+					['asset', 'ioc', 'note', 'task']
+				)
 			],
 			content: normalizeLegacyContent(value ?? ''),
 			editorProps: {
@@ -389,7 +863,7 @@
 					// Tight `py-1` + `first:mt-0` on headings keeps the first
 				// block flush to the toolbar without sacrificing vertical
 				// rhythm between subsequent blocks.
-				class: 'outline-none min-h-[5rem] px-3 py-1 text-sm prose prose-sm dark:prose-invert max-w-none [&_p]:my-1.5 [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:mt-3 [&_h2]:mb-1.5 [&_h3]:mt-2 [&_h3]:mb-1 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_blockquote]:my-2 [&_pre]:my-2 [&>:first-child]:mt-0'
+				class: 'outline-none min-h-[5rem] px-3 py-1 text-xs leading-snug prose prose-sm dark:prose-invert max-w-none [&_p]:my-1 [&_p]:text-xs [&_h1]:mt-3 [&_h1]:mb-1.5 [&_h1]:text-base [&_h2]:mt-2.5 [&_h2]:mb-1 [&_h2]:text-sm [&_h3]:mt-2 [&_h3]:mb-0.5 [&_h3]:text-xs [&_h3]:font-semibold [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0 [&_li]:text-xs [&_blockquote]:my-1.5 [&_blockquote]:text-xs [&_pre]:my-1.5 [&_pre]:text-2xs [&_code]:text-2xs [&>:first-child]:mt-0'
 				},
 				handleKeyDown: (_view, event) => {
 					if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
@@ -483,6 +957,7 @@
 	});
 
 	onDestroy(() => {
+		closePopover();
 		disconnectSocket();
 		editor?.destroy();
 	});
@@ -494,7 +969,8 @@
 <div class="markdown-editor-shell flex flex-col">
 	<!--
 		Toolbar sticks to the top of the scroll container so formatting buttons
-		remain reachable while editing long notes.
+		remain reachable while editing long notes. Only rendered while editing
+		— in 'view' mode we show the rendered markdown without any chrome.
 
 		Background and stacking are set via scoped CSS rather than Tailwind
 		utilities: the prose content below can carry its own stacking context
@@ -503,6 +979,7 @@
 		the raw HSL variables and `isolation: isolate` on the shell so paint
 		order is unambiguous regardless of what the ProseMirror DOM sets.
 	-->
+	{#if viewMode !== 'view'}
 	<div
 		class="markdown-editor-toolbar flex items-center gap-0.5 rounded-md border border-border px-1.5 py-1"
 		style="position: sticky; top: -1rem; z-index: 10; background-color: hsl(var(--muted)); isolation: isolate;"
@@ -668,10 +1145,77 @@
 		{#if typingUser}
 			<span class="ml-auto text-2xs text-muted-foreground">{typingUser} is typing…</span>
 		{/if}
-	</div>
 
-	<div class="markdown-editor-body relative mt-2 rounded-md border border-border/50 bg-background">
-		<div bind:this={editorElement}></div>
+		<div class="ml-auto flex items-center gap-0.5">
+			<button
+				class="flex items-center gap-1 rounded p-1 text-2xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+				title={viewMode === 'edit-preview' ? 'Back to editing' : 'Preview rendered markdown'}
+				onclick={togglePreview}
+			>
+				{#if viewMode === 'edit-preview'}
+					<PencilIcon size="12" />
+					<span>Edit</span>
+				{:else}
+					<EyeIcon size="12" />
+					<span>Preview</span>
+				{/if}
+			</button>
+
+			<button
+				class="flex items-center gap-1 rounded p-1 text-2xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+				title="Exit edit mode"
+				onclick={exitEdit}
+			>
+				<CheckIcon size="12" />
+				<span>Done</span>
+			</button>
+		</div>
+	</div>
+	{/if}
+
+	<!--
+		Body wrapper. In 'view' or 'edit-preview' mode we show the rendered
+		markdown via the same DOMPurify+converter pipeline as MarkDownPreview.
+		The tiptap editor element stays mounted at all times (just hidden when
+		not in 'edit') so the collab socket and editor state survive transitions
+		without re-init.
+	-->
+	<!-- svelte-ignore a11y_mouse_events_have_key_events — keyboard equivalents
+		 live in onfocusin/onfocusout below (focus events on mention chips).
+		 The Svelte linter only recognises onfocus/onblur for this rule, which
+		 do not bubble and therefore can't be used here. -->
+	<div
+		class="markdown-editor-body relative {viewMode === 'edit'
+			? 'mt-2 rounded-md border border-border/50 bg-background'
+			: ''}"
+		role="group"
+		onmouseover={handleBodyMouseOver}
+		onmouseout={handleBodyMouseOut}
+		onfocusin={handleBodyFocusIn}
+		onfocusout={handleBodyFocusOut}
+	>
+		{#if viewMode === 'view' || viewMode === 'edit-preview'}
+			<div
+				role="textbox"
+				tabindex="0"
+				ondblclick={enterEdit}
+				class="prose prose-sm dark:prose-invert max-w-none cursor-text px-1 text-xs leading-snug [&_p]:my-1 [&_p]:text-xs [&_h1]:mt-3 [&_h1]:mb-1.5 [&_h1]:text-base [&_h2]:mt-2.5 [&_h2]:mb-1 [&_h2]:text-sm [&_h3]:mt-2 [&_h3]:mb-0.5 [&_h3]:text-xs [&_h3]:font-semibold [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0 [&_li]:text-xs [&_blockquote]:my-1.5 [&_blockquote]:text-xs [&_pre]:my-1.5 [&_pre]:text-2xs [&_code]:text-2xs {viewMode ===
+				'edit-preview'
+					? 'rounded-md border border-border/50 bg-background p-3'
+					: ''}"
+			>
+				{#if (value ?? '').trim().length === 0}
+					<p class="italic text-muted-foreground">
+						{viewMode === 'edit-preview' ? 'Nothing to preview yet.' : 'Double-click to edit…'}
+					</p>
+				{:else}
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+					{@html renderedHtml}
+				{/if}
+			</div>
+		{/if}
+
+		<div bind:this={editorElement} class:hidden={viewMode !== 'edit'}></div>
 
 		{#if uploading}
 			<div class="absolute inset-0 flex items-center justify-center bg-background/60">
@@ -680,6 +1224,10 @@
 		{/if}
 	</div>
 </div>
+
+{#if assetDialogId !== null}
+	<AssetDetailDialog assetId={assetDialogId} bind:open={assetDialogOpen} />
+{/if}
 
 <style>
 	/*
@@ -794,5 +1342,36 @@
 
 	:global(.tiptap.resize-cursor) {
 		cursor: col-resize;
+	}
+
+	/* Mention chip rendered both inside tiptap and in the read-only preview.
+	   `display: inline-flex` with a tiny gap keeps the chip glued to surrounding
+	   text without inheriting the prose plugin's heading sizes. */
+	:global(.mention-chip) {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.15rem;
+		line-height: 1.1;
+		padding: 0.05rem 0.3rem;
+		margin: 0 0.05rem;
+		border-radius: 0.25rem;
+		font-size: 0.7rem;
+		font-weight: 500;
+		white-space: nowrap;
+	}
+
+	:global(.mention-chip-icon) {
+		flex-shrink: 0;
+		width: 0.7rem;
+		height: 0.7rem;
+	}
+
+	:global(.mention-chip-clickable) {
+		cursor: pointer;
+		transition: filter 120ms ease;
+	}
+
+	:global(.mention-chip-clickable:hover) {
+		filter: brightness(0.92);
 	}
 </style>
