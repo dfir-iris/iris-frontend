@@ -294,7 +294,7 @@
 						type="text"
 						placeholder="Search notes…"
 						bind:value={searchTerm}
-						class="h-8 w-full rounded-md border border-border/50 bg-background pl-7 pr-7 text-xs focus:border-ring focus:outline-none"
+						class="h-9 w-full rounded-md border border-border/50 bg-background pl-7 pr-7 text-sm focus:border-ring focus:outline-none"
 					/>
 					{#if searchTerm}
 						<button
@@ -330,7 +330,7 @@
 								<li>
 									<button
 										type="button"
-										class="group flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted/60 {notes
+										class="group flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted/60 {notes
 											.ui.selectedNoteId === note.note_id
 											? 'bg-muted/80 font-medium'
 											: ''}"
@@ -342,7 +342,7 @@
 										<span class="min-w-0 flex-1">
 											<span class="block truncate">{note.note_title || 'Untitled note'}</span>
 											{#if folderName}
-												<span class="block truncate text-[10px] text-muted-foreground"
+												<span class="block truncate text-xs text-muted-foreground"
 													>in {folderName}</span
 												>
 											{/if}

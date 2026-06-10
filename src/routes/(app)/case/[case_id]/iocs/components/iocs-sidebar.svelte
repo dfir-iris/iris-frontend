@@ -33,6 +33,7 @@
 
 	let observer: IntersectionObserver | null = null;
 	let loadMoreTrigger: HTMLDivElement | null = null;
+	let scrollContainer: HTMLDivElement | null = null;
 
 	const displayIocs = $derived(
 		caseIocs.list.ids.map((id) => caseIocs.byId[id]).filter((ioc): ioc is Ioc => !!ioc)
@@ -153,17 +154,37 @@
 			caseIocs.list.ids = [...new Set([...previousIds, ...caseIocs.list.ids])];
 		} finally {
 			isLoading = false;
+
+			requestAnimationFrame(() => {
+				if (!loadMoreTrigger || !scrollContainer) return;
+				if (caseIocs.list.nextPage === null) return;
+
+				const rootRect = scrollContainer.getBoundingClientRect();
+				const triggerRect = loadMoreTrigger.getBoundingClientRect();
+				const prefetchPx = rootRect.height;
+
+				if (triggerRect.top < rootRect.bottom + prefetchPx) {
+					loadMore();
+				}
+			});
 		}
 	};
 
 	const setupObserver = () => {
 		observer?.disconnect();
 
-		observer = new IntersectionObserver((entries) => {
-			if (entries[0]?.isIntersecting) {
-				loadMore();
+		observer = new IntersectionObserver(
+			(entries) => {
+				if (entries[0]?.isIntersecting) {
+					loadMore();
+				}
+			},
+			{
+				root: scrollContainer,
+				rootMargin: '100% 0px 100% 0px',
+				threshold: 0
 			}
-		});
+		);
 
 		setTimeout(() => {
 			if (loadMoreTrigger) {
@@ -178,6 +199,17 @@
 
 		return {
 			destroy: () => observer?.unobserve(node)
+		};
+	};
+
+	const handleScrollContainerRef = (node: HTMLDivElement) => {
+		scrollContainer = node;
+		setupObserver();
+
+		return {
+			destroy: () => {
+				scrollContainer = null;
+			}
 		};
 	};
 
@@ -365,7 +397,10 @@
 				}}
 			/>
 		{:else}
-			<div class="flex h-full min-h-0 flex-col gap-2 overflow-y-auto pr-1">
+			<div
+				use:handleScrollContainerRef
+				class="flex h-full min-h-0 flex-col gap-2 overflow-y-auto pr-1"
+			>
 				{#each displayIocs as ioc (ioc.ioc_id)}
 					<div
 						role="button"

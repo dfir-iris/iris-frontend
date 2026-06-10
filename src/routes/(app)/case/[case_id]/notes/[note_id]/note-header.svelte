@@ -9,6 +9,7 @@
 		TrashIcon
 	} from 'lucide-svelte';
 	import type { Note } from '$lib/types/resources/note';
+	import { stripMentionChipsForExport } from '$lib/components/common/MarkDown/export';
 	import { username } from '$lib/stores/auth.store';
 	import { toast } from '$lib/stores/toast.store';
 	import type { HistoryEventBase } from '$lib/components/common/ActivityHistory.svelte';
@@ -286,7 +287,8 @@
 									.replace(/[^a-zA-Z0-9]+/g, '_')
 									.replace(/^_+|_+$/g, '') || 'note';
 
-							const blob = new Blob([note.note_content ?? ''], {
+							const cleanContent = stripMentionChipsForExport(note.note_content ?? '');
+							const blob = new Blob([cleanContent], {
 								type: 'text/markdown;charset=utf-8'
 							});
 

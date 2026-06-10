@@ -100,7 +100,7 @@
 <button
   type="button"
   id={`ioc-card-${ioc.ioc_id}`}
-  class="relative w-full text-left overflow-hidden rounded-lg border p-2 text-xs transition-colors duration-150 group {
+  class="relative w-full text-left overflow-hidden rounded-lg border p-2.5 text-sm transition-colors duration-150 group {
     isSelected
       ? 'bg-primary/10 text-foreground border-l-4 border-l-primary border-primary/40 shadow-sm'
       : 'border-border/60 bg-card hover:border-border hover:bg-muted/40'
@@ -115,28 +115,28 @@
     <div class="flex items-center gap-2 flex-1 min-w-0">
       <div
         class={cn(
-          "flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full",
+          "flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full",
           isSelected ? 'bg-primary/20' : 'bg-muted'
         )}
       >
         <IocTypeIcon
-          size={12}
+          size={14}
           class={isSelected ? 'text-primary' : 'text-muted-foreground'}
         />
       </div>
       <div class="flex-1 min-w-0">
         <div class="group/item flex items-center gap-1">
-          <code class="font-mono text-foreground/90 break-all text-xs leading-tight">
+          <code class="font-mono text-foreground/90 break-all text-sm leading-tight">
             {compact ? formatIOCValue(ioc.ioc_value, ioc.ioc_type?.type_name) : ioc.ioc_value}
           </code>
           <ClipboardCopy
             value={ioc.ioc_value}
             tooltipText="Copy IOC value"
             className="ml-1 opacity-0 group-hover/item:opacity-100 transition-opacity flex-shrink-0"
-            iconSize={12}
+            iconSize={14}
           />
         </div>
-        <div class="text-2xs text-muted-foreground truncate mt-0.5" title={ioc.ioc_type?.type_name}>
+        <div class="text-xs text-muted-foreground truncate mt-0.5" title={ioc.ioc_type?.type_name}>
           {ioc.ioc_type?.type_name || 'Unknown type'}
         </div>
       </div>
@@ -150,7 +150,7 @@
 
   <!-- Description (if available and not compact) -->
   {#if !compact && iocDescription}
-    <div class="mt-2 mb-1 bg-muted/30 rounded-md p-1.5 relative text-2xs">
+    <div class="mt-2 mb-1 bg-muted/30 rounded-md p-2 relative text-xs">
       <div class="absolute top-1 right-1">
         <ClipboardCopy
           value={iocDescription}
@@ -172,7 +172,7 @@
           <Button
             variant="link"
             type="button"
-            class="text-2xs text-primary hover:underline p-0 h-auto"
+            class="text-xs text-primary hover:underline p-0 h-auto"
             onclick={toggleDescription}
             aria-expanded={isDescriptionExpanded}
           >

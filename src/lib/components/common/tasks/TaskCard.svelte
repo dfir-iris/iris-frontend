@@ -22,7 +22,7 @@
 <div
 	id={`task-card-${task.id}`}
 	class={cn(
-		'group relative w-full overflow-hidden rounded-lg border p-2 text-xs transition-colors duration-150',
+		'group relative w-full overflow-hidden rounded-lg border p-2.5 text-sm transition-colors duration-150',
 		isSelected
 			? 'border-l-4 border-l-primary border-primary/40 bg-primary/10 text-foreground shadow-sm'
 			: 'border-border/60 bg-card hover:border-border hover:bg-muted/40'
@@ -32,21 +32,21 @@
 		<div class="flex min-w-0 flex-1 items-center gap-2">
 			<div
 				class={cn(
-					'flex h-6 w-6 shrink-0 items-center justify-center rounded-full',
+					'flex h-7 w-7 shrink-0 items-center justify-center rounded-full',
 					isSelected ? 'bg-primary/20' : 'bg-muted'
 				)}
 			>
 				<ClipboardList
-					size={12}
+					size={14}
 					class={cn(isSelected ? 'text-primary' : 'text-muted-foreground')}
 				/>
 			</div>
 
 			<div class="min-w-0 flex-1">
-				<span class="line-clamp-2 text-sm font-semibold">{task.task_title}</span>
+				<span class="line-clamp-2 text-base font-semibold">{task.task_title}</span>
 
 				{#if assigneeNames}
-					<div class="truncate text-2xs text-muted-foreground">{assigneeNames}</div>
+					<div class="truncate text-xs text-muted-foreground">{assigneeNames}</div>
 				{/if}
 			</div>
 		</div>
@@ -58,7 +58,7 @@
 
 	{#if task.task_open_date || hasTags}
 		<div class="mt-1.5 flex flex-wrap items-center gap-1">
-			<span class="text-2xs text-muted-foreground">{task.task_open_date}</span>
+			<span class="text-xs text-muted-foreground">{task.task_open_date}</span>
 
 			{#if hasTags}
 				<TagDisplay tags={task.task_tags} size="small" />

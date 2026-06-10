@@ -876,7 +876,7 @@
 					// Tight `py-1` + `first:mt-0` on headings keeps the first
 				// block flush to the toolbar without sacrificing vertical
 				// rhythm between subsequent blocks.
-				class: 'outline-none min-h-[5rem] px-3 py-1 text-xs leading-snug prose prose-sm dark:prose-invert max-w-none [&_p]:my-1 [&_p]:text-xs [&_h1]:mt-3 [&_h1]:mb-1.5 [&_h1]:text-base [&_h2]:mt-2.5 [&_h2]:mb-1 [&_h2]:text-sm [&_h3]:mt-2 [&_h3]:mb-0.5 [&_h3]:text-xs [&_h3]:font-semibold [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0 [&_li]:text-xs [&_blockquote]:my-1.5 [&_blockquote]:text-xs [&_pre]:my-1.5 [&_pre]:text-2xs [&_code]:text-2xs [&>:first-child]:mt-0'
+				class: 'outline-none min-h-[5rem] px-3 py-1 text-sm leading-normal prose prose-sm dark:prose-invert max-w-none [&_p]:my-1.5 [&_p]:text-sm [&_h1]:mt-3 [&_h1]:mb-1.5 [&_h1]:text-lg [&_h2]:mt-2.5 [&_h2]:mb-1 [&_h2]:text-base [&_h3]:mt-2 [&_h3]:mb-0.5 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0 [&_li]:text-sm [&_blockquote]:my-2 [&_blockquote]:text-sm [&_pre]:my-2 [&_pre]:text-xs [&_code]:text-xs [&>:first-child]:mt-0'
 				},
 				handleKeyDown: (_view, event) => {
 					if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
@@ -1212,7 +1212,7 @@
 				role="textbox"
 				tabindex="0"
 				ondblclick={enterEdit}
-				class="prose prose-sm dark:prose-invert max-w-none cursor-text px-1 text-xs leading-snug [&_p]:my-1 [&_p]:text-xs [&_h1]:mt-3 [&_h1]:mb-1.5 [&_h1]:text-base [&_h2]:mt-2.5 [&_h2]:mb-1 [&_h2]:text-sm [&_h3]:mt-2 [&_h3]:mb-0.5 [&_h3]:text-xs [&_h3]:font-semibold [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0 [&_li]:text-xs [&_blockquote]:my-1.5 [&_blockquote]:text-xs [&_pre]:my-1.5 [&_pre]:text-2xs [&_code]:text-2xs {viewMode ===
+				class="prose prose-sm dark:prose-invert max-w-none cursor-text px-1 text-sm leading-normal [&_p]:my-1.5 [&_p]:text-sm [&_h1]:mt-3 [&_h1]:mb-1.5 [&_h1]:text-lg [&_h2]:mt-2.5 [&_h2]:mb-1 [&_h2]:text-base [&_h3]:mt-2 [&_h3]:mb-0.5 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0 [&_li]:text-sm [&_blockquote]:my-2 [&_blockquote]:text-sm [&_pre]:my-2 [&_pre]:text-xs [&_code]:text-xs {viewMode ===
 				'edit-preview'
 					? 'rounded-md border border-border/50 bg-background p-3'
 					: ''}"

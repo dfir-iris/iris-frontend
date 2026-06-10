@@ -98,7 +98,7 @@
 <div
 	id={`asset-card-${asset.asset_id}`}
 	class={cn(
-		'group relative w-full overflow-hidden rounded-lg border p-2 text-xs transition-colors duration-150',
+		'group relative w-full overflow-hidden rounded-lg border p-2.5 text-sm transition-colors duration-150',
 		isSelected
 			? 'border-l-4 border-l-primary border-primary/40 bg-primary/10 text-foreground shadow-sm'
 			: 'border-border/60 bg-card hover:border-border hover:bg-muted/40'
@@ -108,12 +108,12 @@
 		<div class="flex min-w-0 flex-1 items-center gap-2">
 			<div
 				class={cn(
-					'flex h-6 w-6 shrink-0 items-center justify-center rounded-full',
+					'flex h-7 w-7 shrink-0 items-center justify-center rounded-full',
 					isSelected ? 'bg-primary/20' : 'bg-muted'
 				)}
 			>
 				<AssetTypeIcon
-					size={12}
+					size={14}
 					class={cn(
 						isCompromised ? 'text-red-500' : isSelected ? 'text-primary' : 'text-muted-foreground'
 					)}
@@ -122,7 +122,7 @@
 
 			<div class="min-w-0 flex-1">
 				<div class="flex items-center gap-1">
-					<span class="truncate text-sm font-semibold">{asset.asset_name}</span>
+					<span class="truncate text-base font-semibold">{asset.asset_name}</span>
 
 					<ClipboardCopy
 						value={asset.asset_name}
@@ -131,7 +131,7 @@
 					/>
 				</div>
 
-				<div class="truncate text-2xs text-muted-foreground">
+				<div class="truncate text-xs text-muted-foreground">
 					{assetTypeName || asset.asset_type_id || 'Unknown type'}
 				</div>
 			</div>
@@ -175,7 +175,7 @@
 				<ClipboardCopy
 					value={assetDescription}
 					tooltipText="Copy"
-					className="text-2xs text-muted-foreground hover:text-primary"
+					className="text-xs text-muted-foreground hover:text-primary"
 				/>
 			</div>
 
@@ -190,7 +190,7 @@
 					<Button
 						variant="link"
 						type="button"
-						class="h-auto p-0 text-2xs text-primary hover:underline"
+						class="h-auto p-0 text-xs text-primary hover:underline"
 						onclick={toggleDescription}
 					>
 						{isDescriptionExpanded ? 'Show less' : 'Show more'}
@@ -204,7 +204,7 @@
 		<div class="mt-2 flex flex-wrap items-center gap-1">
 			{#if assetIp}
 				<div
-					class="group inline-flex items-center rounded border border-dashed px-1.5 py-0.5 font-mono text-2xs transition-colors hover:bg-muted/70"
+					class="group inline-flex items-center rounded border border-dashed px-1.5 py-0.5 font-mono text-xs transition-colors hover:bg-muted/70"
 				>
 					<Network class="mr-1 h-2.5 w-2.5 shrink-0 text-muted-foreground" />
 					<span class="max-w-[100px] truncate">{assetIp}</span>
@@ -217,7 +217,7 @@
 
 			{#if assetDomain}
 				<div
-					class="group inline-flex items-center rounded border border-dashed px-1.5 py-0.5 font-mono text-2xs transition-colors hover:bg-muted/70"
+					class="group inline-flex items-center rounded border border-dashed px-1.5 py-0.5 font-mono text-xs transition-colors hover:bg-muted/70"
 				>
 					<Globe class="mr-1 h-2.5 w-2.5 shrink-0 text-muted-foreground" />
 					<span class="max-w-[100px] truncate">{assetDomain}</span>

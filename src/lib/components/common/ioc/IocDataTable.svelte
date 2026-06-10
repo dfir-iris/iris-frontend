@@ -81,7 +81,7 @@
 	{:else}
 		<DataTable
 			columns={columns as ColumnDef<unknown>[]}
-			tableClass="w-full table-fixed text-xs"
+			tableClass="w-full table-fixed text-sm"
 			data={iocs}
 			bind:page={currentPage}
 			bind:pageSize={currentPageSize}

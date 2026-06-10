@@ -181,8 +181,16 @@
 	});
 </script>
 
+<!--
+	Closed cases get a soft slate→blue gradient banner — calm, distinctive at
+	a glance, and doesn't clash with severity badges (which lean red/orange).
+	Light + dark variants pick complementary tints so it reads well in both
+	themes without overpowering the foreground content.
+-->
 <div
-	class="relative flex items-center gap-2 border-b bg-card px-3 py-2 sm:gap-4 sm:px-5 sm:py-2.5"
+	class="relative flex items-center gap-2 border-b px-3 py-2 sm:gap-4 sm:px-5 sm:py-2.5 {isClosed
+		? 'bg-gradient-to-r from-slate-200/80 via-blue-100/60 to-sky-50 dark:from-slate-800/70 dark:via-blue-900/40 dark:to-sky-950/30'
+		: 'bg-card'}"
 >
 
 	<!-- Case icon badge -->

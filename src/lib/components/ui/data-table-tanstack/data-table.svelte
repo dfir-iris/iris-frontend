@@ -29,7 +29,7 @@
 		data,
 		columns,
 		class: className = '',
-		tableClass = 'w-full table-auto text-xs',
+		tableClass = 'w-full table-auto text-sm',
 		page = $bindable(),
 		pageSize = $bindable(10),
 		totalPages: totalPagesProp,

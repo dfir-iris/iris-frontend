@@ -28,6 +28,7 @@
 
 	let observer: IntersectionObserver | null = null;
 	let loadMoreTrigger: HTMLDivElement | null = null;
+	let scrollContainer: HTMLDivElement | null = null;
 
 	const searchFields: SearchField[] = [
 		{ key: 'task_title', label: 'Title', type: 'text' },
@@ -132,7 +133,39 @@
 			caseTasks.list.ids = [...new Set([...previousIds, ...caseTasks.list.ids])];
 		} finally {
 			isLoading = false;
+
+			requestAnimationFrame(() => {
+				if (!loadMoreTrigger || !scrollContainer) return;
+				if (caseTasks.list.nextPage === null) return;
+
+				const rootRect = scrollContainer.getBoundingClientRect();
+				const triggerRect = loadMoreTrigger.getBoundingClientRect();
+				const prefetchPx = rootRect.height;
+
+				if (triggerRect.top < rootRect.bottom + prefetchPx) {
+					loadMore();
+				}
+			});
 		}
+	};
+
+	const setupObserver = () => {
+		observer?.disconnect();
+
+		observer = new IntersectionObserver(
+			(entries) => {
+				if (entries[0]?.isIntersecting) loadMore();
+			},
+			{
+				root: scrollContainer,
+				rootMargin: '100% 0px 100% 0px',
+				threshold: 0
+			}
+		);
+
+		setTimeout(() => {
+			if (loadMoreTrigger) observer?.observe(loadMoreTrigger);
+		}, 0);
 	};
 
 	const handleTriggerRef = (node: HTMLDivElement) => {
@@ -142,18 +175,22 @@
 		return { destroy: () => observer?.unobserve(node) };
 	};
 
+	const handleScrollContainerRef = (node: HTMLDivElement) => {
+		scrollContainer = node;
+		setupObserver();
+
+		return {
+			destroy: () => {
+				scrollContainer = null;
+			}
+		};
+	};
+
 	const openTask = (taskId: number) => goto(`/case/${page.params.case_id}/tasks/${taskId}`);
 
 	onMount(async () => {
 		await refreshTasks(1);
-
-		observer = new IntersectionObserver((entries) => {
-			if (entries[0]?.isIntersecting) loadMore();
-		});
-
-		setTimeout(() => {
-			if (loadMoreTrigger) observer?.observe(loadMoreTrigger);
-		});
+		setupObserver();
 	});
 
 	onDestroy(() => {
@@ -232,7 +269,10 @@
 				}}
 			/>
 		{:else}
-			<div class="flex h-full min-h-0 flex-col gap-2 overflow-y-auto pr-1">
+			<div
+				use:handleScrollContainerRef
+				class="flex h-full min-h-0 flex-col gap-2 overflow-y-auto pr-1"
+			>
 				{#each displayTasks as task (task.id)}
 					<div
 						role="button"

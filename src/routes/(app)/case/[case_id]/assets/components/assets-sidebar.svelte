@@ -37,6 +37,7 @@
 
 	let observer: IntersectionObserver | null = null;
 	let loadMoreTrigger: HTMLDivElement | null = null;
+	let scrollContainer: HTMLDivElement | null = null;
 
 	const displayAssets = $derived(
 		caseAssets.list.ids.map((id) => caseAssets.byId[id]).filter((a): a is Asset => !!a)
@@ -152,17 +153,44 @@
 			caseAssets.list.ids = [...new Set([...previousIds, ...caseAssets.list.ids])];
 		} finally {
 			isLoading = false;
+
+			// After loading more, the trigger may STILL be inside the prefetch
+			// margin (small per_page, tall viewport). The observer won't fire
+			// again because intersection didn't change, so we manually re-check
+			// and chain-load until the trigger is genuinely off-screen.
+			requestAnimationFrame(() => {
+				if (!loadMoreTrigger || !scrollContainer) return;
+				if (caseAssets.list.nextPage === null) return;
+
+				const rootRect = scrollContainer.getBoundingClientRect();
+				const triggerRect = loadMoreTrigger.getBoundingClientRect();
+				const prefetchPx = rootRect.height; // matches rootMargin below
+
+				if (triggerRect.top < rootRect.bottom + prefetchPx) {
+					loadMore();
+				}
+			});
 		}
 	};
 
 	const setupObserver = () => {
 		observer?.disconnect();
 
-		observer = new IntersectionObserver((entries) => {
-			if (entries[0]?.isIntersecting) {
-				loadMore();
+		// Prefetch one viewport ahead: the trigger fires while the user is
+		// still scrolling, the next page loads in the background, and they
+		// never see a stop-and-resume jank at the bottom edge.
+		observer = new IntersectionObserver(
+			(entries) => {
+				if (entries[0]?.isIntersecting) {
+					loadMore();
+				}
+			},
+			{
+				root: scrollContainer,
+				rootMargin: '100% 0px 100% 0px',
+				threshold: 0
 			}
-		});
+		);
 
 		setTimeout(() => {
 			if (loadMoreTrigger) {
@@ -177,6 +205,20 @@
 
 		return {
 			destroy: () => observer?.unobserve(node)
+		};
+	};
+
+	const handleScrollContainerRef = (node: HTMLDivElement) => {
+		scrollContainer = node;
+		// Rebuild the observer once the scroll root is known — the previous
+		// instance was attached to the viewport, which gives the wrong root
+		// rect when the list itself scrolls inside a fixed-height panel.
+		setupObserver();
+
+		return {
+			destroy: () => {
+				scrollContainer = null;
+			}
 		};
 	};
 
@@ -295,7 +337,10 @@
 				}}
 			/>
 		{:else}
-			<div class="flex h-full min-h-0 flex-col gap-2 overflow-y-auto pr-1">
+			<div
+				use:handleScrollContainerRef
+				class="flex h-full min-h-0 flex-col gap-2 overflow-y-auto pr-1"
+			>
 				{#each displayAssets as asset (asset.asset_id)}
 					<div
 						role="button"

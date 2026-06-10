@@ -109,7 +109,7 @@
 	variant="ghost"
 	size="sm"
 	title={folder.name}
-	class="h-7 w-full justify-start gap-x-1.5 px-2 text-sm font-medium {selectedFolderId === folder.id
+	class="h-8 w-full justify-start gap-x-1.5 px-2 text-sm font-medium {selectedFolderId === folder.id
 		? 'bg-accent'
 		: ''} {!isDraggedFolder && isDropTarget ? 'bg-accent/50 ring-1 ring-primary' : ''}"
 >
@@ -149,7 +149,7 @@
 					variant="ghost"
 					size="sm"
 					title={getNoteTitle(note)}
-					class="h-7 w-full justify-start gap-x-1.5 px-2 text-sm font-normal {isActive
+					class="h-8 w-full justify-start gap-x-1.5 px-2 text-sm font-normal {isActive
 						? 'bg-accent text-accent-foreground'
 						: ''}"
 					href="/case/{page.params.case_id}/notes/{getNoteId(note)}"
