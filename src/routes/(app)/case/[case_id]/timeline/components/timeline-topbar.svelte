@@ -1,29 +1,40 @@
 <script lang="ts">
-	import { EllipsisVerticalIcon } from 'lucide-svelte';
+	import {
+		EllipsisVerticalIcon,
+		FilterIcon,
+		ListIcon,
+		ListTreeIcon,
+		PlusIcon,
+		RefreshCwIcon
+	} from 'lucide-svelte';
 	import type { EventCategory } from '$lib/services/event-categories.service';
 	import { Button } from '$lib/components/ui/button';
 	import { DropdownMenu, DropdownMenuTrigger } from '$lib/components/ui/dropdown-menu';
 	import DropdownMenuContent from '$lib/components/ui/dropdown-menu/dropdown-menu-content.svelte';
 	import DropdownMenuItem from '$lib/components/ui/dropdown-menu/dropdown-menu-item.svelte';
 	import Separator from '$lib/components/ui/separator/separator.svelte';
+	import {
+		Tooltip,
+		TooltipContent,
+		TooltipProvider,
+		TooltipTrigger
+	} from '$lib/components/ui/tooltip';
 	import type { TimelineFilterData, TimelineFilterFieldValue } from '../types';
 	import { visualize } from '../visualize/helpers';
 	import TimelineFilters from './timeline-filters.svelte';
 
-	type TimelineView = 'normal' | 'tree';
+	type ViewMode = 'list' | 'tree';
 
 	type Props = {
 		filters: TimelineFilterData;
 		eventCategories: EventCategory[];
-		compact: boolean;
-		view: TimelineView;
+		viewMode: ViewMode;
 		onUpdateFilter: (field: keyof TimelineFilterData, value: TimelineFilterFieldValue) => void;
 		onApplyFilters: () => void;
 		onClearFilters: () => void;
 		onRefresh: () => void;
 		onAddEvent: () => void;
-		onToggleView: () => void;
-		onToggleCompact: () => void;
+		onViewModeChange: (mode: ViewMode) => void;
 		onDownloadCsv: () => void;
 		onDownloadCsvWithUserInfo: () => void;
 		onUploadCsv: () => void;
@@ -32,15 +43,13 @@
 	let {
 		filters,
 		eventCategories,
-		compact,
-		view,
+		viewMode,
 		onUpdateFilter,
 		onApplyFilters,
 		onClearFilters,
 		onRefresh,
 		onAddEvent,
-		onToggleView,
-		onToggleCompact,
+		onViewModeChange,
 		onDownloadCsv,
 		onDownloadCsvWithUserInfo,
 		onUploadCsv
@@ -50,37 +59,74 @@
 	let showFilters = $state(false);
 </script>
 
-<div class="bg-primary">
-	<div class="flex px-6 py-3">
-		<div class="mr-auto flex items-center gap-2">
-			<Button variant="secondary" size="sm" onclick={() => (showFilters = !showFilters)}>
+<div class="border-b border-border bg-card">
+	<div class="flex items-center px-4 py-2">
+		<div class="mr-auto flex items-center gap-1.5">
+			<h2 class="mr-2 text-sm font-semibold">Timeline</h2>
+
+			<Button
+				variant={showFilters ? 'secondary' : 'ghost'}
+				size="sm"
+				onclick={() => (showFilters = !showFilters)}
+			>
+				<FilterIcon class="mr-1.5 size-3.5" />
 				Filter
 			</Button>
 
-			<Button variant="secondary" size="sm" onclick={onRefresh}>Refresh</Button>
+			<Button variant="ghost" size="sm" onclick={onRefresh}>
+				<RefreshCwIcon class="mr-1.5 size-3.5" />
+				Refresh
+			</Button>
 		</div>
 
-		<div class="ml-auto flex items-center gap-2">
-			<Button variant="secondary" size="sm" onclick={onAddEvent}>Add event</Button>
+		<div class="ml-auto flex items-center gap-1.5">
+			<div class="mr-1 flex items-center overflow-hidden rounded-md border border-border">
+				<TooltipProvider>
+					<Tooltip>
+						<TooltipTrigger>
+							<Button
+								variant={viewMode === 'tree' ? 'secondary' : 'ghost'}
+								size="icon"
+								class="size-7 rounded-none"
+								onclick={() => onViewModeChange('tree')}
+							>
+								<ListTreeIcon class="size-3.5" />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>Tree view</TooltipContent>
+					</Tooltip>
+				</TooltipProvider>
+
+				<TooltipProvider>
+					<Tooltip>
+						<TooltipTrigger>
+							<Button
+								variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+								size="icon"
+								class="size-7 rounded-none"
+								onclick={() => onViewModeChange('list')}
+							>
+								<ListIcon class="size-3.5" />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>List view</TooltipContent>
+					</Tooltip>
+				</TooltipProvider>
+			</div>
+
+			<Button variant="default" size="sm" onclick={onAddEvent}>
+				<PlusIcon class="mr-1 size-3.5" />
+				Add event
+			</Button>
 
 			<DropdownMenu bind:open={isMenuOpen}>
 				<DropdownMenuTrigger>
-					<Button variant="ghost" size="sm" class="text-white hover:bg-white/10 hover:text-white">
-						<EllipsisVerticalIcon />
+					<Button variant="ghost" size="icon" class="size-8">
+						<EllipsisVerticalIcon class="size-4" />
 					</Button>
 				</DropdownMenuTrigger>
 
 				<DropdownMenuContent align="end">
-					<DropdownMenuItem onclick={onToggleView}>
-						Toggle {view === 'normal' ? 'Tree' : 'Normal'} View
-					</DropdownMenuItem>
-
-					<DropdownMenuItem onclick={onToggleCompact}>
-						Toggle {compact ? 'Detailed' : 'Compact'} View
-					</DropdownMenuItem>
-
-					<Separator class="my-2" />
-
 					<DropdownMenuItem onclick={() => visualize()}>Visualize</DropdownMenuItem>
 
 					<DropdownMenuItem onclick={() => visualize('asset')}>Visualize by asset</DropdownMenuItem>

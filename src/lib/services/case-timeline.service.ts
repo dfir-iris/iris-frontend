@@ -8,11 +8,20 @@ export type CaseTimelineState = {
 	object_state: number;
 };
 
+export type CaseTimelinePagination = {
+	total: number;
+	per_page: number;
+	current_page: number;
+	last_page: number;
+	next_page: number | null;
+};
+
 export type CaseTimelineListResponse = {
 	timeline?: CaseTimelineEvent[];
 	tim?: CaseTimelineEvent[];
 	comments_map?: Record<number, number[]>;
 	state: CaseTimelineState;
+	pagination?: CaseTimelinePagination;
 };
 
 export type CaseTimelineFilterQuery = {
@@ -39,14 +48,19 @@ export type CaseTimelineApiResponse<T> = {
 };
 
 export interface CaseTimelineLinkedAsset {
+	id?: number;
 	name: string;
+	asset_name?: string;
+	asset_type?: string | null;
 	ip?: string | null;
 	description?: string | null;
 	compromised?: boolean;
 }
 
 export interface CaseTimelineLinkedIoc {
+	id?: number;
 	name: string;
+	ioc_value?: string;
 	description?: string | null;
 }
 
@@ -120,12 +134,18 @@ export class CaseTimelineService {
 	static async listEvents(
 		caseId: number,
 		query: CaseTimelineFilterQuery = {},
-		options: ApiOptions = {}
+		options: ApiOptions = {},
+		paging: { page?: number; per_page?: number } = {}
 	): Promise<RequestResponse<CaseTimelineListResponse>> {
-		const path = ApiService.withQuery('/case/timeline/advanced-filter', {
+		const params: Record<string, string | number> = {
 			cid: caseId,
 			q: JSON.stringify(query)
-		});
+		};
+
+		if (paging.page !== undefined) params.page = paging.page;
+		if (paging.per_page !== undefined) params.per_page = paging.per_page;
+
+		const path = ApiService.withQuery('/case/timeline/advanced-filter', params);
 
 		const res = await ApiService.get<
 			CaseTimelineListResponse | CaseTimelineApiResponse<CaseTimelineListResponse>
@@ -143,7 +163,8 @@ export class CaseTimelineService {
 				timeline: data.timeline ?? data.tim ?? [],
 				tim: data.tim,
 				comments_map: data.comments_map,
-				state: data.state
+				state: data.state,
+				pagination: data.pagination
 			}
 		};
 	}

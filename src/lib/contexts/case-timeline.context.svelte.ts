@@ -11,11 +11,13 @@ import type { ApiOptions } from '$lib/services/api.service';
 
 export const CASE_TIMELINE_CTX = Symbol('case-timeline');
 
-type Status = 'idle' | 'loading' | 'error';
+type Status = 'idle' | 'loading' | 'loading_more' | 'error';
 
 type UIState = {
 	selectedEventId?: number;
 };
+
+const DEFAULT_PER_PAGE = 30;
 
 const getEventId = (event: CaseTimelineEvent): number => event.event_id;
 
@@ -30,11 +32,23 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		status: Status;
 		error: string | null;
 		state: CaseTimelineState | null;
+		query: CaseTimelineFilterQuery;
+		currentPage: number;
+		lastPage: number;
+		nextPage: number | null;
+		perPage: number;
+		total: number;
 	}>({
 		eventIds: [],
 		status: 'idle',
 		error: null,
-		state: null
+		state: null,
+		query: {},
+		currentPage: 1,
+		lastPage: 1,
+		nextPage: null,
+		perPage: DEFAULT_PER_PAGE,
+		total: 0
 	});
 
 	const ui = $state<UIState>({
@@ -63,14 +77,35 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		list.eventIds = ordered.map(getEventId);
 	};
 
+	const appendEventsState = (events: CaseTimelineEvent[]) => {
+		const existingIds = new Set(list.eventIds);
+
+		for (const event of events) {
+			byId[getEventId(event)] = event;
+		}
+
+		const incomingIds = events.map(getEventId).filter((id) => !existingIds.has(id));
+		const merged = [...list.eventIds, ...incomingIds];
+
+		const ordered = merged
+			.map((id) => byId[id])
+			.filter((event): event is CaseTimelineEvent => !!event);
+
+		list.eventIds = sortEvents(ordered).map(getEventId);
+	};
+
 	const loadEvents = async (query: CaseTimelineFilterQuery = {}, options: ApiOptions = {}) => {
 		const caseId = getCaseId();
 		if (caseId === null) return;
 
 		list.status = 'loading';
 		list.error = null;
+		list.query = query;
 
-		const res = await CaseTimelineService.listEvents(caseId, query, options);
+		const res = await CaseTimelineService.listEvents(caseId, query, options, {
+			page: 1,
+			per_page: list.perPage
+		});
 
 		if (!res.ok || res.error || res.data === null || typeof res.data === 'string') {
 			list.status = 'error';
@@ -80,6 +115,56 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 
 		replaceEventsState(res.data.timeline ?? res.data.tim ?? []);
 		list.state = res.data.state ?? null;
+
+		const pagination = res.data.pagination;
+		if (pagination) {
+			list.currentPage = pagination.current_page;
+			list.lastPage = pagination.last_page;
+			list.nextPage = pagination.next_page;
+			list.total = pagination.total;
+		} else {
+			list.currentPage = 1;
+			list.lastPage = 1;
+			list.nextPage = null;
+			list.total = list.eventIds.length;
+		}
+
+		list.status = 'idle';
+	};
+
+	const loadMore = async (options: ApiOptions = {}) => {
+		const caseId = getCaseId();
+		if (caseId === null) return;
+		if (list.nextPage === null) return;
+		if (list.status === 'loading' || list.status === 'loading_more') return;
+
+		list.status = 'loading_more';
+
+		const nextPage = list.nextPage;
+
+		const res = await CaseTimelineService.listEvents(caseId, list.query, options, {
+			page: nextPage,
+			per_page: list.perPage
+		});
+
+		if (!res.ok || res.error || res.data === null || typeof res.data === 'string') {
+			list.status = 'error';
+			list.error = res.error?.message ?? 'Failed to load more timeline events';
+			return;
+		}
+
+		appendEventsState(res.data.timeline ?? res.data.tim ?? []);
+
+		const pagination = res.data.pagination;
+		if (pagination) {
+			list.currentPage = pagination.current_page;
+			list.lastPage = pagination.last_page;
+			list.nextPage = pagination.next_page;
+			list.total = pagination.total;
+		} else {
+			list.nextPage = null;
+		}
+
 		list.status = 'idle';
 	};
 
@@ -129,7 +214,7 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		byId[getEventId(event)] = event;
 		ui.selectedEventId = getEventId(event);
 
-		await refresh({}, options);
+		await refresh(list.query, options);
 		return byId[event.event_id] ?? event;
 	};
 
@@ -148,7 +233,7 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		const savedEvent = res.data;
 		byId[getEventId(savedEvent)] = savedEvent;
 
-		await refresh({}, options);
+		await refresh(list.query, options);
 
 		if (byId[id]) {
 			byId[id] = {
@@ -179,7 +264,7 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 			ui.selectedEventId = undefined;
 		}
 
-		await refresh({}, options);
+		await refresh(list.query, options);
 		return true;
 	};
 
@@ -194,6 +279,11 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		list.status = 'idle';
 		list.error = null;
 		list.state = null;
+		list.query = {};
+		list.currentPage = 1;
+		list.lastPage = 1;
+		list.nextPage = null;
+		list.total = 0;
 
 		ui.selectedEventId = undefined;
 	};
@@ -206,6 +296,7 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		currentEvent,
 		events,
 		loadEvents,
+		loadMore,
 		refresh,
 		getEvent,
 		createEvent,

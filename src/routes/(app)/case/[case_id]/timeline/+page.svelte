@@ -22,16 +22,16 @@
 		type CaseTimelineContext
 	} from '$lib/contexts/case-timeline.context.svelte';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
+	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { Button } from '$lib/components/ui/button';
+	import ChipHoverHost from '$lib/components/common/MarkDown/ChipHoverHost.svelte';
 	import TimelineTopbar from './components/timeline-topbar.svelte';
 	import TimelineSideToolbar from './components/timeline-side-toolbar.svelte';
-	import TimelineNormalView from './components/timeline-normal-view.svelte';
-	import TimelineTreeView from './components/timeline-tree-view.svelte';
+	import TimelineView from './components/timeline-view.svelte';
 	import TimelineEventDialog from './components/timeline-event-dialog.svelte';
 	import TimelineEventCommentsDialog from './components/timeline-event-comments-dialog.svelte';
 	import CaseWorkspace from '../components/CaseWorkspace.svelte';
 	import type { TimelineFilterData, TimelineFilterFieldValue } from './types';
-
-	type TimelineView = 'normal' | 'tree';
 
 	type TimelineGroup = {
 		date: string;
@@ -60,8 +60,7 @@
 	setContext<CaseTimelineContext>(CASE_TIMELINE_CTX, timeline);
 
 	let filters = $state<TimelineFilterData>(emptyFilters());
-	let view = $state<TimelineView>('normal');
-	let compact = $state<boolean>(false);
+	let viewMode = $state<'list' | 'tree'>('tree');
 	let folded = $state<Set<number>>(new Set());
 	let selected = $state<Set<number>>(new Set());
 	let selecting = $state<boolean>(false);
@@ -75,6 +74,12 @@
 	let caseIocs = $state<Ioc[]>([]);
 	let commentCounts = $state<Record<number, number>>({});
 	let timelineScrollContainer = $state<HTMLDivElement | undefined>(undefined);
+
+	// Infinite-scroll prefetch trigger. Same pattern as the assets sidebar:
+	// the trigger sits one viewport ahead of the bottom edge so a new page
+	// loads while the user is still scrolling, never showing a stop-and-resume.
+	let loadMoreTrigger = $state<HTMLDivElement | null>(null);
+	let observer: IntersectionObserver | null = null;
 
 	const scrollTop = () => {
 		timelineScrollContainer?.scrollTo({
@@ -174,8 +179,6 @@
 	const refreshTimeline = async () => {
 		await timeline.refresh(toQuery(), { fetch });
 	};
-
-	const toggleView = () => (view = view === 'normal' ? 'tree' : 'normal');
 
 	const toggleSelecting = () => {
 		selecting = !selecting;
@@ -503,6 +506,56 @@
 		input.click();
 	};
 
+	const loadMore = async () => {
+		if (timeline.list.nextPage === null) return;
+		if (timeline.list.status === 'loading' || timeline.list.status === 'loading_more') return;
+		await timeline.loadMore({ fetch });
+
+		// Chain-load if the trigger still sits inside the prefetch zone. The
+		// IntersectionObserver won't re-fire because the trigger never left
+		// the viewport, so we manually poke it until the bottom edge is far
+		// enough away. Mirrors the assets-sidebar fix.
+		requestAnimationFrame(() => {
+			if (!loadMoreTrigger || !timelineScrollContainer) return;
+			if (timeline.list.nextPage === null) return;
+
+			const rootRect = timelineScrollContainer.getBoundingClientRect();
+			const triggerRect = loadMoreTrigger.getBoundingClientRect();
+			const prefetchPx = rootRect.height;
+
+			if (triggerRect.top < rootRect.bottom + prefetchPx) {
+				loadMore();
+			}
+		});
+	};
+
+	const setupObserver = () => {
+		observer?.disconnect();
+		if (!timelineScrollContainer) return;
+
+		observer = new IntersectionObserver(
+			(entries) => {
+				if (entries[0]?.isIntersecting) loadMore();
+			},
+			{
+				root: timelineScrollContainer,
+				rootMargin: '100% 0px 100% 0px',
+				threshold: 0
+			}
+		);
+
+		setTimeout(() => {
+			if (loadMoreTrigger) observer?.observe(loadMoreTrigger);
+		}, 0);
+	};
+
+	const handleTriggerRef = (node: HTMLDivElement) => {
+		loadMoreTrigger = node;
+		observer?.observe(node);
+
+		return { destroy: () => observer?.unobserve(node) };
+	};
+
 	$effect(() => {
 		timeline.loadEvents({}, { fetch });
 		loadEventCategories();
@@ -515,6 +568,11 @@
 			loadCommentCount(event.event_id);
 		}
 	});
+
+	$effect(() => {
+		if (timelineScrollContainer) setupObserver();
+		return () => observer?.disconnect();
+	});
 </script>
 
 <CaseWorkspace>
@@ -522,15 +580,13 @@
 	<TimelineTopbar
 		{filters}
 		{eventCategories}
-		{compact}
-		{view}
+		{viewMode}
 		onUpdateFilter={updateFilter}
 		onApplyFilters={applyFilters}
 		onClearFilters={clearFilters}
 		onRefresh={refreshTimeline}
 		onAddEvent={addEvent}
-		onToggleView={toggleView}
-		onToggleCompact={() => (compact = !compact)}
+		onViewModeChange={(m) => (viewMode = m)}
 		onDownloadCsv={() => downloadTimelineCsv(false)}
 		onDownloadCsvWithUserInfo={() => downloadTimelineCsv(true)}
 		onUploadCsv={uploadTimelineCsv}
@@ -538,50 +594,60 @@
 
 	<div
 		bind:this={timelineScrollContainer}
-		class="relative min-h-0 flex-1 overflow-auto py-6 pl-6 pr-20"
+		class="relative min-h-0 flex-1 overflow-auto bg-gradient-to-b from-muted/30 via-background to-muted/20 px-6 py-4 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900"
 	>
-		{#if timeline.list.status === 'loading'}
-			<div class="p-6 text-sm text-muted-foreground">Loading timeline...</div>
+		{#if timeline.list.status === 'loading' && groupedRootEvents.length === 0}
+			<div class="mx-auto max-w-5xl space-y-2 py-6">
+				{#each Array(4) as _, i (i)}
+					<Skeleton class="h-24 w-full rounded-lg" />
+				{/each}
+			</div>
 		{:else if timeline.list.error}
 			<div class="p-6 text-sm text-destructive">{timeline.list.error}</div>
 		{:else if groupedRootEvents.length === 0}
-			<div class="p-6 text-sm text-muted-foreground">No timeline events found.</div>
-		{:else if view === 'normal'}
-			<TimelineNormalView
-				groups={groupedRootEvents}
-				{childrenByParent}
-				{commentCounts}
-				{compact}
-				{folded}
-				{selected}
-				{selecting}
-				onToggleSelect={toggleSelect}
-				onToggleFold={toggleFold}
-				onEdit={editEvent}
-				onAddChild={addChildEvent}
-				onFlag={flagEvent}
-				onComments={showComments}
-				onDuplicate={duplicateEvent}
-				onDelete={deleteEvent}
-			/>
+			<div class="flex h-full items-center justify-center text-sm text-muted-foreground">
+				No timeline events found.
+			</div>
 		{:else}
-			<TimelineTreeView
-				groups={groupedRootEvents}
-				{childrenByParent}
-				{commentCounts}
-				{compact}
-				{folded}
-				{selected}
-				{selecting}
-				onToggleSelect={toggleSelect}
-				onToggleFold={toggleFold}
-				onEdit={editEvent}
-				onAddChild={addChildEvent}
-				onFlag={flagEvent}
-				onComments={showComments}
-				onDuplicate={duplicateEvent}
-				onDelete={deleteEvent}
-			/>
+			<ChipHoverHost caseId={page.params.case_id}>
+				<TimelineView
+					groups={groupedRootEvents}
+					{childrenByParent}
+					{commentCounts}
+					{folded}
+					{selected}
+					{selecting}
+					mode={viewMode}
+					onToggleSelect={toggleSelect}
+					onToggleFold={toggleFold}
+					onEdit={editEvent}
+					onAddChild={addChildEvent}
+					onFlag={flagEvent}
+					onComments={showComments}
+					onDuplicate={duplicateEvent}
+					onDelete={deleteEvent}
+				/>
+
+				<div
+					use:handleTriggerRef
+					class="mx-auto mt-2 flex h-16 max-w-5xl items-center justify-center"
+				>
+					{#if timeline.list.status === 'loading_more'}
+						<div class="flex items-center gap-2 text-xs text-muted-foreground">
+							<Skeleton class="h-3 w-3 rounded-full" />
+							Loading more events…
+						</div>
+					{:else if timeline.list.nextPage !== null}
+						<Button size="sm" variant="ghost" onclick={() => loadMore()}>
+							Load more
+						</Button>
+					{:else if timeline.list.total > 0}
+						<span class="text-2xs text-muted-foreground">
+							{timeline.list.total} {timeline.list.total === 1 ? 'event' : 'events'} · end of timeline
+						</span>
+					{/if}
+				</div>
+			</ChipHoverHost>
 		{/if}
 
 		<TimelineSideToolbar
