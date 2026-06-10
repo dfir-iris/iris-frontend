@@ -16,6 +16,12 @@ const createPopup = (
 	const el = document.createElement('div');
 	el.style.position = 'absolute';
 	el.style.zIndex = '50';
+	// Start hidden — `reposition()` reveals it once a valid trigger rect is
+	// available. Prevents a flash at (0,0) when tiptap hasn't laid out yet,
+	// and the same hide path covers the case where the trigger scrolls out
+	// of view mid-typing (clientRect goes null, we hide rather than parking
+	// the popup in the top-left corner).
+	el.style.visibility = 'hidden';
 	document.body.appendChild(el);
 
 	const props = $state({
@@ -28,9 +34,13 @@ const createPopup = (
 
 	const reposition = () => {
 		const rect = getClientRect();
-		if (!rect) return;
+		if (!rect || (rect.width === 0 && rect.height === 0)) {
+			el.style.visibility = 'hidden';
+			return;
+		}
 		el.style.top = `${rect.bottom + window.scrollY + 4}px`;
 		el.style.left = `${rect.left + window.scrollX}px`;
+		el.style.visibility = 'visible';
 	};
 
 	reposition();

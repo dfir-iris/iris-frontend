@@ -50,7 +50,9 @@
 	import { getContext, mount, unmount } from 'svelte';
 	import MentionPopover, { type MentionPopoverPayload } from './MentionPopover.svelte';
 	import AssetDetailDialog from '../../../../routes/(app)/case/[case_id]/assets/[asset_id]/AssetDetailDialog.svelte';
-	import { goto } from '$app/navigation';
+	import IocDetailDialog from '../../../../routes/(app)/case/[case_id]/iocs/[ioc_id]/IocDetailDialog.svelte';
+	import TaskDetailDialog from '../../../../routes/(app)/case/[case_id]/tasks/[task_id]/TaskDetailDialog.svelte';
+	import NoteDetailDialog from '../../../../routes/(app)/case/[case_id]/notes/[note_id]/NoteDetailDialog.svelte';
 
 	let {
 		value,
@@ -536,15 +538,36 @@
 
 	let popoverHandle: { destroy: () => void } | null = null;
 
-	// Asset detail dialog state. Lives in this component so the dialog inherits
-	// the surrounding Svelte context (CASE_ASSETS_CTX) — needed because
-	// AssetDetailView reads it via getContext.
+	// Detail dialog state for each case-object kind. Living here means the
+	// dialogs inherit the surrounding Svelte context (CASE_*_CTX) — needed
+	// because each *DetailView reads its context via getContext.
 	let assetDialogId = $state<number | null>(null);
 	let assetDialogOpen = $state(false);
+	let iocDialogId = $state<number | null>(null);
+	let iocDialogOpen = $state(false);
+	let taskDialogId = $state<number | null>(null);
+	let taskDialogOpen = $state(false);
+	let noteDialogId = $state<number | null>(null);
+	let noteDialogOpen = $state(false);
 
 	const openAssetDialog = (id: number) => {
 		assetDialogId = id;
 		assetDialogOpen = true;
+	};
+
+	const openIocDialog = (id: number) => {
+		iocDialogId = id;
+		iocDialogOpen = true;
+	};
+
+	const openTaskDialog = (id: number) => {
+		taskDialogId = id;
+		taskDialogOpen = true;
+	};
+
+	const openNoteDialog = (id: number) => {
+		noteDialogId = id;
+		noteDialogOpen = true;
 	};
 
 	const closePopover = () => {
@@ -560,7 +583,6 @@
 		const id = el.getAttribute('data-id') ?? '';
 		const label = el.getAttribute('data-label') ?? el.textContent?.replace(/^[@#]/, '') ?? '';
 		const numericId = Number(id);
-		const caseRef = caseId ?? caseAssets?.currentCaseId?.() ?? null;
 
 		let payload: MentionPopoverPayload;
 
@@ -583,10 +605,7 @@
 				label,
 				ioc_type: ioc?.ioc_type?.type_name ?? null,
 				ioc_description: ioc?.ioc_description ?? null,
-				onOpen:
-					caseRef && Number.isFinite(numericId)
-						? () => goto(`/case/${caseRef}/iocs/${numericId}`)
-						: undefined
+				onOpen: Number.isFinite(numericId) ? () => openIocDialog(numericId) : undefined
 			};
 		} else if (kind === 'note') {
 			const note = caseNotes?.byId[numericId];
@@ -596,10 +615,7 @@
 				id,
 				label,
 				directory: folder?.name ?? null,
-				onOpen:
-					caseRef && Number.isFinite(numericId)
-						? () => goto(`/case/${caseRef}/notes/${numericId}`)
-						: undefined
+				onOpen: Number.isFinite(numericId) ? () => openNoteDialog(numericId) : undefined
 			};
 		} else if (kind === 'task') {
 			const task = caseTasks?.byId[numericId];
@@ -610,10 +626,7 @@
 				status: task?.status?.status_name ?? null,
 				assignees:
 					task?.task_assignees?.map((a) => a.name || a.user).join(', ') || null,
-				onOpen:
-					caseRef && Number.isFinite(numericId)
-						? () => goto(`/case/${caseRef}/tasks/${numericId}`)
-						: undefined
+				onOpen: Number.isFinite(numericId) ? () => openTaskDialog(numericId) : undefined
 			};
 		} else {
 			const users = await loadUsers();
@@ -1227,6 +1240,30 @@
 
 {#if assetDialogId !== null}
 	<AssetDetailDialog assetId={assetDialogId} bind:open={assetDialogOpen} />
+{/if}
+
+{#if iocDialogId !== null && caseId != null}
+	<IocDetailDialog
+		caseId={Number(caseId)}
+		iocId={iocDialogId}
+		bind:open={iocDialogOpen}
+	/>
+{/if}
+
+{#if taskDialogId !== null && caseId != null}
+	<TaskDetailDialog
+		caseId={Number(caseId)}
+		taskId={taskDialogId}
+		bind:open={taskDialogOpen}
+	/>
+{/if}
+
+{#if noteDialogId !== null && caseId != null}
+	<NoteDetailDialog
+		caseId={Number(caseId)}
+		noteId={noteDialogId}
+		bind:open={noteDialogOpen}
+	/>
 {/if}
 
 <style>

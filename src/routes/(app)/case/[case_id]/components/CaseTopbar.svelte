@@ -326,11 +326,11 @@
 			{#each caseData.tags as tag, i}
 				<div
 					data-tag-chip
-					class="flex shrink-0 items-center gap-1 rounded-full border bg-muted/50 px-2 py-0.5 text-2xs"
+					class="flex shrink-0 items-center gap-1 rounded-full border bg-muted/50 px-2.5 py-1 text-xs"
 					class:hidden={i >= visibleTagCount}
 				>
-					<Tag size={10} class="opacity-70" />
-					<span class="max-w-[8rem] truncate">{tag.tag_title}</span>
+					<Tag size={12} class="opacity-70" />
+					<span class="max-w-[10rem] truncate">{tag.tag_title}</span>
 				</div>
 			{/each}
 
@@ -338,7 +338,7 @@
 				<Popover.Root>
 					<Popover.Trigger>
 						<div
-							class="shrink-0 cursor-pointer rounded-full border bg-muted/50 px-2 py-0.5 text-2xs text-muted-foreground transition-colors hover:bg-muted"
+							class="shrink-0 cursor-pointer rounded-full border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted"
 						>
 							+{totalTags - visibleTagCount}
 						</div>
@@ -348,9 +348,9 @@
 						<div class="flex flex-wrap gap-1">
 							{#each caseData.tags as tag}
 								<div
-									class="flex items-center gap-1 rounded-full border bg-muted/50 px-2 py-0.5 text-2xs"
+									class="flex items-center gap-1 rounded-full border bg-muted/50 px-2.5 py-1 text-xs"
 								>
-									<Tag size={10} class="opacity-70" />
+									<Tag size={12} class="opacity-70" />
 									<span class="max-w-[10rem] truncate">{tag.tag_title}</span>
 								</div>
 							{/each}
