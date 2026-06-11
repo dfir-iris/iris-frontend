@@ -7,6 +7,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
 	import type { CaseStatus } from '$lib/components/ui/badge/types';
+	import AssigneesCell from './AssigneesCell.svelte';
 
 	export let tasks: Task[];
 	export let caseId: string | number | null = null;
@@ -79,10 +80,10 @@
 		{
 			accessorKey: 'task_assignees',
 			header: () => 'Assignees',
-			cell: (cell) => {
-				const assignees = cell.getValue() as Task['task_assignees'];
-				return assignees?.map((a) => a.name || a.user).join(', ') || '-';
-			}
+			cell: (cell) =>
+				renderComponent(AssigneesCell, {
+					assignees: cell.getValue() as Task['task_assignees']
+				})
 		},
 		{
 			accessorKey: 'task_tags',

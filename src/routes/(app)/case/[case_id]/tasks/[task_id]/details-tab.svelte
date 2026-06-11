@@ -31,7 +31,9 @@
 	import { TagDisplay } from '$lib/components/common/tag';
 	import DeleteButton from '$lib/components/common/DeleteButton.svelte';
 	import MarkDownPreview from '$lib/components/common/MarkDown/MarkDownPreview.svelte';
+	import Chip from '$lib/components/common/MarkDown/Chip.svelte';
 	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
+	import { current_user } from '$lib/stores/auth.store';
 	import type { CaseStatus } from '$lib/components/ui/badge/types';
 	import TaskForm from '../components/task-form.svelte';
 	import { callHook } from '../../utils/hooks';
@@ -272,13 +274,17 @@
 							<p class="text-sm font-medium text-muted-foreground">Assignees</p>
 							<div class="mt-1">
 								{#if task.task_assignees?.length}
-									<div class="flex flex-wrap gap-1">
-										{#each task.task_assignees as assignee}
-											<span
-												class="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
-											>
-												{assignee.name || assignee.user}
-											</span>
+									<div class="flex flex-wrap items-center gap-1">
+										{#each task.task_assignees as assignee (assignee.id)}
+											{@const me =
+												($current_user?.user_id ?? $current_user?.id ?? null) ===
+												assignee.id}
+											<Chip
+												kind="user"
+												id={assignee.id}
+												label={me ? 'You' : assignee.name || assignee.user}
+												title={assignee.name || assignee.user}
+											/>
 										{/each}
 									</div>
 								{:else}
