@@ -1,15 +1,19 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import {
+		Activity,
+		AlertTriangleIcon,
 		Building2,
+		CheckCircle2Icon,
 		Clock,
+		EyeIcon,
 		FileDigit,
 		InfoIcon,
+		LockIcon,
 		MoreHorizontal,
-		Tag,
-		UserRound,
 		Shield,
-		Activity
+		Tag,
+		UserRound
 	} from 'lucide-svelte';
 	import * as Popover from '$lib/components/ui/popover';
 	import type { Case } from '$lib/types/resources/case';
@@ -52,6 +56,37 @@
 	let status = $state<CaseStatus>('Unspecified' as CaseStatus);
 	let formattedDate = $state('');
 	let isClosed = $state(false);
+
+	// Review chip metadata. Three visible states (none/in-progress/complete);
+	// "Not reviewed" and "No review required" intentionally produce no chip
+	// because surfacing them clutters the topbar without signal.
+	type ReviewVariant = 'complete' | 'pending' | null;
+	const reviewMeta = $derived.by<{
+		variant: ReviewVariant;
+		label: string;
+		shortLabel: string;
+		reviewerName: string | null;
+	}>(() => {
+		const status = caseData?.review_status?.status_name ?? null;
+		const reviewerName = caseData?.reviewer?.user_name ?? null;
+
+		if (!status || status === 'Not reviewed') {
+			return { variant: null, label: '', shortLabel: '', reviewerName: null };
+		}
+		if (status === 'No review required') {
+			return { variant: null, label: '', shortLabel: '', reviewerName: null };
+		}
+		if (status === 'Reviewed') {
+			return { variant: 'complete', label: 'Reviewed', shortLabel: 'Reviewed', reviewerName };
+		}
+		// Pending review / Review in progress / anything else custom
+		return {
+			variant: 'pending',
+			label: status,
+			shortLabel: status === 'Review in progress' ? 'In review' : 'Pending',
+			reviewerName
+		};
+	});
 
 	let tagsContainerEl = $state<HTMLDivElement | null>(null);
 	let visibleTagCount = $state(0);
@@ -189,9 +224,21 @@
 -->
 <div
 	class="relative flex items-center gap-2 border-b px-3 py-2 sm:gap-4 sm:px-5 sm:py-2.5 {isClosed
-		? 'bg-gradient-to-r from-slate-200/80 via-blue-100/60 to-sky-50 dark:from-slate-800/70 dark:via-blue-900/40 dark:to-sky-950/30'
+		? 'border-b-red-500/40 bg-gradient-to-r from-red-100 via-rose-50 to-red-50/40 dark:border-b-red-500/50 dark:from-red-950/60 dark:via-rose-950/40 dark:to-red-950/20'
 		: 'bg-card'}"
 >
+	{#if isClosed}
+		<!--
+		  Diagonal "CLOSED" stripe pattern across the banner. Subtle enough
+		  to keep the text readable, distinctive enough to be impossible to
+		  miss even at a glance. Disabled below the title content via z-index.
+		-->
+		<div
+			class="pointer-events-none absolute inset-0 opacity-[0.04] dark:opacity-[0.08]"
+			style="background-image: repeating-linear-gradient(45deg, rgb(220 38 38) 0 12px, transparent 12px 24px);"
+			aria-hidden="true"
+		></div>
+	{/if}
 
 	<!-- Case icon badge -->
 	<div
@@ -210,9 +257,7 @@
 			{/if}
 
 			<h2
-				class="min-w-0 truncate text-[15px] font-semibold leading-tight tracking-tight {isClosed
-					? 'text-muted-foreground line-through decoration-muted-foreground/40'
-					: 'text-foreground'}"
+				class="min-w-0 truncate text-[15px] font-semibold leading-tight tracking-tight text-foreground"
 				title={caseData?.case_name}
 			>
 				{caseData?.case_name?.split(' - ')[1] ?? caseData?.case_name}
@@ -220,8 +265,9 @@
 
 			{#if isClosed}
 				<span
-					class="shrink-0 rounded-md bg-muted-foreground/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+					class="inline-flex shrink-0 items-center gap-1 rounded-md border border-red-500/40 bg-red-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-red-700 dark:border-red-400/40 dark:bg-red-500/20 dark:text-red-300"
 				>
+					<LockIcon size={10} />
 					Closed
 				</span>
 			{/if}
@@ -371,6 +417,48 @@
 
 	<!-- Right cluster: status/severity grouped, then action buttons -->
 	<div class="flex shrink-0 items-center gap-1 sm:gap-2">
+		{#if reviewMeta.variant}
+			{@const isComplete = reviewMeta.variant === 'complete'}
+			{@const chipClass = isComplete
+				? 'border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:border-emerald-500/50 dark:bg-emerald-950/50 dark:text-emerald-300'
+				: 'border-amber-500/40 bg-amber-50 text-amber-700 dark:border-amber-500/50 dark:bg-amber-950/50 dark:text-amber-300'}
+
+			<Popover.Root>
+				<Popover.Trigger>
+					<!-- md+ chip with label; below md only the icon shows -->
+					<span
+						class="inline-flex h-7 items-center gap-1 rounded-md border px-1.5 text-xs font-medium transition-colors hover:brightness-95 sm:px-2 {chipClass}"
+						aria-label={reviewMeta.label}
+					>
+						{#if isComplete}
+							<CheckCircle2Icon size={13} />
+						{:else}
+							<AlertTriangleIcon size={13} />
+						{/if}
+						<span class="hidden max-w-[7rem] truncate md:inline">{reviewMeta.shortLabel}</span>
+					</span>
+				</Popover.Trigger>
+				<Popover.Content align="end" class="w-56 p-3">
+					<div class="flex items-start gap-2">
+						{#if isComplete}
+							<CheckCircle2Icon size={16} class="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+						{:else}
+							<AlertTriangleIcon size={16} class="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+						{/if}
+						<div class="min-w-0 text-xs">
+							<div class="font-semibold">{reviewMeta.label}</div>
+							{#if reviewMeta.reviewerName}
+								<div class="mt-1 flex items-center gap-1 text-muted-foreground">
+									<EyeIcon size={11} class="opacity-70" />
+									<span class="truncate">by {reviewMeta.reviewerName}</span>
+								</div>
+							{/if}
+						</div>
+					</div>
+				</Popover.Content>
+			</Popover.Root>
+		{/if}
+
 		<!-- Full pill on sm+ -->
 		<div
 			class="hidden items-center gap-1 rounded-lg border bg-muted/30 px-1 py-0.5 sm:flex"

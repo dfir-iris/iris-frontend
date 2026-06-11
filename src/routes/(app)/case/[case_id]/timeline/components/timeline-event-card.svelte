@@ -41,6 +41,8 @@
 		selecting: boolean;
 		isLast?: boolean;
 		showRail?: boolean;
+		matched?: boolean;
+		isCurrentMatch?: boolean;
 		onToggleFold: () => void;
 		onToggleSelect: (eventId: number) => void;
 		onEdit: (eventId: number) => void;
@@ -60,6 +62,8 @@
 		selecting,
 		isLast = false,
 		showRail = true,
+		matched = false,
+		isCurrentMatch = false,
 		onToggleFold,
 		onToggleSelect,
 		onEdit,
@@ -157,14 +161,19 @@
 	{/if}
 
 	<div
+		data-event-id={event.event_id}
 		class={[
-			'group relative mb-2 overflow-hidden rounded-xl border bg-card/80 shadow-sm ring-1 ring-black/5 backdrop-blur-md transition-all duration-200 supports-[backdrop-filter]:bg-card/70 dark:border-white/10 dark:bg-slate-900/80 dark:shadow-lg dark:shadow-black/40 dark:ring-white/10 dark:supports-[backdrop-filter]:bg-slate-900/70',
+			'group relative mb-2 rounded-xl border bg-card/80 shadow-sm ring-1 ring-black/5 backdrop-blur-md transition-all duration-200 supports-[backdrop-filter]:bg-card/70 dark:border-white/10 dark:bg-slate-900/80 dark:shadow-lg dark:shadow-black/40 dark:ring-white/10 dark:supports-[backdrop-filter]:bg-slate-900/70',
 			'hover:-translate-y-px hover:shadow-md hover:ring-black/10 dark:hover:border-white/20 dark:hover:bg-slate-900/90 dark:hover:ring-white/20',
-			selected
-				? 'border-amber-500 ring-2 ring-amber-500/60'
-				: isShared
-					? 'border-red-500 ring-2 ring-red-500/60'
-					: 'border-border/60'
+			isCurrentMatch
+				? 'border-yellow-400 ring-2 ring-yellow-400/70 dark:border-yellow-300 dark:ring-yellow-300/60'
+				: matched
+					? 'border-yellow-400/50 ring-1 ring-yellow-400/40 dark:border-yellow-400/40'
+					: selected
+						? 'border-amber-500 ring-2 ring-amber-500/60'
+						: isShared
+							? 'border-red-500 ring-2 ring-red-500/60'
+							: 'border-border/60'
 		]}
 		role="button"
 		tabindex="0"
@@ -184,7 +193,7 @@
 		<!-- Category color stripe on the leading edge of the card. -->
 		<span
 			aria-hidden="true"
-			class="absolute inset-y-0 left-0 w-1 rounded-l-lg"
+			class="absolute inset-y-0 left-0 w-1 rounded-l-xl"
 			style="background-color: {accentColor}"
 		></span>
 
@@ -214,7 +223,38 @@
 						{/if}
 
 						{#if event.event_is_flagged}
-							<FlagIcon class="size-3 text-red-500" />
+							<TooltipProvider>
+								<Tooltip>
+									<TooltipTrigger>
+										<FlagIcon class="size-3 fill-red-500 text-red-500" aria-label="Flagged" />
+									</TooltipTrigger>
+									<TooltipContent>Flagged</TooltipContent>
+								</Tooltip>
+							</TooltipProvider>
+						{/if}
+
+						{#if commentsCount}
+							<TooltipProvider>
+								<Tooltip>
+									<TooltipTrigger>
+										<button
+											type="button"
+											class="inline-flex items-center gap-0.5 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-2xs font-medium text-blue-600 transition-colors hover:bg-blue-500/25 dark:text-blue-300"
+											aria-label="{commentsCount} {commentsCount === 1 ? 'comment' : 'comments'}"
+											onclick={(e) => {
+												e.stopPropagation();
+												onComments(event.event_id);
+											}}
+										>
+											<MessageSquareIcon class="size-3" />
+											{commentsCount}
+										</button>
+									</TooltipTrigger>
+									<TooltipContent>
+										{commentsCount} {commentsCount === 1 ? 'comment' : 'comments'}
+									</TooltipContent>
+								</Tooltip>
+							</TooltipProvider>
 						{/if}
 
 						<span class="text-2xs text-muted-foreground/70 dark:text-slate-500">

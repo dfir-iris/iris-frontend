@@ -23,11 +23,17 @@
 		TooltipTrigger
 	} from '$lib/components/ui/tooltip';
 	import { getNoteUrl } from '../helpers';
-	import NoteCommentsDialog from './note-comments-dialog.svelte';
 	import NoteHistoryDialog from './note-history-dialog.svelte';
 	import { mediumDateTimeFormatter } from '$lib/utils/time-formatter';
 	import NotesRenameDialog from '../components/notes-rename-dialog.svelte';
 	import { CommentsService } from '$lib/services/comments.service';
+	import { getContext } from 'svelte';
+	import {
+		COMMENTS_PANEL_CTX,
+		type CommentsPanelContext
+	} from '$lib/contexts/comments-panel.context.svelte';
+
+	const commentsPanel = getContext<CommentsPanelContext>(COMMENTS_PANEL_CTX);
 
 	interface LastSaved extends HistoryEventBase {
 		date: Date;
@@ -55,8 +61,14 @@
 
 	let showNoteRename = $state(false);
 	let showNoteHistory = $state(false);
-	let showNoteComments = $state(false);
 	let showConfirmDelete = $state(false);
+
+	const openNoteComments = () =>
+		commentsPanel.open({
+			type: 'notes',
+			id: note.note_id,
+			label: note.note_title || `Note #${note.note_id}`
+		});
 
 	let entered = $state(new Date());
 
@@ -189,7 +201,7 @@
 			<Tooltip>
 				<TooltipTrigger>
 					<div class="relative">
-						<Button variant="link" size="xs" onclick={() => (showNoteComments = true)}>
+						<Button variant="link" size="xs" onclick={openNoteComments}>
 							<MessagesSquareIcon />
 
 							{#if comments > 0}
@@ -327,12 +339,6 @@
 </div>
 
 <NoteHistoryDialog bind:open={showNoteHistory} {note} onClose={() => (showNoteHistory = false)} />
-
-<NoteCommentsDialog
-	bind:open={showNoteComments}
-	{note}
-	onClose={() => (showNoteComments = false)}
-/>
 
 <ConfirmationDialog
 	bind:open={showConfirmDelete}

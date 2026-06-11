@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
-	import { AlertTriangleIcon } from 'lucide-svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import type { Case } from '$lib/types/resources/case';
 	import * as Card from '$lib/components/ui/card';
@@ -71,14 +70,6 @@
 
 <div class="flex w-full flex-col gap-4 px-4 pb-4 pt-4">
 	{#if currentCase}
-		{#if currentCase.review_status?.id && currentCase.reviewer?.id}
-			<Card.Root
-				class="flex w-full flex-row items-center gap-2 bg-amber-400 px-6 py-4 text-black"
-			>
-				<AlertTriangleIcon class="text-red-600" />
-				{currentCase.review_status.status_name} by {currentCase.reviewer.user_name}
-			</Card.Root>
-		{/if}
 
 		<Card.Root class="flex w-full grow">
 			<Card.Header>

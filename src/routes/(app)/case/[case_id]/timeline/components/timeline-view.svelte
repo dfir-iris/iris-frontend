@@ -15,6 +15,8 @@
 		selected: Set<number>;
 		selecting: boolean;
 		mode: 'list' | 'tree';
+		matchedEventIds?: Set<number>;
+		currentMatchEventId?: number | null;
 		onToggleSelect: (eventId: number) => void;
 		onToggleFold: (eventId: number) => void;
 		onEdit: (eventId: number) => void;
@@ -33,6 +35,8 @@
 		selected,
 		selecting,
 		mode,
+		matchedEventIds = new Set<number>(),
+		currentMatchEventId = null,
 		onToggleSelect,
 		onToggleFold,
 		onEdit,
@@ -92,6 +96,8 @@
 		{selecting}
 		isLast={isLast && !childrenVisible}
 		showRail={true}
+		matched={matchedEventIds.has(event.event_id)}
+		isCurrentMatch={currentMatchEventId === event.event_id}
 		{onToggleSelect}
 		onToggleFold={() => onToggleFold(event.event_id)}
 		{onEdit}
@@ -141,6 +147,8 @@
 			{selecting}
 			isLast={false}
 			showRail={false}
+			matched={matchedEventIds.has(event.event_id)}
+			isCurrentMatch={currentMatchEventId === event.event_id}
 			{onToggleSelect}
 			onToggleFold={() => onToggleFold(event.event_id)}
 			{onEdit}
@@ -180,6 +188,8 @@
 					{selecting}
 					isLast={false}
 					showRail={false}
+					matched={matchedEventIds.has(event.event_id)}
+					isCurrentMatch={currentMatchEventId === event.event_id}
 					{onToggleSelect}
 					onToggleFold={() => onToggleFold(event.event_id)}
 					{onEdit}
@@ -213,6 +223,8 @@
 					{selecting}
 					isLast={false}
 					showRail={false}
+					matched={matchedEventIds.has(event.event_id)}
+					isCurrentMatch={currentMatchEventId === event.event_id}
 					{onToggleSelect}
 					onToggleFold={() => onToggleFold(event.event_id)}
 					{onEdit}
@@ -242,7 +254,7 @@
 {/snippet}
 
 {#if mode === 'tree'}
-	<div class="relative mx-auto w-full max-w-6xl">
+	<div class="relative mx-auto w-full max-w-[1400px]">
 		<!-- central vertical spine running the full height of the tree -->
 		<span aria-hidden="true" class="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border dark:bg-slate-700"></span>
 
@@ -263,7 +275,7 @@
 		{/each}
 	</div>
 {:else}
-	<div class="mx-auto w-full max-w-5xl">
+	<div class="mx-auto w-full max-w-[1100px]">
 		{#each groups as group, gi (group.date)}
 			<section class="relative">
 				<div

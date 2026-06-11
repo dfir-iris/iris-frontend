@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { setContext } from 'svelte';
+	import { setContext, getContext } from 'svelte';
 	import { page } from '$app/state';
 	import type {
 		CaseTimelineEvent,
@@ -21,6 +21,10 @@
 		createCaseTimelineContext,
 		type CaseTimelineContext
 	} from '$lib/contexts/case-timeline.context.svelte';
+	import {
+		COMMENTS_PANEL_CTX,
+		type CommentsPanelContext
+	} from '$lib/contexts/comments-panel.context.svelte';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Button } from '$lib/components/ui/button';
@@ -29,7 +33,6 @@
 	import TimelineSideToolbar from './components/timeline-side-toolbar.svelte';
 	import TimelineView from './components/timeline-view.svelte';
 	import TimelineEventDialog from './components/timeline-event-dialog.svelte';
-	import TimelineEventCommentsDialog from './components/timeline-event-comments-dialog.svelte';
 	import CaseWorkspace from '../components/CaseWorkspace.svelte';
 	import type { TimelineFilterData, TimelineFilterFieldValue } from './types';
 
@@ -59,13 +62,16 @@
 
 	setContext<CaseTimelineContext>(CASE_TIMELINE_CTX, timeline);
 
+	const commentsPanel = getContext<CommentsPanelContext>(COMMENTS_PANEL_CTX);
+
 	let filters = $state<TimelineFilterData>(emptyFilters());
 	let viewMode = $state<'list' | 'tree'>('tree');
+	let quickSearch = $state<string>('');
+	let quickSearchMatchIndex = $state<number>(0);
 	let folded = $state<Set<number>>(new Set());
 	let selected = $state<Set<number>>(new Set());
 	let selecting = $state<boolean>(false);
 	let eventDialogOpen = $state<boolean>(false);
-	let eventCommentsDialogOpen = $state<boolean>(false);
 	let showConfirmDelete = $state<boolean>(false);
 	let selectedEvent = $state<CaseTimelineEvent | undefined>(undefined);
 	let selectedParent = $state<CaseTimelineEvent | undefined>(undefined);
@@ -98,6 +104,74 @@
 	};
 
 	const filteredEvents = $derived(timeline.events());
+
+	// Quick-search: searches across the most useful free-text fields and
+	// resolves to a chronologically-ordered list of event IDs. The bar in
+	// the topbar uses this to step the user from match to match without
+	// touching the heavier server-side filter form.
+	const quickSearchMatches = $derived.by<number[]>(() => {
+		const q = quickSearch.trim().toLowerCase();
+		if (!q) return [];
+
+		const matches: number[] = [];
+		for (const event of filteredEvents) {
+			const hay = [
+				event.event_title,
+				event.event_content,
+				event.event_source,
+				event.event_tags,
+				event.category_name,
+				event.event_raw,
+				...(event.assets ?? []).map((a) => `${a.asset_name ?? ''} ${a.name ?? ''} ${a.ip ?? ''}`),
+				...(event.iocs ?? []).map((i) => `${i.ioc_value ?? ''} ${i.name ?? ''}`)
+			]
+				.filter(Boolean)
+				.join(' ')
+				.toLowerCase();
+
+			if (hay.includes(q)) matches.push(event.event_id);
+		}
+		return matches;
+	});
+
+	// Whenever the match set changes (new query or new events loaded), clamp
+	// the cursor and scroll the new "current" match into view. Skip if the
+	// user cleared the search.
+	$effect(() => {
+		const count = quickSearchMatches.length;
+		if (count === 0) {
+			quickSearchMatchIndex = 0;
+			return;
+		}
+		if (quickSearchMatchIndex >= count) quickSearchMatchIndex = 0;
+		scrollMatchIntoView(quickSearchMatches[quickSearchMatchIndex]);
+	});
+
+	const scrollMatchIntoView = (eventId: number) => {
+		// Wait a tick so a freshly-changed match has its highlight class on
+		// the DOM by the time we look for it.
+		requestAnimationFrame(() => {
+			const el = document.querySelector(`[data-event-id="${eventId}"]`);
+			if (!el) return;
+			el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		});
+	};
+
+	const quickSearchNext = () => {
+		if (quickSearchMatches.length === 0) return;
+		quickSearchMatchIndex = (quickSearchMatchIndex + 1) % quickSearchMatches.length;
+	};
+
+	const quickSearchPrev = () => {
+		if (quickSearchMatches.length === 0) return;
+		quickSearchMatchIndex =
+			(quickSearchMatchIndex - 1 + quickSearchMatches.length) % quickSearchMatches.length;
+	};
+
+	const onQuickSearchChange = (value: string) => {
+		quickSearch = value;
+		quickSearchMatchIndex = 0;
+	};
 
 	const parentEventCandidates = $derived(
 		timeline.events().filter((event) => event.event_id !== selectedEvent?.event_id)
@@ -347,20 +421,18 @@
 
 	const showComments = async (eventId: number) => {
 		const event = await timeline.getEvent(eventId);
-
 		if (!event) return;
 
-		selectedEvent = event;
-		eventCommentsDialogOpen = true;
-	};
+		commentsPanel.open({
+			type: 'events',
+			id: event.event_id,
+			label: event.event_title || `Event #${event.event_id}`
+		});
 
-	const closeComments = async () => {
-		const eventId = selectedEvent?.event_id;
-
-		eventCommentsDialogOpen = false;
-		selectedEvent = undefined;
-
-		if (eventId) await loadCommentCount(eventId);
+		// Keep the inline comment-count badge fresh once the panel comes
+		// back — listening for panel close isn't ideal, so we just refresh
+		// the count opportunistically on subsequent loads.
+		void loadCommentCount(eventId);
 	};
 
 	const loadEventCategories = async () => {
@@ -581,12 +653,18 @@
 		{filters}
 		{eventCategories}
 		{viewMode}
+		{quickSearch}
+		{quickSearchMatchIndex}
+		quickSearchMatchCount={quickSearchMatches.length}
 		onUpdateFilter={updateFilter}
 		onApplyFilters={applyFilters}
 		onClearFilters={clearFilters}
 		onRefresh={refreshTimeline}
 		onAddEvent={addEvent}
 		onViewModeChange={(m) => (viewMode = m)}
+		{onQuickSearchChange}
+		onQuickSearchNext={quickSearchNext}
+		onQuickSearchPrev={quickSearchPrev}
 		onDownloadCsv={() => downloadTimelineCsv(false)}
 		onDownloadCsvWithUserInfo={() => downloadTimelineCsv(true)}
 		onUploadCsv={uploadTimelineCsv}
@@ -597,7 +675,7 @@
 		class="relative min-h-0 flex-1 overflow-auto bg-gradient-to-b from-muted/30 via-background to-muted/20 px-6 py-4 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900"
 	>
 		{#if timeline.list.status === 'loading' && groupedRootEvents.length === 0}
-			<div class="mx-auto max-w-5xl space-y-2 py-6">
+			<div class="mx-auto max-w-[1100px] space-y-2 py-6">
 				{#each Array(4) as _, i (i)}
 					<Skeleton class="h-24 w-full rounded-lg" />
 				{/each}
@@ -618,6 +696,8 @@
 					{selected}
 					{selecting}
 					mode={viewMode}
+					matchedEventIds={new Set(quickSearchMatches)}
+					currentMatchEventId={quickSearchMatches[quickSearchMatchIndex] ?? null}
 					onToggleSelect={toggleSelect}
 					onToggleFold={toggleFold}
 					onEdit={editEvent}
@@ -630,7 +710,7 @@
 
 				<div
 					use:handleTriggerRef
-					class="mx-auto mt-2 flex h-16 max-w-5xl items-center justify-center"
+					class="mx-auto mt-2 flex h-16 max-w-[1100px] items-center justify-center"
 				>
 					{#if timeline.list.status === 'loading_more'}
 						<div class="flex items-center gap-2 text-xs text-muted-foreground">
@@ -673,12 +753,6 @@
 	iocs={caseIocs}
 	{selectedParent}
 	onOpenChange={(open) => (eventDialogOpen = open)}
-/>
-
-<TimelineEventCommentsDialog
-	bind:open={eventCommentsDialogOpen}
-	event={selectedEvent}
-	onClose={closeComments}
 />
 
 <ConfirmationDialog

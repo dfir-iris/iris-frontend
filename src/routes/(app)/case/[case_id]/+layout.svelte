@@ -29,6 +29,11 @@
 		createCaseTasksContext,
 		type CaseTasksContext
 	} from '$lib/contexts/case-tasks.context.svelte';
+	import {
+		COMMENTS_PANEL_CTX,
+		createCommentsPanelContext,
+		type CommentsPanelContext
+	} from '$lib/contexts/comments-panel.context.svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import {
 		DropdownMenuItem,
@@ -66,6 +71,9 @@
 	setContext<CaseIocsContext>(CASE_IOCS_CTX, caseIocs);
 	setContext<CaseNotesContext>(CASE_NOTES_CTX, caseNotes);
 	setContext<CaseTasksContext>(CASE_TASKS_CTX, caseTasks);
+
+	const commentsPanel = createCommentsPanelContext();
+	setContext<CommentsPanelContext>(COMMENTS_PANEL_CTX, commentsPanel);
 
 	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
 
@@ -127,6 +135,82 @@
 			HookOption[]
 		>;
 		hookOptions = hooksResponse.data as HookOption[];
+	});
+
+	// Workspace-wide comments side panel. When the URL's entity segment
+	// changes (notes, assets, IOCs, tasks, events…), update the panel so
+	// it follows the user. If the panel is OPEN we silently swap the
+	// entity — the user is in "comments mode" and expects to see comments
+	// for whatever they're now looking at. If the panel is closed, the
+	// next time the user opens it they get the current entity by default.
+	//
+	// We derive the entity from the URL params and the relevant case
+	// context (the by-id store is the authoritative source for labels;
+	// when it's not loaded yet we fall back to a short placeholder so the
+	// panel still opens against the right ID).
+	type Resolver = () => { type: 'assets' | 'iocs' | 'tasks' | 'notes'; id: number; label: string } | null;
+	const resolveCurrentEntity: Resolver = () => {
+		const p = page.params as Record<string, string | undefined>;
+		if (p.asset_id) {
+			const id = Number(p.asset_id);
+			const asset = caseAssets.byId[id];
+			return { type: 'assets', id, label: asset?.asset_name ?? `Asset #${id}` };
+		}
+		if (p.ioc_id) {
+			const id = Number(p.ioc_id);
+			const ioc = caseIocs.byId[id];
+			return { type: 'iocs', id, label: ioc?.ioc_value ?? `IOC #${id}` };
+		}
+		if (p.task_id) {
+			const id = Number(p.task_id);
+			const task = caseTasks.byId[id];
+			return { type: 'tasks', id, label: task?.task_title ?? `Task #${id}` };
+		}
+		if (p.note_id) {
+			const id = Number(p.note_id);
+			const note = caseNotes.byId[id];
+			return { type: 'notes', id, label: note?.note_title ?? `Note #${id}` };
+		}
+		return null;
+	};
+
+	let lastEntitySig = $state<string | null>(null);
+
+	$effect(() => {
+		const entity = resolveCurrentEntity();
+		const sig = entity ? `${entity.type}:${entity.id}` : null;
+
+		// Skip the first run after mount — we don't want to auto-open or
+		// auto-clear when the user lands on a page; only react to *changes*.
+		if (lastEntitySig === null) {
+			lastEntitySig = sig;
+			return;
+		}
+
+		if (sig === lastEntitySig) {
+			// Same entity, but label may have caught up after a context load —
+			// keep the panel label fresh if the panel is open on this entity.
+			if (
+				entity &&
+				commentsPanel.state.open &&
+				commentsPanel.state.entity?.type === entity.type &&
+				commentsPanel.state.entity?.id === entity.id &&
+				commentsPanel.state.entity?.label !== entity.label
+			) {
+				commentsPanel.open(entity);
+			}
+			return;
+		}
+
+		lastEntitySig = sig;
+
+		if (!commentsPanel.state.open) return;
+
+		if (entity) {
+			commentsPanel.open(entity);
+		} else {
+			commentsPanel.clearEntity();
+		}
 	});
 </script>
 

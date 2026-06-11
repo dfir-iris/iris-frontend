@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy, tick } from 'svelte';
+	import { onMount, onDestroy, tick, untrack } from 'svelte';
 	import DOMPurify from 'dompurify';
 	import { converter } from './converter';
 	import {
@@ -63,7 +63,8 @@
 		collabMode,
 		savedAt,
 		onRemoteSave,
-		onRemoteChange
+		onRemoteChange,
+		initialMode = 'view'
 	} = $props<{
 		value: string;
 		onChange: (v: string) => void;
@@ -74,10 +75,14 @@
 		savedAt?: number;
 		onRemoteSave?: (content: string) => void;
 		onRemoteChange?: (user: string) => void;
+		initialMode?: 'view' | 'edit' | 'edit-preview';
 	}>();
 
 	type ViewMode = 'view' | 'edit' | 'edit-preview';
-	let viewMode = $state<ViewMode>('view');
+	// initialMode is a one-shot seed — we deliberately capture its value
+	// once and never reactively rebind. untrack() also silences the
+	// state_referenced_locally warning.
+	let viewMode = $state<ViewMode>(untrack(() => initialMode));
 
 	const renderedHtml = $derived(DOMPurify.sanitize(converter.makeHtml(value ?? '')));
 

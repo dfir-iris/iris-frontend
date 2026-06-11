@@ -49,7 +49,7 @@
 </script>
 
 <span
-	class={`mention-chip mention-chip-clickable inline-flex cursor-pointer items-center gap-0.5 rounded px-1 py-0 text-xs font-medium ${colorFor(kind)}`}
+	class={`mention-chip mention-chip-clickable inline-flex max-w-full cursor-pointer items-center gap-0.5 overflow-hidden rounded px-1 py-0 align-bottom text-xs font-medium ${colorFor(kind)}`}
 	role="button"
 	tabindex="0"
 	title={title ?? label}
@@ -58,6 +58,6 @@
 	data-id={String(id)}
 	data-label={label}
 >
-	<Icon size={10} aria-hidden="true" />
-	<span class="mention-chip-label">{label}</span>
+	<Icon size={10} class="shrink-0" aria-hidden="true" />
+	<span class="mention-chip-label min-w-0 truncate">{label}</span>
 </span>

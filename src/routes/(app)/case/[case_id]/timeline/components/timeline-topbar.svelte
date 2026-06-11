@@ -1,11 +1,15 @@
 <script lang="ts">
 	import {
+		ChevronDownIcon,
+		ChevronUpIcon,
 		EllipsisVerticalIcon,
 		FilterIcon,
 		ListIcon,
 		ListTreeIcon,
 		PlusIcon,
-		RefreshCwIcon
+		RefreshCwIcon,
+		SearchIcon,
+		XIcon
 	} from 'lucide-svelte';
 	import type { EventCategory } from '$lib/services/event-categories.service';
 	import { Button } from '$lib/components/ui/button';
@@ -20,7 +24,6 @@
 		TooltipTrigger
 	} from '$lib/components/ui/tooltip';
 	import type { TimelineFilterData, TimelineFilterFieldValue } from '../types';
-	import { visualize } from '../visualize/helpers';
 	import TimelineFilters from './timeline-filters.svelte';
 
 	type ViewMode = 'list' | 'tree';
@@ -29,12 +32,18 @@
 		filters: TimelineFilterData;
 		eventCategories: EventCategory[];
 		viewMode: ViewMode;
+		quickSearch: string;
+		quickSearchMatchIndex: number;
+		quickSearchMatchCount: number;
 		onUpdateFilter: (field: keyof TimelineFilterData, value: TimelineFilterFieldValue) => void;
 		onApplyFilters: () => void;
 		onClearFilters: () => void;
 		onRefresh: () => void;
 		onAddEvent: () => void;
 		onViewModeChange: (mode: ViewMode) => void;
+		onQuickSearchChange: (value: string) => void;
+		onQuickSearchNext: () => void;
+		onQuickSearchPrev: () => void;
 		onDownloadCsv: () => void;
 		onDownloadCsvWithUserInfo: () => void;
 		onUploadCsv: () => void;
@@ -44,12 +53,18 @@
 		filters,
 		eventCategories,
 		viewMode,
+		quickSearch,
+		quickSearchMatchIndex,
+		quickSearchMatchCount,
 		onUpdateFilter,
 		onApplyFilters,
 		onClearFilters,
 		onRefresh,
 		onAddEvent,
 		onViewModeChange,
+		onQuickSearchChange,
+		onQuickSearchNext,
+		onQuickSearchPrev,
 		onDownloadCsv,
 		onDownloadCsvWithUserInfo,
 		onUploadCsv
@@ -57,11 +72,18 @@
 
 	let isMenuOpen = $state(false);
 	let showFilters = $state(false);
+
+	const handleQuickSearchKey = (e: KeyboardEvent) => {
+		if (e.key !== 'Enter') return;
+		e.preventDefault();
+		if (e.shiftKey) onQuickSearchPrev();
+		else onQuickSearchNext();
+	};
 </script>
 
 <div class="border-b border-border bg-card">
-	<div class="flex items-center px-4 py-2">
-		<div class="mr-auto flex items-center gap-1.5">
+	<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-2">
+		<div class="flex items-center gap-1.5">
 			<h2 class="mr-2 text-sm font-semibold">Timeline</h2>
 
 			<Button
@@ -79,7 +101,74 @@
 			</Button>
 		</div>
 
-		<div class="ml-auto flex items-center gap-1.5">
+		<div class="flex w-80 max-w-full items-center gap-1 rounded-md border border-border bg-muted/40 pl-2 pr-1 focus-within:border-primary focus-within:bg-background dark:bg-slate-800/60">
+			<SearchIcon class="size-3.5 shrink-0 text-muted-foreground" />
+			<input
+				type="text"
+				value={quickSearch}
+				oninput={(e) => onQuickSearchChange((e.target as HTMLInputElement).value)}
+				onkeydown={handleQuickSearchKey}
+				placeholder="Search timeline…"
+				class="h-7 min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+				aria-label="Quick search timeline"
+			/>
+
+			{#if quickSearch}
+				<span
+					class="shrink-0 whitespace-nowrap text-2xs tabular-nums text-muted-foreground"
+					aria-live="polite"
+				>
+					{quickSearchMatchCount === 0 ? 'No matches' : `${quickSearchMatchIndex + 1}/${quickSearchMatchCount}`}
+				</span>
+
+				<div class="flex shrink-0 items-center">
+					<TooltipProvider>
+						<Tooltip>
+							<TooltipTrigger>
+								<button
+									type="button"
+									class="inline-flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
+									disabled={quickSearchMatchCount === 0}
+									aria-label="Previous match"
+									onclick={onQuickSearchPrev}
+								>
+									<ChevronUpIcon class="size-3.5" />
+								</button>
+							</TooltipTrigger>
+							<TooltipContent>Previous match (Shift+Enter)</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+
+					<TooltipProvider>
+						<Tooltip>
+							<TooltipTrigger>
+								<button
+									type="button"
+									class="inline-flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
+									disabled={quickSearchMatchCount === 0}
+									aria-label="Next match"
+									onclick={onQuickSearchNext}
+								>
+									<ChevronDownIcon class="size-3.5" />
+								</button>
+							</TooltipTrigger>
+							<TooltipContent>Next match (Enter)</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+
+					<button
+						type="button"
+						class="inline-flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+						aria-label="Clear search"
+						onclick={() => onQuickSearchChange('')}
+					>
+						<XIcon class="size-3.5" />
+					</button>
+				</div>
+			{/if}
+		</div>
+
+		<div class="flex items-center justify-end gap-1.5">
 			<div class="mr-1 flex items-center overflow-hidden rounded-md border border-border">
 				<TooltipProvider>
 					<Tooltip>
@@ -127,16 +216,6 @@
 				</DropdownMenuTrigger>
 
 				<DropdownMenuContent align="end">
-					<DropdownMenuItem onclick={() => visualize()}>Visualize</DropdownMenuItem>
-
-					<DropdownMenuItem onclick={() => visualize('asset')}>Visualize by asset</DropdownMenuItem>
-
-					<DropdownMenuItem onclick={() => visualize('category')}
-						>Visualize by category</DropdownMenuItem
-					>
-
-					<Separator class="my-2" />
-
 					<DropdownMenuItem onclick={onDownloadCsv}>Download as CSV</DropdownMenuItem>
 
 					<DropdownMenuItem onclick={onDownloadCsvWithUserInfo}>
