@@ -8,12 +8,13 @@ export const getTaskUrl = (caseId?: number, taskId?: string | 'add') => {
 	return `${url.origin}/case/${caseId ?? page.params.case_id}/tasks/${taskId ?? ''}`;
 };
 
+// The Add dialog is mounted at the case layout, so opening it works from any
+// sub-page of the case. We only redirect when we're outside the case entirely
+// (e.g. triggered from a global topbar action).
 export const newTask = async (tasks: CaseTasksContext) => {
 	tasks.ui.showAddModal = true;
 
-	const url = new URL(page.url);
-
-	if (!(url.href.includes('/case/') && url.href.includes('/tasks'))) {
-		await goto(`${url.origin}/case/${tasks.currentCaseId()}/tasks`);
+	if (!page.url.pathname.startsWith('/case/')) {
+		await goto(`/case/${tasks.currentCaseId()}/tasks`);
 	}
 };

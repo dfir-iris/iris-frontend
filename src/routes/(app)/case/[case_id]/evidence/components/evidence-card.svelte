@@ -1,22 +1,8 @@
 <script lang="ts">
-	import { FileLock2Icon, CopyIcon, EllipsisVerticalIcon } from 'lucide-svelte';
+	import { FileLock2Icon } from 'lucide-svelte';
 	import { cn } from '$lib/utils';
-	import { toast } from '$lib/stores/toast.store';
 	import type { Evidence } from '$lib/types/resources/evidence';
-	import {
-		DropdownMenu,
-		DropdownMenuContent,
-		DropdownMenuItem,
-		DropdownMenuLabel,
-		DropdownMenuSeparator,
-		DropdownMenuTrigger
-	} from '$lib/components/ui/dropdown-menu';
-	import {
-		Tooltip,
-		TooltipContent,
-		TooltipProvider,
-		TooltipTrigger
-	} from '$lib/components/ui/tooltip';
+	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
 
 	type Props = {
 		evidence: Evidence;
@@ -34,21 +20,6 @@
 	};
 
 	const size = $derived(formatSize(evidence.file_size));
-
-	const copy = async (value: string | null | undefined, label: string) => {
-		if (!value) return;
-		try {
-			await navigator.clipboard.writeText(value);
-			toast({ title: `${label} copied`, variant: 'success' });
-		} catch (e) {
-			console.error('Clipboard copy error:', e);
-			toast({ title: `Could not copy ${label.toLowerCase()}`, variant: 'destructive' });
-		}
-	};
-
-	const stop = (e: Event) => {
-		e.stopPropagation();
-	};
 </script>
 
 <div
@@ -75,103 +46,27 @@
 			</div>
 
 			<div class="min-w-0 flex-1">
-				<span class="line-clamp-2 break-all text-base font-semibold">{evidence.filename}</span>
+				<div class="group/item flex items-center gap-1">
+					<span class="line-clamp-2 break-all text-base font-semibold">{evidence.filename}</span>
+					<ClipboardCopy
+						value={evidence.filename}
+						tooltipText="Copy filename"
+						className="ml-1 flex-shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity"
+						size={14}
+					/>
+				</div>
 
 				{#if evidence.type?.name}
-					<div class="truncate text-xs text-muted-foreground">{evidence.type.name}</div>
+					<div class="truncate text-xs text-muted-foreground" title={evidence.type.name}>
+						{evidence.type.name}
+					</div>
 				{/if}
 			</div>
 		</div>
 
-		<div class="flex shrink-0 items-center gap-1">
-			{#if size}
-				<span class="text-xs text-muted-foreground">{size}</span>
-			{/if}
-
-			<TooltipProvider>
-				<Tooltip>
-					<TooltipTrigger>
-						<button
-							type="button"
-							class="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus:opacity-100 group-hover:opacity-100"
-							onclick={(e) => {
-								stop(e);
-								copy(evidence.filename, 'Filename');
-							}}
-							aria-label="Copy filename"
-						>
-							<CopyIcon size={12} />
-						</button>
-					</TooltipTrigger>
-					<TooltipContent side="top">Copy filename</TooltipContent>
-				</Tooltip>
-			</TooltipProvider>
-
-			<DropdownMenu>
-				<DropdownMenuTrigger>
-					<button
-						type="button"
-						class="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus:opacity-100 group-hover:opacity-100"
-						onclick={stop}
-						aria-label="Quick actions"
-					>
-						<EllipsisVerticalIcon size={14} />
-					</button>
-				</DropdownMenuTrigger>
-
-				<DropdownMenuContent align="end" onclick={stop}>
-					<DropdownMenuLabel>Copy</DropdownMenuLabel>
-
-					<DropdownMenuItem onclick={() => copy(evidence.filename, 'Filename')}>
-						<CopyIcon class="mr-2 h-3.5 w-3.5" />
-						Filename
-					</DropdownMenuItem>
-
-					<DropdownMenuItem
-						disabled={!evidence.file_hash}
-						onclick={() => copy(evidence.file_hash, 'Hash')}
-					>
-						<CopyIcon class="mr-2 h-3.5 w-3.5" />
-						Hash
-					</DropdownMenuItem>
-
-					<DropdownMenuItem
-						disabled={!evidence.file_uuid}
-						onclick={() => copy(evidence.file_uuid, 'UUID')}
-					>
-						<CopyIcon class="mr-2 h-3.5 w-3.5" />
-						UUID
-					</DropdownMenuItem>
-
-					<DropdownMenuItem onclick={() => copy(String(evidence.id), 'ID')}>
-						<CopyIcon class="mr-2 h-3.5 w-3.5" />
-						ID
-					</DropdownMenuItem>
-
-					<DropdownMenuItem
-						disabled={!evidence.file_description}
-						onclick={() => copy(evidence.file_description, 'Description')}
-					>
-						<CopyIcon class="mr-2 h-3.5 w-3.5" />
-						Description
-					</DropdownMenuItem>
-
-					<DropdownMenuSeparator />
-
-					<DropdownMenuItem
-						disabled={!evidence.filename}
-						onclick={() =>
-							copy(
-								`${evidence.filename}${evidence.file_hash ? `\n${evidence.file_hash}` : ''}`,
-								'Summary'
-							)}
-					>
-						<CopyIcon class="mr-2 h-3.5 w-3.5" />
-						Filename + hash
-					</DropdownMenuItem>
-				</DropdownMenuContent>
-			</DropdownMenu>
-		</div>
+		{#if size}
+			<span class="shrink-0 text-xs text-muted-foreground">{size}</span>
+		{/if}
 	</div>
 
 	{#if evidence.date_added || evidence.file_hash}
@@ -181,9 +76,17 @@
 			{/if}
 
 			{#if evidence.file_hash}
-				<span class="truncate font-mono text-2xs text-muted-foreground">
-					{evidence.file_hash}
-				</span>
+				<div class="group/hash flex min-w-0 items-center gap-1">
+					<span class="truncate font-mono text-2xs text-muted-foreground" title={evidence.file_hash}>
+						{evidence.file_hash}
+					</span>
+					<ClipboardCopy
+						value={evidence.file_hash}
+						tooltipText="Copy hash"
+						className="flex-shrink-0 opacity-0 group-hover/hash:opacity-100 transition-opacity"
+						size={12}
+					/>
+				</div>
 			{/if}
 		</div>
 	{/if}
