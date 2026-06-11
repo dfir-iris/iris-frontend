@@ -35,6 +35,7 @@
 		quickSearch: string;
 		quickSearchMatchIndex: number;
 		quickSearchMatchCount: number;
+		quickSearchLoading?: boolean;
 		onUpdateFilter: (field: keyof TimelineFilterData, value: TimelineFilterFieldValue) => void;
 		onApplyFilters: () => void;
 		onClearFilters: () => void;
@@ -56,6 +57,7 @@
 		quickSearch,
 		quickSearchMatchIndex,
 		quickSearchMatchCount,
+		quickSearchLoading = false,
 		onUpdateFilter,
 		onApplyFilters,
 		onClearFilters,
@@ -115,10 +117,15 @@
 
 			{#if quickSearch}
 				<span
-					class="shrink-0 whitespace-nowrap text-2xs tabular-nums text-muted-foreground"
+					class="flex shrink-0 items-center gap-1 whitespace-nowrap text-2xs tabular-nums text-muted-foreground"
 					aria-live="polite"
 				>
-					{quickSearchMatchCount === 0 ? 'No matches' : `${quickSearchMatchIndex + 1}/${quickSearchMatchCount}`}
+					{#if quickSearchLoading}
+						<RefreshCwIcon class="size-3 animate-spin" />
+						Loading…
+					{:else}
+						{quickSearchMatchCount === 0 ? 'No matches' : `${quickSearchMatchIndex + 1}/${quickSearchMatchCount}`}
+					{/if}
 				</span>
 
 				<div class="flex shrink-0 items-center">

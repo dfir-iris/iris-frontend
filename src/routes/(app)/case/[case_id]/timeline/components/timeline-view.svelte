@@ -17,6 +17,7 @@
 		mode: 'list' | 'tree';
 		matchedEventIds?: Set<number>;
 		currentMatchEventId?: number | null;
+		searchQuery?: string;
 		onToggleSelect: (eventId: number) => void;
 		onToggleFold: (eventId: number) => void;
 		onEdit: (eventId: number) => void;
@@ -37,6 +38,7 @@
 		mode,
 		matchedEventIds = new Set<number>(),
 		currentMatchEventId = null,
+		searchQuery = '',
 		onToggleSelect,
 		onToggleFold,
 		onEdit,
@@ -98,6 +100,7 @@
 		showRail={true}
 		matched={matchedEventIds.has(event.event_id)}
 		isCurrentMatch={currentMatchEventId === event.event_id}
+			{searchQuery}
 		{onToggleSelect}
 		onToggleFold={() => onToggleFold(event.event_id)}
 		{onEdit}
@@ -149,6 +152,7 @@
 			showRail={false}
 			matched={matchedEventIds.has(event.event_id)}
 			isCurrentMatch={currentMatchEventId === event.event_id}
+			{searchQuery}
 			{onToggleSelect}
 			onToggleFold={() => onToggleFold(event.event_id)}
 			{onEdit}
@@ -190,6 +194,7 @@
 					showRail={false}
 					matched={matchedEventIds.has(event.event_id)}
 					isCurrentMatch={currentMatchEventId === event.event_id}
+			{searchQuery}
 					{onToggleSelect}
 					onToggleFold={() => onToggleFold(event.event_id)}
 					{onEdit}
@@ -225,6 +230,7 @@
 					showRail={false}
 					matched={matchedEventIds.has(event.event_id)}
 					isCurrentMatch={currentMatchEventId === event.event_id}
+			{searchQuery}
 					{onToggleSelect}
 					onToggleFold={() => onToggleFold(event.event_id)}
 					{onEdit}

@@ -171,6 +171,13 @@
 	const onQuickSearchChange = (value: string) => {
 		quickSearch = value;
 		quickSearchMatchIndex = 0;
+		// Quick-search runs against in-memory events. Trigger a one-shot
+		// pull of all remaining pages on first use so the search covers the
+		// entire timeline, not just what has been scrolled past. loadAll is
+		// idempotent and bails out if the data is already complete.
+		if (value.trim() && !timeline.list.allLoaded) {
+			void timeline.loadAll({ fetch });
+		}
 	};
 
 	const parentEventCandidates = $derived(
@@ -656,6 +663,7 @@
 		{quickSearch}
 		{quickSearchMatchIndex}
 		quickSearchMatchCount={quickSearchMatches.length}
+		quickSearchLoading={timeline.list.status === 'loading_all' && !timeline.list.allLoaded}
 		onUpdateFilter={updateFilter}
 		onApplyFilters={applyFilters}
 		onClearFilters={clearFilters}
@@ -698,6 +706,7 @@
 					mode={viewMode}
 					matchedEventIds={new Set(quickSearchMatches)}
 					currentMatchEventId={quickSearchMatches[quickSearchMatchIndex] ?? null}
+					searchQuery={quickSearch}
 					onToggleSelect={toggleSelect}
 					onToggleFold={toggleFold}
 					onEdit={editEvent}

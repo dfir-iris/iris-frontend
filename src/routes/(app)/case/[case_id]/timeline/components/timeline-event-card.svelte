@@ -31,6 +31,7 @@
 	import Chip from '$lib/components/common/MarkDown/Chip.svelte';
 	import { toast } from '$lib/stores/toast.store';
 	import { getSharedEventId, getSharedEventUrl } from '../helpers';
+	import Highlight from './highlight.svelte';
 
 	type Props = {
 		event: CaseTimelineEvent;
@@ -43,6 +44,7 @@
 		showRail?: boolean;
 		matched?: boolean;
 		isCurrentMatch?: boolean;
+		searchQuery?: string;
 		onToggleFold: () => void;
 		onToggleSelect: (eventId: number) => void;
 		onEdit: (eventId: number) => void;
@@ -64,6 +66,7 @@
 		showRail = true,
 		matched = false,
 		isCurrentMatch = false,
+		searchQuery = '',
 		onToggleFold,
 		onToggleSelect,
 		onEdit,
@@ -123,6 +126,88 @@
 	);
 
 	let menuOpen = $state(false);
+
+	// Quick-search highlight in the rendered markdown preview. The preview is
+	// sanitized HTML, so a string-replace would break elements; instead we
+	// walk text nodes only and wrap matching substrings in <mark>. The CSS
+	// for <mark> lives on the wrapper div (uses Tailwind arbitrary variants).
+	let contentEl = $state<HTMLDivElement | null>(null);
+
+	const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+	const highlightInElement = (root: HTMLElement, query: string) => {
+		// First, unwrap any previously-inserted <mark> elements so re-highlighting
+		// after a query change starts from a clean slate.
+		const previous = root.querySelectorAll('mark[data-quick-search]');
+		previous.forEach((el) => {
+			const parent = el.parentNode;
+			if (!parent) return;
+			while (el.firstChild) parent.insertBefore(el.firstChild, el);
+			parent.removeChild(el);
+			parent.normalize();
+		});
+
+		const q = query.trim();
+		if (!q) return;
+
+		const re = new RegExp(escapeRegExp(q), 'gi');
+		const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+			acceptNode: (node) => {
+				const parent = node.parentElement;
+				if (!parent) return NodeFilter.FILTER_REJECT;
+				const tag = parent.tagName;
+				// Skip <script>, <style>, and existing marks (shouldn't happen
+				// after the unwrap above but defensive).
+				if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'MARK')
+					return NodeFilter.FILTER_REJECT;
+				return node.nodeValue && re.test(node.nodeValue)
+					? NodeFilter.FILTER_ACCEPT
+					: NodeFilter.FILTER_REJECT;
+			}
+		});
+
+		const targets: Text[] = [];
+		let current = walker.nextNode();
+		while (current) {
+			targets.push(current as Text);
+			current = walker.nextNode();
+		}
+
+		for (const text of targets) {
+			const value = text.nodeValue ?? '';
+			re.lastIndex = 0;
+			const frag = document.createDocumentFragment();
+			let last = 0;
+			let m: RegExpExecArray | null;
+			while ((m = re.exec(value))) {
+				if (m.index > last) {
+					frag.appendChild(document.createTextNode(value.slice(last, m.index)));
+				}
+				const mark = document.createElement('mark');
+				mark.setAttribute('data-quick-search', '');
+				mark.textContent = m[0];
+				frag.appendChild(mark);
+				last = m.index + m[0].length;
+				if (m[0].length === 0) re.lastIndex++;
+			}
+			if (last < value.length) {
+				frag.appendChild(document.createTextNode(value.slice(last)));
+			}
+			text.parentNode?.replaceChild(frag, text);
+		}
+	};
+
+	$effect(() => {
+		const root = contentEl;
+		if (!root) return;
+		// Re-read these so the effect re-runs when either changes.
+		void event.event_content;
+		void searchQuery;
+		// Defer one tick to let MarkDownPreview commit its DOM first.
+		queueMicrotask(() => {
+			if (contentEl) highlightInElement(contentEl, searchQuery);
+		});
+	});
 
 	const copyShareLink = () => {
 		navigator.clipboard
@@ -212,13 +297,13 @@
 
 						{#if event.category_name}
 							<span class="rounded-full px-2 py-0.5 text-2xs font-medium" style="background-color: {accentColor}20; color: {accentColor}">
-								{event.category_name}
+								<Highlight text={event.category_name} query={searchQuery} />
 							</span>
 						{/if}
 
 						{#if event.event_source}
 							<span class="truncate text-2xs uppercase tracking-wide">
-								· {event.event_source}
+								· <Highlight text={event.event_source} query={searchQuery} />
 							</span>
 						{/if}
 
@@ -270,12 +355,13 @@
 							onEdit(event.event_id);
 						}}
 					>
-						{event.event_title}
+						<Highlight text={event.event_title} query={searchQuery} />
 					</button>
 
 					{#if event.event_content}
 						<div
-							class="mt-1.5 max-h-40 min-w-0 overflow-hidden text-xs text-foreground/80 dark:text-slate-300 [&_*]:max-w-full [&_code]:whitespace-pre-wrap [&_code]:break-words [&_img]:max-w-full [&_p]:break-words [&_pre]:overflow-x-hidden [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_pre]:dark:bg-slate-800/60 [&_code]:dark:bg-slate-800/60 [&_table]:block [&_table]:overflow-x-auto"
+							bind:this={contentEl}
+							class="mt-1.5 max-h-40 min-w-0 overflow-hidden text-xs text-foreground/80 dark:text-slate-300 [&_*]:max-w-full [&_code]:whitespace-pre-wrap [&_code]:break-words [&_img]:max-w-full [&_mark]:rounded-sm [&_mark]:bg-yellow-300/60 [&_mark]:px-0.5 [&_mark]:text-foreground dark:[&_mark]:bg-yellow-400/40 [&_p]:break-words [&_pre]:overflow-x-hidden [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_pre]:dark:bg-slate-800/60 [&_code]:dark:bg-slate-800/60 [&_table]:block [&_table]:overflow-x-auto"
 						>
 							<MarkDownPreview markdown={event.event_content} />
 						</div>
@@ -315,7 +401,7 @@
 
 							{#each tags as tag}
 								<span class="inline-flex items-center rounded bg-muted px-1.5 py-0 text-2xs text-muted-foreground">
-									#{tag}
+									#<Highlight text={tag} query={searchQuery} />
 								</span>
 							{/each}
 						</div>

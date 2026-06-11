@@ -11,7 +11,7 @@ import type { ApiOptions } from '$lib/services/api.service';
 
 export const CASE_TIMELINE_CTX = Symbol('case-timeline');
 
-type Status = 'idle' | 'loading' | 'loading_more' | 'error';
+type Status = 'idle' | 'loading' | 'loading_more' | 'loading_all' | 'error';
 
 type UIState = {
 	selectedEventId?: number;
@@ -38,6 +38,7 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		nextPage: number | null;
 		perPage: number;
 		total: number;
+		allLoaded: boolean;
 	}>({
 		eventIds: [],
 		status: 'idle',
@@ -48,7 +49,8 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		lastPage: 1,
 		nextPage: null,
 		perPage: DEFAULT_PER_PAGE,
-		total: 0
+		total: 0,
+		allLoaded: false
 	});
 
 	const ui = $state<UIState>({
@@ -101,6 +103,7 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		list.status = 'loading';
 		list.error = null;
 		list.query = query;
+		list.allLoaded = false;
 
 		const res = await CaseTimelineService.listEvents(caseId, query, options, {
 			page: 1,
@@ -128,6 +131,7 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 			list.nextPage = null;
 			list.total = list.eventIds.length;
 		}
+		if (list.nextPage === null) list.allLoaded = true;
 
 		list.status = 'idle';
 	};
@@ -164,12 +168,62 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		} else {
 			list.nextPage = null;
 		}
+		if (list.nextPage === null) list.allLoaded = true;
 
 		list.status = 'idle';
 	};
 
 	const refresh = async (query: CaseTimelineFilterQuery = {}, options: ApiOptions = {}) => {
 		await loadEvents(query, options);
+	};
+
+	// Pulls every remaining page in sequence and appends them. Used by the
+	// quick-search bar: we want substring matching to work across the entire
+	// timeline, not just the pages the user has already scrolled past. Bails
+	// out early if there's nothing more to load. `allLoaded` flips to true
+	// only when the response confirms there is no next page, so a later
+	// filter change correctly resets and pulls again.
+	const loadAll = async (options: ApiOptions = {}) => {
+		const caseId = getCaseId();
+		if (caseId === null) return;
+		if (list.nextPage === null) {
+			list.allLoaded = true;
+			return;
+		}
+		if (list.status === 'loading_all') return;
+
+		list.status = 'loading_all';
+
+		try {
+			while (list.nextPage !== null) {
+				const nextPage = list.nextPage;
+				const res = await CaseTimelineService.listEvents(caseId, list.query, options, {
+					page: nextPage,
+					per_page: list.perPage
+				});
+
+				if (!res.ok || res.error || res.data === null || typeof res.data === 'string') {
+					list.error = res.error?.message ?? 'Failed to load timeline events';
+					list.status = 'error';
+					return;
+				}
+
+				appendEventsState(res.data.timeline ?? res.data.tim ?? []);
+
+				const pagination = res.data.pagination;
+				if (pagination) {
+					list.currentPage = pagination.current_page;
+					list.lastPage = pagination.last_page;
+					list.nextPage = pagination.next_page;
+					list.total = pagination.total;
+				} else {
+					list.nextPage = null;
+				}
+			}
+			list.allLoaded = true;
+		} finally {
+			if (list.status === 'loading_all') list.status = 'idle';
+		}
 	};
 
 	const getEvent = async (
@@ -284,6 +338,7 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		list.lastPage = 1;
 		list.nextPage = null;
 		list.total = 0;
+		list.allLoaded = false;
 
 		ui.selectedEventId = undefined;
 	};
@@ -297,6 +352,7 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		events,
 		loadEvents,
 		loadMore,
+		loadAll,
 		refresh,
 		getEvent,
 		createEvent,
