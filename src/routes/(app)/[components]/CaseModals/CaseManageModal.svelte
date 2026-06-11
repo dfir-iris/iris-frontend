@@ -32,87 +32,85 @@
 	const saveCase = async (body: UpdateCaseBody) => {
 		if (!currentCase) return;
 		await cases.patch(case_id, body);
+		editing = false;
+		onOpenChange(false);
 	};
 </script>
 
 <Dialog.Root bind:open {onOpenChange}>
 	<Dialog.Content
-		class="flex max-h-[calc(100dvh-2rem)] max-w-[calc(100dvw-2rem)] flex-col overflow-auto"
+		class="flex max-h-[85vh] w-[min(900px,calc(100vw-2rem))] max-w-none flex-col gap-0 overflow-hidden p-0"
 	>
-		<Dialog.Header>
-			<Dialog.Title class="flex items-center">
-				{currentCase?.case_name}
-
+		<Dialog.Header class="shrink-0 border-b px-5 py-3">
+			<Dialog.Title class="flex items-center gap-2 text-sm font-semibold">
+				<span class="truncate">{currentCase?.case_name}</span>
 				<CaseModificationHistory />
 			</Dialog.Title>
 		</Dialog.Header>
 
-		<Tabs bind:value={activeTab} class="flex w-full flex-col">
-			<div class="flex w-full border-b bg-muted/20">
+		<Tabs bind:value={activeTab} class="flex min-h-0 w-full flex-1 flex-col">
+			<div class="flex w-full shrink-0 border-b">
 				<TabsList class="h-auto w-full rounded-none border-0 bg-transparent p-0">
 					<TabsTrigger
 						value="info"
-						class="flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+						class="flex items-center gap-2 rounded-none px-4 py-2 text-xs font-medium transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background"
 					>
 						Info
 					</TabsTrigger>
 
 					<TabsTrigger
 						value="user_access"
-						class="flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+						class="flex items-center gap-2 rounded-none px-4 py-2 text-xs font-medium transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background"
 					>
 						User access
 					</TabsTrigger>
 				</TabsList>
 			</div>
 
-			<div class="w-full">
-				<TabsContent value="info">
-					<div class="flex flex-col pb-2 text-lg">
-						<div class="mb-8 flex justify-between">
-							<div class="text-3xl font-bold">General Info</div>
+			<div class="min-h-0 flex-1 overflow-auto">
+				<TabsContent value="info" class="m-0 p-5">
+					<div class="mb-3 flex items-center justify-between">
+						<h3 class="text-sm font-semibold">General info</h3>
 
-							{#if !editing}
-								<Button variant="secondary" onclick={() => (editing = true)}>Edit</Button>
-							{/if}
-						</div>
-
-						{#if editing}
-							<CaseEditor
-								onCancel={() => (editing = false)}
-								onDelete={() => (showConfirmDelete = true)}
-								onClose={() => (showConfirmClose = true)}
-								onSave={(patch) => saveCase({ ...patch })}
-							/>
-						{:else}
-							<CaseGeneralInfo />
+						{#if !editing}
+							<Button variant="secondary" size="sm" onclick={() => (editing = true)}>
+								Edit
+							</Button>
 						{/if}
 					</div>
-				</TabsContent>
 
-				<TabsContent value="user_access">
-					<div class="flex flex-col pb-2 text-lg">
-						<CaseAccess
+					{#if editing}
+						<CaseEditor
+							onCancel={() => (editing = false)}
 							onDelete={() => (showConfirmDelete = true)}
 							onClose={() => (showConfirmClose = true)}
+							onSave={(patch) => saveCase({ ...patch })}
 						/>
-					</div>
+					{:else}
+						<CaseGeneralInfo />
+					{/if}
+				</TabsContent>
+
+				<TabsContent value="user_access" class="m-0 p-5">
+					<CaseAccess />
 				</TabsContent>
 			</div>
 		</Tabs>
 
-		{#if !editing && activeTab === 'info'}
+		{#if !editing}
 			{#key `${case_id}:${currentCase?.close_date ?? ''}`}
-				<Dialog.Footer>
-					<Button variant="destructive" onclick={() => (showConfirmDelete = true)}>
-						Delete Case
+				<Dialog.Footer class="shrink-0 gap-2 border-t px-5 py-3">
+					<Button variant="destructive" size="sm" onclick={() => (showConfirmDelete = true)}>
+						Delete case
 					</Button>
 
 					{#if currentCase?.close_date}
-						<Button onclick={async () => await cases.reopen(case_id)}>Reopen Case</Button>
+						<Button size="sm" onclick={async () => await cases.reopen(case_id)}>
+							Reopen case
+						</Button>
 					{:else}
-						<Button variant="secondary" onclick={() => (showConfirmClose = true)}>
-							Close Case
+						<Button variant="secondary" size="sm" onclick={() => (showConfirmClose = true)}>
+							Close case
 						</Button>
 					{/if}
 				</Dialog.Footer>

@@ -17,7 +17,9 @@
 	} from '$lib/components/common/selects/SearchSelect.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { normalizeTags } from './utils';
+	import { TagInput } from '$lib/components/common/tag';
+	import type { Tag } from '$lib/types/resources/tag';
+	import { normalizeTags as normalizeTagsArray, tagsToString } from '$lib/utils/tags';
 
 	type Outcome = {
 		id: number;
@@ -47,7 +49,7 @@
 
 	let caseName = $state('');
 	let socId = $state('');
-	let tagsCsv = $state('');
+	let currentTags = $state<Tag[]>([]);
 	let description = $state('');
 
 	let ownerId = $state('');
@@ -126,7 +128,14 @@
 
 		caseName = currentCase.case_name;
 		socId = currentCase.case_soc_id;
-		tagsCsv = (currentCase.tags ?? []).map((t) => t.tag_title).join(', ');
+		// Flatten to CSV first so stringToTags can hand back proper Tag objects
+		// with synthetic ids (see CaseGeneralInfo for the rationale).
+		currentTags = normalizeTagsArray(
+			(currentCase.tags ?? [])
+				.map((t) => (typeof t === 'string' ? t : t.tag_title))
+				.filter(Boolean)
+				.join(',')
+		);
 		description = currentCase.case_description ?? '';
 
 		caseClassificationId = String(currentCase.classification_id);
@@ -142,7 +151,7 @@
 		const body: UpdateCaseBody = {
 			case_name: caseName,
 			case_soc_id: socId,
-			case_tags: normalizeTags(tagsCsv).join(','),
+			case_tags: tagsToString(currentTags),
 			case_description: description,
 
 			...(caseClassificationId !== '' ? { classification_id: Number(caseClassificationId) } : {}),
@@ -162,7 +171,14 @@
 
 		caseName = currentCase.case_name ?? '';
 		socId = currentCase.case_soc_id ?? '';
-		tagsCsv = (currentCase.tags ?? []).map((t) => t.tag_title).join(', ');
+		// Flatten to CSV first so stringToTags can hand back proper Tag objects
+		// with synthetic ids (see CaseGeneralInfo for the rationale).
+		currentTags = normalizeTagsArray(
+			(currentCase.tags ?? [])
+				.map((t) => (typeof t === 'string' ? t : t.tag_title))
+				.filter(Boolean)
+				.join(',')
+		);
 		description = currentCase.case_description ?? '';
 
 		caseClassificationId = String(currentCase.classification_id);
@@ -182,29 +198,22 @@
 	};
 </script>
 
-<form class="space-y-6" onsubmit={onSubmit}>
-	<div class="grid grid-cols-2 gap-4">
+<form class="space-y-4" onsubmit={onSubmit}>
+	<div class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
 		<label class="flex flex-col gap-1">
-			<span class="text-sm font-semibold">Case name</span>
-			<Input
-				class="rounded-md border bg-background px-3 py-2"
-				bind:value={caseName}
-				autocomplete="off"
-			/>
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Case name</span>
+			<Input class="h-8 text-xs" bind:value={caseName} autocomplete="off" />
 		</label>
 
 		<label class="flex flex-col gap-1">
-			<span class="text-sm font-semibold">SOC ID</span>
-			<Input
-				class="rounded-md border bg-background px-3 py-2"
-				bind:value={socId}
-				autocomplete="off"
-			/>
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">SOC ID</span>
+			<Input class="h-8 text-xs" bind:value={socId} autocomplete="off" />
 		</label>
 
 		<label class="flex flex-col gap-1">
-			<span class="text-sm font-semibold">Classification</span>
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Classification</span>
 			<SearchSelect
+				size="sm"
 				value={caseClassificationId}
 				options={classificationOptions}
 				placeholder="Classification"
@@ -214,8 +223,9 @@
 		</label>
 
 		<label class="flex flex-col gap-1">
-			<span class="text-sm font-semibold">Owner</span>
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Owner</span>
 			<SearchSelect
+				size="sm"
 				value={ownerId}
 				options={ownerOptions}
 				placeholder="Owner"
@@ -225,8 +235,9 @@
 		</label>
 
 		<label class="flex flex-col gap-1">
-			<span class="text-sm font-semibold">State</span>
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">State</span>
 			<SearchSelect
+				size="sm"
 				value={caseStateId}
 				options={stateOptions}
 				placeholder="State"
@@ -236,8 +247,9 @@
 		</label>
 
 		<label class="flex flex-col gap-1">
-			<span class="text-sm font-semibold">Outcome</span>
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Outcome</span>
 			<SearchSelect
+				size="sm"
 				value={statusId}
 				options={outcomeOptions}
 				placeholder="Outcome"
@@ -247,8 +259,9 @@
 		</label>
 
 		<label class="flex flex-col gap-1">
-			<span class="text-sm font-semibold">Customer</span>
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Customer</span>
 			<SearchSelect
+				size="sm"
 				value={customerId}
 				options={customerOptions}
 				placeholder="Customer"
@@ -258,8 +271,9 @@
 		</label>
 
 		<label class="flex flex-col gap-1">
-			<span class="text-sm font-semibold">Reviewer</span>
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Reviewer</span>
 			<SearchSelect
+				size="sm"
 				value={reviewerId}
 				options={reviewerOptions}
 				placeholder="Reviewer"
@@ -269,8 +283,9 @@
 		</label>
 
 		<label class="flex flex-col gap-1">
-			<span class="text-sm font-semibold">Severity</span>
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Severity</span>
 			<SearchSelect
+				size="sm"
 				value={severityId}
 				options={severityOptions}
 				placeholder="Severity"
@@ -279,71 +294,53 @@
 			/>
 		</label>
 
-		<label class="flex flex-col gap-1">
-			<span class="text-sm font-semibold">Case tags (comma separated)</span>
-			<Input
-				class="rounded-md border bg-background px-3 py-2"
-				bind:value={tagsCsv}
-				placeholder="tag1, tag2, tag3"
-				autocomplete="off"
+		<div class="flex flex-col gap-1 sm:col-span-2">
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Tags</span>
+			<TagInput
+				bind:tags={currentTags}
+				outputFormat="array"
+				placeholder="Add tags…"
+				onchange={(tags) => (currentTags = tags as Tag[])}
 			/>
+		</div>
+
+		<label class="flex flex-col gap-1">
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Case ID</span>
+			<Input class="h-8 text-xs" value={currentCase?.case_id} autocomplete="off" readonly />
 		</label>
 
-		<div>
-			<div class="text-sm font-semibold">Case ID</div>
-			<Input
-				class="rounded-md border bg-background px-3 py-2"
-				value={currentCase?.case_id}
-				autocomplete="off"
-				readonly
-			/>
-		</div>
+		<label class="flex flex-col gap-1">
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">UUID</span>
+			<Input class="h-8 font-mono text-xs" value={currentCase?.case_uuid} autocomplete="off" readonly />
+		</label>
 
-		<div>
-			<div class="text-sm font-semibold">Case UUID</div>
-			<Input
-				class="rounded-md border bg-background px-3 py-2"
-				value={currentCase?.case_uuid}
-				autocomplete="off"
-				readonly
-			/>
-		</div>
+		<label class="flex flex-col gap-1">
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Open date</span>
+			<Input class="h-8 text-xs" value={currentCase?.open_date} autocomplete="off" readonly />
+		</label>
 
-		<div>
-			<div class="text-sm font-semibold">Open date</div>
-			<Input
-				class="rounded-md border bg-background px-3 py-2"
-				value={currentCase?.open_date}
-				autocomplete="off"
-				readonly
-			/>
-		</div>
-
-		<div>
-			<div class="text-sm font-semibold">Opening user</div>
-			<Input
-				class="rounded-md border bg-background px-3 py-2"
-				value={currentCase?.user_id}
-				autocomplete="off"
-				readonly
-			/>
-		</div>
+		<label class="flex flex-col gap-1">
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Opening user</span>
+			<Input class="h-8 text-xs" value={currentCase?.user_id} autocomplete="off" readonly />
+		</label>
 	</div>
 
-	<div class="flex justify-between">
-		<div class="flex gap-6">
-			<Button variant="destructive" onclick={onDelete}>Delete case</Button>
+	<div class="flex items-center justify-between pt-2">
+		<div class="flex gap-2">
+			<Button variant="destructive" size="sm" onclick={onDelete}>Delete case</Button>
 
 			{#if currentCase?.close_date}
-				<Button onclick={async () => await cases.reopen(currentCase?.case_id)}>Reopen Case</Button>
+				<Button size="sm" onclick={async () => await cases.reopen(currentCase?.case_id)}>
+					Reopen case
+				</Button>
 			{:else}
-				<Button variant="secondary" onclick={() => onClose}>Close Case</Button>
+				<Button variant="secondary" size="sm" onclick={() => onClose}>Close case</Button>
 			{/if}
 		</div>
 
-		<div class="flex gap-6">
-			<Button variant="secondary" onclick={cancel}>Cancel</Button>
-			<Button type="submit" variant="destructive">Save</Button>
+		<div class="flex gap-2">
+			<Button variant="ghost" size="sm" onclick={cancel}>Cancel</Button>
+			<Button type="submit" size="sm">Save</Button>
 		</div>
 	</div>
 </form>

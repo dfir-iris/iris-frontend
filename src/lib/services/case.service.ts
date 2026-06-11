@@ -146,6 +146,10 @@ export class CaseService {
 		return ApiService.delete<null>(`/api/v2/cases/${caseId}`, options);
 	}
 
+	// Every user with effective access to a case, with their access level.
+	// Backed by v2 endpoint `GET /api/v2/cases/{id}/access/users`. Useful
+	// for the case-manage modal (which shows everyone) — for pickers that
+	// only want assignable users, see `listUsers` below.
 	static async listAccessUsers(
 		caseId: CaseIdentifier,
 		options: ApiOptions = {}
@@ -153,13 +157,15 @@ export class CaseService {
 		return ApiService.get<CaseAccessUserRow[]>(`/api/v2/cases/${caseId}/access/users`, options);
 	}
 
+	// Subset of `listAccessUsers` restricted to users with full case access
+	// (access_level === 4). Matches the legacy iris-web UI behaviour — only
+	// these users can meaningfully be assigned to a task.
 	static async listUsers(
 		caseId: CaseIdentifier,
 		options: ApiOptions = {}
 	): Promise<CaseAccessUserRow[]> {
-		const res = await ApiService.get<CaseAccessUserRow[]>(`/api/v2/cases/${caseId}/users`, options);
-		const data: CaseAccessUserRow[] = (res.data as unknown as CaseAccessUserRow[]) ?? [];
-
-		return data.filter((u) => u.user_access_level === 4);
+		const res = await CaseService.listAccessUsers(caseId, options);
+		const list: CaseAccessUserRow[] = Array.isArray(res?.data) ? res.data : [];
+		return list.filter((u) => u.user_access_level === 4);
 	}
 }
