@@ -30,6 +30,11 @@
 		type CaseTasksContext
 	} from '$lib/contexts/case-tasks.context.svelte';
 	import {
+		CASE_EVIDENCES_CTX,
+		createCaseEvidencesContext,
+		type CaseEvidencesContext
+	} from '$lib/contexts/case-evidences.context.svelte';
+	import {
 		COMMENTS_PANEL_CTX,
 		createCommentsPanelContext,
 		type CommentsPanelContext
@@ -56,6 +61,7 @@
 	import AssetAddDialog from './assets/components/asset-add-dialog.svelte';
 	import IocAddDialog from './iocs/components/ioc-add-dialog.svelte';
 	import TaskAddDialog from './tasks/components/task-add-dialog.svelte';
+	import EvidenceAddDialog from './evidence/components/evidence-add-dialog.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -66,11 +72,13 @@
 	const caseIocs = createCaseIocsContext(() => Number(page.params.case_id));
 	const caseNotes = createCaseNotesContext(() => Number(page.params.case_id));
 	const caseTasks = createCaseTasksContext(() => Number(page.params.case_id));
+	const caseEvidences = createCaseEvidencesContext(() => Number(page.params.case_id));
 
 	setContext<CaseAssetsContext>(CASE_ASSETS_CTX, caseAssets);
 	setContext<CaseIocsContext>(CASE_IOCS_CTX, caseIocs);
 	setContext<CaseNotesContext>(CASE_NOTES_CTX, caseNotes);
 	setContext<CaseTasksContext>(CASE_TASKS_CTX, caseTasks);
+	setContext<CaseEvidencesContext>(CASE_EVIDENCES_CTX, caseEvidences);
 
 	const commentsPanel = createCommentsPanelContext();
 	setContext<CommentsPanelContext>(COMMENTS_PANEL_CTX, commentsPanel);
@@ -116,6 +124,7 @@
 			caseIocs.reset();
 			caseNotes.reset();
 			caseTasks.reset();
+			caseEvidences.reset();
 		}
 		lastCaseId = case_id;
 
@@ -148,7 +157,7 @@
 	// context (the by-id store is the authoritative source for labels;
 	// when it's not loaded yet we fall back to a short placeholder so the
 	// panel still opens against the right ID).
-	type Resolver = () => { type: 'assets' | 'iocs' | 'tasks' | 'notes'; id: number; label: string } | null;
+	type Resolver = () => { type: 'assets' | 'iocs' | 'tasks' | 'notes' | 'evidences'; id: number; label: string } | null;
 	const resolveCurrentEntity: Resolver = () => {
 		const p = page.params as Record<string, string | undefined>;
 		if (p.asset_id) {
@@ -170,6 +179,11 @@
 			const id = Number(p.note_id);
 			const note = caseNotes.byId[id];
 			return { type: 'notes', id, label: note?.note_title ?? `Note #${id}` };
+		}
+		if (p.evidence_id) {
+			const id = Number(p.evidence_id);
+			const evidence = caseEvidences.byId[id];
+			return { type: 'evidences', id, label: evidence?.filename ?? `Evidence #${id}` };
 		}
 		return null;
 	};
@@ -293,6 +307,11 @@
 <TaskAddDialog
 	open={caseTasks.ui.showAddModal}
 	onOpenChange={(open) => (caseTasks.ui.showAddModal = open)}
+/>
+
+<EvidenceAddDialog
+	open={caseEvidences.ui.showAddModal}
+	onOpenChange={(open) => (caseEvidences.ui.showAddModal = open)}
 />
 
 <RequestReviewDialog bind:open={showRequestReview} onConfirm={(admin) => setReviewer(admin)} />
