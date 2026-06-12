@@ -30,6 +30,16 @@
 	import SeverityBadge from '$lib/components/ui/badge/severity-badge.svelte';
 	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import {
+		Tooltip,
+		TooltipContent,
+		TooltipProvider,
+		TooltipTrigger
+	} from '$lib/components/ui/tooltip';
+	import {
+		ACTIVITY_PANEL_CTX,
+		type ActivityPanelContext
+	} from '$lib/contexts/activity-panel.context.svelte';
 	import CaseAddDropdown from './CaseAddDropdown.svelte';
 	import type { Snippet } from 'svelte';
 
@@ -40,6 +50,7 @@
 	let { menuItems }: Props = $props();
 
 	const cases = getContext<CasesContext>(CASES_CTX);
+	const activityPanel = getContext<ActivityPanelContext | undefined>(ACTIVITY_PANEL_CTX);
 
 	type IconComponent = typeof Shield | typeof Activity;
 
@@ -478,6 +489,45 @@
 		</div>
 
 		<div class="hidden h-6 w-px bg-border sm:block" aria-hidden="true"></div>
+
+		{#if activityPanel}
+			{@const open = activityPanel.state.open}
+			<TooltipProvider>
+				<Tooltip>
+					<TooltipTrigger>
+						<Button
+							variant="outline"
+							size="sm"
+							class={`relative h-8 gap-x-1 ${open ? 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15' : ''}`}
+							onclick={() => activityPanel.toggle()}
+							aria-label="Toggle case activity"
+							aria-pressed={open}
+						>
+							<span class="relative flex items-center">
+								<Activity size={16} />
+								{#if open}
+									<span
+										class="absolute -right-1 -top-1 flex h-2 w-2"
+										aria-hidden="true"
+									>
+										<span
+											class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"
+										></span>
+										<span
+											class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"
+										></span>
+									</span>
+								{/if}
+							</span>
+							<span class="hidden sm:inline">Activity</span>
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent side="bottom">
+						{open ? 'Hide live activity' : 'Show live activity'}
+					</TooltipContent>
+				</Tooltip>
+			</TooltipProvider>
+		{/if}
 
 		<CaseAddDropdown buttonClass="h-8" />
 

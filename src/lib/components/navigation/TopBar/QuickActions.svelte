@@ -17,6 +17,12 @@
 				<XIcon size="24" />
 			</button>
 
+			<!--
+			  Case-scoped live activity used to live here behind an "Activities"
+			  tab. It moved to a dedicated toggle in the case topbar (see
+			  CaseActivityPanel) so it sits next to the case content instead of
+			  this global slide-over.
+			-->
 			<Tabs bind:value={activeTab} class="flex w-full flex-col">
 				<div class="flex w-full border-b bg-muted/20">
 					<TabsList class="h-auto w-full rounded-none border-0 bg-transparent p-0">
@@ -25,12 +31,6 @@
 							class="flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
 						>
 							Case
-						</TabsTrigger>
-						<TabsTrigger
-							value="activities"
-							class="flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
-						>
-							Activities
 						</TabsTrigger>
 						<TabsTrigger
 							value="timTasks"
@@ -53,8 +53,7 @@
 							<span class="text-sm text-red-400">Switch case</span>
 						</button>
 					</TabsContent>
-					<TabsContent value="activities">Activities</TabsContent>
-					<TabsContent value="dimTasks">DIM Tasks</TabsContent>
+					<TabsContent value="timTasks">DIM Tasks</TabsContent>
 				</div>
 			</Tabs>
 		</div>

@@ -39,6 +39,11 @@
 		createCommentsPanelContext,
 		type CommentsPanelContext
 	} from '$lib/contexts/comments-panel.context.svelte';
+	import {
+		ACTIVITY_PANEL_CTX,
+		createActivityPanelContext,
+		type ActivityPanelContext
+	} from '$lib/contexts/activity-panel.context.svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import {
 		DropdownMenuItem,
@@ -82,6 +87,9 @@
 
 	const commentsPanel = createCommentsPanelContext();
 	setContext<CommentsPanelContext>(COMMENTS_PANEL_CTX, commentsPanel);
+
+	const activityPanel = createActivityPanelContext();
+	setContext<ActivityPanelContext>(ACTIVITY_PANEL_CTX, activityPanel);
 
 	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
 
