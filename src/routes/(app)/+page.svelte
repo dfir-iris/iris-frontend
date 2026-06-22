@@ -494,6 +494,33 @@
 		return () => observer.disconnect();
 	});
 
+	// Live polling: every 5s, fetch the head of the list and prepend any
+	// entries whose id we haven't seen yet. We compare on `id` rather than
+	// timestamps so equal-timestamp rows don't merge or duplicate. The
+	// poll pauses when the tab is hidden to avoid wasting requests, and
+	// stops while the initial load or a load-more is in flight to keep
+	// the prepend simple.
+	const ACTIVITY_POLL_MS = 5000;
+	const pollActivity = async () => {
+		if (activityState.loading || activityState.loadingMore) return;
+		if (typeof document !== 'undefined' && document.hidden) return;
+		const rows = await fetchActivityPage(0);
+		if (rows.length === 0) return;
+		const known = new Set(activityState.items.map((a) => a.id).filter((id): id is number => id != null));
+		const fresh = rows.filter((r) => r.id != null && !known.has(r.id));
+		if (fresh.length === 0) return;
+		activityState = {
+			...activityState,
+			items: [...fresh, ...activityState.items]
+		};
+	};
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const id = window.setInterval(() => void pollActivity(), ACTIVITY_POLL_MS);
+		return () => window.clearInterval(id);
+	});
+
 	const refreshAll = () => {
 		void loadOpenCases();
 		void loadAlerts();
@@ -788,14 +815,14 @@
 	</section>
 
 	<!-- Two-column main grid -->
-	<div class="grid min-h-0 grid-cols-1 gap-5 xl:grid-cols-3">
+	<div class="grid min-h-0 grid-cols-1 items-start gap-5 xl:grid-cols-3">
 		<!--
 		  Recent open cases. We deliberately limit to ~5 rows so the list
 		  fits without scrolling on common viewports. The full list is one
 		  click away via the header.
 		-->
 		<section
-			class="flex min-h-0 flex-col rounded-xl border border-border/60 bg-card shadow-elevation-1 xl:col-span-2"
+			class="flex max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 xl:col-span-2"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
 				<div class="flex items-center gap-2 min-w-0">
@@ -872,7 +899,7 @@
 
 		<!-- Open alerts assigned to me -->
 		<section
-			class="flex min-h-0 flex-col rounded-xl border border-border/60 bg-card shadow-elevation-1"
+			class="flex max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
 				<div class="flex items-center gap-2 min-w-0">
@@ -947,9 +974,9 @@
 	  from looking sparse and gives the new activity feed a natural home
 	  next to the user's own work.
 	-->
-	<div class="grid min-h-0 grid-cols-1 gap-5 lg:grid-cols-2">
+	<div class="grid min-h-0 grid-cols-1 items-start gap-5 lg:grid-cols-2">
 		<section
-			class="flex min-h-0 flex-col rounded-xl border border-border/60 bg-card shadow-elevation-1"
+			class="flex max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
 				<div class="flex items-center gap-2 min-w-0">
@@ -1020,7 +1047,7 @@
 		     access to. Read-only stream — clicking an entry jumps to the
 		     case where the activity happened. -->
 		<section
-			class="flex min-h-0 flex-col rounded-xl border border-border/60 bg-card shadow-elevation-1"
+			class="flex max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
 				<div class="flex items-center gap-2 min-w-0">
@@ -1029,7 +1056,7 @@
 				</div>
 			</header>
 
-			<div class="max-h-[420px] overflow-auto">
+			<div class="flex-1 overflow-auto">
 				{#if activityState.loading}
 					<div class="space-y-2 p-4">
 						{#each Array(PREVIEW_LIMIT) as _}
