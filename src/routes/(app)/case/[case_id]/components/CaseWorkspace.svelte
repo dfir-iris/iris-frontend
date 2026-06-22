@@ -8,8 +8,13 @@
 		ACTIVITY_PANEL_CTX,
 		type ActivityPanelContext
 	} from '$lib/contexts/activity-panel.context.svelte';
+	import {
+		DATASTORE_PANEL_CTX,
+		type DatastorePanelContext
+	} from '$lib/contexts/datastore-panel.context.svelte';
 	import CommentsPanel from '$lib/components/common/Comments/CommentsPanel.svelte';
 	import CaseActivityPanel from '$lib/components/common/Activity/CaseActivityPanel.svelte';
+	import CaseDatastorePanel from '$lib/components/common/Datastore/CaseDatastorePanel.svelte';
 
 	type Props = {
 		children: Snippet;
@@ -25,6 +30,7 @@
 
 	const commentsPanel = getContext<CommentsPanelContext | undefined>(COMMENTS_PANEL_CTX);
 	const activityPanel = getContext<ActivityPanelContext | undefined>(ACTIVITY_PANEL_CTX);
+	const datastorePanel = getContext<DatastorePanelContext | undefined>(DATASTORE_PANEL_CTX);
 </script>
 
 <div class="flex h-full w-full gap-3 p-3 sm:gap-4 sm:p-4">
@@ -49,6 +55,15 @@
 			aria-label="Case activity"
 		>
 			<CaseActivityPanel />
+		</aside>
+	{/if}
+
+	{#if datastorePanel?.state.open}
+		<aside
+			class="h-full w-full max-w-md shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elevation-2"
+			aria-label="DataStore"
+		>
+			<CaseDatastorePanel />
 		</aside>
 	{/if}
 </div>

@@ -3,7 +3,6 @@
 	import { getContext } from 'svelte';
 	import {
 		ChevronDownIcon,
-		DatabaseIcon,
 		GripIcon,
 		LeafIcon,
 		PlusIcon,
@@ -55,10 +54,6 @@
 		console.log('Add Task Log');
 	};
 
-	const datastore = () => {
-		console.log('Datastore');
-	};
-
 	const createCase = () => {
 		cases.ui.showAddModal = true;
 	};
@@ -66,7 +61,6 @@
 	const topBarButtons = [
 		{ icon: RefreshCwIcon, tooltip: 'Switch Context', action: () => (showSwitchContext = true) },
 		{ icon: SquareCheckBigIcon, tooltip: 'Add Task Log', action: addTaskLog },
-		{ icon: DatabaseIcon, tooltip: 'Datastore', action: datastore },
 		{ icon: PlusIcon, tooltip: 'Create Case', action: createCase },
 		{ icon: GripIcon, tooltip: 'Quick Actions', action: () => (showQuickActions = true) }
 	];

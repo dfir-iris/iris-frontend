@@ -6,6 +6,7 @@
 		Building2,
 		CheckCircle2Icon,
 		Clock,
+		DatabaseIcon,
 		EyeIcon,
 		FileDigit,
 		InfoIcon,
@@ -40,6 +41,10 @@
 		ACTIVITY_PANEL_CTX,
 		type ActivityPanelContext
 	} from '$lib/contexts/activity-panel.context.svelte';
+	import {
+		DATASTORE_PANEL_CTX,
+		type DatastorePanelContext
+	} from '$lib/contexts/datastore-panel.context.svelte';
 	import CaseAddDropdown from './CaseAddDropdown.svelte';
 	import type { Snippet } from 'svelte';
 
@@ -51,6 +56,7 @@
 
 	const cases = getContext<CasesContext>(CASES_CTX);
 	const activityPanel = getContext<ActivityPanelContext | undefined>(ACTIVITY_PANEL_CTX);
+	const datastorePanel = getContext<DatastorePanelContext | undefined>(DATASTORE_PANEL_CTX);
 
 	type IconComponent = typeof Shield | typeof Activity;
 
@@ -489,6 +495,29 @@
 		</div>
 
 		<div class="hidden h-6 w-px bg-border sm:block" aria-hidden="true"></div>
+
+		{#if datastorePanel}
+			{@const dsOpen = datastorePanel.state.open}
+			<TooltipProvider>
+				<Tooltip>
+					<TooltipTrigger>
+						<Button
+							variant="outline"
+							size="icon"
+							class={`relative h-8 w-8 ${dsOpen ? 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15' : ''}`}
+							onclick={() => datastorePanel.toggle()}
+							aria-label="Toggle DataStore panel"
+							aria-pressed={dsOpen}
+						>
+							<DatabaseIcon size={16} />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent side="bottom">
+						{dsOpen ? 'Hide DataStore' : 'Show DataStore'}
+					</TooltipContent>
+				</Tooltip>
+			</TooltipProvider>
+		{/if}
 
 		{#if activityPanel}
 			{@const open = activityPanel.state.open}

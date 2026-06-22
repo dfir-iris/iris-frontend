@@ -35,6 +35,11 @@
 		type CaseEvidencesContext
 	} from '$lib/contexts/case-evidences.context.svelte';
 	import {
+		CASE_DATASTORE_CTX,
+		createCaseDatastoreContext,
+		type CaseDatastoreContext
+	} from '$lib/contexts/case-datastore.context.svelte';
+	import {
 		COMMENTS_PANEL_CTX,
 		createCommentsPanelContext,
 		type CommentsPanelContext
@@ -44,6 +49,11 @@
 		createActivityPanelContext,
 		type ActivityPanelContext
 	} from '$lib/contexts/activity-panel.context.svelte';
+	import {
+		DATASTORE_PANEL_CTX,
+		createDatastorePanelContext,
+		type DatastorePanelContext
+	} from '$lib/contexts/datastore-panel.context.svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import {
 		DropdownMenuItem,
@@ -67,6 +77,8 @@
 	import IocAddDialog from './iocs/components/ioc-add-dialog.svelte';
 	import TaskAddDialog from './tasks/components/task-add-dialog.svelte';
 	import EvidenceAddDialog from './evidence/components/evidence-add-dialog.svelte';
+	import DatastoreAddFileDialog from '$lib/components/common/Datastore/DatastoreAddFileDialog.svelte';
+	import DatastoreAddFolderDialog from '$lib/components/common/Datastore/DatastoreAddFolderDialog.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -78,18 +90,23 @@
 	const caseNotes = createCaseNotesContext(() => Number(page.params.case_id));
 	const caseTasks = createCaseTasksContext(() => Number(page.params.case_id));
 	const caseEvidences = createCaseEvidencesContext(() => Number(page.params.case_id));
+	const caseDatastore = createCaseDatastoreContext(() => Number(page.params.case_id));
 
 	setContext<CaseAssetsContext>(CASE_ASSETS_CTX, caseAssets);
 	setContext<CaseIocsContext>(CASE_IOCS_CTX, caseIocs);
 	setContext<CaseNotesContext>(CASE_NOTES_CTX, caseNotes);
 	setContext<CaseTasksContext>(CASE_TASKS_CTX, caseTasks);
 	setContext<CaseEvidencesContext>(CASE_EVIDENCES_CTX, caseEvidences);
+	setContext<CaseDatastoreContext>(CASE_DATASTORE_CTX, caseDatastore);
 
 	const commentsPanel = createCommentsPanelContext();
 	setContext<CommentsPanelContext>(COMMENTS_PANEL_CTX, commentsPanel);
 
 	const activityPanel = createActivityPanelContext();
 	setContext<ActivityPanelContext>(ACTIVITY_PANEL_CTX, activityPanel);
+
+	const datastorePanel = createDatastorePanelContext();
+	setContext<DatastorePanelContext>(DATASTORE_PANEL_CTX, datastorePanel);
 
 	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
 
@@ -133,6 +150,7 @@
 			caseNotes.reset();
 			caseTasks.reset();
 			caseEvidences.reset();
+			caseDatastore.reset();
 		}
 		lastCaseId = case_id;
 
@@ -320,6 +338,16 @@
 <EvidenceAddDialog
 	open={caseEvidences.ui.showAddModal}
 	onOpenChange={(open) => (caseEvidences.ui.showAddModal = open)}
+/>
+
+<DatastoreAddFileDialog
+	open={caseDatastore.ui.showAddFileModal}
+	onOpenChange={(open) => (caseDatastore.ui.showAddFileModal = open)}
+/>
+
+<DatastoreAddFolderDialog
+	open={caseDatastore.ui.showAddFolderModal}
+	onOpenChange={(open) => (caseDatastore.ui.showAddFolderModal = open)}
 />
 
 <RequestReviewDialog bind:open={showRequestReview} onConfirm={(admin) => setReviewer(admin)} />

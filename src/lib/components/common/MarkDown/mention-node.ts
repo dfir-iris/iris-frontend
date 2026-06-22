@@ -47,6 +47,11 @@ const KIND_STYLE: Record<MentionKind, StyleSpec> = {
 		colorClass: 'bg-violet-500/15 text-violet-700 dark:text-violet-300',
 		iconPath:
 			'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2 M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z M9 14l2 2 4-4'
+	},
+	datastore: {
+		colorClass: 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300',
+		iconPath:
+			'M12 8c4.418 0 8-1.343 8-3s-3.582-3-8-3-8 1.343-8 3 3.582 3 8 3z M4 5v6c0 1.657 3.582 3 8 3s8-1.343 8-3V5 M4 11v6c0 1.657 3.582 3 8 3s8-1.343 8-3v-6'
 	}
 };
 

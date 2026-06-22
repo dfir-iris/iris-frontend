@@ -347,131 +347,113 @@
 <CaseWorkspace bare class="overflow-auto">
 	{#if currentCase}
 		<div class="flex w-full flex-col gap-4 overflow-auto">
-			<!-- Welcome strip -->
+			<!--
+			  Unified summary header: greeting, the four section counts, and the
+			  two signals ("X tasks for you" + "Y people on case") all sit on a
+			  single tight row. Counts are inline chips — readable at a glance,
+			  no oversized hero numbers. Each chip is a link to its section.
+			-->
 			<section
-				class="flex flex-col gap-4 rounded-xl border border-border/60 bg-card px-5 py-4 shadow-elevation-1 md:flex-row md:items-center md:gap-6"
+				class="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 shadow-elevation-1 lg:flex-row lg:items-center lg:gap-4"
 			>
-				<div class="min-w-0 md:flex-1">
-					<h2 class="text-base font-semibold leading-tight">
+				<div class="flex min-w-0 items-baseline gap-2 lg:flex-1">
+					<h2 class="truncate text-sm font-semibold leading-none">
 						{greeting(now)}, {firstName}
 					</h2>
-					<p class="mt-0.5 text-sm text-muted-foreground">
-						Welcome back to the investigation.
-					</p>
+					<span class="hidden truncate text-xs text-muted-foreground md:inline">
+						· Welcome back
+					</span>
 				</div>
 
-				<div
-					class="flex flex-col gap-3 border-t border-border/40 pt-3 sm:flex-row sm:items-center sm:gap-0 md:border-l md:border-t-0 md:pl-6 md:pt-0"
-				>
+				<!-- Inline section counts -->
+				<div class="flex flex-wrap items-center gap-1.5">
+					{#each stats as stat}
+						<button
+							type="button"
+							onclick={() => goto(stat.href)}
+							class="group inline-flex items-center gap-1.5 rounded-md border border-border/40 bg-muted/40 px-2 py-1 text-xs transition-colors hover:border-border hover:bg-muted/70"
+						>
+							<stat.Icon size={12} class={stat.accent} />
+							<span class="text-muted-foreground">{stat.label}</span>
+							<span class="font-semibold tabular-nums">{stat.count}</span>
+						</button>
+					{/each}
+				</div>
+
+				<div class="hidden h-6 w-px shrink-0 bg-border/60 lg:block" aria-hidden="true"></div>
+
+				<!-- Signals: tasks-for-you + people-on-case -->
+				<div class="flex flex-wrap items-center gap-3">
 					<button
 						type="button"
 						onclick={() => goto(`/case/${case_id}/tasks`)}
-						class="group flex min-w-0 items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted/50 sm:min-w-[14rem] sm:max-w-xs"
+						class="group inline-flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-muted/50"
+						title={myTasks.length === 0
+							? 'No tasks for you'
+							: myTasks.map((t) => t.task_title).join('\n')}
 					>
 						<div
-							class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400"
+							class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400"
 						>
-							<ClipboardListIcon size={16} />
+							<ClipboardListIcon size={12} />
 						</div>
-
-						<div class="min-w-0 flex-1">
-							{#if myTasks.length === 0}
-								<p class="text-sm font-medium leading-tight">No tasks for you</p>
-								<p class="truncate text-xs text-muted-foreground">Clear runway.</p>
-							{:else}
-								<p class="text-sm font-medium leading-tight">
-									{myTasks.length} task{myTasks.length === 1 ? '' : 's'} for you
-								</p>
-								<p class="truncate text-xs text-muted-foreground">
-									{myTasks[0].task_title}{myTasks.length > 1
-										? ` • +${myTasks.length - 1} more`
+						<div class="min-w-0">
+							<span class="font-medium">
+								{myTasks.length} task{myTasks.length === 1 ? '' : 's'} for you
+							</span>
+							{#if myTasks.length > 0}
+								<span class="ml-1 truncate text-muted-foreground">
+									· {myTasks[0].task_title}{myTasks.length > 1
+										? ` +${myTasks.length - 1}`
 										: ''}
-								</p>
+								</span>
 							{/if}
 						</div>
-
 						<ArrowRightIcon
-							size={14}
-							class="shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5 group-hover:text-muted-foreground"
+							size={11}
+							class="shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5"
 						/>
 					</button>
 
-					<div class="hidden h-8 w-px shrink-0 bg-border/60 sm:mx-2 sm:block"></div>
-
-					<div
-						class="flex min-w-0 items-center gap-3 px-2 py-1.5 sm:min-w-[12rem] sm:max-w-xs"
-					>
+					<div class="flex min-w-0 items-center gap-2 px-1.5 py-1 text-xs">
 						<div
-							class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400"
+							class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sky-500/10 text-sky-600 dark:text-sky-400"
 						>
-							<UsersIcon size={16} />
+							<UsersIcon size={12} />
 						</div>
-
-						<div class="min-w-0 flex-1">
-							{#if contributors.length === 0}
-								<p class="text-sm font-medium leading-tight">No activity yet</p>
-								<p class="truncate text-xs text-muted-foreground">
-									Be the first to make a move.
-								</p>
-							{:else}
-								<p class="text-sm font-medium leading-tight">
-									{contributors.length} {contributors.length === 1 ? 'person' : 'people'} on case
-								</p>
-								<div class="mt-1 flex items-center gap-2">
-									<div class="flex -space-x-2">
-										{#each contributors.slice(0, 5) as contributor (contributor.name)}
-											<Avatar
-												class="h-7 w-7 border-2 border-card ring-0"
-												title={contributor.name}
+						<div class="flex min-w-0 items-center gap-2">
+							<span class="font-medium whitespace-nowrap">
+								{contributors.length}
+								{contributors.length === 1 ? 'person' : 'people'} on case
+							</span>
+							{#if contributors.length > 0}
+								<div class="flex -space-x-1.5">
+									{#each contributors.slice(0, 4) as contributor (contributor.name)}
+										<Avatar
+											class="h-5 w-5 border border-card ring-0"
+											title={contributor.name}
+										>
+											<AvatarFallback
+												class={`text-[9px] font-semibold uppercase ${avatarTone(contributor.name)}`}
 											>
-												<AvatarFallback
-													class={`text-[10px] font-semibold uppercase ${avatarTone(contributor.name)}`}
-												>
-													{getInitials(contributor.name)}
-												</AvatarFallback>
-											</Avatar>
-										{/each}
+												{getInitials(contributor.name)}
+											</AvatarFallback>
+										</Avatar>
+									{/each}
 
-										{#if contributors.length > 5}
-											<span
-												class="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-muted text-[10px] font-semibold text-muted-foreground"
-											>
-												+{contributors.length - 5}
-											</span>
-										{/if}
-									</div>
+									{#if contributors.length > 4}
+										<span
+											class="flex h-5 w-5 items-center justify-center rounded-full border border-card bg-muted text-[9px] font-semibold text-muted-foreground"
+										>
+											+{contributors.length - 4}
+										</span>
+									{/if}
 								</div>
 							{/if}
 						</div>
 					</div>
 				</div>
 			</section>
-
-			<!-- Stat tiles -->
-			<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-				{#each stats as stat}
-					<button
-						type="button"
-						onclick={() => goto(stat.href)}
-						class="group flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 text-left shadow-elevation-1 transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-elevation-2"
-					>
-						<div class="min-w-0">
-							<p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-								{stat.label}
-							</p>
-							<p class="mt-0.5 text-2xl font-bold tabular-nums">
-								{stat.count}
-							</p>
-						</div>
-
-						<div
-							class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted/60 transition-transform group-hover:scale-110 {stat.accent}"
-						>
-							<stat.Icon size={18} />
-						</div>
-					</button>
-				{/each}
-			</div>
 
 			<!-- Case summary card -->
 			<section

@@ -4,6 +4,7 @@
 		BiohazardIcon,
 		CheckCheckIcon,
 		ComputerIcon,
+		DatabaseIcon,
 		FileIcon,
 		FileLock2Icon,
 		PlusIcon
@@ -20,6 +21,10 @@
 		type CaseEvidencesContext
 	} from '$lib/contexts/case-evidences.context.svelte';
 	import {
+		CASE_DATASTORE_CTX,
+		type CaseDatastoreContext
+	} from '$lib/contexts/case-datastore.context.svelte';
+	import {
 		DropdownMenu,
 		DropdownMenuContent,
 		DropdownMenuItem,
@@ -31,6 +36,10 @@
 	import { newNote } from '../notes/helpers';
 	import { newTask } from '../tasks/helpers';
 	import { newEvidence } from '../evidence/helpers';
+	import {
+		DATASTORE_PANEL_CTX,
+		type DatastorePanelContext
+	} from '$lib/contexts/datastore-panel.context.svelte';
 
 	export let buttonClass: string = '';
 
@@ -39,6 +48,15 @@
 	const caseAssets = getContext<CaseAssetsContext>(CASE_ASSETS_CTX);
 	const caseTasks = getContext<CaseTasksContext>(CASE_TASKS_CTX);
 	const caseEvidences = getContext<CaseEvidencesContext>(CASE_EVIDENCES_CTX);
+	const caseDatastore = getContext<CaseDatastoreContext>(CASE_DATASTORE_CTX);
+	const datastorePanel = getContext<DatastorePanelContext>(DATASTORE_PANEL_CTX);
+
+	// DataStore lives in a side panel — open it and the upload dialog together
+	// so the user sees the new file land in the tree right after upload.
+	const newDatastoreFile = () => {
+		datastorePanel.open();
+		caseDatastore.ui.showAddFileModal = true;
+	};
 </script>
 
 <DropdownMenu>
@@ -72,6 +90,10 @@
 		<DropdownMenuItem onclick={() => newEvidence(caseEvidences)}>
 			<FileLock2Icon class="mr-2 h-4 w-4" />
 			<span>Evidence</span>
+		</DropdownMenuItem>
+		<DropdownMenuItem onclick={newDatastoreFile}>
+			<DatabaseIcon class="mr-2 h-4 w-4" />
+			<span>DataStore file</span>
 		</DropdownMenuItem>
 	</DropdownMenuContent>
 </DropdownMenu>

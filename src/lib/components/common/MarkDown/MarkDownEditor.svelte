@@ -47,6 +47,12 @@
 	import { CASE_IOCS_CTX, type CaseIocsContext } from '$lib/contexts/case-iocs.context.svelte';
 	import { CASE_NOTES_CTX, type CaseNotesContext } from '$lib/contexts/case-notes.context.svelte';
 	import { CASE_TASKS_CTX, type CaseTasksContext } from '$lib/contexts/case-tasks.context.svelte';
+	import {
+		CASE_DATASTORE_CTX,
+		type CaseDatastoreContext
+	} from '$lib/contexts/case-datastore.context.svelte';
+	import { CaseDatastoreService } from '$lib/services/case-datastore.service';
+	import { toast } from '$lib/stores/toast.store';
 	import { getContext, mount, unmount } from 'svelte';
 	import MentionPopover, { type MentionPopoverPayload } from './MentionPopover.svelte';
 	import AssetDetailDialog from '../../../../routes/(app)/case/[case_id]/assets/[asset_id]/AssetDetailDialog.svelte';
@@ -362,6 +368,7 @@
 	const caseIocs = getContext<CaseIocsContext | undefined>(CASE_IOCS_CTX);
 	const caseNotes = getContext<CaseNotesContext | undefined>(CASE_NOTES_CTX);
 	const caseTasks = getContext<CaseTasksContext | undefined>(CASE_TASKS_CTX);
+	const caseDatastore = getContext<CaseDatastoreContext | undefined>(CASE_DATASTORE_CTX);
 
 	let usersCache: User[] | null = null;
 	let usersPromise: Promise<User[]> | null = null;
@@ -457,6 +464,11 @@
 		() => caseTasks?.listPaginated({ per_page: 100 }, { fetch })
 	);
 
+	const ensureDatastoreLoaded = makeLazyLoader(
+		() => Object.keys(caseDatastore?.fileById ?? {}).length > 0,
+		() => caseDatastore?.loadTree({ fetch })
+	);
+
 	// Unified case-object fetcher. A single `#` trigger surfaces assets,
 	// IOCs, notes, and tasks together — the suggestion list shows their kind
 	// icon next to each match so users can pick the right reference. We cap
@@ -468,7 +480,8 @@
 			ensureAssetsLoaded(),
 			ensureIocsLoaded(),
 			ensureNotesLoaded(),
-			ensureTasksLoaded()
+			ensureTasksLoaded(),
+			ensureDatastoreLoaded()
 		]);
 
 		const out: MentionItem[] = [];
@@ -526,6 +539,26 @@
 					label: t.task_title ?? `Task #${t.id}`,
 					sublabel: t.status?.status_name,
 					kind: 'task'
+				});
+			}
+		}
+
+		if (caseDatastore) {
+			const files = Object.values(caseDatastore.fileById);
+			const filtered = q
+				? files.filter(
+						(f) =>
+							fuzzy(f.file_original_name, q) ||
+							fuzzy(f.file_description ?? '', q) ||
+							fuzzy(f.file_tags ?? '', q)
+					)
+				: files;
+			for (const f of filtered.slice(0, PER_KIND)) {
+				out.push({
+					id: f.file_id,
+					label: f.file_original_name,
+					sublabel: f.file_tags || undefined,
+					kind: 'datastore'
 				});
 			}
 		}
@@ -632,6 +665,42 @@
 				assignees:
 					task?.task_assignees?.map((a) => a.name || a.user).join(', ') || null,
 				onOpen: Number.isFinite(numericId) ? () => openTaskDialog(numericId) : undefined
+			};
+		} else if (kind === 'datastore') {
+			const file = caseDatastore?.fileById[numericId];
+			const dsCaseId = Number(caseId);
+			const url = Number.isFinite(dsCaseId)
+				? CaseDatastoreService.getViewUrl(dsCaseId, numericId)
+				: null;
+			payload = {
+				kind: 'datastore',
+				id,
+				label,
+				file_size: file?.file_size ?? null,
+				file_url: url,
+				onPreview: url ? () => window.open(url, '_blank') : undefined,
+				onDownload: url
+					? () => {
+							const a = document.createElement('a');
+							a.href = url;
+							a.download = file?.file_original_name ?? label;
+							a.rel = 'noopener';
+							document.body.appendChild(a);
+							a.click();
+							a.remove();
+						}
+					: undefined,
+				onCopyMarkdown: url
+					? async () => {
+							const md = `[${(file?.file_original_name ?? label).replace(/[\[\]]/g, '')}](${url})`;
+							try {
+								await navigator.clipboard.writeText(md);
+								toast({ title: 'Markdown link copied', variant: 'success' });
+							} catch {
+								toast({ title: 'Copy failed', variant: 'destructive' });
+							}
+						}
+					: undefined
 			};
 		} else {
 			const users = await loadUsers();
@@ -872,7 +941,7 @@
 					'caseMention',
 					'asset',
 					buildSuggestion('#', { nodeName: 'caseMention', fetchItems: fetchCaseItems }),
-					['asset', 'ioc', 'note', 'task']
+					['asset', 'ioc', 'note', 'task', 'datastore']
 				)
 			],
 			content: normalizeLegacyContent(value ?? ''),

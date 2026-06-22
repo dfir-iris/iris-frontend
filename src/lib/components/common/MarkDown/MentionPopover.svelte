@@ -6,7 +6,10 @@
 		ShieldAlertIcon,
 		FileTextIcon,
 		ClipboardListIcon,
-		ExternalLinkIcon
+		DatabaseIcon,
+		DownloadIcon,
+		ExternalLinkIcon,
+		CopyIcon
 	} from 'lucide-svelte';
 	import type { MentionKind } from './MentionList.svelte';
 
@@ -53,12 +56,24 @@
 		onOpen?: () => void;
 	};
 
+	type DatastorePayload = {
+		kind: 'datastore';
+		id: string;
+		label: string;
+		file_size?: number | null;
+		file_url?: string | null;
+		onPreview?: () => void;
+		onDownload?: () => void;
+		onCopyMarkdown?: () => void;
+	};
+
 	export type MentionPopoverPayload =
 		| UserPayload
 		| AssetPayload
 		| IocPayload
 		| NotePayload
-		| TaskPayload;
+		| TaskPayload
+		| DatastorePayload;
 
 	let {
 		payload,
@@ -73,6 +88,8 @@
 		if (kind === 'ioc') return { Icon: ShieldAlertIcon, bg: 'bg-red-500/15', fg: 'text-red-600 dark:text-red-300' };
 		if (kind === 'note') return { Icon: FileTextIcon, bg: 'bg-emerald-500/15', fg: 'text-emerald-600 dark:text-emerald-300' };
 		if (kind === 'task') return { Icon: ClipboardListIcon, bg: 'bg-violet-500/15', fg: 'text-violet-600 dark:text-violet-300' };
+		if (kind === 'datastore')
+			return { Icon: DatabaseIcon, bg: 'bg-cyan-500/15', fg: 'text-cyan-600 dark:text-cyan-300' };
 		return { Icon: UserIcon, bg: 'bg-blue-500/15', fg: 'text-blue-600 dark:text-blue-300' };
 	};
 
@@ -81,6 +98,18 @@
 		if (kind === 'note') return 'Open note';
 		if (kind === 'task') return 'Open task';
 		return 'Open asset';
+	};
+
+	const formatFileSize = (bytes?: number | null): string => {
+		if (bytes == null || bytes <= 0) return '—';
+		const units = ['B', 'KB', 'MB', 'GB'];
+		let v = bytes;
+		let u = 0;
+		while (v >= 1024 && u < units.length - 1) {
+			v /= 1024;
+			u++;
+		}
+		return `${v.toFixed(v >= 10 || u === 0 ? 0 : 1)} ${units[u]}`;
 	};
 
 	const style = $derived(styleFor(payload.kind));
@@ -196,9 +225,52 @@
 			{#if !payload.status && !payload.assignees}
 				<div class="italic text-muted-foreground">No additional details loaded.</div>
 			{/if}
+		{:else if payload.kind === 'datastore'}
+			<div class="flex items-baseline gap-2">
+				<span class="text-2xs text-muted-foreground">size</span>
+				<span class="truncate">{formatFileSize(payload.file_size)}</span>
+			</div>
+			<div class="mt-2 grid grid-cols-3 gap-1">
+				<button
+					type="button"
+					class="inline-flex items-center justify-center gap-1 rounded border border-border bg-muted/50 px-1.5 py-1 text-2xs font-medium hover:bg-muted"
+					onclick={() => {
+						payload.onPreview?.();
+						onClose();
+					}}
+					disabled={!payload.onPreview}
+				>
+					<ExternalLinkIcon size={10} />
+					Preview
+				</button>
+				<button
+					type="button"
+					class="inline-flex items-center justify-center gap-1 rounded border border-border bg-muted/50 px-1.5 py-1 text-2xs font-medium hover:bg-muted"
+					onclick={() => {
+						payload.onDownload?.();
+						onClose();
+					}}
+					disabled={!payload.onDownload}
+				>
+					<DownloadIcon size={10} />
+					Download
+				</button>
+				<button
+					type="button"
+					class="inline-flex items-center justify-center gap-1 rounded border border-border bg-muted/50 px-1.5 py-1 text-2xs font-medium hover:bg-muted"
+					onclick={() => {
+						payload.onCopyMarkdown?.();
+						onClose();
+					}}
+					disabled={!payload.onCopyMarkdown}
+				>
+					<CopyIcon size={10} />
+					Markdown
+				</button>
+			</div>
 		{/if}
 
-		{#if payload.kind !== 'user' && payload.onOpen}
+		{#if payload.kind !== 'user' && payload.kind !== 'datastore' && payload.onOpen}
 			<button
 				type="button"
 				class="mt-2 inline-flex w-full items-center justify-center gap-1 rounded border border-primary/30 bg-primary/10 px-2 py-1 text-2xs font-medium text-primary hover:bg-primary/20"
