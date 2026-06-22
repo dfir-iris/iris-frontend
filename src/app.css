@@ -87,7 +87,14 @@
 
 		--ring: 214 91% 22%;
 
-		--iris-blue: 214 91% 22%;
+		/*
+		 * Top bar background in dark mode. The saturated brand blue clashed
+		 * with the neutral dark sidebar / page chrome — too bright, too
+		 * loud. Switch to a deep desaturated slate that reads as a proper
+		 * bar without competing for attention. Light mode keeps the brand
+		 * blue (defined above) since it pops against a white sidebar.
+		 */
+		--iris-blue: 222 22% 11%;
 
 		--table-primary: 228 25% 9%;
 		--table-primary-hover: 228 25% 12%;

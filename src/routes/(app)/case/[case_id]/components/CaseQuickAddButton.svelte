@@ -110,8 +110,14 @@
 </script>
 
 {#if action}
+	<!--
+	  Primary variant so the section's "Add X" CTA stands out from the
+	  surrounding outline buttons (DataStore, Activity, generic Add Item).
+	  This is the one button users will reach for most often on each
+	  section page; the brand color makes it discoverable.
+	-->
 	<Button
-		variant="outline"
+		variant="default"
 		size="sm"
 		class="h-8 gap-x-1"
 		onclick={() => void action.run()}

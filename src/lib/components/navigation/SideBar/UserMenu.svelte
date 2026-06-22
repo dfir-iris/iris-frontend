@@ -53,11 +53,11 @@
 	<svelte:fragment slot="menu">
 		<MenuItem
 			{collapsed}
-			label="My Settings"
+			label="My profile"
 			icon={SlidersHorizontalIcon}
-			href="/settings/#preferences"
+			href="/profile"
 			liClass="mt-4"
-			active={pathname === '/settings' && hash === '#preferences'}
+			active={pathname === '/profile'}
 		/>
 
 		{#if $mode === 'light'}

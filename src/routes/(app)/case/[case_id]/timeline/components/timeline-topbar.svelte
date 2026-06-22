@@ -6,7 +6,6 @@
 		FilterIcon,
 		ListIcon,
 		ListTreeIcon,
-		PlusIcon,
 		RefreshCwIcon,
 		SearchIcon,
 		XIcon
@@ -210,11 +209,12 @@
 				</TooltipProvider>
 			</div>
 
-			<Button variant="default" size="sm" onclick={onAddEvent}>
-				<PlusIcon class="mr-1 size-3.5" />
-				Add event
-			</Button>
-
+			<!--
+			  "Add event" lives in the case top bar (CaseQuickAddButton)
+			  so we don't render a duplicate here. The empty-state CTA
+			  rendered when the timeline has no events is still wired
+			  via onAddEvent — that's why the prop survives.
+			-->
 			<DropdownMenu bind:open={isMenuOpen}>
 				<DropdownMenuTrigger>
 					<Button variant="ghost" size="icon" class="size-8">
