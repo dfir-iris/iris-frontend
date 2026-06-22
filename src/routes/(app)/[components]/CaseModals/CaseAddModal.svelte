@@ -124,7 +124,7 @@
 
 <Dialog.Root bind:open {onOpenChange}>
 	<Dialog.Content
-		class="flex max-h-[calc(100dvh-2rem)] max-w-[calc(100dvw-2rem)] flex-col overflow-auto p-0"
+		class="flex max-h-[calc(100dvh-2rem)] w-[min(720px,calc(100dvw-2rem))] max-w-none flex-col overflow-auto p-0"
 	>
 		<Dialog.Header class="border-b px-8 py-6">
 			<Dialog.Title class="text-xl font-semibold">Create a new case</Dialog.Title>

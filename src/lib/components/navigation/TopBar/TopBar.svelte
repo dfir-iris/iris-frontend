@@ -104,29 +104,41 @@
 			</button>
 		</div>
 
-		<!-- Tabs: full pill on lg+, dropdown on smaller screens -->
-		<div
-			class="hidden flex-nowrap items-center rounded-lg border border-white/10 bg-white/5 p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-md lg:flex"
+		<!--
+		  Underline-on-active tab strip. Replaces the earlier rounded
+		  pill-in-pill design — flatter, more modern, and the active
+		  state reads as a real tab rather than a button-among-buttons.
+		  No surrounding container card, no rounded corners on each
+		  tab; everything aligns on a single horizontal baseline.
+		-->
+		<nav
+			class="hidden h-full items-stretch lg:flex"
+			aria-label="Case sections"
 		>
 			{#each caseButtons as button}
-				<a href={button.path === '' ? caseBasePath : `${caseBasePath}/${button.path}`}>
-					<button
-						class="rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-150 {isCaseButtonActive(
-							button.path
-						)
-							? 'border border-white/15 bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur'
-							: 'text-white/75 hover:bg-white/10 hover:text-white'}"
-					>
-						{button.label}
-					</button>
+				{@const active = isCaseButtonActive(button.path)}
+				<a
+					href={button.path === '' ? caseBasePath : `${caseBasePath}/${button.path}`}
+					class="group relative flex items-center px-4 text-sm font-medium transition-colors {active
+						? 'text-white'
+						: 'text-white/65 hover:text-white'}"
+					aria-current={active ? 'page' : undefined}
+				>
+					{button.label}
+					<span
+						aria-hidden="true"
+						class="pointer-events-none absolute inset-x-3 -bottom-px h-[2px] rounded-full transition-all {active
+							? 'bg-white opacity-100'
+							: 'bg-white/50 opacity-0 group-hover:opacity-60'}"
+					></span>
 				</a>
 			{/each}
-		</div>
+		</nav>
 
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger class="lg:hidden">
 				<span
-					class="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-sm font-medium backdrop-blur-md transition-colors hover:bg-white/10"
+					class="flex items-center gap-1 border-b-2 border-transparent px-2 py-1.5 text-sm font-medium text-white/85 transition-colors hover:text-white aria-expanded:border-white"
 				>
 					{activeCaseButton.label}
 					<ChevronDownIcon size="14" />

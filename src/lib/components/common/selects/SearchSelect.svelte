@@ -118,7 +118,19 @@
 		{/snippet}
 	</Popover.Trigger>
 
-	<Popover.Content class="w-[--bits-popover-trigger-width] min-w-48 max-w-[calc(100vw-3rem)] p-1.5">
+	<!--
+	  Popover width pins to the trigger width by default so the dropdown
+	  visually anchors under the input. When the dropdown's content is
+	  wider than the trigger (long option labels), we let it grow up to
+	  the viewport edge — but we never shrink below the trigger, which
+	  was the case when a fixed `min-w-48` floor caused narrow triggers
+	  to center an oversized popover. `align="start"` keeps the popover's
+	  left edge flush with the trigger's left edge.
+	-->
+	<Popover.Content
+		align="start"
+		class="w-[--bits-popover-anchor-width] min-w-[--bits-popover-anchor-width] max-w-[calc(100vw-3rem)] p-1.5"
+	>
 		<Input
 			type="text"
 			placeholder={searchPlaceholder}

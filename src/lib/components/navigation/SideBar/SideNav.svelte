@@ -43,13 +43,30 @@
 		{ label: 'Welcome page', path: '/welcome', icon: DoorOpenIcon }
 	];
 
+	// `matchPrefix: true` flags items that should light up for any nested
+	// route under their `path`. The "Case" item is the natural example —
+	// the user is still inside the case context whether they're on
+	// `/case/42`, `/case/42/notes`, `/case/42/timeline`, etc.
 	const investigationMenuItems = $derived([
-		{ label: 'Case', path: `/case/${currentCaseID}`, icon: WaypointsIcon },
-		{ label: 'Alerts', path: '/alerts', hash: '', icon: BellIcon },
+		{ label: 'Case', path: `/case/${currentCaseID}`, icon: WaypointsIcon, matchPrefix: true },
+		{ label: 'Alerts', path: '/alerts', hash: '', icon: BellIcon, matchPrefix: true },
 		{ label: 'Search', path: '/', hash: '#search', icon: SearchIcon },
 		{ label: 'Activities', path: '/', hash: '#activities', icon: FileTextIcon },
 		{ label: 'Dim Tasks', path: '/', hash: '#dim-tasks', icon: FileStackIcon }
 	]);
+
+	const isItemActive = (item: { path: string; hash?: string; matchPrefix?: boolean }) => {
+		const itemHash = item.hash ?? '';
+		if (item.matchPrefix) {
+			// Prefix match the path (so /case/42/notes still highlights "Case"
+			// and /alerts/123 highlights "Alerts"). Hash, if specified, must
+			// still match exactly so a single base path with multiple hash-
+			// scoped items stays unambiguous.
+			const pathOk = pathname === item.path || pathname.startsWith(`${item.path}/`);
+			return pathOk && hash === itemHash;
+		}
+		return pathname === item.path && hash === itemHash;
+	};
 
 	const advancedMenuItems = [
 		{ label: 'Modules', path: '/', hash: '#modules', icon: ServerIcon },
@@ -90,7 +107,7 @@
 			label={item.label}
 			icon={item.icon}
 			href={`${item.path}${item.hash ?? ''}`}
-			active={pathname === item.path && hash === (item.hash ?? '')}
+			active={isItemActive(item)}
 		/>
 	{/each}
 
