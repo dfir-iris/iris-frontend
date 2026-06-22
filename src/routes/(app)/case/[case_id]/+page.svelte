@@ -384,36 +384,34 @@
 
 				<!-- Signals: tasks-for-you + people-on-case -->
 				<div class="flex flex-wrap items-center gap-3">
-					<button
-						type="button"
-						onclick={() => goto(`/case/${case_id}/tasks`)}
-						class="group inline-flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-muted/50"
-						title={myTasks.length === 0
-							? 'No tasks for you'
-							: myTasks.map((t) => t.task_title).join('\n')}
-					>
-						<div
-							class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400"
+					{#if myTasks.length > 0}
+						<button
+							type="button"
+							onclick={() => goto(`/case/${case_id}/tasks`)}
+							class="group inline-flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-muted/50"
+							title={myTasks.map((t) => t.task_title).join('\n')}
 						>
-							<ClipboardListIcon size={12} />
-						</div>
-						<div class="min-w-0">
-							<span class="font-medium">
-								{myTasks.length} task{myTasks.length === 1 ? '' : 's'} for you
-							</span>
-							{#if myTasks.length > 0}
+							<div
+								class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400"
+							>
+								<ClipboardListIcon size={12} />
+							</div>
+							<div class="min-w-0">
+								<span class="font-medium">
+									{myTasks.length} task{myTasks.length === 1 ? '' : 's'} for you
+								</span>
 								<span class="ml-1 truncate text-muted-foreground">
 									· {myTasks[0].task_title}{myTasks.length > 1
 										? ` +${myTasks.length - 1}`
 										: ''}
 								</span>
-							{/if}
-						</div>
-						<ArrowRightIcon
-							size={11}
-							class="shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5"
-						/>
-					</button>
+							</div>
+							<ArrowRightIcon
+								size={11}
+								class="shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5"
+							/>
+						</button>
+					{/if}
 
 					<div class="flex min-w-0 items-center gap-2 px-1.5 py-1 text-xs">
 						<div

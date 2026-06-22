@@ -314,6 +314,16 @@
 		eventDialogOpen = true;
 	};
 
+	// Topbar's CaseQuickAddButton sends this event so the global Add Event
+	// affordance can open this page's dialog without us threading another
+	// context through every route.
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const handler = () => addEvent();
+		window.addEventListener('case-timeline:add-event', handler);
+		return () => window.removeEventListener('case-timeline:add-event', handler);
+	});
+
 	const addChildEvent = async (eventId: number) => {
 		const event = await timeline.getEvent(eventId);
 

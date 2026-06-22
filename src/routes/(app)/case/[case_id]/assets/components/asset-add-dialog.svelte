@@ -57,7 +57,8 @@
 		asset_type_id: undefined,
 		analysis_status_id: undefined,
 		asset_compromise_status_id: 3,
-		asset_tags: ''
+		asset_tags: '',
+		one_per_line: true
 	});
 
 	const sampleCsv = `asset_name,asset_type_name,asset_description,asset_ip,asset_domain,asset_tags
@@ -78,7 +79,8 @@
 			asset_type_id: undefined,
 			analysis_status_id: undefined,
 			asset_compromise_status_id: 3,
-			asset_tags: ''
+			asset_tags: '',
+			one_per_line: true
 		};
 	};
 
@@ -101,7 +103,7 @@
 		}
 	};
 
-	const updateField = (field: string, value: string | number | Tag[]) => {
+	const updateField = (field: string, value: string | number | boolean | Tag[]) => {
 		if (field === 'asset_tags') {
 			if (Array.isArray(value)) {
 				currentTags = [...value];
@@ -125,6 +127,7 @@
 		if (field === 'asset_compromise_status_id' && typeof value === 'number') {
 			addData.asset_compromise_status_id = value;
 		}
+		if (field === 'one_per_line' && typeof value === 'boolean') addData.one_per_line = value;
 	};
 
 	const createAssets = async (payloads: CreateCaseAssetBody[]) => {
@@ -156,10 +159,19 @@
 	};
 
 	const saveManual = async () => {
-		const assetNames = addData.asset_names
-			.split('\n')
-			.map((name) => name.trim())
-			.filter(Boolean);
+		// When "One asset per line" is on, every non-empty line becomes its
+		// own asset (sharing the rest of the form metadata). When off, the
+		// whole textarea content is treated as a single asset name —
+		// trimmed, but otherwise preserved.
+		const assetNames = addData.one_per_line
+			? addData.asset_names
+					.split('\n')
+					.map((name) => name.trim())
+					.filter(Boolean)
+			: (() => {
+					const trimmed = addData.asset_names.trim();
+					return trimmed ? [trimmed] : [];
+				})();
 
 		if (assetNames.length === 0 || !addData.asset_type_id) {
 			toast({

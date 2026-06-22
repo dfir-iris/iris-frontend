@@ -4,6 +4,7 @@
 	import type { IocType } from '$lib/services/ioc-types.service';
 	import type { TlpItem } from '$lib/services/tlp.service';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { MarkDownEditor } from '$lib/components/common/MarkDown';
 	import { TagInput } from '$lib/components/common/tag';
 	import SearchSelect, {
@@ -16,6 +17,7 @@
 		ioc_type_id?: number;
 		ioc_tlp_id?: number;
 		ioc_tags?: string;
+		one_per_line: boolean;
 	};
 
 	type Props = {
@@ -23,7 +25,7 @@
 		currentTags: Tag[];
 		iocTypes: IocType[];
 		tlps: TlpItem[];
-		onUpdateField: (field: string, value: string | number | Tag[]) => void;
+		onUpdateField: (field: string, value: string | number | boolean | Tag[]) => void;
 	};
 
 	let { addData, currentTags, iocTypes, tlps, onUpdateField }: Props = $props();
@@ -44,6 +46,9 @@
 
 	const updateField = (field: string, value: string | number) => onUpdateField(field, value);
 	const handleTagsChange = (tags: Tag[]) => onUpdateField('ioc_tags', tags);
+
+	// UI-only flag — splits the textarea by newline into one IOC per line.
+	const handleOnePerLineChange = (checked: boolean) => onUpdateField('one_per_line', checked);
 </script>
 
 <div class="space-y-8">
@@ -100,14 +105,26 @@
 					</div>
 
 					<div class="min-w-0 flex-1">
-						<p class="text-sm font-medium text-muted-foreground">IOC Value *</p>
+						<div class="flex flex-wrap items-center justify-between gap-2">
+							<p class="text-sm font-medium text-muted-foreground">
+								{addData.one_per_line ? 'IOC Values *' : 'IOC Value *'}
+							</p>
+
+							<label class="inline-flex items-center gap-2 text-xs text-muted-foreground">
+								<Checkbox
+									checked={addData.one_per_line}
+									onCheckedChange={(v) => handleOnePerLineChange(!!v)}
+								/>
+								<span>One IOC per line</span>
+							</label>
+						</div>
 
 						<Textarea
 							value={addData.ioc_value}
 							oninput={(e) =>
 								updateField('ioc_value', (e.currentTarget as HTMLTextAreaElement).value)}
-							placeholder="IOC value"
-							rows={5}
+							placeholder={addData.one_per_line ? 'One IOC per line' : 'IOC value'}
+							rows={addData.one_per_line ? 5 : 2}
 							class="mt-1 w-full"
 						/>
 					</div>

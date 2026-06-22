@@ -32,7 +32,7 @@
   }
 </script>
 
-<div class="fixed bottom-0 left-0 p-4 w-full md:max-w-sm z-50 flex flex-col gap-2">
+<div class="fixed bottom-0 left-0 p-4 w-full md:max-w-sm z-[100] flex flex-col gap-2">
   {#each $toasts as toast (toast.id)}
     <div
       class="rounded-lg border shadow-lg overflow-hidden {getVariantClasses(toast.variant)}"

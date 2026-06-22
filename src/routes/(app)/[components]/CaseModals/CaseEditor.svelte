@@ -329,12 +329,12 @@
 		<div class="flex gap-2">
 			<Button variant="destructive" size="sm" onclick={onDelete}>Delete case</Button>
 
-			{#if currentCase?.close_date}
+			{#if currentCase?.state?.state_name === 'Closed'}
 				<Button size="sm" onclick={async () => await cases.reopen(currentCase?.case_id)}>
 					Reopen case
 				</Button>
 			{:else}
-				<Button variant="secondary" size="sm" onclick={() => onClose}>Close case</Button>
+				<Button variant="secondary" size="sm" onclick={onClose}>Close case</Button>
 			{/if}
 		</div>
 

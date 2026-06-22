@@ -98,13 +98,14 @@
 		</Tabs>
 
 		{#if !editing}
-			{#key `${case_id}:${currentCase?.close_date ?? ''}`}
+			{@const isClosed = currentCase?.state?.state_name === 'Closed'}
+			{#key `${case_id}:${isClosed}`}
 				<Dialog.Footer class="shrink-0 gap-2 border-t px-5 py-3">
 					<Button variant="destructive" size="sm" onclick={() => (showConfirmDelete = true)}>
 						Delete case
 					</Button>
 
-					{#if currentCase?.close_date}
+					{#if isClosed}
 						<Button size="sm" onclick={async () => await cases.reopen(case_id)}>
 							Reopen case
 						</Button>

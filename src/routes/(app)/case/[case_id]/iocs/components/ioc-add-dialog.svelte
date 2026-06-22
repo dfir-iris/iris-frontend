@@ -46,7 +46,8 @@
 		ioc_description: '',
 		ioc_type_id: undefined,
 		ioc_tlp_id: undefined,
-		ioc_tags: ''
+		ioc_tags: '',
+		one_per_line: true
 	});
 
 	const sampleCsv = `ioc_value,ioc_type_name,ioc_description,ioc_tlp_name,ioc_tags
@@ -64,7 +65,8 @@
 			ioc_description: '',
 			ioc_type_id: undefined,
 			ioc_tlp_id: undefined,
-			ioc_tags: ''
+			ioc_tags: '',
+			one_per_line: true
 		};
 	};
 
@@ -77,7 +79,7 @@
 		tlps = tlpRes.data as TlpItem[];
 	};
 
-	const updateField = (field: string, value: string | number | Tag[]) => {
+	const updateField = (field: string, value: string | number | boolean | Tag[]) => {
 		if (field === 'ioc_tags') {
 			if (Array.isArray(value)) {
 				currentTags = [...value];
@@ -94,6 +96,7 @@
 		if (field === 'ioc_description' && typeof value === 'string') addData.ioc_description = value;
 		if (field === 'ioc_type_id' && typeof value === 'number') addData.ioc_type_id = value;
 		if (field === 'ioc_tlp_id' && typeof value === 'number') addData.ioc_tlp_id = value;
+		if (field === 'one_per_line' && typeof value === 'boolean') addData.one_per_line = value;
 	};
 
 	const createIocs = async (payloads: CreateCaseIocBody[]) => {
@@ -125,9 +128,20 @@
 	};
 
 	const saveManual = async () => {
-		const iocValue = addData.ioc_value.trim();
+		// One IOC per line: each non-empty trimmed line becomes its own IOC,
+		// sharing the type/TLP/description/tags. Otherwise treat the full
+		// textarea as a single trimmed value.
+		const iocValues = addData.one_per_line
+			? addData.ioc_value
+					.split('\n')
+					.map((value) => value.trim())
+					.filter(Boolean)
+			: (() => {
+					const trimmed = addData.ioc_value.trim();
+					return trimmed ? [trimmed] : [];
+				})();
 
-		if (!iocValue || !addData.ioc_type_id || !addData.ioc_tlp_id) {
+		if (iocValues.length === 0 || !addData.ioc_type_id || !addData.ioc_tlp_id) {
 			toast({
 				title: 'Missing required fields',
 				description: 'IOC value, type, and TLP are required.',
@@ -139,15 +153,15 @@
 		isSaving = true;
 
 		try {
-			await createIocs([
-				{
+			await createIocs(
+				iocValues.map((iocValue) => ({
 					ioc_value: iocValue,
-					ioc_type_id: addData.ioc_type_id,
-					ioc_tlp_id: addData.ioc_tlp_id,
+					ioc_type_id: addData.ioc_type_id as number,
+					ioc_tlp_id: addData.ioc_tlp_id as number,
 					ioc_description: addData.ioc_description,
 					ioc_tags: tagsToString(currentTags)
-				}
-			]);
+				}))
+			);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Unknown error';
 

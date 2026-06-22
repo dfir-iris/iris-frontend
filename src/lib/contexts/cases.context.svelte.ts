@@ -5,6 +5,7 @@ import type {
 	UpdateCaseBody,
 	CreateCaseBody
 } from '$lib/services/case.service';
+import { CaseStatesService, type CaseState } from '$lib/services/case-states.service';
 import type { ApiOptions, Paginated, RequestResponse } from '$lib/services/api.service';
 import type { Case } from '$lib/types/resources/case';
 import type { AppContext } from './app.context.svelte';
@@ -201,31 +202,69 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 		return false;
 	};
 
-	const close = async (id: CaseIdentifier, options: ApiOptions = {}): Promise<Case | null> => {
-		const prev = byId[id];
-		if (prev) byId[id] = { ...prev, close_date: new Date().toISOString() };
+	// Case states are seeded server-side and don't change at runtime, so we
+	// cache the list after first fetch. `close`/`reopen` resolve the target
+	// state by name ('Closed' / 'Open') and route through the v2 update PUT.
+	// Exposed via `states` so consumers (e.g. the topbar state picker) can
+	// render the full state list without re-fetching it.
+	const stateStore = $state<{ list: CaseState[] | null; loading: boolean }>({
+		list: null,
+		loading: false
+	});
 
-		const res = await CaseService.close(id, options);
-
-		if (!res.ok || res.error) {
-			return await get(id, options);
+	const loadStates = async (options: ApiOptions = {}): Promise<CaseState[] | null> => {
+		if (stateStore.list) return stateStore.list;
+		if (stateStore.loading) return null;
+		stateStore.loading = true;
+		try {
+			const res = await CaseStatesService.list(options);
+			if (!res.ok || res.error) {
+				console.error('[cases] failed to load case states', res);
+				return null;
+			}
+			// Legacy /manage endpoints wrap the payload in { status, message, data }.
+			// Unwrap if present; otherwise accept a raw array.
+			const body = res.data as unknown;
+			const list = Array.isArray(body)
+				? (body as CaseState[])
+				: ((body as { data?: CaseState[] })?.data ?? null);
+			if (!Array.isArray(list)) {
+				console.error('[cases] case-states response missing data array', res);
+				return null;
+			}
+			stateStore.list = list;
+			return list;
+		} finally {
+			stateStore.loading = false;
 		}
-
-		return await get(id, options);
 	};
 
-	const reopen = async (id: CaseIdentifier, options: ApiOptions = {}): Promise<Case | null> => {
-		const prev = byId[id];
-		if (prev) byId[id] = { ...prev, close_date: null };
+	const resolveStateId = async (name: string, options: ApiOptions): Promise<number | null> => {
+		const list = await loadStates(options);
+		if (!list) return null;
+		const match = list.find((s) => s.state_name === name);
+		if (!match) console.error(`[cases] state "${name}" not found in`, list);
+		return match?.state_id ?? null;
+	};
 
-		const res = await CaseService.reopen(id, options);
-
-		if (!res.ok || res.error) {
+	const setStateByName = async (
+		id: CaseIdentifier,
+		targetName: string,
+		options: ApiOptions
+	): Promise<Case | null> => {
+		const stateId = await resolveStateId(targetName, options);
+		if (stateId == null) {
+			console.error(`[cases] cannot resolve state id for "${targetName}"; skipping update`);
 			return await get(id, options);
 		}
-
-		return await get(id, options);
+		return await patch(id, { state_id: stateId }, options);
 	};
+
+	const close = async (id: CaseIdentifier, options: ApiOptions = {}): Promise<Case | null> =>
+		setStateByName(id, 'Closed', options);
+
+	const reopen = async (id: CaseIdentifier, options: ApiOptions = {}): Promise<Case | null> =>
+		setStateByName(id, 'Open', options);
 
 	const reset = () => {
 		for (const k of Object.keys(byId)) delete byId[Number(k)];
@@ -275,7 +314,9 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 		remove,
 		close,
 		reopen,
-		reset
+		reset,
+		states: () => stateStore.list,
+		loadStates
 	};
 };
 

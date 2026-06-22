@@ -4,13 +4,20 @@ export type CaseStatus =
 	| 'Completed'
 	| 'Unspecified'
 	| 'To do'
+	| 'Open'
 	| 'Closed'
+	| 'Containment'
+	| 'Eradication'
+	| 'Recovery'
+	| 'Post-Incident'
+	| 'Reporting'
 	| 'Merged'
 	| 'Assigned'
 	| 'New'
 	| 'Started'
 	| 'Cancelled'
 	| 'On hold'
-	| 'Done';
+	| 'Done'
+	| 'To be done';
 
 export type Severity = 'Unspecified' | 'Low' | 'Medium' | 'High' | 'Critical';

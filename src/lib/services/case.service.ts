@@ -125,20 +125,6 @@ export class CaseService {
 		return ApiService.put<Case>(`/api/v2/cases/${caseId}`, body, options);
 	}
 
-	static async close(
-		caseId: CaseIdentifier,
-		options: ApiOptions = {}
-	): Promise<RequestResponse<null>> {
-		return ApiService.post<null>(`/api/v2/cases/close/${caseId}`, {}, options);
-	}
-
-	static async reopen(
-		caseId: CaseIdentifier,
-		options: ApiOptions = {}
-	): Promise<RequestResponse<null>> {
-		return ApiService.post<null>(`/api/v2/cases/reopen/${caseId}`, {}, options);
-	}
-
 	static async remove(
 		caseId: CaseIdentifier,
 		options: ApiOptions = {}

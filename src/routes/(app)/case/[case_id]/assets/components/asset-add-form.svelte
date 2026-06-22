@@ -12,6 +12,7 @@
 	import type { AssetType } from '$lib/services/asset-types.service';
 	import type { AnalysisStatusItem } from '$lib/services/analysis-status.service';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { CompromiseStatus } from '$lib/components/common/compromise-status';
 	import { MarkDownEditor } from '$lib/components/common/MarkDown';
 	import { TagInput } from '$lib/components/common/tag';
@@ -23,6 +24,7 @@
 
 	export interface AssetAddData extends AssetData {
 		asset_names: string;
+		one_per_line: boolean;
 	}
 
 	type Props = {
@@ -30,7 +32,7 @@
 		currentTags: Tag[];
 		assetTypes: AssetType[];
 		analysisStatuses: AnalysisStatusItem[];
-		onUpdateField: (field: string, value: string | number | Tag[]) => void;
+		onUpdateField: (field: string, value: string | number | boolean | Tag[]) => void;
 	};
 
 	let { addData, currentTags, assetTypes, analysisStatuses, onUpdateField }: Props = $props();
@@ -51,6 +53,11 @@
 
 	const updateField = (field: string, value: string | number) => onUpdateField(field, value);
 	const handleTagsChange = (tags: Tag[]) => onUpdateField('asset_tags', tags);
+
+	// `one_per_line` is a UI-only flag (not part of the create payload).
+	// We funnel it through the same onUpdateField pipe so the parent dialog
+	// keeps a single state shape.
+	const handleOnePerLineChange = (checked: boolean) => onUpdateField('one_per_line', checked);
 </script>
 
 <div class="space-y-8">
@@ -63,13 +70,25 @@
 					</div>
 
 					<div class="min-w-0 flex-1">
-						<p class="text-sm font-medium text-muted-foreground">Asset Names</p>
+						<div class="flex flex-wrap items-center justify-between gap-2">
+							<p class="text-sm font-medium text-muted-foreground">
+								{addData.one_per_line ? 'Asset Names' : 'Asset Name'}
+							</p>
+
+							<label class="inline-flex items-center gap-2 text-xs text-muted-foreground">
+								<Checkbox
+									checked={addData.one_per_line}
+									onCheckedChange={(v) => handleOnePerLineChange(!!v)}
+								/>
+								<span>One asset per line</span>
+							</label>
+						</div>
 
 						<Textarea
 							value={addData.asset_names}
 							onchange={(e) => updateField('asset_names', (e.target as HTMLTextAreaElement).value)}
-							placeholder="One asset per line"
-							rows={5}
+							placeholder={addData.one_per_line ? 'One asset per line' : 'Asset name'}
+							rows={addData.one_per_line ? 5 : 2}
 							class="mt-1 w-full"
 						/>
 					</div>

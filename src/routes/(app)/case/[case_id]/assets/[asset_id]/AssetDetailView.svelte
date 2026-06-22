@@ -12,6 +12,7 @@
 	import { getContext } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import {
+		ClockIcon,
 		HistoryIcon,
 		InfoIcon,
 		MessagesSquareIcon,
@@ -29,10 +30,13 @@
 	import { normalizeTags, stringToTags, tagsToString } from '$lib/utils/tags';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
 	import { toast } from '$lib/components/ui/toast';
+	import { page } from '$app/state';
+	import { CaseTimelineService } from '$lib/services/case-timeline.service';
 	import CommentsTab from './comments-tab.svelte';
 	import DetailsTab from './details-tab.svelte';
 	import HistoryTab from './history-tab.svelte';
 	import IOCTab from './ioc-tab.svelte';
+	import TimelineTab from './timeline-tab.svelte';
 
 	type EditData = {
 		asset_name: string;
@@ -63,6 +67,25 @@
 
 	let currentTags = $state<Tag[]>([]);
 	let comments = $state<Comment[]>([]);
+
+	// Lightweight precount so the Timeline tab trigger can show a badge
+	// without forcing the user to click the tab first. We request a single
+	// page-of-one row purely for `pagination.total`. Null means "not yet
+	// known"; render the tab without a number in that case.
+	let timelineCount = $state<number | null>(null);
+
+	const loadTimelineCount = async () => {
+		const caseId = Number(page.params.case_id);
+		if (!Number.isFinite(caseId)) return;
+		const res = await CaseTimelineService.listEvents(
+			caseId,
+			{ asset_id: [assetId] },
+			{ fetch },
+			{ page: 1, per_page: 1 }
+		);
+		if (!res.ok || res.error || res.data === null || typeof res.data === 'string') return;
+		timelineCount = res.data.pagination?.total ?? res.data.timeline?.length ?? 0;
+	};
 
 	let editData = $state<EditData>({
 		asset_name: '',
@@ -221,6 +244,8 @@
 	$effect(() => {
 		void assetId;
 		loadAsset();
+		timelineCount = null;
+		void loadTimelineCount();
 	});
 </script>
 
@@ -251,6 +276,22 @@
 										class="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors"
 									>
 										{asset.iocs.length}
+									</span>
+								{/if}
+							</TabsTrigger>
+
+							<TabsTrigger
+								value="timeline"
+								class="relative flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+							>
+								<ClockIcon class="mr-1 h-4 w-4" />
+								<span>Timeline</span>
+
+								{#if timelineCount !== null && timelineCount > 0}
+									<span
+										class="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors"
+									>
+										{timelineCount}
 									</span>
 								{/if}
 							</TabsTrigger>
@@ -299,6 +340,13 @@
 
 						<TabsContent value="ioc">
 							<IOCTab bind:asset={caseAssets.byId[assetId]} />
+						</TabsContent>
+
+						<TabsContent value="timeline">
+							<TimelineTab
+								{assetId}
+								onCountChange={(c) => (timelineCount = c)}
+							/>
 						</TabsContent>
 
 						<TabsContent value="history">

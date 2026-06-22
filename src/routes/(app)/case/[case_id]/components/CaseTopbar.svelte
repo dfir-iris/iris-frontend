@@ -3,8 +3,10 @@
 	import {
 		Activity,
 		AlertTriangleIcon,
+		BellIcon,
 		Building2,
 		CheckCircle2Icon,
+		ChevronRightIcon,
 		Clock,
 		DatabaseIcon,
 		EyeIcon,
@@ -16,6 +18,10 @@
 		Tag,
 		UserRound
 	} from 'lucide-svelte';
+	import { goto } from '$app/navigation';
+	import { AlertService } from '$lib/services/alerts.service';
+	import type { Alert } from '$lib/types/resources/alert';
+	import { toast } from '$lib/stores/toast.store';
 	import * as Popover from '$lib/components/ui/popover';
 	import type { Case } from '$lib/types/resources/case';
 	import type { CaseStatus, Severity } from '$lib/components/ui/badge/types';
@@ -46,6 +52,7 @@
 		type DatastorePanelContext
 	} from '$lib/contexts/datastore-panel.context.svelte';
 	import CaseAddDropdown from './CaseAddDropdown.svelte';
+	import CaseQuickAddButton from './CaseQuickAddButton.svelte';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -230,6 +237,75 @@
 					glow: false
 				};
 		}
+	});
+
+	// State picker: lazy-load the full state list the first time the menu
+	// opens, then PUT the selected state via cases.patch().
+	const states = $derived(cases.states());
+
+	const handleStateMenuOpen = (open: boolean) => {
+		if (open && !states) void cases.loadStates();
+	};
+
+	const setCaseState = async (stateId: number) => {
+		const id = caseData?.case_id;
+		if (!id) return;
+		try {
+			await cases.patch(id, { state_id: stateId });
+		} catch (err) {
+			toast({
+				title: 'Failed to update case state',
+				description: (err as Error).message,
+				variant: 'destructive'
+			});
+		}
+	};
+
+	// Linked-alerts indicator. Loaded eagerly on case change so the count
+	// (and its string label) renders before the user clicks. Loading is
+	// gated by `loadingAlerts` so reopening the popover mid-fetch doesn't
+	// fan out duplicate requests.
+	const ALERTS_PER_PAGE = 50;
+	let linkedAlerts = $state<Alert[] | null>(null);
+	let linkedAlertsTotal = $state<number>(0);
+	let loadingAlerts = $state(false);
+
+	const loadLinkedAlerts = async (id: number) => {
+		if (loadingAlerts) return;
+		loadingAlerts = true;
+		try {
+			const res = await AlertService.list({ case_id: id, per_page: ALERTS_PER_PAGE, page: 1 });
+			if (res.ok && !res.error && res.data) {
+				const body = res.data as unknown as { data?: { alerts?: Alert[]; total?: number } };
+				const data = body?.data ?? null;
+				linkedAlerts = data?.alerts ?? [];
+				linkedAlertsTotal = data?.total ?? linkedAlerts.length;
+			} else {
+				linkedAlerts = [];
+				linkedAlertsTotal = 0;
+			}
+		} catch (err) {
+			console.error('[case-topbar] failed to load linked alerts', err);
+			linkedAlerts = [];
+			linkedAlertsTotal = 0;
+		} finally {
+			loadingAlerts = false;
+		}
+	};
+
+	// Load on mount and only when the case ID changes. We can't depend on
+	// `caseData` directly because it's reassigned (to a new object ref)
+	// by the icon/severity effect whenever the case payload is refreshed,
+	// which would refire this effect in a loop. Snapshotting the last-fired
+	// id makes the effect a no-op for any re-run that isn't a real switch.
+	let lastLoadedAlertsCaseId = -1;
+	$effect(() => {
+		const id = caseData?.case_id;
+		if (id == null || id === lastLoadedAlertsCaseId) return;
+		lastLoadedAlertsCaseId = id;
+		linkedAlerts = null;
+		linkedAlertsTotal = 0;
+		void loadLinkedAlerts(id);
 	});
 </script>
 
@@ -476,23 +552,142 @@
 			</Popover.Root>
 		{/if}
 
-		<!-- Full pill on sm+ -->
-		<div
-			class="hidden items-center gap-1 rounded-lg border bg-muted/30 px-1 py-0.5 sm:flex"
-		>
-			{#if !isClosed}
-				<StatusBadge {status} />
-			{/if}
-			<SeverityBadge {severity} />
-		</div>
+		<!--
+			Status pill is now a state picker. The dropdown lazy-loads the
+			full state list so users can move a case through Open → Containment
+			→ Eradication → Recovery → … → Closed without leaving the topbar.
+			A closed case also gets a Reopen path via this menu.
+		-->
+		<DropdownMenu onOpenChange={handleStateMenuOpen}>
+			<DropdownMenuTrigger>
+				<!-- sm+ : pill with severity + status, clickable -->
+				<div
+					class="hidden items-center gap-1 rounded-lg border bg-muted/30 px-1 py-0.5 transition-colors hover:bg-muted/60 sm:flex"
+					title="Change case state"
+				>
+					<StatusBadge {status} />
+					<SeverityBadge {severity} />
+				</div>
+				<!-- Below sm : icon-only, clickable -->
+				<div class="flex items-center sm:hidden">
+					<StatusBadge {status} icon_only />
+					<SeverityBadge {severity} icon_only />
+				</div>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="end" class="min-w-[200px]">
+				<DropdownMenuLabel>Change case state</DropdownMenuLabel>
+				<DropdownMenuSeparator />
+				{#if !states}
+					<div class="px-2 py-1.5 text-xs text-muted-foreground">Loading states…</div>
+				{:else}
+					{#each states as s (s.state_id)}
+						{@const isCurrent = caseData?.state?.state_id === s.state_id}
+						<DropdownMenuItem
+							disabled={isCurrent}
+							onclick={() => !isCurrent && setCaseState(s.state_id)}
+						>
+							<span class="flex w-full items-center justify-between gap-2">
+								<span class="truncate">{s.state_name}</span>
+								{#if isCurrent}
+									<CheckCircle2Icon size={12} class="shrink-0 text-emerald-500" />
+								{/if}
+							</span>
+						</DropdownMenuItem>
+					{/each}
+				{/if}
+			</DropdownMenuContent>
+		</DropdownMenu>
 
-		<!-- Icon-only on small screens, no surrounding pill -->
-		<div class="flex items-center sm:hidden">
-			{#if !isClosed}
-				<StatusBadge {status} icon_only />
-			{/if}
-			<SeverityBadge {severity} icon_only />
-		</div>
+		<!--
+			Linked-alerts indicator: count is loaded eagerly on case change
+			and shown both as a red badge on the bell and as an inline
+			"N linked alerts" label when there's horizontal room. The popover
+			lists up to ALERTS_PER_PAGE alerts; the footer link jumps to the
+			Alerts page pre-filtered by this case.
+		-->
+		<Popover.Root>
+			<Popover.Trigger>
+				<TooltipProvider>
+					<Tooltip>
+						<TooltipTrigger>
+							<Button
+								variant="outline"
+								size="sm"
+								class="relative h-8 gap-x-1"
+								aria-label="Linked alerts"
+							>
+								<BellIcon size={16} />
+								<span class="hidden tabular-nums lg:inline">
+									{linkedAlertsTotal} linked alert{linkedAlertsTotal === 1 ? '' : 's'}
+								</span>
+								<span class="tabular-nums lg:hidden">
+									{linkedAlertsTotal > 99 ? '99+' : linkedAlertsTotal}
+								</span>
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent side="bottom">Linked alerts</TooltipContent>
+					</Tooltip>
+				</TooltipProvider>
+			</Popover.Trigger>
+			<Popover.Content align="end" class="w-80 p-0">
+				<div class="border-b px-3 py-2 text-xs font-semibold">
+					{#if loadingAlerts && linkedAlerts === null}
+						Loading…
+					{:else}
+						{linkedAlertsTotal} linked alert{linkedAlertsTotal === 1 ? '' : 's'}
+					{/if}
+				</div>
+
+				<div class="max-h-72 overflow-y-auto">
+					{#if linkedAlerts === null && loadingAlerts}
+						<div class="px-3 py-4 text-center text-xs text-muted-foreground">Loading…</div>
+					{:else if (linkedAlerts?.length ?? 0) === 0}
+						<div class="px-3 py-4 text-center text-xs text-muted-foreground">
+							No alerts linked to this case.
+						</div>
+					{:else}
+						<ul class="flex flex-col py-1">
+							{#each linkedAlerts as alert (alert.alert_id)}
+								<li>
+									<a
+										href={`/alerts/${alert.alert_id}`}
+										class="flex w-full flex-col gap-0.5 px-3 py-2 text-xs transition-colors hover:bg-muted/60"
+									>
+										<div class="flex items-center gap-2">
+											<span class="shrink-0 font-mono text-2xs text-muted-foreground">
+												#{alert.alert_id}
+											</span>
+											<span class="min-w-0 flex-1 truncate font-medium" title={alert.alert_title}>
+												{alert.alert_title}
+											</span>
+										</div>
+										{#if alert.alert_source}
+											<div class="truncate text-2xs text-muted-foreground">
+												{alert.alert_source}
+											</div>
+										{/if}
+									</a>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+
+				{#if linkedAlertsTotal > 0}
+					<div class="border-t p-2">
+						<Button
+							variant="secondary"
+							size="sm"
+							class="h-7 w-full justify-between gap-1 text-xs"
+							onclick={() => goto(`/alerts?case_id=${caseData?.case_id}`)}
+						>
+							<span>View all in Alerts</span>
+							<ChevronRightIcon size={12} />
+						</Button>
+					</div>
+				{/if}
+			</Popover.Content>
+		</Popover.Root>
 
 		<div class="hidden h-6 w-px bg-border sm:block" aria-hidden="true"></div>
 
@@ -503,13 +698,14 @@
 					<TooltipTrigger>
 						<Button
 							variant="outline"
-							size="icon"
-							class={`relative h-8 w-8 ${dsOpen ? 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15' : ''}`}
+							size="sm"
+							class={`relative h-8 gap-x-1 ${dsOpen ? 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15' : ''}`}
 							onclick={() => datastorePanel.toggle()}
 							aria-label="Toggle DataStore panel"
 							aria-pressed={dsOpen}
 						>
 							<DatabaseIcon size={16} />
+							<span class="hidden lg:inline">DataStore</span>
 						</Button>
 					</TooltipTrigger>
 					<TooltipContent side="bottom">
@@ -548,7 +744,7 @@
 									</span>
 								{/if}
 							</span>
-							<span class="hidden sm:inline">Activity</span>
+							<span class="hidden lg:inline">Activity</span>
 						</Button>
 					</TooltipTrigger>
 					<TooltipContent side="bottom">
@@ -557,6 +753,8 @@
 				</Tooltip>
 			</TooltipProvider>
 		{/if}
+
+		<CaseQuickAddButton />
 
 		<CaseAddDropdown buttonClass="h-8" />
 

@@ -21,6 +21,11 @@
 		assets: Asset[];
 		iocs: Ioc[];
 		selectedParent?: CaseTimelineEvent;
+		// When creating a brand-new event (no `event` prop), the host can
+		// preset the linked assets/iocs — used by the asset/ioc detail
+		// timeline tabs to pin the surrounding context as a starting point.
+		initialAssetIds?: number[];
+		initialIocIds?: number[];
 		onOpenChange: (open: boolean) => void;
 	};
 
@@ -34,6 +39,8 @@
 		assets,
 		iocs,
 		selectedParent,
+		initialAssetIds = [],
+		initialIocIds = [],
 		onOpenChange
 	}: Props = $props();
 
@@ -77,6 +84,7 @@
 	const reset = () => {
 		const resolveAssetIds = (): number[] => {
 			if (event?.event_assets !== undefined) return event.event_assets;
+			if (!event && initialAssetIds.length > 0) return initialAssetIds;
 			return (event?.assets ?? [])
 				.map((a) => assets.find((ca) => ca.asset_name === a.name)?.asset_id)
 				.filter((id): id is number => id !== undefined);
@@ -84,6 +92,7 @@
 
 		const resolveIocIds = (): number[] => {
 			if (event?.event_iocs !== undefined) return event.event_iocs;
+			if (!event && initialIocIds.length > 0) return initialIocIds;
 			return (event?.iocs ?? [])
 				.map((i) => iocs.find((ci) => ci.ioc_value === i.name)?.ioc_id)
 				.filter((id): id is number => id !== undefined);
