@@ -28,6 +28,14 @@ export interface FilterAlertsParams {
 	page?: number;
 	per_page?: number;
 	sort?: SortDir;
+	/**
+	 * JSON-encoded list of `{field, operator, value}` conditions, evaluated
+	 * server-side via the generic filtering layer. See
+	 * `app/datamgmt/filtering.py::apply_custom_conditions`. Useful for
+	 * filters that don't have a dedicated query param — e.g. "alerts whose
+	 * status name is not in [Closed, Merged, Escalated]".
+	 */
+	custom_conditions?: string;
 }
 
 export interface GetRelatedAlertsParams {
