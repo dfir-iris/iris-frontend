@@ -52,7 +52,7 @@
 		{ label: 'Alerts', path: '/alerts', hash: '', icon: BellIcon, matchPrefix: true },
 		{ label: 'Search', path: '/search', icon: SearchIcon },
 		{ label: 'Activities', path: '/activities', icon: FileTextIcon },
-		{ label: 'Dim Tasks', path: '/', hash: '#dim-tasks', icon: FileStackIcon }
+		{ label: 'Dim Tasks', path: '/dim-tasks', icon: FileStackIcon }
 	]);
 
 	const isItemActive = (item: { path: string; hash?: string; matchPrefix?: boolean }) => {
