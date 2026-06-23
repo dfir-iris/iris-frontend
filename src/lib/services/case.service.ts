@@ -132,6 +132,24 @@ export class CaseService {
 		return ApiService.delete<null>(`/api/v2/cases/${caseId}`, options);
 	}
 
+	// Close a case. Cascades to its alerts on the server side (same
+	// behaviour as the legacy `/manage/cases/close/<id>` POST).
+	static async close(
+		caseId: CaseIdentifier,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<Case>> {
+		return ApiService.post<Case>(`/api/v2/cases/${caseId}/close`, {}, options);
+	}
+
+	// Reopen a previously-closed case. Server-side cascade matches the
+	// legacy `/manage/cases/reopen/<id>` POST.
+	static async reopen(
+		caseId: CaseIdentifier,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<Case>> {
+		return ApiService.post<Case>(`/api/v2/cases/${caseId}/reopen`, {}, options);
+	}
+
 	// Every user with effective access to a case, with their access level.
 	// Backed by v2 endpoint `GET /api/v2/cases/{id}/access/users`. Useful
 	// for the case-manage modal (which shows everyone) — for pickers that

@@ -123,8 +123,8 @@
 		{collapsed}
 		label="Manage Cases"
 		icon={FolderIcon}
-		href="/#manage"
-		active={pathname === '/' && hash === '#manage'}
+		href="/manage/cases"
+		active={pathname === '/manage/cases' || pathname.startsWith('/manage/cases/')}
 	/>
 
 	<SubMenu {collapsed}>

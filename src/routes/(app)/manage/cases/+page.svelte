@@ -1,0 +1,562 @@
+<!--
+  Manage Cases — Svelte port of the legacy /manage/cases page.
+
+  Different in intent from `/cases` (which is the *overview*, focused on
+  picking the next case to work on). This page is for case admins: lists
+  every case the user can see, with per-row actions to close, reopen, or
+  delete a case.
+
+  Access scoping is fully server-side — `GET /api/v2/cases` (and the
+  underlying `cases_filter` / `get_filtered_cases`) join against
+  `UserCaseEffectiveAccess` and drop deny_all rows. The "Are you sure
+  the user can see this?" question is therefore the backend's job, not
+  ours: every row the list returns is one we're allowed to render. The
+  per-row action endpoints (`/close`, `/reopen`, DELETE) re-check the
+  user has full access to the specific case before mutating.
+-->
+<script lang="ts">
+	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
+	import { page as pageStore } from '$app/state';
+	import { goto } from '$app/navigation';
+	import {
+		ChevronLeftIcon,
+		ChevronRightIcon,
+		ExternalLinkIcon,
+		FolderIcon,
+		LockIcon,
+		LockOpenIcon,
+		MoreHorizontalIcon,
+		RefreshCwIcon,
+		Trash2Icon
+	} from 'lucide-svelte';
+	import { Button } from '$lib/components/ui/button';
+	import * as Card from '$lib/components/ui/card';
+	import { Input } from '$lib/components/ui/input';
+	import { Skeleton } from '$lib/components/ui/skeleton';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
+	import { toast } from '$lib/components/ui/toast';
+	import { mediumDateTimeFormatter } from '$lib/utils/time-formatter';
+	import { CaseService } from '$lib/services/case.service';
+	import type { Case } from '$lib/types/resources/case';
+	import type { Paginated } from '$lib/services/api.service';
+
+	const DEFAULT_PER_PAGE = 50;
+
+	// Live form state. Same convention as the activities / dim-tasks
+	// pages so the three list views feel consistent.
+	let searchValue = $state('');
+	// Tri-state: null = all, true = open only, false = closed only. We
+	// default to "open only" because that's what an admin almost always
+	// wants on this screen.
+	let openFilter = $state<boolean | null>(true);
+	let page = $state(1);
+	let perPage = $state(DEFAULT_PER_PAGE);
+
+	let loading = $state(false);
+	let envelope = $state<Paginated<Case> | null>(null);
+
+	type QuerySnapshot = { search: string; isOpen: boolean | null };
+	let lastQuery = $state<QuerySnapshot | null>(null);
+
+	// Confirmation dialog state. We keep a single dialog instance and
+	// drive its title/message/handler dynamically — same pattern as the
+	// alerts page elsewhere in the codebase.
+	let dialogOpen = $state(false);
+	let dialogTitle = $state('');
+	let dialogMessage = $state('');
+	let dialogConfirmText = $state('Confirm');
+	let dialogConfirmVariant = $state<'destructive' | 'default'>('default');
+	let pendingAction: (() => Promise<void>) | null = null;
+
+	const snapshot = (): QuerySnapshot => ({
+		search: searchValue.trim(),
+		isOpen: openFilter
+	});
+
+	const buildUrl = (q: QuerySnapshot, p: number, pp: number) => {
+		const params = new URLSearchParams();
+		if (q.search) params.set('q', q.search);
+		if (q.isOpen !== null) params.set('open', q.isOpen ? '1' : '0');
+		if (p > 1) params.set('page', String(p));
+		if (pp !== DEFAULT_PER_PAGE) params.set('per_page', String(pp));
+		const qs = params.toString();
+		return qs ? `?${qs}` : '';
+	};
+
+	const writeUrl = (q: QuerySnapshot, p: number, pp: number) => {
+		if (!browser) return;
+		void goto(buildUrl(q, p, pp), {
+			replaceState: true,
+			keepFocus: true,
+			noScroll: true
+		});
+	};
+
+	const runQuery = async (q: QuerySnapshot, p: number) => {
+		loading = true;
+		try {
+			// We go through /api/v2/cases (CaseService.list) rather than
+			// /filter because we don't need the advanced filter shape on
+			// this page — a coarse "name ILIKE q" + "is_open" is exactly
+			// the legacy DataTables search did.
+			const res = await CaseService.list({
+				page: p,
+				per_page: perPage,
+				case_name: q.search || undefined,
+				is_open: q.isOpen === null ? undefined : q.isOpen
+			});
+			if (res.ok && res.data && typeof res.data !== 'string') {
+				envelope = res.data as Paginated<Case>;
+			} else {
+				envelope = null;
+				toast({
+					title: 'Failed to load cases',
+					description: res.error?.message ?? 'Unknown error',
+					variant: 'destructive'
+				});
+			}
+		} finally {
+			loading = false;
+		}
+	};
+
+	const submit = async () => {
+		page = 1;
+		lastQuery = snapshot();
+		writeUrl(lastQuery, 1, perPage);
+		await runQuery(lastQuery, 1);
+	};
+
+	const goToPage = async (target: number) => {
+		if (!lastQuery || !envelope) return;
+		const totalPages = envelope.last_page ?? 1;
+		const clamped = Math.min(Math.max(1, target), totalPages || 1);
+		if (clamped === page) return;
+		page = clamped;
+		writeUrl(lastQuery, clamped, perPage);
+		await runQuery(lastQuery, clamped);
+	};
+
+	const refresh = async () => {
+		if (!lastQuery) {
+			await submit();
+			return;
+		}
+		await runQuery(lastQuery, page);
+		toast({ title: 'Refreshed', variant: 'success' });
+	};
+
+	const handleSearchKey = (e: KeyboardEvent) => {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			void submit();
+		}
+	};
+
+	const setOpenFilter = (next: boolean | null) => {
+		openFilter = next;
+		void submit();
+	};
+
+	const clearAllFilters = () => {
+		searchValue = '';
+		openFilter = true;
+		void submit();
+	};
+
+	const hasActiveFilters = $derived(!!searchValue || openFilter !== true);
+
+	// Reload the current page after a mutation so the row reflects the
+	// new state. We re-run the *same* query rather than dropping back to
+	// page 1 — losing the operator's place after closing a case would be
+	// annoying when they're working through a backlog.
+	const refreshAfterMutation = async () => {
+		if (lastQuery) await runQuery(lastQuery, page);
+	};
+
+	const confirmThen = (
+		title: string,
+		message: string,
+		confirmText: string,
+		variant: 'destructive' | 'default',
+		action: () => Promise<void>
+	) => {
+		dialogTitle = title;
+		dialogMessage = message;
+		dialogConfirmText = confirmText;
+		dialogConfirmVariant = variant;
+		pendingAction = action;
+		dialogOpen = true;
+	};
+
+	const runPendingAction = () => {
+		const fn = pendingAction;
+		pendingAction = null;
+		if (fn) void fn();
+	};
+
+	const closeCase = (c: Case) =>
+		confirmThen(
+			'Close case',
+			`Close case #${c.case_id} "${c.case_name}"? Related alerts will be closed too.`,
+			'Close case',
+			'default',
+			async () => {
+				const res = await CaseService.close(c.case_id);
+				if (res.ok) {
+					toast({ title: `Case #${c.case_id} closed`, variant: 'success' });
+					await refreshAfterMutation();
+				} else {
+					toast({
+						title: 'Failed to close case',
+						description: res.error?.message ?? 'Unknown error',
+						variant: 'destructive'
+					});
+				}
+			}
+		);
+
+	const reopenCase = (c: Case) =>
+		confirmThen(
+			'Reopen case',
+			`Reopen case #${c.case_id} "${c.case_name}"? Related alerts will be moved back to "Merged".`,
+			'Reopen case',
+			'default',
+			async () => {
+				const res = await CaseService.reopen(c.case_id);
+				if (res.ok) {
+					toast({ title: `Case #${c.case_id} reopened`, variant: 'success' });
+					await refreshAfterMutation();
+				} else {
+					toast({
+						title: 'Failed to reopen case',
+						description: res.error?.message ?? 'Unknown error',
+						variant: 'destructive'
+					});
+				}
+			}
+		);
+
+	const deleteCase = (c: Case) =>
+		confirmThen(
+			'Delete case',
+			`Permanently delete case #${c.case_id} "${c.case_name}"? This cannot be undone and removes every note, IoC, asset, evidence, task and timeline event belonging to it.`,
+			'Delete case',
+			'destructive',
+			async () => {
+				const res = await CaseService.remove(c.case_id);
+				// HTTP 204 → res.ok with no body. The api-service helper
+				// surfaces that uniformly so we don't need to special-case
+				// "deleted" here.
+				if (res.ok) {
+					toast({ title: `Case #${c.case_id} deleted`, variant: 'success' });
+					await refreshAfterMutation();
+				} else {
+					toast({
+						title: 'Failed to delete case',
+						description: res.error?.message ?? 'Unknown error',
+						variant: 'destructive'
+					});
+				}
+			}
+		);
+
+	onMount(() => {
+		const params = pageStore.url.searchParams;
+		searchValue = params.get('q') ?? '';
+		const o = params.get('open');
+		openFilter = o === '1' ? true : o === '0' ? false : o === '' ? true : openFilter;
+		// `null` (key missing) keeps the default. We use the literal "all"
+		// to signal "all states" explicitly so the URL is round-trippable.
+		if (params.get('open') === 'all') openFilter = null;
+
+		const p = Number(params.get('page')) || 1;
+		const pp = Number(params.get('per_page')) || DEFAULT_PER_PAGE;
+		if (pp > 0) perPage = pp;
+		if (p > 0) page = p;
+
+		lastQuery = snapshot();
+		void runQuery(lastQuery, page);
+	});
+
+	const formatDate = (iso: string | null) => {
+		if (!iso) return '—';
+		const d = new Date(iso);
+		return Number.isNaN(d.getTime()) ? iso : mediumDateTimeFormatter(d);
+	};
+
+	const range = $derived.by(() => {
+		if (!envelope || envelope.total === 0) return null;
+		const start = (envelope.current_page - 1) * perPage + 1;
+		const end = Math.min(envelope.current_page * perPage, envelope.total);
+		return { start, end, total: envelope.total };
+	});
+
+	// Cases have a hard "Closed" state semantically meaningful for the
+	// action menu: closed cases can be reopened, open ones can be
+	// closed. We key off the state name rather than `close_date` because
+	// the legacy convention is that state is authoritative.
+	const isClosed = (c: Case) =>
+		(c.state?.state_name ?? '').toLowerCase() === 'closed';
+
+	const stateStyle = (name: string | null | undefined) => {
+		const s = (name ?? '').toLowerCase();
+		if (s === 'open')
+			return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
+		if (s === 'closed') return 'border-border bg-muted text-muted-foreground';
+		if (s === 'containment' || s === 'investigation' || s === 'eradication')
+			return 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300';
+		if (s === 'recovery')
+			return 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300';
+		return 'border-border bg-muted text-muted-foreground';
+	};
+</script>
+
+<svelte:head>
+	<title>Manage cases | DFIR-IRIS</title>
+</svelte:head>
+
+<div class="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-8">
+	<header class="flex items-center justify-between gap-3">
+		<div class="flex items-center gap-3">
+			<FolderIcon size={28} class="!stroke-2" />
+			<div>
+				<h1 class="text-xl font-semibold">Cases management</h1>
+				<p class="text-xs text-muted-foreground">
+					Every case you have access to — close, reopen or delete from here.
+				</p>
+			</div>
+		</div>
+
+		<Button variant="outline" size="sm" onclick={refresh} disabled={loading}>
+			<RefreshCwIcon size={14} class={`mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+			Refresh
+		</Button>
+	</header>
+
+	<Card.Root
+		class="sticky top-0 z-20 bg-card/95 shadow-elevation-1 backdrop-blur supports-[backdrop-filter]:bg-card/85"
+	>
+		<Card.Content class="flex flex-col gap-4 pt-6">
+			<div class="flex flex-col gap-2 lg:flex-row lg:items-stretch">
+				<Input
+					bind:value={searchValue}
+					onkeydown={handleSearchKey}
+					placeholder="Search by case name…"
+					class="flex-1"
+					aria-label="Search cases"
+				/>
+				<Button onclick={submit} disabled={loading}>
+					{loading ? 'Searching…' : 'Search'}
+				</Button>
+			</div>
+
+			<div class="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
+				<div class="flex items-center gap-1.5 text-xs">
+					<span class="text-muted-foreground">State:</span>
+					{#each [{ label: 'Open', value: true }, { label: 'Closed', value: false }, { label: 'All', value: null }] as choice (String(choice.value))}
+						{@const active = openFilter === choice.value}
+						<button
+							type="button"
+							aria-pressed={active}
+							onclick={() => setOpenFilter(choice.value)}
+							class="rounded-md border px-2 py-1 transition-colors {active
+								? 'border-primary/40 bg-primary/10 text-foreground'
+								: 'border-border bg-card text-muted-foreground hover:bg-muted/50'}"
+						>
+							{choice.label}
+						</button>
+					{/each}
+				</div>
+
+				{#if hasActiveFilters}
+					<button
+						type="button"
+						class="ml-auto text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+						onclick={clearAllFilters}
+					>
+						Clear all filters
+					</button>
+				{/if}
+			</div>
+		</Card.Content>
+	</Card.Root>
+
+	<Card.Root>
+		<Card.Header class="flex flex-row items-center justify-between gap-2">
+			<div class="flex items-center gap-2">
+				<Card.Title>Cases</Card.Title>
+				{#if range}
+					<span class="text-xs text-muted-foreground tabular-nums">
+						{range.start}–{range.end} of {range.total}
+					</span>
+				{:else if envelope && envelope.total === 0}
+					<span class="text-xs text-muted-foreground">No results</span>
+				{/if}
+			</div>
+
+			{#if envelope && (envelope.last_page ?? 0) > 1}
+				<div class="flex items-center gap-2 text-xs">
+					<Button
+						variant="outline"
+						size="sm"
+						class="h-7 px-2"
+						disabled={loading || page <= 1}
+						onclick={() => goToPage(page - 1)}
+						aria-label="Previous page"
+					>
+						<ChevronLeftIcon size={14} />
+					</Button>
+					<span class="tabular-nums text-muted-foreground">
+						Page {envelope.current_page} / {envelope.last_page}
+					</span>
+					<Button
+						variant="outline"
+						size="sm"
+						class="h-7 px-2"
+						disabled={loading || page >= (envelope.last_page ?? 1)}
+						onclick={() => goToPage(page + 1)}
+						aria-label="Next page"
+					>
+						<ChevronRightIcon size={14} />
+					</Button>
+				</div>
+			{/if}
+		</Card.Header>
+
+		<Card.Content>
+			{#if loading && !envelope}
+				<div class="space-y-2">
+					{#each Array(8) as _}
+						<Skeleton class="h-10 w-full" />
+					{/each}
+				</div>
+			{:else if envelope && envelope.data.length > 0}
+				<div class="overflow-x-auto rounded-md border">
+					<table class="w-full text-sm">
+						<thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
+							<tr>
+								<th class="w-16 px-3 py-2 font-medium">ID</th>
+								<th class="px-3 py-2 font-medium">Name</th>
+								<th class="w-44 px-3 py-2 font-medium">Customer</th>
+								<th class="w-28 px-3 py-2 font-medium">State</th>
+								<th class="w-40 px-3 py-2 font-medium">Open date</th>
+								<th class="w-40 px-3 py-2 font-medium">Close date</th>
+								<th class="w-28 px-3 py-2 font-medium">SOC ticket</th>
+								<th class="w-40 px-3 py-2 font-medium">Owner</th>
+								<th class="w-10 px-3 py-2 text-right font-medium"></th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each envelope.data as c (c.case_id)}
+								<tr class="border-b transition-colors last:border-0 hover:bg-muted/30">
+									<td class="px-3 py-2 text-xs tabular-nums text-muted-foreground">
+										#{c.case_id}
+									</td>
+									<td class="px-3 py-2 text-xs">
+										<a
+											href={`/case/${c.case_id}`}
+											class="text-primary hover:underline"
+											title={c.case_name}
+										>
+											{c.case_name}
+										</a>
+									</td>
+									<td class="px-3 py-2 text-xs">
+										<span title={c.case_customer?.customer_name ?? ''}>
+											{c.case_customer?.customer_name ?? '—'}
+										</span>
+									</td>
+									<td class="px-3 py-2">
+										<span
+											class="inline-flex items-center rounded-md border px-2 py-0.5 text-2xs font-medium uppercase tracking-wide {stateStyle(
+												c.state?.state_name
+											)}"
+										>
+											{c.state?.state_name ?? '—'}
+										</span>
+									</td>
+									<td class="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground tabular-nums">
+										{formatDate(c.open_date)}
+									</td>
+									<td class="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground tabular-nums">
+										{formatDate(c.close_date)}
+									</td>
+									<td class="px-3 py-2 text-xs">{c.case_soc_id || '—'}</td>
+									<td class="px-3 py-2 text-xs">
+										{c.owner?.user_name ?? c.owner?.user_login ?? '—'}
+									</td>
+									<td class="px-3 py-2 text-right">
+										<!--
+										  Per-row action menu. We deliberately keep "Open"
+										  as a separate explicit link (top item) so the
+										  most-common action is a single click; close /
+										  reopen / delete sit under it for everything that
+										  needs confirmation.
+										-->
+										<DropdownMenu.Root>
+											<DropdownMenu.Trigger>
+												<Button
+													variant="ghost"
+													size="sm"
+													class="h-7 w-7 p-0"
+													aria-label={`Actions for case #${c.case_id}`}
+												>
+													<MoreHorizontalIcon size={14} />
+												</Button>
+											</DropdownMenu.Trigger>
+											<DropdownMenu.Content align="end" class="w-48">
+												<DropdownMenu.Item>
+													{#snippet child({ props })}
+														<a {...props} href={`/case/${c.case_id}`} class="flex items-center gap-2">
+															<ExternalLinkIcon size={14} /> Open case
+														</a>
+													{/snippet}
+												</DropdownMenu.Item>
+												<DropdownMenu.Separator />
+												{#if isClosed(c)}
+													<DropdownMenu.Item onSelect={() => reopenCase(c)}>
+														<LockOpenIcon size={14} class="mr-2" /> Reopen
+													</DropdownMenu.Item>
+												{:else}
+													<DropdownMenu.Item onSelect={() => closeCase(c)}>
+														<LockIcon size={14} class="mr-2" /> Close
+													</DropdownMenu.Item>
+												{/if}
+												<DropdownMenu.Separator />
+												<DropdownMenu.Item
+													onSelect={() => deleteCase(c)}
+													class="text-destructive focus:bg-destructive/10 focus:text-destructive"
+												>
+													<Trash2Icon size={14} class="mr-2" /> Delete
+												</DropdownMenu.Item>
+											</DropdownMenu.Content>
+										</DropdownMenu.Root>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{:else if envelope}
+				<p class="py-8 text-center text-sm text-muted-foreground">
+					No cases match the current filters.
+				</p>
+			{:else}
+				<p class="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+			{/if}
+		</Card.Content>
+	</Card.Root>
+</div>
+
+<ConfirmationDialog
+	bind:open={dialogOpen}
+	title={dialogTitle}
+	message={dialogMessage}
+	confirmText={dialogConfirmText}
+	confirmButtonVariant={dialogConfirmVariant}
+	onConfirm={runPendingAction}
+	onCancel={() => (pendingAction = null)}
+/>
