@@ -15,6 +15,11 @@ export interface ActivityRow {
 	activity_desc: string | null;
 	user_input: boolean;
 	is_from_api: boolean;
+	// Number of underlying UserActivity rows this row represents — the
+	// backend coalesces near-duplicates (same user / case / description
+	// within a minute) into a single listing row. `1` means no
+	// coalescing happened.
+	occurrences?: number;
 }
 
 export interface ListActivitiesParams {

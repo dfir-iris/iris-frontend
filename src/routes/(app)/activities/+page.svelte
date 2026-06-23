@@ -580,9 +580,26 @@
 										{/if}
 									</td>
 									<td class="px-3 py-2 text-xs">
-										<span class="line-clamp-2" title={row.activity_desc ?? ''}>
-											{row.activity_desc ?? '—'}
-										</span>
+										<div class="flex items-start gap-2">
+											<span class="line-clamp-2 flex-1" title={row.activity_desc ?? ''}>
+												{row.activity_desc ?? '—'}
+											</span>
+											{#if (row.occurrences ?? 1) > 1}
+												<!--
+												  Coalesce indicator: the backend collapsed N near-
+												  duplicate rows (same user / case / description
+												  within a minute) into this one. Render as a small
+												  count chip rather than expanding inline so the
+												  feed stays scannable.
+												-->
+												<span
+													class="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-2xs font-medium tabular-nums text-muted-foreground"
+													title={`${row.occurrences} occurrences in the same minute`}
+												>
+													×{row.occurrences}
+												</span>
+											{/if}
+										</div>
 									</td>
 								</tr>
 							{/each}
