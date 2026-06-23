@@ -119,7 +119,7 @@
 	<Button
 		variant="default"
 		size="sm"
-		class="h-8 gap-x-1"
+		class="h-8 gap-x-1 rounded-sm"
 		onclick={() => void action.run()}
 	>
 		<action.Icon size={16} />

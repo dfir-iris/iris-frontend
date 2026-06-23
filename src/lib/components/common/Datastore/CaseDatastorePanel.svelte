@@ -144,23 +144,54 @@
 		fileId: number
 	) => {
 		const file = datastore.fileById[fileId];
+		// Plain link form is only safe for copy-link / markdown embeds —
+		// those land in a place that performs its own authenticated fetch.
+		// For in-app preview / download we have to fetch with the bearer
+		// header attached and hand the browser a blob URL.
 		const url = CaseDatastoreService.getViewUrl(caseId, fileId);
 
 		switch (action) {
 			case 'select':
 				datastore.selectFile(fileId);
 				return;
-			case 'preview':
-				window.open(url, '_blank');
+			case 'preview': {
+				const fetched = await CaseDatastoreService.fetchFileBlobUrl(caseId, fileId);
+				if (!fetched) {
+					toast({
+						title: 'Could not open file',
+						description: 'The server rejected the request.',
+						variant: 'destructive'
+					});
+					return;
+				}
+				const w = window.open(fetched.url, '_blank', 'noopener');
+				// Revoke after the new tab has had a chance to take ownership
+				// of the blob URL. 60s is generous and avoids the tab losing
+				// the resource if the user takes a moment to focus it.
+				setTimeout(() => URL.revokeObjectURL(fetched.url), 60_000);
+				if (!w) {
+					toast({ title: 'Pop-up blocked', variant: 'warning' });
+				}
 				return;
+			}
 			case 'download': {
+				const fetched = await CaseDatastoreService.fetchFileBlobUrl(caseId, fileId);
+				if (!fetched) {
+					toast({
+						title: 'Could not download file',
+						description: 'The server rejected the request.',
+						variant: 'destructive'
+					});
+					return;
+				}
 				const a = document.createElement('a');
-				a.href = url;
-				a.download = file?.file_original_name ?? '';
+				a.href = fetched.url;
+				a.download = file?.file_original_name ?? fetched.filename ?? '';
 				a.rel = 'noopener';
 				document.body.appendChild(a);
 				a.click();
 				a.remove();
+				URL.revokeObjectURL(fetched.url);
 				return;
 			}
 			case 'copy-link':

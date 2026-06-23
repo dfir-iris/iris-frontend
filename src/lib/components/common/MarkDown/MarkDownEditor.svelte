@@ -27,6 +27,7 @@
 	import StarterKit from '@tiptap/starter-kit';
 	import Image from '@tiptap/extension-image';
 	import { normalizeLegacyContent } from './legacy-content';
+	import { authenticateDatastoreImages } from './authenticate-datastore-images';
 	import { ResizableImageNodeView } from './resizable-image';
 	import Placeholder from '@tiptap/extension-placeholder';
 	import { Table } from '@tiptap/extension-table';
@@ -92,6 +93,34 @@
 
 	const renderedHtml = $derived(DOMPurify.sanitize(converter.makeHtml(value ?? '')));
 
+	// Container for the {@html renderedHtml} preview. We bind it so we
+	// can sweep its `<img>` children and swap any datastore URLs to
+	// bearer-authenticated blob URLs — otherwise the browser fetches the
+	// raw `/api/v2/cases/.../files/N` with no Authorization header and
+	// the server 401s.
+	let previewContainerEl = $state<HTMLDivElement | null>(null);
+	$effect(() => {
+		void renderedHtml;
+		void viewMode;
+		if (viewMode !== 'view' && viewMode !== 'edit-preview') return;
+		if (!previewContainerEl) return;
+		const dispose = authenticateDatastoreImages(previewContainerEl);
+		return dispose;
+	});
+
+	// Same problem in the editable surface: TipTap renders inline images
+	// as raw `<img>` and the browser hits the v2 endpoint unauthenticated.
+	// We re-sweep on every value change and on edit-mode entry; the
+	// helper is idempotent so already-swapped `<img>` are skipped.
+	$effect(() => {
+		void value;
+		void viewMode;
+		if (viewMode !== 'edit') return;
+		if (!editorElement) return;
+		const dispose = authenticateDatastoreImages(editorElement);
+		return dispose;
+	});
+
 	const enterEdit = async () => {
 		if (viewMode === 'view') {
 			viewMode = 'edit';
@@ -108,7 +137,7 @@
 		viewMode = viewMode === 'edit' ? 'edit-preview' : 'edit';
 	};
 
-	let editorElement: HTMLDivElement;
+	let editorElement = $state<HTMLDivElement | null>(null);
 	let editor: Editor | null = null;
 	let skipUpdate = false;
 	let uploading = $state(false);
@@ -1283,6 +1312,7 @@
 	>
 		{#if viewMode === 'view' || viewMode === 'edit-preview'}
 			<div
+				bind:this={previewContainerEl}
 				role="textbox"
 				tabindex="0"
 				ondblclick={enterEdit}

@@ -320,18 +320,6 @@
 		? 'border-b-red-500/40 bg-gradient-to-r from-red-100 via-rose-50 to-red-50/40 dark:border-b-red-500/50 dark:from-red-950/60 dark:via-rose-950/40 dark:to-red-950/20'
 		: 'bg-card'}"
 >
-	{#if isClosed}
-		<!--
-		  Diagonal "CLOSED" stripe pattern across the banner. Subtle enough
-		  to keep the text readable, distinctive enough to be impossible to
-		  miss even at a glance. Disabled below the title content via z-index.
-		-->
-		<div
-			class="pointer-events-none absolute inset-0 opacity-[0.04] dark:opacity-[0.08]"
-			style="background-image: repeating-linear-gradient(45deg, rgb(220 38 38) 0 12px, transparent 12px 24px);"
-			aria-hidden="true"
-		></div>
-	{/if}
 
 	<!-- Case icon badge -->
 	<div
@@ -508,8 +496,14 @@
 		</div>
 	{/if}
 
-	<!-- Right cluster: status/severity grouped, then action buttons -->
-	<div class="flex shrink-0 items-center gap-1 sm:gap-2">
+	<!--
+		Right cluster: status/severity grouped, then action buttons.
+		Side-panel toggles (DataStore, Activity) are icon-only to shed
+		bar width — their labels live in tooltips. The generic "Add Item"
+		dropdown is now folded into the "…" overflow since the
+		section-aware quick-add already covers the primary create flow.
+	-->
+	<div class="flex shrink-0 items-center gap-1.5">
 		{#if reviewMeta.variant}
 			{@const isComplete = reviewMeta.variant === 'complete'}
 			{@const chipClass = isComplete
@@ -520,7 +514,7 @@
 				<Popover.Trigger>
 					<!-- md+ chip with label; below md only the icon shows -->
 					<span
-						class="inline-flex h-7 items-center gap-1 rounded-md border px-1.5 text-xs font-medium transition-colors hover:brightness-95 sm:px-2 {chipClass}"
+						class="inline-flex h-7 items-center gap-1 rounded-sm border px-1.5 text-xs font-medium transition-colors hover:brightness-95 sm:px-2 {chipClass}"
 						aria-label={reviewMeta.label}
 					>
 						{#if isComplete}
@@ -560,16 +554,22 @@
 		-->
 		<DropdownMenu onOpenChange={handleStateMenuOpen}>
 			<DropdownMenuTrigger>
-				<!-- sm+ : pill with severity + status, clickable -->
+				<!--
+				  Status and severity are now two adjacent but visually
+				  separate chips. Only Status is the dropdown trigger
+				  (state is editable from here, severity isn't), but a
+				  thin `gap-1.5` between them is enough to read them as
+				  two boxes rather than one merged pill.
+				-->
 				<div
-					class="hidden items-center gap-1 rounded-lg border bg-muted/30 px-1 py-0.5 transition-colors hover:bg-muted/60 sm:flex"
+					class="hidden items-center gap-1.5 transition-colors sm:flex"
 					title="Change case state"
 				>
 					<StatusBadge {status} />
 					<SeverityBadge {severity} />
 				</div>
 				<!-- Below sm : icon-only, clickable -->
-				<div class="flex items-center sm:hidden">
+				<div class="flex items-center gap-1 sm:hidden">
 					<StatusBadge {status} icon_only />
 					<SeverityBadge {severity} icon_only />
 				</div>
@@ -613,14 +613,11 @@
 							<Button
 								variant="outline"
 								size="sm"
-								class="relative h-8 gap-x-1"
-								aria-label="Linked alerts"
+								class="relative h-8 gap-x-1 rounded-sm"
+								aria-label={`${linkedAlertsTotal} linked alert${linkedAlertsTotal === 1 ? '' : 's'}`}
 							>
 								<BellIcon size={16} />
-								<span class="hidden tabular-nums lg:inline">
-									{linkedAlertsTotal} linked alert{linkedAlertsTotal === 1 ? '' : 's'}
-								</span>
-								<span class="tabular-nums lg:hidden">
+								<span class="tabular-nums">
 									{linkedAlertsTotal > 99 ? '99+' : linkedAlertsTotal}
 								</span>
 							</Button>
@@ -689,7 +686,17 @@
 			</Popover.Content>
 		</Popover.Root>
 
-		<div class="hidden h-6 w-px bg-border sm:block" aria-hidden="true"></div>
+		<div class="mx-0.5 hidden h-5 w-px bg-border sm:block" aria-hidden="true"></div>
+
+		<!--
+			Section-aware "Add X" comes first so the primary CTA sits closest
+			to the case context (state pill + alerts) and reads as part of the
+			same conceptual group. DataStore/Activity panel toggles trail
+			behind as utilities.
+		-->
+		<CaseQuickAddButton />
+
+		<CaseAddDropdown buttonClass="h-8 w-8 rounded-sm p-0 [&_span]:hidden" />
 
 		{#if datastorePanel}
 			{@const dsOpen = datastorePanel.state.open}
@@ -698,14 +705,13 @@
 					<TooltipTrigger>
 						<Button
 							variant="outline"
-							size="sm"
-							class={`relative h-8 gap-x-1 ${dsOpen ? 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15' : ''}`}
+							size="icon"
+							class={`relative h-8 w-8 rounded-sm ${dsOpen ? 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15' : ''}`}
 							onclick={() => datastorePanel.toggle()}
 							aria-label="Toggle DataStore panel"
 							aria-pressed={dsOpen}
 						>
 							<DatabaseIcon size={16} />
-							<span class="hidden lg:inline">DataStore</span>
 						</Button>
 					</TooltipTrigger>
 					<TooltipContent side="bottom">
@@ -722,8 +728,8 @@
 					<TooltipTrigger>
 						<Button
 							variant="outline"
-							size="sm"
-							class={`relative h-8 gap-x-1 ${open ? 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15' : ''}`}
+							size="icon"
+							class={`relative h-8 w-8 rounded-sm ${open ? 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15' : ''}`}
 							onclick={() => activityPanel.toggle()}
 							aria-label="Toggle case activity"
 							aria-pressed={open}
@@ -744,7 +750,6 @@
 									</span>
 								{/if}
 							</span>
-							<span class="hidden lg:inline">Activity</span>
 						</Button>
 					</TooltipTrigger>
 					<TooltipContent side="bottom">
@@ -754,13 +759,9 @@
 			</TooltipProvider>
 		{/if}
 
-		<CaseQuickAddButton />
-
-		<CaseAddDropdown buttonClass="h-8" />
-
 		<DropdownMenu>
 			<DropdownMenuTrigger>
-				<Button variant="ghost" size="icon" class="h-8 w-8">
+				<Button variant="ghost" size="icon" class="h-8 w-8 rounded-sm">
 					<MoreHorizontal size={16} />
 					<span class="sr-only">Case menu</span>
 				</Button>

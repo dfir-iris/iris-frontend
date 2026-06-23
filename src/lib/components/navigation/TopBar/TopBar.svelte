@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { getContext } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import {
 		ChevronDownIcon,
-		GripIcon,
 		LeafIcon,
 		PlusIcon,
 		RefreshCwIcon,
@@ -22,7 +21,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import ActionButton from './ActionButton.svelte';
 	import SwitchContextModal from './SwitchContextModal.svelte';
-	import QuickActions from './QuickActions.svelte';
+	import TopBarSearch from './TopBarSearch.svelte';
 
 	const cases = getContext<CasesContext>(CASES_CTX);
 
@@ -34,7 +33,6 @@
 
 	let showGoToCase = $state(false);
 	let showSwitchContext = $state(false);
-	let showQuickActions = $state(false);
 
 	let caseNumber = $state<number | null>(null);
 
@@ -50,6 +48,23 @@
 		await gotoCase();
 	};
 
+	// Global Ctrl/Cmd + K → open the switch-context modal. Mirrors the
+	// "command palette" affordance familiar from VS Code / Linear /
+	// Slack — picking a case is the closest thing IRIS has to a top-
+	// level palette right now. We claim the chord with preventDefault
+	// because browsers default-bind it (Chrome focuses the address bar
+	// with Ctrl+K).
+	onMount(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+				e.preventDefault();
+				showSwitchContext = true;
+			}
+		};
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	});
+
 	const addTaskLog = () => {
 		console.log('Add Task Log');
 	};
@@ -59,10 +74,9 @@
 	};
 
 	const topBarButtons = [
-		{ icon: RefreshCwIcon, tooltip: 'Switch Context', action: () => (showSwitchContext = true) },
+		{ icon: RefreshCwIcon, tooltip: 'Switch Context (Ctrl + K)', action: () => (showSwitchContext = true) },
 		{ icon: SquareCheckBigIcon, tooltip: 'Add Task Log', action: addTaskLog },
-		{ icon: PlusIcon, tooltip: 'Create Case', action: createCase },
-		{ icon: GripIcon, tooltip: 'Quick Actions', action: () => (showQuickActions = true) }
+		{ icon: PlusIcon, tooltip: 'Create Case', action: createCase }
 	];
 
 	const caseButtons = [
@@ -194,7 +208,16 @@
 		</div>
 	{/if}
 
-	<div class="flex shrink-0 items-center justify-end gap-0.5">
+	<div class="flex shrink-0 items-center justify-end gap-1">
+		<!--
+		  Global search lives at the right edge of the topbar so it stays
+		  reachable from every page. It manages its own expand-on-hover
+		  behaviour and renders the result dropdown anchored to itself.
+		-->
+		<TopBarSearch />
+
+		<div class="mx-1 hidden h-5 w-px bg-white/15 sm:block" aria-hidden="true"></div>
+
 		{#each topBarButtons as topBarButton}
 			<ActionButton
 				icon={topBarButton.icon}
@@ -204,8 +227,6 @@
 		{/each}
 	</div>
 </header>
-
-<QuickActions bind:show={showQuickActions} switchCase={() => (showSwitchContext = true)} />
 
 <SwitchContextModal
 	open={showSwitchContext}

@@ -1,5 +1,7 @@
+import { browser } from '$app/environment';
 import { ApiService } from './api.service';
 import type { ApiOptions, RequestResponse } from './api.service';
+import { auth } from '$lib/stores/auth.store';
 import type {
 	DataStoreFile,
 	DataStoreFolder,
@@ -189,9 +191,12 @@ export class CaseDatastoreService {
 		);
 	}
 
-	// Returns an absolute URL when running in the browser so window.open /
-	// <a href> hit the backend origin (PUBLIC_EXTERNAL_API_URL) and not the
-	// SPA's host. Falls back to a relative path on the server.
+	// Returns the canonical view URL. Useful for `copy-link` / markdown
+	// embeds where the receiver will perform their own authenticated
+	// fetch. NOT safe to drop into `<a href>` / `window.open` directly —
+	// those produce un-authenticated browser navigations that the v2
+	// endpoint will 401 on. Use `fetchFileBlobUrl` for in-app preview /
+	// download instead.
 	static getViewUrl(caseId: number, fileId: number): string {
 		const path = `/api/v2/cases/${caseId}/datastore/files/${fileId}`;
 		if (typeof window === 'undefined') return path;
@@ -202,6 +207,48 @@ export class CaseDatastoreService {
 	static getMarkdownLink(caseId: number, fileId: number, label: string): string {
 		const safeLabel = label.replace(/[\[\]]/g, '');
 		return `[${safeLabel}](${CaseDatastoreService.getViewUrl(caseId, fileId)})`;
+	}
+
+	// Downloads the file with the standard bearer token attached and
+	// hands back a transient blob URL the caller can plug into
+	// `window.open`, `<a href download>`, or `<img src>`. The caller is
+	// responsible for `URL.revokeObjectURL()` once the URL is no longer
+	// in use. Returns `null` on auth / network failure so the caller can
+	// surface a toast.
+	static async fetchFileBlobUrl(
+		caseId: number,
+		fileId: number
+	): Promise<{ url: string; filename: string | null } | null> {
+		const path = `/api/v2/cases/${caseId}/datastore/files/${fileId}`;
+		const url = browser
+			? (ApiService.baseUrl ?? '').replace(/\/$/, '') + path
+			: path;
+
+		const headers: Record<string, string> = { Accept: '*/*' };
+		const token = auth.getAccessToken();
+		if (token) headers['Authorization'] = `Bearer ${token}`;
+
+		const res = await fetch(url, { headers, credentials: 'include' });
+		if (!res.ok) return null;
+
+		// Best-effort filename extraction from Content-Disposition so the
+		// browser's "Save as…" pre-fills correctly even when the caller
+		// doesn't already know the original filename.
+		let filename: string | null = null;
+		const cd = res.headers.get('Content-Disposition');
+		if (cd) {
+			const m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(cd);
+			if (m) {
+				try {
+					filename = decodeURIComponent(m[1]);
+				} catch {
+					filename = m[1];
+				}
+			}
+		}
+
+		const blob = await res.blob();
+		return { url: URL.createObjectURL(blob), filename };
 	}
 
 	static async uploadFile(

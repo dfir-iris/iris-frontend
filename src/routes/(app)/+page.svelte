@@ -814,15 +814,20 @@
 		</div>
 	</section>
 
-	<!-- Two-column main grid -->
-	<div class="grid min-h-0 grid-cols-1 items-start gap-5 xl:grid-cols-3">
+	<!--
+	  Cases / Alerts / Tasks / Activity — all four cards live in ONE grid
+	  so vertical row tracks line up automatically. Cases + Tasks each
+	  span 2 columns; Alerts + Activity sit in the narrow column. CSS
+	  Grid auto-flows them onto two rows at xl, one column otherwise.
+	-->
+	<div class="dashboard-row-3 min-h-0 items-start gap-5">
 		<!--
 		  Recent open cases. We deliberately limit to ~5 rows so the list
 		  fits without scrolling on common viewports. The full list is one
 		  click away via the header.
 		-->
 		<section
-			class="flex max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 xl:col-span-2"
+			class="flex min-w-0 max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 xl:col-span-2"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
 				<div class="flex items-center gap-2 min-w-0">
@@ -899,7 +904,7 @@
 
 		<!-- Open alerts assigned to me -->
 		<section
-			class="flex max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1"
+			class="flex min-w-0 max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
 				<div class="flex items-center gap-2 min-w-0">
@@ -967,16 +972,10 @@
 				{/if}
 			</div>
 		</section>
-	</div>
 
-	<!--
-	  Tasks + Activity row. Splitting these 50/50 keeps the tasks card
-	  from looking sparse and gives the new activity feed a natural home
-	  next to the user's own work.
-	-->
-	<div class="grid min-h-0 grid-cols-1 items-start gap-5 lg:grid-cols-2">
+		<!-- Pending tasks: same 2-col span as cases above. -->
 		<section
-			class="flex max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1"
+			class="flex min-w-0 max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 xl:col-span-2"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
 				<div class="flex items-center gap-2 min-w-0">
@@ -1047,7 +1046,7 @@
 		     access to. Read-only stream — clicking an entry jumps to the
 		     case where the activity happened. -->
 		<section
-			class="flex max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1"
+			class="flex min-w-0 max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
 				<div class="flex items-center gap-2 min-w-0">
@@ -1126,19 +1125,26 @@
 			</div>
 		</section>
 	</div>
-
-	<!-- Quick actions -->
-	<section class="flex flex-wrap items-center gap-2">
-		<span class="text-2xs uppercase tracking-wide text-muted-foreground">Quick actions</span>
-
-		<Button variant="outline" size="sm" class="h-8 gap-x-1" onclick={() => goto('/cases')}>
-			<LayersIcon class="h-3.5 w-3.5" />
-			Browse cases
-		</Button>
-
-		<Button variant="outline" size="sm" class="h-8 gap-x-1" onclick={() => goto('/alerts')}>
-			<BellRingIcon class="h-3.5 w-3.5" />
-			Triage alerts
-		</Button>
-	</section>
 </div>
+
+<style>
+	/*
+	 * Dashboard row template. Both rows use the same 3-column template
+	 * so the cards on the second row line up with the cards on the
+	 * first row — pending tasks (2/3) lines up with open cases (2/3),
+	 * recent activity (1/3) lines up with open alerts (1/3).
+	 *
+	 * `minmax(0, 1fr)` columns let each track shrink below its intrinsic
+	 * content width, which is what prevents the cards from elbowing
+	 * each other when a long unbreakable line sits inside.
+	 */
+	.dashboard-row-3 {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+	}
+	@media (min-width: 1280px) {
+		.dashboard-row-3 {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+	}
+</style>
