@@ -951,15 +951,16 @@
 		</div>
 	</section>
 
-	<!-- First row: open cases + open alerts -->
-	<div class="dashboard-row-3 min-h-0 items-start gap-5">
-		<!--
-		  Recent open cases. We deliberately limit to ~5 rows so the list
-		  fits without scrolling on common viewports. The full list is one
-		  click away via the header.
-		-->
+	<!--
+	  First row: open cases (wider) + open alerts (narrower). Classic
+	  flex layout — column-stack on small screens, row at lg+. Width is
+	  controlled with explicit basis percentages so the children can't
+	  push each other off the row, and `min-w-0` keeps long titles from
+	  forcing horizontal scroll.
+	-->
+	<div class="flex flex-col gap-5 lg:flex-row">
 		<section
-			class="flex min-w-0 max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 xl:col-span-2"
+			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 lg:basis-2/3"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
 				<div class="flex items-center gap-2 min-w-0">
@@ -1036,7 +1037,7 @@
 
 		<!-- Open alerts assigned to me -->
 		<section
-			class="flex min-w-0 max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1"
+			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 lg:basis-1/3"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
 				<div class="flex items-center gap-2 min-w-0">
@@ -1109,14 +1110,13 @@
 
 	<!--
 	  Second row: pending tasks + major case activities + per-case
-	  activity log. Three equal-width tiles on xl+ so nothing visually
-	  overlaps the wider row-1 cards above. Heights match row 1 so the
-	  page stops at the same baseline regardless of which tile has the
-	  most rows.
+	  activity log. Three equal-width tiles via plain flex-basis-1/3, no
+	  custom CSS grid. Same height (22rem) as row 1 so the visual rhythm
+	  matches.
 	-->
-	<div class="dashboard-row-3 min-h-0 items-start gap-5">
+	<div class="flex flex-col gap-5 lg:flex-row">
 		<section
-			class="flex min-w-0 max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1"
+			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 lg:basis-1/3"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
 				<div class="flex items-center gap-2 min-w-0">
@@ -1188,7 +1188,7 @@
 		  the current user can access. Infinite-scroll and read-only.
 		-->
 		<section
-			class="flex min-w-0 max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1"
+			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 lg:basis-1/3"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
 				<div class="flex items-center gap-2 min-w-0">
@@ -1277,7 +1277,7 @@
 		  per-case event stream rather than just create/close.
 		-->
 		<section
-			class="flex min-w-0 max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1"
+			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 lg:basis-1/3"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
 				<div class="flex items-center gap-2 min-w-0">
@@ -1369,32 +1369,3 @@
 		</section>
 	</div>
 </div>
-
-<style>
-	/*
-	 * Shared 3-column grid for the dashboard lower rows.
-	 * Row 1: open cases (2/3) + open alerts (1/3).
-	 * Row 2: pending tasks (1/3) + major case activities (1/3) + case
-	 *        activities (1/3).
-	 *
-	 * `minmax(0, 1fr)` columns let each track shrink below its intrinsic
-	 * content width, which is what prevents the cards from elbowing
-	 * each other when a long unbreakable line sits inside.
-	 */
-	.dashboard-row-3 {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr);
-	}
-	/* Activate the 3-column grid earlier (lg / 1024px) so row 2's three
-	 * tiles sit side-by-side at the same widths where row 1's split is
-	 * already active. If we waited until xl (1280px), users in the
-	 * 1024-1279 range would see row 1 in 3 columns while row 2 cards
-	 * stack vertically — which is exactly the "overlap" effect (row 2
-	 * cards collapsing into a single column underneath row 1 cards of
-	 * different widths). */
-	@media (min-width: 1024px) {
-		.dashboard-row-3 {
-			grid-template-columns: repeat(3, minmax(0, 1fr));
-		}
-	}
-</style>
