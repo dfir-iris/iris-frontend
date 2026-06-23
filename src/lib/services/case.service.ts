@@ -26,6 +26,8 @@ export interface ListCasesParams {
 
 	start_open_date?: string;
 	end_open_date?: string;
+	start_close_date?: string;
+	end_close_date?: string;
 
 	is_open?: boolean;
 

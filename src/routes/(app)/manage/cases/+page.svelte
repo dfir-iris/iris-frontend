@@ -39,6 +39,8 @@
 	import { toast } from '$lib/components/ui/toast';
 	import { mediumDateTimeFormatter } from '$lib/utils/time-formatter';
 	import { CaseService } from '$lib/services/case.service';
+	import { CustomersService, type Customer } from '$lib/services/customers.service';
+	import { UsersService, type User } from '$lib/services/users.service';
 	import type { Case } from '$lib/types/resources/case';
 	import type { Paginated } from '$lib/services/api.service';
 
@@ -54,10 +56,36 @@
 	let page = $state(1);
 	let perPage = $state(DEFAULT_PER_PAGE);
 
+	// Customer / owner filters. `null` = "any". We persist these as ids
+	// in the URL so a shared link reconstructs the same view; the lookup
+	// lists below are fetched once on mount so the `<select>` controls
+	// can render friendly labels.
+	let customerId = $state<number | null>(null);
+	let ownerId = $state<number | null>(null);
+
+	// ISO date strings (YYYY-MM-DD) from the native `<input type=date>`.
+	// Each bound is independent — the backend ANDs them with `>=` / `<=`.
+	let openFromDate = $state('');
+	let openToDate = $state('');
+	let closeFromDate = $state('');
+	let closeToDate = $state('');
+
+	let customers = $state<Customer[]>([]);
+	let users = $state<User[]>([]);
+
 	let loading = $state(false);
 	let envelope = $state<Paginated<Case> | null>(null);
 
-	type QuerySnapshot = { search: string; isOpen: boolean | null };
+	type QuerySnapshot = {
+		search: string;
+		isOpen: boolean | null;
+		customerId: number | null;
+		ownerId: number | null;
+		openFromDate: string;
+		openToDate: string;
+		closeFromDate: string;
+		closeToDate: string;
+	};
 	let lastQuery = $state<QuerySnapshot | null>(null);
 
 	// Confirmation dialog state. We keep a single dialog instance and
@@ -72,13 +100,25 @@
 
 	const snapshot = (): QuerySnapshot => ({
 		search: searchValue.trim(),
-		isOpen: openFilter
+		isOpen: openFilter,
+		customerId,
+		ownerId,
+		openFromDate,
+		openToDate,
+		closeFromDate,
+		closeToDate
 	});
 
 	const buildUrl = (q: QuerySnapshot, p: number, pp: number) => {
 		const params = new URLSearchParams();
 		if (q.search) params.set('q', q.search);
 		if (q.isOpen !== null) params.set('open', q.isOpen ? '1' : '0');
+		if (q.customerId !== null) params.set('customer_id', String(q.customerId));
+		if (q.ownerId !== null) params.set('owner_id', String(q.ownerId));
+		if (q.openFromDate) params.set('open_from', q.openFromDate);
+		if (q.openToDate) params.set('open_to', q.openToDate);
+		if (q.closeFromDate) params.set('close_from', q.closeFromDate);
+		if (q.closeToDate) params.set('close_to', q.closeToDate);
 		if (p > 1) params.set('page', String(p));
 		if (pp !== DEFAULT_PER_PAGE) params.set('per_page', String(pp));
 		const qs = params.toString();
@@ -105,7 +145,13 @@
 				page: p,
 				per_page: perPage,
 				case_name: q.search || undefined,
-				is_open: q.isOpen === null ? undefined : q.isOpen
+				is_open: q.isOpen === null ? undefined : q.isOpen,
+				case_customer_id: q.customerId ?? undefined,
+				case_owner_id: q.ownerId ?? undefined,
+				start_open_date: q.openFromDate || undefined,
+				end_open_date: q.openToDate || undefined,
+				start_close_date: q.closeFromDate || undefined,
+				end_close_date: q.closeToDate || undefined
 			});
 			if (res.ok && res.data && typeof res.data !== 'string') {
 				envelope = res.data as Paginated<Case>;
@@ -163,10 +209,43 @@
 	const clearAllFilters = () => {
 		searchValue = '';
 		openFilter = true;
+		customerId = null;
+		ownerId = null;
+		openFromDate = '';
+		openToDate = '';
+		closeFromDate = '';
+		closeToDate = '';
 		void submit();
 	};
 
-	const hasActiveFilters = $derived(!!searchValue || openFilter !== true);
+	const hasActiveFilters = $derived(
+		!!searchValue ||
+			openFilter !== true ||
+			customerId !== null ||
+			ownerId !== null ||
+			!!openFromDate ||
+			!!openToDate ||
+			!!closeFromDate ||
+			!!closeToDate
+	);
+
+	// Re-submit immediately whenever a single-select filter changes —
+	// matches the activities-page pattern. Date inputs use `onchange`
+	// (not `oninput`) so a user typing 2025-... doesn't burn 7 requests
+	// before they finish.
+	const onCustomerChange = (e: Event) => {
+		const v = (e.target as HTMLSelectElement).value;
+		customerId = v === '' ? null : Number(v);
+		void submit();
+	};
+	const onOwnerChange = (e: Event) => {
+		const v = (e.target as HTMLSelectElement).value;
+		ownerId = v === '' ? null : Number(v);
+		void submit();
+	};
+	const onDateChange = () => {
+		void submit();
+	};
 
 	// Reload the current page after a mutation so the row reflects the
 	// new state. We re-run the *same* query rather than dropping back to
@@ -272,10 +351,47 @@
 		// to signal "all states" explicitly so the URL is round-trippable.
 		if (params.get('open') === 'all') openFilter = null;
 
+		const cid = Number(params.get('customer_id'));
+		customerId = Number.isFinite(cid) && cid > 0 ? cid : null;
+		const oid = Number(params.get('owner_id'));
+		ownerId = Number.isFinite(oid) && oid > 0 ? oid : null;
+
+		openFromDate = params.get('open_from') ?? '';
+		openToDate = params.get('open_to') ?? '';
+		closeFromDate = params.get('close_from') ?? '';
+		closeToDate = params.get('close_to') ?? '';
+
 		const p = Number(params.get('page')) || 1;
 		const pp = Number(params.get('per_page')) || DEFAULT_PER_PAGE;
 		if (pp > 0) perPage = pp;
 		if (p > 0) page = p;
+
+		// Kick off lookup-list fetches independently from the main query.
+		// We don't await them — the `<select>` controls render with bare
+		// id fallbacks until the labels land, which is fine because the
+		// hydrated id is already correct.
+		void CustomersService.list().then((res) => {
+			if (res.ok && Array.isArray(res.data)) {
+				customers = (res.data as Customer[])
+					.slice()
+					.sort((a, b) => a.customer_name.localeCompare(b.customer_name));
+			}
+		});
+		void UsersService.list().then((res) => {
+			// `/manage/users/list` returns the legacy wrapper
+			// `{ status, message, data: User[] }` — same shape the
+			// UserPicker handles. Reproduce that unwrap here so a future
+			// migration of the endpoint doesn't silently break the
+			// owner filter.
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const inner = (res?.data as any)?.data;
+			const list = Array.isArray(inner)
+				? (inner as User[])
+				: Array.isArray(res?.data)
+					? (res.data as User[])
+					: [];
+			users = list.slice().sort((a, b) => a.user_name.localeCompare(b.user_name));
+		});
 
 		lastQuery = snapshot();
 		void runQuery(lastQuery, page);
@@ -369,6 +485,85 @@
 							{choice.label}
 						</button>
 					{/each}
+				</div>
+
+				<!--
+				  Single-value pickers for customer + owner. We stick with a
+				  native `<select>` here rather than a popover combobox: the
+				  legacy /manage/cases UI used a plain dropdown, the lookup
+				  lists are small enough to render in one go, and we get
+				  keyboard search for free.
+				-->
+				<div class="flex items-center gap-2 text-xs">
+					<label class="text-muted-foreground" for="cases-customer">Customer</label>
+					<select
+						id="cases-customer"
+						value={customerId === null ? '' : String(customerId)}
+						onchange={onCustomerChange}
+						class="h-8 max-w-[14rem] rounded-md border border-input bg-background px-2 text-xs"
+					>
+						<option value="">Any</option>
+						{#each customers as c (c.customer_id)}
+							<option value={String(c.customer_id)}>{c.customer_name}</option>
+						{/each}
+					</select>
+				</div>
+
+				<div class="flex items-center gap-2 text-xs">
+					<label class="text-muted-foreground" for="cases-owner">Owner</label>
+					<select
+						id="cases-owner"
+						value={ownerId === null ? '' : String(ownerId)}
+						onchange={onOwnerChange}
+						class="h-8 max-w-[14rem] rounded-md border border-input bg-background px-2 text-xs"
+					>
+						<option value="">Any</option>
+						{#each users as u (u.user_id)}
+							<option value={String(u.user_id)}>{u.user_name}</option>
+						{/each}
+					</select>
+				</div>
+
+				<!--
+				  Date ranges. Two `<input type=date>` per side; each bound
+				  is independent on the server (no need to pick both).
+				-->
+				<div class="flex items-center gap-1 text-xs">
+					<span class="text-muted-foreground">Opened</span>
+					<input
+						type="date"
+						aria-label="Opened from"
+						bind:value={openFromDate}
+						onchange={onDateChange}
+						class="h-8 rounded-md border border-input bg-background px-2 text-xs"
+					/>
+					<span class="text-muted-foreground">→</span>
+					<input
+						type="date"
+						aria-label="Opened to"
+						bind:value={openToDate}
+						onchange={onDateChange}
+						class="h-8 rounded-md border border-input bg-background px-2 text-xs"
+					/>
+				</div>
+
+				<div class="flex items-center gap-1 text-xs">
+					<span class="text-muted-foreground">Closed</span>
+					<input
+						type="date"
+						aria-label="Closed from"
+						bind:value={closeFromDate}
+						onchange={onDateChange}
+						class="h-8 rounded-md border border-input bg-background px-2 text-xs"
+					/>
+					<span class="text-muted-foreground">→</span>
+					<input
+						type="date"
+						aria-label="Closed to"
+						bind:value={closeToDate}
+						onchange={onDateChange}
+						class="h-8 rounded-md border border-input bg-background px-2 text-xs"
+					/>
 				</div>
 
 				{#if hasActiveFilters}
