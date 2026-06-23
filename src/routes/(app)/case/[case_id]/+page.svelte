@@ -343,10 +343,21 @@
   `bare` skips the outer rounded card from CaseWorkspace so the inner
   welcome / stats / summary cards aren't visually nested inside another
   card. Side panels (comments + activity) still mount normally.
+
+  Scrolling: we deliberately do NOT install a per-column overflow-auto
+  here. The page-level scroll lives on the layout's content wrapper
+  (`(app)/+layout.svelte`, the `overflow-auto` div that wraps {@render
+  children()}). Letting the natural flow grow past the viewport and
+  scroll there avoids the "h-full → flex-1 min-h-0 → overflow-y-auto"
+  chain being broken by any single ancestor that resolves its height
+  wrong — every previous attempt to scroll inside CaseWorkspace
+  silently failed because at least one ancestor was either unbounded
+  or had a content-fit min-height. The simplest reliable fix is to let
+  the outer scroll container do its job.
 -->
-<CaseWorkspace bare class="overflow-auto">
+<CaseWorkspace bare>
 	{#if currentCase}
-		<div class="flex w-full flex-col gap-4 overflow-auto">
+		<div class="flex w-full flex-col gap-4">
 			<!--
 			  Unified summary header: greeting, the four section counts, and the
 			  two signals ("X tasks for you" + "Y people on case") all sit on a
@@ -546,7 +557,17 @@
 					</div>
 				{/if}
 
-				<div class="p-5">
+				<!--
+				  Cap the editor body height so long summaries scroll WITHIN
+				  the card rather than pushing the rest of the page off
+				  screen. `max-h-[calc(100vh-18rem)]` reserves room for the
+				  topbar (~3.5rem), the welcome strip (~3.5rem), the summary
+				  card header (~3.5rem), and surrounding gaps/padding — the
+				  remaining viewport is given to the editor scroll area.
+				  Mirrors the pattern notes use (their own scroll container)
+				  so behaviour is consistent across the app.
+				-->
+				<div class="max-h-[calc(100vh-18rem)] min-h-[20rem] overflow-y-auto p-5">
 					<MarkDownEditor
 						value={caseDescription}
 						onChange={(v) => (caseDescription = v)}

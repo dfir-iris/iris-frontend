@@ -21,9 +21,20 @@
 	});
 </script>
 
+<!--
+  Containment for content wider than the available container. Without
+  these:
+    • pasted images at native size overflow and get clipped by an
+      ancestor's `overflow:hidden`;
+    • long code blocks push the panel horizontally;
+    • unbreakable URLs / hashes do the same.
+  `break-words` + `[&_pre]:overflow-x-auto` + `[&_img]:max-w-full` cover
+  all three. `min-w-0` makes the prose container honour its flex/grid
+  share instead of resolving to intrinsic content width.
+-->
 <div
 	bind:this={containerEl}
-	class="prose prose-sm dark:prose-invert max-w-none [&_p]:my-1.5 [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:mt-3 [&_h2]:mb-1.5 [&_h3]:mt-2 [&_h3]:mb-1 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_blockquote]:my-2 [&_pre]:my-2"
+	class="prose prose-sm dark:prose-invert max-w-none min-w-0 break-words [&_p]:my-1.5 [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:mt-3 [&_h2]:mb-1.5 [&_h3]:mt-2 [&_h3]:mb-1 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_blockquote]:my-2 [&_pre]:my-2 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_img]:max-w-full [&_img]:h-auto"
 >
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 	{@html safeHtml}

@@ -41,7 +41,15 @@
 	<main class="flex min-w-0 grow flex-col">
 		<TopBar />
 
-		<div class="flex min-w-0 grow overflow-auto bg-background">
+		<!--
+		  `min-h-0` is load-bearing here. The default `min-height: auto`
+		  on a flex child resolves to its intrinsic content height — so
+		  a long page would size this div to fit, push <main> past the
+		  viewport, and the `overflow-auto` would never have anything to
+		  clip (no scrollbar). With `min-h-0` the div can shrink below
+		  its content height and `overflow-auto` finally activates.
+		-->
+		<div class="flex min-h-0 min-w-0 grow overflow-auto bg-background">
 			{@render children()}
 		</div>
 	</main>

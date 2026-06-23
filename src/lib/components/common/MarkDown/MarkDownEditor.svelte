@@ -1515,4 +1515,33 @@
 	:global(.mention-chip-clickable:hover) {
 		filter: brightness(0.92);
 	}
+
+	/*
+	 * Containment for content wider than the available container.
+	 * Without these the preview HTML for notes/summaries with pasted
+	 * images, long code blocks, or unbreakable URLs would overflow the
+	 * panel and get clipped by an ancestor's `overflow:hidden`. We scope
+	 * to `.markdown-editor-body` so we don't conflict with prose styling
+	 * elsewhere in the app.
+	 *
+	 *  - <img>: scale down to fit the container width; preserve aspect
+	 *    ratio via height:auto.
+	 *  - <pre>: keep formatting (no wrap) but allow horizontal scroll.
+	 *  - block content: break very long words / URLs that would
+	 *    otherwise force a wider-than-container line.
+	 */
+	:global(.markdown-editor-body img) {
+		max-width: 100%;
+		height: auto;
+	}
+
+	:global(.markdown-editor-body pre) {
+		overflow-x: auto;
+		max-width: 100%;
+	}
+
+	:global(.markdown-editor-body) {
+		overflow-wrap: anywhere;
+		word-break: break-word;
+	}
 </style>

@@ -28,14 +28,39 @@
 
 	let { children, class: className = '', bare = false }: Props = $props();
 
+	// Overflow handling differs between `bare` and the default card mode:
+	//   • Card mode wants `overflow-hidden` so the rounded chrome clips
+	//     its inner header / content cleanly.
+	//   • `bare` mode has no chrome to clip and is meant to let the
+	//     page-level scroll container ((app)/+layout.svelte's
+	//     overflow-auto div) handle scrolling. Forcing `overflow-hidden`
+	//     here clips long content (e.g. the case-summary editor with a
+	//     large pasted document) with no visible scrollbar.
+	// In either case, a page may still pass an explicit overflow-* class
+	// via `class` to override the default; we skip ours then to avoid two
+	// competing overflow rules on the same element (Tailwind's class
+	// order is by generated-CSS position, not by class-attribute order,
+	// so the "later wins" intuition doesn't hold).
+	const callerSetsOverflow = $derived(/\boverflow(?:-[xy])?-/.test(className));
+	const defaultOverflow = $derived(
+		callerSetsOverflow ? '' : bare ? '' : 'overflow-hidden'
+	);
+
 	const commentsPanel = getContext<CommentsPanelContext | undefined>(COMMENTS_PANEL_CTX);
 	const activityPanel = getContext<ActivityPanelContext | undefined>(ACTIVITY_PANEL_CTX);
 	const datastorePanel = getContext<DatastorePanelContext | undefined>(DATASTORE_PANEL_CTX);
 </script>
 
-<div class="flex h-full w-full gap-3 p-3 sm:gap-4 sm:p-4">
+<!--
+  Height handling: in `bare` mode we let content size the wrapper so the
+  page-level scroll container (in (app)/+layout.svelte) can scroll past
+  the viewport. In card mode we keep `h-full` so the rounded chrome
+  fills its slot. Side panels always need `h-full` themselves so they
+  don't collapse — they live as siblings below.
+-->
+<div class="flex {bare ? 'min-h-full' : 'h-full'} w-full gap-3 p-3 sm:gap-4 sm:p-4">
 	<div
-		class={`flex h-full min-w-0 flex-1 overflow-hidden ${bare ? '' : 'rounded-2xl border border-border/60 bg-card shadow-elevation-2'} ${className}`}
+		class={`flex min-w-0 flex-1 ${bare ? '' : 'h-full'} ${defaultOverflow} ${bare ? '' : 'rounded-2xl border border-border/60 bg-card shadow-elevation-2'} ${className}`}
 	>
 		{@render children()}
 	</div>
