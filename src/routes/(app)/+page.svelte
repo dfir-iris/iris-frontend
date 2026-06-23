@@ -21,6 +21,7 @@
 		BoxesIcon,
 		CheckCheckIcon,
 		LayersIcon,
+		ListIcon,
 		PlusIcon,
 		RefreshCwIcon,
 		ShieldAlertIcon
@@ -37,6 +38,7 @@
 	import type { Case } from '$lib/types/resources/case';
 	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
+	import { ActivitiesService, type ActivityRow } from '$lib/services/activities.service';
 
 	const alerts = getContext<AlertsContext | undefined>(ALERTS_CTX);
 	const cases = getContext<CasesContext | undefined>(CASES_CTX);
@@ -69,11 +71,13 @@
 		status_name?: string;
 	};
 
-	type ActivityEntry = {
+	type MajorCaseActivityEntry = {
 		id?: number;
 		case_id?: number | null;
 		case_name?: string | null;
-		user_name?: string | null;
+		owner_name?: string | null;
+		opened_by_name?: string | null;
+		customer_name?: string | null;
 		activity_date?: string | null;
 		activity_desc?: string | null;
 	};
@@ -116,13 +120,34 @@
 		error: null
 	});
 	let activityState = $state<{
-		items: ActivityEntry[];
+		items: MajorCaseActivityEntry[];
 		loading: boolean;
 		loadingMore: boolean;
 		allLoaded: boolean;
 		error: string | null;
 	}>({
 		items: [],
+		loading: true,
+		loadingMore: false,
+		allLoaded: false,
+		error: null
+	});
+
+	// "Case activities details" — the full per-case UserActivity feed
+	// (notes touched, IoCs added, comments, etc.). Same infinite-scroll
+	// + auto-refresh shape as `activityState` above; we keep the two
+	// states separate because they hit different endpoints and tick
+	// independently.
+	let caseActivityState = $state<{
+		items: ActivityRow[];
+		page: number;
+		loading: boolean;
+		loadingMore: boolean;
+		allLoaded: boolean;
+		error: string | null;
+	}>({
+		items: [],
+		page: 0,
 		loading: true,
 		loadingMore: false,
 		allLoaded: false,
@@ -431,16 +456,16 @@
 
 	const ACTIVITY_PAGE_SIZE = 20;
 
-	const fetchActivityPage = async (offset: number): Promise<ActivityEntry[]> => {
+	const fetchActivityPage = async (offset: number): Promise<MajorCaseActivityEntry[]> => {
 		const res = await ApiService.get<unknown>(
-			`/dashboard/activities/recent?limit=${ACTIVITY_PAGE_SIZE}&offset=${offset}`
+			`/dashboard/activities/cases/major?limit=${ACTIVITY_PAGE_SIZE}&offset=${offset}`
 		);
 		if (!res.ok || res.error || res.data === null) return [];
 		const body = res.data as { data?: unknown };
 		const rows = Array.isArray(res.data)
-			? (res.data as ActivityEntry[])
+			? (res.data as MajorCaseActivityEntry[])
 			: Array.isArray(body?.data)
-				? (body.data as ActivityEntry[])
+				? (body.data as MajorCaseActivityEntry[])
 				: [];
 		return rows;
 	};
@@ -500,7 +525,7 @@
 	// poll pauses when the tab is hidden to avoid wasting requests, and
 	// stops while the initial load or a load-more is in flight to keep
 	// the prepend simple.
-	const ACTIVITY_POLL_MS = 5000;
+	const ACTIVITY_POLL_MS = 10_000;
 	const pollActivity = async () => {
 		if (activityState.loading || activityState.loadingMore) return;
 		if (typeof document !== 'undefined' && document.hidden) return;
@@ -521,6 +546,112 @@
 		return () => window.clearInterval(id);
 	});
 
+	// --- Case activities details ----------------------------------------
+	// Same infinite-scroll + auto-refresh wiring as the major activities
+	// feed, but talks to /api/v2/activities (the full per-case event log).
+	// We use page-based pagination because that's what ActivitiesService
+	// exposes; the items list grows as the user scrolls.
+	const CASE_ACTIVITY_PAGE_SIZE = 20;
+
+	const fetchCaseActivityPage = async (page: number): Promise<ActivityRow[]> => {
+		const res = await ActivitiesService.list({
+			page,
+			per_page: CASE_ACTIVITY_PAGE_SIZE,
+			include_non_case: false
+		});
+		if (!res.ok || res.error || res.data === null) return [];
+		const body = res.data;
+		if (body && typeof body !== 'string' && Array.isArray(body.data)) {
+			return body.data as ActivityRow[];
+		}
+		return [];
+	};
+
+	const loadCaseActivity = async () => {
+		caseActivityState.loading = true;
+		caseActivityState.error = null;
+		try {
+			const rows = await fetchCaseActivityPage(1);
+			caseActivityState = {
+				items: rows,
+				page: 1,
+				loading: false,
+				loadingMore: false,
+				allLoaded: rows.length < CASE_ACTIVITY_PAGE_SIZE,
+				error: null
+			};
+		} catch (e) {
+			caseActivityState = { ...caseActivityState, loading: false, error: (e as Error).message };
+		}
+	};
+
+	const loadMoreCaseActivity = async () => {
+		if (
+			caseActivityState.loadingMore ||
+			caseActivityState.allLoaded ||
+			caseActivityState.loading
+		)
+			return;
+		caseActivityState.loadingMore = true;
+		try {
+			const nextPage = caseActivityState.page + 1;
+			const rows = await fetchCaseActivityPage(nextPage);
+			caseActivityState = {
+				...caseActivityState,
+				items: [...caseActivityState.items, ...rows],
+				page: nextPage,
+				loadingMore: false,
+				allLoaded: rows.length < CASE_ACTIVITY_PAGE_SIZE
+			};
+		} catch (e) {
+			caseActivityState = {
+				...caseActivityState,
+				loadingMore: false,
+				error: (e as Error).message
+			};
+		}
+	};
+
+	let caseActivitySentinel = $state<HTMLDivElement | null>(null);
+	$effect(() => {
+		if (!caseActivitySentinel) return;
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries.some((e) => e.isIntersecting)) void loadMoreCaseActivity();
+			},
+			{ rootMargin: '120px' }
+		);
+		observer.observe(caseActivitySentinel);
+		return () => observer.disconnect();
+	});
+
+	// Poll head-of-list every 10s and prepend rows we haven't seen. We
+	// dedupe on `id` so equal-timestamp bursts don't merge or duplicate.
+	// The same tab-visibility / in-flight guards used by the major
+	// activities poll apply here.
+	const CASE_ACTIVITY_POLL_MS = 10_000;
+	const pollCaseActivity = async () => {
+		if (caseActivityState.loading || caseActivityState.loadingMore) return;
+		if (typeof document !== 'undefined' && document.hidden) return;
+		const rows = await fetchCaseActivityPage(1);
+		if (rows.length === 0) return;
+		const known = new Set(
+			caseActivityState.items.map((a) => a.id).filter((id): id is number => id != null)
+		);
+		const fresh = rows.filter((r) => r.id != null && !known.has(r.id));
+		if (fresh.length === 0) return;
+		caseActivityState = {
+			...caseActivityState,
+			items: [...fresh, ...caseActivityState.items]
+		};
+	};
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const id = window.setInterval(() => void pollCaseActivity(), CASE_ACTIVITY_POLL_MS);
+		return () => window.clearInterval(id);
+	});
+
 	const refreshAll = () => {
 		void loadOpenCases();
 		void loadAlerts();
@@ -528,6 +659,7 @@
 		void loadTrend();
 		void loadCasesTrend();
 		void loadActivity();
+		void loadCaseActivity();
 	};
 
 	// Refetch when the resolved user id changes (e.g. whoami resolves after
@@ -575,6 +707,11 @@
 		// title reads better; the case id is shown separately as a chip.
 		const m = name?.match(/^#\d+\s*-\s*(.+)$/);
 		return m ? m[1] : name;
+	};
+
+	const majorActivityKind = (desc: string | null | undefined): 'created' | 'closed' => {
+		const d = (desc ?? '').toLowerCase();
+		return d.includes('closed') ? 'closed' : 'created';
 	};
 </script>
 
@@ -814,12 +951,7 @@
 		</div>
 	</section>
 
-	<!--
-	  Cases / Alerts / Tasks / Activity — all four cards live in ONE grid
-	  so vertical row tracks line up automatically. Cases + Tasks each
-	  span 2 columns; Alerts + Activity sit in the narrow column. CSS
-	  Grid auto-flows them onto two rows at xl, one column otherwise.
-	-->
+	<!-- First row: open cases + open alerts -->
 	<div class="dashboard-row-3 min-h-0 items-start gap-5">
 		<!--
 		  Recent open cases. We deliberately limit to ~5 rows so the list
@@ -973,9 +1105,18 @@
 			</div>
 		</section>
 
-		<!-- Pending tasks: same 2-col span as cases above. -->
+	</div>
+
+	<!--
+	  Second row: pending tasks + major case activities + per-case
+	  activity log. Three equal-width tiles on xl+ so nothing visually
+	  overlaps the wider row-1 cards above. Heights match row 1 so the
+	  page stops at the same baseline regardless of which tile has the
+	  most rows.
+	-->
+	<div class="dashboard-row-3 min-h-0 items-start gap-5">
 		<section
-			class="flex min-w-0 max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 xl:col-span-2"
+			class="flex min-w-0 max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
 				<div class="flex items-center gap-2 min-w-0">
@@ -1042,16 +1183,17 @@
 			</div>
 		</section>
 
-		<!-- Recent platform activity, scoped to cases the current user has
-		     access to. Read-only stream — clicking an entry jumps to the
-		     case where the activity happened. -->
+		<!--
+		  High-signal case lifecycle feed (created/closed), scoped to cases
+		  the current user can access. Infinite-scroll and read-only.
+		-->
 		<section
 			class="flex min-w-0 max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
 				<div class="flex items-center gap-2 min-w-0">
 					<ActivityIcon class="h-4 w-4 shrink-0 text-violet-500" />
-					<h2 class="text-sm font-semibold">Recent activity</h2>
+					<h2 class="text-sm font-semibold">Major case activities</h2>
 				</div>
 			</header>
 
@@ -1067,12 +1209,13 @@
 				{:else if activityState.items.length === 0}
 					<div class="flex flex-col items-center justify-center gap-2 p-8 text-center">
 						<ActivityIcon class="h-8 w-8 text-muted-foreground/40" />
-						<p class="text-sm text-muted-foreground">Quiet around here for now.</p>
+						<p class="text-sm text-muted-foreground">No recent case created/closed activity.</p>
 					</div>
 				{:else}
 					<ul class="divide-y">
 						{#each activityState.items as a, idx (a.id ?? idx)}
-							{@const stripped = (a.activity_desc ?? '').replace(/<[^>]+>/g, '')}
+							{@const action = majorActivityKind(a.activity_desc)}
+							{@const caseTitle = a.case_name ? stripCaseIdPrefix(a.case_name) : '—'}
 							<li>
 								{#if a.case_id}
 									<a
@@ -1080,32 +1223,34 @@
 										class="flex flex-col gap-0.5 px-4 py-2 transition-colors hover:bg-muted/50"
 									>
 										<div class="flex items-center gap-2 text-sm">
-											<span class="min-w-0 flex-1 truncate" title={stripped}>
-												{stripped || '—'}
+											<span
+												class={action === 'closed'
+													? 'shrink-0 rounded-md border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.5 text-2xs font-medium text-rose-700 dark:text-rose-300'
+													: 'shrink-0 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-2xs font-medium text-emerald-700 dark:text-emerald-300'}
+											>
+												{action === 'closed' ? 'Case closed' : 'Case created'}
+											</span>
+											<span class="min-w-0 flex-1 truncate font-medium" title={caseTitle}>
+												{caseTitle}
 											</span>
 											<span class="shrink-0 text-2xs text-muted-foreground tabular-nums">
 												{formatRelative(a.activity_date)}
 											</span>
 										</div>
-										<div class="flex items-center gap-2 text-2xs text-muted-foreground">
-											{#if a.user_name}<span class="truncate">{a.user_name}</span>{/if}
-											{#if a.user_name && a.case_name}<span class="opacity-40">·</span>{/if}
-											{#if a.case_name}<span class="truncate">{a.case_name}</span>{/if}
+										<div class="flex items-center gap-1.5 text-2xs text-muted-foreground">
+											<span class="truncate">Owner: {a.owner_name ?? '—'}</span>
+											<span class="opacity-40">·</span>
+											<span class="truncate">Opened by: {a.opened_by_name ?? '—'}</span>
+										</div>
+										<div class="flex items-center gap-1.5 text-2xs text-muted-foreground">
+											<span class="shrink-0 font-mono tabular-nums">#{a.case_id}</span>
+											<span class="opacity-40">·</span>
+											<span class="truncate">Customer: {a.customer_name ?? '—'}</span>
 										</div>
 									</a>
 								{:else}
 									<div class="flex flex-col gap-0.5 px-4 py-2">
-										<div class="flex items-center gap-2 text-sm">
-											<span class="min-w-0 flex-1 truncate text-muted-foreground" title={stripped}>
-												{stripped || '—'}
-											</span>
-											<span class="shrink-0 text-2xs text-muted-foreground tabular-nums">
-												{formatRelative(a.activity_date)}
-											</span>
-										</div>
-										{#if a.user_name}
-											<div class="text-2xs text-muted-foreground truncate">{a.user_name}</div>
-										{/if}
+										<div class="text-2xs text-muted-foreground truncate">Case reference unavailable</div>
 									</div>
 								{/if}
 							</li>
@@ -1124,15 +1269,113 @@
 				{/if}
 			</div>
 		</section>
+
+		<!--
+		  Per-case activity log (notes touched, IoCs added, comments,
+		  etc.). Same infinite-scroll + 10s poll as the major-activities
+		  card, but talks to /api/v2/activities so it covers the full
+		  per-case event stream rather than just create/close.
+		-->
+		<section
+			class="flex min-w-0 max-h-[22rem] min-h-[12rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1"
+		>
+			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
+				<div class="flex items-center gap-2 min-w-0">
+					<ListIcon class="h-4 w-4 shrink-0 text-sky-500" />
+					<h2 class="text-sm font-semibold">Case activities</h2>
+				</div>
+				<a
+					href="/activities"
+					class="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+				>
+					View all
+					<ArrowRightIcon class="h-3 w-3" />
+				</a>
+			</header>
+
+			<div class="flex-1 overflow-auto">
+				{#if caseActivityState.loading}
+					<div class="space-y-2 p-4">
+						{#each Array(PREVIEW_LIMIT) as _}
+							<Skeleton class="h-9 w-full" />
+						{/each}
+					</div>
+				{:else if caseActivityState.error}
+					<div class="p-6 text-center text-xs text-destructive">{caseActivityState.error}</div>
+				{:else if caseActivityState.items.length === 0}
+					<div class="flex flex-col items-center justify-center gap-2 p-8 text-center">
+						<ListIcon class="h-8 w-8 text-muted-foreground/40" />
+						<p class="text-sm text-muted-foreground">No recent case activity.</p>
+					</div>
+				{:else}
+					<ul class="divide-y">
+						{#each caseActivityState.items as a, idx (a.id ?? idx)}
+							{@const caseTitle = a.case_name ? stripCaseIdPrefix(a.case_name) : null}
+							<li>
+								{#if a.case_id}
+									<a
+										href={`/case/${a.case_id}`}
+										class="flex flex-col gap-0.5 px-4 py-2 transition-colors hover:bg-muted/50"
+									>
+										<div class="flex items-center gap-2 text-sm">
+											<span class="min-w-0 flex-1 truncate" title={a.activity_desc ?? ''}>
+												{a.activity_desc ?? '—'}
+											</span>
+											<span class="shrink-0 text-2xs text-muted-foreground tabular-nums">
+												{formatRelative(a.activity_date)}
+											</span>
+										</div>
+										<div class="flex items-center gap-1.5 text-2xs text-muted-foreground">
+											<span class="shrink-0 font-mono tabular-nums">#{a.case_id}</span>
+											{#if caseTitle}
+												<span class="opacity-40">·</span>
+												<span class="truncate" title={caseTitle}>{caseTitle}</span>
+											{/if}
+											{#if a.user_name}
+												<span class="opacity-40">·</span>
+												<span class="truncate">{a.user_name}</span>
+											{/if}
+										</div>
+									</a>
+								{:else}
+									<div class="flex flex-col gap-0.5 px-4 py-2">
+										<div class="flex items-center gap-2 text-sm">
+											<span class="min-w-0 flex-1 truncate" title={a.activity_desc ?? ''}>
+												{a.activity_desc ?? '—'}
+											</span>
+											<span class="shrink-0 text-2xs text-muted-foreground tabular-nums">
+												{formatRelative(a.activity_date)}
+											</span>
+										</div>
+										{#if a.user_name}
+											<div class="text-2xs text-muted-foreground truncate">{a.user_name}</div>
+										{/if}
+									</div>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+
+					{#if !caseActivityState.allLoaded}
+						<div
+							bind:this={caseActivitySentinel}
+							class="px-4 py-3 text-center text-2xs text-muted-foreground"
+						>
+							{caseActivityState.loadingMore ? 'Loading more…' : ''}
+						</div>
+					{/if}
+				{/if}
+			</div>
+		</section>
 	</div>
 </div>
 
 <style>
 	/*
-	 * Dashboard row template. Both rows use the same 3-column template
-	 * so the cards on the second row line up with the cards on the
-	 * first row — pending tasks (2/3) lines up with open cases (2/3),
-	 * recent activity (1/3) lines up with open alerts (1/3).
+	 * Shared 3-column grid for the dashboard lower rows.
+	 * Row 1: open cases (2/3) + open alerts (1/3).
+	 * Row 2: pending tasks (1/3) + major case activities (1/3) + case
+	 *        activities (1/3).
 	 *
 	 * `minmax(0, 1fr)` columns let each track shrink below its intrinsic
 	 * content width, which is what prevents the cards from elbowing
@@ -1142,7 +1385,14 @@
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
 	}
-	@media (min-width: 1280px) {
+	/* Activate the 3-column grid earlier (lg / 1024px) so row 2's three
+	 * tiles sit side-by-side at the same widths where row 1's split is
+	 * already active. If we waited until xl (1280px), users in the
+	 * 1024-1279 range would see row 1 in 3 columns while row 2 cards
+	 * stack vertically — which is exactly the "overlap" effect (row 2
+	 * cards collapsing into a single column underneath row 1 cards of
+	 * different widths). */
+	@media (min-width: 1024px) {
 		.dashboard-row-3 {
 			grid-template-columns: repeat(3, minmax(0, 1fr));
 		}
