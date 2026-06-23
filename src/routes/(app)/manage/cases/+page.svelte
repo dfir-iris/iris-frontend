@@ -20,6 +20,9 @@
 	import { page as pageStore } from '$app/state';
 	import { goto } from '$app/navigation';
 	import {
+		ArrowUpDownIcon,
+		ArrowUpIcon,
+		ArrowDownIcon,
 		ChevronLeftIcon,
 		ChevronRightIcon,
 		ExternalLinkIcon,
@@ -76,6 +79,16 @@
 	let loading = $state(false);
 	let envelope = $state<Paginated<Case> | null>(null);
 
+	// Sort state — `orderBy` is the server-side sort key (matches what
+	// `build_filter_case_query` knows about: direct Cases columns plus
+	// the four named handlers `owner` / `opened_by` / `customer_name` /
+	// `state`). `null` ⇒ default ordering (the legacy table comes back
+	// newest-open first). We persist both bits in the URL so a shared
+	// link reconstructs the same view.
+	type SortDir = 'asc' | 'desc';
+	let orderBy = $state<string | null>(null);
+	let sortDir = $state<SortDir>('desc');
+
 	type QuerySnapshot = {
 		search: string;
 		isOpen: boolean | null;
@@ -85,6 +98,8 @@
 		openToDate: string;
 		closeFromDate: string;
 		closeToDate: string;
+		orderBy: string | null;
+		sortDir: SortDir;
 	};
 	let lastQuery = $state<QuerySnapshot | null>(null);
 
@@ -106,7 +121,9 @@
 		openFromDate,
 		openToDate,
 		closeFromDate,
-		closeToDate
+		closeToDate,
+		orderBy,
+		sortDir
 	});
 
 	const buildUrl = (q: QuerySnapshot, p: number, pp: number) => {
@@ -119,6 +136,10 @@
 		if (q.openToDate) params.set('open_to', q.openToDate);
 		if (q.closeFromDate) params.set('close_from', q.closeFromDate);
 		if (q.closeToDate) params.set('close_to', q.closeToDate);
+		if (q.orderBy) params.set('order_by', q.orderBy);
+		// Only emit `sort_dir` when there's actually a sort selected;
+		// otherwise it'd be noise in the default URL.
+		if (q.orderBy && q.sortDir !== 'desc') params.set('sort_dir', q.sortDir);
 		if (p > 1) params.set('page', String(p));
 		if (pp !== DEFAULT_PER_PAGE) params.set('per_page', String(pp));
 		const qs = params.toString();
@@ -151,7 +172,9 @@
 				start_open_date: q.openFromDate || undefined,
 				end_open_date: q.openToDate || undefined,
 				start_close_date: q.closeFromDate || undefined,
-				end_close_date: q.closeToDate || undefined
+				end_close_date: q.closeToDate || undefined,
+				order_by: q.orderBy ?? undefined,
+				sort_dir: q.orderBy ? q.sortDir : undefined
 			});
 			if (res.ok && res.data && typeof res.data !== 'string') {
 				envelope = res.data as Paginated<Case>;
@@ -215,7 +238,38 @@
 		openToDate = '';
 		closeFromDate = '';
 		closeToDate = '';
+		orderBy = null;
+		sortDir = 'desc';
 		void submit();
+	};
+
+	// Column-header click handler. Three-state cycle on the same column:
+	//   unsorted → desc → asc → unsorted.
+	// Clicking a different column starts that column at `desc` because
+	// for dates / counts that's almost always what the user wants first
+	// (newest opens, latest closes, biggest SOC tickets, etc.). For text
+	// columns it's a defensible default and one extra click flips it.
+	const toggleSort = (key: string) => {
+		if (orderBy !== key) {
+			orderBy = key;
+			sortDir = 'desc';
+		} else if (sortDir === 'desc') {
+			sortDir = 'asc';
+		} else {
+			// `asc` → back to unsorted
+			orderBy = null;
+			sortDir = 'desc';
+		}
+		void submit();
+	};
+
+	// Header icon: a neutral up/down arrow when this column isn't the
+	// active sort, a directional arrow when it is. Keeping it as a
+	// derived function rather than a snippet avoids the need to pass
+	// state down through children.
+	const sortIcon = (key: string) => {
+		if (orderBy !== key) return ArrowUpDownIcon;
+		return sortDir === 'asc' ? ArrowUpIcon : ArrowDownIcon;
 	};
 
 	const hasActiveFilters = $derived(
@@ -226,7 +280,8 @@
 			!!openFromDate ||
 			!!openToDate ||
 			!!closeFromDate ||
-			!!closeToDate
+			!!closeToDate ||
+			orderBy !== null
 	);
 
 	// Re-submit immediately whenever a single-select filter changes —
@@ -360,6 +415,10 @@
 		openToDate = params.get('open_to') ?? '';
 		closeFromDate = params.get('close_from') ?? '';
 		closeToDate = params.get('close_to') ?? '';
+
+		orderBy = params.get('order_by') || null;
+		const sd = (params.get('sort_dir') ?? '').toLowerCase();
+		sortDir = sd === 'asc' ? 'asc' : 'desc';
 
 		const p = Number(params.get('page')) || 1;
 		const pp = Number(params.get('per_page')) || DEFAULT_PER_PAGE;
@@ -633,14 +692,51 @@
 					<table class="w-full text-sm">
 						<thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
 							<tr>
-								<th class="w-16 px-3 py-2 font-medium">ID</th>
-								<th class="px-3 py-2 font-medium">Name</th>
-								<th class="w-44 px-3 py-2 font-medium">Customer</th>
-								<th class="w-28 px-3 py-2 font-medium">State</th>
-								<th class="w-40 px-3 py-2 font-medium">Open date</th>
-								<th class="w-40 px-3 py-2 font-medium">Close date</th>
-								<th class="w-28 px-3 py-2 font-medium">SOC ticket</th>
-								<th class="w-40 px-3 py-2 font-medium">Owner</th>
+								<!--
+								  Sortable column headers. Each header is a button so
+								  it inherits keyboard focus + Enter/Space activation;
+								  `aria-sort` mirrors the active sort state so screen
+								  readers announce it. The sort key strings match the
+								  server-side handlers in `build_filter_case_query`
+								  (direct Cases columns plus the four named handlers
+								  `owner` / `opened_by` / `customer_name` / `state`).
+								  Keep them in sync with that switch statement.
+								-->
+								{#each [
+									{ key: 'case_id', label: 'ID', cls: 'w-16' },
+									{ key: 'name', label: 'Name', cls: '' },
+									{ key: 'customer_name', label: 'Customer', cls: 'w-44' },
+									{ key: 'state', label: 'State', cls: 'w-28' },
+									{ key: 'open_date', label: 'Open date', cls: 'w-40' },
+									{ key: 'close_date', label: 'Close date', cls: 'w-40' },
+									{ key: 'soc_id', label: 'SOC ticket', cls: 'w-28' },
+									{ key: 'owner', label: 'Owner', cls: 'w-40' }
+								] as col (col.key)}
+									{@const SortIco = sortIcon(col.key)}
+									{@const active = orderBy === col.key}
+									<th
+										aria-sort={active
+											? sortDir === 'asc'
+												? 'ascending'
+												: 'descending'
+											: 'none'}
+										class="px-3 py-2 font-medium {col.cls}"
+									>
+										<button
+											type="button"
+											onclick={() => toggleSort(col.key)}
+											class="-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-muted {active
+												? 'text-foreground'
+												: ''}"
+										>
+											<span>{col.label}</span>
+											<SortIco
+												size={12}
+												class={active ? 'opacity-100' : 'opacity-40'}
+											/>
+										</button>
+									</th>
+								{/each}
 								<th class="w-10 px-3 py-2 text-right font-medium"></th>
 							</tr>
 						</thead>
