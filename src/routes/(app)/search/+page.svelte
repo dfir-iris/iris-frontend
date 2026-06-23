@@ -382,7 +382,7 @@
 	<title>Search | DFIR-IRIS</title>
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
+<div class="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-8">
 	<header class="flex items-center gap-3">
 		<SearchIcon size={28} class="!stroke-2" />
 		<h1>Search across cases</h1>
