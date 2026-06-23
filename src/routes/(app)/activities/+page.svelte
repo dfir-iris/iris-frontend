@@ -342,7 +342,22 @@
 		</Button>
 	</header>
 
-	<Card.Root>
+	<!--
+	  Sticky filter card. The page-level scroll lives on the (app)
+	  layout's overflow-auto wrapper, so `sticky top-0` here pins
+	  against that scroll container's viewport — same anchor the
+	  topbar uses, so the card slides up under the topbar's z-10 and
+	  stops at y=0 of the scroll viewport.
+
+	  `z-20` keeps the card above the results card below; the page
+	  header doesn't need to be sticky — once the user starts filtering,
+	  what matters is keeping the controls reachable, not the title.
+
+	  `backdrop-blur` + a semi-transparent background lets the rows
+	  scrolling underneath show through subtly, so it reads as "floating
+	  filter bar" rather than "another opaque card eating the viewport".
+	-->
+	<Card.Root class="sticky top-0 z-20 bg-card/95 shadow-elevation-1 backdrop-blur supports-[backdrop-filter]:bg-card/85">
 		<Card.Content class="flex flex-col gap-4 pt-6">
 			<!--
 			  Row 1: free-text search + the two scope pickers + Search.
