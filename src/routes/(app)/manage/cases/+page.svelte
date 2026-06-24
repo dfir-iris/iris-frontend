@@ -493,15 +493,8 @@
 	<title>Manage cases | DFIR-IRIS</title>
 </svelte:head>
 
-<!--
-  Outer page container fills the height of the (app) layout's scroll
-  viewport without itself scrolling. The results card claims `flex-1
-  min-h-0` so the only scrollable region on the page is the table body
-  inside it — the page header, filter card, and pagination footer stay
-  fixed regardless of how many rows are loaded.
--->
-<div class="mx-auto flex h-full min-h-0 w-full max-w-screen-2xl flex-col gap-6 p-8">
-	<header class="flex shrink-0 items-center justify-between gap-3">
+<div class="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-8">
+	<header class="flex items-center justify-between gap-3">
 		<div class="flex items-center gap-3">
 			<FolderIcon size={28} class="!stroke-2" />
 			<div>
@@ -518,12 +511,7 @@
 		</Button>
 	</header>
 
-	<!--
-	  Filter card stays in the static page header above the scrollable
-	  table; no `sticky` needed because nothing above the table scrolls
-	  any more.
-	-->
-	<Card.Root class="shrink-0 shadow-elevation-1">
+	<Card.Root class="shadow-elevation-1">
 		<Card.Content class="flex flex-col gap-4 pt-6">
 			<div class="flex flex-col gap-2 lg:flex-row lg:items-stretch">
 				<Input
@@ -648,15 +636,17 @@
 		</Card.Content>
 	</Card.Root>
 
-	<!--
-	  Results card claims the remaining vertical space. `min-h-0` lets
-	  the inner Card.Content shrink so its own `overflow-y-auto` can
-	  actually clip. Without `min-h-0` the default `min-height: auto`
-	  on flex children would resolve to intrinsic content height and
-	  the scroll bar would never appear.
-	-->
-	<Card.Root class="flex min-h-0 flex-1 flex-col">
-		<Card.Header class="flex flex-row items-center justify-between gap-2 shrink-0">
+	<Card.Root>
+		<!--
+		  Card.Header (title + pagination) stays visible during page
+		  scroll. `top-0` anchors to the layout's page-scroll viewport
+		  the same way the sticky `<thead>` below does — keeping the
+		  prev/next buttons reachable without forcing the user back to
+		  the top. `z-20` parks it above the sticky `<thead>` (z-10)
+		  so column headers slide *under* it cleanly. `bg-card` is
+		  opaque so rows don't bleed through during scroll.
+		-->
+		<Card.Header class="sticky top-0 z-20 flex flex-row items-center justify-between gap-2 rounded-t-xl bg-card">
 			<div class="flex items-center gap-2">
 				<Card.Title>Cases</Card.Title>
 				{#if range}
@@ -697,7 +687,7 @@
 			{/if}
 		</Card.Header>
 
-		<Card.Content class="flex min-h-0 flex-1 flex-col overflow-auto">
+		<Card.Content>
 			{#if loading && !envelope}
 				<div class="space-y-2">
 					{#each Array(8) as _}
@@ -706,16 +696,25 @@
 				</div>
 			{:else if envelope && envelope.data.length > 0}
 				<!--
-				  Table is rendered without its own scroll container so the
-				  parent Card.Content's `overflow-auto` is the scroll
-				  ancestor for the sticky `<thead>`. Sticky inside an inner
-				  overflow:auto wrapper would anchor to that wrapper instead
-				  and the header wouldn't track the page scroll the user
-				  actually performs.
+				  Don't wrap the table in an inner `overflow-x-auto`. An
+				  intermediate overflow ancestor becomes the scroll
+				  container for any `sticky` descendant, so wrapping here
+				  would anchor the sticky `<thead>` to a wrapper that
+				  doesn't actually scroll vertically — and the header
+				  wouldn't freeze when the user scrolls the page.
 				-->
 				<div class="rounded-md border">
 					<table class="w-full text-sm">
-						<thead class="sticky top-0 z-10 border-b bg-muted/95 text-left text-xs text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-muted/80">
+						<!--
+						  Sticky table header anchored to the layout's
+						  page-scroll viewport. `top-[3.75rem]` parks it
+						  below the sticky Card.Header above (which is
+						  ~60px tall thanks to its `p-6` padding), so the
+						  two strips stack cleanly instead of fighting
+						  for y=0. An opaque background keeps rows from
+						  bleeding through during scroll.
+						-->
+						<thead class="sticky top-[3.75rem] z-10 border-b bg-muted text-left text-xs text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-muted/90">
 							<tr>
 								<!--
 								  Sortable column headers. Each header is a button so
