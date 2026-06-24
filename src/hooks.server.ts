@@ -233,7 +233,18 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 		const isDimHooksRoute = pathname.startsWith('/api/v2/dim/hooks');
 
-		const isManageRoute = pathname.startsWith('/api/v2/manage/') && !pathname.endsWith('customers');
+		// Endpoints that only exist as v2-native routes (no legacy
+		// equivalent under /manage/) — or where the v2 surface is the
+		// preferred one and the legacy rewrite would land on a missing
+		// route. Bypass the rewrite so the request reaches Flask at
+		// the real /api/v2 path. Add prefixes here when porting more
+		// admin pages so we don't have to thread `endsWith` exceptions.
+		const isV2NativeManageRoute =
+			pathname.startsWith('/api/v2/manage/modules') ||
+			pathname.startsWith('/api/v2/manage/customers');
+
+		const isManageRoute =
+			pathname.startsWith('/api/v2/manage/') && !isV2NativeManageRoute;
 
 		const isTimelineRoute = pathname.startsWith('/api/v2/case/timeline');
 
