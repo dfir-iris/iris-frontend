@@ -239,12 +239,20 @@ export const handle: Handle = async ({ event, resolve }) => {
 		// route. Bypass the rewrite so the request reaches Flask at
 		// the real /api/v2 path. Add prefixes here when porting more
 		// admin pages so we don't have to thread `endsWith` exceptions.
+		//
+		// For routes shared with legacy callers (e.g. /manage/users,
+		// /manage/groups), use the `X-Iris-V2-Native: true` request
+		// header instead — it bypasses the rewrite per-request so
+		// existing legacy callers stay on the legacy backend while
+		// the new access-control page can opt-in to v2 routing.
 		const isV2NativeManageRoute =
 			pathname.startsWith('/api/v2/manage/modules') ||
 			pathname.startsWith('/api/v2/manage/customers') ||
 			pathname.startsWith('/api/v2/manage/case-objects') ||
 			pathname.startsWith('/api/v2/manage/case-templates') ||
-			pathname.startsWith('/api/v2/manage/report-templates');
+			pathname.startsWith('/api/v2/manage/report-templates') ||
+			pathname.startsWith('/api/v2/manage/access-control') ||
+			event.request.headers.get('x-iris-v2-native') === 'true';
 
 		const isManageRoute =
 			pathname.startsWith('/api/v2/manage/') && !isV2NativeManageRoute;
