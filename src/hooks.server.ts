@@ -242,7 +242,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 		const isV2NativeManageRoute =
 			pathname.startsWith('/api/v2/manage/modules') ||
 			pathname.startsWith('/api/v2/manage/customers') ||
-			pathname.startsWith('/api/v2/manage/case-objects');
+			pathname.startsWith('/api/v2/manage/case-objects') ||
+			pathname.startsWith('/api/v2/manage/case-templates');
 
 		const isManageRoute =
 			pathname.startsWith('/api/v2/manage/') && !isV2NativeManageRoute;

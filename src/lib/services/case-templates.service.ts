@@ -1,5 +1,5 @@
 import { ApiService } from './api.service';
-import type { ApiOptions, RequestResponse } from './api.service';
+import type { ApiOptions, Paginated, RequestResponse } from './api.service';
 
 export type CaseTemplateIdentifier = number;
 
@@ -80,5 +80,122 @@ export class CaseTemplatesService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
 		return ApiService.post<null>(`/manage/case-templates/delete/${templateId}`, {}, options);
+	}
+}
+
+// ---------------------------------------------------------------------
+// v2 surface — used by the Settings Case Templates page.
+//
+// The legacy `CaseTemplatesService` above keeps existing consumers
+// (case-templates context store, alerts-merge dialog) working: those
+// hit `/manage/case-templates/...` legacy paths and read fields like
+// `template_id` / `template_name` which were never the schema's real
+// field names but became load-bearing in those callers.
+//
+// `CaseTemplatesV2Service` here speaks the real CaseTemplateSchema
+// from the backend: `id`, `name`, `display_name`, `description`,
+// `author`, `title_prefix`, `summary`, `tags`, `classification`,
+// `note_directories` plus the raw `tasks` JSON. Paginated list +
+// dry-run preview against a user-accessible case round out the
+// surface.
+// ---------------------------------------------------------------------
+
+export interface CaseTemplateTaskV2 {
+	title: string;
+	description?: string;
+	tags?: string[];
+}
+
+export interface CaseTemplateNoteV2 {
+	title: string;
+	content?: string;
+}
+
+export interface CaseTemplateNoteDirectoryV2 {
+	title: string;
+	notes?: CaseTemplateNoteV2[];
+}
+
+export interface CaseTemplateV2 {
+	id: number;
+	name: string;
+	display_name?: string;
+	description?: string;
+	author?: string;
+	title_prefix?: string;
+	summary?: string;
+	tags?: string[];
+	classification?: string;
+	note_directories?: CaseTemplateNoteDirectoryV2[];
+	tasks?: CaseTemplateTaskV2[];
+	created_at?: string;
+	updated_at?: string;
+	created_by_user_id?: number;
+}
+
+export interface CaseTemplateBodyV2 {
+	name: string;
+	display_name?: string;
+	description?: string;
+	author?: string;
+	title_prefix?: string;
+	summary?: string;
+	tags?: string[];
+	classification?: string;
+	note_directories?: CaseTemplateNoteDirectoryV2[];
+	tasks?: CaseTemplateTaskV2[];
+}
+
+export interface SearchCaseTemplatesParams {
+	page?: number;
+	per_page?: number;
+	order_by?: string;
+	sort_dir?: 'asc' | 'desc';
+	/** ILIKE substring match across name, display_name, description, author and title_prefix. */
+	search?: string;
+}
+
+export class CaseTemplatesV2Service {
+	static async search(
+		params: SearchCaseTemplatesParams = {},
+		options: ApiOptions = {}
+	): Promise<RequestResponse<Paginated<CaseTemplateV2>>> {
+		return ApiService.get<Paginated<CaseTemplateV2>>(
+			ApiService.withQuery('/manage/case-templates', params as Record<string, unknown>),
+			options
+		);
+	}
+
+	static async get(
+		identifier: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<CaseTemplateV2>> {
+		return ApiService.get<CaseTemplateV2>(`/manage/case-templates/${identifier}`, options);
+	}
+
+	static async create(
+		body: CaseTemplateBodyV2,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<CaseTemplateV2>> {
+		return ApiService.post<CaseTemplateV2>('/manage/case-templates', body, options);
+	}
+
+	static async update(
+		identifier: number,
+		body: Partial<CaseTemplateBodyV2>,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<CaseTemplateV2>> {
+		return ApiService.put<CaseTemplateV2>(
+			`/manage/case-templates/${identifier}`,
+			body,
+			options
+		);
+	}
+
+	static async remove(
+		identifier: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<null>> {
+		return ApiService.delete<null>(`/manage/case-templates/${identifier}`, options);
 	}
 }
