@@ -493,8 +493,15 @@
 	<title>Manage cases | DFIR-IRIS</title>
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-8">
-	<header class="flex items-center justify-between gap-3">
+<!--
+  Outer page container fills the height of the (app) layout's scroll
+  viewport without itself scrolling. The results card claims `flex-1
+  min-h-0` so the only scrollable region on the page is the table body
+  inside it — the page header, filter card, and pagination footer stay
+  fixed regardless of how many rows are loaded.
+-->
+<div class="mx-auto flex h-full min-h-0 w-full max-w-screen-2xl flex-col gap-6 p-8">
+	<header class="flex shrink-0 items-center justify-between gap-3">
 		<div class="flex items-center gap-3">
 			<FolderIcon size={28} class="!stroke-2" />
 			<div>
@@ -511,9 +518,12 @@
 		</Button>
 	</header>
 
-	<Card.Root
-		class="sticky top-0 z-20 bg-card/95 shadow-elevation-1 backdrop-blur supports-[backdrop-filter]:bg-card/85"
-	>
+	<!--
+	  Filter card stays in the static page header above the scrollable
+	  table; no `sticky` needed because nothing above the table scrolls
+	  any more.
+	-->
+	<Card.Root class="shrink-0 shadow-elevation-1">
 		<Card.Content class="flex flex-col gap-4 pt-6">
 			<div class="flex flex-col gap-2 lg:flex-row lg:items-stretch">
 				<Input
@@ -638,8 +648,15 @@
 		</Card.Content>
 	</Card.Root>
 
-	<Card.Root>
-		<Card.Header class="flex flex-row items-center justify-between gap-2">
+	<!--
+	  Results card claims the remaining vertical space. `min-h-0` lets
+	  the inner Card.Content shrink so its own `overflow-y-auto` can
+	  actually clip. Without `min-h-0` the default `min-height: auto`
+	  on flex children would resolve to intrinsic content height and
+	  the scroll bar would never appear.
+	-->
+	<Card.Root class="flex min-h-0 flex-1 flex-col">
+		<Card.Header class="flex flex-row items-center justify-between gap-2 shrink-0">
 			<div class="flex items-center gap-2">
 				<Card.Title>Cases</Card.Title>
 				{#if range}
@@ -680,7 +697,7 @@
 			{/if}
 		</Card.Header>
 
-		<Card.Content>
+		<Card.Content class="flex min-h-0 flex-1 flex-col overflow-auto">
 			{#if loading && !envelope}
 				<div class="space-y-2">
 					{#each Array(8) as _}
@@ -688,9 +705,17 @@
 					{/each}
 				</div>
 			{:else if envelope && envelope.data.length > 0}
-				<div class="overflow-x-auto rounded-md border">
+				<!--
+				  Table is rendered without its own scroll container so the
+				  parent Card.Content's `overflow-auto` is the scroll
+				  ancestor for the sticky `<thead>`. Sticky inside an inner
+				  overflow:auto wrapper would anchor to that wrapper instead
+				  and the header wouldn't track the page scroll the user
+				  actually performs.
+				-->
+				<div class="rounded-md border">
 					<table class="w-full text-sm">
-						<thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
+						<thead class="sticky top-0 z-10 border-b bg-muted/95 text-left text-xs text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-muted/80">
 							<tr>
 								<!--
 								  Sortable column headers. Each header is a button so
