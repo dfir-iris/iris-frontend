@@ -344,10 +344,11 @@
 
 	<!--
 	  Sticky filter card. The page-level scroll lives on the (app)
-	  layout's overflow-auto wrapper, so `sticky top-0` here pins
-	  against that scroll container's viewport — same anchor the
-	  topbar uses, so the card slides up under the topbar's z-10 and
-	  stops at y=0 of the scroll viewport.
+	  layout's overflow-auto wrapper. The app topbar is `sticky top-0
+	  z-10 max-h-14` in the same scroll container, so we anchor this
+	  card at `top-14` (3.5rem == 56px == the topbar's height) so it
+	  parks underneath the topbar instead of fighting for y=0 — without
+	  the offset, scrolling far enough pushes the topbar out of view.
 
 	  `z-20` keeps the card above the results card below; the page
 	  header doesn't need to be sticky — once the user starts filtering,

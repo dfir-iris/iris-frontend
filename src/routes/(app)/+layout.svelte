@@ -39,7 +39,18 @@
 	<SideBar />
 
 	<main class="flex min-w-0 grow flex-col">
-		<TopBar />
+		<!--
+		  TopBar is positioned `relative z-20` so it sits above the
+		  page-scroll container that follows. The scroll container has
+		  `overflow-auto` which creates a stacking context — without an
+		  explicit z-index here, sticky cards inside a page can paint
+		  over the TopBar even though the TopBar uses `sticky top-0
+		  z-10` internally. Bumping it to z-20 at the layout level
+		  guarantees pages can't accidentally elevate above the chrome.
+		-->
+		<div class="relative z-20">
+			<TopBar />
+		</div>
 
 		<!--
 		  `min-h-0` is load-bearing here. The default `min-height: auto`
@@ -48,8 +59,14 @@
 		  viewport, and the `overflow-auto` would never have anything to
 		  clip (no scrollbar). With `min-h-0` the div can shrink below
 		  its content height and `overflow-auto` finally activates.
+
+		  `relative z-0` parks the scroll container's stacking context
+		  explicitly below the TopBar wrapper above. Sticky elements
+		  inside this scroll viewport (filter cards on activities /
+		  manage-cases / dim-tasks) are now safe to use `top-0` without
+		  punching through the TopBar mid-scroll.
 		-->
-		<div class="flex min-h-0 min-w-0 grow overflow-auto bg-background">
+		<div class="relative z-0 flex min-h-0 min-w-0 grow overflow-auto bg-background">
 			{@render children()}
 		</div>
 	</main>
