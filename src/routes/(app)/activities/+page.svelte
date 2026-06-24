@@ -343,22 +343,13 @@
 	</header>
 
 	<!--
-	  Sticky filter card. The page-level scroll lives on the (app)
-	  layout's overflow-auto wrapper. The app topbar is `sticky top-0
-	  z-10 max-h-14` in the same scroll container, so we anchor this
-	  card at `top-14` (3.5rem == 56px == the topbar's height) so it
-	  parks underneath the topbar instead of fighting for y=0 — without
-	  the offset, scrolling far enough pushes the topbar out of view.
-
-	  `z-20` keeps the card above the results card below; the page
-	  header doesn't need to be sticky — once the user starts filtering,
-	  what matters is keeping the controls reachable, not the title.
-
-	  `backdrop-blur` + a semi-transparent background lets the rows
-	  scrolling underneath show through subtly, so it reads as "floating
-	  filter bar" rather than "another opaque card eating the viewport".
+	  Filter card scrolls naturally with the page. We used to make it
+	  `sticky top-0`, but now the results Card.Header below it owns the
+	  sticky slot (so the pager + "N–M of X" stays visible during long
+	  scrolls). Two sticky tops anchored to the same scroll container
+	  fight for y=0 and visually collide — keep only one.
 	-->
-	<Card.Root class="sticky top-0 z-20 bg-card/95 shadow-elevation-1 backdrop-blur supports-[backdrop-filter]:bg-card/85">
+	<Card.Root class="shadow-elevation-1">
 		<Card.Content class="flex flex-col gap-4 pt-6">
 			<!--
 			  Row 1: free-text search + the two scope pickers + Search.
@@ -491,7 +482,15 @@
 	</Card.Root>
 
 	<Card.Root>
-		<Card.Header class="flex flex-row items-center justify-between gap-2">
+		<!--
+		  Card.Header (range + pagination) stays visible during page
+		  scroll. Same convention as the Manage Cases page: the layout's
+		  page-scroll viewport is the sticky anchor, `top-0` is correct
+		  because the TopBar lives outside that viewport. `z-20` parks
+		  it above the sticky `<thead>` below so column headers slide
+		  under it cleanly when rows scroll.
+		-->
+		<Card.Header class="sticky top-0 z-20 flex flex-row items-center justify-between gap-2 rounded-t-xl bg-card">
 			<div class="flex items-center gap-2">
 				<Card.Title>Activity feed</Card.Title>
 				{#if range}
@@ -540,9 +539,21 @@
 					{/each}
 				</div>
 			{:else if envelope && envelope.data.length > 0}
-				<div class="overflow-x-auto rounded-md border">
+				<!--
+				  No inner `overflow-x-auto`: that ancestor would
+				  intercept the sticky `<thead>` and anchor it to a
+				  wrapper that doesn't scroll vertically, so column
+				  headers wouldn't freeze with page scroll.
+				-->
+				<div class="rounded-md border">
 					<table class="w-full text-sm">
-						<thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
+						<!--
+						  Sticky table header parked below the sticky
+						  Card.Header above (Card.Header is ~60px tall
+						  thanks to its `p-6` padding, so `top-[3.75rem]`
+						  stacks them without collision).
+						-->
+						<thead class="sticky top-[3.75rem] z-10 border-b bg-muted text-left text-xs text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-muted/90">
 							<tr>
 								<th class="w-44 px-3 py-2 font-medium">Date</th>
 								<th class="w-40 px-3 py-2 font-medium">User</th>
