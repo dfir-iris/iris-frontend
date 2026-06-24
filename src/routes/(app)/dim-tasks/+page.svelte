@@ -295,9 +295,13 @@
 	  Sticky filter card. Same anchor + z-index strategy as the activities
 	  page so the two list views feel consistent under scroll.
 	-->
-	<Card.Root
-		class="sticky top-0 z-20 bg-card/95 shadow-elevation-1 backdrop-blur supports-[backdrop-filter]:bg-card/85"
-	>
+	<!--
+	  Filter card scrolls naturally with the page. The sticky slot is
+	  owned by the results Card.Header below so the pager + "N-M of X"
+	  stays visible on long scrolls; two sticky tops anchored to the
+	  same scroll container fight for y=0 and visually collide.
+	-->
+	<Card.Root class="shadow-elevation-1">
 		<Card.Content class="flex flex-col gap-4 pt-6">
 			<div class="flex flex-col gap-2 lg:flex-row lg:items-stretch">
 				<Input
@@ -344,7 +348,13 @@
 	</Card.Root>
 
 	<Card.Root>
-		<Card.Header class="flex flex-row items-center justify-between gap-2">
+		<!--
+		  Card.Header (title + pagination) is sticky at `top-0` of the
+		  page scroll viewport so the pager stays reachable mid-scroll.
+		  Same convention as Manage Cases / Activities. `z-20` parks it
+		  above the sticky `<thead>` (z-10) below.
+		-->
+		<Card.Header class="sticky top-0 z-20 flex flex-row items-center justify-between gap-2 rounded-t-xl bg-card">
 			<div class="flex items-center gap-2">
 				<Card.Title>Tasks</Card.Title>
 				{#if range}
@@ -393,9 +403,18 @@
 					{/each}
 				</div>
 			{:else if envelope && envelope.data.length > 0}
-				<div class="overflow-x-auto rounded-md border">
+				<!--
+				  No inner `overflow-x-auto`: that ancestor would
+				  intercept the sticky `<thead>` and anchor it to a
+				  wrapper that doesn't scroll vertically.
+				-->
+				<div class="rounded-md border">
 					<table class="w-full text-sm">
-						<thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
+						<!--
+						  Sticky table header parked below the sticky
+						  Card.Header above (~60px from its `p-6`).
+						-->
+						<thead class="sticky top-[3.75rem] z-10 border-b bg-muted text-left text-xs text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-muted/90">
 							<tr>
 								<th class="w-32 px-3 py-2 font-medium">State</th>
 								<th class="w-44 px-3 py-2 font-medium">Date ended</th>
