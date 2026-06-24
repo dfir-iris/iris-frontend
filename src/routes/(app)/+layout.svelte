@@ -38,33 +38,35 @@
 <div class="flex h-screen w-full overflow-hidden bg-background">
 	<SideBar />
 
-	<main class="flex min-w-0 grow flex-col">
+	<main class="relative flex min-w-0 grow flex-col">
 		<!--
-		  TopBar is positioned `relative z-20` so it sits above the
-		  page-scroll container that follows. The scroll container has
-		  `overflow-auto` which creates a stacking context — without an
-		  explicit z-index here, sticky cards inside a page can paint
-		  over the TopBar even though the TopBar uses `sticky top-0
-		  z-10` internally. Bumping it to z-20 at the layout level
-		  guarantees pages can't accidentally elevate above the chrome.
+		  TopBar sits at the top of <main> in normal flow. We give it
+		  `shrink-0` so flex never compresses it below its 56px height,
+		  and `z-30` so it paints above the page scroll container's
+		  stacking context below (the page container creates one via
+		  `overflow-auto` + positioning; without an explicit z here,
+		  sticky cards inside pages would punch through the TopBar).
 		-->
-		<div class="relative z-20">
+		<div class="z-30 shrink-0">
 			<TopBar />
 		</div>
 
 		<!--
-		  `min-h-0` is load-bearing here. The default `min-height: auto`
-		  on a flex child resolves to its intrinsic content height — so
-		  a long page would size this div to fit, push <main> past the
-		  viewport, and the `overflow-auto` would never have anything to
-		  clip (no scrollbar). With `min-h-0` the div can shrink below
-		  its content height and `overflow-auto` finally activates.
+		  `min-h-0` is load-bearing. The default `min-height: auto` on
+		  a flex child resolves to its intrinsic content height — so a
+		  long page would size this div to fit, push <main> past the
+		  viewport, and the `overflow-auto` would never have anything
+		  to clip (no scrollbar). With `min-h-0` the div can shrink
+		  below its content height and `overflow-auto` finally
+		  activates.
 
 		  `relative z-0` parks the scroll container's stacking context
 		  explicitly below the TopBar wrapper above. Sticky elements
 		  inside this scroll viewport (filter cards on activities /
-		  manage-cases / dim-tasks) are now safe to use `top-0` without
-		  punching through the TopBar mid-scroll.
+		  manage-cases / dim-tasks) are safe to use `top-0` without
+		  punching through the TopBar mid-scroll, because the TopBar
+		  is anchored to <main> (which never scrolls) rather than to
+		  the scroll viewport itself.
 		-->
 		<div class="relative z-0 flex min-h-0 min-w-0 grow overflow-auto bg-background">
 			{@render children()}

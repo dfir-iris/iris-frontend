@@ -105,7 +105,7 @@
 
 <header
 	style="background-color: hsl(var(--iris-blue));"
-	class="shadow-elevation-1 sticky top-0 z-10 grid max-h-14 min-h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-3 text-white sm:px-5"
+	class="shadow-elevation-1 grid max-h-14 min-h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-3 text-white sm:px-5"
 >
 	{#if case_id !== null && pathname.startsWith('/case') && pathname !== '/cases'}
 		<div class="flex min-w-0 items-center gap-2">
