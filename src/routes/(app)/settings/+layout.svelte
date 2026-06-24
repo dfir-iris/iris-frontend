@@ -39,9 +39,19 @@
 	<title>Settings | DFIR-IRIS</title>
 </svelte:head>
 
-<div class="flex h-screen w-screen flex-row gap-4 p-4">
-	<!-- Sidebar -->
-	<aside class="flex w-56 shrink-0 flex-col">
+<!--
+  `overflow-hidden` on the row keeps the viewport as the hard ceiling
+  so the sidebar can never scroll out of view, even if a page's
+  content card unexpectedly overflows. Each settings page is in
+  charge of its own internal scrolling (`flex-1 overflow-y-auto`).
+-->
+<div class="flex h-screen w-screen flex-row gap-4 overflow-hidden p-4">
+	<!--
+	  Sidebar is `sticky top-0` as a belt-and-braces measure: even if a
+	  future page forgets to contain its own overflow, the aside stays
+	  parked at the top of the row instead of riding the scrollbar.
+	-->
+	<aside class="sticky top-0 flex h-full w-56 shrink-0 flex-col overflow-y-auto">
 		<header class="flex items-center gap-2 px-2 pb-3">
 			<SettingsIcon size={16} class="text-muted-foreground" />
 			<h1 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
