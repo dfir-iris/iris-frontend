@@ -241,7 +241,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 		// admin pages so we don't have to thread `endsWith` exceptions.
 		const isV2NativeManageRoute =
 			pathname.startsWith('/api/v2/manage/modules') ||
-			pathname.startsWith('/api/v2/manage/customers');
+			pathname.startsWith('/api/v2/manage/customers') ||
+			pathname.startsWith('/api/v2/manage/case-objects');
 
 		const isManageRoute =
 			pathname.startsWith('/api/v2/manage/') && !isV2NativeManageRoute;
