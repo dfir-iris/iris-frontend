@@ -44,7 +44,7 @@ describe('IocTypesService', () => {
 		const res = await IocTypesService.list(options);
 
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
-		expect(ApiService.get).toHaveBeenCalledWith('/manage/ioc-types/list', options);
+		expect(ApiService.get).toHaveBeenCalledWith('/manage/case-objects/ioc-types', options);
 		expect(res).toEqual({
 			...mockResponse,
 			data

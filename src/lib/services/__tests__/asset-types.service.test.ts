@@ -25,7 +25,7 @@ describe('AssetTypesService', () => {
 		vi.restoreAllMocks();
 	});
 
-	it('list() should build query and return unwrapped asset types', async () => {
+	it('list() hits the case-agnostic v2 endpoint and unwraps the envelope', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const items: AssetType[] = [
@@ -41,33 +41,29 @@ describe('AssetTypesService', () => {
 			}
 		];
 
+		// v2 paginated envelope shares `data: T[]` with the legacy
+		// `{status, message, data}` envelope, so a single unwrap
+		// inside the service covers both shapes.
 		const mockResponse = {
 			ok: true,
 			status: 200,
 			data: {
-				data: items,
-				message: 'ok',
-				status: 'success'
+				data: items
 			}
 		};
 
-		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-			'/manage/asset-type/list?cid=73'
-		);
 		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await AssetTypesService.list(73, options);
 
-		expect(ApiService.withQuery).toHaveBeenCalledTimes(1);
-		expect(ApiService.withQuery).toHaveBeenCalledWith('/manage/asset-type/list', {
-			cid: 73
-		});
+		// `caseId` argument is accepted but ignored on v2 — the
+		// legacy `cid` query param is gone.
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
-		expect(ApiService.get).toHaveBeenCalledWith('/manage/asset-type/list?cid=73', options);
+		expect(ApiService.get).toHaveBeenCalledWith('/manage/case-objects/asset-types', options);
 		expect(res.data).toBe(items);
 	});
 
-	it('list() should return empty array when response data is invalid', async () => {
+	it('list() returns empty array when response data is invalid', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const mockResponse = {
@@ -76,9 +72,6 @@ describe('AssetTypesService', () => {
 			data: null
 		};
 
-		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-			'/manage/asset-type/list?cid=73'
-		);
 		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await AssetTypesService.list(73, options);
@@ -86,7 +79,7 @@ describe('AssetTypesService', () => {
 		expect(res.data).toEqual([]);
 	});
 
-	it('get() should call ApiService.get with /manage/asset-type/{id} and return unwrapped asset type', async () => {
+	it('get() hits the v2 by-id endpoint and returns the row directly', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const item: AssetType = {
@@ -95,14 +88,12 @@ describe('AssetTypesService', () => {
 			asset_description: 'Firewall asset'
 		};
 
+		// v2 returns the row directly (not wrapped in `{data: ...}`
+		// like the legacy envelope).
 		const mockResponse = {
 			ok: true,
 			status: 200,
-			data: {
-				data: item,
-				message: 'ok',
-				status: 'success'
-			}
+			data: item
 		};
 
 		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
@@ -110,7 +101,7 @@ describe('AssetTypesService', () => {
 		const res = await AssetTypesService.get(1, options);
 
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
-		expect(ApiService.get).toHaveBeenCalledWith('/manage/asset-type/1', options);
+		expect(ApiService.get).toHaveBeenCalledWith('/manage/case-objects/asset-types/1', options);
 		expect(res.data).toBe(item);
 	});
 

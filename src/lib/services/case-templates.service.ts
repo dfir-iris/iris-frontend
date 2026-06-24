@@ -14,39 +14,53 @@ export interface CaseTemplateNote {
 	content?: string;
 }
 
-export interface CaseTemplateNoteGroup {
+export interface CaseTemplateNoteDirectory {
 	title: string;
 	notes?: CaseTemplateNote[];
 }
 
+/**
+ * Shape exposed by the v2 backend (`CaseTemplateSchema`). Legacy
+ * field aliases (`template_id`, `template_name`) are gone — callers
+ * read `id` and `name` directly.
+ */
 export interface CaseTemplate {
-	template_id: number;
-	template_name: string;
-	template_description?: string;
-	case_name?: string;
-	case_description?: string;
-	case_tags?: string[] | string;
+	id: number;
+	name: string;
+	display_name?: string;
+	description?: string;
+	author?: string;
+	title_prefix?: string;
+	summary?: string;
+	tags?: string[];
+	classification?: string;
+	note_directories?: CaseTemplateNoteDirectory[];
 	tasks?: CaseTemplateTask[];
-	note_groups?: CaseTemplateNoteGroup[];
-	custom_attributes?: Record<string, unknown>;
-	[key: string]: unknown;
+	created_at?: string;
+	updated_at?: string;
+	created_by_user_id?: number;
 }
 
-export interface CaseTemplateBody {
-	template_name: string;
-	template_description?: string;
-	case_name?: string;
-	case_description?: string;
-	case_tags?: string[] | string;
-	tasks?: CaseTemplateTask[];
-	note_groups?: CaseTemplateNoteGroup[];
-	custom_attributes?: Record<string, unknown>;
-	[key: string]: unknown;
-}
+export type CaseTemplateBody = Omit<CaseTemplate, 'id' | 'created_at' | 'updated_at' | 'created_by_user_id'>;
 
+/**
+ * Thin compat wrapper: delegates to the v2 endpoints. Kept under
+ * the original `CaseTemplatesService` name so the existing
+ * `case-templates.context.svelte.ts` continues to compile without
+ * import changes. `list()` returns a flat array (unwrapping the
+ * paginated envelope) so the context store's `for (template of
+ * res.data)` loop still works.
+ */
 export class CaseTemplatesService {
 	static async list(options: ApiOptions = {}): Promise<RequestResponse<CaseTemplate[]>> {
-		return ApiService.get<CaseTemplate[]>('/manage/case-templates/list', options);
+		const res = await ApiService.get<Paginated<CaseTemplate>>(
+			'/manage/case-templates',
+			options
+		);
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			return { ...res, data: res.data.data };
+		}
+		return { ...res, data: [] };
 	}
 
 	static async get(
@@ -60,7 +74,7 @@ export class CaseTemplatesService {
 		body: CaseTemplateBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<CaseTemplate>> {
-		return ApiService.post<CaseTemplate>('/manage/case-templates/add', body, options);
+		return ApiService.post<CaseTemplate>('/manage/case-templates', body, options);
 	}
 
 	static async update(
@@ -68,8 +82,8 @@ export class CaseTemplatesService {
 		body: Partial<CaseTemplateBody>,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<CaseTemplate>> {
-		return ApiService.post<CaseTemplate>(
-			`/manage/case-templates/update/${templateId}`,
+		return ApiService.put<CaseTemplate>(
+			`/manage/case-templates/${templateId}`,
 			body,
 			options
 		);
@@ -79,7 +93,7 @@ export class CaseTemplatesService {
 		templateId: CaseTemplateIdentifier,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
-		return ApiService.post<null>(`/manage/case-templates/delete/${templateId}`, {}, options);
+		return ApiService.delete<null>(`/manage/case-templates/${templateId}`, options);
 	}
 }
 

@@ -11,7 +11,7 @@ type ApiEnvelope<T> = {
 export class EvidenceTypesService {
 	static async list(options: ApiOptions = {}): Promise<RequestResponse<EvidenceType[]>> {
 		const res = await ApiService.get<ApiEnvelope<EvidenceType[]>>(
-			'/manage/evidence-types/list',
+			'/manage/case-objects/evidence-types',
 			options
 		);
 

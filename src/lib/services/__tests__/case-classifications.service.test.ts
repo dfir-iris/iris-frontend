@@ -28,7 +28,7 @@ describe('CaseClassificationsService', () => {
 		vi.restoreAllMocks();
 	});
 
-	it('list() should call ApiService.get with /manage/case-classifications/list + options', async () => {
+	it('list() hits the v2 case-objects classifications endpoint', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const mockResponse = {
@@ -50,11 +50,11 @@ describe('CaseClassificationsService', () => {
 		const res = await CaseClassificationsService.list(options);
 
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
-		expect(ApiService.get).toHaveBeenCalledWith('/manage/case-classifications/list', options);
+		expect(ApiService.get).toHaveBeenCalledWith('/manage/case-objects/case-classifications', options);
 		expect(res).toBe(mockResponse);
 	});
 
-	it('get() should call ApiService.get with /manage/case-classifications/{id} + options', async () => {
+	it('get() hits the v2 by-id endpoint', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const mockResponse = {
@@ -74,11 +74,11 @@ describe('CaseClassificationsService', () => {
 		const res = await CaseClassificationsService.get(7, options);
 
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
-		expect(ApiService.get).toHaveBeenCalledWith('/manage/case-classifications/7', options);
+		expect(ApiService.get).toHaveBeenCalledWith('/manage/case-objects/case-classifications/7', options);
 		expect(res).toBe(mockResponse);
 	});
 
-	it('create() should call ApiService.post with /manage/case-classifications/add, body, options', async () => {
+	it('create() POSTs to the v2 collection', async () => {
 		const body: CreateCaseClassificationBody = {
 			name: 'name',
 			name_expanded: 'name expanded',
@@ -89,7 +89,7 @@ describe('CaseClassificationsService', () => {
 
 		const mockResponse = {
 			ok: true,
-			status: 200,
+			status: 201,
 			data: {
 				id: 101,
 				name: 'name',
@@ -104,11 +104,15 @@ describe('CaseClassificationsService', () => {
 		const res = await CaseClassificationsService.create(body, options);
 
 		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith('/manage/case-classifications/add', body, options);
+		expect(ApiService.post).toHaveBeenCalledWith(
+			'/manage/case-objects/case-classifications',
+			body,
+			options
+		);
 		expect(res).toBe(mockResponse);
 	});
 
-	it('update() should call ApiService.post with /manage/case-classifications/update/{id}, body, options', async () => {
+	it('update() PUTs to the v2 by-id endpoint', async () => {
 		const body: UpdateCaseClassificationBody = {
 			name_expanded: 'new expanded'
 		};
@@ -127,20 +131,20 @@ describe('CaseClassificationsService', () => {
 			} satisfies CaseClassification
 		};
 
-		(ApiService.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+		(ApiService.put as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await CaseClassificationsService.update(7, body, options);
 
-		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith(
-			'/manage/case-classifications/update/7',
+		expect(ApiService.put).toHaveBeenCalledTimes(1);
+		expect(ApiService.put).toHaveBeenCalledWith(
+			'/manage/case-objects/case-classifications/7',
 			body,
 			options
 		);
 		expect(res).toBe(mockResponse);
 	});
 
-	it('remove() should call ApiService.post with /manage/case-classifications/delete/{id}, empty body, options', async () => {
+	it('remove() DELETEs the v2 by-id endpoint', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const mockResponse = {
@@ -149,14 +153,13 @@ describe('CaseClassificationsService', () => {
 			data: null
 		};
 
-		(ApiService.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+		(ApiService.delete as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await CaseClassificationsService.remove(7, options);
 
-		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith(
-			'/manage/case-classifications/delete/7',
-			{},
+		expect(ApiService.delete).toHaveBeenCalledTimes(1);
+		expect(ApiService.delete).toHaveBeenCalledWith(
+			'/manage/case-objects/case-classifications/7',
 			options
 		);
 		expect(res).toBe(mockResponse);

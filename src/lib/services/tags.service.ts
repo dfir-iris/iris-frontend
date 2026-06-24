@@ -15,7 +15,10 @@ export class TagsService {
 		params: ListTagsParams = {},
 		options: ApiOptions = {}
 	): Promise<RequestResponse<Paginated<Tag>>> {
-		const path = ApiService.withQuery('/manage/tags/list', params as Record<string, unknown>);
+		// v2 tags live at `/api/v2/tags` (NOT under /manage/). Same
+		// paginated envelope + `tag_title` ILIKE filter as the legacy
+		// `/manage/tags/list`, so consumers don't need to change.
+		const path = ApiService.withQuery('/tags', params as Record<string, unknown>);
 
 		return ApiService.get<Paginated<Tag>>(path, options);
 	}

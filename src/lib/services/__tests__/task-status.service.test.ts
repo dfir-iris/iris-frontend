@@ -42,7 +42,7 @@ describe('TaskStatusService', () => {
 		const res = await TaskStatusService.list(options);
 
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
-		expect(ApiService.get).toHaveBeenCalledWith('/manage/task-status/list', options);
+		expect(ApiService.get).toHaveBeenCalledWith('/manage/task-statuses', options);
 		expect(res.data).toEqual([mockStatus]);
 	});
 
@@ -63,35 +63,33 @@ describe('TaskStatusService', () => {
 		expect(res.data).toEqual([]);
 	});
 
-	it('get() should call ApiService.get and unwrap data envelope', async () => {
+	it('get() falls back to filtering the full list (no v2 by-id endpoint)', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
-		const mockResponse = {
+		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
 			ok: true,
 			status: 200,
-			data: { data: mockStatus }
-		};
-
-		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+			data: { data: [mockStatus] }
+		});
 
 		const res = await TaskStatusService.get(1, options);
 
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
-		expect(ApiService.get).toHaveBeenCalledWith('/manage/task-status/1', options);
+		// `get()` falls back to a list fetch + local filter — v2
+		// doesn't expose a bare /<id> for task statuses (small
+		// seeded table).
+		expect(ApiService.get).toHaveBeenCalledWith('/manage/task-statuses', options);
 		expect(res.data).toEqual(mockStatus);
 	});
 
-	it('get() should return null on error response', async () => {
+	it('get() returns null when the row is missing', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
-		const mockResponse = {
+		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
 			ok: false,
-			status: 404,
-			data: null,
-			error: { message: 'Not found' }
-		};
-
-		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+			status: 500,
+			data: null
+		});
 
 		const res = await TaskStatusService.get(999, options);
 

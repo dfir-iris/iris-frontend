@@ -43,7 +43,7 @@ describe('EventCategoriesService', () => {
 		const res = await EventCategoriesService.list(options);
 
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
-		expect(ApiService.get).toHaveBeenCalledWith('/manage/event-categories/list', options);
+		expect(ApiService.get).toHaveBeenCalledWith('/manage/event-categories', options);
 		expect(res).toBe(mockResponse);
 	});
 });

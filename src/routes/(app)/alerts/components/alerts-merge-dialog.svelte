@@ -56,8 +56,8 @@
 
 	const caseTemplateOptions = $derived.by<SelectOption[]>(() =>
 		caseTemplates.caseTemplates.map((t) => ({
-			value: String(t.template_id),
-			label: t.template_name
+			value: String(t.id),
+			label: t.display_name || t.name
 		}))
 	);
 

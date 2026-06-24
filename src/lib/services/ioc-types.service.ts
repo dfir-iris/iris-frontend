@@ -9,14 +9,15 @@ export interface IocType {
 }
 
 type IocTypesResponse = {
-	status: string;
-	message: string;
 	data: IocType[];
 };
 
 export class IocTypesService {
 	static async list(options: ApiOptions = {}): Promise<RequestResponse<IocType[]>> {
-		const res = await ApiService.get<IocTypesResponse>('/manage/ioc-types/list', options);
+		// v2 paginated envelope shares `data: T[]` with the legacy
+		// `{status, message, data}` envelope — the unwrap below
+		// covers both shapes.
+		const res = await ApiService.get<IocTypesResponse>('/manage/case-objects/ioc-types', options);
 		const data = typeof res.data === 'object' && res.data !== null ? res.data.data : [];
 
 		return {

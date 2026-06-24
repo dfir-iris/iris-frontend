@@ -43,16 +43,25 @@ export interface UpdateGroupMembersBody {
 	group_members: number[];
 }
 
+/**
+ * Hits the v2 groups surface. The v2 `PUT /<id>/members` accepts
+ * `{members: [int]}` but also tolerates the legacy `group_members`
+ * key, so this wrapper's payload shape is unchanged.
+ */
 export class GroupsService {
 	static async list(options: ApiOptions = {}): Promise<RequestResponse<Group[]>> {
-		return ApiService.get<Group[]>(`/manage/groups/list`, options);
+		// Returns the paginated envelope `{total, data, ...}`; the
+		// existing consumer (`CaseAccessGroup.svelte`) reaches into
+		// `res.data.data` so the shape is back-compat. per_page=200
+		// covers any realistic group count in one request.
+		return ApiService.get<Group[]>('/manage/groups?per_page=200', options);
 	}
 
 	static async create(
 		body: CreateGroupBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<Group>> {
-		return ApiService.post<Group>(`/manage/groups/add`, body, options);
+		return ApiService.post<Group>('/manage/groups', body, options);
 	}
 
 	static async update(
@@ -60,14 +69,14 @@ export class GroupsService {
 		body: UpdateGroupBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<Group>> {
-		return ApiService.post<Group>(`/manage/groups/update/${groupId}`, body, options);
+		return ApiService.put<Group>(`/manage/groups/${groupId}`, body, options);
 	}
 
 	static async remove(
 		groupId: GroupIdentifier,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
-		return ApiService.post<null>(`/manage/groups/delete/${groupId}`, {}, options);
+		return ApiService.delete<null>(`/manage/groups/${groupId}`, options);
 	}
 
 	static async updateMembers(
@@ -75,7 +84,7 @@ export class GroupsService {
 		body: UpdateGroupMembersBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
-		return ApiService.post<null>(`/manage/groups/${groupId}/members/update`, body, options);
+		return ApiService.put<null>(`/manage/groups/${groupId}/members`, body, options);
 	}
 
 	static async removeMember(
@@ -83,6 +92,6 @@ export class GroupsService {
 		userId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
-		return ApiService.post<null>(`/manage/groups/${groupId}/members/delete/${userId}`, {}, options);
+		return ApiService.delete<null>(`/manage/groups/${groupId}/members/${userId}`, options);
 	}
 }

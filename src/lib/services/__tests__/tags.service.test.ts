@@ -55,17 +55,17 @@ describe('TagsService', () => {
 		};
 
 		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-			'/manage/tags/list?page=2&per_page=25&order_by=tag_title&sort_dir=asc&tag_title=prod'
+			'/tags?page=2&per_page=25&order_by=tag_title&sort_dir=asc&tag_title=prod'
 		);
 		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await TagsService.list(params, options);
 
 		expect(ApiService.withQuery).toHaveBeenCalledTimes(1);
-		expect(ApiService.withQuery).toHaveBeenCalledWith('/manage/tags/list', params);
+		expect(ApiService.withQuery).toHaveBeenCalledWith('/tags', params);
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
 		expect(ApiService.get).toHaveBeenCalledWith(
-			'/manage/tags/list?page=2&per_page=25&order_by=tag_title&sort_dir=asc&tag_title=prod',
+			'/tags?page=2&per_page=25&order_by=tag_title&sort_dir=asc&tag_title=prod',
 			options
 		);
 		expect(res).toBe(mockResponse);
@@ -104,14 +104,14 @@ describe('TagsService', () => {
 		};
 
 		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-			'/manage/tags/list?page=1&per_page=10&order_by=tag_title&sort_dir=asc&tag_title=prod'
+			'/tags?page=1&per_page=10&order_by=tag_title&sort_dir=asc&tag_title=prod'
 		);
 		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await TagsService.suggestions(' prod ', options);
 
 		expect(ApiService.withQuery).toHaveBeenCalledTimes(1);
-		expect(ApiService.withQuery).toHaveBeenCalledWith('/manage/tags/list', {
+		expect(ApiService.withQuery).toHaveBeenCalledWith('/tags', {
 			page: 1,
 			per_page: 10,
 			order_by: 'tag_title',
@@ -132,7 +132,7 @@ describe('TagsService', () => {
 		};
 
 		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-			'/manage/tags/list?page=1&per_page=10&order_by=tag_title&sort_dir=asc&tag_title=prod'
+			'/tags?page=1&per_page=10&order_by=tag_title&sort_dir=asc&tag_title=prod'
 		);
 		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 

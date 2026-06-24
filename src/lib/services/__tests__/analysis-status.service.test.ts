@@ -25,7 +25,7 @@ describe('AnalysisStatusService', () => {
 		vi.restoreAllMocks();
 	});
 
-	it('list() should build query and return unwrapped analysis statuses', async () => {
+	it('list() hits the case-agnostic v2 endpoint and unwraps the envelope', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const items: AnalysisStatusItem[] = [
@@ -37,29 +37,22 @@ describe('AnalysisStatusService', () => {
 			ok: true,
 			status: 200,
 			data: {
-				data: items,
-				message: 'ok',
-				status: 'success'
+				data: items
 			}
 		};
 
-		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-			'/manage/analysis-status/list?cid=73'
-		);
 		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await AnalysisStatusService.list(73, options);
 
-		expect(ApiService.withQuery).toHaveBeenCalledTimes(1);
-		expect(ApiService.withQuery).toHaveBeenCalledWith('/manage/analysis-status/list', {
-			cid: 73
-		});
+		// `caseId` argument is accepted but ignored — the legacy
+		// `cid` query param is gone on v2.
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
-		expect(ApiService.get).toHaveBeenCalledWith('/manage/analysis-status/list?cid=73', options);
+		expect(ApiService.get).toHaveBeenCalledWith('/manage/analysis-statuses', options);
 		expect(res.data).toBe(items);
 	});
 
-	it('list() should return empty array when response data is invalid', async () => {
+	it('list() returns empty array when response data is invalid', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const mockResponse = {
@@ -68,9 +61,6 @@ describe('AnalysisStatusService', () => {
 			data: null
 		};
 
-		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-			'/manage/analysis-status/list?cid=73'
-		);
 		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await AnalysisStatusService.list(73, options);
@@ -78,43 +68,39 @@ describe('AnalysisStatusService', () => {
 		expect(res.data).toEqual([]);
 	});
 
-	it('get() should call ApiService.get with /manage/analysis-status/{id} and return unwrapped status', async () => {
+	it('get() falls back to filtering the full list', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
-		const item: AnalysisStatusItem = {
-			id: 6,
-			name: 'Done'
-		};
+		// v2 doesn't expose a bare /<id> endpoint for analysis
+		// statuses (the table has a handful of rows, so a full list
+		// fetch is cheap). The service's `get()` filters the list
+		// locally so the caller's signature stays unchanged.
+		const items: AnalysisStatusItem[] = [
+			{ id: 1, name: 'Unspecified' },
+			{ id: 6, name: 'Done' }
+		];
 
-		const mockResponse = {
+		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
 			ok: true,
 			status: 200,
-			data: {
-				data: item,
-				message: 'ok',
-				status: 'success'
-			}
-		};
-
-		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+			data: { data: items }
+		});
 
 		const res = await AnalysisStatusService.get(6, options);
 
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
-		expect(ApiService.get).toHaveBeenCalledWith('/manage/analysis-status/6', options);
-		expect(res.data).toBe(item);
+		expect(ApiService.get).toHaveBeenCalledWith('/manage/analysis-statuses', options);
+		expect(res.data).toEqual({ id: 6, name: 'Done' });
 	});
 
-	it('get() should return null when response data is invalid', async () => {
+	it('get() returns null when the list is empty', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
-		const mockResponse = {
+		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
 			ok: false,
 			status: 404,
 			data: null
-		};
-
-		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+		});
 
 		const res = await AnalysisStatusService.get(6, options);
 

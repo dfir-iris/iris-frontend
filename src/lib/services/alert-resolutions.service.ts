@@ -9,6 +9,6 @@ export type AlertResolution = {
 
 export class AlertResolutionService {
 	static async list(options: ApiOptions = {}): Promise<RequestResponse<AlertResolution[]>> {
-		return ApiService.get<AlertResolution[]>('/manage/alert-resolutions/list', options);
+		return ApiService.get<AlertResolution[]>('/manage/alert-resolutions', options);
 	}
 }

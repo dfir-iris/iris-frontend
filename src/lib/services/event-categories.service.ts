@@ -10,6 +10,6 @@ export interface EventCategory {
 
 export class EventCategoriesService {
 	static async list(options: ApiOptions = {}): Promise<RequestResponse<EventCategory[]>> {
-		return ApiService.get<EventCategory[]>('/manage/event-categories/list', options);
+		return ApiService.get<EventCategory[]>('/manage/event-categories', options);
 	}
 }

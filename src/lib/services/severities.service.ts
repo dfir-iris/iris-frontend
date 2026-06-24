@@ -11,6 +11,10 @@ export interface Severity {
 
 export class SeveritiesService {
 	static async list(options: ApiOptions = {}): Promise<RequestResponse<Severity[]>> {
-		return ApiService.get<Severity[]>(`/manage/severities/list`, options);
+		// Hits the v2 read-only endpoint. The v2 surface returns a
+		// paginated envelope (`{total, data, ...}`); consumers already
+		// reach into `.data.data` to unwrap the legacy
+		// `{status, data: T[]}` shape and get the same array.
+		return ApiService.get<Severity[]>(`/manage/severities`, options);
 	}
 }

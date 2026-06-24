@@ -23,26 +23,28 @@ export interface UpdateCaseClassificationBody {
 	description?: string;
 }
 
+// Hits the v2 case-objects taxonomy surface
+// (`/api/v2/manage/case-objects/case-classifications/...`). REST verbs
+// replace the legacy `/add`, `/update/<id>`, `/delete/<id>` paths.
+const BASE = '/manage/case-objects/case-classifications';
+
 export class CaseClassificationsService {
 	static async list(options: ApiOptions = {}): Promise<RequestResponse<CaseClassification[]>> {
-		return ApiService.get<CaseClassification[]>(`/manage/case-classifications/list`, options);
+		return ApiService.get<CaseClassification[]>(BASE, options);
 	}
 
 	static async get(
 		classificationId: CaseClassificationIdentifier,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<CaseClassification>> {
-		return ApiService.get<CaseClassification>(
-			`/manage/case-classifications/${classificationId}`,
-			options
-		);
+		return ApiService.get<CaseClassification>(`${BASE}/${classificationId}`, options);
 	}
 
 	static async create(
 		body: CreateCaseClassificationBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<CaseClassification>> {
-		return ApiService.post<CaseClassification>(`/manage/case-classifications/add`, body, options);
+		return ApiService.post<CaseClassification>(BASE, body, options);
 	}
 
 	static async update(
@@ -50,21 +52,13 @@ export class CaseClassificationsService {
 		body: UpdateCaseClassificationBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<CaseClassification>> {
-		return ApiService.post<CaseClassification>(
-			`/manage/case-classifications/update/${classificationId}`,
-			body,
-			options
-		);
+		return ApiService.put<CaseClassification>(`${BASE}/${classificationId}`, body, options);
 	}
 
 	static async remove(
 		classificationId: CaseClassificationIdentifier,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
-		return ApiService.post<null>(
-			`/manage/case-classifications/delete/${classificationId}`,
-			{},
-			options
-		);
+		return ApiService.delete<null>(`${BASE}/${classificationId}`, options);
 	}
 }

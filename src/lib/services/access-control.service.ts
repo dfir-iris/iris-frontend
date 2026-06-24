@@ -1,16 +1,10 @@
 /**
  * v2 service for the Settings Access Control page.
  *
- * Co-exists with the legacy `UsersService` / `GroupsService` /
- * `CaseAccessService` — those services keep hitting the legacy
- * /manage/ paths for production callers (case modals, alerts
- * reassign dialog, user picker, etc.).
- *
- * Every method here sets the `X-Iris-V2-Native: true` header so the
- * SvelteKit proxy (`src/hooks.server.ts`) bypasses the legacy-path
- * rewrite and the request reaches the v2 backend at its real URL.
- * That gives us a clean v2 schema for the admin page without
- * breaking the legacy callers that still depend on the rewrite.
+ * Every legacy /manage/* path has been migrated to v2; this service
+ * is now a plain wrapper over `/api/v2/manage/users`,
+ * `/api/v2/manage/groups`, and `/api/v2/manage/access-control` with
+ * no proxy magic needed.
  */
 import { ApiService } from './api.service';
 import type { ApiOptions, Paginated, RequestResponse } from './api.service';
@@ -148,12 +142,13 @@ export interface UserAudit {
 
 // ---- Helpers ---------------------------------------------------------
 
-const V2_HEADERS = { 'X-Iris-V2-Native': 'true' } as const;
-
-const withV2Header = (options: ApiOptions = {}): ApiOptions => ({
-	...options,
-	headers: { ...V2_HEADERS, ...(options.headers ?? {}) }
-});
+/**
+ * Pass-through. Used to set the `X-Iris-V2-Native` header for the
+ * SvelteKit proxy to bypass the legacy /manage/ rewrite; now that
+ * the rewrite is gone the helper just returns the input unchanged.
+ * Kept so call sites don't churn — can be deleted in a follow-up.
+ */
+const withV2Header = (options: ApiOptions = {}): ApiOptions => options;
 
 // ---- Service ---------------------------------------------------------
 
@@ -560,8 +555,7 @@ async function jsonDelete<T>(
 
 	const headers: Record<string, string> = {
 		'Content-Type': 'application/json',
-		Accept: 'application/json',
-		'X-Iris-V2-Native': 'true'
+		Accept: 'application/json'
 	};
 	const token = auth.getAccessToken();
 	if (token) headers.Authorization = `Bearer ${token}`;

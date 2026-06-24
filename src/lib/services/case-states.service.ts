@@ -15,23 +15,32 @@ export interface CaseStateBody {
 	state_description?: string;
 }
 
+/**
+ * All routes now point at the v2 case-objects taxonomy surface
+ * (`/api/v2/manage/case-objects/case-states/...`). The CRUD verbs
+ * mirror the REST conventions used by every other v2 endpoint —
+ * POST to the collection, PUT/DELETE on the row — replacing the
+ * legacy `/add`, `/update/<id>`, `/delete/<id>` URL verbs.
+ */
+const BASE = '/manage/case-objects/case-states';
+
 export class CaseStatesService {
 	static async list(options: ApiOptions = {}): Promise<RequestResponse<CaseState[]>> {
-		return ApiService.get<CaseState[]>(`/manage/case-states/list`, options);
+		return ApiService.get<CaseState[]>(BASE, options);
 	}
 
 	static async get(
 		stateId: CaseStateIdentifier,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<CaseState>> {
-		return ApiService.get<CaseState>(`/manage/case-states/${stateId}`, options);
+		return ApiService.get<CaseState>(`${BASE}/${stateId}`, options);
 	}
 
 	static async create(
 		body: CaseStateBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<CaseState>> {
-		return ApiService.post<CaseState>(`/manage/case-states/add`, body, options);
+		return ApiService.post<CaseState>(BASE, body, options);
 	}
 
 	static async update(
@@ -39,13 +48,13 @@ export class CaseStatesService {
 		body: CaseStateBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<CaseState>> {
-		return ApiService.post<CaseState>(`/manage/case-states/update/${stateId}`, body, options);
+		return ApiService.put<CaseState>(`${BASE}/${stateId}`, body, options);
 	}
 
 	static async remove(
 		stateId: CaseStateIdentifier,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
-		return ApiService.post<null>(`/manage/case-states/delete/${stateId}`, {}, options);
+		return ApiService.delete<null>(`${BASE}/${stateId}`, options);
 	}
 }

@@ -24,7 +24,7 @@ describe('CaseSeveritiesService', () => {
 		vi.restoreAllMocks();
 	});
 
-	it('list() should call ApiService.get with /manage/severities/list + options', async () => {
+	it('list() hits the v2 severities endpoint', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const mockResponse = {
@@ -44,7 +44,7 @@ describe('CaseSeveritiesService', () => {
 		const res = await SeveritiesService.list(options);
 
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
-		expect(ApiService.get).toHaveBeenCalledWith('/manage/severities/list', options);
+		expect(ApiService.get).toHaveBeenCalledWith('/manage/severities', options);
 		expect(res).toBe(mockResponse);
 	});
 });

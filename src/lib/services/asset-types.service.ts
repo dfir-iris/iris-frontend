@@ -21,12 +21,19 @@ type ApiEnvelope<T> = {
 };
 
 export class AssetTypesService {
+	/**
+	 * The v2 endpoint is case-agnostic (asset types are global seed
+	 * data); the legacy `cid` query param is accepted-but-ignored
+	 * for back-compat with existing callers.
+	 */
 	static async list(
-		caseId: number,
+		_caseId?: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<AssetType[]>> {
-		const path = ApiService.withQuery('/manage/asset-type/list', { cid: caseId });
-		const res = await ApiService.get<ApiEnvelope<AssetType[]>>(path, options);
+		const res = await ApiService.get<ApiEnvelope<AssetType[]>>(
+			'/manage/case-objects/asset-types',
+			options
+		);
 
 		if (res.ok && res.data !== null && typeof res.data !== 'string') {
 			return { ...res, data: res.data.data };
@@ -38,14 +45,16 @@ export class AssetTypesService {
 	static async get(
 		assetTypeId: AssetTypeIdentifier,
 		options: ApiOptions = {}
-	): Promise<RequestResponse<AssetType>> {
-		const res = await ApiService.get<ApiEnvelope<AssetType>>(
-			`/manage/asset-type/${assetTypeId}`,
+	): Promise<RequestResponse<AssetType | null>> {
+		const res = await ApiService.get<AssetType>(
+			`/manage/case-objects/asset-types/${assetTypeId}`,
 			options
 		);
 
 		if (res.ok && res.data !== null && typeof res.data !== 'string') {
-			return { ...res, data: res.data.data };
+			// The v2 `read` returns the row directly (not wrapped in
+			// `{data: ...}` like the legacy envelope).
+			return { ...res, data: res.data as AssetType };
 		}
 
 		return { ...res, data: null };

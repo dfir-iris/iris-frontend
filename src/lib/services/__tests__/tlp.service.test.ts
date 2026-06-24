@@ -44,7 +44,7 @@ describe('TlpService', () => {
 		const res = await TlpService.list(options);
 
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
-		expect(ApiService.get).toHaveBeenCalledWith('/manage/tlp/list', options);
+		expect(ApiService.get).toHaveBeenCalledWith('/manage/tlp', options);
 		expect(res).toEqual({
 			...mockResponse,
 			data

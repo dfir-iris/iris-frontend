@@ -30,7 +30,7 @@ describe('GroupsService', () => {
 		vi.restoreAllMocks();
 	});
 
-	it('list() should call ApiService.get with /manage/groups/list + options', async () => {
+	it('list() hits the v2 paginated groups endpoint', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const mockResponse = {
@@ -63,11 +63,15 @@ describe('GroupsService', () => {
 		const res = await GroupsService.list(options);
 
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
-		expect(ApiService.get).toHaveBeenCalledWith('/manage/groups/list', options);
+		// per_page=200 is large enough to cover any realistic group
+		// count in a single request — production code reads
+		// `res.data.data` (the paginated envelope's array) the same
+		// way the legacy `{status, data: T[]}` envelope was unwrapped.
+		expect(ApiService.get).toHaveBeenCalledWith('/manage/groups?per_page=200', options);
 		expect(res).toBe(mockResponse);
 	});
 
-	it('create() should call ApiService.post with /manage/groups/add, body, options', async () => {
+	it('create() POSTs to the v2 collection', async () => {
 		const body: CreateGroupBody = {
 			group_name: 'New Group',
 			group_description: 'New group description',
@@ -78,7 +82,7 @@ describe('GroupsService', () => {
 
 		const mockResponse = {
 			ok: true,
-			status: 200,
+			status: 201,
 			data: {
 				group_auto_follow: false,
 				group_auto_follow_access_level: 0,
@@ -98,11 +102,11 @@ describe('GroupsService', () => {
 		const res = await GroupsService.create(body, options);
 
 		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith('/manage/groups/add', body, options);
+		expect(ApiService.post).toHaveBeenCalledWith('/manage/groups', body, options);
 		expect(res).toBe(mockResponse);
 	});
 
-	it('update() should call ApiService.post with /manage/groups/update/{id}, body, options', async () => {
+	it('update() PUTs to the v2 by-id endpoint', async () => {
 		const body: UpdateGroupBody = {
 			group_description: 'Updated description'
 		};
@@ -126,16 +130,16 @@ describe('GroupsService', () => {
 			} satisfies Group
 		};
 
-		(ApiService.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+		(ApiService.put as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await GroupsService.update(7, body, options);
 
-		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith('/manage/groups/update/7', body, options);
+		expect(ApiService.put).toHaveBeenCalledTimes(1);
+		expect(ApiService.put).toHaveBeenCalledWith('/manage/groups/7', body, options);
 		expect(res).toBe(mockResponse);
 	});
 
-	it('remove() should call ApiService.post with /manage/groups/delete/{id}, empty body, options', async () => {
+	it('remove() DELETEs the v2 by-id endpoint', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const mockResponse = {
@@ -144,16 +148,16 @@ describe('GroupsService', () => {
 			data: null
 		};
 
-		(ApiService.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+		(ApiService.delete as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await GroupsService.remove(7, options);
 
-		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith('/manage/groups/delete/7', {}, options);
+		expect(ApiService.delete).toHaveBeenCalledTimes(1);
+		expect(ApiService.delete).toHaveBeenCalledWith('/manage/groups/7', options);
 		expect(res).toBe(mockResponse);
 	});
 
-	it('updateMembers() should call ApiService.post with /manage/groups/{id}/members/update, body, options', async () => {
+	it('updateMembers() PUTs to the v2 members sub-resource', async () => {
 		const body: UpdateGroupMembersBody = {
 			group_members: [1, 2, 3]
 		};
@@ -162,20 +166,23 @@ describe('GroupsService', () => {
 
 		const mockResponse = {
 			ok: true,
-			status: 204,
+			status: 200,
 			data: null
 		};
 
-		(ApiService.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+		(ApiService.put as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await GroupsService.updateMembers(7, body, options);
 
-		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith('/manage/groups/7/members/update', body, options);
+		expect(ApiService.put).toHaveBeenCalledTimes(1);
+		// Backend accepts either `members` (v2) or `group_members`
+		// (legacy alias) — we keep sending the legacy key for
+		// back-compat with any caller still on the old payload shape.
+		expect(ApiService.put).toHaveBeenCalledWith('/manage/groups/7/members', body, options);
 		expect(res).toBe(mockResponse);
 	});
 
-	it('removeMember() should call ApiService.post with /manage/groups/{id}/members/delete/{userId}, empty body, options', async () => {
+	it('removeMember() DELETEs the v2 members/{userId} sub-resource', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const mockResponse = {
@@ -184,16 +191,12 @@ describe('GroupsService', () => {
 			data: null
 		};
 
-		(ApiService.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+		(ApiService.delete as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await GroupsService.removeMember(7, 123, options);
 
-		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith(
-			'/manage/groups/7/members/delete/123',
-			{},
-			options
-		);
+		expect(ApiService.delete).toHaveBeenCalledTimes(1);
+		expect(ApiService.delete).toHaveBeenCalledWith('/manage/groups/7/members/123', options);
 		expect(res).toBe(mockResponse);
 	});
 });

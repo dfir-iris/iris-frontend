@@ -25,7 +25,7 @@ describe('CaseStatesService', () => {
 		vi.restoreAllMocks();
 	});
 
-	it('list() should call ApiService.get with /manage/case-states/list + options', async () => {
+	it('list() hits the v2 case-objects case-states endpoint', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const mockResponse = {
@@ -46,11 +46,11 @@ describe('CaseStatesService', () => {
 		const res = await CaseStatesService.list(options);
 
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
-		expect(ApiService.get).toHaveBeenCalledWith('/manage/case-states/list', options);
+		expect(ApiService.get).toHaveBeenCalledWith('/manage/case-objects/case-states', options);
 		expect(res).toBe(mockResponse);
 	});
 
-	it('get() should call ApiService.get with /manage/case-states/{id} + options', async () => {
+	it('get() hits the v2 by-id endpoint', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const mockResponse = {
@@ -69,11 +69,11 @@ describe('CaseStatesService', () => {
 		const res = await CaseStatesService.get(7, options);
 
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
-		expect(ApiService.get).toHaveBeenCalledWith('/manage/case-states/7', options);
+		expect(ApiService.get).toHaveBeenCalledWith('/manage/case-objects/case-states/7', options);
 		expect(res).toBe(mockResponse);
 	});
 
-	it('create() should call ApiService.post with /manage/case-states/add, body, options', async () => {
+	it('create() POSTs to the v2 collection', async () => {
 		const body: CaseStateBody = {
 			state_name: 'In review',
 			state_description: 'Case is being reviewed'
@@ -83,7 +83,7 @@ describe('CaseStatesService', () => {
 
 		const mockResponse = {
 			ok: true,
-			status: 200,
+			status: 201,
 			data: {
 				state_id: 101,
 				state_name: 'In review',
@@ -97,11 +97,15 @@ describe('CaseStatesService', () => {
 		const res = await CaseStatesService.create(body, options);
 
 		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith('/manage/case-states/add', body, options);
+		expect(ApiService.post).toHaveBeenCalledWith(
+			'/manage/case-objects/case-states',
+			body,
+			options
+		);
 		expect(res).toBe(mockResponse);
 	});
 
-	it('update() should call ApiService.post with /manage/case-states/update/{id}, body, options', async () => {
+	it('update() PUTs to the v2 by-id endpoint', async () => {
 		const body: CaseStateBody = {
 			state_description: 'Updated description'
 		};
@@ -119,16 +123,20 @@ describe('CaseStatesService', () => {
 			} satisfies CaseState
 		};
 
-		(ApiService.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+		(ApiService.put as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await CaseStatesService.update(7, body, options);
 
-		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith('/manage/case-states/update/7', body, options);
+		expect(ApiService.put).toHaveBeenCalledTimes(1);
+		expect(ApiService.put).toHaveBeenCalledWith(
+			'/manage/case-objects/case-states/7',
+			body,
+			options
+		);
 		expect(res).toBe(mockResponse);
 	});
 
-	it('remove() should call ApiService.post with /manage/case-states/delete/{id}, empty body, options', async () => {
+	it('remove() DELETEs the v2 by-id endpoint', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const mockResponse = {
@@ -137,12 +145,15 @@ describe('CaseStatesService', () => {
 			data: null
 		};
 
-		(ApiService.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+		(ApiService.delete as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await CaseStatesService.remove(7, options);
 
-		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith('/manage/case-states/delete/7', {}, options);
+		expect(ApiService.delete).toHaveBeenCalledTimes(1);
+		expect(ApiService.delete).toHaveBeenCalledWith(
+			'/manage/case-objects/case-states/7',
+			options
+		);
 		expect(res).toBe(mockResponse);
 	});
 });

@@ -105,11 +105,11 @@ describe('CustomersService', () => {
 		const res = await CustomersService.create(body, options);
 
 		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith('/manage/customers/add', body, options);
+		expect(ApiService.post).toHaveBeenCalledWith('/manage/customers', body, options);
 		expect(res).toBe(mockResponse);
 	});
 
-	it('update() should call ApiService.post with /manage/customers/update/{id}, body, options', async () => {
+	it('update() PUTs to the v2 by-id endpoint', async () => {
 		const body: CustomerBody = {
 			customer_description: 'Updated description'
 		};
@@ -129,16 +129,16 @@ describe('CustomersService', () => {
 			} satisfies Customer
 		};
 
-		(ApiService.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+		(ApiService.put as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await CustomersService.update(7, body, options);
 
-		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith('/manage/customers/update/7', body, options);
+		expect(ApiService.put).toHaveBeenCalledTimes(1);
+		expect(ApiService.put).toHaveBeenCalledWith('/manage/customers/7', body, options);
 		expect(res).toBe(mockResponse);
 	});
 
-	it('remove() should call ApiService.post with /manage/customers/delete/{id}, empty body, options', async () => {
+	it('remove() DELETEs the v2 by-id endpoint', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const mockResponse = {
@@ -147,12 +147,12 @@ describe('CustomersService', () => {
 			data: null
 		};
 
-		(ApiService.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+		(ApiService.delete as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await CustomersService.remove(7, options);
 
-		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith('/manage/customers/delete/7', {}, options);
+		expect(ApiService.delete).toHaveBeenCalledTimes(1);
+		expect(ApiService.delete).toHaveBeenCalledWith('/manage/customers/7', options);
 		expect(res).toBe(mockResponse);
 	});
 });

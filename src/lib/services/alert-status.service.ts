@@ -9,6 +9,6 @@ export type AlertStatus = {
 
 export class AlertStatusService {
 	static async list(options: ApiOptions = {}): Promise<RequestResponse<AlertStatus[]>> {
-		return ApiService.get<AlertStatus[]>('/manage/alert-status/list', options);
+		return ApiService.get<AlertStatus[]>('/manage/alert-statuses', options);
 	}
 }
