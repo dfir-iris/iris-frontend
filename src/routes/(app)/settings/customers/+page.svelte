@@ -28,9 +28,11 @@
 		PhoneIcon,
 		PlusIcon,
 		RefreshCwIcon,
+		SearchIcon,
 		SmartphoneIcon,
 		Trash2Icon,
-		UserPlusIcon
+		UserPlusIcon,
+		XIcon
 	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
@@ -72,6 +74,13 @@
 	});
 
 	let customersList = $state<ListState<Customer>>(emptyListState());
+
+	// Free-text search across customer name + description. Debounced
+	// before hitting the backend so each keystroke doesn't fire a
+	// request — the wait also keeps the auto-select on the first row
+	// of the new result set predictable (no partial-keystroke flashes).
+	let searchValue = $state('');
+	let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// Detail-pane state. `selectedId` doubles as "is a customer
 	// selected?" — null means the empty-state placeholder shows.
@@ -119,10 +128,16 @@
 	const showSuccess = (msg: string) => toast({ title: msg, variant: 'success' });
 
 	// Customers list ---------------------------------------------------
+	const currentSearchTerm = () => searchValue.trim() || undefined;
+
 	const loadCustomers = async () => {
 		customersList = { ...emptyListState<Customer>(), loading: true };
 		try {
-			const res = await CustomersService.search({ page: 1, per_page: PAGE_SIZE });
+			const res = await CustomersService.search({
+				page: 1,
+				per_page: PAGE_SIZE,
+				search: currentSearchTerm()
+			});
 			if (res.ok && res.data && typeof res.data !== 'string') {
 				const env = res.data;
 				customersList = {
@@ -156,6 +171,14 @@
 		}
 	};
 
+	// Debounced search trigger — bound to the input's `oninput`.
+	const queueSearch = () => {
+		if (searchTimer) clearTimeout(searchTimer);
+		searchTimer = setTimeout(() => {
+			void loadCustomers();
+		}, 250);
+	};
+
 	const loadMoreCustomers = async () => {
 		if (
 			customersList.loading ||
@@ -166,7 +189,11 @@
 		customersList = { ...customersList, loadingMore: true };
 		const page = customersList.nextPage as number;
 		try {
-			const res = await CustomersService.search({ page, per_page: PAGE_SIZE });
+			const res = await CustomersService.search({
+				page,
+				per_page: PAGE_SIZE,
+				search: currentSearchTerm()
+			});
 			if (res.ok && res.data && typeof res.data !== 'string') {
 				const env = res.data;
 				customersList = {
@@ -499,16 +526,49 @@
 	<div class="flex flex-1 gap-3 overflow-hidden p-4">
 		<!-- Customers list (master) -->
 		<section class="flex min-h-0 flex-1 basis-2/5 flex-col overflow-hidden rounded-md border">
-			<div
-				class="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2"
-			>
-				<div class="flex items-baseline gap-2">
-					<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-						Customers
-					</h2>
-					<span class="text-2xs text-muted-foreground tabular-nums">
-						{customersList.items.length} / {customersList.total}
-					</span>
+			<div class="flex flex-col gap-2 border-b bg-muted/30 px-3 py-2">
+				<div class="flex items-center justify-between gap-2">
+					<div class="flex items-baseline gap-2">
+						<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+							Customers
+						</h2>
+						<span class="text-2xs text-muted-foreground tabular-nums">
+							{customersList.items.length} / {customersList.total}
+						</span>
+					</div>
+				</div>
+
+				<!--
+				  Search input lives under the title so it scrolls
+				  with the list header bar (stays visible at top of
+				  the master pane). Debounced ILIKE match against
+				  customer name + description.
+				-->
+				<div class="relative">
+					<SearchIcon
+						size={12}
+						class="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+					/>
+					<Input
+						type="search"
+						placeholder="Search by name or description…"
+						class="h-7 pl-7 pr-7 text-xs"
+						bind:value={searchValue}
+						oninput={queueSearch}
+					/>
+					{#if searchValue}
+						<button
+							type="button"
+							aria-label="Clear search"
+							class="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+							onclick={() => {
+								searchValue = '';
+								queueSearch();
+							}}
+						>
+							<XIcon size={11} />
+						</button>
+					{/if}
 				</div>
 			</div>
 
@@ -520,9 +580,15 @@
 						{/each}
 					</div>
 				{:else if customersList.items.length === 0}
-					<p class="px-3 py-6 text-center text-xs text-muted-foreground">
-						No customers yet. Click <span class="font-medium">Add customer</span> to create one.
-					</p>
+					{#if searchValue.trim()}
+						<p class="px-3 py-6 text-center text-xs text-muted-foreground">
+							No customers match <span class="font-mono">{searchValue.trim()}</span>.
+						</p>
+					{:else}
+						<p class="px-3 py-6 text-center text-xs text-muted-foreground">
+							No customers yet. Click <span class="font-medium">Add customer</span> to create one.
+						</p>
+					{/if}
 				{:else}
 					<ul class="divide-y">
 						{#each customersList.items as customer (customer.customer_id)}

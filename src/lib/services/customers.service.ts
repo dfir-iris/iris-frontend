@@ -47,6 +47,8 @@ export interface SearchCustomersParams {
 	per_page?: number;
 	order_by?: string;
 	sort_dir?: 'asc' | 'desc';
+	/** Case-insensitive ILIKE match across customer name + description. */
+	search?: string;
 }
 
 export class CustomersService {
