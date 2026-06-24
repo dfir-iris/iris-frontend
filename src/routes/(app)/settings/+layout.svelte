@@ -2,82 +2,76 @@
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 	import {
-		BiohazardIcon,
 		BookDashedIcon,
-		BookIcon,
-		ComputerIcon,
-		DatabaseBackupIcon,
-		FileLock2Icon,
+		CircleUserIcon,
 		Icon,
-		InfoIcon,
-		NotepadTextDashed,
-		PuzzleIcon,
+		LayersIcon,
+		LockKeyholeIcon,
+		NewspaperIcon,
+		ServerIcon,
 		SettingsIcon,
-		ShapesIcon,
-		ShieldIcon,
-		UserIcon,
-		UsersIcon
+		WaypointsIcon
 	} from 'lucide-svelte';
-	import { Button } from '$lib/components/ui/button';
+	import { page } from '$app/state';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
+
+	const pathname = $derived(page.url.pathname);
+
+	const items: { icon: typeof Icon; label: string; href: string }[] = [
+		{ icon: ServerIcon, label: 'Modules', href: '/modules' },
+		{ icon: CircleUserIcon, label: 'Customers', href: '/customers' },
+		{ icon: LayersIcon, label: 'Case Objects', href: '/case-objects' },
+		{ icon: WaypointsIcon, label: 'Custom Attributes', href: '/custom-attributes' },
+		{ icon: BookDashedIcon, label: 'Case Templates', href: '/case-templates' },
+		{ icon: NewspaperIcon, label: 'Report Templates', href: '/report-templates' },
+		{ icon: LockKeyholeIcon, label: 'Access Control', href: '/access-control' },
+		{ icon: SettingsIcon, label: 'Server Settings', href: '/server' }
+	];
+
+	const isActive = (href: string) => {
+		const target = `/settings${href}`;
+		return pathname === target || pathname.startsWith(`${target}/`);
+	};
 </script>
 
 <svelte:head>
 	<title>Settings | DFIR-IRIS</title>
 </svelte:head>
 
-<div class="flex h-screen w-screen flex-row p-6">
+<div class="flex h-screen w-screen flex-row gap-4 p-4">
 	<!-- Sidebar -->
-	<div class="flex w-1/3 flex-col items-start pr-2">
-		<!-- Header -->
-		<div class="flex flex-row items-center gap-x-2 px-3 pb-4">
-			<SettingsIcon size={32} class="!stroke-2" />
-			<h1>Manage IRIS</h1>
-		</div>
+	<aside class="flex w-56 shrink-0 flex-col">
+		<header class="flex items-center gap-2 px-2 pb-3">
+			<SettingsIcon size={16} class="text-muted-foreground" />
+			<h1 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+				Manage IRIS
+			</h1>
+		</header>
 
-		<!-- Data -->
-		{@render link(BookIcon, 'Case Options', '/cases')}
-		{@render link(ComputerIcon, 'Asset Options', '/assets')}
-		{@render link(BiohazardIcon, 'IOC Options', '/iocs')}
-		{@render link(FileLock2Icon, 'Evidence Options', '/evidence')}
-		{@render link(ShapesIcon, 'Custom Attributes', '/custom-attributes')}
+		<nav class="flex flex-col gap-0.5">
+			{#each items as item (item.href)}
+				{@const active = isActive(item.href)}
+				<a
+					href={`/settings${item.href}`}
+					class="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors {active
+						? 'bg-primary/10 font-medium text-foreground'
+						: 'text-muted-foreground hover:bg-muted hover:text-foreground'}"
+					aria-current={active ? 'page' : undefined}
+				>
+					<item.icon size={14} />
+					{item.label}
+				</a>
+			{/each}
+		</nav>
+	</aside>
 
-		<div class="my-2"></div>
-
-		<!-- Templates -->
-		{@render link(BookDashedIcon, 'Case Templates', '/cases/templates')}
-		{@render link(NotepadTextDashed, 'Report Templates', '/reports-templates')}
-
-		<div class="my-2"></div>
-
-		<!-- Security & access links -->
-		{@render link(UserIcon, 'Users', '/users')}
-		{@render link(UsersIcon, 'Groups', '/groups')}
-		{@render link(ShieldIcon, 'Security', '/security')}
-
-		<div class="my-2"></div>
-
-		<!-- System links -->
-		{@render link(PuzzleIcon, 'Plugins', '/plugins')}
-		{@render link(DatabaseBackupIcon, 'Backup & Restore', '/backup')}
-		{@render link(InfoIcon, 'About IRIS', '/about')}
-	</div>
-
-	<!-- Main page content -->
-	<div class="flex h-full w-full flex-col gap-y-2 rounded border bg-background shadow">
+	<!--
+	  Main page content. Uses `bg-card` (whiter than the page-level
+	  `bg-background` grey) so the right pane reads as a distinct
+	  surface raised over the sidebar column instead of blending in.
+	-->
+	<div class="flex h-full min-w-0 flex-1 flex-col rounded-md border bg-card shadow-elevation-1">
 		{@render children()}
 	</div>
 </div>
-
-<!-- Snippet for link -->
-{#snippet link(LinkIcon: typeof Icon, label: string, href: string)}
-	<Button
-		href="/settings{href}"
-		variant="ghost"
-		class="w-full items-center justify-start gap-x-2 hover:!bg-foreground/10"
-	>
-		<LinkIcon />
-		{label}
-	</Button>
-{/snippet}
