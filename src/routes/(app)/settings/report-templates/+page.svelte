@@ -124,7 +124,16 @@
 	let confirmOpen = $state(false);
 	let confirmTitle = $state('');
 	let confirmMessage = $state('');
+	let confirmConfirmText = $state('Delete');
 	let confirmAction = $state<() => Promise<void> | void>(() => {});
+
+	// Replace-file flow. Picks the file first, then opens the
+	// confirmation dialog so the admin gets a chance to cancel before
+	// overwriting an in-use template. The hidden <input> sits at the
+	// bottom of the page and is bound below.
+	let replaceFileInput: HTMLInputElement | null = $state(null);
+	let pendingReplaceFile = $state<File | null>(null);
+	let replaceBusy = $state(false);
 
 	const showError = (msg: string, fallback = 'Operation failed') =>
 		toast({ title: msg || fallback, variant: 'destructive' });
@@ -388,6 +397,7 @@
 		const tpl = selected;
 		confirmTitle = `Delete template "${tpl.name}"?`;
 		confirmMessage = 'This deletes the template file from disk. Cases previously rendered from it are unaffected.';
+		confirmConfirmText = 'Delete';
 		confirmAction = async () => {
 			const res = await ReportTemplatesService.remove(tpl.id);
 			if (res.ok) {
@@ -397,6 +407,52 @@
 			} else {
 				const data = res.data as { message?: string } | null;
 				showError(data?.message ?? res.error?.message ?? 'Unable to delete');
+			}
+		};
+		confirmOpen = true;
+	};
+
+	const startReplaceFile = () => {
+		if (!selected) return;
+		pendingReplaceFile = null;
+		replaceFileInput?.click();
+	};
+
+	const onReplaceFilePicked = (event: Event) => {
+		if (!selected) return;
+		const target = event.currentTarget as HTMLInputElement;
+		const file = target.files?.[0] ?? null;
+		// Reset the input so picking the same filename a second time
+		// still triggers a change event.
+		target.value = '';
+		if (!file) return;
+		pendingReplaceFile = file;
+		confirmTitle = `Replace file for "${selected.name}"?`;
+		confirmMessage = `The current template file will be overwritten with ${file.name}. Future renders will use the new file immediately; reports already rendered are unaffected.`;
+		confirmConfirmText = 'Replace';
+		confirmAction = async () => {
+			if (!selected || !pendingReplaceFile) return;
+			replaceBusy = true;
+			try {
+				const res = await ReportTemplatesService.replaceFile(selected.id, pendingReplaceFile);
+				if (res.ok && res.data && typeof res.data !== 'string') {
+					const row = res.data as ReportTemplate;
+					showSuccess('Template file replaced');
+					// Patch the row in place so the new `internal_reference`
+					// shows up in the metadata strip without a refetch.
+					listState = {
+						...listState,
+						items: listState.items.map((t) => (t.id === row.id ? row : t))
+					};
+				} else {
+					const data = res.data as { message?: string } | null;
+					showError(data?.message ?? res.error?.message ?? 'Replace failed');
+				}
+			} catch (e) {
+				showError((e as Error).message);
+			} finally {
+				replaceBusy = false;
+				pendingReplaceFile = null;
 			}
 		};
 		confirmOpen = true;
@@ -606,6 +662,16 @@
 						<Button variant="outline" size="sm" class="h-7" onclick={downloadCurrent}>
 							<DownloadIcon size={12} class="mr-1" />
 							Download
+						</Button>
+						<Button
+							variant="outline"
+							size="sm"
+							class="h-7"
+							onclick={startReplaceFile}
+							disabled={replaceBusy}
+						>
+							<UploadIcon size={12} class="mr-1" />
+							{replaceBusy ? 'Replacing…' : 'Replace file'}
 						</Button>
 						<Button
 							variant="outline"
@@ -1005,10 +1071,24 @@
 	</Dialog.Content>
 </Dialog.Root>
 
+<!--
+  Hidden file picker driving the "Replace file" flow. Triggered by
+  `startReplaceFile()` on the detail header button; the change
+  handler stashes the picked file and opens the confirmation dialog
+  so the upload only fires after the admin confirms.
+-->
+<input
+	bind:this={replaceFileInput}
+	type="file"
+	accept={schema?.allowed_extensions.map((e) => `.${e}`).join(',') ?? '.docx,.html,.md'}
+	class="hidden"
+	onchange={onReplaceFilePicked}
+/>
+
 <ConfirmationDialog
 	bind:open={confirmOpen}
 	title={confirmTitle}
 	message={confirmMessage}
-	confirmText="Delete"
+	confirmText={confirmConfirmText}
 	onConfirm={runConfirm}
 />

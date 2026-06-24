@@ -217,6 +217,41 @@ export class ReportTemplatesService {
 		);
 	}
 
+	/**
+	 * Replace the underlying template file in place. Metadata stays
+	 * unchanged — admins use `update()` for renames / language swaps.
+	 * The backend writes the new file under a fresh random name,
+	 * flips the row to point at it, then best-effort deletes the
+	 * previous file so a failed swap leaves the original intact.
+	 */
+	static async replaceFile(
+		identifier: number,
+		file: File
+	): Promise<RequestResponse<ReportTemplate>> {
+		const { headers, baseUrl } = await setupBinaryRequest();
+		const url = `${baseUrl}/api/v2/manage/report-templates/${identifier}/file`;
+		const fd = new FormData();
+		fd.append('file', file, file.name);
+
+		const response = await (typeof window !== 'undefined' ? window.fetch : globalThis.fetch)(url, {
+			method: 'PUT',
+			headers,
+			body: fd
+		});
+
+		let data: ReportTemplate | string | null = null;
+		try {
+			const ct = response.headers.get('content-type') ?? '';
+			data = ct.includes('application/json')
+				? ((await response.json()) as ReportTemplate)
+				: await response.text();
+		} catch {
+			data = null;
+		}
+
+		return { data, status: response.status, headers: response.headers, ok: response.ok };
+	}
+
 	static async remove(
 		identifier: number,
 		options: ApiOptions = {}
