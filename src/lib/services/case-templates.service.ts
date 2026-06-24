@@ -198,4 +198,58 @@ export class CaseTemplatesV2Service {
 	): Promise<RequestResponse<null>> {
 		return ApiService.delete<null>(`/manage/case-templates/${identifier}`, options);
 	}
+
+	static async schema(options: ApiOptions = {}): Promise<RequestResponse<CaseTemplateSchemaInfo>> {
+		return ApiService.get<CaseTemplateSchemaInfo>('/manage/case-templates/schema', options);
+	}
+}
+
+/**
+ * Field descriptor returned by `GET /api/v2/manage/case-templates/schema`.
+ *
+ * Mirrors the introspection backend in
+ * `app/blueprints/rest/v2/manage_routes/case_templates.py`. `kind`
+ * controls which widget the interactive editor renders.
+ *
+ * `item_schema` is set when `kind === 'list[object]'` and names one
+ * of the entries in `CaseTemplateSchemaInfo.item_schemas` — the
+ * editor uses that to render a repeating sub-form.
+ */
+export type CaseTemplateFieldKind =
+	| 'string'
+	| 'text'
+	| 'integer'
+	| 'boolean'
+	| 'datetime'
+	| 'list[string]'
+	| 'list[object]';
+
+export interface CaseTemplateField {
+	name: string;
+	label: string;
+	help: string;
+	kind: CaseTemplateFieldKind;
+	required: boolean;
+	allow_none: boolean;
+	dump_only: boolean;
+	max_length: number | null;
+	item_schema?: 'task' | 'note_directory' | 'note';
+}
+
+export interface CaseTemplateItemField {
+	name: string;
+	label: string;
+	kind: CaseTemplateFieldKind;
+	required: boolean;
+	help?: string;
+	item_schema?: 'task' | 'note_directory' | 'note';
+}
+
+export interface CaseTemplateSchemaInfo {
+	fields: CaseTemplateField[];
+	item_schemas: {
+		task: CaseTemplateItemField[];
+		note_directory: CaseTemplateItemField[];
+		note: CaseTemplateItemField[];
+	};
 }

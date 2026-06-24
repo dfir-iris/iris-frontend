@@ -1,13 +1,17 @@
 <!--
-  Case Templates admin page — Svelte port of the legacy
-  /manage/case-templates list + ACE-editor modal.
+  Case Templates admin page.
 
   Layout: master/detail
     • LEFT (basis-1/3): paginated template list with debounced
       search + infinite scroll, plus Add / Import / Refresh.
-    • RIGHT (basis-2/3): the editor. A tab strip switches between
-      JSON Editor and a Schema reference card. The editor uses the
-      existing JsonEditor (Ace, JSON mode, live validation).
+    • RIGHT (basis-2/3): interactive editor + a raw JSON fallback.
+
+  The interactive editor (`<CaseTemplateForm>`) is built dynamically
+  from the descriptor returned by `GET /api/v2/manage/case-templates/schema`
+  — the backend introspects `CaseTemplateSchema` at request time so a
+  field added to the Marshmallow schema shows up in the form without
+  any frontend change. The Raw JSON tab keeps an Ace editor for power
+  users importing pre-existing template files.
 
   Permissions:
     • The page itself sits under /settings (admin-gated).
@@ -20,6 +24,7 @@
 		BookDashedIcon,
 		DownloadIcon,
 		FileCodeIcon,
+		FormInputIcon,
 		HelpCircleIcon,
 		PlusIcon,
 		RefreshCwIcon,
@@ -35,11 +40,17 @@
 	import { toast } from '$lib/components/ui/toast';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
 	import JsonEditor from '$lib/components/common/editors/JsonEditor.svelte';
+	import CaseTemplateForm from './components/CaseTemplateForm.svelte';
 	import {
 		CaseTemplatesV2Service,
 		type CaseTemplateBodyV2,
+		type CaseTemplateSchemaInfo,
 		type CaseTemplateV2
 	} from '$lib/services/case-templates.service';
+	import {
+		CaseClassificationsService,
+		type CaseClassification
+	} from '$lib/services/case-classifications.service';
 
 	const PAGE_SIZE = 25;
 
@@ -81,14 +92,28 @@
 	// Editor state ----------------------------------------------------
 	type EditorMode = 'closed' | 'new' | 'edit';
 	let editorMode = $state<EditorMode>('closed');
+	// Canonical representation is a parsed object. The raw JSON tab
+	// serialises out of / into this on flip so the two views stay in
+	// sync without one being the source of truth.
+	let editorValue = $state<Record<string, unknown>>({});
+	// Mirror string used by the Raw JSON tab. Kept here (not local to
+	// the tab) so flipping between tabs preserves edits in either
+	// direction.
 	let editorBody = $state<string>('');
 	let editorIsValid = $state(true);
 	let editorJsonError = $state<string | null>(null);
 	let editorSaving = $state(false);
 	let editorSaveError = $state<string | null>(null);
 
-	type DetailTab = 'editor' | 'schema';
-	let detailTab = $state<DetailTab>('editor');
+	// Schema + classifications, fetched once on mount. The form
+	// renders nothing until `templateSchema` is loaded — the spinner
+	// covers the gap.
+	let templateSchema = $state<CaseTemplateSchemaInfo | null>(null);
+	let templateSchemaError = $state<string | null>(null);
+	let classifications = $state<CaseClassification[]>([]);
+
+	type DetailTab = 'form' | 'json' | 'schema';
+	let detailTab = $state<DetailTab>('form');
 
 	// Search ----------------------------------------------------------
 	let searchValue = $state('');
@@ -188,14 +213,53 @@
 		}, 250);
 	};
 
-	onMount(loadList);
+	const loadSchema = async () => {
+		const res = await CaseTemplatesV2Service.schema();
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			templateSchema = res.data as CaseTemplateSchemaInfo;
+			templateSchemaError = null;
+		} else {
+			templateSchemaError =
+				res.error?.message ??
+				'Failed to load the template schema; raw JSON still works.';
+		}
+	};
+
+	const loadClassifications = async () => {
+		const res = await CaseClassificationsService.list();
+		// The legacy endpoint wraps the array in `{status, data: [...]}`
+		// so we unwrap once. New responses may already be the array.
+		const raw = (res.data as { data?: unknown }) ?? null;
+		const list = Array.isArray(raw?.data)
+			? (raw.data as CaseClassification[])
+			: Array.isArray(res.data)
+				? (res.data as CaseClassification[])
+				: [];
+		classifications = list;
+	};
+
+	onMount(async () => {
+		await Promise.all([loadList(), loadSchema(), loadClassifications()]);
+	});
 
 	// Editor flow ----------------------------------------------------
 	const formatJson = (obj: unknown) => JSON.stringify(obj, null, 2);
 
 	const closeEditor = () => {
 		editorMode = 'closed';
+		editorValue = {};
 		editorBody = '';
+		editorJsonError = null;
+		editorSaveError = null;
+	};
+
+	// Adopt a freshly-loaded template object as the editor state.
+	// Sets both the structured `editorValue` (form) and the JSON
+	// `editorBody` (raw tab) so flipping tabs is lossless.
+	const adoptTemplate = (obj: Record<string, unknown>) => {
+		editorValue = obj;
+		editorBody = formatJson(obj);
+		editorIsValid = true;
 		editorJsonError = null;
 		editorSaveError = null;
 	};
@@ -206,7 +270,7 @@
 			const tpl = res.data as CaseTemplateV2;
 			// Strip metadata fields — they're dump-only on the
 			// backend and serving them back on update is harmless but
-			// noisy when the user is editing the JSON manually.
+			// noisy in the raw JSON view.
 			const {
 				id: _id,
 				created_at,
@@ -218,11 +282,9 @@
 			void created_at;
 			void updated_at;
 			void created_by_user_id;
-			editorBody = formatJson(editable);
+			adoptTemplate(editable as Record<string, unknown>);
 			editorMode = 'edit';
-			editorJsonError = null;
-			editorSaveError = null;
-			detailTab = 'editor';
+			detailTab = 'form';
 		} else {
 			showError(res.error?.message ?? 'Failed to load template');
 		}
@@ -230,11 +292,9 @@
 
 	const openNew = () => {
 		selectedId = null;
-		editorBody = formatJson(DEFAULT_TEMPLATE_BODY);
+		adoptTemplate({ ...DEFAULT_TEMPLATE_BODY } as unknown as Record<string, unknown>);
 		editorMode = 'new';
-		editorJsonError = null;
-		editorSaveError = null;
-		detailTab = 'editor';
+		detailTab = 'form';
 	};
 
 	const onSelect = async (id: number) => {
@@ -243,16 +303,24 @@
 		await openExisting(id);
 	};
 
+	// Source of truth for the save call. If the user is on the Raw
+	// JSON tab and the buffer parses, prefer that — they may have
+	// pasted in something the form widgets can't fully express. Fall
+	// back to the structured `editorValue` when the JSON is dirty or
+	// the user is on the form tab.
 	const parsedEditorBody = (): CaseTemplateBodyV2 | null => {
-		try {
-			return JSON.parse(editorBody);
-		} catch {
-			return null;
+		if (detailTab === 'json') {
+			try {
+				return JSON.parse(editorBody) as CaseTemplateBodyV2;
+			} catch {
+				return null;
+			}
 		}
+		return editorValue as unknown as CaseTemplateBodyV2;
 	};
 
 	const saveEditor = async () => {
-		if (!editorIsValid) {
+		if (detailTab === 'json' && !editorIsValid) {
 			editorSaveError = 'Fix the JSON syntax before saving.';
 			return;
 		}
@@ -312,20 +380,18 @@
 		confirmOpen = true;
 	};
 
-	// Export current editor JSON as a downloadable file.
+	// Export the current editor state as a downloadable file. Always
+	// uses the structured value as source — the form view is the
+	// canonical representation.
 	const exportCurrent = () => {
-		const parsed = parsedEditorBody();
-		if (parsed == null) {
-			showError('Body is not valid JSON; fix it before exporting.');
-			return;
-		}
-		const blob = new Blob([JSON.stringify(parsed, null, 2)], {
+		const obj = editorValue as unknown as CaseTemplateBodyV2;
+		const blob = new Blob([JSON.stringify(obj, null, 2)], {
 			type: 'application/json'
 		});
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
-		a.download = `${parsed.name || 'case-template'}.json`;
+		a.download = `${obj.name || 'case-template'}.json`;
 		a.click();
 		URL.revokeObjectURL(url);
 	};
@@ -339,13 +405,15 @@
 		if (!file) return;
 		try {
 			const text = await file.text();
-			JSON.parse(text); // syntax check
-			editorBody = text;
+			const parsed = JSON.parse(text);
+			if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+				showError('File must contain a JSON object.');
+				return;
+			}
+			adoptTemplate(parsed as Record<string, unknown>);
 			editorMode = 'new';
 			selectedId = null;
-			editorJsonError = null;
-			editorSaveError = null;
-			detailTab = 'editor';
+			detailTab = 'form';
 		} catch (e) {
 			showError(`File is not valid JSON: ${(e as Error).message}`);
 		}
@@ -546,7 +614,6 @@
 							size="sm"
 							class="h-7"
 							onclick={exportCurrent}
-							disabled={!editorIsValid}
 						>
 							<DownloadIcon size={12} class="mr-1" />
 							Export
@@ -566,7 +633,7 @@
 							size="sm"
 							class="h-7"
 							onclick={saveEditor}
-							disabled={editorSaving || !editorIsValid}
+							disabled={editorSaving || (detailTab === 'json' && !editorIsValid)}
 						>
 							<SaveIcon size={12} class="mr-1" />
 							{editorSaving ? 'Saving…' : editorMode === 'new' ? 'Create' : 'Save'}
@@ -581,7 +648,8 @@
 				</p>
 			{:else}
 				{@const tabs: { id: DetailTab; label: string; icon: typeof FileCodeIcon }[] = [
-					{ id: 'editor', label: 'JSON Editor', icon: FileCodeIcon },
+					{ id: 'form', label: 'Form', icon: FormInputIcon },
+					{ id: 'json', label: 'Raw JSON', icon: FileCodeIcon },
 					{ id: 'schema', label: 'Schema', icon: HelpCircleIcon }
 				]}
 				<!-- Tab strip -->
@@ -593,7 +661,31 @@
 						{@const active = detailTab === t.id}
 						<button
 							type="button"
-							onclick={() => (detailTab = t.id)}
+							onclick={() => {
+								// Sync the buffers in the direction we're
+								// leaving so the other tab opens on the
+								// latest value. Form → JSON: serialise the
+								// structured value. JSON → Form: parse the
+								// buffer only if it's syntactically valid;
+								// otherwise leave the form on its last
+								// known-good state and let the user keep
+								// editing the JSON.
+								if (detailTab === 'form' && t.id === 'json') {
+									editorBody = formatJson(editorValue);
+									editorIsValid = true;
+									editorJsonError = null;
+								} else if (detailTab === 'json' && t.id === 'form') {
+									try {
+										const next = JSON.parse(editorBody);
+										if (next && typeof next === 'object' && !Array.isArray(next)) {
+											editorValue = next as Record<string, unknown>;
+										}
+									} catch {
+										// Form stays on the previous structured value.
+									}
+								}
+								detailTab = t.id;
+							}}
 							class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors {active
 								? 'bg-card font-medium text-foreground shadow-sm'
 								: 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'}"
@@ -606,7 +698,36 @@
 				</nav>
 
 				<div class="flex-1 overflow-y-auto">
-					{#if detailTab === 'editor'}
+					{#if detailTab === 'form'}
+						{#if templateSchema == null}
+							{#if templateSchemaError}
+								<p class="px-3 py-6 text-center text-2xs text-destructive">
+									{templateSchemaError}
+								</p>
+							{:else}
+								<div class="space-y-2 p-3">
+									{#each Array(4) as _}
+										<Skeleton class="h-10 w-full" />
+									{/each}
+								</div>
+							{/if}
+						{:else}
+							<CaseTemplateForm
+								schema={templateSchema}
+								value={editorValue}
+								onChange={(next) => {
+									editorValue = next;
+								}}
+								{classifications}
+								disabled={editorSaving}
+							/>
+							{#if editorSaveError}
+								<p class="whitespace-pre-wrap px-4 pb-3 text-2xs text-destructive">
+									{editorSaveError}
+								</p>
+							{/if}
+						{/if}
+					{:else if detailTab === 'json'}
 						<div class="flex flex-col gap-2 p-3">
 							<JsonEditor
 								value={editorBody}
