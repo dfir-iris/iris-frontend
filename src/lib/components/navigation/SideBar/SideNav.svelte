@@ -31,7 +31,8 @@
 	const hash = $derived(page.url.hash);
 
 	const mainMenuItems = [
-		{ label: 'Dashboard', path: '/', icon: HouseIcon },
+		{ label: 'Home', path: '/', icon: HouseIcon },
+		{ label: 'Dashboards', path: '/dashboards', icon: LayoutDashboardIcon, matchPrefix: true },
 		{ label: 'Overview', path: '/cases', icon: ViewIcon },
 		{ label: 'Welcome page', path: '/welcome', icon: DoorOpenIcon }
 	];
@@ -72,7 +73,7 @@
 			label={item.label}
 			icon={item.icon}
 			href={`${item.path}${item.hash ?? ''}`}
-			active={pathname === item.path && hash === (item.hash ?? '')}
+			active={isItemActive(item)}
 		/>
 	{/each}
 
@@ -101,14 +102,6 @@
 			Manage
 		{/if}
 	</li>
-
-	<MenuItem
-		{collapsed}
-		label="Dashboards"
-		icon={LayoutDashboardIcon}
-		href="/dashboards"
-		active={pathname === '/dashboards' || pathname.startsWith('/dashboards/')}
-	/>
 
 	<MenuItem
 		{collapsed}
