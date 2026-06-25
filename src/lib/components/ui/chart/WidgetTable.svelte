@@ -91,11 +91,22 @@
 		return copy;
 	});
 
+	// Backend can repeat the same alias across group and value fields (e.g.
+	// using `client_name` both as a group key and as a value column). The
+	// data-table requires unique column ids, so suffix repeats with __N
+	// for column identity while keeping the underlying data key for value
+	// lookups.
 	const columns = $derived.by<ColumnDef<FlatRow>[]>(() => {
 		const cols: ColumnDef<FlatRow>[] = [];
+		const seen = new Map<string, number>();
+		const uniqueId = (raw: string) => {
+			const count = seen.get(raw) ?? 0;
+			seen.set(raw, count + 1);
+			return count === 0 ? raw : `${raw}__${count + 1}`;
+		};
 		groupKeys.forEach((key, idx) => {
 			cols.push({
-				id: key,
+				id: uniqueId(key),
 				accessorFn: (row) => row[key]?.display ?? '',
 				header: groupHeaders[idx] ?? key,
 				cell: ({ getValue }) => String(getValue() ?? '')
@@ -103,7 +114,7 @@
 		});
 		valueKeys.forEach((key, idx) => {
 			cols.push({
-				id: key,
+				id: uniqueId(key),
 				// Sort numerically when possible, but render the formatted display
 				// (which carries comma-separators / unit suffixes from the backend).
 				accessorFn: (row) => row[key]?.numeric ?? row[key]?.display ?? '',
