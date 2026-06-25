@@ -39,6 +39,7 @@
 	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import { ActivitiesService, type ActivityRow } from '$lib/services/activities.service';
+	import { DashboardService, type DashboardKpis } from '$lib/services/dashboard.service';
 
 	const alerts = getContext<AlertsContext | undefined>(ALERTS_CTX);
 	const cases = getContext<CasesContext | undefined>(CASES_CTX);
@@ -118,6 +119,15 @@
 		items: [],
 		loading: true,
 		error: null
+	});
+
+	// Compact KPI block sourced from /api/v2/dashboard/kpis. Adds throughput
+	// info (cases closed in the last 30 days) and a precise filter predicate
+	// for the assigned-alerts deep-link, so the count and the linked page
+	// agree exactly on which status ids count as "open".
+	let kpiState = $state<{ data: DashboardKpis | null; loading: boolean }>({
+		data: null,
+		loading: true
 	});
 	let activityState = $state<{
 		items: MajorCaseActivityEntry[];
@@ -652,6 +662,18 @@
 		return () => window.clearInterval(id);
 	});
 
+	const loadKpis = async () => {
+		kpiState.loading = true;
+		try {
+			const res = await DashboardService.get();
+			if (res.ok && res.data && typeof res.data !== 'string') {
+				kpiState.data = res.data;
+			}
+		} finally {
+			kpiState.loading = false;
+		}
+	};
+
 	const refreshAll = () => {
 		void loadOpenCases();
 		void loadAlerts();
@@ -660,6 +682,7 @@
 		void loadCasesTrend();
 		void loadActivity();
 		void loadCaseActivity();
+		void loadKpis();
 	};
 
 	// Refetch when the resolved user id changes (e.g. whoami resolves after
@@ -748,13 +771,32 @@
 			</a>
 
 			<a
-				href={myUserId != null ? `/alerts?alert_owner_id=${myUserId}` : '/alerts'}
+				href={(() => {
+					// Prefer the precise filter the backend returned with the
+					// KPI count (only the status ids it actually counts as
+					// "open"). Falls back to the rougher owner-only deep-link
+					// while the KPI request is in-flight.
+					const f = kpiState.data?.assigned_alerts.filter;
+					if (f && f.alert_status_id.length > 0) {
+						const statuses = f.alert_status_id
+							.map((id) => `alert_status_id=${id}`)
+							.join('&');
+						return `/alerts?alert_owner_id=${f.alert_owner_id}&${statuses}`;
+					}
+					return myUserId != null
+						? `/alerts?alert_owner_id=${myUserId}`
+						: '/alerts';
+				})()}
 				class="group inline-flex items-center gap-1.5 rounded-md border border-border/40 bg-muted/40 px-2 py-1 text-xs transition-colors hover:border-border hover:bg-muted/70"
 			>
 				<BellRingIcon size={12} class="text-red-500" />
 				<span class="text-muted-foreground">Open alerts</span>
 				<span class="font-semibold tabular-nums">
-					{alertsState.loading ? '…' : alertsState.total}
+					{kpiState.loading && kpiState.data == null
+						? alertsState.loading
+							? '…'
+							: alertsState.total
+						: kpiState.data?.assigned_alerts.count ?? alertsState.total}
 				</span>
 			</a>
 
@@ -765,6 +807,19 @@
 				<span class="text-muted-foreground">Pending tasks</span>
 				<span class="font-semibold tabular-nums">
 					{tasksState.loading ? '…' : tasksState.total}
+				</span>
+			</span>
+
+			<!-- Throughput metric — closed cases in the last 30 days. Not a
+			     deep-link because /cases doesn't yet accept a closed-since
+			     filter; the number alone is the signal. -->
+			<span
+				class="group inline-flex items-center gap-1.5 rounded-md border border-border/40 bg-muted/40 px-2 py-1 text-xs"
+			>
+				<CheckCheckIcon size={12} class="text-violet-500" />
+				<span class="text-muted-foreground">Closed (30d)</span>
+				<span class="font-semibold tabular-nums">
+					{kpiState.loading ? '…' : kpiState.data?.cases_closed_last_30d ?? 0}
 				</span>
 			</span>
 		</div>
