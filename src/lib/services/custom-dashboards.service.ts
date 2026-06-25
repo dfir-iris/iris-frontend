@@ -75,6 +75,20 @@ export interface DashboardRenderRequest {
 	};
 }
 
+export interface RenderedTableCell {
+	key: string;
+	value: unknown;
+	formatted_value: string;
+	percentage: number | null;
+	formatted_percentage: string;
+}
+
+export interface RenderedTableRow {
+	group_values: unknown[];
+	formatted_group_values: string[];
+	value_cells: RenderedTableCell[];
+}
+
 export interface RenderedWidget {
 	name?: string;
 	chart_type?: string;
@@ -87,6 +101,14 @@ export interface RenderedWidget {
 	formatted_value?: string;
 	options?: Record<string, unknown>;
 	layout?: Record<string, unknown>;
+	// Table-shape payload (chart_type === 'table').
+	group_headers?: string[];
+	value_headers?: string[];
+	group_keys?: string[];
+	value_keys?: string[];
+	rows?: RenderedTableRow[] | Array<Record<string, unknown>>;
+	totals?: RenderedTableCell[];
+	total_label?: string;
 }
 
 export interface DashboardRenderResponse {
