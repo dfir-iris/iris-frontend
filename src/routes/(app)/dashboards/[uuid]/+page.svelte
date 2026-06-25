@@ -59,6 +59,20 @@
 		}
 	}
 
+	// Map the widget's persisted size hint to a Tailwind col-span class. The
+	// view-page grid is 12 columns at lg and 6 at md so the same size hints
+	// degrade reasonably on smaller screens.
+	function sizeClass(widget: RenderedWidget): string {
+		const layout = (widget.layout ?? {}) as Record<string, unknown>;
+		const size = String(layout.widget_size ?? '').toLowerCase();
+		if (size === 'full') return 'md:col-span-6 lg:col-span-12';
+		if (size === 'half') return 'md:col-span-3 lg:col-span-6';
+		if (size === 'third') return 'md:col-span-2 lg:col-span-4';
+		if (size === 'kpi' || size === 'quarter') return 'md:col-span-2 lg:col-span-3';
+		if (widget.chart_type === 'number' || widget.chart_type === 'percentage') return 'md:col-span-2 lg:col-span-3';
+		return 'md:col-span-3 lg:col-span-6';
+	}
+
 	function formatValue(widget: RenderedWidget): string {
 		if (widget.formatted_value) return widget.formatted_value;
 		const v = widget.value;
@@ -118,10 +132,10 @@
 	{#if loading}
 		<p class="text-sm text-muted-foreground">Loading…</p>
 	{:else}
-		<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+		<div class="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12">
 			{#each widgets as widget, idx (idx)}
 				{#if widget.chart_type === 'number' || widget.chart_type === 'percentage'}
-					<Card>
+					<Card class={sizeClass(widget)}>
 						<CardHeader class="pb-1">
 							<CardTitle class="text-sm font-medium text-muted-foreground">
 								{widget.name}
@@ -132,14 +146,14 @@
 						</CardContent>
 					</Card>
 				{:else if widget.error}
-					<Card class="md:col-span-2">
+					<Card class={sizeClass(widget)}>
 						<CardHeader>
 							<CardTitle>{widget.name}</CardTitle>
 						</CardHeader>
 						<CardContent class="text-sm text-destructive">{widget.error}</CardContent>
 					</Card>
 				{:else}
-					<Card class="md:col-span-2 lg:col-span-2">
+					<Card class={sizeClass(widget)}>
 						<CardHeader>
 							<CardTitle>{widget.name}</CardTitle>
 						</CardHeader>
