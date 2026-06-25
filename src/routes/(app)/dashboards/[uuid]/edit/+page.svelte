@@ -41,6 +41,7 @@
 		type DashboardWidget
 	} from '$lib/services/custom-dashboards.service';
 	import WidgetEditorDialog from './components/WidgetEditorDialog.svelte';
+	import FilterBarEditor from './components/FilterBarEditor.svelte';
 
 	let dashboard: CustomDashboard | null = $state(null);
 	let schema: DashboardSchema | null = $state(null);
@@ -48,6 +49,7 @@
 	let description = $state('');
 	let isShared = $state(false);
 	let sections: DashboardSection[] = $state([]);
+	let filtersSchema: Array<Record<string, unknown>> = $state([]);
 
 	let saving = $state(false);
 	let error: string | null = $state(null);
@@ -233,7 +235,7 @@
 				description,
 				is_shared: isShared,
 				sections: stripClientIds(sections),
-				filters_schema: dashboard?.definition.filters_schema ?? [],
+				filters_schema: filtersSchema,
 			},
 			null,
 			2,
@@ -268,11 +270,8 @@
 				widgets: withWidgetIds(s.widgets ?? []),
 			}));
 		}
-		if (dashboard && Array.isArray(def.filters_schema)) {
-			dashboard = {
-				...dashboard,
-				definition: { ...dashboard.definition, filters_schema: def.filters_schema },
-			};
+		if (Array.isArray(def.filters_schema)) {
+			filtersSchema = def.filters_schema as Array<Record<string, unknown>>;
 		}
 		jsonError = null;
 		schemaIssues = [];
@@ -308,6 +307,8 @@
 		description = dashboard.description ?? '';
 		isShared = dashboard.is_shared;
 		sections = normalizeSections(dashboard.definition);
+		const fs = (dashboard.definition.filters_schema ?? []) as Array<Record<string, unknown>>;
+		filtersSchema = Array.isArray(fs) ? [...fs] : [];
 
 		const schemaResp = await CustomDashboardsService.getSchema();
 		if (schemaResp.ok && schemaResp.data) schema = schemaResp.data;
@@ -522,7 +523,7 @@
 			description,
 			is_shared: isShared,
 			sections: cleanSections,
-			filters_schema: dashboard.definition.filters_schema ?? []
+			filters_schema: filtersSchema,
 		};
 		const response = await CustomDashboardsService.update(uuid, definition);
 		if (response.ok) {
@@ -588,21 +589,24 @@
 		<Card>
 			<CardHeader>
 				<CardTitle class="text-base">Dashboard</CardTitle>
-				<CardDescription>Name, description and sharing.</CardDescription>
+				<CardDescription>Name, description, sharing and filter-bar entries.</CardDescription>
 			</CardHeader>
-			<CardContent class="grid gap-3 sm:grid-cols-2">
-				<div class="flex flex-col gap-1">
-					<Label for="dash-name">Name</Label>
-					<Input id="dash-name" bind:value={name} />
+			<CardContent class="flex flex-col gap-4">
+				<div class="grid gap-3 sm:grid-cols-2">
+					<div class="flex flex-col gap-1">
+						<Label for="dash-name">Name</Label>
+						<Input id="dash-name" bind:value={name} />
+					</div>
+					<div class="flex flex-col gap-1">
+						<Label for="dash-desc">Description</Label>
+						<Input id="dash-desc" bind:value={description} />
+					</div>
+					<div class="flex items-center gap-2 sm:col-span-2">
+						<input id="dash-shared" type="checkbox" bind:checked={isShared} />
+						<Label for="dash-shared">Share with other users</Label>
+					</div>
 				</div>
-				<div class="flex flex-col gap-1">
-					<Label for="dash-desc">Description</Label>
-					<Input id="dash-desc" bind:value={description} />
-				</div>
-				<div class="flex items-center gap-2 sm:col-span-2">
-					<input id="dash-shared" type="checkbox" bind:checked={isShared} />
-					<Label for="dash-shared">Share with other users</Label>
-				</div>
+				<FilterBarEditor entries={filtersSchema as never} {schema} onChange={(e) => (filtersSchema = e)} />
 			</CardContent>
 		</Card>
 
