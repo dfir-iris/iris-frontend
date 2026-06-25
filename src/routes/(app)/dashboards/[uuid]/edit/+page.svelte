@@ -65,33 +65,12 @@
 	let presetOpen = $state(false);
 	let presetSectionIdx: number | null = $state(null);
 
-	// Flatten widgets for the dialog's left rail. Re-derives whenever the
-	// in-memory layout changes so adding/removing widgets updates the rail
-	// without manual sync.
-	const railEntries = $derived(
-		sections.flatMap((s, sIdx) =>
-			s.widgets.map((w, wIdx) => ({
-				sectionIdx: sIdx,
-				widgetIdx: wIdx,
-				sectionTitle: s.title ?? `Section ${sIdx + 1}`,
-				widgetName: w.name,
-				chartType: w.chart_type,
-			})),
-		),
-	);
-
+	// Breadcrumb shows which section the widget being edited lives in.
 	const breadcrumbSection = $derived(
 		editingTarget && editingTarget.sectionIdx >= 0
 			? sections[editingTarget.sectionIdx]?.title ?? `Section ${editingTarget.sectionIdx + 1}`
 			: undefined,
 	);
-
-	function switchEditingWidget(target: { sectionIdx: number; widgetIdx: number }) {
-		const w = sections[target.sectionIdx]?.widgets[target.widgetIdx];
-		if (!w) return;
-		editingWidget = w;
-		editingTarget = target;
-	}
 
 	let previewExpanded = $state(true);
 
@@ -884,10 +863,7 @@
 	bind:open={dialogOpen}
 	widget={editingWidget}
 	{schema}
-	railEntries={railEntries as never}
-	current={editingTarget as never}
 	breadcrumbSection={breadcrumbSection}
-	onSwitch={switchEditingWidget}
 	onSave={commitWidget}
 	onOpenChange={(v) => (dialogOpen = v)}
 />

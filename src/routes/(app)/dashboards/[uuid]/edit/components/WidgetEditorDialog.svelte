@@ -38,26 +38,11 @@
 	import FilterRow from './FilterRow.svelte';
 	import VisualizationOptions from './VisualizationOptions.svelte';
 
-	type RailEntry = {
-		sectionIdx: number;
-		widgetIdx: number;
-		sectionTitle: string;
-		widgetName: string;
-		chartType: string;
-	};
-
 	type Props = {
 		open: boolean;
 		widget: DashboardWidget | null;
 		schema: DashboardSchema | null;
-		// Optional rail context — when supplied, the dialog shows a left
-		// list of all widgets across sections so the user can hop without
-		// closing & reopening. The host page provides the entries and
-		// handles save-and-switch via onSwitch.
-		railEntries?: RailEntry[];
-		current?: { sectionIdx: number; widgetIdx: number | null } | null;
 		breadcrumbSection?: string;
-		onSwitch?: (target: { sectionIdx: number; widgetIdx: number }) => void;
 		onSave: (widget: DashboardWidget) => void;
 		onOpenChange: (open: boolean) => void;
 	};
@@ -66,10 +51,7 @@
 		open = $bindable(false),
 		widget,
 		schema,
-		railEntries = [],
-		current = null,
 		breadcrumbSection,
-		onSwitch,
 		onSave,
 		onOpenChange
 	}: Props = $props();
@@ -204,7 +186,7 @@
 </script>
 
 <Dialog.Root bind:open onOpenChange={(v) => onOpenChange(v)}>
-	<Dialog.Content class="max-w-5xl">
+	<Dialog.Content class="max-w-3xl">
 		<Dialog.Header>
 			<div class="flex flex-col gap-1">
 				<Dialog.Title>Edit widget</Dialog.Title>
@@ -222,28 +204,7 @@
 			</div>
 		</Dialog.Header>
 
-		<div class="grid gap-4 sm:grid-cols-[220px_1fr]">
-			{#if railEntries.length > 0}
-				<aside class="flex max-h-[60vh] flex-col gap-1 overflow-y-auto rounded border bg-muted/20 p-2">
-					<div class="px-1 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-						Layout
-					</div>
-					{#each railEntries as entry (entry.sectionIdx + ':' + entry.widgetIdx)}
-						{@const isActive = current?.sectionIdx === entry.sectionIdx && current?.widgetIdx === entry.widgetIdx}
-						<button
-							type="button"
-							class={`flex items-center justify-between gap-1 rounded px-2 py-1 text-left text-xs transition ${isActive ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
-							onclick={() => onSwitch?.({ sectionIdx: entry.sectionIdx, widgetIdx: entry.widgetIdx })}
-							disabled={isActive}
-							title={`${entry.sectionTitle} › ${entry.widgetName}`}
-						>
-							<span class="truncate">{entry.widgetName || 'Untitled'}</span>
-							<Badge variant={isActive ? 'outline' : 'secondary'} class="shrink-0">{entry.chartType}</Badge>
-						</button>
-					{/each}
-				</aside>
-			{/if}
-			<div class="flex max-h-[60vh] min-h-0 flex-col gap-3 overflow-hidden">
+		<div class="flex max-h-[60vh] min-h-0 flex-col gap-3 overflow-hidden">
 				<div class="grid gap-2 sm:grid-cols-2">
 					<div>
 						<Label for="widget-name">Name</Label>
@@ -478,7 +439,6 @@
 			</section>
 			{/if}
 				</div>
-			</div>
 		</div>
 
 		<Dialog.Footer>
