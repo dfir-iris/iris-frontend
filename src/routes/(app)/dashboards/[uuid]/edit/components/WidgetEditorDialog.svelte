@@ -3,7 +3,7 @@
   cleanly. Schema comes in as a prop (one fetch at the editor-page level).
 -->
 <script lang="ts">
-	import { PlusIcon } from 'lucide-svelte';
+	import { ArrowDownIcon, ArrowUpIcon, ChevronDownIcon, ChevronUpIcon, PlusIcon, XIcon } from 'lucide-svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -75,6 +75,78 @@
 
 	function removeFilter(idx: number) {
 		draft.filters = (draft.filters ?? []).filter((_, i) => i !== idx);
+	}
+
+	type SortEntry = { key: string; dir: 'asc' | 'desc' };
+
+	// Available sort keys = each field's alias (or table_column fallback).
+	// Order matches the visible field order so the picker reflects what
+	// the user actually built above.
+	const sortableKeys = $derived.by(() => {
+		const seen = new Set<string>();
+		const out: { key: string; label: string }[] = [];
+		for (const f of draft.fields ?? []) {
+			const key = f.alias || (f.table && f.column ? `${f.table}_${f.column}` : '');
+			if (!key || seen.has(key)) continue;
+			seen.add(key);
+			const label = f.alias
+				? f.alias
+				: f.table && f.column
+					? `${f.table}.${f.column}`
+					: key;
+			out.push({ key, label });
+		}
+		return out;
+	});
+
+	function getSortList(): SortEntry[] {
+		const opts = (draft.options ?? {}) as Record<string, unknown>;
+		const raw = opts.default_sort;
+		if (!Array.isArray(raw)) return [];
+		return (raw as unknown[]).flatMap((entry) => {
+			if (typeof entry !== 'object' || entry === null) return [];
+			const e = entry as Record<string, unknown>;
+			const key = typeof e.key === 'string' ? e.key : '';
+			if (!key) return [];
+			const dir: 'asc' | 'desc' = e.dir === 'desc' ? 'desc' : 'asc';
+			return [{ key, dir }];
+		});
+	}
+
+	function setSortList(list: SortEntry[]) {
+		const opts = { ...((draft.options ?? {}) as Record<string, unknown>) };
+		if (list.length === 0) {
+			delete opts.default_sort;
+		} else {
+			opts.default_sort = list;
+		}
+		draft.options = opts;
+	}
+
+	function addSortEntry() {
+		const list = getSortList();
+		const used = new Set(list.map((s) => s.key));
+		const candidate = sortableKeys.find((k) => !used.has(k.key)) ?? sortableKeys[0];
+		if (!candidate) return;
+		setSortList([...list, { key: candidate.key, dir: 'asc' }]);
+	}
+
+	function updateSortEntry(idx: number, patch: Partial<SortEntry>) {
+		const list = getSortList();
+		list[idx] = { ...list[idx], ...patch };
+		setSortList(list);
+	}
+
+	function removeSortEntry(idx: number) {
+		setSortList(getSortList().filter((_, i) => i !== idx));
+	}
+
+	function moveSortEntry(idx: number, delta: number) {
+		const list = getSortList();
+		const next = idx + delta;
+		if (next < 0 || next >= list.length) return;
+		[list[idx], list[next]] = [list[next], list[idx]];
+		setSortList(list);
 	}
 
 	function commit() {
@@ -172,6 +244,82 @@
 					/>
 				{/each}
 			</section>
+
+			{#if draft.chart_type === 'table'}
+				{@const sortList = getSortList()}
+				<section class="flex flex-col gap-2">
+					<div class="flex items-center justify-between">
+						<Label>Default sort</Label>
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={sortableKeys.length === 0 || sortList.length >= sortableKeys.length}
+							onclick={addSortEntry}
+						>
+							<PlusIcon class="size-3" /> Sort key
+						</Button>
+					</div>
+					{#if sortableKeys.length === 0}
+						<p class="text-xs text-muted-foreground">Add fields above first — sort keys come from field aliases.</p>
+					{:else if sortList.length === 0}
+						<p class="text-xs text-muted-foreground">
+							No default sort. Rows render in backend-returned order; users can click a header to sort interactively.
+						</p>
+					{:else}
+						<div class="flex flex-col gap-1">
+							{#each sortList as entry, idx (`${idx}-${entry.key}`)}
+								<div class="flex items-center gap-1">
+									<span class="w-5 text-center text-xs text-muted-foreground">{idx + 1}</span>
+									<Select
+										value={entry.key}
+										onValueChange={(v) => updateSortEntry(idx, { key: v })}
+										type="single"
+									>
+										<SelectTrigger>{entry.key || 'Field'}</SelectTrigger>
+										<SelectContent>
+											{#each sortableKeys as k (k.key)}
+												<SelectItem value={k.key}>{k.label}</SelectItem>
+											{/each}
+										</SelectContent>
+									</Select>
+									<Button
+										variant="outline"
+										size="sm"
+										onclick={() => updateSortEntry(idx, { dir: entry.dir === 'asc' ? 'desc' : 'asc' })}
+									>
+										{#if entry.dir === 'asc'}
+											<ArrowUpIcon class="size-3" /> Asc
+										{:else}
+											<ArrowDownIcon class="size-3" /> Desc
+										{/if}
+									</Button>
+									<Button
+										variant="ghost"
+										size="icon"
+										disabled={idx === 0}
+										onclick={() => moveSortEntry(idx, -1)}
+										title="Move up"
+									>
+										<ChevronUpIcon class="size-4" />
+									</Button>
+									<Button
+										variant="ghost"
+										size="icon"
+										disabled={idx === sortList.length - 1}
+										onclick={() => moveSortEntry(idx, 1)}
+										title="Move down"
+									>
+										<ChevronDownIcon class="size-4" />
+									</Button>
+									<Button variant="ghost" size="icon" onclick={() => removeSortEntry(idx)} title="Remove">
+										<XIcon class="size-4" />
+									</Button>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</section>
+			{/if}
 
 			<section class="flex flex-col gap-2">
 				<Label for="widget-time-bucket">Time bucket (optional, for line/timechart)</Label>

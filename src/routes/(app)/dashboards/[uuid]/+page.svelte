@@ -222,6 +222,7 @@
 								rows={widget.rows as never}
 								totals={widget.totals}
 								totalLabel={widget.total_label}
+								defaultSort={((widget.options ?? {}) as Record<string, unknown>).default_sort as never}
 							/>
 						</CardContent>
 					</Card>

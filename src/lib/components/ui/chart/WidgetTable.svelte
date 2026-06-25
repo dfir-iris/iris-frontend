@@ -12,6 +12,8 @@
 	import DataTable from '$lib/components/ui/data-table-tanstack/data-table.svelte';
 	import type { RenderedTableRow, RenderedTableCell } from '$lib/services/custom-dashboards.service';
 
+	type DefaultSortEntry = { key: string; dir?: 'asc' | 'desc' };
+
 	type Props = {
 		groupHeaders?: string[];
 		valueHeaders?: string[];
@@ -20,6 +22,10 @@
 		rows?: RenderedTableRow[] | Array<Record<string, unknown>>;
 		totals?: RenderedTableCell[];
 		totalLabel?: string;
+		// Multi-column default ordering. Pre-sorts incoming rows so the
+		// widget loads in the user-chosen order; clicking a header still
+		// overrides with the wrapper's single-column interactive sort.
+		defaultSort?: DefaultSortEntry[];
 	};
 
 	let {
@@ -29,7 +35,8 @@
 		valueKeys = [],
 		rows = [],
 		totals = [],
-		totalLabel = 'Total'
+		totalLabel = 'Total',
+		defaultSort = []
 	}: Props = $props();
 
 	type FlatRow = Record<string, { display: string; numeric: number | null; raw: unknown; percentage: string }>;
@@ -55,6 +62,33 @@
 			});
 			return flat;
 		});
+	});
+
+	function compareFlat(a: FlatRow, b: FlatRow, key: string): number {
+		const av = a[key];
+		const bv = b[key];
+		// Numeric comparison when both cells expose a finite numeric.
+		if (av?.numeric !== null && av?.numeric !== undefined && bv?.numeric !== null && bv?.numeric !== undefined) {
+			return av.numeric - bv.numeric;
+		}
+		const aStr = String(av?.display ?? '');
+		const bStr = String(bv?.display ?? '');
+		return aStr.localeCompare(bStr, undefined, { numeric: true, sensitivity: 'base' });
+	}
+
+	const sortedData = $derived.by<FlatRow[]>(() => {
+		if (!defaultSort || defaultSort.length === 0) return data;
+		const orderedSpecs = defaultSort.filter((s) => s && s.key);
+		if (orderedSpecs.length === 0) return data;
+		const copy = [...data];
+		copy.sort((a, b) => {
+			for (const spec of orderedSpecs) {
+				const cmp = compareFlat(a, b, spec.key);
+				if (cmp !== 0) return spec.dir === 'desc' ? -cmp : cmp;
+			}
+			return 0;
+		});
+		return copy;
 	});
 
 	const columns = $derived.by<ColumnDef<FlatRow>[]>(() => {
@@ -88,7 +122,7 @@
 </script>
 
 <div class="flex flex-col gap-2">
-	<DataTable {data} {columns} tableClass="w-full table-auto text-xs" />
+	<DataTable data={sortedData} {columns} tableClass="w-full table-auto text-xs" />
 	{#if showTotals}
 		<div class="flex flex-wrap justify-end gap-3 border-t pt-2 text-xs">
 			<span class="font-medium text-muted-foreground">{totalLabel}</span>
