@@ -11,6 +11,7 @@
 		ArrowLeftIcon,
 		EditIcon,
 		GripVerticalIcon,
+		LayersIcon,
 		PlusIcon,
 		SaveIcon,
 		Trash2Icon
@@ -42,6 +43,7 @@
 	} from '$lib/services/custom-dashboards.service';
 	import WidgetEditorDialog from './components/WidgetEditorDialog.svelte';
 	import FilterBarEditor from './components/FilterBarEditor.svelte';
+	import PresetGallery from './components/PresetGallery.svelte';
 
 	let dashboard: CustomDashboard | null = $state(null);
 	let schema: DashboardSchema | null = $state(null);
@@ -58,6 +60,9 @@
 	let dialogOpen = $state(false);
 	let editingWidget: DashboardWidget | null = $state(null);
 	let editingTarget: { sectionIdx: number; widgetIdx: number | null } | null = $state(null);
+
+	let presetOpen = $state(false);
+	let presetSectionIdx: number | null = $state(null);
 
 	// Editor mode toggle. JSON mode lets power users hand-edit the full
 	// definition (sections, filters_schema, widget options) and validates
@@ -330,6 +335,19 @@
 		editingWidget = sections[sectionIdx].widgets[widgetIdx];
 		editingTarget = { sectionIdx, widgetIdx };
 		dialogOpen = true;
+	}
+
+	function openPresetGallery(sectionIdx: number) {
+		presetSectionIdx = sectionIdx;
+		presetOpen = true;
+	}
+
+	function insertPreset(widget: DashboardWidget) {
+		if (presetSectionIdx === null) return;
+		const sIdx = presetSectionIdx;
+		sections[sIdx].widgets = [...sections[sIdx].widgets, ...withWidgetIds([widget])];
+		sections = [...sections];
+		presetSectionIdx = null;
 	}
 
 	function commitWidget(widget: DashboardWidget) {
@@ -624,6 +642,9 @@
 					<Button variant="outline" size="sm" onclick={() => openNewWidget(sIdx)}>
 						<PlusIcon class="size-3" /> Widget
 					</Button>
+					<Button variant="outline" size="sm" onclick={() => openPresetGallery(sIdx)}>
+						<LayersIcon class="size-3" /> Preset
+					</Button>
 					<Button variant="ghost" size="icon" onclick={() => removeSection(sIdx)} title="Remove section">
 						<Trash2Icon class="size-4" />
 					</Button>
@@ -811,4 +832,10 @@
 	{schema}
 	onSave={commitWidget}
 	onOpenChange={(v) => (dialogOpen = v)}
+/>
+
+<PresetGallery
+	bind:open={presetOpen}
+	onPick={insertPreset}
+	onOpenChange={(v) => (presetOpen = v)}
 />
