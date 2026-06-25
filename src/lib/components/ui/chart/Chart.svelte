@@ -24,23 +24,33 @@
 				name: label,
 				value: datasets[0]?.data?.[idx] ?? 0
 			}));
+			// High-cardinality pies (many slices) drown in external labels
+			// and side-legends. Switch to a horizontal scrollable bottom
+			// legend, hide slice labels past ~8 slices, and use tooltip
+			// for the detail. Threshold matches what fits in one row of
+			// the bottom legend without overflowing the card.
+			const dense = data.length > 8;
 			return {
-				tooltip: { trigger: 'item' },
+				tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
 				legend: {
 					type: 'scroll',
-					orient: 'vertical',
-					right: 0,
-					top: 'middle',
+					orient: 'horizontal',
+					bottom: 0,
+					left: 'center',
+					width: '90%',
 					textStyle: { fontSize: 11 }
 				},
 				series: [
 					{
 						type: 'pie',
 						radius: ['45%', '70%'],
-						center: ['38%', '50%'],
+						center: ['50%', '42%'],
 						avoidLabelOverlap: true,
 						data,
-						label: { show: true, formatter: '{b}: {c}' }
+						label: dense
+							? { show: false }
+							: { show: true, formatter: '{b}: {c}', fontSize: 11 },
+						labelLine: { show: !dense }
 					}
 				]
 			};
