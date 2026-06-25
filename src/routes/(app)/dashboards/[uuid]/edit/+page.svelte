@@ -32,6 +32,7 @@
 		SelectItem,
 		SelectTrigger
 	} from '$lib/components/ui/select';
+	import JsonEditor from '$lib/components/common/editors/JsonEditor.svelte';
 	import {
 		CustomDashboardsService,
 		type CustomDashboard,
@@ -57,12 +58,135 @@
 	let editingTarget: { sectionIdx: number; widgetIdx: number | null } | null = $state(null);
 
 	// Editor mode toggle. JSON mode lets power users hand-edit the full
-	// definition (sections, filters_schema, widget options) and parses on
-	// blur — invalid JSON keeps you in JSON mode with an inline error
-	// instead of dropping changes silently.
+	// definition (sections, filters_schema, widget options) and validates
+	// continuously against the live schema — both syntax (Ace+JSON.parse)
+	// and structure (chart_type/aggregation/operator/table whitelists).
 	let editorMode: 'visual' | 'json' = $state('visual');
 	let jsonText = $state('');
 	let jsonError: string | null = $state(null);
+	let jsonValid = $state(true);
+	let schemaIssues: string[] = $state([]);
+
+	function validateDefinitionAgainstSchema(parsed: unknown): string[] {
+		const issues: string[] = [];
+		if (!schema) return issues;
+		const allowedChartTypes = new Set(schema.chart_types);
+		const allowedAggregations = new Set(schema.aggregations);
+		const allowedOperators = new Set(schema.operators);
+		const allowedTables = new Set([...schema.tables, 'computed']);
+		const computedColumns = new Set(schema.named_aggregations.map((a) => a.name));
+
+		if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+			issues.push('Root must be a JSON object.');
+			return issues;
+		}
+		const def = parsed as Record<string, unknown>;
+		if (typeof def.name !== 'string' || !def.name.trim()) {
+			issues.push('`name` is required and must be a non-empty string.');
+		}
+		if (def.description !== undefined && def.description !== null && typeof def.description !== 'string') {
+			issues.push('`description` must be a string or null.');
+		}
+		if (def.is_shared !== undefined && typeof def.is_shared !== 'boolean') {
+			issues.push('`is_shared` must be a boolean.');
+		}
+
+		const validateField = (path: string, field: unknown) => {
+			if (typeof field !== 'object' || field === null) {
+				issues.push(`${path} must be an object.`);
+				return;
+			}
+			const f = field as Record<string, unknown>;
+			if (typeof f.table !== 'string' || !f.table) {
+				issues.push(`${path}.table is required.`);
+			} else if (!allowedTables.has(f.table)) {
+				issues.push(`${path}.table "${f.table}" is not allowed. Allowed: ${[...allowedTables].join(', ')}.`);
+			}
+			if (typeof f.column !== 'string' || !f.column) {
+				issues.push(`${path}.column is required.`);
+			} else if (f.table === 'computed' && !computedColumns.has(f.column)) {
+				issues.push(`${path}.column "${f.column}" is not a known computed metric. Known: ${[...computedColumns].join(', ')}.`);
+			} else if (typeof f.table === 'string' && f.table !== 'computed' && schema!.columns[f.table] && !schema!.columns[f.table].includes(f.column as string)) {
+				issues.push(`${path}.column "${f.column}" is not a known column of "${f.table}".`);
+			}
+			if (f.aggregation !== undefined && f.aggregation !== null && f.aggregation !== '') {
+				if (typeof f.aggregation !== 'string' || !allowedAggregations.has(f.aggregation)) {
+					issues.push(`${path}.aggregation "${f.aggregation}" is not allowed. Allowed: ${[...allowedAggregations].join(', ')}.`);
+				}
+			}
+		};
+
+		const validateFilter = (path: string, filter: unknown) => {
+			if (typeof filter !== 'object' || filter === null) {
+				issues.push(`${path} must be an object.`);
+				return;
+			}
+			const fl = filter as Record<string, unknown>;
+			if (typeof fl.table !== 'string') issues.push(`${path}.table is required.`);
+			if (typeof fl.column !== 'string') issues.push(`${path}.column is required.`);
+			if (typeof fl.operator !== 'string' || !allowedOperators.has(fl.operator)) {
+				issues.push(`${path}.operator "${fl.operator}" is not allowed. Allowed: ${[...allowedOperators].join(', ')}.`);
+			}
+			if (!('value' in fl)) issues.push(`${path}.value is required.`);
+		};
+
+		const validateWidget = (path: string, widget: unknown) => {
+			if (typeof widget !== 'object' || widget === null) {
+				issues.push(`${path} must be an object.`);
+				return;
+			}
+			const w = widget as Record<string, unknown>;
+			if (typeof w.name !== 'string' || !w.name) issues.push(`${path}.name is required.`);
+			if (typeof w.chart_type !== 'string' || !allowedChartTypes.has(w.chart_type)) {
+				issues.push(`${path}.chart_type "${w.chart_type}" is not allowed. Allowed: ${[...allowedChartTypes].join(', ')}.`);
+			}
+			if (!Array.isArray(w.fields) || w.fields.length === 0) {
+				issues.push(`${path}.fields must be a non-empty array.`);
+			} else {
+				w.fields.forEach((f, i) => validateField(`${path}.fields[${i}]`, f));
+			}
+			if (Array.isArray(w.filters)) {
+				w.filters.forEach((fl, i) => validateFilter(`${path}.filters[${i}]`, fl));
+			}
+			if (w.group_by !== undefined && !Array.isArray(w.group_by)) {
+				issues.push(`${path}.group_by must be an array of strings.`);
+			}
+		};
+
+		const sectionsArr = Array.isArray(def.sections) ? def.sections : [];
+		const widgetsArr = Array.isArray(def.widgets) ? def.widgets : [];
+		if (sectionsArr.length === 0 && widgetsArr.length === 0) {
+			issues.push('Definition must contain at least one section with widgets, or a widgets array.');
+		}
+		sectionsArr.forEach((s, sIdx) => {
+			if (typeof s !== 'object' || s === null) {
+				issues.push(`sections[${sIdx}] must be an object.`);
+				return;
+			}
+			const sec = s as Record<string, unknown>;
+			const sw = Array.isArray(sec.widgets) ? sec.widgets : [];
+			sw.forEach((w, wIdx) => validateWidget(`sections[${sIdx}].widgets[${wIdx}]`, w));
+		});
+		widgetsArr.forEach((w, wIdx) => validateWidget(`widgets[${wIdx}]`, w));
+
+		return issues;
+	}
+
+	function onJsonInput(next: string, isValid: boolean, err: string | null) {
+		jsonText = next;
+		jsonValid = isValid;
+		jsonError = err;
+		if (isValid) {
+			try {
+				const parsed = JSON.parse(next);
+				schemaIssues = validateDefinitionAgainstSchema(parsed);
+			} catch {
+				schemaIssues = [];
+			}
+		} else {
+			schemaIssues = [];
+		}
+	}
 
 	const uuid = $derived(page.params.uuid);
 
@@ -117,40 +241,49 @@
 	}
 
 	function applyJSONToState(text: string): boolean {
+		let parsed: unknown;
 		try {
-			const parsed = JSON.parse(text);
-			if (typeof parsed !== 'object' || parsed === null) {
-				jsonError = 'Definition must be a JSON object.';
-				return false;
-			}
-			if (typeof parsed.name === 'string') name = parsed.name;
-			if (typeof parsed.description === 'string') description = parsed.description;
-			if (typeof parsed.is_shared === 'boolean') isShared = parsed.is_shared;
-			if (Array.isArray(parsed.sections)) {
-				sections = (parsed.sections as DashboardSection[]).map((s) => ({
-					...s,
-					widgets: withWidgetIds(s.widgets ?? []),
-				}));
-			}
-			if (dashboard && Array.isArray(parsed.filters_schema)) {
-				dashboard = {
-					...dashboard,
-					definition: { ...dashboard.definition, filters_schema: parsed.filters_schema },
-				};
-			}
-			jsonError = null;
-			return true;
+			parsed = JSON.parse(text);
 		} catch (e) {
 			jsonError = `Invalid JSON: ${(e as Error).message}`;
 			return false;
 		}
+		if (typeof parsed !== 'object' || parsed === null) {
+			jsonError = 'Definition must be a JSON object.';
+			return false;
+		}
+		const structural = validateDefinitionAgainstSchema(parsed);
+		if (structural.length > 0) {
+			schemaIssues = structural;
+			jsonError = 'Definition does not match the schema. See the issues panel below.';
+			return false;
+		}
+		const def = parsed as Record<string, unknown>;
+		if (typeof def.name === 'string') name = def.name;
+		if (typeof def.description === 'string') description = def.description;
+		if (typeof def.is_shared === 'boolean') isShared = def.is_shared;
+		if (Array.isArray(def.sections)) {
+			sections = (def.sections as DashboardSection[]).map((s) => ({
+				...s,
+				widgets: withWidgetIds(s.widgets ?? []),
+			}));
+		}
+		if (dashboard && Array.isArray(def.filters_schema)) {
+			dashboard = {
+				...dashboard,
+				definition: { ...dashboard.definition, filters_schema: def.filters_schema },
+			};
+		}
+		jsonError = null;
+		schemaIssues = [];
+		return true;
 	}
 
 	function switchMode(next: 'visual' | 'json') {
 		if (next === editorMode) return;
 		if (next === 'json') {
 			jsonText = currentDefinitionJSON();
-			jsonError = null;
+			onJsonInput(jsonText, true, null);
 			editorMode = 'json';
 			return;
 		}
@@ -434,7 +567,10 @@
 				</button>
 			</div>
 			<Button variant="outline" onclick={() => goto(`/dashboards/${uuid}`)}>Preview</Button>
-			<Button onclick={save} disabled={saving}>
+			<Button
+				onclick={save}
+				disabled={saving || (editorMode === 'json' && (!jsonValid || schemaIssues.length > 0))}
+			>
 				<SaveIcon class="size-4" />
 				{saving ? 'Saving…' : 'Save'}
 			</Button>
@@ -586,52 +722,80 @@
 			<PlusIcon class="size-4" /> Add section
 		</Button>
 	{:else}
-		<Card>
-			<CardHeader>
-				<CardTitle class="text-base">Definition (JSON)</CardTitle>
-				<CardDescription>
-					Edit the raw dashboard definition. Switching back to Visual or saving will parse
-					this text — invalid JSON is rejected with an inline error.
-				</CardDescription>
+		<Card class="flex grow flex-col">
+			<CardHeader class="shrink-0">
+				<div class="flex items-start justify-between gap-3">
+					<div>
+						<CardTitle class="text-base">Definition (JSON)</CardTitle>
+						<CardDescription>
+							Ace-powered editor. Validates both JSON syntax and structure (chart types,
+							aggregations, operators, table/column whitelist) against the live schema.
+						</CardDescription>
+					</div>
+					<div class="flex shrink-0 gap-2">
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={() => {
+								jsonText = currentDefinitionJSON();
+								onJsonInput(jsonText, true, null);
+							}}
+						>
+							Reset to current
+						</Button>
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={() => {
+								try {
+									jsonText = JSON.stringify(JSON.parse(jsonText), null, 2);
+									onJsonInput(jsonText, true, null);
+								} catch (e) {
+									jsonError = `Invalid JSON: ${(e as Error).message}`;
+									jsonValid = false;
+								}
+							}}
+						>
+							Reformat
+						</Button>
+					</div>
+				</div>
+				<div class="mt-2 flex items-center gap-2 text-xs">
+					{#if !jsonValid}
+						<span class="rounded-full bg-destructive/15 px-2 py-0.5 font-medium text-destructive">
+							JSON syntax error
+						</span>
+					{:else if schemaIssues.length > 0}
+						<span class="rounded-full bg-amber-500/15 px-2 py-0.5 font-medium text-amber-700">
+							{schemaIssues.length} schema issue{schemaIssues.length === 1 ? '' : 's'}
+						</span>
+					{:else}
+						<span class="rounded-full bg-green-500/15 px-2 py-0.5 font-medium text-green-700">
+							Valid
+						</span>
+					{/if}
+				</div>
 			</CardHeader>
-			<CardContent class="flex flex-col gap-2">
-				{#if jsonError}
-					<div class="rounded border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
-						{jsonError}
+			<CardContent class="flex grow flex-col gap-2">
+				<div class="grow">
+					<JsonEditor
+						value={jsonText}
+						onInput={onJsonInput}
+						mode="json"
+						minLines={28}
+						maxLines={60}
+					/>
+				</div>
+				{#if jsonValid && schemaIssues.length > 0}
+					<div class="max-h-48 overflow-y-auto rounded border border-amber-500/40 bg-amber-500/5 p-2 text-xs">
+						<div class="mb-1 font-semibold text-amber-700">Schema issues</div>
+						<ul class="list-disc space-y-0.5 pl-4 text-amber-900">
+							{#each schemaIssues as issue (issue)}
+								<li class="font-mono">{issue}</li>
+							{/each}
+						</ul>
 					</div>
 				{/if}
-				<textarea
-					class="min-h-[60vh] w-full rounded border bg-background p-3 font-mono text-xs"
-					spellcheck="false"
-					bind:value={jsonText}
-					onblur={() => applyJSONToState(jsonText)}
-				></textarea>
-				<div class="flex gap-2">
-					<Button
-						variant="outline"
-						size="sm"
-						onclick={() => {
-							jsonText = currentDefinitionJSON();
-							jsonError = null;
-						}}
-					>
-						Reset to current
-					</Button>
-					<Button
-						variant="outline"
-						size="sm"
-						onclick={() => {
-							try {
-								jsonText = JSON.stringify(JSON.parse(jsonText), null, 2);
-								jsonError = null;
-							} catch (e) {
-								jsonError = `Invalid JSON: ${(e as Error).message}`;
-							}
-						}}
-					>
-						Reformat
-					</Button>
-				</div>
 			</CardContent>
 		</Card>
 	{/if}
