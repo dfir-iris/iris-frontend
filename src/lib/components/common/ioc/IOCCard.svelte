@@ -33,6 +33,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import { marked } from 'marked';
+  import DOMPurify from 'dompurify';
 	import TlpBadge from '$lib/components/common/tlp/TlpBadge.svelte';
 
   let { ioc, compact = false, isSelected = false }: { ioc: Ioc; compact?: boolean; isSelected?: boolean } = $props();
@@ -78,9 +79,13 @@
     return value;
   }
 
-  // Description Handling
+  // Description Handling — markdown renders into a {@html} sink below, so
+  // the showdown output must be DOMPurified before it leaves this derivation
+  // (CWE-79 / parity with MarkDownPreview.svelte).
   let iocDescription = $derived(ioc.ioc_description || '');
-  let parsedDescription = $derived(iocDescription ? marked(iocDescription) : '');
+  let parsedDescription = $derived(
+    iocDescription ? DOMPurify.sanitize(marked.parse(iocDescription) as string) : ''
+  );
   let isDescriptionExpanded = $state(false);
 
   function toggleDescription(e: MouseEvent) {
