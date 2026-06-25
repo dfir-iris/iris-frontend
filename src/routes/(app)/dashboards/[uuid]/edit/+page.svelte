@@ -56,6 +56,14 @@
 	let editingWidget: DashboardWidget | null = $state(null);
 	let editingTarget: { sectionIdx: number; widgetIdx: number | null } | null = $state(null);
 
+	// Editor mode toggle. JSON mode lets power users hand-edit the full
+	// definition (sections, filters_schema, widget options) and parses on
+	// blur — invalid JSON keeps you in JSON mode with an inline error
+	// instead of dropping changes silently.
+	let editorMode: 'visual' | 'json' = $state('visual');
+	let jsonText = $state('');
+	let jsonError: string | null = $state(null);
+
 	const uuid = $derived(page.params.uuid);
 
 	function withWidgetIds(widgets: DashboardWidget[]): DashboardWidget[] {
@@ -81,6 +89,75 @@
 			return [{ id: 'section-default', title: def.name, widgets: withWidgetIds(def.widgets) }];
 		}
 		return [{ id: 'section-default', title: def.name, widgets: [] }];
+	}
+
+	function stripClientIds(srcSections: DashboardSection[]): DashboardSection[] {
+		return srcSections.map((s) => ({
+			...s,
+			widgets: s.widgets.map((w) => {
+				const layout = { ...(w.layout ?? {}) } as Record<string, unknown>;
+				delete layout._client_id;
+				return { ...w, layout };
+			}),
+		}));
+	}
+
+	function currentDefinitionJSON(): string {
+		return JSON.stringify(
+			{
+				name,
+				description,
+				is_shared: isShared,
+				sections: stripClientIds(sections),
+				filters_schema: dashboard?.definition.filters_schema ?? [],
+			},
+			null,
+			2,
+		);
+	}
+
+	function applyJSONToState(text: string): boolean {
+		try {
+			const parsed = JSON.parse(text);
+			if (typeof parsed !== 'object' || parsed === null) {
+				jsonError = 'Definition must be a JSON object.';
+				return false;
+			}
+			if (typeof parsed.name === 'string') name = parsed.name;
+			if (typeof parsed.description === 'string') description = parsed.description;
+			if (typeof parsed.is_shared === 'boolean') isShared = parsed.is_shared;
+			if (Array.isArray(parsed.sections)) {
+				sections = (parsed.sections as DashboardSection[]).map((s) => ({
+					...s,
+					widgets: withWidgetIds(s.widgets ?? []),
+				}));
+			}
+			if (dashboard && Array.isArray(parsed.filters_schema)) {
+				dashboard = {
+					...dashboard,
+					definition: { ...dashboard.definition, filters_schema: parsed.filters_schema },
+				};
+			}
+			jsonError = null;
+			return true;
+		} catch (e) {
+			jsonError = `Invalid JSON: ${(e as Error).message}`;
+			return false;
+		}
+	}
+
+	function switchMode(next: 'visual' | 'json') {
+		if (next === editorMode) return;
+		if (next === 'json') {
+			jsonText = currentDefinitionJSON();
+			jsonError = null;
+			editorMode = 'json';
+			return;
+		}
+		// Switching back to visual: parse what's in the textarea first so
+		// in-flight edits aren't dropped on the floor.
+		if (!applyJSONToState(jsonText)) return;
+		editorMode = 'visual';
 	}
 
 	async function load() {
@@ -290,6 +367,10 @@
 
 	async function save() {
 		if (!dashboard) return;
+		if (editorMode === 'json' && !applyJSONToState(jsonText)) {
+			// jsonError is set; keep the user in JSON mode so they can fix it.
+			return;
+		}
 		saving = true;
 		error = null;
 		success = null;
@@ -335,7 +416,23 @@
 			</a>
 			<h1 class="text-2xl font-semibold">Edit dashboard</h1>
 		</div>
-		<div class="flex gap-2">
+		<div class="flex items-center gap-2">
+			<div class="flex rounded-md border bg-muted/40 p-0.5 text-xs">
+				<button
+					type="button"
+					class={`rounded px-3 py-1 transition ${editorMode === 'visual' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+					onclick={() => switchMode('visual')}
+				>
+					Visual
+				</button>
+				<button
+					type="button"
+					class={`rounded px-3 py-1 transition ${editorMode === 'json' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+					onclick={() => switchMode('json')}
+				>
+					JSON
+				</button>
+			</div>
 			<Button variant="outline" onclick={() => goto(`/dashboards/${uuid}`)}>Preview</Button>
 			<Button onclick={save} disabled={saving}>
 				<SaveIcon class="size-4" />
@@ -351,28 +448,29 @@
 		<div class="rounded border border-green-500/40 bg-green-500/10 p-3 text-sm text-green-700">{success}</div>
 	{/if}
 
-	<Card>
-		<CardHeader>
-			<CardTitle class="text-base">Dashboard</CardTitle>
-			<CardDescription>Name, description and sharing.</CardDescription>
-		</CardHeader>
-		<CardContent class="grid gap-3 sm:grid-cols-2">
-			<div class="flex flex-col gap-1">
-				<Label for="dash-name">Name</Label>
-				<Input id="dash-name" bind:value={name} />
-			</div>
-			<div class="flex flex-col gap-1">
-				<Label for="dash-desc">Description</Label>
-				<Input id="dash-desc" bind:value={description} />
-			</div>
-			<div class="flex items-center gap-2 sm:col-span-2">
-				<input id="dash-shared" type="checkbox" bind:checked={isShared} />
-				<Label for="dash-shared">Share with other users</Label>
-			</div>
-		</CardContent>
-	</Card>
+	{#if editorMode === 'visual'}
+		<Card>
+			<CardHeader>
+				<CardTitle class="text-base">Dashboard</CardTitle>
+				<CardDescription>Name, description and sharing.</CardDescription>
+			</CardHeader>
+			<CardContent class="grid gap-3 sm:grid-cols-2">
+				<div class="flex flex-col gap-1">
+					<Label for="dash-name">Name</Label>
+					<Input id="dash-name" bind:value={name} />
+				</div>
+				<div class="flex flex-col gap-1">
+					<Label for="dash-desc">Description</Label>
+					<Input id="dash-desc" bind:value={description} />
+				</div>
+				<div class="flex items-center gap-2 sm:col-span-2">
+					<input id="dash-shared" type="checkbox" bind:checked={isShared} />
+					<Label for="dash-shared">Share with other users</Label>
+				</div>
+			</CardContent>
+		</Card>
 
-	{#each sections as section, sIdx (section.id ?? sIdx)}
+		{#each sections as section, sIdx (section.id ?? sIdx)}
 		<Card>
 			<CardHeader class="flex flex-row items-center justify-between gap-2">
 				<div class="flex grow flex-col gap-1">
@@ -482,11 +580,61 @@
 				{/if}
 			</CardContent>
 		</Card>
-	{/each}
+		{/each}
 
-	<Button variant="outline" onclick={addSection}>
-		<PlusIcon class="size-4" /> Add section
-	</Button>
+		<Button variant="outline" onclick={addSection}>
+			<PlusIcon class="size-4" /> Add section
+		</Button>
+	{:else}
+		<Card>
+			<CardHeader>
+				<CardTitle class="text-base">Definition (JSON)</CardTitle>
+				<CardDescription>
+					Edit the raw dashboard definition. Switching back to Visual or saving will parse
+					this text — invalid JSON is rejected with an inline error.
+				</CardDescription>
+			</CardHeader>
+			<CardContent class="flex flex-col gap-2">
+				{#if jsonError}
+					<div class="rounded border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+						{jsonError}
+					</div>
+				{/if}
+				<textarea
+					class="min-h-[60vh] w-full rounded border bg-background p-3 font-mono text-xs"
+					spellcheck="false"
+					bind:value={jsonText}
+					onblur={() => applyJSONToState(jsonText)}
+				></textarea>
+				<div class="flex gap-2">
+					<Button
+						variant="outline"
+						size="sm"
+						onclick={() => {
+							jsonText = currentDefinitionJSON();
+							jsonError = null;
+						}}
+					>
+						Reset to current
+					</Button>
+					<Button
+						variant="outline"
+						size="sm"
+						onclick={() => {
+							try {
+								jsonText = JSON.stringify(JSON.parse(jsonText), null, 2);
+								jsonError = null;
+							} catch (e) {
+								jsonError = `Invalid JSON: ${(e as Error).message}`;
+							}
+						}}
+					>
+						Reformat
+					</Button>
+				</div>
+			</CardContent>
+		</Card>
+	{/if}
 </div>
 
 <WidgetEditorDialog
