@@ -7,6 +7,7 @@
 		FileTextIcon,
 		FolderIcon,
 		HouseIcon,
+		LayoutDashboardIcon,
 		InfoIcon,
 		SearchIcon,
 		SettingsIcon,
@@ -100,6 +101,14 @@
 			Manage
 		{/if}
 	</li>
+
+	<MenuItem
+		{collapsed}
+		label="Dashboards"
+		icon={LayoutDashboardIcon}
+		href="/dashboards"
+		active={pathname === '/dashboards' || pathname.startsWith('/dashboards/')}
+	/>
 
 	<MenuItem
 		{collapsed}
