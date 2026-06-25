@@ -444,39 +444,29 @@
 
 			{#if selected}
 				<div class="flex items-center gap-1.5">
-					<Button variant="outline" size="sm" class="h-7" onclick={() => selected && openEdit(selected)}>
+					<Button
+						variant="outline"
+						size="sm"
+						class="h-7"
+						onclick={() => selected && openEdit(selected)}
+					>
 						<PencilIcon size={12} class="mr-1" />
-						Edit
+						Edit profile
 					</Button>
+					<!--
+					  Lower-frequency / destructive maintenance lives in
+					  the dropdown — API key rotation, MFA reset,
+					  deactivate, delete. Everything else has dedicated
+					  buttons in the action bar below the metadata strip
+					  so admins don't have to hunt for them.
+					-->
 					<DropdownMenu.Root>
 						<DropdownMenu.Trigger>
 							<Button variant="outline" size="sm" class="h-7">
 								<MoreHorizontalIcon size={12} />
 							</Button>
 						</DropdownMenu.Trigger>
-						<DropdownMenu.Content align="end" class="min-w-[220px]">
-							<DropdownMenu.Item onclick={() => (groupsOpen = true)}>
-								<UsersIcon size={12} class="mr-2" />
-								Groups…
-							</DropdownMenu.Item>
-							<DropdownMenu.Item onclick={() => (customersOpen = true)}>
-								<UserCogIcon size={12} class="mr-2" />
-								Customer access…
-							</DropdownMenu.Item>
-							<DropdownMenu.Item onclick={() => (casesOpen = true)}>
-								<FolderIcon size={12} class="mr-2" />
-								Case access…
-							</DropdownMenu.Item>
-							<DropdownMenu.Separator />
-							<DropdownMenu.Item onclick={() => (auditOpen = true)}>
-								<ShieldQuestionIcon size={12} class="mr-2" />
-								Audit effective access
-							</DropdownMenu.Item>
-							<DropdownMenu.Item onclick={() => selected && recomputeAccess(selected)}>
-								<RefreshCwIcon size={12} class="mr-2" />
-								Recompute effective access
-							</DropdownMenu.Item>
-							<DropdownMenu.Separator />
+						<DropdownMenu.Content align="end" class="min-w-[200px]">
 							<DropdownMenu.Item onclick={() => selected && renewApiKey(selected)}>
 								<KeyRoundIcon size={12} class="mr-2" />
 								Rotate API key
@@ -558,26 +548,61 @@
 					</div>
 				</dl>
 
+				<!--
+				  Prominent action bar. Earlier these lived behind a
+				  three-dot dropdown which made admins (especially
+				  first-time ones) miss that the per-user concerns
+				  even existed. Putting them out as labelled buttons
+				  with icons keeps every important workflow one click
+				  away.
+				-->
+				<div class="flex flex-wrap gap-1.5 border-b bg-muted/10 px-4 py-3">
+					<Button variant="outline" size="sm" class="h-8" onclick={() => (groupsOpen = true)}>
+						<UsersIcon size={12} class="mr-1.5" />
+						Manage groups
+					</Button>
+					<Button variant="outline" size="sm" class="h-8" onclick={() => (customersOpen = true)}>
+						<UserCogIcon size={12} class="mr-1.5" />
+						Customer access
+					</Button>
+					<Button variant="outline" size="sm" class="h-8" onclick={() => (casesOpen = true)}>
+						<FolderIcon size={12} class="mr-1.5" />
+						Case access
+					</Button>
+					<Button variant="outline" size="sm" class="h-8" onclick={() => (auditOpen = true)}>
+						<ShieldQuestionIcon size={12} class="mr-1.5" />
+						Audit effective access
+					</Button>
+					<Button
+						variant="outline"
+						size="sm"
+						class="h-8"
+						onclick={() => selected && recomputeAccess(selected)}
+					>
+						<RefreshCwIcon size={12} class="mr-1.5" />
+						Recompute access
+					</Button>
+				</div>
+
 				<!-- Groups -->
 				<section class="border-t">
 					<header class="flex items-center justify-between gap-2 border-b bg-muted/10 px-4 py-2">
 						<h3 class="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-							Groups
+							Groups ({(selected.user_groups ?? []).length})
 						</h3>
-						<Button variant="outline" size="sm" class="h-7" onclick={() => (groupsOpen = true)}>
-							<PencilIcon size={11} class="mr-1" />
-							Edit
-						</Button>
 					</header>
-					<div class="flex flex-wrap gap-1 p-3 text-2xs">
+					<div class="p-3 text-2xs">
 						{#if (selected.user_groups ?? []).length === 0}
-							<span class="text-muted-foreground">No groups.</span>
+							<p class="text-muted-foreground">No groups assigned.</p>
 						{:else}
-							{#each selected.user_groups ?? [] as g}
-								<span class="rounded-sm border bg-muted/40 px-1.5 py-0">
-									{g.group_name}
-								</span>
-							{/each}
+							<ul class="divide-y rounded-md border">
+								{#each selected.user_groups ?? [] as g}
+									<li class="flex items-center gap-2 px-3 py-1.5">
+										<UsersIcon size={11} class="shrink-0 text-muted-foreground" />
+										<span class="min-w-0 flex-1 truncate">{g.group_name}</span>
+									</li>
+								{/each}
+							</ul>
 						{/if}
 					</div>
 				</section>
@@ -586,36 +611,34 @@
 				<section class="border-t">
 					<header class="flex items-center justify-between gap-2 border-b bg-muted/10 px-4 py-2">
 						<h3 class="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-							Customer access
+							Customer access ({(selected.user_customers ?? []).length})
 						</h3>
-						<Button variant="outline" size="sm" class="h-7" onclick={() => (customersOpen = true)}>
-							<PencilIcon size={11} class="mr-1" />
-							Edit
-						</Button>
 					</header>
-					<div class="flex flex-wrap gap-1 p-3 text-2xs">
+					<div class="p-3 text-2xs">
 						{#if (selected.user_customers ?? []).length === 0}
-							<span class="text-muted-foreground">No explicit customer grants.</span>
+							<p class="text-muted-foreground">No explicit customer grants.</p>
 						{:else}
-							{#each selected.user_customers ?? [] as c}
-								<span class="rounded-sm border bg-muted/40 px-1.5 py-0">
-									{c.customer_name}
-								</span>
-							{/each}
+							<ul class="divide-y rounded-md border">
+								{#each selected.user_customers ?? [] as c}
+									<li class="flex items-center gap-2 px-3 py-1.5">
+										<UserCogIcon size={11} class="shrink-0 text-muted-foreground" />
+										<span class="min-w-0 flex-1 truncate">{c.customer_name}</span>
+										<span class="shrink-0 font-mono text-3xs text-muted-foreground">
+											#{c.customer_id}
+										</span>
+									</li>
+								{/each}
+							</ul>
 						{/if}
 					</div>
 				</section>
 
 				<!-- Case access -->
 				<section class="border-t">
-					<header class="flex items-center justify-between gap-2 border-b bg-muted/10 px-4 py-2">
+					<header class="border-b bg-muted/10 px-4 py-2">
 						<h3 class="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
 							Explicit case access ({(selected.user_cases_access ?? []).length})
 						</h3>
-						<Button variant="outline" size="sm" class="h-7" onclick={() => (casesOpen = true)}>
-							<PencilIcon size={11} class="mr-1" />
-							Edit
-						</Button>
 					</header>
 					<div class="p-3">
 						{#if (selected.user_cases_access ?? []).length === 0}

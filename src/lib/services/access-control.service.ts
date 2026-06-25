@@ -121,23 +121,63 @@ export interface AccessibleCaseSummary {
 	soc_id: string | null;
 }
 
-export interface UserAuditAccessRow {
-	case_id?: number;
-	case_name?: string;
-	source?: string;
-	access_level?: number;
-	[key: string]: unknown;
+/**
+ * Per-case effective access trace. Surfaced as the values of
+ * `access_audit` (a dict keyed by case_id on the wire — the page
+ * maps it to an array for rendering).
+ *
+ *   `user_access`            — every grant that touched this case
+ *                              for this user, ordered loosely by
+ *                              source (default → group → customer →
+ *                              direct user); each row carries a
+ *                              `state` saying whether it was applied
+ *                              ("Effective") or overridden.
+ *   `user_effective_access`  — the resolved list of permissions
+ *                              (e.g. `["read_only"]`).
+ */
+export interface UserAuditAccessSource {
+	state: string;
+	access_list: string | string[];
+	access_value: number;
+	inherited_from: {
+		object_type: string;
+		object_name: string;
+		object_id: number | string;
+		object_uuid: string;
+	};
 }
 
-export interface UserAuditPermissionRow {
-	permission?: string;
-	groups?: string[];
-	[key: string]: unknown;
+export interface UserAuditAccessEntry {
+	case_info: { case_id: number; case_name: string };
+	user_access: UserAuditAccessSource[];
+	user_effective_access: string[];
+}
+
+/**
+ * Per-permission trace. Surfaced as the values of
+ * `permissions_audit.details` (a dict keyed by the permission's bit
+ * value).
+ *
+ *   `name`          — enum name on `Permissions` (e.g. `alerts_read`).
+ *   `value`         — bit value (e.g. 4 for `alerts_read`).
+ *   `inherited_from` — every group that contributes this bit, keyed
+ *                       by group_id.
+ */
+export interface UserAuditPermissionDetail {
+	name: string;
+	value: number;
+	inherited_from: Record<
+		string,
+		{ group_name: string; group_uuid: string }
+	>;
 }
 
 export interface UserAudit {
-	access_audit: UserAuditAccessRow[];
-	permissions_audit: UserAuditPermissionRow[];
+	access_audit: Record<string, UserAuditAccessEntry>;
+	permissions_audit: {
+		details: Record<string, UserAuditPermissionDetail>;
+		effective: number;
+	};
 }
 
 // ---- Helpers ---------------------------------------------------------
