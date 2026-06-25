@@ -1,13 +1,18 @@
 <!--
-  Dashboard editor. Schema-driven: the column picker, operator picker and
-  chart-type picker pull their options from /custom-dashboards/schema, so
-  adding a new aggregation or chart type on the backend surfaces here
-  automatically. System dashboards short-circuit back to view-mode.
+  Dashboard editor. Schema-driven visual builder over /api/v2/custom-dashboards.
+  Sections + widget grid, widget-editor dialog launched per widget. System
+  dashboards short-circuit back to view-mode.
 -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ArrowLeftIcon, SaveIcon, Trash2Icon } from 'lucide-svelte';
+	import {
+		ArrowLeftIcon,
+		EditIcon,
+		PlusIcon,
+		SaveIcon,
+		Trash2Icon
+	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import {
 		Card,
@@ -18,21 +23,42 @@
 	} from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import { Badge } from '$lib/components/ui/badge';
 	import {
 		CustomDashboardsService,
 		type CustomDashboard,
 		type DashboardSchema,
+		type DashboardSection,
 		type DashboardWidget
 	} from '$lib/services/custom-dashboards.service';
+	import WidgetEditorDialog from './components/WidgetEditorDialog.svelte';
 
 	let dashboard: CustomDashboard | null = $state(null);
 	let schema: DashboardSchema | null = $state(null);
-	let definitionText = $state('');
+	let name = $state('');
+	let description = $state('');
+	let isShared = $state(false);
+	let sections: DashboardSection[] = $state([]);
+
 	let saving = $state(false);
 	let error: string | null = $state(null);
 	let success: string | null = $state(null);
 
+	let dialogOpen = $state(false);
+	let editingWidget: DashboardWidget | null = $state(null);
+	let editingTarget: { sectionIdx: number; widgetIdx: number | null } | null = $state(null);
+
 	const uuid = $derived(page.params.uuid);
+
+	function normalizeSections(def: CustomDashboard['definition']): DashboardSection[] {
+		if (def.sections && def.sections.length > 0) {
+			return def.sections.map((s) => ({ ...s, widgets: s.widgets ?? [] }));
+		}
+		if (def.widgets && def.widgets.length > 0) {
+			return [{ id: 'section-default', title: def.name, widgets: def.widgets }];
+		}
+		return [{ id: 'section-default', title: def.name, widgets: [] }];
+	}
 
 	async function load() {
 		const detail = await CustomDashboardsService.get(uuid);
@@ -45,10 +71,71 @@
 			goto(`/dashboards/${uuid}`);
 			return;
 		}
-		definitionText = JSON.stringify(dashboard.definition, null, 2);
+		name = dashboard.name;
+		description = dashboard.description ?? '';
+		isShared = dashboard.is_shared;
+		sections = normalizeSections(dashboard.definition);
 
 		const schemaResp = await CustomDashboardsService.getSchema();
 		if (schemaResp.ok && schemaResp.data) schema = schemaResp.data;
+	}
+
+	function openNewWidget(sectionIdx: number) {
+		editingWidget = {
+			name: 'New widget',
+			chart_type: 'number',
+			fields: [
+				{ table: 'alerts', column: 'alert_id', aggregation: 'count', alias: 'total' }
+			]
+		};
+		editingTarget = { sectionIdx, widgetIdx: null };
+		dialogOpen = true;
+	}
+
+	function openEditWidget(sectionIdx: number, widgetIdx: number) {
+		editingWidget = sections[sectionIdx].widgets[widgetIdx];
+		editingTarget = { sectionIdx, widgetIdx };
+		dialogOpen = true;
+	}
+
+	function commitWidget(widget: DashboardWidget) {
+		if (!editingTarget) return;
+		const { sectionIdx, widgetIdx } = editingTarget;
+		if (widgetIdx === null) {
+			sections[sectionIdx].widgets = [...sections[sectionIdx].widgets, widget];
+		} else {
+			sections[sectionIdx].widgets = sections[sectionIdx].widgets.map((w, i) =>
+				i === widgetIdx ? widget : w
+			);
+		}
+		sections = [...sections];
+	}
+
+	function removeWidget(sectionIdx: number, widgetIdx: number) {
+		sections[sectionIdx].widgets = sections[sectionIdx].widgets.filter((_, i) => i !== widgetIdx);
+		sections = [...sections];
+	}
+
+	function addSection() {
+		sections = [
+			...sections,
+			{
+				id: `section-${Date.now()}`,
+				title: 'New section',
+				description: '',
+				show_divider: true,
+				widgets: []
+			}
+		];
+	}
+
+	function removeSection(idx: number) {
+		sections = sections.filter((_, i) => i !== idx);
+	}
+
+	function setSectionTitle(idx: number, title: string) {
+		sections[idx].title = title;
+		sections = [...sections];
 	}
 
 	async function save() {
@@ -56,15 +143,14 @@
 		saving = true;
 		error = null;
 		success = null;
-		let parsed: Record<string, unknown>;
-		try {
-			parsed = JSON.parse(definitionText);
-		} catch (e) {
-			error = `Invalid JSON: ${(e as Error).message}`;
-			saving = false;
-			return;
-		}
-		const response = await CustomDashboardsService.update(uuid, parsed);
+		const definition = {
+			name,
+			description,
+			is_shared: isShared,
+			sections,
+			filters_schema: dashboard.definition.filters_schema ?? []
+		};
+		const response = await CustomDashboardsService.update(uuid, definition);
 		if (response.ok) {
 			success = 'Saved.';
 		} else {
@@ -73,42 +159,29 @@
 		saving = false;
 	}
 
-	function appendWidget(widget: DashboardWidget) {
-		try {
-			const parsed = JSON.parse(definitionText);
-			parsed.widgets = parsed.widgets ?? [];
-			parsed.widgets.push(widget);
-			definitionText = JSON.stringify(parsed, null, 2);
-		} catch (e) {
-			error = `Cannot insert widget — invalid JSON: ${(e as Error).message}`;
-		}
-	}
-
-	function appendComputedWidget(name: string, label: string) {
-		appendWidget({
-			name: label,
-			chart_type: 'number',
-			fields: [{ table: 'computed', column: name, alias: name }]
-		});
-	}
-
 	$effect(() => {
 		if (uuid) load();
 	});
 </script>
 
-<div class="mx-auto flex w-full max-w-7xl flex-col gap-4 p-6">
+<div class="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
 	<header class="flex items-end justify-between">
 		<div class="flex flex-col gap-1">
-			<a href={`/dashboards/${uuid}`} class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+			<a
+				href={`/dashboards/${uuid}`}
+				class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+			>
 				<ArrowLeftIcon class="size-3" /> Back to dashboard
 			</a>
 			<h1 class="text-2xl font-semibold">Edit dashboard</h1>
 		</div>
-		<Button onclick={save} disabled={saving}>
-			<SaveIcon class="size-4" />
-			{saving ? 'Saving…' : 'Save'}
-		</Button>
+		<div class="flex gap-2">
+			<Button variant="outline" onclick={() => goto(`/dashboards/${uuid}`)}>Preview</Button>
+			<Button onclick={save} disabled={saving}>
+				<SaveIcon class="size-4" />
+				{saving ? 'Saving…' : 'Save'}
+			</Button>
+		</div>
 	</header>
 
 	{#if error}
@@ -118,77 +191,89 @@
 		<div class="rounded border border-green-500/40 bg-green-500/10 p-3 text-sm text-green-700">{success}</div>
 	{/if}
 
-	<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-		<Card class="lg:col-span-2">
-			<CardHeader>
-				<CardTitle>Definition</CardTitle>
-				<CardDescription>Edit the JSON definition. Save validates against the backend schema.</CardDescription>
+	<Card>
+		<CardHeader>
+			<CardTitle class="text-base">Dashboard</CardTitle>
+			<CardDescription>Name, description and sharing.</CardDescription>
+		</CardHeader>
+		<CardContent class="grid gap-3 sm:grid-cols-2">
+			<div class="flex flex-col gap-1">
+				<Label for="dash-name">Name</Label>
+				<Input id="dash-name" bind:value={name} />
+			</div>
+			<div class="flex flex-col gap-1">
+				<Label for="dash-desc">Description</Label>
+				<Input id="dash-desc" bind:value={description} />
+			</div>
+			<div class="flex items-center gap-2 sm:col-span-2">
+				<input id="dash-shared" type="checkbox" bind:checked={isShared} />
+				<Label for="dash-shared">Share with other users</Label>
+			</div>
+		</CardContent>
+	</Card>
+
+	{#each sections as section, sIdx (section.id ?? sIdx)}
+		<Card>
+			<CardHeader class="flex flex-row items-center justify-between gap-2">
+				<div class="flex grow flex-col gap-1">
+					<Input
+						value={section.title ?? ''}
+						oninput={(e) => setSectionTitle(sIdx, (e.target as HTMLInputElement).value)}
+						class="w-full max-w-md text-base font-semibold"
+					/>
+				</div>
+				<div class="flex items-center gap-2">
+					<Button variant="outline" size="sm" onclick={() => openNewWidget(sIdx)}>
+						<PlusIcon class="size-3" /> Widget
+					</Button>
+					<Button variant="ghost" size="icon" onclick={() => removeSection(sIdx)} title="Remove section">
+						<Trash2Icon class="size-4" />
+					</Button>
+				</div>
 			</CardHeader>
 			<CardContent>
-				<textarea
-					class="w-full rounded border bg-background p-3 font-mono text-xs"
-					rows="32"
-					bind:value={definitionText}
-				></textarea>
-			</CardContent>
-		</Card>
-
-		<Card>
-			<CardHeader>
-				<CardTitle>Schema reference</CardTitle>
-				<CardDescription>Whitelisted tables, columns, named aggregations and chart types.</CardDescription>
-			</CardHeader>
-			<CardContent class="flex flex-col gap-3 text-xs">
-				{#if schema}
-					<div>
-						<div class="mb-1 font-semibold uppercase tracking-wider text-muted-foreground">Computed</div>
-						<ul class="flex flex-col gap-1">
-							{#each schema.named_aggregations as agg (agg.name)}
-								<li>
-									<button
-										type="button"
-										class="text-left text-primary underline-offset-4 hover:underline"
-										onclick={() => appendComputedWidget(agg.name, agg.label)}
-									>
-										+ {agg.label}
-									</button>
-								</li>
-							{/each}
-						</ul>
-					</div>
-					<div>
-						<div class="mb-1 font-semibold uppercase tracking-wider text-muted-foreground">Tables</div>
-						<ul class="flex flex-col gap-1">
-							{#each schema.tables as table (table)}
-								<li>
-									<details>
-										<summary class="cursor-pointer">{table}</summary>
-										<ul class="ml-3 mt-1 flex flex-col gap-0.5 text-muted-foreground">
-											{#each schema.columns[table] ?? [] as col (col)}
-												<li>{col}</li>
-											{/each}
-										</ul>
-									</details>
-								</li>
-							{/each}
-						</ul>
-					</div>
-					<div>
-						<div class="mb-1 font-semibold uppercase tracking-wider text-muted-foreground">Chart types</div>
-						<div>{schema.chart_types.join(', ')}</div>
-					</div>
-					<div>
-						<div class="mb-1 font-semibold uppercase tracking-wider text-muted-foreground">Aggregations</div>
-						<div>{schema.aggregations.join(', ')}</div>
-					</div>
-					<div>
-						<div class="mb-1 font-semibold uppercase tracking-wider text-muted-foreground">Operators</div>
-						<div>{schema.operators.join(', ')}</div>
-					</div>
+				{#if section.widgets.length === 0}
+					<p class="text-sm text-muted-foreground">No widgets. Click "+ Widget" to add one.</p>
 				{:else}
-					<p class="text-muted-foreground">Loading schema…</p>
+					<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+						{#each section.widgets as widget, wIdx (wIdx)}
+							<Card class="border-muted">
+								<CardHeader class="pb-1">
+									<CardTitle class="text-sm flex items-center justify-between gap-2">
+										<span class="truncate">{widget.name}</span>
+										<div class="flex shrink-0 gap-1">
+											<Button variant="ghost" size="icon" onclick={() => openEditWidget(sIdx, wIdx)} title="Edit widget">
+												<EditIcon class="size-3" />
+											</Button>
+											<Button variant="ghost" size="icon" onclick={() => removeWidget(sIdx, wIdx)} title="Remove widget">
+												<Trash2Icon class="size-3" />
+											</Button>
+										</div>
+									</CardTitle>
+								</CardHeader>
+								<CardContent class="flex flex-wrap gap-1 text-xs">
+									<Badge variant="secondary">{widget.chart_type}</Badge>
+									{#each widget.fields ?? [] as f (f.alias ?? `${f.table}.${f.column}`)}
+										<Badge variant="outline">{f.table}.{f.column}{f.aggregation ? ` · ${f.aggregation}` : ''}</Badge>
+									{/each}
+								</CardContent>
+							</Card>
+						{/each}
+					</div>
 				{/if}
 			</CardContent>
 		</Card>
-	</div>
+	{/each}
+
+	<Button variant="outline" onclick={addSection}>
+		<PlusIcon class="size-4" /> Add section
+	</Button>
 </div>
+
+<WidgetEditorDialog
+	bind:open={dialogOpen}
+	widget={editingWidget}
+	{schema}
+	onSave={commitWidget}
+	onOpenChange={(v) => (dialogOpen = v)}
+/>
