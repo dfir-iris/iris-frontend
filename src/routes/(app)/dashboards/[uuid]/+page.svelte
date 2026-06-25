@@ -11,7 +11,7 @@
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { Chart } from '$lib/components/ui/chart';
+	import { Chart, WidgetTable } from '$lib/components/ui/chart';
 	import {
 		CustomDashboardsService,
 		type CustomDashboard,
@@ -213,52 +213,16 @@
 						<CardHeader>
 							<CardTitle>{widget.name}</CardTitle>
 						</CardHeader>
-						<CardContent class="overflow-x-auto">
-							<table class="w-full text-xs">
-								<thead class="border-b">
-									<tr class="text-left text-muted-foreground">
-										{#each widget.group_headers ?? [] as h (h)}
-											<th class="px-2 py-1 font-medium">{h}</th>
-										{/each}
-										{#each widget.value_headers ?? [] as h (h)}
-											<th class="px-2 py-1 text-right font-medium">{h}</th>
-										{/each}
-									</tr>
-								</thead>
-								<tbody>
-									{#each (widget.rows ?? []) as row, rIdx (rIdx)}
-										{@const tableRow = row as { formatted_group_values?: string[]; value_cells?: Array<{ formatted_value: string; formatted_percentage: string }> }}
-										<tr class="border-b last:border-0 hover:bg-muted/40">
-											{#each tableRow.formatted_group_values ?? [] as g, gIdx (gIdx)}
-												<td class="px-2 py-1">{g}</td>
-											{/each}
-											{#each tableRow.value_cells ?? [] as cell, cIdx (cIdx)}
-												<td class="px-2 py-1 text-right tabular-nums">
-													{cell.formatted_value}
-													{#if cell.formatted_percentage && cell.formatted_percentage !== '--'}
-														<span class="ml-1 text-muted-foreground">({cell.formatted_percentage})</span>
-													{/if}
-												</td>
-											{/each}
-										</tr>
-									{/each}
-								</tbody>
-								{#if (widget.totals ?? []).length > 0 && (widget.rows ?? []).length > 0}
-									<tfoot class="border-t bg-muted/30">
-										<tr>
-											<td class="px-2 py-1 font-medium" colspan={(widget.group_headers ?? []).length}>
-												{widget.total_label ?? 'Total'}
-											</td>
-											{#each widget.totals ?? [] as total, tIdx (tIdx)}
-												<td class="px-2 py-1 text-right font-medium tabular-nums">{total.formatted_value}</td>
-											{/each}
-										</tr>
-									</tfoot>
-								{/if}
-							</table>
-							{#if (widget.rows ?? []).length === 0}
-								<p class="py-4 text-center text-xs text-muted-foreground">No rows.</p>
-							{/if}
+						<CardContent class="max-h-[480px] overflow-auto">
+							<WidgetTable
+								groupHeaders={widget.group_headers}
+								valueHeaders={widget.value_headers}
+								groupKeys={widget.group_keys}
+								valueKeys={widget.value_keys}
+								rows={widget.rows as never}
+								totals={widget.totals}
+								totalLabel={widget.total_label}
+							/>
 						</CardContent>
 					</Card>
 				{:else}
