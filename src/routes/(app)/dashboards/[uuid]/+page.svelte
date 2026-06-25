@@ -28,6 +28,45 @@
 
 	const uuid = $derived(page.params.uuid);
 
+	// Preset time ranges mirror the old jQuery UI's quick-pick chips.
+	// Each preset writes both start and end as ISO datetime-local strings
+	// (YYYY-MM-DDTHH:mm) so the existing Input bindings pick them up and
+	// the backend receives them verbatim through the render endpoint.
+	const TIME_PRESETS = [
+		{ label: 'Last 15 minutes', minutes: 15 },
+		{ label: 'Last hour', minutes: 60 },
+		{ label: 'Last 12 hours', minutes: 60 * 12 },
+		{ label: 'Last 7 days', minutes: 60 * 24 * 7 },
+		{ label: 'Last 30 days', minutes: 60 * 24 * 30 },
+		{ label: 'Last 90 days', minutes: 60 * 24 * 90 },
+		{ label: 'Last 6 months', minutes: 60 * 24 * 182 },
+		{ label: 'Last 1 year', minutes: 60 * 24 * 365 },
+		{ label: 'Last 2 years', minutes: 60 * 24 * 365 * 2 },
+		{ label: 'Last 5 years', minutes: 60 * 24 * 365 * 5 },
+	] as const;
+
+	function toLocalInputString(d: Date): string {
+		const pad = (n: number) => String(n).padStart(2, '0');
+		return (
+			`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+			`T${pad(d.getHours())}:${pad(d.getMinutes())}`
+		);
+	}
+
+	function applyPreset(minutes: number) {
+		const end = new Date();
+		const start = new Date(end.getTime() - minutes * 60 * 1000);
+		filterStart = toLocalInputString(start);
+		filterEnd = toLocalInputString(end);
+		render();
+	}
+
+	function resetFilters() {
+		filterStart = '';
+		filterEnd = '';
+		render();
+	}
+
 	async function load() {
 		loading = true;
 		error = null;
@@ -108,17 +147,34 @@
 		<CardHeader>
 			<CardTitle class="text-sm">Filters</CardTitle>
 		</CardHeader>
-		<CardContent class="flex flex-wrap gap-3">
-			<div>
-				<Label for="start">Start</Label>
-				<Input id="start" type="datetime-local" bind:value={filterStart} />
-			</div>
-			<div>
-				<Label for="end">End</Label>
-				<Input id="end" type="datetime-local" bind:value={filterEnd} />
-			</div>
-			<div class="flex items-end">
+		<CardContent class="flex flex-col gap-3">
+			<div class="flex flex-wrap items-end gap-3">
+				<div class="flex flex-col gap-1">
+					<Label for="start">Start</Label>
+					<Input id="start" type="datetime-local" bind:value={filterStart} />
+				</div>
+				<div class="flex flex-col gap-1">
+					<Label for="end">End</Label>
+					<Input id="end" type="datetime-local" bind:value={filterEnd} />
+				</div>
 				<Button onclick={render}>Apply</Button>
+				<Button variant="outline" onclick={resetFilters}>Reset</Button>
+			</div>
+			<div class="flex flex-col gap-1">
+				<span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+					Preset ranges
+				</span>
+				<div class="flex flex-wrap gap-1.5">
+					{#each TIME_PRESETS as preset (preset.label)}
+						<button
+							type="button"
+							class="rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs text-primary transition hover:bg-primary/10"
+							onclick={() => applyPreset(preset.minutes)}
+						>
+							{preset.label}
+						</button>
+					{/each}
+				</div>
 			</div>
 		</CardContent>
 	</Card>
