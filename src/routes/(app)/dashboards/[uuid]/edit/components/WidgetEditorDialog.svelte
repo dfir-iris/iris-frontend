@@ -23,6 +23,7 @@
 	} from '$lib/services/custom-dashboards.service';
 	import FieldRow from './FieldRow.svelte';
 	import FilterRow from './FilterRow.svelte';
+	import VisualizationOptions from './VisualizationOptions.svelte';
 
 	type Props = {
 		open: boolean;
@@ -336,6 +337,13 @@
 						{/each}
 					</SelectContent>
 				</Select>
+			</section>
+
+			<section class="flex flex-col gap-2">
+				<div class="flex items-center justify-between">
+					<Label>Visualization</Label>
+				</div>
+				<VisualizationOptions widget={draft} onChange={(w) => (draft = w)} />
 			</section>
 		</div>
 

@@ -79,6 +79,41 @@
 		return typeof v === 'number' ? v.toLocaleString() : String(v);
 	}
 
+	function widgetColor(widget: RenderedWidget): string | undefined {
+		const c = (widget.options as Record<string, unknown> | undefined)?.color;
+		return typeof c === 'string' && c.trim() ? c.trim() : undefined;
+	}
+
+	function widgetPalette(widget: RenderedWidget): string[] | undefined {
+		const p = (widget.options as Record<string, unknown> | undefined)?.palette;
+		if (Array.isArray(p)) return p.map((x) => String(x)).filter(Boolean);
+		if (typeof p === 'string' && p.trim()) {
+			return p.split(',').map((s) => s.trim()).filter(Boolean);
+		}
+		return undefined;
+	}
+
+	function resolveKpiColor(widget: RenderedWidget): string | undefined {
+		const base = widgetColor(widget);
+		const numeric = typeof widget.value === 'number' ? widget.value : null;
+		const thresholds = (widget.options as Record<string, unknown> | undefined)?.thresholds;
+		if (numeric === null || !Array.isArray(thresholds)) return base;
+		for (const raw of thresholds) {
+			if (typeof raw !== 'object' || raw === null) continue;
+			const t = raw as { op?: string; value?: number | string; color?: string };
+			const cmpValue = typeof t.value === 'number' ? t.value : Number(t.value);
+			if (!Number.isFinite(cmpValue) || typeof t.color !== 'string') continue;
+			const hit =
+				(t.op === 'gte' && numeric >= cmpValue) ||
+				(t.op === 'gt' && numeric > cmpValue) ||
+				(t.op === 'lte' && numeric <= cmpValue) ||
+				(t.op === 'lt' && numeric < cmpValue) ||
+				(t.op === 'eq' && numeric === cmpValue);
+			if (hit) return t.color;
+		}
+		return base;
+	}
+
 	function toggle() {
 		const next = !expanded;
 		expanded = next;
@@ -119,11 +154,12 @@
 
 			{#snippet widgetCard(widget: RenderedWidget)}
 				{#if widget.chart_type === 'number' || widget.chart_type === 'percentage'}
+					{@const kpiColor = resolveKpiColor(widget)}
 					<Card class={`border-muted ${sizeClass(widget)}`}>
 						<CardHeader class="pb-1">
 							<CardTitle class="text-xs font-medium text-muted-foreground">{widget.name}</CardTitle>
 						</CardHeader>
-						<CardContent class="text-xl font-semibold">
+						<CardContent class="text-xl font-semibold" style={kpiColor ? `color: ${kpiColor};` : ''}>
 							{widget.error ? '—' : formatValue(widget)}
 						</CardContent>
 					</Card>
@@ -157,6 +193,8 @@
 								labels={widget.labels ?? widget.display_labels ?? []}
 								datasets={widget.datasets ?? []}
 								height={220}
+								color={widgetColor(widget)}
+								palette={widgetPalette(widget)}
 							/>
 						</CardContent>
 					</Card>

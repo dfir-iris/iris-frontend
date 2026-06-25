@@ -7,12 +7,24 @@
 		labels: string[];
 		datasets: Array<{ label: string; data: number[] }>;
 		height?: number;
+		color?: string;
+		palette?: string[];
 	}
 
-	let { type: typeProp, labels, datasets, height = 320 }: ChartProps = $props();
+	let { type: typeProp, labels, datasets, height = 320, color, palette }: ChartProps = $props();
 	// Backend's "timechart" is just a line chart with a time x-axis;
 	// echarts only knows 'line', so map here.
 	const type = $derived(typeProp === 'timechart' ? 'line' : typeProp);
+	// Resolved color palette: explicit `palette` wins; otherwise the
+	// single-series `color` becomes a one-element palette; else echarts
+	// default. Filter blanks so a stray comma doesn't poison the list.
+	const resolvedPalette = $derived.by(() => {
+		if (Array.isArray(palette) && palette.length > 0) {
+			return palette.map((c) => c.trim()).filter(Boolean);
+		}
+		if (color && color.trim()) return [color.trim()];
+		return undefined;
+	});
 
 	let container: HTMLDivElement | undefined = $state();
 	let instance: unknown = $state(undefined);
@@ -34,6 +46,7 @@
 			// the bottom legend without overflowing the card.
 			const dense = data.length > 8;
 			return {
+				...(resolvedPalette ? { color: resolvedPalette } : {}),
 				tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
 				legend: {
 					type: 'scroll',
@@ -76,6 +89,7 @@
 				fontSize: 11,
 			};
 		return {
+			...(resolvedPalette ? { color: resolvedPalette } : {}),
 			tooltip: { trigger: 'axis' },
 			legend: showLegend
 				? { type: 'scroll', bottom: 0, textStyle: { fontSize: 11 } }
