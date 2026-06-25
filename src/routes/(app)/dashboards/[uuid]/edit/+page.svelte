@@ -6,6 +6,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { flip } from 'svelte/animate';
 	import {
 		ArrowLeftIcon,
 		EditIcon,
@@ -57,12 +58,27 @@
 
 	const uuid = $derived(page.params.uuid);
 
+	function withWidgetIds(widgets: DashboardWidget[]): DashboardWidget[] {
+		return widgets.map((w, i) => {
+			const layout = (w.layout ?? {}) as Record<string, unknown>;
+			if (!layout._client_id) {
+				layout._client_id = `w-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`;
+			}
+			return { ...w, layout };
+		});
+	}
+
+	function widgetKey(widget: DashboardWidget): string {
+		const layout = (widget.layout ?? {}) as Record<string, unknown>;
+		return String(layout._client_id ?? `${widget.name}-${widget.chart_type}`);
+	}
+
 	function normalizeSections(def: CustomDashboard['definition']): DashboardSection[] {
 		if (def.sections && def.sections.length > 0) {
-			return def.sections.map((s) => ({ ...s, widgets: s.widgets ?? [] }));
+			return def.sections.map((s) => ({ ...s, widgets: withWidgetIds(s.widgets ?? []) }));
 		}
 		if (def.widgets && def.widgets.length > 0) {
-			return [{ id: 'section-default', title: def.name, widgets: def.widgets }];
+			return [{ id: 'section-default', title: def.name, widgets: withWidgetIds(def.widgets) }];
 		}
 		return [{ id: 'section-default', title: def.name, widgets: [] }];
 	}
@@ -109,10 +125,14 @@
 		if (!editingTarget) return;
 		const { sectionIdx, widgetIdx } = editingTarget;
 		if (widgetIdx === null) {
-			sections[sectionIdx].widgets = [...sections[sectionIdx].widgets, widget];
+			sections[sectionIdx].widgets = [...sections[sectionIdx].widgets, ...withWidgetIds([widget])];
 		} else {
+			// Preserve the existing _client_id so animate:flip identity holds.
+			const existing = sections[sectionIdx].widgets[widgetIdx];
+			const existingLayout = (existing?.layout ?? {}) as Record<string, unknown>;
+			const nextLayout = { ...(widget.layout ?? {}), _client_id: existingLayout._client_id };
 			sections[sectionIdx].widgets = sections[sectionIdx].widgets.map((w, i) =>
-				i === widgetIdx ? widget : w
+				i === widgetIdx ? { ...widget, layout: nextLayout } : w
 			);
 		}
 		sections = [...sections];
@@ -146,56 +166,104 @@
 		sections = [...sections];
 	}
 
-	// HTML5 DnD state — stash source coords on dragstart, splice on drop.
-	// Dropping on a widget card inserts BEFORE it; dropping on the empty
-	// area after the last card appends. The "+ Widget" button at the
-	// header isn't a drop target so it never swallows a misaim.
+	// HTML5 DnD state.
+	// dropTarget = { sectionIdx, widgetIdx, side } — widgetIdx may equal
+	// section.widgets.length to mean "after the last widget" / empty area.
+	// side ∈ 'before'|'after' is what makes the indicator land on the
+	// correct side of the hovered card (we pick by cursor X vs card mid).
 	type DragSource = { sectionIdx: number; widgetIdx: number };
+	type DropTarget = { sectionIdx: number; widgetIdx: number; side: 'before' | 'after' };
 	let dragSource: DragSource | null = $state(null);
-	let dragOverKey: string | null = $state(null);
+	let dropTarget: DropTarget | null = $state(null);
 
-	function onDragStart(source: DragSource) {
+	function onDragStart(e: DragEvent, source: DragSource) {
 		dragSource = source;
+		if (e.dataTransfer) {
+			e.dataTransfer.effectAllowed = 'move';
+			// Use the closest Card as the drag image so the cursor carries
+			// a real preview of the widget being moved, not just the grip.
+			const handle = e.currentTarget as HTMLElement | null;
+			const card = handle?.closest('[data-widget-card]') as HTMLElement | null;
+			if (card) {
+				const rect = card.getBoundingClientRect();
+				e.dataTransfer.setDragImage(card, e.clientX - rect.left, e.clientY - rect.top);
+			}
+			// Required for Firefox to actually start a drag operation.
+			e.dataTransfer.setData('text/plain', `${source.sectionIdx}:${source.widgetIdx}`);
+		}
 	}
 
 	function onDragEnd() {
 		dragSource = null;
-		dragOverKey = null;
+		dropTarget = null;
 	}
 
-	function moveWidget(source: DragSource, dest: { sectionIdx: number; widgetIdx: number }) {
-		if (source.sectionIdx === dest.sectionIdx && source.widgetIdx === dest.widgetIdx) return;
-		const widget = sections[source.sectionIdx].widgets[source.widgetIdx];
-		if (!widget) return;
-		// Remove from source first; if dest is in the same section AFTER source,
-		// the dest index shifts down by one.
-		sections[source.sectionIdx].widgets = sections[source.sectionIdx].widgets.filter(
-			(_, i) => i !== source.widgetIdx
-		);
-		let insertAt = dest.widgetIdx;
-		if (source.sectionIdx === dest.sectionIdx && dest.widgetIdx > source.widgetIdx) {
-			insertAt = dest.widgetIdx - 1;
+	function onCardDragOver(e: DragEvent, sectionIdx: number, widgetIdx: number) {
+		if (!dragSource) return;
+		e.preventDefault();
+		if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+		const target = e.currentTarget as HTMLElement;
+		const rect = target.getBoundingClientRect();
+		const side: 'before' | 'after' = e.clientX < rect.left + rect.width / 2 ? 'before' : 'after';
+		if (
+			dropTarget?.sectionIdx !== sectionIdx ||
+			dropTarget?.widgetIdx !== widgetIdx ||
+			dropTarget?.side !== side
+		) {
+			dropTarget = { sectionIdx, widgetIdx, side };
 		}
+	}
+
+	function onSectionDragOver(e: DragEvent, sectionIdx: number) {
+		if (!dragSource) return;
+		e.preventDefault();
+		// Only register the "empty / end of section" target if the cursor
+		// isn't already over a specific card in this section. Card-level
+		// handlers fire first and set dropTarget; if they didn't, the
+		// section is the fallback.
+		if (
+			!dropTarget ||
+			dropTarget.sectionIdx !== sectionIdx ||
+			dropTarget.widgetIdx >= sections[sectionIdx].widgets.length
+		) {
+			dropTarget = {
+				sectionIdx,
+				widgetIdx: sections[sectionIdx].widgets.length,
+				side: 'before',
+			};
+		}
+	}
+
+	function moveWidget(source: DragSource, dest: DropTarget) {
+		const sourceWidget = sections[source.sectionIdx].widgets[source.widgetIdx];
+		if (!sourceWidget) return;
+
+		// Compute the destination index BEFORE removing the source from its
+		// section — same-section moves shift the dest index if source is
+		// to the left of dest.
+		let destIdx = dest.widgetIdx + (dest.side === 'after' ? 1 : 0);
+
+		if (source.sectionIdx === dest.sectionIdx && source.widgetIdx < destIdx) {
+			destIdx -= 1;
+		}
+
+		// No-op: dropping in the same slot.
+		if (source.sectionIdx === dest.sectionIdx && source.widgetIdx === destIdx) return;
+
+		sections[source.sectionIdx].widgets = sections[source.sectionIdx].widgets.filter(
+			(_, i) => i !== source.widgetIdx,
+		);
 		const destWidgets = [...sections[dest.sectionIdx].widgets];
-		destWidgets.splice(insertAt, 0, widget);
+		destWidgets.splice(Math.max(0, Math.min(destIdx, destWidgets.length)), 0, sourceWidget);
 		sections[dest.sectionIdx].widgets = destWidgets;
 		sections = [...sections];
 	}
 
-	function onDropOnWidget(e: DragEvent, dest: { sectionIdx: number; widgetIdx: number }) {
+	function onDrop(e: DragEvent) {
 		e.preventDefault();
-		if (!dragSource) return;
-		moveWidget(dragSource, dest);
+		if (dragSource && dropTarget) moveWidget(dragSource, dropTarget);
 		dragSource = null;
-		dragOverKey = null;
-	}
-
-	function onDropOnSection(e: DragEvent, sectionIdx: number) {
-		e.preventDefault();
-		if (!dragSource) return;
-		moveWidget(dragSource, { sectionIdx, widgetIdx: sections[sectionIdx].widgets.length });
-		dragSource = null;
-		dragOverKey = null;
+		dropTarget = null;
 	}
 
 	function addSection() {
@@ -225,11 +293,21 @@
 		saving = true;
 		error = null;
 		success = null;
+		// Strip client-only ids from the persisted payload — _client_id
+		// only matters in-session for animate:flip identity.
+		const cleanSections = sections.map((s) => ({
+			...s,
+			widgets: s.widgets.map((w) => {
+				const layout = { ...(w.layout ?? {}) } as Record<string, unknown>;
+				delete layout._client_id;
+				return { ...w, layout };
+			}),
+		}));
 		const definition = {
 			name,
 			description,
 			is_shared: isShared,
-			sections,
+			sections: cleanSections,
 			filters_schema: dashboard.definition.filters_schema ?? []
 		};
 		const response = await CustomDashboardsService.update(uuid, definition);
@@ -314,47 +392,52 @@
 				</div>
 			</CardHeader>
 			<CardContent
-				ondragover={(e) => {
-					if (dragSource) e.preventDefault();
-				}}
-				ondrop={(e) => onDropOnSection(e, sIdx)}
+				ondragover={(e) => onSectionDragOver(e, sIdx)}
+				ondrop={onDrop}
 			>
 				{#if section.widgets.length === 0}
 					<p
-						class="rounded border border-dashed p-6 text-center text-sm text-muted-foreground"
-						class:bg-muted={dragSource && dragOverKey === `section-${sIdx}-empty`}
-						ondragenter={() => dragSource && (dragOverKey = `section-${sIdx}-empty`)}
-						ondragleave={() => dragOverKey === `section-${sIdx}-empty` && (dragOverKey = null)}
+						class="rounded border border-dashed p-6 text-center text-sm text-muted-foreground transition-colors"
+						class:bg-primary={dragSource && dropTarget?.sectionIdx === sIdx}
+						class:bg-opacity-10={dragSource && dropTarget?.sectionIdx === sIdx}
+						class:border-primary={dragSource && dropTarget?.sectionIdx === sIdx}
 					>
-						No widgets. Click "+ Widget" to add one, or drop a widget here.
+						{dragSource ? 'Drop widget here' : 'No widgets. Click "+ Widget" to add one, or drop a widget here.'}
 					</p>
 				{:else}
 					<div class="grid grid-cols-1 gap-3 sm:grid-cols-12">
-						{#each section.widgets as widget, wIdx (wIdx)}
-							{@const dropKey = `${sIdx}-${wIdx}`}
+						{#each section.widgets as widget, wIdx (widgetKey(widget))}
+							{@const isSource = dragSource?.sectionIdx === sIdx && dragSource?.widgetIdx === wIdx}
+							{@const dropBefore = dropTarget?.sectionIdx === sIdx && dropTarget?.widgetIdx === wIdx && dropTarget?.side === 'before'}
+							{@const dropAfter = dropTarget?.sectionIdx === sIdx && dropTarget?.widgetIdx === wIdx && dropTarget?.side === 'after'}
 							<div
-								class={`${editorSizeClass(widget)} transition-opacity`}
-								class:opacity-50={dragSource && dragSource.sectionIdx === sIdx && dragSource.widgetIdx === wIdx}
+								class={`relative ${editorSizeClass(widget)}`}
+								data-widget-card
+								animate:flip={{ duration: 220 }}
+								ondragover={(e) => onCardDragOver(e, sIdx, wIdx)}
+								ondrop={onDrop}
 							>
+								{#if dropBefore}
+									<div
+										class="pointer-events-none absolute -left-2 top-0 z-10 h-full w-1 rounded-full bg-primary shadow-[0_0_8px_var(--tw-shadow-color)] shadow-primary/60"
+									></div>
+								{/if}
+								{#if dropAfter}
+									<div
+										class="pointer-events-none absolute -right-2 top-0 z-10 h-full w-1 rounded-full bg-primary shadow-[0_0_8px_var(--tw-shadow-color)] shadow-primary/60"
+									></div>
+								{/if}
 								<Card
-									class={`border-muted ${dragOverKey === dropKey ? 'ring-2 ring-primary' : ''}`}
-									ondragover={(e) => {
-										if (dragSource) {
-											e.preventDefault();
-											dragOverKey = dropKey;
-										}
-									}}
-									ondragleave={() => dragOverKey === dropKey && (dragOverKey = null)}
-									ondrop={(e) => onDropOnWidget(e, { sectionIdx: sIdx, widgetIdx: wIdx })}
+									class={`border-muted transition-all ${isSource ? 'opacity-30 ring-2 ring-dashed ring-primary/50 scale-95' : ''}`}
 								>
 									<CardHeader class="pb-1">
 										<CardTitle class="text-sm flex items-center justify-between gap-2">
 											<span class="flex items-center gap-1 truncate">
 												<button
 													type="button"
-													class="cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
+													class="cursor-grab rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground active:cursor-grabbing"
 													draggable="true"
-													ondragstart={() => onDragStart({ sectionIdx: sIdx, widgetIdx: wIdx })}
+													ondragstart={(e) => onDragStart(e, { sectionIdx: sIdx, widgetIdx: wIdx })}
 													ondragend={onDragEnd}
 													title="Drag to reorder"
 													aria-label="Drag handle"
