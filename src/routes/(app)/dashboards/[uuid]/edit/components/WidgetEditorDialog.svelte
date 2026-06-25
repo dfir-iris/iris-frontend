@@ -3,7 +3,20 @@
   cleanly. Schema comes in as a prop (one fetch at the editor-page level).
 -->
 <script lang="ts">
-	import { ArrowDownIcon, ArrowUpIcon, ChevronDownIcon, ChevronUpIcon, PlusIcon, XIcon } from 'lucide-svelte';
+	import {
+		ArrowDownIcon,
+		ArrowUpIcon,
+		BarChart3Icon,
+		ChevronDownIcon,
+		ChevronUpIcon,
+		DatabaseIcon,
+		FilterIcon,
+		LayersIcon,
+		PaletteIcon,
+		PlusIcon,
+		SettingsIcon,
+		XIcon
+	} from 'lucide-svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -25,15 +38,44 @@
 	import FilterRow from './FilterRow.svelte';
 	import VisualizationOptions from './VisualizationOptions.svelte';
 
+	type RailEntry = {
+		sectionIdx: number;
+		widgetIdx: number;
+		sectionTitle: string;
+		widgetName: string;
+		chartType: string;
+	};
+
 	type Props = {
 		open: boolean;
 		widget: DashboardWidget | null;
 		schema: DashboardSchema | null;
+		// Optional rail context — when supplied, the dialog shows a left
+		// list of all widgets across sections so the user can hop without
+		// closing & reopening. The host page provides the entries and
+		// handles save-and-switch via onSwitch.
+		railEntries?: RailEntry[];
+		current?: { sectionIdx: number; widgetIdx: number | null } | null;
+		breadcrumbSection?: string;
+		onSwitch?: (target: { sectionIdx: number; widgetIdx: number }) => void;
 		onSave: (widget: DashboardWidget) => void;
 		onOpenChange: (open: boolean) => void;
 	};
 
-	let { open = $bindable(false), widget, schema, onSave, onOpenChange }: Props = $props();
+	let {
+		open = $bindable(false),
+		widget,
+		schema,
+		railEntries = [],
+		current = null,
+		breadcrumbSection,
+		onSwitch,
+		onSave,
+		onOpenChange
+	}: Props = $props();
+
+	type Tab = 'data' | 'filters' | 'visualization' | 'advanced';
+	let activeTab: Tab = $state('data');
 
 	// Working copy — only commits on Save.
 	let draft: DashboardWidget = $state({
@@ -48,6 +90,7 @@
 		if (widget) {
 			draft = structuredClone($state.snapshot(widget)) as DashboardWidget;
 			groupByText = (widget.group_by ?? []).join(', ');
+			activeTab = 'data';
 		}
 	});
 
@@ -161,33 +204,86 @@
 </script>
 
 <Dialog.Root bind:open onOpenChange={(v) => onOpenChange(v)}>
-	<Dialog.Content class="max-w-3xl">
+	<Dialog.Content class="max-w-5xl">
 		<Dialog.Header>
-			<Dialog.Title>Edit widget</Dialog.Title>
-			<Dialog.Description>
-				Pick a chart type and the data fields. Computed columns surface MTTD, MTTR and other named
-				aggregations.
-			</Dialog.Description>
+			<div class="flex flex-col gap-1">
+				<Dialog.Title>Edit widget</Dialog.Title>
+				{#if breadcrumbSection || draft.name}
+					<div class="flex items-center gap-1 text-xs text-muted-foreground">
+						{#if breadcrumbSection}
+							<span>In</span>
+							<span class="font-medium text-foreground">{breadcrumbSection}</span>
+							<span>›</span>
+						{/if}
+						<Badge variant="secondary">{draft.chart_type}</Badge>
+						<span class="font-medium text-foreground">{draft.name || 'Untitled'}</span>
+					</div>
+				{/if}
+			</div>
 		</Dialog.Header>
 
-		<div class="flex max-h-[60vh] flex-col gap-4 overflow-y-auto pr-1">
-			<div class="grid gap-2 sm:grid-cols-2">
-				<div>
-					<Label for="widget-name">Name</Label>
-					<Input id="widget-name" bind:value={draft.name} placeholder="Widget name" />
+		<div class="grid gap-4 sm:grid-cols-[220px_1fr]">
+			{#if railEntries.length > 0}
+				<aside class="flex max-h-[60vh] flex-col gap-1 overflow-y-auto rounded border bg-muted/20 p-2">
+					<div class="px-1 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+						Layout
+					</div>
+					{#each railEntries as entry (entry.sectionIdx + ':' + entry.widgetIdx)}
+						{@const isActive = current?.sectionIdx === entry.sectionIdx && current?.widgetIdx === entry.widgetIdx}
+						<button
+							type="button"
+							class={`flex items-center justify-between gap-1 rounded px-2 py-1 text-left text-xs transition ${isActive ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+							onclick={() => onSwitch?.({ sectionIdx: entry.sectionIdx, widgetIdx: entry.widgetIdx })}
+							disabled={isActive}
+							title={`${entry.sectionTitle} › ${entry.widgetName}`}
+						>
+							<span class="truncate">{entry.widgetName || 'Untitled'}</span>
+							<Badge variant={isActive ? 'outline' : 'secondary'} class="shrink-0">{entry.chartType}</Badge>
+						</button>
+					{/each}
+				</aside>
+			{/if}
+			<div class="flex max-h-[60vh] min-h-0 flex-col gap-3 overflow-hidden">
+				<div class="grid gap-2 sm:grid-cols-2">
+					<div>
+						<Label for="widget-name">Name</Label>
+						<Input id="widget-name" bind:value={draft.name} placeholder="Widget name" />
+					</div>
+					<div>
+						<Label for="widget-chart">Chart type</Label>
+						<Select value={draft.chart_type} onValueChange={(v) => (draft.chart_type = v)} type="single">
+							<SelectTrigger>{draft.chart_type}</SelectTrigger>
+							<SelectContent>
+								{#each schema?.chart_types ?? ['number', 'pie', 'bar', 'line', 'percentage', 'table', 'timechart'] as t (t)}
+									<SelectItem value={t}>{t}</SelectItem>
+								{/each}
+							</SelectContent>
+						</Select>
+					</div>
 				</div>
-				<div>
-					<Label for="widget-chart">Chart type</Label>
-					<Select value={draft.chart_type} onValueChange={(v) => (draft.chart_type = v)} type="single">
-						<SelectTrigger>{draft.chart_type}</SelectTrigger>
-						<SelectContent>
-							{#each schema?.chart_types ?? ['number', 'pie', 'bar', 'line', 'percentage', 'table', 'timechart'] as t (t)}
-								<SelectItem value={t}>{t}</SelectItem>
-							{/each}
-						</SelectContent>
-					</Select>
-				</div>
-			</div>
+
+				<nav class="flex shrink-0 gap-0.5 border-b text-sm">
+					{#each [
+						{ id: 'data', label: 'Data', Icon: DatabaseIcon },
+						{ id: 'filters', label: 'Filters', Icon: FilterIcon },
+						{ id: 'visualization', label: 'Visualization', Icon: PaletteIcon },
+						{ id: 'advanced', label: 'Advanced', Icon: SettingsIcon }
+					] as tab (tab.id)}
+						{@const isActive = activeTab === tab.id}
+						<button
+							type="button"
+							class={`flex items-center gap-1 border-b-2 px-3 py-2 transition ${isActive ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+							onclick={() => (activeTab = tab.id as Tab)}
+						>
+							<tab.Icon class="size-4" />
+							{tab.label}
+						</button>
+					{/each}
+				</nav>
+
+				<div class="flex grow flex-col gap-4 overflow-y-auto pr-1">
+
+				{#if activeTab === 'data'}
 
 			<section class="flex flex-col gap-2">
 				<div class="flex items-center justify-between">
@@ -225,7 +321,9 @@
 					</div>
 				{/if}
 			</section>
+			{/if}
 
+			{#if activeTab === 'filters'}
 			<section class="flex flex-col gap-2">
 				<div class="flex items-center justify-between">
 					<Label>Filters</Label>
@@ -245,7 +343,9 @@
 					/>
 				{/each}
 			</section>
+			{/if}
 
+			{#if activeTab === 'visualization'}
 			{#if draft.chart_type === 'table'}
 				{@const sortList = getSortList()}
 				<section class="flex flex-col gap-2">
@@ -345,6 +445,40 @@
 				</div>
 				<VisualizationOptions widget={draft} onChange={(w) => (draft = w)} />
 			</section>
+			{/if}
+
+			{#if activeTab === 'advanced'}
+			<section class="flex flex-col gap-3">
+				<p class="text-xs text-muted-foreground">
+					Free-form options stored under <span class="font-mono">widget.options</span>. The raw
+					object below is what gets sent to the backend with this widget — useful for keys the
+					UI doesn't surface (alternative time columns, ratio numerator/denominator keys,
+					capitalization overrides, etc).
+				</p>
+				<textarea
+					class="min-h-[200px] w-full rounded border bg-background p-2 font-mono text-xs"
+					spellcheck="false"
+					value={JSON.stringify(draft.options ?? {}, null, 2)}
+					oninput={(e) => {
+						const txt = (e.target as HTMLTextAreaElement).value;
+						try {
+							const parsed = JSON.parse(txt);
+							if (typeof parsed === 'object' && parsed !== null) {
+								draft = { ...draft, options: parsed };
+							}
+						} catch {
+							/* ignore invalid keystrokes */
+						}
+					}}
+				></textarea>
+				<div>
+					<Label class="text-xs">Layout (read-only preview)</Label>
+					<pre class="overflow-auto rounded border bg-muted/40 p-2 text-2xs">{JSON.stringify(draft.layout ?? {}, null, 2)}</pre>
+				</div>
+			</section>
+			{/if}
+				</div>
+			</div>
 		</div>
 
 		<Dialog.Footer>

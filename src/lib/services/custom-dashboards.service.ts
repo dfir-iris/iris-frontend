@@ -134,6 +134,55 @@ export interface DashboardSchema {
 	time_buckets: string[];
 }
 
+// Strict CSS color validator. Used wherever a widget-supplied color flows
+// into a `style` attribute or a Chart wrapper prop, so a malicious /
+// fat-fingered string can't escape the property and inject extra CSS.
+// Accepts #rgb / #rgba / #rrggbb / #rrggbbaa plus a small allowlist of
+// named colors. Anything else returns undefined; callers fall back to
+// the default palette.
+const _NAMED_COLORS = new Set([
+	'transparent',
+	'currentcolor',
+	'red',
+	'orange',
+	'yellow',
+	'green',
+	'blue',
+	'purple',
+	'pink',
+	'gray',
+	'grey',
+	'black',
+	'white',
+]);
+
+export function safeCssColor(value: unknown): string | undefined {
+	if (typeof value !== 'string') return undefined;
+	const trimmed = value.trim();
+	if (!trimmed) return undefined;
+	if (/^#[0-9a-fA-F]{3,8}$/.test(trimmed)) {
+		const hex = trimmed.length;
+		if (hex === 4 || hex === 5 || hex === 7 || hex === 9) return trimmed;
+		return undefined;
+	}
+	if (_NAMED_COLORS.has(trimmed.toLowerCase())) return trimmed.toLowerCase();
+	return undefined;
+}
+
+export function safeCssPalette(value: unknown): string[] | undefined {
+	const arr: unknown[] = Array.isArray(value)
+		? value
+		: typeof value === 'string'
+			? value.split(',')
+			: [];
+	const out: string[] = [];
+	for (const raw of arr) {
+		const c = safeCssColor(raw);
+		if (c) out.push(c);
+	}
+	return out.length > 0 ? out : undefined;
+}
+
 export class CustomDashboardsService {
 	static list(options?: ApiOptions): Promise<RequestResponse<CustomDashboard[]>> {
 		return ApiService.get<CustomDashboard[]>('/custom-dashboards', options);

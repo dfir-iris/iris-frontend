@@ -15,6 +15,7 @@
 		SelectItem,
 		SelectTrigger
 	} from '$lib/components/ui/select';
+	import { safeCssColor, safeCssPalette } from '$lib/services/custom-dashboards.service';
 	import type { DashboardWidget } from '$lib/services/custom-dashboards.service';
 
 	type Threshold = { op: 'gte' | 'gt' | 'lte' | 'lt' | 'eq'; value: number | string; color: string };
@@ -31,9 +32,16 @@
 	}
 
 	function patchOptions(updates: Record<string, unknown>) {
-		const next = { ...options(), ...updates };
-		// Drop empty strings so widgets that never set a colour don't carry
-		// an empty string forever in the JSON.
+		const sanitized: Record<string, unknown> = { ...updates };
+		// Whitelist colors so a malicious palette can't escape a `style`
+		// attribute downstream. Invalid values are stored as undefined,
+		// which the merge below then drops.
+		if ('color' in sanitized) sanitized.color = safeCssColor(sanitized.color);
+		if ('palette' in sanitized) {
+			const sp = safeCssPalette(sanitized.palette);
+			sanitized.palette = sp ? sp.join(',') : undefined;
+		}
+		const next = { ...options(), ...sanitized };
 		Object.keys(next).forEach((k) => {
 			if (next[k] === '' || next[k] === null || next[k] === undefined) delete next[k];
 		});
@@ -64,7 +72,12 @@
 	}
 
 	function patchThreshold(idx: number, updates: Partial<Threshold>) {
-		setThresholds(thresholds.map((t, i) => (i === idx ? { ...t, ...updates } : t)));
+		const safe: Partial<Threshold> = { ...updates };
+		if ('color' in safe) {
+			const c = safeCssColor(safe.color);
+			safe.color = c ?? thresholds[idx]?.color ?? '#dc2626';
+		}
+		setThresholds(thresholds.map((t, i) => (i === idx ? { ...t, ...safe } : t)));
 	}
 
 	function removeThreshold(idx: number) {

@@ -11,6 +11,8 @@
 	import { Chart, WidgetTable } from '$lib/components/ui/chart';
 	import {
 		CustomDashboardsService,
+		safeCssColor,
+		safeCssPalette,
 		type DashboardDefinition,
 		type RenderedSection,
 		type RenderedWidget
@@ -80,17 +82,11 @@
 	}
 
 	function widgetColor(widget: RenderedWidget): string | undefined {
-		const c = (widget.options as Record<string, unknown> | undefined)?.color;
-		return typeof c === 'string' && c.trim() ? c.trim() : undefined;
+		return safeCssColor((widget.options as Record<string, unknown> | undefined)?.color);
 	}
 
 	function widgetPalette(widget: RenderedWidget): string[] | undefined {
-		const p = (widget.options as Record<string, unknown> | undefined)?.palette;
-		if (Array.isArray(p)) return p.map((x) => String(x)).filter(Boolean);
-		if (typeof p === 'string' && p.trim()) {
-			return p.split(',').map((s) => s.trim()).filter(Boolean);
-		}
-		return undefined;
+		return safeCssPalette((widget.options as Record<string, unknown> | undefined)?.palette);
 	}
 
 	function resolveKpiColor(widget: RenderedWidget): string | undefined {
@@ -100,16 +96,17 @@
 		if (numeric === null || !Array.isArray(thresholds)) return base;
 		for (const raw of thresholds) {
 			if (typeof raw !== 'object' || raw === null) continue;
-			const t = raw as { op?: string; value?: number | string; color?: string };
+			const t = raw as { op?: string; value?: number | string; color?: unknown };
 			const cmpValue = typeof t.value === 'number' ? t.value : Number(t.value);
-			if (!Number.isFinite(cmpValue) || typeof t.color !== 'string') continue;
+			const validatedColor = safeCssColor(t.color);
+			if (!Number.isFinite(cmpValue) || !validatedColor) continue;
 			const hit =
 				(t.op === 'gte' && numeric >= cmpValue) ||
 				(t.op === 'gt' && numeric > cmpValue) ||
 				(t.op === 'lte' && numeric <= cmpValue) ||
 				(t.op === 'lt' && numeric < cmpValue) ||
 				(t.op === 'eq' && numeric === cmpValue);
-			if (hit) return t.color;
+			if (hit) return validatedColor;
 		}
 		return base;
 	}
