@@ -15,11 +15,13 @@
 	import {
 		CustomDashboardsService,
 		type CustomDashboard,
+		type RenderedSection,
 		type RenderedWidget
 	} from '$lib/services/custom-dashboards.service';
 
 	let dashboard: CustomDashboard | null = $state(null);
 	let widgets: RenderedWidget[] = $state([]);
+	let renderedSections: RenderedSection[] = $state([]);
 	let loading = $state(true);
 	let error: string | null = $state(null);
 
@@ -93,6 +95,7 @@
 		const response = await CustomDashboardsService.render(uuid, body);
 		if (response.ok && response.data) {
 			widgets = response.data.widgets;
+			renderedSections = response.data.sections ?? [];
 		} else {
 			error = response.error?.message ?? 'Failed to render dashboard.';
 		}
@@ -185,61 +188,87 @@
 		</div>
 	{/if}
 
+	{#snippet widgetCard(widget: RenderedWidget)}
+		{#if widget.chart_type === 'number' || widget.chart_type === 'percentage'}
+			<Card class={sizeClass(widget)}>
+				<CardHeader class="pb-1">
+					<CardTitle class="text-sm font-medium text-muted-foreground">
+						{widget.name}
+					</CardTitle>
+				</CardHeader>
+				<CardContent class="text-2xl font-semibold">
+					{widget.error ? '—' : formatValue(widget)}
+				</CardContent>
+			</Card>
+		{:else if widget.error}
+			<Card class={sizeClass(widget)}>
+				<CardHeader>
+					<CardTitle>{widget.name}</CardTitle>
+				</CardHeader>
+				<CardContent class="text-sm text-destructive">{widget.error}</CardContent>
+			</Card>
+		{:else if widget.chart_type === 'table'}
+			<Card class={sizeClass(widget)}>
+				<CardHeader>
+					<CardTitle>{widget.name}</CardTitle>
+				</CardHeader>
+				<CardContent class="max-h-[480px] overflow-auto">
+					<WidgetTable
+						groupHeaders={widget.group_headers}
+						valueHeaders={widget.value_headers}
+						groupKeys={widget.group_keys}
+						valueKeys={widget.value_keys}
+						rows={widget.rows as never}
+						totals={widget.totals}
+						totalLabel={widget.total_label}
+						defaultSort={((widget.options ?? {}) as Record<string, unknown>).default_sort as never}
+					/>
+				</CardContent>
+			</Card>
+		{:else}
+			<Card class={sizeClass(widget)}>
+				<CardHeader>
+					<CardTitle>{widget.name}</CardTitle>
+				</CardHeader>
+				<CardContent>
+					<Chart
+						type={(widget.chart_type as 'bar' | 'line' | 'pie' | 'timechart') ?? 'bar'}
+						labels={widget.labels ?? widget.display_labels ?? []}
+						datasets={widget.datasets ?? []}
+					/>
+				</CardContent>
+			</Card>
+		{/if}
+	{/snippet}
+
 	{#if loading}
 		<p class="text-sm text-muted-foreground">Loading…</p>
+	{:else if renderedSections.length > 0}
+		{#each renderedSections as section, sIdx (section.id ?? sIdx)}
+			<section class="flex flex-col gap-3">
+				{#if section.title || section.description}
+					<header class={`flex flex-col gap-0.5 ${section.show_divider && sIdx > 0 ? 'border-t pt-4' : ''}`}>
+						{#if section.title}
+							<h2 class="text-lg font-semibold">{section.title}</h2>
+						{/if}
+						{#if section.description}
+							<p class="text-xs text-muted-foreground">{section.description}</p>
+						{/if}
+					</header>
+				{:else if section.show_divider && sIdx > 0}
+					<hr class="border-t" />
+				{/if}
+				<div class="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12">
+					{#each section.widgets as widget, wIdx (wIdx)}
+						{@render widgetCard(widget)}
+					{/each}
+				</div>
+			</section>
+		{/each}
 	{:else}
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12">
 			{#each widgets as widget, idx (idx)}
-				{#if widget.chart_type === 'number' || widget.chart_type === 'percentage'}
-					<Card class={sizeClass(widget)}>
-						<CardHeader class="pb-1">
-							<CardTitle class="text-sm font-medium text-muted-foreground">
-								{widget.name}
-							</CardTitle>
-						</CardHeader>
-						<CardContent class="text-2xl font-semibold">
-							{widget.error ? '—' : formatValue(widget)}
-						</CardContent>
-					</Card>
-				{:else if widget.error}
-					<Card class={sizeClass(widget)}>
-						<CardHeader>
-							<CardTitle>{widget.name}</CardTitle>
-						</CardHeader>
-						<CardContent class="text-sm text-destructive">{widget.error}</CardContent>
-					</Card>
-				{:else if widget.chart_type === 'table'}
-					<Card class={sizeClass(widget)}>
-						<CardHeader>
-							<CardTitle>{widget.name}</CardTitle>
-						</CardHeader>
-						<CardContent class="max-h-[480px] overflow-auto">
-							<WidgetTable
-								groupHeaders={widget.group_headers}
-								valueHeaders={widget.value_headers}
-								groupKeys={widget.group_keys}
-								valueKeys={widget.value_keys}
-								rows={widget.rows as never}
-								totals={widget.totals}
-								totalLabel={widget.total_label}
-								defaultSort={((widget.options ?? {}) as Record<string, unknown>).default_sort as never}
-							/>
-						</CardContent>
-					</Card>
-				{:else}
-					<Card class={sizeClass(widget)}>
-						<CardHeader>
-							<CardTitle>{widget.name}</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<Chart
-								type={(widget.chart_type as 'bar' | 'line' | 'pie') ?? 'bar'}
-								labels={widget.labels ?? widget.display_labels ?? []}
-								datasets={widget.datasets ?? []}
-							/>
-						</CardContent>
-					</Card>
-				{/if}
+				{@render widgetCard(widget)}
 			{/each}
 		</div>
 	{/if}

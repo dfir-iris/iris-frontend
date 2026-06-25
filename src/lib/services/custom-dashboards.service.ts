@@ -111,8 +111,17 @@ export interface RenderedWidget {
 	total_label?: string;
 }
 
+export interface RenderedSection {
+	id?: string | null;
+	title?: string | null;
+	description?: string | null;
+	show_divider?: boolean;
+	widgets: RenderedWidget[];
+}
+
 export interface DashboardRenderResponse {
 	widgets: RenderedWidget[];
+	sections?: RenderedSection[];
 }
 
 export interface DashboardSchema {

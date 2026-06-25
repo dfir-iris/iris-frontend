@@ -3,13 +3,16 @@
 	import { browser } from '$app/environment';
 
 	export interface ChartProps {
-		type: 'bar' | 'line' | 'pie';
+		type: 'bar' | 'line' | 'pie' | 'timechart';
 		labels: string[];
 		datasets: Array<{ label: string; data: number[] }>;
 		height?: number;
 	}
 
-	let { type, labels, datasets, height = 320 }: ChartProps = $props();
+	let { type: typeProp, labels, datasets, height = 320 }: ChartProps = $props();
+	// Backend's "timechart" is just a line chart with a time x-axis;
+	// echarts only knows 'line', so map here.
+	const type = $derived(typeProp === 'timechart' ? 'line' : typeProp);
 
 	let container: HTMLDivElement | undefined = $state();
 	let instance: unknown = $state(undefined);
@@ -57,6 +60,21 @@
 		}
 
 		const showLegend = datasets.length > 1;
+		const dense = labels.length > 30;
+		// For dense category axes (time-bucket charts often hit hundreds of
+		// labels) let echarts auto-decimate so we don't paint thousands of
+		// overlapping tick labels and reduce the chart to a gray bar.
+		const xAxisLabel = dense
+			? {
+				hideOverlap: true,
+				rotate: 30,
+				fontSize: 10,
+			}
+			: {
+				interval: 0,
+				rotate: labels.length > 6 ? 30 : 0,
+				fontSize: 11,
+			};
 		return {
 			tooltip: { trigger: 'axis' },
 			legend: showLegend
@@ -66,10 +84,16 @@
 			xAxis: {
 				type: 'category',
 				data: labels,
-				axisLabel: { interval: 0, rotate: labels.length > 6 ? 30 : 0, fontSize: 11 }
+				axisLabel: xAxisLabel,
 			},
 			yAxis: { type: 'value' },
-			series: datasets.map((d) => ({ name: d.label, type, data: d.data, smooth: type === 'line' }))
+			series: datasets.map((d) => ({
+				name: d.label,
+				type,
+				data: d.data,
+				smooth: type === 'line',
+				showSymbol: !dense,
+			})),
 		};
 	});
 
