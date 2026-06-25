@@ -44,6 +44,7 @@
 	import WidgetEditorDialog from './components/WidgetEditorDialog.svelte';
 	import FilterBarEditor from './components/FilterBarEditor.svelte';
 	import PresetGallery from './components/PresetGallery.svelte';
+	import LivePreview from './components/LivePreview.svelte';
 
 	let dashboard: CustomDashboard | null = $state(null);
 	let schema: DashboardSchema | null = $state(null);
@@ -63,6 +64,25 @@
 
 	let presetOpen = $state(false);
 	let presetSectionIdx: number | null = $state(null);
+
+	let previewExpanded = $state(true);
+
+	// Live-preview payload — strips client-only ids and uses the latest
+	// in-memory state so the preview reflects unsaved edits.
+	const previewDefinition = $derived({
+		name,
+		description,
+		is_shared: isShared,
+		sections: sections.map((s) => ({
+			...s,
+			widgets: s.widgets.map((w) => {
+				const layout = { ...(w.layout ?? {}) } as Record<string, unknown>;
+				delete layout._client_id;
+				return { ...w, layout };
+			}),
+		})),
+		filters_schema: filtersSchema,
+	});
 
 	// Editor mode toggle. JSON mode lets power users hand-edit the full
 	// definition (sections, filters_schema, widget options) and validates
@@ -746,6 +766,12 @@
 		<Button variant="outline" onclick={addSection}>
 			<PlusIcon class="size-4" /> Add section
 		</Button>
+
+		<LivePreview
+			{uuid}
+			definition={previewDefinition as never}
+			bind:expanded={previewExpanded}
+		/>
 	{:else}
 		<Card class="flex grow flex-col">
 			<CardHeader class="shrink-0">
