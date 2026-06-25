@@ -60,7 +60,7 @@
 	});
 </script>
 
-<div class="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
+<div class="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-6">
 	<header class="flex items-end justify-between">
 		<div>
 			<h1 class="text-2xl font-semibold">Dashboards</h1>

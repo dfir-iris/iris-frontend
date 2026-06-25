@@ -85,7 +85,7 @@
 	});
 </script>
 
-<div class="mx-auto flex w-full max-w-7xl flex-col gap-6 p-6">
+<div class="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-6">
 	<header class="flex items-end justify-between">
 		<div class="flex flex-col gap-1">
 			<a href="/dashboards" class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
