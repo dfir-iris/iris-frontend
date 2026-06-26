@@ -104,18 +104,17 @@
 </script>
 
 <!--
-  Three-track layout: left (case title) | centre (case-section nav) | right
-  (search + action buttons). The right track is `auto` so the search input
-  and action buttons reserve their natural width first — without this the
-  centre nav (which can be wide) ate the search input on mid-range
-  viewports. The centre track gets `minmax(0,auto)` so it can shrink
-  *below* the inline nav's intrinsic width when there isn't room; combined
-  with the `overflow-hidden` on the nav element, that lets the dropdown
-  variant kick in instead of the inline strip spilling into the search box.
+  Three-track grid. Left and right tracks share `1fr` so the centre track
+  lands at the geometric mid-point of the bar regardless of how wide the
+  title or the right-hand action cluster grow individually. The right
+  cluster anchors itself with `justify-self-end` and the left title sits
+  flush left by default; this lets the inner content of the flanking
+  tracks be asymmetric without sliding the centre off-axis. Centre track
+  is `auto` so it sizes to the inline nav's intrinsic width.
 -->
 <header
 	style="background-color: hsl(var(--iris-blue));"
-	class="shadow-elevation-1 grid max-h-14 min-h-14 grid-cols-[minmax(0,1fr)_minmax(0,auto)_auto] items-center gap-3 px-3 text-white sm:px-5"
+	class="shadow-elevation-1 grid max-h-14 min-h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 text-white sm:px-5"
 >
 	{#if case_id !== null && pathname.startsWith('/case') && pathname !== '/cases'}
 		<div class="flex min-w-0 items-center gap-2">
@@ -228,14 +227,15 @@
 	{/if}
 
 	<!--
-	  The right grid track is sized `auto` (see the header above) so it
-	  always reserves the natural width of the search input + action
-	  buttons. `justify-end` keeps the content flush right. We deliberately
-	  *don't* set `min-w-0` here: that would let the column shrink under
-	  pressure and clip the action button strip, which is what was
-	  happening on mid-range viewports.
+	  Right grid track is `1fr` (symmetric with the left title track) so
+	  the centre nav lands at the true geometric mid-point. We pin our
+	  cluster to the right edge of that 1fr track with `justify-self-end`
+	  and let it size to its content; the surrounding 1fr space absorbs
+	  any width imbalance versus the left title. `min-w-0` keeps the
+	  track from expanding past its share if the search input grows under
+	  user interaction.
 	-->
-	<div class="flex items-center justify-end gap-1">
+	<div class="flex min-w-0 items-center justify-self-end gap-1">
 		<!--
 		  Global search lives at the right edge of the topbar so it stays
 		  reachable from every page. It manages its own expand-on-hover

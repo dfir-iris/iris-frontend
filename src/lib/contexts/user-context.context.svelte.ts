@@ -15,7 +15,8 @@ import {
 	hasPermission,
 	hasAnyPermission,
 	type PermissionName,
-	type UserContext
+	type UserContext,
+	type UserPreferences
 } from '$lib/services/user-context.service';
 
 export const USER_CTX = Symbol('user-context');
@@ -46,7 +47,15 @@ export const createUserContext = (): UserCtx => {
 		inflight = (async () => {
 			const response = await UserContextService.get();
 			if (response.ok && response.data) {
-				ctx = response.data as UserContext;
+				const fresh = response.data as UserContext;
+				// Defensive default — older backends don't yet ship the
+				// `preferences` block in /me/context. Synthesise an empty
+				// one so callers can read `ctx.preferences.has_mini_sidebar`
+				// without a runtime crash.
+				if (!fresh.preferences) {
+					fresh.preferences = { has_mini_sidebar: false };
+				}
+				ctx = fresh;
 			}
 			ready = true;
 			inflight = null;
@@ -58,11 +67,31 @@ export const createUserContext = (): UserCtx => {
 		key: K,
 		value: UserContext['preferences'][K]
 	): Promise<void> => {
-		if (!ctx) return;
-		const previous = ctx.preferences[key];
+		if (!ctx) {
+			// First-paint click before the bootstrap finished. Stash the
+			// requested value in a minimal stub so the UI flips
+			// immediately; `load()` will overwrite it once the network
+			// call settles. Without this stub, an over-eager click would
+			// be a no-op.
+			ctx = {
+				iris_version: '',
+				demo_mode: false,
+				permissions: { mask: 0, names: [] },
+				preferences: { has_mini_sidebar: false, [key]: value } as UserPreferences
+			};
+			await UserContextService.updatePreferences({ [key]: value } as Partial<
+				UserContext['preferences']
+			>);
+			return;
+		}
 		// Optimistic local update — replace the preferences object
 		// rather than mutating in place so Svelte 5's deep $state
-		// reliably notices the change.
+		// reliably notices the change. We intentionally do NOT roll
+		// back on a failed PUT: the user's intent in this session is
+		// the source of truth for the in-memory UI, and a transient
+		// 4xx/5xx from the persistence endpoint shouldn't snap their
+		// sidebar back to the old state mid-click. A failed write will
+		// resync naturally on next page load.
 		ctx = {
 			...ctx,
 			preferences: { ...ctx.preferences, [key]: value }
@@ -70,11 +99,8 @@ export const createUserContext = (): UserCtx => {
 		const response = await UserContextService.updatePreferences({ [key]: value } as Partial<
 			UserContext['preferences']
 		>);
-		if (!response.ok && ctx) {
-			ctx = {
-				...ctx,
-				preferences: { ...ctx.preferences, [key]: previous }
-			};
+		if (!response.ok) {
+			console.warn('[user-context] failed to persist preference', key, response.error);
 		}
 	};
 
