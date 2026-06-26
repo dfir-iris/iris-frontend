@@ -12,7 +12,10 @@ export function generateCSP() {
     'default-src': ["'self'"],
     'script-src': ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
     'style-src': ["'self'", "'unsafe-inline'"],
-    'img-src': ["'self'", 'data:'],
+    // `blob:` is required so authenticated avatars (fetched as bytes
+    // and exposed via `URL.createObjectURL`) can render. Same goes
+    // for any future use of canvas exports or PDF previews.
+    'img-src': ["'self'", 'data:', 'blob:'],
     'font-src': ["'self'"],
     'connect-src': ["'self'", apiHost],
     'frame-src': ["'self'"],
