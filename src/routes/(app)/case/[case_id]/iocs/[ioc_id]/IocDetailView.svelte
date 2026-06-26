@@ -32,6 +32,8 @@
 	import DetailsTab from './details-tab.svelte';
 	import HistoryTab from './history-tab.svelte';
 	import CommentsTab from './comments-tab.svelte';
+	import SeenElsewhereBadge from '$lib/components/common/SeenElsewhereBadge.svelte';
+	import { CaseIocsService } from '$lib/services/case-iocs.service';
 
 	type EditData = {
 		ioc_value: string;
@@ -249,8 +251,8 @@
 		<div class="flex h-full min-h-0 flex-col overflow-hidden">
 			<div class="flex min-h-0 flex-1 flex-col p-0">
 				<Tabs bind:value={activeTab} class="flex min-h-0 flex-1 flex-col">
-					<div class="shrink-0 border-b bg-muted/20">
-						<TabsList class="h-auto w-full rounded-none border-0 bg-transparent p-0">
+					<div class="flex shrink-0 items-center justify-between border-b bg-muted/20 pr-4">
+						<TabsList class="h-auto rounded-none border-0 bg-transparent p-0">
 							<TabsTrigger
 								value="details"
 								class="flex items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
@@ -283,6 +285,22 @@
 								{/if}
 							</TabsTrigger>
 						</TabsList>
+
+						<!--
+						  Cross-case pivot. Surfaces an inline badge when the
+						  IOC value has been observed on another case the
+						  analyst can read; the badge expands into a popover
+						  listing those cases. Empty result → nothing
+						  rendered (the helper handles the visibility).
+						-->
+						<SeenElsewhereBadge
+							objectLabel="IOC"
+							objectId={ioc.ioc_id}
+							load={async () => {
+								const res = await CaseIocsService.listOtherCaseLinks(caseId, ioc.ioc_id);
+								return res.ok && Array.isArray(res.data) ? res.data : null;
+							}}
+						/>
 					</div>
 
 					<div class="min-h-0 flex-1 overflow-y-auto p-6">

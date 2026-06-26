@@ -97,4 +97,27 @@ export class CaseAssetsService {
 	): Promise<RequestResponse<null>> {
 		return ApiService.delete<null>(`/api/v2/cases/${caseId}/assets/${assetId}`, options);
 	}
+
+	/** Other cases (same customer, within the user's access scope)
+	 *  where the same asset (name + type) has been seen. Empty array
+	 *  means "never seen before". */
+	static async listOtherCaseLinks(
+		caseId: number,
+		assetId: CaseAssetIdentifier,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<AssetOtherCaseLink[]>> {
+		return ApiService.get<AssetOtherCaseLink[]>(
+			`/api/v2/cases/${caseId}/assets/${assetId}/links`,
+			options
+		);
+	}
+}
+
+export interface AssetOtherCaseLink {
+	case_id: number;
+	case_name: string;
+	case_open_date: string | null;
+	asset_id: number;
+	asset_description: string | null;
+	asset_compromise_status_id: number | null;
 }

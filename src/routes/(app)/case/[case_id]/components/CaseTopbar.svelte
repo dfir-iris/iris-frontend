@@ -615,6 +615,13 @@
 		  the border, background and padding so it disappears into the
 		  surrounding text run.
 		-->
+		<!--
+		  Suppress the whole indicator when the case has no linked alerts.
+		  Surfacing "0 linked alerts" added noise to the header without
+		  giving the analyst anything actionable to do; we only render the
+		  trigger when there's at least one alert to expose.
+		-->
+		{#if linkedAlertsTotal > 0}
 		<Popover.Root>
 			<Popover.Trigger
 				class="inline-flex items-center gap-1 rounded-sm bg-transparent text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -687,6 +694,7 @@
 				{/if}
 			</Popover.Content>
 		</Popover.Root>
+		{/if}
 
 		<div class="mx-0.5 hidden h-5 w-px bg-border sm:block" aria-hidden="true"></div>
 

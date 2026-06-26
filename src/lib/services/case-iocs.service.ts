@@ -99,4 +99,25 @@ export class CaseIocsService {
 	): Promise<RequestResponse<null>> {
 		return ApiService.delete<null>(`/api/v2/iocs/${iocId}`, options);
 	}
+
+	/** Other cases (within the user's access scope) where the same
+	 *  IOC value+type has been seen. Empty array means "never seen
+	 *  before". Used to surface a "seen-before" badge on IOC list rows
+	 *  and to populate the cross-case pivot in the IOC detail view. */
+	static async listOtherCaseLinks(
+		caseId: number,
+		iocId: CaseIocIdentifier,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<IocOtherCaseLink[]>> {
+		return ApiService.get<IocOtherCaseLink[]>(
+			`/api/v2/cases/${caseId}/iocs/${iocId}/links`,
+			options
+		);
+	}
+}
+
+export interface IocOtherCaseLink {
+	case_id: number;
+	case_name: string;
+	client_name: string;
 }
