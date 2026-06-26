@@ -1,6 +1,9 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
+	import { goto } from '$app/navigation';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Card from '$lib/components/ui/card/card.svelte';
+	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 	import Disclaimer from './Disclaimer.svelte';
 	import RulesOfEngagement from './RulesOfEngagement.svelte';
 
@@ -9,6 +12,18 @@
 	const toggleRules = () => (expandedSection = expandedSection === 'rules' ? null : 'rules');
 	const toggleDisclaimer = () =>
 		(expandedSection = expandedSection === 'disclaimer' ? null : 'disclaimer');
+
+	// The welcome page only makes sense on the demo instance — it
+	// surfaces the public rules-of-engagement / disclaimer for shared
+	// hosts. On a private deployment a user who navigates here
+	// directly gets bounced to Home rather than seeing a page that
+	// doesn't apply to them.
+	const userCtx = getContext<UserCtx>(USER_CTX);
+	$effect(() => {
+		if (userCtx.ready && !userCtx.ctx?.demo_mode) {
+			void goto('/', { replaceState: true });
+		}
+	});
 </script>
 
 <svelte:head>

@@ -1,12 +1,17 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
 	import { MenuIcon } from 'lucide-svelte';
+	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 	import UserMenu from './UserMenu.svelte';
 	import SideNav from './SideNav.svelte';
 
 	let collapsed = false;
 	let hovered = false;
 
+	const userCtx = getContext<UserCtx>(USER_CTX);
+
 	const isCollapsed = () => (collapsed ? !hovered : collapsed);
+	const irisVersion = $derived(userCtx.ctx?.iris_version ?? '');
 </script>
 
 <div class="sticky top-0 flex h-screen flex-col bg-sidebar">
@@ -41,5 +46,22 @@
 		<div class="flex w-full py-3">
 			<SideNav collapsed={isCollapsed()} />
 		</div>
+
+		<!--
+		  Running IRIS version. Pinned to the bottom of the scroll
+		  viewport so it sits under the menu when content is short,
+		  and stays accessible (still scrolls into view) when the nav
+		  is taller than the viewport. Hidden in collapsed mode — the
+		  rail is too narrow for a legible version string and the
+		  user can already hover to expand.
+		-->
+		{#if !isCollapsed() && irisVersion}
+			<div
+				class="mt-auto border-t border-[hsl(var(--sidebar-border))] py-2 text-center text-2xs text-sidebar-foreground/50"
+				title={`Running IRIS ${irisVersion}`}
+			>
+				IRIS {irisVersion}
+			</div>
+		{/if}
 	</div>
 </div>

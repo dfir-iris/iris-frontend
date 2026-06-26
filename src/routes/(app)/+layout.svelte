@@ -14,6 +14,11 @@
 		createAlertsContext,
 		type AlertsContext
 	} from '$lib/contexts/alerts.context.svelte';
+	import {
+		USER_CTX,
+		createUserContext,
+		type UserCtx
+	} from '$lib/contexts/user-context.context.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -26,12 +31,16 @@
 	const cases: CasesContext = createCasesContext((c) => c.case_id, app);
 	setContext(CASES_CTX, cases);
 
+	const userCtx: UserCtx = createUserContext();
+	setContext(USER_CTX, userCtx);
+
 	const showCaseAdd = $derived<boolean>(cases.ui.showAddModal);
 
 	$effect.pre(() => {
 		app.init();
 
 		cases.load({ case_ids: [cases.currentCaseId()] });
+		void userCtx.load();
 	});
 </script>
 
