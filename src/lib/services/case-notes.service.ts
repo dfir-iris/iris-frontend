@@ -31,6 +31,27 @@ export interface ListCaseNotesParams {
 	search_input?: string;
 }
 
+/**
+ * Server-side note revision. Each call to `PUT /notes/<id>` snapshots
+ * the previous title + content into a new row before applying the
+ * update, so the user can roll back to any prior version. Listing
+ * the revisions returns only the metadata (`revision_number`,
+ * `revision_timestamp`, `user_name`); fetching a specific revision
+ * by number returns the full body.
+ */
+export interface NoteRevisionSummary {
+	revision_number: number;
+	revision_timestamp: string;
+	user_name: string;
+}
+
+export interface NoteRevision extends NoteRevisionSummary {
+	note_id: number;
+	note_user: number;
+	note_title: string;
+	note_content: string;
+}
+
 export class CaseNotesService {
 	static async listDirectories(
 		caseId: number,
@@ -141,5 +162,55 @@ export class CaseNotesService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
 		return ApiService.delete<null>(`/api/v2/cases/${caseId}/notes/${noteId}`, options);
+	}
+
+	// ---- Revisions ----------------------------------------------------
+
+	static async listRevisions(
+		caseId: number,
+		noteId: CaseNoteIdentifier,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<NoteRevisionSummary[]>> {
+		return ApiService.get<NoteRevisionSummary[]>(
+			`/api/v2/cases/${caseId}/notes/${noteId}/revisions`,
+			options
+		);
+	}
+
+	static async getRevision(
+		caseId: number,
+		noteId: CaseNoteIdentifier,
+		revisionNumber: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<NoteRevision>> {
+		return ApiService.get<NoteRevision>(
+			`/api/v2/cases/${caseId}/notes/${noteId}/revisions/${revisionNumber}`,
+			options
+		);
+	}
+
+	static async restoreRevision(
+		caseId: number,
+		noteId: CaseNoteIdentifier,
+		revisionNumber: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<Note>> {
+		return ApiService.post<Note>(
+			`/api/v2/cases/${caseId}/notes/${noteId}/revisions/${revisionNumber}/restore`,
+			{},
+			options
+		);
+	}
+
+	static async deleteRevision(
+		caseId: number,
+		noteId: CaseNoteIdentifier,
+		revisionNumber: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<null>> {
+		return ApiService.delete<null>(
+			`/api/v2/cases/${caseId}/notes/${noteId}/revisions/${revisionNumber}`,
+			options
+		);
 	}
 }

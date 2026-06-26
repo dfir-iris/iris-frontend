@@ -101,6 +101,17 @@
 		await notes.removeNote(note.note_id);
 		onAfterDelete?.();
 	};
+
+	const handleRestoredRevision = (fresh: { note_content?: string }) => {
+		// The revisions dialog already pushed the new content into the
+		// case-notes context, so `note.note_content` is reactive. The
+		// editor pane reads from `draftContent` though, which isn't
+		// reactive against the note — sync it explicitly so the
+		// markdown body the user sees matches what was restored.
+		const next = fresh.note_content ?? '';
+		baseContent = next;
+		draftContent = next;
+	};
 </script>
 
 <div class="flex h-full min-h-0 w-full flex-col bg-white dark:bg-black/80">
@@ -114,6 +125,7 @@
 				{typingUser}
 				onSaveNote={saveNote}
 				onDeleteNote={handleDelete}
+				onRestoreRevision={handleRestoredRevision}
 			/>
 		</div>
 

@@ -13,6 +13,7 @@
 	import { username } from '$lib/stores/auth.store';
 	import { toast } from '$lib/stores/toast.store';
 	import type { HistoryEventBase } from '$lib/components/common/ActivityHistory.svelte';
+	import { page } from '$app/state';
 	import { Button } from '$lib/components/ui/button';
 	import Badge from '$lib/components/ui/badge/badge.svelte';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
@@ -47,6 +48,10 @@
 		typingUser?: string | null;
 		onSaveNote: () => void;
 		onDeleteNote: () => void;
+		/** Fires when the user picks "Restore this revision" inside
+		 *  the revisions dialog. The detail view uses this to reset
+		 *  the markdown editor draft to the freshly-restored content. */
+		onRestoreRevision?: (note: Note) => void;
 	};
 
 	let {
@@ -56,12 +61,20 @@
 		lastError = null,
 		typingUser = null,
 		onSaveNote,
-		onDeleteNote
+		onDeleteNote,
+		onRestoreRevision
 	}: Props = $props();
 
 	let showNoteRename = $state(false);
 	let showNoteHistory = $state(false);
 	let showConfirmDelete = $state(false);
+
+	// Pulled from the URL rather than threaded through props — the
+	// case id is invariant across this whole route, and dragging it
+	// through every parent (`NoteDetailView`, dialog wrappers, etc.)
+	// just for the revisions endpoint felt heavier than reading the
+	// route params here.
+	const caseIdFromRoute = $derived(Number(page.params.case_id));
 
 	const openNoteComments = () =>
 		commentsPanel.open({
@@ -338,7 +351,13 @@
 	</div>
 </div>
 
-<NoteHistoryDialog bind:open={showNoteHistory} {note} onClose={() => (showNoteHistory = false)} />
+<NoteHistoryDialog
+	bind:open={showNoteHistory}
+	caseId={caseIdFromRoute}
+	{note}
+	onClose={() => (showNoteHistory = false)}
+	onRestored={(fresh) => onRestoreRevision?.(fresh)}
+/>
 
 <ConfirmationDialog
 	bind:open={showConfirmDelete}
