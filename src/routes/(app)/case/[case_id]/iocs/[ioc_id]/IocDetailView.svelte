@@ -253,7 +253,7 @@
 						<TabsList class="h-auto w-full rounded-none border-0 bg-transparent p-0">
 							<TabsTrigger
 								value="details"
-								class="flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+								class="flex items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
 							>
 								<InfoIcon class="h-4 w-4" />
 								<span>Details</span>
@@ -261,7 +261,7 @@
 
 							<TabsTrigger
 								value="history"
-								class="flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+								class="flex items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
 							>
 								<HistoryIcon class="h-4 w-4" />
 								<span>History</span>
@@ -269,7 +269,7 @@
 
 							<TabsTrigger
 								value="comments"
-								class="relative flex items-center gap-2 rounded-none px-6 py-4 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+								class="relative flex items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
 							>
 								<MessagesSquareIcon class="mr-1 h-4 w-4" />
 								<span>Comments</span>

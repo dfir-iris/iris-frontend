@@ -103,9 +103,19 @@
 	);
 </script>
 
+<!--
+  Three-track layout: left (case title) | centre (case-section nav) | right
+  (search + action buttons). The right track is `auto` so the search input
+  and action buttons reserve their natural width first — without this the
+  centre nav (which can be wide) ate the search input on mid-range
+  viewports. The centre track gets `minmax(0,auto)` so it can shrink
+  *below* the inline nav's intrinsic width when there isn't room; combined
+  with the `overflow-hidden` on the nav element, that lets the dropdown
+  variant kick in instead of the inline strip spilling into the search box.
+-->
 <header
 	style="background-color: hsl(var(--iris-blue));"
-	class="shadow-elevation-1 grid max-h-14 min-h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-3 text-white sm:px-5"
+	class="shadow-elevation-1 grid max-h-14 min-h-14 grid-cols-[minmax(0,1fr)_minmax(0,auto)_auto] items-center gap-3 px-3 text-white sm:px-5"
 >
 	{#if case_id !== null && pathname.startsWith('/case') && pathname !== '/cases'}
 		<div class="flex min-w-0 items-center gap-2">
@@ -119,67 +129,65 @@
 		</div>
 
 		<!--
-		  Underline-on-active tab strip. Replaces the earlier rounded
-		  pill-in-pill design — flatter, more modern, and the active
-		  state reads as a real tab rather than a button-among-buttons.
-		  No surrounding container card, no rounded corners on each
-		  tab; everything aligns on a single horizontal baseline.
+		  Centre grid cell. Contains BOTH the inline tab strip (visible at
+		  2xl+) and the dropdown trigger (visible below 2xl). Both surfaces
+		  live inside one wrapping `<div>` so they occupy a single grid
+		  track regardless of which one is currently rendered — previously
+		  they were siblings of the header itself, so the `<DropdownMenu.Root>`
+		  element took up its own column and pushed the right-hand column
+		  off-grid.
 
-		  Pinned to a fixed track in the parent grid and `shrink-0`
-		  so it can't be eaten by the search input on the right. The
-		  inline nav is hidden below `xl` (we already mount the
-		  dropdown variant under `lg:hidden` for narrow viewports).
+		  `min-w-0 overflow-hidden` lets the inline strip be clipped if the
+		  viewport really can't fit it (rather than spilling into the next
+		  cell); the dropdown variant takes over below `2xl` where the strip
+		  is hidden outright.
 		-->
-		<nav
-			class="hidden h-full shrink-0 items-stretch xl:flex"
-			aria-label="Case sections"
-		>
-			{#each caseButtons as button}
-				{@const active = isCaseButtonActive(button.path)}
-				<a
-					href={button.path === '' ? caseBasePath : `${caseBasePath}/${button.path}`}
-					class="group relative flex items-center px-4 text-sm font-medium transition-colors {active
-						? 'text-white'
-						: 'text-white/65 hover:text-white'}"
-					aria-current={active ? 'page' : undefined}
-				>
-					{button.label}
-					<span
-						aria-hidden="true"
-						class="pointer-events-none absolute inset-x-3 -bottom-px h-[2px] rounded-full transition-all {active
-							? 'bg-white opacity-100'
-							: 'bg-white/50 opacity-0 group-hover:opacity-60'}"
-					></span>
-				</a>
-			{/each}
-		</nav>
-
-		<DropdownMenu.Root>
-			<!--
-			  Compact case-section picker for everything below `xl`.
-			  Mirrors the bump on the inline nav above so the two
-			  variants don't both render (or both hide) on the same
-			  breakpoint.
-			-->
-			<DropdownMenu.Trigger class="xl:hidden">
-				<span
-					class="flex items-center gap-1 border-b-2 border-transparent px-2 py-1.5 text-sm font-medium text-white/85 transition-colors hover:text-white aria-expanded:border-white"
-				>
-					{activeCaseButton.label}
-					<ChevronDownIcon size="14" />
-				</span>
-			</DropdownMenu.Trigger>
-			<DropdownMenu.Content align="center" class="min-w-[180px]">
+		<div class="flex h-full min-w-0 items-stretch overflow-hidden">
+			<nav
+				class="hidden h-full min-w-0 items-stretch overflow-hidden 2xl:flex"
+				aria-label="Case sections"
+			>
 				{#each caseButtons as button}
-					<DropdownMenu.Item
-						onclick={() =>
-							goto(button.path === '' ? caseBasePath : `${caseBasePath}/${button.path}`)}
+					{@const active = isCaseButtonActive(button.path)}
+					<a
+						href={button.path === '' ? caseBasePath : `${caseBasePath}/${button.path}`}
+						class="group relative flex items-center whitespace-nowrap px-3 text-sm font-medium transition-colors {active
+							? 'text-white'
+							: 'text-white/65 hover:text-white'}"
+						aria-current={active ? 'page' : undefined}
 					>
 						{button.label}
-					</DropdownMenu.Item>
+						<span
+							aria-hidden="true"
+							class="pointer-events-none absolute inset-x-2 -bottom-px h-[2px] rounded-full transition-all {active
+								? 'bg-white opacity-100'
+								: 'bg-white/50 opacity-0 group-hover:opacity-60'}"
+						></span>
+					</a>
 				{/each}
-			</DropdownMenu.Content>
-		</DropdownMenu.Root>
+			</nav>
+
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger class="flex items-center 2xl:hidden">
+					<span
+						class="flex items-center gap-1 border-b-2 border-transparent px-2 py-1.5 text-sm font-medium text-white/85 transition-colors hover:text-white aria-expanded:border-white"
+					>
+						{activeCaseButton.label}
+						<ChevronDownIcon size="14" />
+					</span>
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content align="center" class="min-w-[180px]">
+					{#each caseButtons as button}
+						<DropdownMenu.Item
+							onclick={() =>
+								goto(button.path === '' ? caseBasePath : `${caseBasePath}/${button.path}`)}
+						>
+							{button.label}
+						</DropdownMenu.Item>
+					{/each}
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+		</div>
 	{:else}
 		<div class="col-span-2 flex min-w-0 items-center justify-start gap-2">
 			<DropdownMenu.Root
@@ -220,12 +228,14 @@
 	{/if}
 
 	<!--
-	  `min-w-0` so the right column can shrink below its intrinsic
-	  content width — otherwise the search input + action buttons
-	  would push back into the centre nav column when the viewport
-	  is below ~1500px. `justify-end` keeps the content flush right.
+	  The right grid track is sized `auto` (see the header above) so it
+	  always reserves the natural width of the search input + action
+	  buttons. `justify-end` keeps the content flush right. We deliberately
+	  *don't* set `min-w-0` here: that would let the column shrink under
+	  pressure and clip the action button strip, which is what was
+	  happening on mid-range viewports.
 	-->
-	<div class="flex min-w-0 items-center justify-end gap-1">
+	<div class="flex items-center justify-end gap-1">
 		<!--
 		  Global search lives at the right edge of the topbar so it stays
 		  reachable from every page. It manages its own expand-on-hover
