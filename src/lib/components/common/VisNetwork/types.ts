@@ -1,4 +1,4 @@
-import type { IdType } from 'vis-network/standalone';
+import type { IdType } from 'vis-network';
 
 export type VisNodeDetails = {
 	id?: IdType;

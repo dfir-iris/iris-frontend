@@ -1,7 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Network, DataSet } from 'vis-network/standalone';
-	import type { Options, IdType, Position } from 'vis-network/standalone';
+	// Use the root entry (which resolves to vis-network/peer) instead of
+	// `vis-network/standalone`. The standalone bundle inlines vis-data;
+	// the peer build expects it as a separate dependency — which we
+	// already ship (see package.json). The dev container's anonymous
+	// `/app/node_modules` volume sometimes ends up without a working
+	// `./standalone` subpath export after partial reinstalls, which
+	// breaks Vite SSR resolution. The other vis-network call-sites in
+	// this repo already follow this convention.
+	import { Network } from 'vis-network';
+	import { DataSet } from 'vis-data';
+	import type { Options, IdType, Position } from 'vis-network';
 	import type { VisNode, VisEdge } from './types';
 
 	type Props = {
