@@ -26,6 +26,14 @@ export type UserCtx = {
 	load(): Promise<void>;
 	can(perm: PermissionName): boolean;
 	canAny(perms: PermissionName[]): boolean;
+	/** Patch one or more UI preferences. The local copy flips
+	 *  immediately (optimistic) and the PUT goes out in the
+	 *  background — if it fails the local value is rolled back so
+	 *  the next reload doesn't see a divergent state. */
+	setPreference<K extends keyof UserContext['preferences']>(
+		key: K,
+		value: UserContext['preferences'][K]
+	): Promise<void>;
 };
 
 export const createUserContext = (): UserCtx => {
@@ -46,6 +54,30 @@ export const createUserContext = (): UserCtx => {
 		return inflight;
 	};
 
+	const setPreference = async <K extends keyof UserContext['preferences']>(
+		key: K,
+		value: UserContext['preferences'][K]
+	): Promise<void> => {
+		if (!ctx) return;
+		const previous = ctx.preferences[key];
+		// Optimistic local update — replace the preferences object
+		// rather than mutating in place so Svelte 5's deep $state
+		// reliably notices the change.
+		ctx = {
+			...ctx,
+			preferences: { ...ctx.preferences, [key]: value }
+		};
+		const response = await UserContextService.updatePreferences({ [key]: value } as Partial<
+			UserContext['preferences']
+		>);
+		if (!response.ok && ctx) {
+			ctx = {
+				...ctx,
+				preferences: { ...ctx.preferences, [key]: previous }
+			};
+		}
+	};
+
 	return {
 		get ctx() {
 			return ctx;
@@ -55,6 +87,7 @@ export const createUserContext = (): UserCtx => {
 		},
 		load,
 		can: (perm) => hasPermission(ctx, perm),
-		canAny: (perms) => hasAnyPermission(ctx, perms)
+		canAny: (perms) => hasAnyPermission(ctx, perms),
+		setPreference
 	};
 };

@@ -5,13 +5,23 @@
 	import UserMenu from './UserMenu.svelte';
 	import SideNav from './SideNav.svelte';
 
-	let collapsed = $state(false);
 	let hovered = $state(false);
 
 	const userCtx = getContext<UserCtx>(USER_CTX);
 
+	// The collapsed state lives on the user row (User.has_mini_sidebar)
+	// so it survives logout / device-switch. We read it from the user
+	// context once it's `ready`; before that we default to expanded so
+	// the rail doesn't flash mini-then-expanded on first paint.
+	const collapsed = $derived<boolean>(userCtx.ctx?.preferences?.has_mini_sidebar ?? false);
 	const isCollapsed = () => (collapsed ? !hovered : collapsed);
 	const irisVersion = $derived(userCtx.ctx?.iris_version ?? '');
+
+	const toggleCollapsed = () => {
+		// Optimistically flip via the context; it persists in the
+		// background and rolls back on failure.
+		void userCtx.setPreference('has_mini_sidebar', !collapsed);
+	};
 </script>
 
 <div class="sticky top-0 flex h-screen flex-col bg-sidebar">
@@ -28,7 +38,7 @@
 		<div
 			class="mx-1 flex items-center justify-center text-white/70 transition-colors hover:text-white"
 		>
-			<MenuIcon class="size-5 cursor-pointer" onclick={() => (collapsed = !collapsed)} />
+			<MenuIcon class="size-5 cursor-pointer" onclick={toggleCollapsed} />
 		</div>
 	</div>
 

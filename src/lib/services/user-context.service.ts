@@ -39,6 +39,10 @@ export const Permission = {
 
 export type PermissionName = keyof typeof Permission;
 
+export interface UserPreferences {
+	has_mini_sidebar: boolean;
+}
+
 export interface UserContext {
 	iris_version: string;
 	demo_mode: boolean;
@@ -46,11 +50,19 @@ export interface UserContext {
 		mask: number;
 		names: PermissionName[];
 	};
+	preferences: UserPreferences;
 }
 
 export class UserContextService {
 	static async get(options: ApiOptions = {}): Promise<RequestResponse<UserContext>> {
 		return ApiService.get<UserContext>('/me/context', options);
+	}
+
+	static async updatePreferences(
+		patch: Partial<UserPreferences>,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<UserPreferences>> {
+		return ApiService.put<UserPreferences>('/me/preferences', patch, options);
 	}
 }
 
