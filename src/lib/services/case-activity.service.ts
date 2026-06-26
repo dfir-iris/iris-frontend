@@ -7,6 +7,7 @@ import type { ApiOptions, RequestResponse } from './api.service';
 export interface CaseActivityRow {
 	name?: string;
 	user_name?: string;
+	user_id?: number | null;
 	activity_date?: string;
 	activity_desc?: string;
 	is_from_api?: boolean;
