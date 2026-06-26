@@ -104,17 +104,19 @@
 </script>
 
 <!--
-  Three-track grid. Left and right tracks share `1fr` so the centre track
-  lands at the geometric mid-point of the bar regardless of how wide the
-  title or the right-hand action cluster grow individually. The right
-  cluster anchors itself with `justify-self-end` and the left title sits
-  flush left by default; this lets the inner content of the flanking
-  tracks be asymmetric without sliding the centre off-axis. Centre track
-  is `auto` so it sizes to the inline nav's intrinsic width.
+  Flex bar with three groups: case title (left, hugs left), case-section
+  nav (centre, mx-auto), action cluster (right, hugs right). The
+  `mx-auto` on the centre wrapper distributes whatever empty space is
+  left between the title and the action cluster evenly into the margins
+  on either side of the nav — so the nav appears optically centred in
+  the *gap* between those two groups, which is what the user asked for
+  (rather than centred in the full viewport). When the gap shrinks past
+  the nav's intrinsic width, the `min-w-0 overflow-hidden` lets the
+  inline strip yield gracefully and the dropdown variant takes over.
 -->
 <header
 	style="background-color: hsl(var(--iris-blue));"
-	class="shadow-elevation-1 grid max-h-14 min-h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 text-white sm:px-5"
+	class="shadow-elevation-1 flex max-h-14 min-h-14 items-center gap-3 px-3 text-white sm:px-5"
 >
 	{#if case_id !== null && pathname.startsWith('/case') && pathname !== '/cases'}
 		<div class="flex min-w-0 items-center gap-2">
@@ -141,7 +143,7 @@
 		  cell); the dropdown variant takes over below `2xl` where the strip
 		  is hidden outright.
 		-->
-		<div class="flex h-full min-w-0 items-stretch overflow-hidden">
+		<div class="mx-auto flex h-full min-w-0 items-stretch overflow-hidden">
 			<nav
 				class="hidden h-full min-w-0 items-stretch overflow-hidden 2xl:flex"
 				aria-label="Case sections"
@@ -188,7 +190,7 @@
 			</DropdownMenu.Root>
 		</div>
 	{:else}
-		<div class="col-span-2 flex min-w-0 items-center justify-start gap-2">
+		<div class="flex min-w-0 flex-1 items-center justify-start gap-2">
 			<DropdownMenu.Root
 				open={showGoToCase}
 				onOpenChange={(open: boolean) => (showGoToCase = open)}
@@ -227,15 +229,12 @@
 	{/if}
 
 	<!--
-	  Right grid track is `1fr` (symmetric with the left title track) so
-	  the centre nav lands at the true geometric mid-point. We pin our
-	  cluster to the right edge of that 1fr track with `justify-self-end`
-	  and let it size to its content; the surrounding 1fr space absorbs
-	  any width imbalance versus the left title. `min-w-0` keeps the
-	  track from expanding past its share if the search input grows under
-	  user interaction.
+	  Right cluster: search input + action buttons. Hugs the right edge of
+	  the flex bar naturally because the centre nav's `mx-auto` absorbs
+	  all leftover space into its margins. `min-w-0` lets the cluster
+	  shrink if absolutely needed without distorting the centring.
 	-->
-	<div class="flex min-w-0 items-center justify-self-end gap-1">
+	<div class="flex min-w-0 items-center gap-1">
 		<!--
 		  Global search lives at the right edge of the topbar so it stays
 		  reachable from every page. It manages its own expand-on-hover
