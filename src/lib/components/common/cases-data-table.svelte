@@ -19,18 +19,24 @@
 	import CaseDetailModal from './CaseDetailModal.svelte';
 	import Skeleton from '../ui/skeleton/skeleton.svelte';
 
+	type SortState = { id: string; dir: 'asc' | 'desc' | null } | null;
+
 	let {
 		cases,
 		class: className = '',
 		page = $bindable(),
 		onPageChange,
-		pageSize = 10
+		pageSize = 10,
+		sort,
+		onSortChange
 	}: {
 		cases: Promise<RequestResponse<Paginated<Case>>>;
 		class?: string;
 		page?: number;
 		onPageChange?: (page: number) => void;
 		pageSize?: number;
+		sort?: SortState;
+		onSortChange?: (next: SortState) => void;
 	} = $props();
 
 	if (page === undefined) page = 1;
@@ -178,7 +184,17 @@
 	];
 </script>
 
-<div class="{className} flex overflow-hidden rounded-lg border border-border/60 bg-card shadow-sm">
+<!--
+  Side-scroll container: the table grows wider than the viewport
+  (nine information-dense columns), so we lock the horizontal scroll
+  to this card instead of letting it push the page sideways.
+  `min-w-0` is critical inside the flex parent so the column can
+  shrink below the table's intrinsic width and `overflow-x-auto`
+  actually engages.
+-->
+<div
+	class="{className} flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border/60 bg-card shadow-sm"
+>
 	{#if loading}
 		<div class="space-y-2 overflow-clip p-4">
 			<div class="grid grid-cols-9 gap-4 border-b pb-2">
@@ -201,6 +217,11 @@
 			bind:page
 			{pageSize}
 			totalPages={(res?.data as Paginated<Case>).last_page as number}
+			tableClass="w-max min-w-full table-auto text-sm"
+			showColumnFilters={false}
+			{sort}
+			{onSortChange}
+			class="flex-1"
 		/>
 	{/if}
 </div>

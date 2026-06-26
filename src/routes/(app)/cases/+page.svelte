@@ -9,11 +9,20 @@
 	import { DEFAULT_DEBOUNCE, DEFAULT_ITEMS_PER_PAGE } from '$lib/config/api.config';
 	import {
 		CaseFilters,
+		CaseSavedFiltersBar,
+		emptyGroup,
+		pruneTree,
+		treeHasActiveCondition,
 		type FilterDef,
+		type FilterGroup,
 		type FilterLogic,
 		type FilterRow
 	} from '$lib/components/common/CaseFilters';
 	import CasesDataTable from '$lib/components/common/cases-data-table.svelte';
+	import { UsersService, type User } from '$lib/services/users.service';
+	import { CustomersService, type Customer } from '$lib/services/customers.service';
+	import { CaseStatesService, type CaseState } from '$lib/services/case-states.service';
+	import { SeveritiesService, type Severity } from '$lib/services/severities.service';
 	import { Button } from '$lib/components/ui/button';
 	import Checkbox from '$lib/components/ui/checkbox/checkbox.svelte';
 	import Label from '$lib/components/ui/label/label.svelte';
@@ -30,25 +39,59 @@
 	let currentPage = $state(1);
 	let perPage = $state(DEFAULT_ITEMS_PER_PAGE);
 
-	let filterLogic = $state<FilterLogic>('and');
-	let filters = $state<FilterRow[]>([]);
+	// Recursive filter tree. Root group always exists; sub-groups
+	// (`{ logic, items }`) can be added inside it for queries shaped
+	// like `(A AND B) OR (C AND D)`.
+	let filterGroup = $state<FilterGroup>(emptyGroup('and'));
+	let filterBuilderOpen = $state(false);
+
+	let selectedSavedFilterId = $state('');
+	let savingFilter = $state(false);
+
+	// Sort is now driven server-side via `order_by` + `direction` so
+	// pagination + sort stay in sync. The data-table reports column
+	// header clicks through `sort` / `onSortChange`; we translate the
+	// column id to the backend column name in `serverOrderBy()`.
+	type SortState = { id: string; dir: 'asc' | 'desc' | null } | null;
+	let sort = $state<SortState>({ id: 'open_date', dir: 'desc' });
 
 	let casesPaginated = $state<Promise<RequestResponse<Paginated<Case>>> | null>(null);
+
+	// Lookups feeding the prefilled value pickers in the filter builder.
+	// Loaded once on mount; the backend filters match these by *name*
+	// (not id) so the picker emits the textual value the backend
+	// already compares against (see manage_cases_db.build_filter_case_query).
+	let userOptions = $state<{ value: string; label: string }[]>([]);
+	let customerOptions = $state<{ value: string; label: string }[]>([]);
+	let stateOptions = $state<{ value: string; label: string }[]>([]);
+	let severityOptions = $state<{ value: string; label: string }[]>([]);
 
 	const perPageOptions = [5, 10, 25, 50, 100].map((n) => ({
 		value: String(n),
 		label: `${n} entries`
 	}));
 
-	const filterDefs: FilterDef<Case>[] = [
-		{ id: 'outcome', label: 'Outcome', get: (c) => (c as Case).closing_note ?? '' },
-		{ id: 'case_id', label: 'Case ID', get: (c) => (c as Case).case_id },
-		{ id: 'severity', label: 'Severity', get: (c) => (c as Case).severity?.severity_name ?? '' },
+	// Filter definitions for the cases overview. `valueOptions` turns
+	// the value input into a prefilled picker for low-cardinality
+	// fields — derived so the dropdown updates as the lookup arrays
+	// load. Backend matches these by the textual value (state_name,
+	// severity_name, customer name, user login), so the picker emits
+	// strings that the backend can compare directly.
+	const filterDefs = $derived<FilterDef<Case>[]>([
 		{ id: 'title', label: 'Title', get: (c) => (c as Case).case_name },
+		{ id: 'case_id', label: 'Case ID', get: (c) => (c as Case).case_id },
+		{ id: 'outcome', label: 'Outcome', get: (c) => (c as Case).closing_note ?? '' },
+		{
+			id: 'severity',
+			label: 'Severity',
+			get: (c) => (c as Case).severity?.severity_name ?? '',
+			valueOptions: severityOptions
+		},
 		{
 			id: 'customer',
 			label: 'Customer',
-			get: (c) => (c as Case).case_customer?.customer_name ?? ''
+			get: (c) => (c as Case).case_customer?.customer_name ?? '',
+			valueOptions: customerOptions
 		},
 		{
 			id: 'classification',
@@ -56,29 +99,53 @@
 			get: (c) =>
 				(c as Case).classification_id === null ? '' : String((c as Case).classification_id)
 		},
-		{ id: 'state', label: 'State', get: (c) => (c as Case).state?.state_name ?? '' },
+		{
+			id: 'state',
+			label: 'State',
+			get: (c) => (c as Case).state?.state_name ?? '',
+			valueOptions: stateOptions
+		},
 		{
 			id: 'tags',
 			label: 'Tags',
 			get: (c) => (c as Case).tags?.map((t) => (t as Tags).tag_title).join(', ') ?? ''
 		},
+		{ id: 'open_date', label: 'Open date', get: (c) => (c as Case).open_date ?? '' },
 		{
-			id: 'open_since',
-			label: 'Open since',
-			get: (c) => (c as Case).open_date ?? ''
-		},
-		{
-			id: 'open_date',
-			label: 'Open date',
-			get: (c) => (c as Case).open_date ?? ''
-		},
-		{
-			id: 'tasks',
-			label: 'Tasks',
-			get: () => ''
-		},
-		{ id: 'owner', label: 'Owner', get: (c) => (c as Case).owner?.user_login ?? '' }
-	];
+			id: 'owner',
+			label: 'Owner',
+			get: (c) => (c as Case).owner?.user_login ?? '',
+			valueOptions: userOptions
+		}
+	]);
+
+	// Column id → backend `order_by` column. The backend's
+	// `build_filter_case_query` special-cases `owner`, `opened_by`,
+	// `customer_name`, `state`; everything else must match a `Cases`
+	// model attribute. Anything not in this map falls through to no
+	// sort.
+	const serverOrderBy = (columnId: string): string | null => {
+		switch (columnId) {
+			case 'case_name':
+				return 'name';
+			case 'case_soc_id':
+				return 'soc_id';
+			case 'open_date':
+				return 'open_date';
+			case 'close_date':
+				return 'close_date';
+			case 'case_customer.customer_name':
+				return 'customer_name';
+			case 'state.state_name':
+				return 'state';
+			case 'severity.severity_name':
+				return 'severity_id';
+			case 'owner.user_login':
+				return 'owner';
+			default:
+				return null;
+		}
+	};
 
 	const updateUrl = (params: { search?: string; page?: number; showClosed?: boolean }) => {
 		const url = new URL(page.url);
@@ -107,25 +174,26 @@
 	};
 
 	let filtersDebounce: ReturnType<typeof setTimeout> | null = null;
-	let debouncedLogic = $state<FilterLogic>('and');
-	let debouncedFilters = $state<FilterRow[]>([]);
+	let debouncedGroup = $state<FilterGroup>(emptyGroup('and'));
 
-	const effectiveFilters = (rows: FilterRow[]) =>
-		rows.filter((r) => {
-			const op = (r.operation ?? '').toLowerCase();
-			if (op === 'empty' || op === 'not_empty') return true;
-			return (r.value ?? '').trim() !== '';
-		});
+	// Apply runs the filter set immediately (also called when the user
+	// presses Enter inside a value input). Without it, filter changes
+	// took ~DEFAULT_DEBOUNCE before reaching the server which felt
+	// laggy.
+	const applyFiltersNow = () => {
+		if (filtersDebounce) clearTimeout(filtersDebounce);
+		debouncedGroup = filterGroup;
+		currentPage = 1;
+		updateUrl({ page: 1 });
+	};
 
 	$effect(() => {
-		const l = filterLogic;
-		const f = filters;
+		const g = filterGroup;
 
 		if (filtersDebounce) clearTimeout(filtersDebounce);
 
 		filtersDebounce = setTimeout(() => {
-			debouncedLogic = l;
-			debouncedFilters = f;
+			debouncedGroup = g;
 			currentPage = 1;
 			updateUrl({ page: 1 });
 		}, DEFAULT_DEBOUNCE);
@@ -170,14 +238,24 @@
 		currentPage = urlPage;
 		showClosed = urlShowClosed;
 
-		const activeFilters = effectiveFilters(debouncedFilters);
+		// Send the trimmed filter tree so empty rows / empty
+		// sub-groups don't cost a round-trip. If nothing is active
+		// after pruning, omit `filters` entirely so the server isn't
+		// forced to parse a no-op tree.
+		const pruned = pruneTree(debouncedGroup);
+		const hasFilters = treeHasActiveCondition(pruned);
+
+		const orderBy = sort?.id ? serverOrderBy(sort.id) : null;
+		const direction = sort?.dir ?? null;
 
 		const baseParams: Record<string, unknown> = {
 			page: urlPage,
 			per_page: Number(perPage),
 			case_name: urlSearch.trim() === '' ? undefined : urlSearch.trim(),
-			logic: debouncedLogic,
-			filters: activeFilters.length === 0 ? undefined : JSON.stringify(activeFilters)
+			logic: pruned.logic,
+			filters: hasFilters ? JSON.stringify(pruned) : undefined,
+			order_by: orderBy ?? undefined,
+			direction: orderBy && direction ? direction : undefined
 		};
 
 		const params = urlShowClosed ? baseParams : { ...baseParams, is_open: true };
@@ -233,14 +311,134 @@
 			updateUrl({ search: searchParam, page: 1 });
 		}, DEFAULT_DEBOUNCE);
 	});
+
+	// Saved filters ----------------------------------------------------
+
+	$effect(() => {
+		void cases.loadSavedFilters();
+	});
+
+	// Lookup loaders --------------------------------------------------
+
+	const loadLookups = async () => {
+		// Run in parallel; failures degrade the picker to a free-text
+		// input rather than blocking the page.
+		const [usersRes, customersRes, statesRes, severitiesRes] = await Promise.all([
+			UsersService.list(),
+			CustomersService.list(),
+			CaseStatesService.list(),
+			SeveritiesService.list()
+		]);
+
+		// users response is a Paginated<User>, customers / states /
+		// severities are flat arrays.
+		const usersData = usersRes.data as { data?: User[] } | User[] | null;
+		const users: User[] = Array.isArray(usersData) ? usersData : (usersData?.data ?? []);
+		userOptions = users.map((u) => ({
+			value: u.user_login,
+			label: u.user_name ? `${u.user_name} (${u.user_login})` : u.user_login
+		}));
+
+		const customers = Array.isArray(customersRes.data) ? (customersRes.data as Customer[]) : [];
+		customerOptions = customers.map((c) => ({ value: c.customer_name, label: c.customer_name }));
+
+		const states = Array.isArray(statesRes.data) ? (statesRes.data as CaseState[]) : [];
+		stateOptions = states.map((s) => ({ value: s.state_name, label: s.state_name }));
+
+		const severities = Array.isArray(severitiesRes.data) ? (severitiesRes.data as Severity[]) : [];
+		severityOptions = severities.map((s) => ({ value: s.severity_name, label: s.severity_name }));
+	};
+
+	$effect(() => {
+		void loadLookups();
+	});
+
+	// Saved-filter payload — versioned shape so we can keep reading
+	// pre-nesting presets a user already saved. The legacy shape was
+	// `{ logic, filters: FilterRow[] }`; the new shape is
+	// `{ group: FilterGroup }`. The reader normalises both into a
+	// FilterGroup before applying.
+	type LegacySavedFilterPayload = {
+		logic?: FilterLogic;
+		filters?: FilterRow[];
+		showClosed?: boolean;
+		search?: string;
+	};
+	type SavedFilterPayload = {
+		group?: FilterGroup;
+		showClosed?: boolean;
+		search?: string;
+	} & LegacySavedFilterPayload;
+
+	const normalisePayload = (data: SavedFilterPayload | null): FilterGroup => {
+		if (!data) return emptyGroup('and');
+		if (data.group && Array.isArray(data.group.items)) return data.group;
+		const legacy = (data.filters ?? []) as FilterRow[];
+		return { logic: data.logic ?? 'and', items: legacy };
+	};
+
+	const applySavedFilter = async (id: number) => {
+		const saved = await cases.getSavedFilter(id);
+		if (!saved) return;
+		const data = saved.filter_data as SavedFilterPayload | null;
+
+		selectedSavedFilterId = String(id);
+		filterGroup = normalisePayload(data);
+		showClosed = !!data?.showClosed;
+		search = data?.search ?? '';
+		applyFiltersNow();
+		updateUrl({ showClosed, search, page: 1 });
+	};
+
+	const clearActiveFilter = () => {
+		selectedSavedFilterId = '';
+		filterGroup = emptyGroup('and');
+		applyFiltersNow();
+	};
+
+	const deleteSavedFilter = async (id: number) => {
+		await cases.removeSavedFilter(id);
+		if (selectedSavedFilterId === String(id)) selectedSavedFilterId = '';
+	};
+
+	const saveCurrentFilter = async (meta: { name: string; description: string; isPrivate: boolean }) => {
+		if (savingFilter) return;
+		savingFilter = true;
+
+		const payload: SavedFilterPayload = {
+			group: pruneTree(filterGroup),
+			showClosed,
+			search: search.trim() || undefined
+		};
+
+		const created = await cases.createSavedFilter({
+			filter_is_private: meta.isPrivate,
+			filter_name: meta.name,
+			filter_description: meta.description,
+			filter_data: payload
+		});
+
+		savingFilter = false;
+		if (created) selectedSavedFilterId = String(created.filter_id);
+	};
+
+	const hasActiveFilter = $derived(
+		treeHasActiveCondition(filterGroup) || search.trim() !== '' || showClosed
+	);
 </script>
 
 <svelte:head>
 	<title>Cases | DFIR-IRIS</title>
 </svelte:head>
 
-<div class="flex grow flex-col gap-4 p-4">
-	<div class="flex flex-row items-center gap-4">
+<!--
+  Outer container is height-bounded so the table can scroll on its
+  own (`min-h-0 overflow-hidden`). Only the table region scrolls — the
+  page header and filter strip stay pinned, matching the alerts list
+  layout.
+-->
+<div class="flex h-full min-h-0 grow flex-col gap-4 overflow-hidden p-4">
+	<div class="flex shrink-0 flex-row items-center gap-4">
 		<h1>{showClosed ? 'All Cases' : 'Open Cases'}</h1>
 
 		<div class="ml-auto"></div>
@@ -263,22 +461,32 @@
 		</Button>
 	</div>
 
-	<div class="flex justify-between">
-		<div class="">
-			<CaseFilters
-				defs={filterDefs}
-				logic={filterLogic}
-				{filters}
-				onLogicChange={(l) => (filterLogic = l)}
-				onFiltersChange={(f) => {
-					filters = f;
-					currentPage = 1;
-					updateUrl({ page: 1 });
-				}}
+	<div class="flex shrink-0 flex-wrap items-center justify-between gap-2">
+		<div class="flex items-center gap-2">
+			<Button
+				variant={filterBuilderOpen ? 'default' : 'outline'}
+				size="sm"
+				onclick={() => (filterBuilderOpen = !filterBuilderOpen)}
+			>
+				{filterBuilderOpen ? 'Hide filter' : 'Build filter'}
+				{#if hasActiveFilter}
+					<span class="ml-1 size-2 rounded-full bg-primary-foreground/80"></span>
+				{/if}
+			</Button>
+
+			<CaseSavedFiltersBar
+				presets={cases.savedFilters.items}
+				selectedId={selectedSavedFilterId}
+				hasActiveFilter={hasActiveFilter}
+				saving={savingFilter}
+				onSelect={(id) => applySavedFilter(id)}
+				onClear={clearActiveFilter}
+				onDelete={(id) => deleteSavedFilter(id)}
+				onSave={(meta) => saveCurrentFilter(meta)}
 			/>
 		</div>
 
-		<div class="flex gap-2">
+		<div class="flex items-center gap-2">
 			<div class="flex min-w-48">
 				<Searchbar placeholder="Search cases" bind:value={search} />
 			</div>
@@ -296,7 +504,7 @@
 					<SelectTrigger>{perPage} entries per page</SelectTrigger>
 
 					<SelectContent>
-						{#each perPageOptions as perPageOption}
+						{#each perPageOptions as perPageOption (perPageOption.value)}
 							<SelectItem value={perPageOption.value}>{perPageOption.label}</SelectItem>
 						{/each}
 					</SelectContent>
@@ -305,12 +513,34 @@
 		</div>
 	</div>
 
+	{#if filterBuilderOpen}
+		<div class="shrink-0">
+			<CaseFilters
+				defs={filterDefs}
+				group={filterGroup}
+				onChange={(next) => {
+					filterGroup = next;
+					selectedSavedFilterId = '';
+				}}
+				onApply={applyFiltersNow}
+				onClear={() => {
+					filterGroup = emptyGroup('and');
+					selectedSavedFilterId = '';
+					applyFiltersNow();
+				}}
+			/>
+		</div>
+	{/if}
+
 	{#if casesPaginated}
 		<CasesDataTable
-			class="flex grow"
+			class="flex min-h-0 flex-1"
 			cases={casesPaginated}
 			page={currentPage}
+			pageSize={perPage}
 			onPageChange={(page) => updateUrl({ page })}
+			sort={sort}
+			onSortChange={(next) => (sort = next)}
 		/>
 	{/if}
 </div>

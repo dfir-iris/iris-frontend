@@ -23,6 +23,22 @@
 		pageSize?: number;
 		totalPages?: number;
 		pageSizeOptions?: number[];
+		/**
+		 * Controlled sort state. When provided the table delegates the
+		 * sort decision to the caller — it stops doing its own in-memory
+		 * sort and just emits `onSortChange` when the user clicks a
+		 * column header. Required for server-side ordering since the
+		 * server already returns rows in the right order.
+		 */
+		sort?: SortState;
+		onSortChange?: (next: SortState) => void;
+		/**
+		 * Hides the built-in per-column popover filter. Use this when
+		 * the page provides its own filter UI (the cases overview now
+		 * does) so the header doesn't surface two competing filter
+		 * affordances on the same column.
+		 */
+		showColumnFilters?: boolean;
 	};
 
 	let {
@@ -33,12 +49,18 @@
 		page = $bindable(),
 		pageSize = $bindable(10),
 		totalPages: totalPagesProp,
-		pageSizeOptions = [10, 25, 50, 100]
+		pageSizeOptions = [10, 25, 50, 100],
+		sort: sortProp,
+		onSortChange,
+		showColumnFilters = true
 	}: Props<unknown> = $props();
+
+	const isControlledSort = $derived(sortProp !== undefined);
 
 	if (page === undefined) page = 1;
 
-	let sort = $state<SortState>(null);
+	let internalSort = $state<SortState>(null);
+	const sort = $derived<SortState>(isControlledSort ? (sortProp as SortState) : internalSort);
 	let filters = $state<Record<string, string>>({});
 	let filterColumn = $state<string | null>(null);
 
@@ -130,6 +152,10 @@
 	});
 
 	const sorted = $derived.by(() => {
+		// Controlled mode: the caller already sorted server-side, do
+		// not re-sort here or the local pass would fight the server.
+		if (isControlledSort) return filtered.slice();
+
 		if (!sort?.dir) return filtered.slice();
 
 		const col = cols.find((x) => x.key === sort?.id);
@@ -182,12 +208,19 @@
 	});
 
 	const toggleSort = (id: string) => {
-		if (!sort || sort.id !== id) {
-			sort = { id, dir: 'asc' };
-			return;
-		}
+		const current = sort;
+		const next: SortState =
+			!current || current.id !== id
+				? { id, dir: 'asc' }
+				: current.dir === 'asc'
+					? { id, dir: 'desc' }
+					: null;
 
-		sort = sort.dir === 'asc' ? { id, dir: 'desc' } : null;
+		if (isControlledSort) {
+			onSortChange?.(next);
+		} else {
+			internalSort = next;
+		}
 	};
 
 	const toggleFilter = (id: string) => (filterColumn = filterColumn === id ? null : id);
@@ -206,7 +239,14 @@
 	};
 </script>
 
-<div class={`w-full overflow-auto ${className}`}>
+<div class={`flex w-full min-h-0 min-w-0 flex-col ${className}`}>
+	<!--
+	  Inner scroll wrapper. `flex-1 min-h-0` lets it consume the
+	  height the caller granted us (typically via a `flex-1 min-h-0`
+	  parent), and `overflow-auto` engages both vertical *and*
+	  horizontal scroll inside this box rather than on the page.
+	-->
+	<div class="min-h-0 min-w-0 flex-1 overflow-auto">
 	<table class={tableClass}>
 		<thead>
 			<tr class="border-b border-border/50">
@@ -217,14 +257,16 @@
 							<span class="min-w-0 truncate">{col.header}</span>
 
 							<div class="flex shrink-0 items-center gap-0.5 opacity-40 transition-opacity hover:opacity-100">
-								<button
-									type="button"
-									class="shrink-0 rounded p-0.5 hover:bg-muted"
-									aria-label={`Filter ${col.header}`}
-									onclick={() => toggleFilter(col.key as string)}
-								>
-									<FilterIcon class="size-3" />
-								</button>
+								{#if showColumnFilters}
+									<button
+										type="button"
+										class="shrink-0 rounded p-0.5 hover:bg-muted"
+										aria-label={`Filter ${col.header}`}
+										onclick={() => toggleFilter(col.key as string)}
+									>
+										<FilterIcon class="size-3" />
+									</button>
+								{/if}
 
 								<button
 									type="button"
@@ -243,7 +285,7 @@
 							</div>
 						</div>
 
-						{#if filterColumn === col.key}
+						{#if showColumnFilters && filterColumn === col.key}
 							<div class="mt-1.5 flex min-w-0 items-center gap-1.5">
 								<input
 									class="h-7 w-full min-w-0 rounded-md border border-border/50 bg-background px-2 text-xs focus:border-ring focus:outline-none"
@@ -293,8 +335,9 @@
 			{/if}
 		</tbody>
 	</table>
+	</div>
 
-	<div class="mt-2 flex items-center justify-end gap-3 pt-1">
+	<div class="mt-2 flex shrink-0 items-center justify-end gap-3 pt-1">
 		<label class="flex items-center gap-1.5 text-xs text-muted-foreground">
 			<span>Rows</span>
 			<select
