@@ -5,8 +5,8 @@
 	import UserMenu from './UserMenu.svelte';
 	import SideNav from './SideNav.svelte';
 
-	let collapsed = false;
-	let hovered = false;
+	let collapsed = $state(false);
+	let hovered = $state(false);
 
 	const userCtx = getContext<UserCtx>(USER_CTX);
 
