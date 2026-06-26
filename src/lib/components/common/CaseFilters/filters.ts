@@ -12,11 +12,71 @@ export type FilterOperation =
 	| 'empty'
 	| 'not_empty';
 
+export type FilterValueOption = {
+	value: string;
+	label: string;
+};
+
 export type FilterDef<T> = {
 	id: string;
 	label: string;
 	get: (row: unknown) => T | string | number | boolean | null | undefined;
+	/**
+	 * Optional fixed set of values the user can pick from instead of
+	 * typing free text. When provided, the filter builder swaps the
+	 * value input for a select. Use this for low-cardinality fields
+	 * (state, severity) and lookups whose options the caller can
+	 * load once (owner, customer).
+	 */
+	valueOptions?: FilterValueOption[];
 };
+
+/**
+ * Recursive filter tree the cases overview now uses. A `FilterGroup`
+ * combines its `items` with `AND` or `OR`; each item is either a
+ * single condition (the previous `FilterRow`) or a nested
+ * `FilterGroup`. The wire format is the same so the API serialiser
+ * just JSON-stringifies the root group.
+ */
+export type FilterGroup = {
+	logic: FilterLogic;
+	items: FilterTreeNode[];
+};
+
+export type FilterTreeNode = FilterRow | FilterGroup;
+
+export const isGroup = (node: FilterTreeNode): node is FilterGroup =>
+	(node as FilterGroup).items !== undefined;
+
+/** Returns true when the tree carries at least one actionable condition. */
+export const treeHasActiveCondition = (group: FilterGroup): boolean =>
+	group.items.some((item) => {
+		if (isGroup(item)) return treeHasActiveCondition(item);
+		const op = (item.operation ?? '').toLowerCase();
+		if (op === 'empty' || op === 'not_empty') return true;
+		return (item.value ?? '').trim() !== '';
+	});
+
+/** Strip rows with empty values, prune empty sub-groups. */
+export const pruneTree = (group: FilterGroup): FilterGroup => {
+	const items: FilterTreeNode[] = [];
+	for (const item of group.items) {
+		if (isGroup(item)) {
+			const sub = pruneTree(item);
+			if (sub.items.length > 0) items.push(sub);
+		} else {
+			const op = (item.operation ?? '').toLowerCase();
+			if (op === 'empty' || op === 'not_empty') {
+				items.push({ ...item, value: '' });
+			} else if ((item.value ?? '').trim() !== '') {
+				items.push(item);
+			}
+		}
+	}
+	return { logic: group.logic, items };
+};
+
+export const emptyGroup = (logic: FilterLogic = 'and'): FilterGroup => ({ logic, items: [] });
 
 export type FilterRow = {
 	fieldId: string;
