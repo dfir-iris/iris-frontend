@@ -421,7 +421,7 @@
 			type="text"
 			placeholder="Search… (ctrl + /)"
 			aria-label="Search across cases"
-			class="h-8 w-56 min-w-0 bg-transparent text-sm text-white outline-none placeholder:text-white/50 lg:w-72 xl:w-80"
+			class="h-8 w-44 min-w-0 bg-transparent text-sm text-white outline-none placeholder:text-white/50 xl:w-64 2xl:w-80"
 			onfocus={() => (inputFocused = true)}
 			onkeydown={(e) => {
 				if (e.key === 'Escape') dismiss();

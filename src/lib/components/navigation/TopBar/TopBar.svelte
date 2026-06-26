@@ -124,9 +124,14 @@
 		  state reads as a real tab rather than a button-among-buttons.
 		  No surrounding container card, no rounded corners on each
 		  tab; everything aligns on a single horizontal baseline.
+
+		  Pinned to a fixed track in the parent grid and `shrink-0`
+		  so it can't be eaten by the search input on the right. The
+		  inline nav is hidden below `xl` (we already mount the
+		  dropdown variant under `lg:hidden` for narrow viewports).
 		-->
 		<nav
-			class="hidden h-full items-stretch lg:flex"
+			class="hidden h-full shrink-0 items-stretch xl:flex"
 			aria-label="Case sections"
 		>
 			{#each caseButtons as button}
@@ -150,7 +155,13 @@
 		</nav>
 
 		<DropdownMenu.Root>
-			<DropdownMenu.Trigger class="lg:hidden">
+			<!--
+			  Compact case-section picker for everything below `xl`.
+			  Mirrors the bump on the inline nav above so the two
+			  variants don't both render (or both hide) on the same
+			  breakpoint.
+			-->
+			<DropdownMenu.Trigger class="xl:hidden">
 				<span
 					class="flex items-center gap-1 border-b-2 border-transparent px-2 py-1.5 text-sm font-medium text-white/85 transition-colors hover:text-white aria-expanded:border-white"
 				>
@@ -208,7 +219,13 @@
 		</div>
 	{/if}
 
-	<div class="flex shrink-0 items-center justify-end gap-1">
+	<!--
+	  `min-w-0` so the right column can shrink below its intrinsic
+	  content width — otherwise the search input + action buttons
+	  would push back into the centre nav column when the viewport
+	  is below ~1500px. `justify-end` keeps the content flush right.
+	-->
+	<div class="flex min-w-0 items-center justify-end gap-1">
 		<!--
 		  Global search lives at the right edge of the topbar so it stays
 		  reachable from every page. It manages its own expand-on-hover
