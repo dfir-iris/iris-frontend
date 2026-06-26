@@ -5,6 +5,10 @@
 	import type { Alert } from '$lib/types/resources/alert';
 	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
+	import {
+		COMMENTS_PANEL_CTX,
+		type CommentsPanelContext
+	} from '$lib/contexts/comments-panel.context.svelte';
 	import type { UpdateAlertBody } from '$lib/services/alerts.service';
 	import type { AlertStatus } from '$lib/services/alert-status.service';
 	import { current_user } from '$lib/stores/auth.store';
@@ -14,7 +18,6 @@
 	import AlertsCloseDialog from '../components/alerts-close-dialog.svelte';
 	import AlertHistoryDialog from '../components/alert-history-dialog.svelte';
 	import AlertEditDialog from '../components/alert-edit-dialog.svelte';
-	import AlertCommentsDialog from '../components/alert-comments-dialog.svelte';
 	import AlertsMergeDialog, {
 		type MergeAlertPayload
 	} from '../components/alerts-merge-dialog.svelte';
@@ -26,6 +29,7 @@
 
 	const alerts = getContext<AlertsContext>(ALERTS_CTX);
 	const cases = getContext<CasesContext>(CASES_CTX);
+	const commentsPanel = getContext<CommentsPanelContext>(COMMENTS_PANEL_CTX);
 
 	let alertPromise = $state<Promise<Alert | null> | null>(null);
 	let alertStatuses = $state<AlertStatus[]>([]);
@@ -38,7 +42,6 @@
 
 	let showAlertHistory = $state(false);
 	let showAlertEdit = $state(false);
-	let showAlertComments = $state(false);
 	let showAlertMerge = $state(false);
 	let showAlertClose = $state(false);
 
@@ -151,7 +154,7 @@
 	<title>Alert #{alert_id} | DFIR-IRIS</title>
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-8xl grow flex-col gap-4 p-4">
+<div class="mx-auto flex h-full w-full max-w-8xl grow flex-col gap-4 overflow-y-auto p-4">
 	{#await alertPromise}
 		<div class="flex items-center gap-2 text-sm text-muted-foreground">Loading...</div>
 	{:then alert}
@@ -164,7 +167,12 @@
 				onSetStatus={(s) => setStatus(s)}
 				onShowEdit={() => (showAlertEdit = true)}
 				onShowHistory={() => (showAlertHistory = true)}
-				onShowComments={() => (showAlertComments = true)}
+				onShowComments={() =>
+					commentsPanel.open({
+						type: 'alerts',
+						id: alert.alert_id,
+						label: alert.alert_title ?? `Alert #${alert.alert_id}`
+					})}
 				onShowMerge={() => (showAlertMerge = true)}
 				onShowClose={(withNote) => {
 					if (withNote) {
@@ -203,7 +211,6 @@
 		{alert}
 	/>
 
-	<AlertCommentsDialog bind:open={showAlertComments} onClose={refreshAlert} {alert} />
 {/if}
 
 <AlertsReasignDialog

@@ -13,6 +13,10 @@
 	import { DEFAULT_ITEMS_PER_PAGE } from '$lib/config/api.config';
 	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
+	import {
+		COMMENTS_PANEL_CTX,
+		type CommentsPanelContext
+	} from '$lib/contexts/comments-panel.context.svelte';
 	import type { RequestResponse, Paginated } from '$lib/services/api.service';
 	import type { UpdateAlertBody } from '$lib/services/alerts.service';
 	import {
@@ -51,7 +55,6 @@
 	import AlertsReasignDialog from './components/alerts-reasign-dialog.svelte';
 	import AlertsCloseDialog from './components/alerts-close-dialog.svelte';
 	import AlertEditDialog from './components/alert-edit-dialog.svelte';
-	import AlertCommentsDialog from './components/alert-comments-dialog.svelte';
 	import AlertsMergeDialog, {
 		type MergeAlertPayload
 	} from './components/alerts-merge-dialog.svelte';
@@ -101,6 +104,7 @@
 
 	const alerts = getContext<AlertsContext>(ALERTS_CTX);
 	const cases = getContext<CasesContext>(CASES_CTX);
+	const commentsPanel = getContext<CommentsPanelContext>(COMMENTS_PANEL_CTX);
 
 	let status = $state<'initial' | 'loading' | 'ready'>('initial');
 	let filtersOpen = $state(false);
@@ -133,7 +137,6 @@
 
 	let showAlertHistory = $state(false);
 	let showAlertEdit = $state(false);
-	let showAlertComments = $state(false);
 	let showMerge = $state(false);
 	let showClose = $state(false);
 
@@ -617,16 +620,32 @@
 	<title>Alerts | DFIR-IRIS</title>
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-8xl grow flex-col gap-5 p-6">
+<!--
+  Page layout: the outer container is height-bounded so the alert list
+  can scroll on its own (`min-h-0 overflow-hidden`). The header /
+  filter strip / bulk-action bar / pagination all live in a
+  `shrink-0` section above the scrollable `<ul>` — the header stays
+  put while the user scrolls through alerts. The comments side panel
+  (mounted in the alerts +layout.svelte) sits as a sibling outside of
+  this scrolling region and stays full-height alongside.
+-->
+<div class="mx-auto flex h-full min-h-0 w-full max-w-8xl grow flex-col overflow-hidden p-6 pb-0">
 	{#if status === 'initial'}
 		<div class="flex h-full w-full items-center justify-center">
 			<Loading size={32} />
 		</div>
 	{:else}
-		<div class:opacity-60={status === 'loading'} class="flex grow flex-col gap-5">
-			<h2 class="text-lg font-semibold">
-				{getTotal({ data: alertsData } as RequestResponse<Paginated<Alert>>)} Alerts
-			</h2>
+		<div class:opacity-60={status === 'loading'} class="flex min-h-0 grow flex-col gap-5">
+			<!--
+			  Fixed header strip: title, filter toggle / saved-filter
+			  selector, action buttons, filter panel, applied-filter
+			  labels, bulk-action bar, and top pagination all stay
+			  pinned while the alert list below scrolls.
+			-->
+			<div class="flex shrink-0 flex-col gap-5">
+				<h2 class="text-lg font-semibold">
+					{getTotal({ data: alertsData } as RequestResponse<Paginated<Alert>>)} Alerts
+				</h2>
 
 			<div class="flex items-center justify-between">
 				<div class="flex gap-2">
@@ -852,13 +871,28 @@
 				</div>
 			{/if}
 
-			{#if getPagesCount() > 1}
-				<div class="flex">
-					<AlertsPagination page={query.page} pages={getPagesCount()} onPageChange={changePage} />
-				</div>
-			{/if}
+				{#if getPagesCount() > 1}
+					<div class="flex">
+						<AlertsPagination page={query.page} pages={getPagesCount()} onPageChange={changePage} />
+					</div>
+				{/if}
+			</div>
 
-			<ul class="flex min-w-0 flex-col gap-4">
+			<!--
+			  Scrollable alert list wrapped in a fade-shroud. The outer
+			  `relative` div carries two `pointer-events-none`
+			  pseudo-fades top and bottom so cards melt into the page
+			  background instead of getting hard-clipped by the
+			  viewport edge. The inner `<ul>` is the actual scroll
+			  container — its own padding gives the fade some real
+			  card content to fade over (without the padding the first
+			  / last card sits flush against the fade and looks half-
+			  obscured at rest).
+			-->
+			<div class="relative flex min-h-0 min-w-0 flex-1 flex-col">
+				<ul
+					class="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto px-1 pr-3 pt-4 pb-6"
+				>
 				{#each alertsData.data as alert (alert.alert_id)}
 					<li class="flex min-w-0 items-center gap-4">
 						{#if selecting}
@@ -889,8 +923,15 @@
 								showAlertHistory = true;
 							}}
 							onShowComments={() => {
-								selected = { ...selected, [alert.alert_id]: true };
-								showAlertComments = true;
+								// Don't flag the alert as "bulk-selected" here — the
+								// side panel is single-alert UX and doesn't occlude the
+								// page, so toggling `selected` would surface the bulk
+								// action bar (Merge / Assign / …) underneath the panel.
+								commentsPanel.open({
+									type: 'alerts',
+									id: alert.alert_id,
+									label: alert.alert_title ?? `Alert #${alert.alert_id}`
+								});
 							}}
 							onShowMerge={() => {
 								selected = { ...selected, [alert.alert_id]: true };
@@ -918,8 +959,27 @@
 				{/each}
 			</ul>
 
+				<!--
+				  Frosted fade-out strips so cards melt into the page
+				  background at the top/bottom/right of the scroll
+				  viewport instead of getting hard-clipped at the
+				  edge. `pointer-events-none` keeps them click-
+				  through; subtle `backdrop-blur` softens card text
+				  passing under the fade.
+				-->
+				<div
+					class="pointer-events-none absolute inset-x-0 top-0 z-10 h-6 bg-gradient-to-b from-background via-background/85 to-transparent backdrop-blur-[1px]"
+				></div>
+				<div
+					class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-8 bg-gradient-to-t from-background via-background/85 to-transparent backdrop-blur-[1px]"
+				></div>
+				<div
+					class="pointer-events-none absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-background/80 to-transparent"
+				></div>
+			</div>
+
 			{#if getPagesCount() > 1}
-				<div class="flex pb-4">
+				<div class="flex shrink-0 pb-4">
 					<AlertsPagination page={query.page} pages={getPagesCount()} onPageChange={changePage} />
 				</div>
 			{/if}
@@ -944,15 +1004,6 @@
 		onSave={async (changes) => {
 			await updateAlert(selectedAlertId, changes);
 			showAlertEdit = false;
-			cancelSelect();
-		}}
-		alert={selectedAlert}
-	/>
-
-	<AlertCommentsDialog
-		bind:open={showAlertComments}
-		onClose={() => {
-			refreshAlerts();
 			cancelSelect();
 		}}
 		alert={selectedAlert}
