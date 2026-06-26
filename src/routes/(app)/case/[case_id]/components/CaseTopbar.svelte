@@ -605,26 +605,28 @@
 			lists up to ALERTS_PER_PAGE alerts; the footer link jumps to the
 			Alerts page pre-filtered by this case.
 		-->
+		<!--
+		  Linked-alerts trigger. Visually a piece of inline text ("N
+		  linked alerts") rather than a button — the user explicitly
+		  asked for the chrome to be dropped so it reads as part of the
+		  case header rather than yet another action button. We keep
+		  the underlying `<button>` semantics (via `Popover.Trigger`)
+		  for keyboard / screen-reader users; the styling just removes
+		  the border, background and padding so it disappears into the
+		  surrounding text run.
+		-->
 		<Popover.Root>
-			<Popover.Trigger>
-				<TooltipProvider>
-					<Tooltip>
-						<TooltipTrigger>
-							<Button
-								variant="outline"
-								size="sm"
-								class="relative h-8 gap-x-1 rounded-sm"
-								aria-label={`${linkedAlertsTotal} linked alert${linkedAlertsTotal === 1 ? '' : 's'}`}
-							>
-								<BellIcon size={16} />
-								<span class="tabular-nums">
-									{linkedAlertsTotal > 99 ? '99+' : linkedAlertsTotal}
-								</span>
-							</Button>
-						</TooltipTrigger>
-						<TooltipContent side="bottom">Linked alerts</TooltipContent>
-					</Tooltip>
-				</TooltipProvider>
+			<Popover.Trigger
+				class="inline-flex items-center gap-1 rounded-sm bg-transparent text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+				aria-label={`${linkedAlertsTotal} linked alert${linkedAlertsTotal === 1 ? '' : 's'}`}
+			>
+				<BellIcon size={14} />
+				<span class="tabular-nums">
+					{linkedAlertsTotal > 99 ? '99+' : linkedAlertsTotal}
+				</span>
+				<span class="hidden sm:inline">
+					linked alert{linkedAlertsTotal === 1 ? '' : 's'}
+				</span>
 			</Popover.Trigger>
 			<Popover.Content align="end" class="w-80 p-0">
 				<div class="border-b px-3 py-2 text-xs font-semibold">
