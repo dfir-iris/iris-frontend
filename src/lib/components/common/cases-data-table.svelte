@@ -1,12 +1,22 @@
+<!--
+  Cases overview table. A column-rich row per case (Title / SOC / Open
+  / Closed / Customer / State / Severity / Owner / Tags) so triage can
+  happen without clicking into each case. Clicking the title opens the
+  CaseDetailModal which shows the full metadata and the formatted
+  summary, with a CTA to jump into the full case page when needed —
+  matches the old jQuery UI's quick-peek behaviour.
+-->
 <script lang="ts">
-	import type { Paginated, RequestResponse } from '$lib/services/api.service';
-	import type { Case } from '$lib/types/resources/case';
 	import { renderComponent, type ColumnDef } from '@tanstack/svelte-table';
+	import type { Paginated, RequestResponse } from '$lib/services/api.service';
+	import type { Case, Tags } from '$lib/types/resources/case';
 	import DataTable from '../ui/data-table-tanstack/data-table.svelte';
 	import { mediumDateTimeFormatter } from '$lib/utils/time-formatter';
 	import StatusBadge from '../ui/badge/status-badge.svelte';
 	import SeverityBadge from '../ui/badge/severity-badge.svelte';
-	import { LinkCell } from '../ui/table';
+	import CaseTitleCell from './CaseTitleCell.svelte';
+	import CaseTagsCell from './CaseTagsCell.svelte';
+	import CaseDetailModal from './CaseDetailModal.svelte';
 	import Skeleton from '../ui/skeleton/skeleton.svelte';
 
 	let {
@@ -30,6 +40,19 @@
 
 	let suppressEmit = false;
 	let lastEmitted = page;
+
+	// Title-click modal state. We seed the modal with the row already in
+	// the table so the metadata strip can render immediately while the
+	// full row finishes loading from the get-by-id endpoint.
+	let modalOpen = $state(false);
+	let modalCaseId = $state<number | null>(null);
+	let modalSeed = $state<Case | null>(null);
+
+	const openModal = (c: Case) => {
+		modalCaseId = c.case_id;
+		modalSeed = c;
+		modalOpen = true;
+	};
 
 	const syncFromServer = (p: number) => {
 		suppressEmit = true;
@@ -66,31 +89,49 @@
 		return () => (cancelled = true);
 	});
 
+	const fmtDate = (raw: string | null | undefined): string => {
+		if (!raw) return '—';
+		const d = new Date(raw);
+		if (Number.isNaN(d.getTime())) return String(raw);
+		return mediumDateTimeFormatter(d);
+	};
+
 	const columns: ColumnDef<Case>[] = [
 		{
 			accessorKey: 'case_name',
 			header: () => 'Title',
 			cell: (cell) =>
-				renderComponent(LinkCell, {
-					href: `/case/${cell.row.original.case_id}`,
-					label: `${cell.getValue()}`
+				renderComponent(CaseTitleCell, {
+					row: cell.row.original,
+					onOpen: openModal
 				})
 		},
 		{
+			accessorKey: 'case_soc_id',
+			header: () => 'SOC ID',
+			cell: (cell) => String(cell.getValue() ?? '—')
+		},
+		{
 			accessorKey: 'open_date',
-			header: () => 'Open Date',
+			header: () => 'Opened',
+			cell: (cell) => fmtDate(cell.getValue() as string | null)
+		},
+		{
+			accessorKey: 'close_date',
+			header: () => 'Closed',
 			cell: (cell) => {
-				const asDate = new Date(`${cell.getValue()}`);
-				return mediumDateTimeFormatter(asDate);
+				const raw = cell.getValue() as string | null;
+				return raw ? fmtDate(raw) : '—';
 			}
 		},
 		{
 			accessorKey: 'case_customer.customer_name',
-			header: 'Client'
+			header: () => 'Customer',
+			cell: (cell) => String(cell.getValue() ?? '—')
 		},
 		{
 			accessorKey: 'state.state_name',
-			header: 'State',
+			header: () => 'State',
 			cell: (cell) => {
 				const status = (cell.getValue() || 'Unknown') as
 					| 'Pending'
@@ -101,43 +142,55 @@
 					| 'Closed'
 					| 'Merged'
 					| 'Assigned'
-					| 'New'; // should make this a const?
-				return renderComponent(StatusBadge, { status: status });
+					| 'New';
+				return renderComponent(StatusBadge, { status });
 			}
 		},
 		{
 			accessorKey: 'severity.severity_name',
-			header: 'Severity',
+			header: () => 'Severity',
 			cell: (cell) => {
-				const severity = (cell.getValue() || 'Unknown') as
+				const severity = (cell.getValue() || 'Unspecified') as
 					| 'Unspecified'
 					| 'Low'
 					| 'Medium'
 					| 'High'
 					| 'Critical';
-				return renderComponent(SeverityBadge, { severity: severity });
+				return renderComponent(SeverityBadge, { severity });
 			}
+		},
+		{
+			accessorKey: 'owner.user_login',
+			header: () => 'Owner',
+			cell: (cell) => {
+				const row = cell.row.original as Case;
+				return row.owner?.user_name ?? row.owner?.user_login ?? '—';
+			}
+		},
+		{
+			accessorKey: 'tags',
+			header: () => 'Tags',
+			cell: (cell) =>
+				renderComponent(CaseTagsCell, {
+					tags: (cell.getValue() as Tags[] | undefined) ?? []
+				})
 		}
 	];
 </script>
 
-<div class="{className} flex overflow-hidden bg-card">
+<div class="{className} flex overflow-hidden rounded-lg border border-border/60 bg-card shadow-sm">
 	{#if loading}
 		<div class="space-y-2 overflow-clip p-4">
-			<div class="grid grid-cols-5 gap-4 border-b">
-				<Skeleton class="h-6" />
-				<Skeleton class="h-6" />
-				<Skeleton class="h-6" />
-				<Skeleton class="h-6" />
-				<Skeleton class="h-6" />
+			<div class="grid grid-cols-9 gap-4 border-b pb-2">
+				{#each Array(9) as _}
+					<Skeleton class="h-6" />
+				{/each}
 			</div>
 			{#each Array(10) as _}
-				<div class="grid grid-cols-5 gap-4">
-					<Skeleton class="h-8" />
-					<Skeleton class="h-8" />
-					<Skeleton class="h-8" />
-					<Skeleton class="h-8" />
-					<Skeleton class="h-8" />
+				<div class="grid grid-cols-9 gap-4">
+					{#each Array(9) as _}
+						<Skeleton class="h-8" />
+					{/each}
 				</div>
 			{/each}
 		</div>
@@ -151,3 +204,5 @@
 		/>
 	{/if}
 </div>
+
+<CaseDetailModal bind:open={modalOpen} caseId={modalCaseId} seed={modalSeed} />
