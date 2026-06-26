@@ -26,7 +26,13 @@
 	<span class="text-2xs text-muted-foreground">—</span>
 {:else}
 	<div class="flex flex-wrap gap-1">
-		{#each visible as tag (tag.tag_id)}
+		<!--
+		  Key by index — the cases list endpoint sometimes returns tags
+		  without a `tag_id`, so keying on the id makes Svelte see two
+		  `undefined` keys and crash. The list is read-only and replaced
+		  wholesale on row reload, so positional keys are safe.
+		-->
+		{#each visible as tag, i (i)}
 			<Badge variant="secondary" class="max-w-[8rem] truncate text-2xs">{tag.tag_title}</Badge>
 		{/each}
 		{#if overflow > 0}

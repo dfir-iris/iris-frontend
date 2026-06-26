@@ -220,7 +220,12 @@
 					<div class="text-sm font-medium">
 						{#if row?.tags && row.tags.length > 0}
 							<div class="flex flex-wrap gap-1">
-								{#each row.tags as tag (tag.tag_id)}
+								<!--
+								  Key by index — the list endpoint sometimes
+								  returns tags without a `tag_id`, see
+								  CaseTagsCell.
+								-->
+								{#each row.tags as tag, i (i)}
 									<Badge variant="secondary" class="text-2xs">{tag.tag_title}</Badge>
 								{/each}
 							</div>
