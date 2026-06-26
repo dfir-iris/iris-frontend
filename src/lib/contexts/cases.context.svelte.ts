@@ -6,6 +6,13 @@ import type {
 	CreateCaseBody
 } from '$lib/services/case.service';
 import { CaseStatesService, type CaseState } from '$lib/services/case-states.service';
+import {
+	CasesFiltersService,
+	type CasesSavedFilter,
+	type CreateCasesSavedFilterBody,
+	type ListCasesSavedFiltersParams,
+	type CasesFilterIdentifier
+} from '$lib/services/cases-filters.service';
 import type { ApiOptions, Paginated, RequestResponse } from '$lib/services/api.service';
 import type { Case } from '$lib/types/resources/case';
 import type { AppContext } from './app.context.svelte';
@@ -48,6 +55,95 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 		showAddModal: false,
 		showManageModal: false
 	});
+
+	// Saved filter presets for the cases overview page. Loaded lazily
+	// (the overview page calls `loadSavedFilters()` on mount); kept
+	// here so the same list survives navigation between the overview
+	// and any sub-page that wants to surface the user's presets.
+	const savedFilters = $state<{
+		params: ListCasesSavedFiltersParams;
+		items: CasesSavedFilter[];
+		status: Status;
+		error: string | null;
+	}>({
+		params: { include_public: 1 },
+		items: [],
+		status: 'idle',
+		error: null
+	});
+
+	const loadSavedFilters = async (
+		params: ListCasesSavedFiltersParams = savedFilters.params,
+		options: ApiOptions = {}
+	) => {
+		savedFilters.params = params;
+		savedFilters.status = 'loading';
+		savedFilters.error = null;
+
+		const response = await CasesFiltersService.list(params, options);
+
+		if (
+			!response.ok ||
+			response.error ||
+			response.data === null ||
+			typeof response.data === 'string' ||
+			!Array.isArray(response.data)
+		) {
+			savedFilters.status = 'error';
+			savedFilters.error = response.error?.message ?? 'Failed to load saved filters';
+			savedFilters.items = [];
+			return;
+		}
+
+		savedFilters.items = response.data;
+		savedFilters.status = 'idle';
+		savedFilters.error = null;
+	};
+
+	const getSavedFilter = async (
+		id: CasesFilterIdentifier,
+		options: ApiOptions = {}
+	): Promise<CasesSavedFilter | null> => {
+		const response = await CasesFiltersService.get(id, options);
+		if (
+			response.ok &&
+			!response.error &&
+			response.data !== null &&
+			typeof response.data !== 'string'
+		) {
+			return response.data;
+		}
+		return null;
+	};
+
+	const createSavedFilter = async (
+		body: CreateCasesSavedFilterBody,
+		options: ApiOptions = {}
+	): Promise<CasesSavedFilter | null> => {
+		const response = await CasesFiltersService.create(body, options);
+		if (
+			response.ok &&
+			!response.error &&
+			response.data !== null &&
+			typeof response.data !== 'string'
+		) {
+			await loadSavedFilters(savedFilters.params, options);
+			return response.data;
+		}
+		return null;
+	};
+
+	const removeSavedFilter = async (
+		id: CasesFilterIdentifier,
+		options: ApiOptions = {}
+	): Promise<boolean> => {
+		const response = await CasesFiltersService.remove(id, options);
+		if (response.ok && !response.error) {
+			await loadSavedFilters(savedFilters.params, options);
+			return true;
+		}
+		return false;
+	};
 
 	const load = async (params: ListCasesParams = {}, options: ApiOptions = {}) => {
 		list.params = params;
@@ -276,6 +372,11 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 
 		ui.showAddModal = false;
 		ui.showManageModal = false;
+
+		savedFilters.params = { include_public: 1 };
+		savedFilters.items = [];
+		savedFilters.status = 'idle';
+		savedFilters.error = null;
 	};
 
 	const cases = $derived(() =>
@@ -316,7 +417,12 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 		reopen,
 		reset,
 		states: () => stateStore.list,
-		loadStates
+		loadStates,
+		savedFilters,
+		loadSavedFilters,
+		getSavedFilter,
+		createSavedFilter,
+		removeSavedFilter
 	};
 };
 
