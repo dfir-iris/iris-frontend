@@ -35,8 +35,15 @@
   import { marked } from 'marked';
   import DOMPurify from 'dompurify';
 	import TlpBadge from '$lib/components/common/tlp/TlpBadge.svelte';
+	import SeenElsewhereBadge from '$lib/components/common/SeenElsewhereBadge.svelte';
+	import { CaseIocsService } from '$lib/services/case-iocs.service';
 
   let { ioc, compact = false, isSelected = false }: { ioc: Ioc; compact?: boolean; isSelected?: boolean } = $props();
+
+  // Case id resolved from the URL — used by the "seen elsewhere" badge
+  // loader. Not all mount contexts have a case in the params (e.g.
+  // dashboard widgets), in which case we skip the cross-case lookup.
+  const caseId = $derived(Number(page.params.case_id));
 
 
   function getIOCTypeIcon(typeName: string) {
@@ -141,8 +148,28 @@
             iconSize={14}
           />
         </div>
-        <div class="text-xs text-muted-foreground truncate mt-0.5" title={ioc.ioc_type?.type_name}>
-          {ioc.ioc_type?.type_name || 'Unknown type'}
+        <div class="mt-0.5 flex items-center gap-2">
+          <span class="truncate text-xs text-muted-foreground" title={ioc.ioc_type?.type_name}>
+            {ioc.ioc_type?.type_name || 'Unknown type'}
+          </span>
+          <!--
+            "Seen elsewhere" pivot. Rendered inline (non-interactive) so it
+            can sit inside the parent `<button>` row without producing
+            nested buttons. The badge auto-hides when there are no other
+            sightings; the popover-rich variant is reachable in the IOC
+            detail view.
+          -->
+          {#if Number.isFinite(caseId) && !compact}
+            <SeenElsewhereBadge
+              variant="inline"
+              objectLabel="IOC"
+              objectId={ioc.ioc_id}
+              load={async () => {
+                const res = await CaseIocsService.listOtherCaseLinks(caseId, ioc.ioc_id);
+                return res.ok && Array.isArray(res.data) ? res.data : null;
+              }}
+            />
+          {/if}
         </div>
       </div>
     </div>

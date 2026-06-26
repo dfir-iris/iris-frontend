@@ -30,6 +30,9 @@
 	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
 	import { MarkDownPreview } from '$lib/components/common/MarkDown';
 	import TagDisplay from '../tag/TagDisplay.svelte';
+	import SeenElsewhereBadge from '$lib/components/common/SeenElsewhereBadge.svelte';
+	import { CaseAssetsService } from '$lib/services/case-assets.service';
+	import { page } from '$app/state';
 
 	type Props = {
 		asset: Asset;
@@ -37,6 +40,9 @@
 	};
 
 	let { asset, isSelected = false }: Props = $props();
+
+	// Used by the "seen elsewhere" badge to scope the cross-case lookup.
+	const caseId = $derived(Number(page.params.case_id));
 
 	const assetTypeIcons = {
 		server: Server,
@@ -131,8 +137,27 @@
 					/>
 				</div>
 
-				<div class="truncate text-xs text-muted-foreground">
-					{assetTypeName || asset.asset_type_id || 'Unknown type'}
+				<div class="flex items-center gap-2">
+					<span class="truncate text-xs text-muted-foreground">
+						{assetTypeName || asset.asset_type_id || 'Unknown type'}
+					</span>
+					<!--
+					  "Seen elsewhere" pivot. Inline variant — non-interactive
+					  visual badge. The popover-rich variant lives in the
+					  asset detail view; the badge here exists to flag rows
+					  the analyst should prioritise.
+					-->
+					{#if Number.isFinite(caseId)}
+						<SeenElsewhereBadge
+							variant="inline"
+							objectLabel="asset"
+							objectId={asset.asset_id}
+							load={async () => {
+								const res = await CaseAssetsService.listOtherCaseLinks(caseId, asset.asset_id);
+								return res.ok && Array.isArray(res.data) ? res.data : null;
+							}}
+						/>
+					{/if}
 				</div>
 			</div>
 		</div>

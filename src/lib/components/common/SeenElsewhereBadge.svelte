@@ -27,6 +27,8 @@
 		asset_description?: string | null;
 	};
 
+	type Variant = 'inline' | 'popover';
+
 	type Props = {
 		/** Loader fired on mount; returns the rows or `null` on error. */
 		load: () => Promise<Row[] | null>;
@@ -36,9 +38,16 @@
 		 *  parent reuse a single badge instance across rows without
 		 *  carrying stale results from the previous selection. */
 		objectId?: number | string | null;
+		/** `popover` (default) renders an interactive trigger that opens
+		 *  a list of the linked cases — used in detail views where the
+		 *  parent isn't itself a button. `inline` renders a plain visual
+		 *  badge with no popover and no nested button — used inside list
+		 *  rows that are themselves `<button>` elements (nested buttons
+		 *  are invalid HTML and the click would bubble to the row). */
+		variant?: Variant;
 	};
 
-	const { load, objectLabel, objectId = null }: Props = $props();
+	const { load, objectLabel, objectId = null, variant = 'popover' }: Props = $props();
 
 	let rows = $state<Row[] | null>(null);
 	let loading = $state(false);
@@ -65,54 +74,72 @@
 </script>
 
 {#if count > 0}
-	<Popover.Root>
-		<Popover.Trigger
-			class="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-2xs font-medium text-amber-700 transition-colors hover:bg-amber-500/20 hover:text-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 dark:text-amber-300"
-			aria-label={`Seen in ${count} other case${count === 1 ? '' : 's'}`}
+	{#if variant === 'inline'}
+		<!--
+		  Inline (list-row) presentation. Visually identical to the popover
+		  variant but rendered as a non-interactive `<span>` so it can sit
+		  inside a parent `<button>` row without producing nested-button
+		  HTML. The row's own click handler navigates to the detail view
+		  where the full popover variant is reachable.
+		-->
+		<span
+			class="inline-flex items-center gap-1 rounded-full border border-amber-500/50 bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:border-amber-400/40 dark:bg-amber-400/15 dark:text-amber-300"
+			title={`Seen in ${count} other case${count === 1 ? '' : 's'}`}
 		>
-			<HistoryIcon size={11} />
+			<HistoryIcon size={12} />
 			<span class="tabular-nums">{count}</span>
-			<span class="hidden md:inline">other case{count === 1 ? '' : 's'}</span>
-		</Popover.Trigger>
-		<Popover.Content align="start" class="w-80 p-0">
-			<div class="border-b px-3 py-2 text-xs font-semibold">
-				This {objectLabel} was seen in {count} other case{count === 1 ? '' : 's'}
-			</div>
-			<ul class="max-h-72 overflow-y-auto py-1">
-				{#each rows ?? [] as row (row.case_id)}
-					<li>
-						<a
-							href={`/case/${row.case_id}`}
-							class="flex items-start gap-2 px-3 py-2 text-xs transition-colors hover:bg-muted/60"
-						>
-							<span class="mt-0.5 shrink-0 font-mono text-2xs text-muted-foreground">
-								#{row.case_id}
-							</span>
-							<span class="min-w-0 flex-1">
-								<span class="block truncate font-medium" title={row.case_name}>
-									{row.case_name}
+			<span>seen before</span>
+		</span>
+	{:else}
+		<Popover.Root>
+			<Popover.Trigger
+				class="inline-flex items-center gap-1.5 rounded-full border-2 border-amber-500/60 bg-amber-500/15 px-3 py-1 text-sm font-semibold text-amber-700 shadow-sm transition-colors hover:bg-amber-500/25 hover:text-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 dark:border-amber-400/60 dark:bg-amber-400/15 dark:text-amber-300 dark:hover:bg-amber-400/25"
+				aria-label={`Seen in ${count} other case${count === 1 ? '' : 's'}`}
+			>
+				<HistoryIcon size={14} />
+				<span class="tabular-nums">{count}</span>
+				<span>seen before</span>
+			</Popover.Trigger>
+			<Popover.Content align="start" class="w-80 p-0">
+				<div class="border-b px-3 py-2 text-xs font-semibold">
+					This {objectLabel} was seen in {count} other case{count === 1 ? '' : 's'}
+				</div>
+				<ul class="max-h-72 overflow-y-auto py-1">
+					{#each rows ?? [] as row (row.case_id)}
+						<li>
+							<a
+								href={`/case/${row.case_id}`}
+								class="flex items-start gap-2 px-3 py-2 text-xs transition-colors hover:bg-muted/60"
+							>
+								<span class="mt-0.5 shrink-0 font-mono text-2xs text-muted-foreground">
+									#{row.case_id}
 								</span>
-								{#if row.client_name}
-									<span class="block truncate text-2xs text-muted-foreground">
-										{row.client_name}
+								<span class="min-w-0 flex-1">
+									<span class="block truncate font-medium" title={row.case_name}>
+										{row.case_name}
 									</span>
-								{:else if row.asset_description}
-									<span class="block truncate text-2xs text-muted-foreground">
-										{row.asset_description}
-									</span>
-								{:else if row.case_open_date}
-									<span class="block truncate text-2xs text-muted-foreground">
-										Opened {row.case_open_date}
-									</span>
-								{/if}
-							</span>
-							<ExternalLinkIcon size={11} class="mt-0.5 shrink-0 text-muted-foreground" />
-						</a>
-					</li>
-				{/each}
-			</ul>
-		</Popover.Content>
-	</Popover.Root>
+									{#if row.client_name}
+										<span class="block truncate text-2xs text-muted-foreground">
+											{row.client_name}
+										</span>
+									{:else if row.asset_description}
+										<span class="block truncate text-2xs text-muted-foreground">
+											{row.asset_description}
+										</span>
+									{:else if row.case_open_date}
+										<span class="block truncate text-2xs text-muted-foreground">
+											Opened {row.case_open_date}
+										</span>
+									{/if}
+								</span>
+								<ExternalLinkIcon size={11} class="mt-0.5 shrink-0 text-muted-foreground" />
+							</a>
+						</li>
+					{/each}
+				</ul>
+			</Popover.Content>
+		</Popover.Root>
+	{/if}
 {:else if loading}
 	<!--
 	  Hold a zero-impact placeholder while loading so the badge can
