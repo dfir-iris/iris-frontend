@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { browser } from '$app/environment';
-	import { auth, username } from '$lib/stores/auth.store';
+	import { auth, current_user, username } from '$lib/stores/auth.store';
 	import { mode, toggleMode } from 'mode-watcher';
 	import { LogOutIcon, MoonIcon, SlidersHorizontalIcon, SunIcon } from 'lucide-svelte';
 	import { AuthService } from '$lib/services/auth.service';
+	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import MenuItem from './MenuItem.svelte';
 	import SubMenu from './SubMenu.svelte';
 
@@ -36,7 +37,11 @@
 
 <SubMenu {collapsed}>
 	<svelte:fragment slot="trigger">
-		<img src="/img/profile.jpg" alt="Avatar" class="flex h-10 w-10 rounded-full" />
+		<UserAvatar
+			userId={$current_user?.user_id ?? $current_user?.id}
+			name={$username === 'Loading...' ? null : $username}
+			size="size-10"
+		/>
 
 		<div
 			class={`flex w-full items-center justify-between overflow-hidden transition-all ${collapsed ? 'ml-0 max-w-0' : 'ml-2 max-w-96'}`}

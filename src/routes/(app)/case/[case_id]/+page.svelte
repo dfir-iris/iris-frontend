@@ -35,10 +35,9 @@
 	import { CaseEvidencesService } from '$lib/services/case-evidences.service';
 	import { CaseActivityService, type CaseActivityRow } from '$lib/services/case-activity.service';
 	import Button from '$lib/components/ui/button/button.svelte';
-	import { Avatar, AvatarFallback } from '$lib/components/ui/avatar';
+	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import { MarkDownEditor } from '$lib/components/common/MarkDown';
 	import CaseWorkspace from './components/CaseWorkspace.svelte';
-	import { getInitials } from '$lib/utils';
 
 	const cases = getContext<CasesContext>(CASES_CTX);
 	const caseAssets = getContext<CaseAssetsContext>(CASE_ASSETS_CTX);
@@ -115,24 +114,6 @@
 
 	const firstName = $derived(($current_user?.user_name ?? '').split(/[\s,]/)[0] || 'investigator');
 
-	// Deterministic avatar tint per person — same name always gets the same
-	// color so users can recognise each other across reloads. Light/dark
-	// variants picked to read well on either theme.
-	const AVATAR_TONES = [
-		'bg-sky-500/15 text-sky-700 dark:text-sky-300',
-		'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-		'bg-amber-500/15 text-amber-700 dark:text-amber-300',
-		'bg-rose-500/15 text-rose-700 dark:text-rose-300',
-		'bg-violet-500/15 text-violet-700 dark:text-violet-300',
-		'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300',
-		'bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300'
-	];
-	const avatarTone = (name: string): string => {
-		let h = 0;
-		for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
-		return AVATAR_TONES[h % AVATAR_TONES.length];
-	};
-
 	const lastSyncedRelative = $derived(relativeTime(loadedTime, now));
 	const lastSyncedAbsolute = $derived(loadedTime.toLocaleTimeString());
 
@@ -140,6 +121,7 @@
 	// `GET /api/v2/cases/{id}/activities` (40 most recent rows).
 	type Contributor = {
 		name: string;
+		userId: number | null;
 		lastSeen: Date | null;
 		count: number;
 	};
@@ -250,14 +232,18 @@
 			if (!name) continue;
 
 			const seenAt = row.activity_date ? new Date(row.activity_date) : null;
+			const userId = row.user_id ?? null;
 			const existing = map.get(name);
 			if (existing) {
 				existing.count += 1;
 				if (seenAt && (!existing.lastSeen || seenAt > existing.lastSeen)) {
 					existing.lastSeen = seenAt;
 				}
+				// Backfill the id once it shows up in any row — earlier
+				// rows from the legacy backend dump might be missing it.
+				if (existing.userId == null && userId != null) existing.userId = userId;
 			} else {
-				map.set(name, { name, lastSeen: seenAt, count: 1 });
+				map.set(name, { name, userId, lastSeen: seenAt, count: 1 });
 			}
 		}
 
@@ -438,16 +424,13 @@
 							{#if contributors.length > 0}
 								<div class="flex -space-x-1.5">
 									{#each contributors.slice(0, 4) as contributor (contributor.name)}
-										<Avatar
-											class="h-5 w-5 border border-card ring-0"
+										<UserAvatar
+											userId={contributor.userId}
+											name={contributor.name}
+											size="size-5"
+											class="border border-card ring-0"
 											title={contributor.name}
-										>
-											<AvatarFallback
-												class={`text-[9px] font-semibold uppercase ${avatarTone(contributor.name)}`}
-											>
-												{getInitials(contributor.name)}
-											</AvatarFallback>
-										</Avatar>
+										/>
 									{/each}
 
 									{#if contributors.length > 4}

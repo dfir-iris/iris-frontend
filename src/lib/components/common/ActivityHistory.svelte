@@ -10,7 +10,7 @@
 		ClockIcon
 	} from 'lucide-svelte';
 	import { fade, slide } from 'svelte/transition';
-	import { Avatar, AvatarFallback } from '$lib/components/ui/avatar';
+	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { cn } from '$lib/utils';
 	import { mediumDateTimeFormatter } from '$lib/utils/time-formatter';
@@ -72,6 +72,7 @@
 						date: new Date(parseFloat(timestamp) * 1000), // Convert Unix timestamp to JS Date
 						timestamp: parseFloat(timestamp),
 						user: data.user as string,
+						user_id: data.user_id as number,
 						userId: data.user_id as number,
 						action: data.action as string
 					});
@@ -221,11 +222,11 @@
 							<div class="flex flex-col gap-2">
 								<div class="flex items-center justify-between">
 									<div class="flex items-center gap-2">
-										<Avatar class="h-6 w-6">
-											<AvatarFallback class="bg-muted text-xs"
-												>{getUserInitials(event.user)}</AvatarFallback
-											>
-										</Avatar>
+										<UserAvatar
+											userId={event.user_id}
+											name={event.user}
+											size="size-6"
+										/>
 										<span class="text-sm font-medium">{event.user}</span>
 										<Badge
 											variant="outline"

@@ -15,7 +15,7 @@
 	import { page } from '$app/state';
 	import type { Alert } from '$lib/types/resources/alert';
 	import { toast } from '$lib/stores/toast.store';
-	import { getInitials } from '$lib/utils';
+	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Card from '$lib/components/ui/card';
 	import {
@@ -129,7 +129,11 @@
 						onclick={onAssign}
 					>
 						{#if alert.owner}
-							{getInitials(alert.owner.user_name ?? '')}
+							<UserAvatar
+								userId={alert.alert_owner_id ?? null}
+								name={alert.owner.user_name ?? ''}
+								size="size-8"
+							/>
 						{:else}
 							<HandIcon size="20" />
 						{/if}

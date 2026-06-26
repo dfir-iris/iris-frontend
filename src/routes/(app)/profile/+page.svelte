@@ -34,6 +34,9 @@
 	import SegmentedSelect from '$lib/components/ui/segmented-select/segmented-select.svelte';
 	import { toast } from '$lib/components/ui/toast';
 	import { ProfileService, type Profile } from '$lib/services/profile.service';
+	import { AvatarsService } from '$lib/services/avatars.service';
+	import { avatarStore } from '$lib/services/avatar-cache';
+	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import ChangePasswordDialog from './components/ChangePasswordDialog.svelte';
 
 	let profile = $state<Profile | null>(null);
@@ -42,6 +45,14 @@
 	let refreshingPerms = $state(false);
 	let showChangePwd = $state(false);
 	let apiKeyVisible = $state(false);
+
+	// Avatar upload state. `avatarVersion` is a cache-bust seed for the
+	// preview — bumped after every successful upload / delete so the
+	// `<UserAvatar>` re-fetches the bytes without us having to wire
+	// `avatar_updated_at` through the Profile shape.
+	let avatarVersion = $state<string | null>(null);
+	let avatarBusy = $state(false);
+	let avatarInput = $state<HTMLInputElement | null>(null);
 
 	const load = async () => {
 		const res = await ProfileService.get();
@@ -136,6 +147,64 @@
 		}
 	};
 
+	const onAvatarPicked = async (event: Event) => {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0] ?? null;
+		// Reset the input value immediately so re-selecting the same
+		// file in a row still fires `change`.
+		input.value = '';
+		if (!file) return;
+
+		avatarBusy = true;
+		try {
+			const res = await AvatarsService.uploadMyAvatar(file);
+			if (res.ok && res.data && typeof res.data !== 'string') {
+				avatarVersion = res.data.avatar_updated_at ?? new Date().toISOString();
+				// Drop every cached entry for this user across all
+				// versions so the side bar / comment authors / case
+				// contributors that already mounted with a stale
+				// (userId, null) cache key re-fetch on their next
+				// render. Without this, only the preview card on
+				// this page picks up the new bytes.
+				if (profile) avatarStore.bumpUser(profile.user_id);
+				toast({ title: 'Avatar updated', variant: 'success' });
+			} else {
+				toast({
+					title: 'Avatar upload failed',
+					description: res.error?.message,
+					variant: 'destructive'
+				});
+			}
+		} finally {
+			avatarBusy = false;
+		}
+	};
+
+	const removeAvatar = async () => {
+		avatarBusy = true;
+		try {
+			const res = await AvatarsService.removeMyAvatar();
+			if (res.ok) {
+				// Bump the version so the cached image is bypassed and
+				// the fallback kicks in on the resulting 404.
+				avatarVersion = new Date().toISOString();
+				// Same as upload: invalidate every cached
+				// `(userId, *)` entry so other components fall back
+				// to initials immediately.
+				if (profile) avatarStore.bumpUser(profile.user_id);
+				toast({ title: 'Avatar removed', variant: 'success' });
+			} else {
+				toast({
+					title: 'Could not remove avatar',
+					description: res.error?.message,
+					variant: 'destructive'
+				});
+			}
+		} finally {
+			avatarBusy = false;
+		}
+	};
+
 	const themeOptions = [
 		{ value: 'false', label: '☼ Light' },
 		{ value: 'true', label: '☾ Dark' }
@@ -187,6 +256,51 @@
 				<div class="flex flex-col gap-1.5 md:col-span-2">
 					<Label class="flex items-center gap-1.5"><FingerprintIcon size={14} /> #UUID</Label>
 					<Input value={profile.uuid} readonly />
+				</div>
+			</Card.Content>
+		</Card.Root>
+
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Avatar</Card.Title>
+				<Card.Description>
+					Used wherever you appear in the app — comments, mentions, case
+					contributors, alert assignments, the side bar profile menu.
+				</Card.Description>
+			</Card.Header>
+			<Card.Content class="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+				<UserAvatar
+					userId={profile.user_id}
+					name={profile.user_name}
+					updatedAt={avatarVersion}
+					size="size-20"
+					class="ring-2 ring-border/40"
+				/>
+				<div class="flex flex-col gap-2">
+					<p class="text-sm text-muted-foreground">
+						PNG, JPG, or WEBP up to 4 MB. Uploads are centre-cropped and resized
+						to 256×256 server-side, so non-square images are fine.
+					</p>
+					<div class="flex flex-wrap gap-2">
+						<Button onclick={() => avatarInput?.click()} disabled={avatarBusy}>
+							{avatarBusy ? 'Working…' : 'Upload new avatar'}
+						</Button>
+						<Button variant="outline" onclick={removeAvatar} disabled={avatarBusy}>
+							Remove avatar
+						</Button>
+					</div>
+					<!--
+					  Hidden file input so the visible buttons own the
+					  styling. Reset to '' inside the change handler so
+					  re-picking the same file fires `change` again.
+					-->
+					<input
+						bind:this={avatarInput}
+						type="file"
+						accept="image/png,image/jpeg,image/webp,image/gif"
+						class="hidden"
+						onchange={onAvatarPicked}
+					/>
 				</div>
 			</Card.Content>
 		</Card.Root>

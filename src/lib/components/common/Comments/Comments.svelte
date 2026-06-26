@@ -1,7 +1,7 @@
 <script lang="ts">
     import { SquarePenIcon, Trash2Icon } from 'lucide-svelte';
 	import type { Comment } from '$lib/services/comments.service';
-	import { getInitials } from '$lib/utils';
+	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import { MarkDownPreview } from '../MarkDown';
 
 	type Props = {
@@ -27,11 +27,11 @@
 		>
 			<div class="flex items-center justify-between gap-2">
 				<div class="flex items-center gap-2">
-					<div
-						class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-500 text-2xs font-medium text-white"
-					>
-						{getInitials(comment.user.user_name)}
-					</div>
+					<UserAvatar
+						userId={comment.user.user_id ?? comment.user.id}
+						name={comment.user.user_name}
+						size="size-6"
+					/>
 
 					<span class="text-2xs font-medium text-foreground">{comment.user.user_name}</span>
 

@@ -18,7 +18,7 @@
 	import { CaseActivityService, type CaseActivityRow } from '$lib/services/case-activity.service';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
-	import { Avatar, AvatarFallback } from '$lib/components/ui/avatar';
+	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import { getInitials } from '$lib/utils';
 
 	const panel = getContext<ActivityPanelContext>(ACTIVITY_PANEL_CTX);
@@ -181,11 +181,12 @@
 						<li
 							class="flex items-start gap-2 rounded-md border border-border/60 bg-muted/20 px-2.5 py-2"
 						>
-							<Avatar class="mt-0.5 h-6 w-6 shrink-0">
-								<AvatarFallback class="bg-muted text-[10px] font-medium">
-									{getInitials(userName)}
-								</AvatarFallback>
-							</Avatar>
+							<UserAvatar
+								userId={activity.user_id ?? null}
+								name={userName}
+								size="size-6"
+								class="mt-0.5 shrink-0"
+							/>
 
 							<div class="min-w-0 flex-1">
 								<div class="flex flex-wrap items-baseline gap-x-2">
