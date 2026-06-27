@@ -34,7 +34,10 @@ export const Permission = {
 	all_activities_read: 0x800,
 	custom_dashboards_read: 0x1000,
 	custom_dashboards_write: 0x2000,
-	custom_dashboards_share: 0x4000
+	custom_dashboards_share: 0x4000,
+	war_rooms_read: 0x8000,
+	war_rooms_write: 0x10000,
+	war_rooms_create: 0x20000
 } as const;
 
 export type PermissionName = keyof typeof Permission;

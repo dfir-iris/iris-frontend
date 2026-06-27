@@ -11,6 +11,7 @@
 		InfoIcon,
 		SearchIcon,
 		SettingsIcon,
+		ShieldAlert,
 		ViewIcon,
 		WaypointsIcon
 	} from 'lucide-svelte';
@@ -89,7 +90,14 @@
 			icon: FileTextIcon,
 			requires: ['activities_read', 'all_activities_read']
 		},
-		{ label: 'Dim Tasks', path: '/dim-tasks', icon: FileStackIcon }
+		{ label: 'Dim Tasks', path: '/dim-tasks', icon: FileStackIcon },
+		{
+			label: 'War Rooms',
+			path: '/war-rooms',
+			icon: ShieldAlert,
+			matchPrefix: true,
+			requires: 'war_rooms_read'
+		}
 	]);
 
 	/**

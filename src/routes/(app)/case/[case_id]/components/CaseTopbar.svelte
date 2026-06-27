@@ -15,6 +15,7 @@
 		LockIcon,
 		MoreHorizontal,
 		Shield,
+		ShieldAlert,
 		Star,
 		Tag,
 		UserRound
@@ -22,6 +23,10 @@
 	import { goto } from '$app/navigation';
 	import { AlertService } from '$lib/services/alerts.service';
 	import { FollowedCasesService, type CaseFollower } from '$lib/services/followed-cases.service';
+	import {
+		WarRoomsService,
+		type WarRoomCaseSummary
+	} from '$lib/services/war-rooms.service';
 	import { current_user } from '$lib/stores/auth.store';
 	import type { Alert } from '$lib/types/resources/alert';
 	import { toast } from '$lib/stores/toast.store';
@@ -347,6 +352,31 @@
 		lastLoadedFollowersCaseId = id;
 		followers = null;
 		void loadFollowers(id);
+	});
+
+	// War rooms this case is attached to. Cheap one-shot fetch; refreshed
+	// on case switch the same way the followers list is.
+	let warRooms = $state<WarRoomCaseSummary[]>([]);
+	let lastLoadedWarRoomsCaseId = -1;
+
+	const loadCaseWarRooms = async (id: number) => {
+		try {
+			const res = await WarRoomsService.forCase(id);
+			if (res.ok && Array.isArray(res.data)) {
+				warRooms = res.data;
+			} else {
+				warRooms = [];
+			}
+		} catch {
+			warRooms = [];
+		}
+	};
+
+	$effect(() => {
+		const id = caseData?.case_id;
+		if (id == null || id === lastLoadedWarRoomsCaseId) return;
+		lastLoadedWarRoomsCaseId = id;
+		void loadCaseWarRooms(id);
 	});
 
 	const toggleFollow = async () => {
@@ -824,6 +854,48 @@
 				</div>
 			</Popover.Content>
 		</Popover.Root>
+
+		{#if warRooms.length > 0}
+			<Popover.Root>
+				<Popover.Trigger
+					class="inline-flex h-7 items-center gap-1 rounded-sm border border-red-500/30 bg-red-500/10 px-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-2 dark:text-red-300"
+					aria-label="War rooms this case is attached to"
+				>
+					<ShieldAlert size={13} />
+					<span class="tabular-nums">{warRooms.length}</span>
+					<span class="hidden md:inline">War room{warRooms.length === 1 ? '' : 's'}</span>
+				</Popover.Trigger>
+				<Popover.Content align="end" class="w-64 p-0">
+					<div class="border-b px-3 py-2 text-xs font-semibold">
+						In {warRooms.length} war room{warRooms.length === 1 ? '' : 's'}
+					</div>
+					<ul class="flex max-h-72 flex-col overflow-y-auto py-1">
+						{#each warRooms as room (room.war_room_id)}
+							<li>
+								<a
+									href={`/war-rooms/${room.war_room_id}`}
+									class="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/50"
+								>
+									{#if room.color}
+										<span
+											class="h-2 w-2 shrink-0 rounded-full"
+											style={`background-color: ${room.color};`}
+											aria-hidden="true"
+										></span>
+									{/if}
+									<span class="min-w-0 flex-1 truncate">{room.name}</span>
+									<span
+										class="shrink-0 rounded border px-1 text-[9px] uppercase tracking-wider text-muted-foreground"
+									>
+										{room.state}
+									</span>
+								</a>
+							</li>
+						{/each}
+					</ul>
+				</Popover.Content>
+			</Popover.Root>
+		{/if}
 
 		<div class="mx-0.5 hidden h-5 w-px bg-border sm:block" aria-hidden="true"></div>
 
