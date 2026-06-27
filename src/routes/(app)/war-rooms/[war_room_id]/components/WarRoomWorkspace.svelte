@@ -3,9 +3,11 @@
   and datastore panels at the layout level so toggling them never tears
   down the active sub-page (chat, graph, timelines, …).
 
-  Children render into the main column; opening a panel adds it as a
-  sibling on the right. Same chrome rules as the case workspace:
-  `bare` skips the rounded card so a child can own its own surface.
+  Children render into the main column inside a rounded card surface
+  (matching the case workspace). When no side panel is open the main
+  column takes the full width via `flex-1`. `bare` skips the rounded
+  chrome when a child wants to own its own surface (e.g. the chat
+  composer which paints its own card).
 -->
 <script lang="ts">
 	import { getContext, type Snippet } from 'svelte';
@@ -26,11 +28,6 @@
 
 	let { children, class: className = '', bare = false }: Props = $props();
 
-	const callerSetsOverflow = $derived(/\boverflow(?:-[xy])?-/.test(className));
-	const defaultOverflow = $derived(
-		callerSetsOverflow ? '' : bare ? '' : 'overflow-hidden'
-	);
-
 	const activityPanel = getContext<WarRoomActivityPanelContext | undefined>(
 		WAR_ROOM_ACTIVITY_PANEL_CTX
 	);
@@ -39,11 +36,9 @@
 	);
 </script>
 
-<div
-	class="flex {bare ? 'min-h-full' : 'h-full'} w-full gap-3 p-3 sm:gap-4 sm:p-4"
->
+<div class="flex h-full w-full gap-3 p-3 sm:gap-4 sm:p-4">
 	<div
-		class={`flex min-w-0 flex-1 ${bare ? '' : 'h-full'} ${defaultOverflow} ${
+		class={`flex h-full min-w-0 flex-1 overflow-hidden ${
 			bare
 				? ''
 				: 'rounded-2xl border border-border/60 bg-card shadow-elevation-2'
