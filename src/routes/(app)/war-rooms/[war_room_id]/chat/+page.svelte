@@ -29,6 +29,7 @@
 	import * as Popover from '$lib/components/ui/popover';
 	import { toast } from '$lib/components/ui/toast';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
+	import ChatMessageBody from './components/ChatMessageBody.svelte';
 	import {
 		WarRoomChatService,
 		type ChatMessage,
@@ -438,11 +439,15 @@
 	const filterCount = $derived(visibleFilters.size);
 </script>
 
-<div class="grid h-full grid-cols-1 overflow-hidden xl:grid-cols-[260px_1fr]">
-	<!-- Sidebar: filters + slash commands. Hidden on small screens; the
-	     filter chip set is mirrored in the chat header below. -->
+<!--
+	Left sidebar (filters + slash command reference) kept on lg+ — it
+	gives the operator at-a-glance control over what's in the stream.
+	Hidden under lg; the filter chips become a compact horizontal row
+	above the stream so tight viewports still get full control.
+-->
+<div class="grid h-full min-h-0 w-full grid-cols-1 overflow-hidden lg:grid-cols-[220px_minmax(0,1fr)]">
 	<aside
-		class="hidden flex-col border-r bg-card/40 xl:flex"
+		class="hidden flex-col border-r bg-card/40 lg:flex"
 		aria-label="Chat filters"
 	>
 		<div class="border-b px-4 py-3">
@@ -460,7 +465,9 @@
 						type="button"
 						class={[
 							'flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs transition-colors',
-							on ? 'bg-muted/60 text-foreground' : 'text-muted-foreground hover:bg-muted/40'
+							on
+								? 'bg-muted/60 text-foreground'
+								: 'text-muted-foreground hover:bg-muted/40'
 						]}
 						onclick={() => toggleFilter(f.key)}
 						aria-pressed={on}
@@ -496,10 +503,9 @@
 		</div>
 	</aside>
 
-	<!-- Main chat column -->
-	<div class="flex h-full min-h-0 flex-col">
-		<!-- Compact filter row visible only when sidebar is hidden -->
-		<div class="flex items-center gap-2 overflow-x-auto border-b px-4 py-2 xl:hidden">
+	<div class="flex h-full min-h-0 min-w-0 flex-col">
+		<!-- Compact filter chip row visible only when sidebar is hidden. -->
+		<div class="flex items-center gap-2 overflow-x-auto border-b px-4 py-2 lg:hidden">
 			<Filter class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
 			{#each FILTERS as f (f.key)}
 				{@const on = visibleFilters.has(f.key)}
@@ -518,7 +524,8 @@
 			{/each}
 		</div>
 
-		<!-- Stream -->
+		<!-- Stream. min-w-0 above keeps long messages from forcing the
+		     column wider than the grid track allows. -->
 		<div bind:this={listEl} class="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
 			{#if loading}
 				<div class="flex flex-col gap-3">
@@ -595,7 +602,7 @@
 												<Icon class={`h-3.5 w-3.5 shrink-0 ${systemColor(m.kind)}`} />
 											{/if}
 											<span class="min-w-0 flex-1 break-words text-muted-foreground">
-												{m.body ?? ''}
+												<ChatMessageBody body={m.body ?? ''} />
 											</span>
 											{#if m.ref_case_id}
 												<a
@@ -611,8 +618,8 @@
 										</li>
 									{:else if cont}
 										<li class="flex gap-3 pl-11">
-											<p class="min-w-0 flex-1 whitespace-pre-wrap break-words text-sm">
-												{m.body ?? ''}
+											<p class="min-w-0 flex-1 break-words text-sm">
+												<ChatMessageBody body={m.body ?? ''} />
 											</p>
 										</li>
 									{:else}
@@ -636,8 +643,8 @@
 														</span>
 													{/if}
 												</div>
-												<p class="mt-0.5 whitespace-pre-wrap break-words text-sm">
-													{m.body ?? ''}
+												<p class="mt-0.5 break-words text-sm">
+													<ChatMessageBody body={m.body ?? ''} />
 												</p>
 											</div>
 										</li>
