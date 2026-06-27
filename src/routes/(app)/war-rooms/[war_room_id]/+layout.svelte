@@ -12,11 +12,8 @@
 		type WarRoomContext
 	} from '$lib/contexts/war-room.context.svelte';
 	import {
-		createWarRoomActivityPanelContext,
 		createWarRoomDatastorePanelContext,
-		WAR_ROOM_ACTIVITY_PANEL_CTX,
 		WAR_ROOM_DATASTORE_PANEL_CTX,
-		type WarRoomActivityPanelContext,
 		type WarRoomDatastorePanelContext
 	} from '$lib/contexts/war-room-panels.context.svelte';
 	import WarRoomTopbar from './components/WarRoomTopbar.svelte';
@@ -30,11 +27,9 @@
 	const ctx = createWarRoomContext(() => warRoomId);
 	setContext<WarRoomContext>(WAR_ROOM_CTX, ctx);
 
-	// Side-panel toggles — one instance per layout so navigating between
-	// sub-tabs (chat / graph / timelines / …) doesn't tear down whichever
-	// side panel the user already has open.
-	const activityPanel = createWarRoomActivityPanelContext();
-	setContext<WarRoomActivityPanelContext>(WAR_ROOM_ACTIVITY_PANEL_CTX, activityPanel);
+	// Datastore side-panel toggle. One instance per layout so navigating
+	// between sub-tabs (Stream / Graph / Timelines / …) doesn't tear
+	// down the panel if the operator already has it open.
 	const datastorePanel = createWarRoomDatastorePanelContext();
 	setContext<WarRoomDatastorePanelContext>(WAR_ROOM_DATASTORE_PANEL_CTX, datastorePanel);
 

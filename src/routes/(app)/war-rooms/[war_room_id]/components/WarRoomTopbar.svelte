@@ -10,7 +10,6 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import {
-		ActivityIcon,
 		ArrowLeftIcon,
 		CalendarIcon,
 		DatabaseIcon,
@@ -27,18 +26,13 @@
 		type WarRoomContext
 	} from '$lib/contexts/war-room.context.svelte';
 	import {
-		WAR_ROOM_ACTIVITY_PANEL_CTX,
 		WAR_ROOM_DATASTORE_PANEL_CTX,
-		type WarRoomActivityPanelContext,
 		type WarRoomDatastorePanelContext
 	} from '$lib/contexts/war-room-panels.context.svelte';
 	import type { WarRoomState } from '$lib/services/war-rooms.service';
 	import { safeHexColor } from '$lib/utils/color';
 
 	const ctx = getContext<WarRoomContext>(WAR_ROOM_CTX);
-	const activityPanel = getContext<WarRoomActivityPanelContext>(
-		WAR_ROOM_ACTIVITY_PANEL_CTX
-	);
 	const datastorePanel = getContext<WarRoomDatastorePanelContext>(
 		WAR_ROOM_DATASTORE_PANEL_CTX
 	);
@@ -191,17 +185,6 @@
 
 		<div class="hidden h-5 w-px bg-border sm:block" aria-hidden="true"></div>
 
-		<Button
-			variant={activityPanel.state.open ? 'secondary' : 'ghost'}
-			size="sm"
-			class="h-7 gap-1.5 px-2 text-xs"
-			onclick={() => activityPanel.toggle()}
-			aria-pressed={activityPanel.state.open}
-			aria-label="Toggle activity panel"
-		>
-			<ActivityIcon size={13} />
-			<span class="hidden md:inline">Activity</span>
-		</Button>
 		<Button
 			variant={datastorePanel.state.open ? 'secondary' : 'ghost'}
 			size="sm"
