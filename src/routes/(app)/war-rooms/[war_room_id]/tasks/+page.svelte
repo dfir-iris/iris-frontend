@@ -85,7 +85,7 @@
 	const closed = $derived(tasks.filter((t) => t.closed_at));
 </script>
 
-<div class="flex h-full flex-col gap-4 p-6">
+<div class="flex h-full w-full flex-col gap-4 overflow-y-auto p-4 sm:p-6">
 	<div class="flex items-center justify-between">
 		<div>
 			<h2 class="text-lg font-semibold">Tasks</h2>

@@ -29,7 +29,6 @@
 		{ label: 'Tasks', path: 'tasks', icon: ListChecksIcon },
 		{ label: 'Notes', path: 'notes', icon: FileTextIcon },
 		{ label: 'SitReps', path: 'sitreps', icon: FilesIcon },
-		{ label: 'Datastore', path: 'datastore', icon: HardDriveUploadIcon },
 		{ label: 'Cases', path: 'cases', icon: WaypointsIcon },
 		{ label: 'Members', path: 'members', icon: UsersIcon }
 	];

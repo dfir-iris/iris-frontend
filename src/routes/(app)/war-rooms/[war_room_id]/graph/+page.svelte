@@ -234,7 +234,7 @@
 	});
 </script>
 
-<div class="grid h-full grid-cols-[1fr_320px] overflow-hidden">
+<div class="grid h-full w-full grid-cols-[minmax(0,1fr)_320px] overflow-hidden">
 	<div class="relative flex h-full flex-col bg-slate-950">
 		<div class="absolute right-3 top-3 z-10 flex gap-2">
 			<Button size="sm" variant="secondary" onclick={addAnnotation}>

@@ -170,7 +170,7 @@
 	const tlById = $derived(new Map(timelines.map((t) => [t.timeline_id, t])));
 </script>
 
-<div class="grid h-full grid-cols-[240px_1fr] overflow-hidden">
+<div class="grid h-full w-full grid-cols-[240px_minmax(0,1fr)] overflow-hidden">
 	<aside class="flex flex-col border-r bg-card/30 text-xs">
 		<header class="flex items-center justify-between border-b px-3 py-2">
 			<h3 class="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">

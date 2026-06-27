@@ -148,7 +148,7 @@
 	};
 </script>
 
-<div class="grid h-full grid-cols-[280px_1fr] overflow-hidden">
+<div class="grid h-full w-full grid-cols-[280px_minmax(0,1fr)] overflow-hidden">
 	<aside class="flex flex-col border-r bg-card/30">
 		<header class="flex items-center justify-between gap-2 border-b p-3">
 			<h2 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
