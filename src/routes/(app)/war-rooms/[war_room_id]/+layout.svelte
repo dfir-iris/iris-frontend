@@ -2,7 +2,9 @@
 	import { onMount, setContext, type Snippet } from 'svelte';
 	import { page } from '$app/state';
 	import {
+		ActivityIcon,
 		ArrowLeftIcon,
+		DatabaseIcon,
 		MessageSquareIcon,
 		WaypointsIcon,
 		ListChecksIcon,
@@ -26,6 +28,15 @@
 		WAR_ROOM_CTX,
 		type WarRoomContext
 	} from '$lib/contexts/war-room.context.svelte';
+	import {
+		createWarRoomActivityPanelContext,
+		createWarRoomDatastorePanelContext,
+		WAR_ROOM_ACTIVITY_PANEL_CTX,
+		WAR_ROOM_DATASTORE_PANEL_CTX,
+		type WarRoomActivityPanelContext,
+		type WarRoomDatastorePanelContext
+	} from '$lib/contexts/war-room-panels.context.svelte';
+	import WarRoomWorkspace from './components/WarRoomWorkspace.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -33,6 +44,13 @@
 
 	const ctx = createWarRoomContext(() => warRoomId);
 	setContext<WarRoomContext>(WAR_ROOM_CTX, ctx);
+
+	// Side-panel toggles. One instance per layout, so navigating between
+	// chat / graph / timelines / etc. doesn't tear down the open panel.
+	const activityPanel = createWarRoomActivityPanelContext();
+	setContext<WarRoomActivityPanelContext>(WAR_ROOM_ACTIVITY_PANEL_CTX, activityPanel);
+	const datastorePanel = createWarRoomDatastorePanelContext();
+	setContext<WarRoomDatastorePanelContext>(WAR_ROOM_DATASTORE_PANEL_CTX, datastorePanel);
 
 	let loadingFirst = $state(true);
 
@@ -125,6 +143,31 @@
 				{ctx.room.state}
 			</span>
 		{/if}
+
+		<div class="ml-auto flex items-center gap-1">
+			<Button
+				variant={activityPanel.state.open ? 'secondary' : 'ghost'}
+				size="sm"
+				class="h-7 gap-1 px-2 text-xs"
+				onclick={() => activityPanel.toggle()}
+				aria-pressed={activityPanel.state.open}
+				aria-label="Toggle activity panel"
+			>
+				<ActivityIcon class="h-3.5 w-3.5" />
+				<span class="hidden md:inline">Activity</span>
+			</Button>
+			<Button
+				variant={datastorePanel.state.open ? 'secondary' : 'ghost'}
+				size="sm"
+				class="h-7 gap-1 px-2 text-xs"
+				onclick={() => datastorePanel.toggle()}
+				aria-pressed={datastorePanel.state.open}
+				aria-label="Toggle datastore panel"
+			>
+				<DatabaseIcon class="h-3.5 w-3.5" />
+				<span class="hidden md:inline">Datastore</span>
+			</Button>
+		</div>
 	</header>
 
 	<nav class="flex items-center gap-1 border-b px-3" aria-label="War room sections">
@@ -146,6 +189,8 @@
 	</nav>
 
 	<div class="flex-1 overflow-hidden">
-		{@render children()}
+		<WarRoomWorkspace bare class="overflow-hidden">
+			{@render children()}
+		</WarRoomWorkspace>
 	</div>
 </div>
