@@ -15,6 +15,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { toast } from '$lib/components/ui/toast';
 	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
+	import { safeHexColor } from '$lib/utils/color';
 	import {
 		WarRoomsService,
 		type WarRoom,

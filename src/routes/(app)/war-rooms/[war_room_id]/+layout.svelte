@@ -20,6 +20,7 @@
 		WarRoomsService,
 		type WarRoom
 	} from '$lib/services/war-rooms.service';
+	import { safeHexColor } from '$lib/utils/color';
 	import {
 		createWarRoomContext,
 		WAR_ROOM_CTX,
@@ -106,10 +107,11 @@
 		{#if loadingFirst}
 			<Skeleton class="h-5 w-48" />
 		{:else if ctx.room}
-			{#if ctx.room.color}
+			{@const safeColor = safeHexColor(ctx.room.color)}
+			{#if safeColor}
 				<span
 					class="h-3 w-3 shrink-0 rounded-full"
-					style={`background-color: ${ctx.room.color};`}
+					style:background-color={safeColor}
 					aria-hidden="true"
 				></span>
 			{/if}

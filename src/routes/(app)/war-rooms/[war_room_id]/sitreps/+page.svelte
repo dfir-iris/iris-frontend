@@ -1,7 +1,336 @@
 <script lang="ts">
-	// Stub — phase 7 wires SitReps authoring + export here.
+	import { onMount } from 'svelte';
+	import { page } from '$app/state';
+	import { Plus, Trash2, Download, Send, FileText, FileLock } from 'lucide-svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import {
+		Dialog,
+		DialogContent,
+		DialogFooter,
+		DialogHeader,
+		DialogTitle
+	} from '$lib/components/ui/dialog';
+	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { toast } from '$lib/components/ui/toast';
+	import {
+		WarRoomSitRepsService,
+		type WarRoomSitRep
+	} from '$lib/services/war-room-sitreps.service';
+
+	const warRoomId = $derived(Number(page.params.war_room_id));
+
+	let sitreps = $state<WarRoomSitRep[]>([]);
+	let loading = $state(true);
+	let selectedId = $state<number | null>(null);
+	let detail = $state<WarRoomSitRep | null>(null);
+	let detailLoading = $state(false);
+	let saving = $state(false);
+
+	let createOpen = $state(false);
+	let newTitle = $state('');
+
+	let editing = $state(false);
+	let editTitle = $state('');
+	let editBody = $state('');
+
+	const load = async () => {
+		loading = true;
+		const res = await WarRoomSitRepsService.list(warRoomId);
+		if (res.ok && Array.isArray(res.data)) {
+			sitreps = res.data;
+			if (selectedId == null && sitreps.length) {
+				selectedId = sitreps[0].sitrep_id;
+			}
+		}
+		loading = false;
+		if (selectedId != null) loadDetail(selectedId);
+	};
+
+	const loadDetail = async (id: number) => {
+		detailLoading = true;
+		const res = await WarRoomSitRepsService.get(warRoomId, id);
+		detailLoading = false;
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			detail = res.data as WarRoomSitRep;
+			editTitle = detail.title;
+			editBody = detail.body_md ?? '';
+		}
+	};
+
+	onMount(load);
+
+	const select = (id: number) => {
+		selectedId = id;
+		editing = false;
+		loadDetail(id);
+	};
+
+	const submitCreate = async () => {
+		const title = newTitle.trim();
+		if (!title) return;
+		saving = true;
+		const res = await WarRoomSitRepsService.create(warRoomId, {
+			title,
+			body_md: `## Situation\n\n## Actions taken\n\n## Next steps\n`
+		});
+		saving = false;
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			const next = res.data as WarRoomSitRep;
+			sitreps = [next, ...sitreps];
+			selectedId = next.sitrep_id;
+			detail = next;
+			editTitle = next.title;
+			editBody = next.body_md ?? '';
+			editing = true;
+			createOpen = false;
+			newTitle = '';
+		}
+	};
+
+	const startEdit = () => {
+		if (!detail || detail.published) return;
+		editing = true;
+	};
+
+	const cancelEdit = () => {
+		if (!detail) return;
+		editTitle = detail.title;
+		editBody = detail.body_md ?? '';
+		editing = false;
+	};
+
+	const save = async () => {
+		if (!detail) return;
+		saving = true;
+		const res = await WarRoomSitRepsService.update(warRoomId, detail.sitrep_id, {
+			title: editTitle.trim(),
+			body_md: editBody
+		});
+		saving = false;
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			detail = res.data as WarRoomSitRep;
+			sitreps = sitreps.map((s) => (s.sitrep_id === detail!.sitrep_id ? detail! : s));
+			editing = false;
+		} else {
+			toast({ title: 'Could not save', variant: 'destructive' });
+		}
+	};
+
+	const publish = async () => {
+		if (!detail) return;
+		if (!confirm('Publish this SitRep? Once published it cannot be edited.')) return;
+		saving = true;
+		const res = await WarRoomSitRepsService.publish(warRoomId, detail.sitrep_id);
+		saving = false;
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			detail = res.data as WarRoomSitRep;
+			sitreps = sitreps.map((s) => (s.sitrep_id === detail!.sitrep_id ? detail! : s));
+			editing = false;
+			toast({ title: `SitRep v${detail.version} published` });
+		} else {
+			toast({ title: 'Could not publish', variant: 'destructive' });
+		}
+	};
+
+	const remove = async (s: WarRoomSitRep) => {
+		if (s.published) return;
+		if (!confirm(`Delete draft SitRep "${s.title}"?`)) return;
+		const res = await WarRoomSitRepsService.remove(warRoomId, s.sitrep_id);
+		if (res.ok) {
+			sitreps = sitreps.filter((x) => x.sitrep_id !== s.sitrep_id);
+			if (selectedId === s.sitrep_id) {
+				selectedId = sitreps[0]?.sitrep_id ?? null;
+				if (selectedId != null) loadDetail(selectedId);
+			}
+		}
+	};
 </script>
 
-<div class="flex h-full items-center justify-center p-8 text-sm text-muted-foreground">
-	SitReps coming up.
+<div class="grid h-full grid-cols-[280px_1fr] overflow-hidden">
+	<aside class="flex flex-col border-r bg-card/30">
+		<header class="flex items-center justify-between gap-2 border-b p-3">
+			<h2 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+				SitReps
+			</h2>
+			<Button size="icon" variant="ghost" class="h-6 w-6" onclick={() => (createOpen = true)}>
+				<Plus class="h-3.5 w-3.5" />
+			</Button>
+		</header>
+
+		<div class="flex-1 overflow-y-auto">
+			{#if loading}
+				<div class="flex flex-col gap-1 p-2">
+					{#each Array(3) as _}
+						<Skeleton class="h-10 w-full" />
+					{/each}
+				</div>
+			{:else if sitreps.length === 0}
+				<p class="p-3 text-xs text-muted-foreground">No SitReps yet.</p>
+			{:else}
+				<ul>
+					{#each sitreps as s (s.sitrep_id)}
+						{@const active = selectedId === s.sitrep_id}
+						<li
+							class={[
+								'group flex items-start gap-2 px-3 py-2 transition-colors',
+								active ? 'bg-primary/10' : 'hover:bg-muted/50'
+							]}
+						>
+							<button
+								type="button"
+								class="flex flex-1 items-start gap-2 text-left"
+								onclick={() => select(s.sitrep_id)}
+							>
+								{#if s.published}
+									<FileLock class="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+								{:else}
+									<FileText class="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+								{/if}
+								<div class="min-w-0 flex-1">
+									<p class="truncate text-sm font-medium">{s.title}</p>
+									<p class="text-2xs text-muted-foreground">
+										v{s.version} · {s.published ? 'Published' : 'Draft'}
+										{#if s.authored_at}
+											· {new Date(s.authored_at).toLocaleDateString()}
+										{/if}
+									</p>
+								</div>
+							</button>
+							{#if !s.published}
+								<button
+									type="button"
+									class="opacity-0 transition-opacity group-hover:opacity-100"
+									onclick={() => remove(s)}
+									aria-label="Delete draft"
+								>
+									<Trash2 class="h-3 w-3 text-destructive" />
+								</button>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
+	</aside>
+
+	<div class="flex h-full min-h-0 flex-col">
+		{#if !detail}
+			<div class="flex h-full items-center justify-center text-sm text-muted-foreground">
+				Select a SitRep or create a new draft.
+			</div>
+		{:else if detailLoading}
+			<div class="m-4">
+				<Skeleton class="h-32 w-full" />
+			</div>
+		{:else}
+			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
+				<div class="min-w-0">
+					{#if editing}
+						<Input
+							value={editTitle}
+							oninput={(e) => (editTitle = (e.target as HTMLInputElement).value)}
+							class="h-8 text-base font-semibold"
+						/>
+					{:else}
+						<h3 class="truncate text-base font-semibold">{detail.title}</h3>
+					{/if}
+					<p class="text-2xs text-muted-foreground">
+						v{detail.version} ·
+						{detail.published ? 'Published' : 'Draft'}
+						{#if detail.authored_at}
+							· {new Date(detail.authored_at).toLocaleString()}
+						{/if}
+					</p>
+				</div>
+				<div class="flex items-center gap-1">
+					<a
+						href={WarRoomSitRepsService.exportUrl(warRoomId, detail.sitrep_id, 'md')}
+						class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+						title="Download Markdown"
+					>
+						<Download class="h-3.5 w-3.5" />
+						<span class="ml-1 text-2xs">MD</span>
+					</a>
+					<a
+						href={WarRoomSitRepsService.exportUrl(warRoomId, detail.sitrep_id, 'html')}
+						class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+						title="Download HTML"
+					>
+						<Download class="h-3.5 w-3.5" />
+						<span class="ml-1 text-2xs">HTML</span>
+					</a>
+					<a
+						href={WarRoomSitRepsService.exportUrl(warRoomId, detail.sitrep_id, 'pdf')}
+						class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+						title="Download PDF"
+					>
+						<Download class="h-3.5 w-3.5" />
+						<span class="ml-1 text-2xs">PDF</span>
+					</a>
+					{#if !detail.published}
+						{#if editing}
+							<Button size="sm" variant="ghost" onclick={cancelEdit} disabled={saving}>
+								Cancel
+							</Button>
+							<Button size="sm" onclick={save} disabled={saving}>
+								{saving ? 'Saving…' : 'Save'}
+							</Button>
+							<Button size="sm" variant="default" onclick={publish} disabled={saving}>
+								<Send class="mr-1 h-3.5 w-3.5" />
+								Publish
+							</Button>
+						{:else}
+							<Button size="sm" onclick={startEdit}>Edit</Button>
+							<Button size="sm" variant="default" onclick={publish} disabled={saving}>
+								<Send class="mr-1 h-3.5 w-3.5" />
+								Publish
+							</Button>
+						{/if}
+					{/if}
+				</div>
+			</header>
+
+			<div class="flex-1 overflow-y-auto px-4 py-3">
+				{#if editing}
+					<textarea
+						value={editBody}
+						oninput={(e) => (editBody = (e.target as HTMLTextAreaElement).value)}
+						rows="24"
+						class="h-full w-full resize-none rounded-md border bg-background p-3 font-mono text-sm"
+					></textarea>
+				{:else}
+					<pre class="whitespace-pre-wrap break-words font-sans text-sm">{detail.body_md ?? ''}</pre>
+				{/if}
+			</div>
+		{/if}
+	</div>
 </div>
+
+<Dialog bind:open={createOpen}>
+	<DialogContent>
+		<DialogHeader>
+			<DialogTitle>New SitRep draft</DialogTitle>
+		</DialogHeader>
+		<div class="py-2">
+			<label class="text-xs font-medium text-muted-foreground" for="sitrep-title">
+				Title
+			</label>
+			<Input
+				id="sitrep-title"
+				value={newTitle}
+				oninput={(e) => (newTitle = (e.target as HTMLInputElement).value)}
+				placeholder="e.g. Day 1 Situation Report"
+				class="mt-1"
+			/>
+		</div>
+		<DialogFooter>
+			<Button variant="ghost" onclick={() => (createOpen = false)} disabled={saving}>
+				Cancel
+			</Button>
+			<Button onclick={submitCreate} disabled={saving || !newTitle.trim()}>
+				{saving ? 'Creating…' : 'Create draft'}
+			</Button>
+		</DialogFooter>
+	</DialogContent>
+</Dialog>
