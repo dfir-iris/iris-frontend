@@ -23,7 +23,7 @@
 	};
 
 	const tabs: Tab[] = [
-		{ label: 'Chat', path: 'chat', icon: MessageSquareIcon },
+		{ label: 'Stream', path: 'chat', icon: MessageSquareIcon },
 		{ label: 'Graph', path: 'graph', icon: WaypointsIcon },
 		{ label: 'Timelines', path: 'timelines', icon: ClockIcon },
 		{ label: 'Tasks', path: 'tasks', icon: ListChecksIcon },

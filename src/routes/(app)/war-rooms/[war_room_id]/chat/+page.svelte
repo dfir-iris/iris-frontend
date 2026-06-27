@@ -11,6 +11,8 @@
 	import { page } from '$app/state';
 	import {
 		AlertCircle,
+		ChevronDown,
+		ChevronRight,
 		ClockIcon,
 		FileText,
 		Filter,
@@ -21,6 +23,7 @@
 		Search,
 		Send,
 		Slash,
+		Waypoints,
 		WaypointsIcon
 	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -59,32 +62,85 @@
 	let composerEl: HTMLTextAreaElement | null = $state(null);
 	let listEl: HTMLDivElement | null = $state(null);
 
-	// Filter set lives in a single bitmask so toggling is cheap and
-	// rendering doesn't have to re-run six boolean checks per row. The
-	// labels and default state of each chip are declared in `FILTERS`.
-	const FILTERS = [
+	// --- Stream filter model ---------------------------------------------
+	//
+	// The Stream tab shows every kind of war-room event: operator
+	// messages, war-room-level system rows, and the firehose of case
+	// activity mirrored from every attached case. The filter pane lets
+	// the operator turn each lane off individually:
+	//
+	//   * `globalFilters` controls the non-case-activity kinds via a
+	//     single set of opt-in keys (Messages, Tasks, SitReps, Notes,
+	//     System, Case attached/detached).
+	//
+	//   * `excludedCases` opts an entire case out of the stream — useful
+	//     when a quiet case is generating noise during a triage.
+	//
+	//   * `excludedCaseActivities` opts specific activity types out per
+	//     case (so the operator can mute "note.updated" on Case #12 but
+	//     keep seeing IOC events on it).
+	//
+	// Default state: everything on. Exclusions are opt-out, additions are
+	// noticed automatically — a case attached later simply starts
+	// streaming.
+
+	const GLOBAL_FILTERS = [
 		{ key: 'message', label: 'Messages', kinds: ['message'] as const },
-		{
-			key: 'activity',
-			label: 'Case activity',
-			kinds: ['case_activity', 'case_attached', 'case_detached'] as const
-		},
-		{
-			key: 'tasks',
-			label: 'Tasks',
-			kinds: ['task_assigned', 'task_completed'] as const
-		},
+		{ key: 'tasks', label: 'Tasks', kinds: ['task_assigned', 'task_completed'] as const },
 		{ key: 'sitreps', label: 'SitReps', kinds: ['sitrep_published'] as const },
 		{ key: 'notes', label: 'Notes / Pins', kinds: ['note', 'pin'] as const },
-		{ key: 'system', label: 'System', kinds: ['system'] as const }
+		{ key: 'system', label: 'System', kinds: ['system'] as const },
+		{
+			key: 'case_link',
+			label: 'Case attached / detached',
+			kinds: ['case_attached', 'case_detached'] as const
+		}
 	];
 
-	let visibleFilters = $state<Set<string>>(
-		new Set(['message', 'activity', 'tasks', 'sitreps', 'notes'])
+	let globalFilters = $state<Set<string>>(
+		new Set(GLOBAL_FILTERS.map((f) => f.key))
 	);
 
-	const kindToFilter = (k: ChatMessageKind): string | null => {
-		for (const f of FILTERS) {
+	// Per-case exclusions. Empty by default — operator opts out.
+	let excludedCases = $state<Set<number>>(new Set());
+	let excludedCaseActivities = $state<Record<number, Set<string>>>({});
+
+	// Catalogue of activity-type slugs we know about — used to render
+	// the per-case checkbox list. Extending this list is safe: any
+	// stamped slug we haven't enumerated falls under "Other".
+	const ACTIVITY_TYPES = [
+		{ slug: 'note.created', label: 'Note created' },
+		{ slug: 'note.updated', label: 'Note updated' },
+		{ slug: 'note.deleted', label: 'Note deleted' },
+		{ slug: 'directory.created', label: 'Folder created' },
+		{ slug: 'directory.updated', label: 'Folder updated' },
+		{ slug: 'directory.deleted', label: 'Folder deleted' },
+		{ slug: 'ioc.created', label: 'IOC created' },
+		{ slug: 'ioc.updated', label: 'IOC updated' },
+		{ slug: 'ioc.deleted', label: 'IOC deleted' },
+		{ slug: 'asset.created', label: 'Asset created' },
+		{ slug: 'asset.updated', label: 'Asset updated' },
+		{ slug: 'asset.deleted', label: 'Asset deleted' },
+		{ slug: 'evidence.created', label: 'Evidence added' },
+		{ slug: 'evidence.updated', label: 'Evidence updated' },
+		{ slug: 'evidence.deleted', label: 'Evidence deleted' },
+		{ slug: 'task.created', label: 'Task added' },
+		{ slug: 'task.updated', label: 'Task updated' },
+		{ slug: 'task.deleted', label: 'Task deleted' },
+		{ slug: 'event.created', label: 'Timeline event added' },
+		{ slug: 'event.updated', label: 'Timeline event updated' },
+		{ slug: 'event.deleted', label: 'Timeline event deleted' },
+		{ slug: 'case.created', label: 'Case created' },
+		{ slug: 'case.closed', label: 'Case closed' },
+		{ slug: 'case.reopened', label: 'Case re-opened' },
+		{ slug: 'case.updated', label: 'Case updated' },
+		{ slug: 'case.reviewer_changed', label: 'Case reviewer changed' },
+		{ slug: 'alert.linked', label: 'Alert linked / unlinked' },
+		{ slug: 'case.other', label: 'Other case activity' }
+	];
+
+	const globalKeyForKind = (k: ChatMessageKind): string | null => {
+		for (const f of GLOBAL_FILTERS) {
 			if ((f.kinds as readonly string[]).includes(k)) return f.key;
 		}
 		return null;
@@ -93,10 +149,79 @@
 	const visibleMessages = $derived.by(() =>
 		messages.filter((m) => {
 			if (m.deleted_at) return false;
-			const key = kindToFilter(m.kind);
-			return key ? visibleFilters.has(key) : true;
+
+			// Case activity: gated by per-case + per-type exclusions.
+			if (m.kind === 'case_activity') {
+				if (m.ref_case_id == null) return true;
+				if (excludedCases.has(m.ref_case_id)) return false;
+				const slug = m.activity_type ?? 'case.other';
+				const set = excludedCaseActivities[m.ref_case_id];
+				if (set && set.has(slug)) return false;
+				return true;
+			}
+
+			// Case attached / detached are case-scoped too — let the
+			// operator mute a specific case across all event types.
+			if (m.kind === 'case_attached' || m.kind === 'case_detached') {
+				if (m.ref_case_id != null && excludedCases.has(m.ref_case_id)) {
+					return false;
+				}
+				return globalFilters.has('case_link');
+			}
+
+			// Everything else is gated by the global toggles.
+			const key = globalKeyForKind(m.kind);
+			return key ? globalFilters.has(key) : true;
 		})
 	);
+
+	const toggleGlobal = (key: string) => {
+		const next = new Set(globalFilters);
+		if (next.has(key)) next.delete(key);
+		else next.add(key);
+		globalFilters = next;
+	};
+
+	const toggleCase = (caseId: number) => {
+		const next = new Set(excludedCases);
+		if (next.has(caseId)) next.delete(caseId);
+		else next.add(caseId);
+		excludedCases = next;
+	};
+
+	const toggleCaseActivity = (caseId: number, slug: string) => {
+		const current = excludedCaseActivities[caseId] ?? new Set<string>();
+		const next = new Set(current);
+		if (next.has(slug)) next.delete(slug);
+		else next.add(slug);
+		excludedCaseActivities = { ...excludedCaseActivities, [caseId]: next };
+	};
+
+	const isCaseActivityOn = (caseId: number, slug: string) =>
+		!(excludedCaseActivities[caseId]?.has(slug) ?? false);
+
+	const isCaseOn = (caseId: number) => !excludedCases.has(caseId);
+
+	const selectAll = () => {
+		globalFilters = new Set(GLOBAL_FILTERS.map((f) => f.key));
+		excludedCases = new Set();
+		excludedCaseActivities = {};
+	};
+
+	const selectNone = () => {
+		globalFilters = new Set();
+		excludedCases = new Set(attachedCases.map((c) => c.case_id));
+	};
+
+	// Per-case section expansion (collapsed by default — keeps the pane
+	// short when many cases are attached).
+	let caseSectionsOpen = $state<Record<number, boolean>>({});
+	const toggleCaseSection = (caseId: number) => {
+		caseSectionsOpen = {
+			...caseSectionsOpen,
+			[caseId]: !(caseSectionsOpen[caseId] ?? false)
+		};
+	};
 
 	// Attached cases drive the attachments picker (events / IOCs / assets
 	// / tasks come from these).
@@ -243,13 +368,6 @@
 			label: t.label
 		};
 		previewOpen = true;
-	};
-
-	const toggleFilter = (key: string) => {
-		const next = new Set(visibleFilters);
-		if (next.has(key)) next.delete(key);
-		else next.add(key);
-		visibleFilters = next;
 	};
 
 	const SLASH_COMMANDS = [
@@ -479,92 +597,225 @@
 		return dt < 5 * 60 * 1000;
 	};
 
-	const filterCount = $derived(visibleFilters.size);
+	const totalGlobalFilters = GLOBAL_FILTERS.length;
+	const activeGlobalFilters = $derived(globalFilters.size);
+	const anyExclusion = $derived(
+		excludedCases.size > 0 ||
+			Object.values(excludedCaseActivities).some((s) => s.size > 0) ||
+			activeGlobalFilters < totalGlobalFilters
+	);
 </script>
 
 <!--
-	Left sidebar (filters + slash command reference) kept on lg+ — it
-	gives the operator at-a-glance control over what's in the stream.
-	Hidden under lg; the filter chips become a compact horizontal row
-	above the stream so tight viewports still get full control.
+	Stream layout.
+
+	Left pane (lg+): the firehose filter. Two stacked sections — global
+	kind toggles on top, then a per-case sub-tree where each attached
+	case can be muted entirely or trimmed down to specific activity
+	types (note created, IOC updated, asset deleted, …).
+
+	Right pane: the rendered stream with composer at the bottom.
+
+	A new case attached to the war room appears in the left pane
+	automatically — the filter list is keyed off the live
+	`attachedCases` state, not a snapshot — so its activity starts
+	showing up the moment it's attached.
 -->
-<div class="grid h-full min-h-0 w-full grid-cols-1 overflow-hidden lg:grid-cols-[220px_minmax(0,1fr)]">
+<div
+	class="grid h-full min-h-0 w-full grid-cols-1 overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)]"
+>
 	<aside
 		class="hidden flex-col border-r bg-card/40 lg:flex"
-		aria-label="Chat filters"
+		aria-label="Stream filters"
 	>
-		<div class="border-b px-4 py-3">
+		<!-- Header row with quick select-all / select-none -->
+		<div class="flex items-center justify-between border-b px-4 py-2.5">
 			<p class="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
 				<Filter class="h-3 w-3" />
-				Show
+				Filters
 			</p>
+			{#if anyExclusion}
+				<button
+					type="button"
+					class="text-2xs text-primary transition-colors hover:underline"
+					onclick={selectAll}
+				>
+					Reset
+				</button>
+			{:else}
+				<button
+					type="button"
+					class="text-2xs text-muted-foreground transition-colors hover:text-foreground"
+					onclick={selectNone}
+				>
+					Clear all
+				</button>
+			{/if}
 		</div>
 
-		<ul class="flex flex-col gap-0.5 p-2">
-			{#each FILTERS as f (f.key)}
-				{@const on = visibleFilters.has(f.key)}
-				<li>
-					<button
-						type="button"
-						class={[
-							'flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs transition-colors',
-							on
-								? 'bg-muted/60 text-foreground'
-								: 'text-muted-foreground hover:bg-muted/40'
-						]}
-						onclick={() => toggleFilter(f.key)}
-						aria-pressed={on}
-					>
-						<span>{f.label}</span>
-						<span
-							class={[
-								'h-2 w-2 rounded-full transition-colors',
-								on ? 'bg-primary' : 'bg-border'
-							]}
-							aria-hidden="true"
-						></span>
-					</button>
-				</li>
-			{/each}
-		</ul>
+		<div class="min-h-0 flex-1 overflow-y-auto">
+			<!-- Global kind toggles -->
+			<section class="border-b px-2 py-2">
+				<p class="px-2 pb-1 pt-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+					Stream lanes
+				</p>
+				<ul class="flex flex-col">
+					{#each GLOBAL_FILTERS as f (f.key)}
+						{@const on = globalFilters.has(f.key)}
+						<li>
+							<button
+								type="button"
+								class={[
+									'flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs transition-colors',
+									on
+										? 'text-foreground hover:bg-muted/60'
+										: 'text-muted-foreground hover:bg-muted/40'
+								]}
+								onclick={() => toggleGlobal(f.key)}
+								aria-pressed={on}
+							>
+								<span>{f.label}</span>
+								<input
+									type="checkbox"
+									class="pointer-events-none h-3 w-3"
+									checked={on}
+									readonly
+									tabindex="-1"
+								/>
+							</button>
+						</li>
+					{/each}
+				</ul>
+			</section>
 
-		<div class="border-t px-4 py-3">
-			<p class="mb-2 flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
-				<Slash class="h-3 w-3" />
-				Slash commands
-			</p>
-			<ul class="space-y-1.5">
-				{#each SLASH_COMMANDS as c}
-					<li class="text-2xs">
-						<code class="rounded bg-muted px-1 py-0.5 font-mono text-foreground">
-							{c.cmd}
-						</code>
-						<p class="mt-0.5 pl-1 text-muted-foreground">{c.desc}</p>
-					</li>
-				{/each}
-			</ul>
+			<!-- Per-case sub-tree -->
+			<section class="px-2 py-2">
+				<div class="flex items-center justify-between px-2 pb-1 pt-1">
+					<p class="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+						<Waypoints class="h-3 w-3" />
+						Cases ({attachedCases.length})
+					</p>
+				</div>
+
+				{#if attachedCases.length === 0}
+					<p class="px-2 py-2 text-2xs text-muted-foreground">
+						No cases attached. Anything attached later will appear here automatically.
+					</p>
+				{:else}
+					<ul class="flex flex-col">
+						{#each attachedCases as att (att.case_id)}
+							{@const caseOn = isCaseOn(att.case_id)}
+							{@const open = caseSectionsOpen[att.case_id] ?? false}
+							<li>
+								<div
+									class={[
+										'flex items-center gap-1 rounded-md px-2 py-1.5 transition-colors',
+										caseOn ? 'hover:bg-muted/60' : 'opacity-60 hover:bg-muted/40'
+									]}
+								>
+									<button
+										type="button"
+										class="flex flex-1 items-center gap-1.5 text-left"
+										onclick={() => toggleCaseSection(att.case_id)}
+									>
+										{#if open}
+											<ChevronDown class="h-3 w-3 shrink-0 text-muted-foreground" />
+										{:else}
+											<ChevronRight class="h-3 w-3 shrink-0 text-muted-foreground" />
+										{/if}
+										<span class="min-w-0 flex-1 truncate text-xs">
+											<span class="font-mono text-2xs text-muted-foreground">
+												#{att.case_id}
+											</span>
+											<span class="ml-1">{att.case_name}</span>
+										</span>
+									</button>
+									<input
+										type="checkbox"
+										class="h-3 w-3"
+										checked={caseOn}
+										onchange={() => toggleCase(att.case_id)}
+										aria-label={`Toggle case #${att.case_id} in stream`}
+									/>
+								</div>
+
+								{#if open}
+									<ul class="ml-5 flex flex-col border-l border-border/40 pl-2">
+										{#each ACTIVITY_TYPES as t (t.slug)}
+											{@const typeOn = isCaseActivityOn(att.case_id, t.slug)}
+											<li>
+												<button
+													type="button"
+													class={[
+														'flex w-full items-center justify-between rounded-md px-2 py-1 text-2xs transition-colors',
+														caseOn && typeOn
+															? 'text-foreground hover:bg-muted/60'
+															: 'text-muted-foreground hover:bg-muted/40'
+													]}
+													onclick={() =>
+														toggleCaseActivity(att.case_id, t.slug)}
+													disabled={!caseOn}
+													aria-pressed={typeOn}
+												>
+													<span class="truncate">{t.label}</span>
+													<input
+														type="checkbox"
+														class="pointer-events-none h-3 w-3 shrink-0"
+														checked={caseOn && typeOn}
+														disabled={!caseOn}
+														readonly
+														tabindex="-1"
+													/>
+												</button>
+											</li>
+										{/each}
+									</ul>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
+
+			<!-- Slash commands reference -->
+			<section class="border-t px-4 py-3">
+				<p class="mb-2 flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+					<Slash class="h-3 w-3" />
+					Slash commands
+				</p>
+				<ul class="space-y-1.5">
+					{#each SLASH_COMMANDS as c}
+						<li class="text-2xs">
+							<code class="rounded bg-muted px-1 py-0.5 font-mono text-foreground">
+								{c.cmd}
+							</code>
+							<p class="mt-0.5 pl-1 text-muted-foreground">{c.desc}</p>
+						</li>
+					{/each}
+				</ul>
+			</section>
 		</div>
 	</aside>
 
 	<div class="flex h-full min-h-0 min-w-0 flex-col">
-		<!-- Compact filter chip row visible only when sidebar is hidden. -->
+		<!-- Compact summary visible only when sidebar is hidden. -->
 		<div class="flex items-center gap-2 overflow-x-auto border-b px-4 py-2 lg:hidden">
 			<Filter class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-			{#each FILTERS as f (f.key)}
-				{@const on = visibleFilters.has(f.key)}
+			<span class="shrink-0 text-2xs text-muted-foreground">
+				{activeGlobalFilters}/{totalGlobalFilters} lanes
+				{#if excludedCases.size > 0}
+					· {excludedCases.size} case{excludedCases.size === 1 ? '' : 's'} muted
+				{/if}
+			</span>
+			{#if anyExclusion}
 				<button
 					type="button"
-					class={[
-						'shrink-0 rounded-full border px-2 py-0.5 text-2xs transition-colors',
-						on
-							? 'border-primary bg-primary/10 text-primary'
-							: 'border-border text-muted-foreground hover:text-foreground'
-					]}
-					onclick={() => toggleFilter(f.key)}
+					class="ml-auto shrink-0 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-2xs text-primary"
+					onclick={selectAll}
 				>
-					{f.label}
+					Reset filters
 				</button>
-			{/each}
+			{/if}
 		</div>
 
 		<!-- Stream. min-w-0 above keeps long messages from forcing the
@@ -605,17 +856,17 @@
 						<Send class="h-6 w-6 opacity-30" />
 						<p class="text-sm">
 							{messages.length === 0
-								? 'No messages yet. Drop the first SitRep.'
-								: 'No messages match the current filters.'}
+								? 'No activity yet. Drop the first message or attach a case.'
+								: 'No entries match the current filters.'}
 						</p>
-						{#if filterCount < FILTERS.length}
+						{#if anyExclusion}
 							<Button
 								size="sm"
 								variant="ghost"
 								class="h-7 text-2xs"
-								onclick={() => (visibleFilters = new Set(FILTERS.map((f) => f.key)))}
+								onclick={selectAll}
 							>
-								Show everything
+								Reset filters
 							</Button>
 						{/if}
 					</div>
