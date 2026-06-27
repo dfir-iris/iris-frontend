@@ -30,6 +30,10 @@
 	import { toast } from '$lib/components/ui/toast';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import ChatMessageBody from './components/ChatMessageBody.svelte';
+	import ChatComposerMentions from './components/ChatComposerMentions.svelte';
+	import AttachmentPreviewDialog, {
+		type AttachmentTarget
+	} from './components/AttachmentPreviewDialog.svelte';
 	import {
 		WarRoomChatService,
 		type ChatMessage,
@@ -195,11 +199,50 @@
 		}
 	};
 
+	// The mention component owns Up/Down/Enter/Esc when its popup is
+	// open — we hand the event over first and only fall through to the
+	// default Enter-sends behaviour when the mention picker didn't claim
+	// the key.
+	let mentions = $state<{
+		handleKeydown: (e: KeyboardEvent) => boolean;
+		handleInput: () => void;
+	} | null>(null);
+
 	const onKey = (e: KeyboardEvent) => {
+		if (mentions?.handleKeydown(e)) return;
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
 			void send();
 		}
+	};
+
+	const onInput = (e: Event) => {
+		body = (e.target as HTMLTextAreaElement).value;
+		mentions?.handleInput();
+	};
+
+	// Attachment preview state. The chip click fires `onAttachmentClick`
+	// with `{type, label, href}` and we extract the caseId from the href
+	// (`/case/<id>/<sub>`) so the preview modal can fetch directly.
+	let previewOpen = $state(false);
+	let previewTarget = $state<AttachmentTarget | null>(null);
+
+	const openPreview = (t: {
+		type: 'event' | 'ioc' | 'asset' | 'task';
+		label: string;
+		href: string;
+	}) => {
+		const m = t.href.match(/^\/case\/(\d+)\//);
+		if (!m) {
+			window.location.assign(t.href);
+			return;
+		}
+		previewTarget = {
+			kind: t.type,
+			caseId: Number(m[1]),
+			label: t.label
+		};
+		previewOpen = true;
 	};
 
 	const toggleFilter = (key: string) => {
@@ -602,7 +645,7 @@
 												<Icon class={`h-3.5 w-3.5 shrink-0 ${systemColor(m.kind)}`} />
 											{/if}
 											<span class="min-w-0 flex-1 break-words text-muted-foreground">
-												<ChatMessageBody body={m.body ?? ''} />
+												<ChatMessageBody body={m.body ?? ''} onAttachmentClick={openPreview} />
 											</span>
 											{#if m.ref_case_id}
 												<a
@@ -619,7 +662,7 @@
 									{:else if cont}
 										<li class="flex gap-3 pl-11">
 											<p class="min-w-0 flex-1 break-words text-sm">
-												<ChatMessageBody body={m.body ?? ''} />
+												<ChatMessageBody body={m.body ?? ''} onAttachmentClick={openPreview} />
 											</p>
 										</li>
 									{:else}
@@ -644,7 +687,7 @@
 													{/if}
 												</div>
 												<p class="mt-0.5 break-words text-sm">
-													<ChatMessageBody body={m.body ?? ''} />
+													<ChatMessageBody body={m.body ?? ''} onAttachmentClick={openPreview} />
 												</p>
 											</div>
 										</li>
@@ -764,12 +807,21 @@
 
 				<textarea
 					bind:this={composerEl}
-					bind:value={body}
+					value={body}
+					oninput={onInput}
 					onkeydown={onKey}
-					placeholder="Type a message, /command, or attach a case element…"
+					placeholder="Type a message, /command, @user or #resource…"
 					rows="1"
 					class="flex-1 resize-none bg-transparent text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
 				></textarea>
+
+				<ChatComposerMentions
+					bind:this={mentions}
+					textarea={composerEl}
+					{body}
+					{attachedCases}
+					onChangeBody={(v) => (body = v)}
+				/>
 
 				<Button
 					type="submit"
@@ -795,3 +847,9 @@
 		</form>
 	</div>
 </div>
+
+<AttachmentPreviewDialog
+	bind:open={previewOpen}
+	target={previewTarget}
+	onOpenChange={(v) => (previewOpen = v)}
+/>

@@ -1,7 +1,15 @@
+<!--
+  War-room notes. Each note has a rich markdown body authored via the
+  same MarkDownEditor the case-side notes use, so headings, tables,
+  fenced code, @-user mentions and #-resource mentions all behave the
+  same way. Mentions are resolved against the war room's attached
+  cases — assets / IOCs / notes / tasks from every attached case roll
+  up into a single # search.
+-->
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, getContext, setContext } from 'svelte';
 	import { page } from '$app/state';
-	import { Plus, Trash2, Pencil, FileText } from 'lucide-svelte';
+	import { Plus, Trash2, FileText, Loader2 } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import {
@@ -13,31 +21,46 @@
 	} from '$lib/components/ui/dialog';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { toast } from '$lib/components/ui/toast';
+	import { MarkDownEditor } from '$lib/components/common/MarkDown';
 	import {
 		WarRoomNotesService,
 		type WarRoomNote
 	} from '$lib/services/war-room-notes.service';
+	import {
+		WarRoomsService,
+		type WarRoomCaseAttachment
+	} from '$lib/services/war-rooms.service';
 
 	const warRoomId = $derived(Number(page.params.war_room_id));
 
 	let notes = $state<WarRoomNote[]>([]);
+	let attachedCases = $state<WarRoomCaseAttachment[]>([]);
 	let loading = $state(true);
 	let selectedId = $state<number | null>(null);
 
-	let editorOpen = $state(false);
+	let createOpen = $state(false);
+	let creating = $state(false);
+	let newTitle = $state('');
+
+	let draftContent = $state('');
+	let savedAt = $state<number | undefined>(undefined);
 	let saving = $state(false);
-	let editTitle = $state('');
-	let editContent = $state('');
-	let editingNoteId = $state<number | null>(null);
+	let dirty = $state(false);
 
 	const load = async () => {
 		loading = true;
-		const res = await WarRoomNotesService.list(warRoomId);
-		if (res.ok && Array.isArray(res.data)) {
-			notes = res.data;
+		const [notesRes, casesRes] = await Promise.all([
+			WarRoomNotesService.list(warRoomId),
+			WarRoomsService.listCases(warRoomId)
+		]);
+		if (notesRes.ok && Array.isArray(notesRes.data)) {
+			notes = notesRes.data;
 			if (notes.length > 0 && selectedId == null) {
 				selectedId = notes[0].note_id;
 			}
+		}
+		if (casesRes.ok && Array.isArray(casesRes.data)) {
+			attachedCases = casesRes.data;
 		}
 		loading = false;
 	};
@@ -46,43 +69,57 @@
 
 	const selected = $derived(notes.find((n) => n.note_id === selectedId) ?? null);
 
-	const openCreate = () => {
-		editingNoteId = null;
-		editTitle = '';
-		editContent = '';
-		editorOpen = true;
-	};
+	// Pull the selected note's content into the editor whenever the user
+	// switches notes. Without this guard the draft would bleed from one
+	// note to the next when the operator clicks a different row.
+	$effect(() => {
+		if (selected) {
+			draftContent = selected.content ?? '';
+			dirty = false;
+			savedAt = selected.updated_at
+				? new Date(selected.updated_at).getTime()
+				: undefined;
+		} else {
+			draftContent = '';
+			dirty = false;
+			savedAt = undefined;
+		}
+	});
 
-	const openEdit = (n: WarRoomNote) => {
-		editingNoteId = n.note_id;
-		editTitle = n.title;
-		editContent = n.content ?? '';
-		editorOpen = true;
+	const submitCreate = async () => {
+		const title = newTitle.trim();
+		if (!title) return;
+		creating = true;
+		const res = await WarRoomNotesService.create(warRoomId, {
+			title,
+			content: ''
+		});
+		creating = false;
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			const next = res.data as WarRoomNote;
+			notes = [next, ...notes];
+			selectedId = next.note_id;
+			createOpen = false;
+			newTitle = '';
+		} else {
+			toast({ title: 'Could not create note', variant: 'destructive' });
+		}
 	};
 
 	const save = async () => {
-		const title = editTitle.trim();
-		if (!title) return;
+		if (!selected) return;
 		saving = true;
-		const res = editingNoteId
-			? await WarRoomNotesService.update(warRoomId, editingNoteId, {
-					title,
-					content: editContent
-				})
-			: await WarRoomNotesService.create(warRoomId, {
-					title,
-					content: editContent
-				});
+		const res = await WarRoomNotesService.update(warRoomId, selected.note_id, {
+			content: draftContent
+		});
 		saving = false;
 		if (res.ok && res.data && typeof res.data !== 'string') {
 			const next = res.data as WarRoomNote;
-			notes = editingNoteId
-				? notes.map((n) => (n.note_id === editingNoteId ? next : n))
-				: [next, ...notes];
-			selectedId = next.note_id;
-			editorOpen = false;
+			notes = notes.map((n) => (n.note_id === next.note_id ? next : n));
+			dirty = false;
+			savedAt = Date.now();
 		} else {
-			toast({ title: 'Could not save note', variant: 'destructive' });
+			toast({ title: 'Could not save', variant: 'destructive' });
 		}
 	};
 
@@ -96,15 +133,28 @@
 			}
 		}
 	};
+
+	const onChange = (v: string) => {
+		draftContent = v;
+		if (selected) {
+			selected.content = v;
+		}
+		dirty = true;
+	};
 </script>
 
-<div class="grid h-full grid-cols-[260px_1fr] overflow-hidden">
+<div class="grid h-full w-full grid-cols-[260px_minmax(0,1fr)] overflow-hidden">
 	<aside class="flex flex-col border-r bg-card/30">
 		<div class="flex items-center justify-between gap-2 border-b p-3">
 			<h2 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
 				Notes
 			</h2>
-			<Button size="icon" variant="ghost" class="h-6 w-6" onclick={openCreate}>
+			<Button
+				size="icon"
+				variant="ghost"
+				class="h-6 w-6"
+				onclick={() => (createOpen = true)}
+			>
 				<Plus class="h-3.5 w-3.5" />
 			</Button>
 		</div>
@@ -147,7 +197,7 @@
 		</div>
 	</aside>
 
-	<div class="flex h-full min-h-0 flex-col">
+	<div class="flex h-full min-h-0 min-w-0 flex-col">
 		{#if !selected}
 			<div class="flex h-full items-center justify-center text-sm text-muted-foreground">
 				Select a note or create a new one.
@@ -159,12 +209,23 @@
 					{#if selected.updated_at}
 						<p class="text-2xs text-muted-foreground">
 							Updated {new Date(selected.updated_at).toLocaleString()}
+							{#if dirty}
+								· <span class="text-amber-600 dark:text-amber-400">unsaved</span>
+							{/if}
 						</p>
 					{/if}
 				</div>
 				<div class="flex items-center gap-1">
-					<Button size="icon" variant="ghost" class="h-7 w-7" onclick={() => openEdit(selected)} aria-label="Edit">
-						<Pencil class="h-3.5 w-3.5" />
+					<Button
+						size="sm"
+						onclick={save}
+						disabled={saving || !dirty}
+						class="gap-1.5"
+					>
+						{#if saving}
+							<Loader2 class="h-3.5 w-3.5 animate-spin" />
+						{/if}
+						{saving ? 'Saving…' : dirty ? 'Save' : 'Saved'}
 					</Button>
 					<Button
 						size="icon"
@@ -177,53 +238,48 @@
 					</Button>
 				</div>
 			</header>
-			<div class="flex-1 overflow-y-auto px-4 py-3 text-sm">
-				{#if selected.content}
-					<pre class="whitespace-pre-wrap break-words font-sans">{selected.content}</pre>
-				{:else}
-					<p class="text-muted-foreground">No content.</p>
-				{/if}
+
+			<div class="flex-1 overflow-y-auto p-4">
+				{#key selected.note_id}
+					<MarkDownEditor
+						value={draftContent}
+						{onChange}
+						onSave={save}
+						{savedAt}
+					/>
+				{/key}
 			</div>
 		{/if}
 	</div>
 </div>
 
-<Dialog bind:open={editorOpen}>
-	<DialogContent class="sm:max-w-2xl">
+<Dialog bind:open={createOpen}>
+	<DialogContent>
 		<DialogHeader>
-			<DialogTitle>{editingNoteId ? 'Edit note' : 'New note'}</DialogTitle>
+			<DialogTitle>New note</DialogTitle>
 		</DialogHeader>
-		<div class="flex flex-col gap-3 py-2">
-			<div>
-				<label class="text-xs font-medium text-muted-foreground" for="note-title">
-					Title
-				</label>
-				<Input
-					id="note-title"
-					value={editTitle}
-					oninput={(e) => (editTitle = (e.target as HTMLInputElement).value)}
-					class="mt-1"
-				/>
-			</div>
-			<div>
-				<label class="text-xs font-medium text-muted-foreground" for="note-content">
-					Content (markdown supported)
-				</label>
-				<textarea
-					id="note-content"
-					value={editContent}
-					oninput={(e) => (editContent = (e.target as HTMLTextAreaElement).value)}
-					rows="14"
-					class="mt-1 w-full rounded-md border bg-background p-2 text-sm font-mono"
-				></textarea>
-			</div>
+		<div class="py-2">
+			<label class="text-xs font-medium text-muted-foreground" for="note-title">
+				Title
+			</label>
+			<Input
+				id="note-title"
+				value={newTitle}
+				oninput={(e) => (newTitle = (e.target as HTMLInputElement).value)}
+				placeholder="e.g. Initial triage notes"
+				class="mt-1"
+			/>
 		</div>
 		<DialogFooter>
-			<Button variant="ghost" onclick={() => (editorOpen = false)} disabled={saving}>
+			<Button
+				variant="ghost"
+				onclick={() => (createOpen = false)}
+				disabled={creating}
+			>
 				Cancel
 			</Button>
-			<Button onclick={save} disabled={saving || !editTitle.trim()}>
-				{saving ? 'Saving…' : 'Save'}
+			<Button onclick={submitCreate} disabled={creating || !newTitle.trim()}>
+				{creating ? 'Creating…' : 'Create note'}
 			</Button>
 		</DialogFooter>
 	</DialogContent>

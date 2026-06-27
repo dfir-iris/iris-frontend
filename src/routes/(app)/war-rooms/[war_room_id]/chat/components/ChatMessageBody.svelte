@@ -21,8 +21,16 @@
 
 	type Props = {
 		body: string;
+		// When set, the parent handles attachment clicks (typically to
+		// open a preview modal) rather than letting the browser follow
+		// the href.
+		onAttachmentClick?: (target: {
+			type: 'event' | 'ioc' | 'asset' | 'task';
+			label: string;
+			href: string;
+		}) => void;
 	};
-	let { body }: Props = $props();
+	let { body, onAttachmentClick }: Props = $props();
 
 	type Segment =
 		| { kind: 'text'; text: string }
@@ -134,18 +142,25 @@
 
 <span class="inline whitespace-pre-wrap break-words">
 	{#each segments as seg, i (i)}
-		{#if seg.kind === 'text'}{seg.text}{:else if seg.kind === 'attachment'}{@const meta = attachmentMeta(seg.type)}<a
-				href={seg.href}
+		{#if seg.kind === 'text'}{seg.text}{:else if seg.kind === 'attachment'}{@const meta = attachmentMeta(seg.type)}<button
+				type="button"
 				class={[
 					'mx-0.5 inline-flex max-w-[24rem] items-center gap-1 rounded-md border px-1.5 py-0.5 align-middle text-2xs font-medium transition-colors hover:brightness-110',
 					meta.cls
 				]}
-				title={`${meta.label}: ${seg.label}`}
+				title={`${meta.label}: ${seg.label} — click to preview`}
+				onclick={() => {
+					if (onAttachmentClick) {
+						onAttachmentClick({ type: seg.type, label: seg.label, href: seg.href });
+					} else {
+						window.location.assign(seg.href);
+					}
+				}}
 			>
 				<meta.Icon class="h-3 w-3 shrink-0" />
 				<span class="truncate">{seg.label}</span>
 				<ExternalLink class="h-2.5 w-2.5 shrink-0 opacity-60" />
-			</a>{:else}<a
+			</button>{:else}<a
 				href={seg.href}
 				class="text-primary underline-offset-2 hover:underline"
 				target={seg.href.startsWith('http') ? '_blank' : undefined}

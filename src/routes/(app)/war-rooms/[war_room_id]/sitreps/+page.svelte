@@ -4,6 +4,7 @@
 	import { Plus, Trash2, Download, Send, FileText, FileLock } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import { MarkDownEditor, MarkDownPreview } from '$lib/components/common/MarkDown';
 	import {
 		Dialog,
 		DialogContent,
@@ -291,16 +292,18 @@
 				</div>
 			</header>
 
-			<div class="flex-1 overflow-y-auto px-4 py-3">
+			<div class="flex-1 overflow-y-auto p-4">
 				{#if editing}
-					<textarea
-						value={editBody}
-						oninput={(e) => (editBody = (e.target as HTMLTextAreaElement).value)}
-						rows="24"
-						class="h-full w-full resize-none rounded-md border bg-background p-3 font-mono text-sm"
-					></textarea>
+					{#key detail.sitrep_id}
+						<MarkDownEditor
+							value={editBody}
+							onChange={(v) => (editBody = v)}
+							onSave={save}
+							initialMode="edit"
+						/>
+					{/key}
 				{:else}
-					<pre class="whitespace-pre-wrap break-words font-sans text-sm">{detail.body_md ?? ''}</pre>
+					<MarkDownPreview markdown={detail.body_md ?? ''} />
 				{/if}
 			</div>
 		{/if}
