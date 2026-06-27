@@ -15,6 +15,11 @@ export class SeveritiesService {
 		// paginated envelope (`{total, data, ...}`); consumers already
 		// reach into `.data.data` to unwrap the legacy
 		// `{status, data: T[]}` shape and get the same array.
-		return ApiService.get<Severity[]>(`/manage/severities`, options);
+		//
+		// Pass a large per_page so the default per_page=10 doesn't
+		// silently truncate severity dropdowns on deployments with
+		// custom severities.
+		const url = ApiService.withQuery('/manage/severities', { per_page: 10000 });
+		return ApiService.get<Severity[]>(url, options);
 	}
 }

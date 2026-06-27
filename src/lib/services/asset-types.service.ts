@@ -30,10 +30,14 @@ export class AssetTypesService {
 		_caseId?: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<AssetType[]>> {
-		const res = await ApiService.get<ApiEnvelope<AssetType[]>>(
-			'/manage/case-objects/asset-types',
-			options
-		);
+		// Asset types is a small taxonomy (a few dozen entries) and the
+		// add/edit dropdowns need the FULL list. The v2 backend defaults
+		// to per_page=10 which silently truncates the result — pass a
+		// per_page large enough to cover any realistic deployment.
+		const url = ApiService.withQuery('/manage/case-objects/asset-types', {
+			per_page: 10000
+		});
+		const res = await ApiService.get<ApiEnvelope<AssetType[]>>(url, options);
 
 		if (res.ok && res.data !== null && typeof res.data !== 'string') {
 			return { ...res, data: res.data.data };

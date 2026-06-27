@@ -39,12 +39,17 @@ describe('CaseSeveritiesService', () => {
 			] satisfies Severity[]
 		};
 
+		const urlWithQuery = '/manage/severities?per_page=10000';
+		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+			urlWithQuery
+		);
 		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await SeveritiesService.list(options);
 
+		expect(ApiService.withQuery).toHaveBeenCalledWith('/manage/severities', { per_page: 10000 });
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
-		expect(ApiService.get).toHaveBeenCalledWith('/manage/severities', options);
+		expect(ApiService.get).toHaveBeenCalledWith(urlWithQuery, options);
 		expect(res).toBe(mockResponse);
 	});
 });

@@ -26,7 +26,11 @@ const BASE = '/manage/case-objects/case-states';
 
 export class CaseStatesService {
 	static async list(options: ApiOptions = {}): Promise<RequestResponse<CaseState[]>> {
-		return ApiService.get<CaseState[]>(BASE, options);
+		// v2 paginates with default per_page=10; case-states fits on one
+		// page today (~5 entries) but the dropdown must surface the full
+		// set for any deployment that adds custom states.
+		const url = ApiService.withQuery(BASE, { per_page: 10000 });
+		return ApiService.get<CaseState[]>(url, options);
 	}
 
 	static async get(

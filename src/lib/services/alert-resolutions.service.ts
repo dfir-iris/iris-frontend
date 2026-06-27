@@ -9,6 +9,8 @@ export type AlertResolution = {
 
 export class AlertResolutionService {
 	static async list(options: ApiOptions = {}): Promise<RequestResponse<AlertResolution[]>> {
-		return ApiService.get<AlertResolution[]>('/manage/alert-resolutions', options);
+		// v2 paginates with default per_page=10; surface every resolution.
+		const url = ApiService.withQuery('/manage/alert-resolutions', { per_page: 10000 });
+		return ApiService.get<AlertResolution[]>(url, options);
 	}
 }

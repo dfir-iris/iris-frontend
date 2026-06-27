@@ -30,7 +30,11 @@ const BASE = '/manage/case-objects/case-classifications';
 
 export class CaseClassificationsService {
 	static async list(options: ApiOptions = {}): Promise<RequestResponse<CaseClassification[]>> {
-		return ApiService.get<CaseClassification[]>(BASE, options);
+		// v2 paginates with default per_page=10; case classifications
+		// commonly run to 30+ entries (MITRE-ish taxonomy) so callers
+		// would silently truncate without the explicit per_page.
+		const url = ApiService.withQuery(BASE, { per_page: 10000 });
+		return ApiService.get<CaseClassification[]>(url, options);
 	}
 
 	static async get(

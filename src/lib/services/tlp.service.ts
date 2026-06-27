@@ -19,7 +19,12 @@ type TlpResponse = {
 
 export class TlpService {
 	static async list(options: ApiOptions = {}): Promise<RequestResponse<TlpItem[]>> {
-		const res = await ApiService.get<TlpResponse>('/manage/tlp', options);
+		// TLP has a tiny fixed set (Red/Amber/Green/Clear) but the v2
+		// endpoint still applies the default per_page=10 paginator; pass
+		// a large per_page so consumers always get the full list, future-
+		// proofed for any custom TLP entries an instance might add.
+		const url = ApiService.withQuery('/manage/tlp', { per_page: 10000 });
+		const res = await ApiService.get<TlpResponse>(url, options);
 		const data = typeof res.data === 'object' && res.data !== null ? res.data.data : [];
 
 		return {

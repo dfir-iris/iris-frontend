@@ -9,6 +9,8 @@ export type AlertStatus = {
 
 export class AlertStatusService {
 	static async list(options: ApiOptions = {}): Promise<RequestResponse<AlertStatus[]>> {
-		return ApiService.get<AlertStatus[]>('/manage/alert-statuses', options);
+		// v2 paginates with default per_page=10; surface every status.
+		const url = ApiService.withQuery('/manage/alert-statuses', { per_page: 10000 });
+		return ApiService.get<AlertStatus[]>(url, options);
 	}
 }
