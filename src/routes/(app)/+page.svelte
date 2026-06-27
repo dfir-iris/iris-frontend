@@ -24,7 +24,8 @@
 		ListIcon,
 		PlusIcon,
 		RefreshCwIcon,
-		ShieldAlertIcon
+		ShieldAlertIcon,
+		Star
 	} from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { current_user } from '$lib/stores/auth.store';
@@ -40,6 +41,7 @@
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import { ActivitiesService, type ActivityRow } from '$lib/services/activities.service';
 	import { DashboardService, type DashboardKpis } from '$lib/services/dashboard.service';
+	import { FollowedCasesService } from '$lib/services/followed-cases.service';
 
 	const alerts = getContext<AlertsContext | undefined>(ALERTS_CTX);
 	const cases = getContext<CasesContext | undefined>(CASES_CTX);
@@ -113,6 +115,12 @@
 	const myUserId = $derived($current_user?.user_id ?? $current_user?.id ?? null);
 
 	let openCasesState = $state<DashState<Case>>({ total: 0, items: [], loading: true, error: null });
+	let followedCasesState = $state<DashState<Case>>({
+		total: 0,
+		items: [],
+		loading: true,
+		error: null
+	});
 	let alertsState = $state<DashState<Alert>>({ total: 0, items: [], loading: true, error: null });
 	let tasksState = $state<DashState<UserTask>>({
 		total: 0,
@@ -262,6 +270,35 @@
 			};
 		} catch (e) {
 			openCasesState = { ...openCasesState, loading: false, error: (e as Error).message };
+		}
+	};
+
+	// Cases the user has explicitly followed. The endpoint already filters
+	// out entries the user has lost access to, so the dashboard never
+	// renders a row that 404s on click.
+	const loadFollowedCases = async () => {
+		followedCasesState.loading = true;
+		followedCasesState.error = null;
+		try {
+			const res = await FollowedCasesService.listMine();
+			if (!res.ok || res.error || !Array.isArray(res.data)) {
+				followedCasesState = {
+					total: 0,
+					items: [],
+					loading: false,
+					error: res.error?.message ?? null
+				};
+				return;
+			}
+			const items = res.data as unknown as Case[];
+			followedCasesState = {
+				total: items.length,
+				items: items.slice(0, PREVIEW_LIMIT),
+				loading: false,
+				error: null
+			};
+		} catch (e) {
+			followedCasesState = { ...followedCasesState, loading: false, error: (e as Error).message };
 		}
 	};
 
@@ -676,6 +713,7 @@
 
 	const refreshAll = () => {
 		void loadOpenCases();
+		void loadFollowedCases();
 		void loadAlerts();
 		void loadTasks();
 		void loadTrend();
@@ -1014,8 +1052,9 @@
 	  forcing horizontal scroll.
 	-->
 	<div class="flex flex-col gap-5 lg:flex-row">
+		<div class="flex min-w-0 flex-col gap-5 lg:basis-2/3">
 		<section
-			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 lg:basis-2/3"
+			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
 				<div class="flex items-center gap-2 min-w-0">
@@ -1089,6 +1128,69 @@
 				{/if}
 			</div>
 		</section>
+
+		<!--
+		  Following section. Lists cases the current user has explicitly
+		  followed via the case-detail "Follow" toggle. Hidden when the
+		  list is empty so the dashboard doesn't surface an empty card
+		  for users who have not opted in to the feature.
+		-->
+		{#if followedCasesState.loading || followedCasesState.items.length > 0}
+		<section
+			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1"
+		>
+			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
+				<div class="flex items-center gap-2 min-w-0">
+					<Star class="h-4 w-4 shrink-0 fill-amber-500 text-amber-500" />
+					<h2 class="text-sm font-semibold">Following</h2>
+					{#if followedCasesState.total > 0}
+						<span class="text-xs text-muted-foreground tabular-nums">
+							{followedCasesState.total}
+						</span>
+					{/if}
+				</div>
+			</header>
+
+			<div class="flex-1 overflow-auto">
+				{#if followedCasesState.loading}
+					<div class="space-y-2 p-4">
+						{#each Array(PREVIEW_LIMIT) as _}
+							<Skeleton class="h-9 w-full" />
+						{/each}
+					</div>
+				{:else if followedCasesState.error}
+					<div class="p-6 text-center text-xs text-destructive">{followedCasesState.error}</div>
+				{:else}
+					<ul class="divide-y">
+						{#each followedCasesState.items as c (c.case_id)}
+							<li>
+								<a
+									href={`/case/${c.case_id}`}
+									class="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/50"
+								>
+									<span class="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+										#{c.case_id}
+									</span>
+									<span class="min-w-0 flex-1 truncate text-sm font-medium" title={c.case_name}>
+										{stripCaseIdPrefix(c.case_name)}
+									</span>
+									<div class="hidden items-center gap-1.5 sm:flex">
+										{#if c.severity?.severity_name}
+											<SeverityBadge severity={c.severity.severity_name as SeverityName} icon_only />
+										{/if}
+										{#if c.state?.state_name}
+											<StatusBadge status={c.state.state_name as CaseStatus} icon_only />
+										{/if}
+									</div>
+								</a>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</div>
+		</section>
+		{/if}
+		</div>
 
 		<!-- Open alerts assigned to me -->
 		<section

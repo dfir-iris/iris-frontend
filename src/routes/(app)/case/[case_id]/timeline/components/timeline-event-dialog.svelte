@@ -11,6 +11,7 @@
 		type CaseTimelineContext
 	} from '$lib/contexts/case-timeline.context.svelte';
 	import type { CaseTimelineEvent } from '$lib/services/case-timeline.service';
+	import type { CaseTimeline } from '$lib/services/case-timelines.service';
 	import TimelineEventForm, { type TimelineEventFormData } from './timeline-event-form.svelte';
 
 	type Props = {
@@ -20,6 +21,16 @@
 		parentEvents: CaseTimelineEvent[];
 		assets: Asset[];
 		iocs: Ioc[];
+		// Timelines registered on the case. Omitted callers (asset/ioc
+		// detail "open timeline event" affordance) just don't render the
+		// timelines section — the backend's default-timeline auto-attach
+		// still keeps the event visible in the main timeline view.
+		timelines?: CaseTimeline[];
+		// Timelines preselected when opening the dialog for a brand-new
+		// event. Drives the "create event already attached to the active
+		// timelines" affordance: the dialog opens with the currently
+		// visible timelines ticked.
+		initialTimelineIds?: number[];
 		selectedParent?: CaseTimelineEvent;
 		// When creating a brand-new event (no `event` prop), the host can
 		// preset the linked assets/iocs — used by the asset/ioc detail
@@ -38,6 +49,8 @@
 		parentEvents,
 		assets,
 		iocs,
+		timelines = [],
+		initialTimelineIds = [],
 		selectedParent,
 		initialAssetIds = [],
 		initialIocIds = [],
@@ -78,7 +91,8 @@
 		event_in_summary: false,
 		event_in_graph: true,
 		event_sync_iocs_assets: true,
-		event_color: null
+		event_color: null,
+		timeline_ids: []
 	});
 
 	const reset = () => {
@@ -98,6 +112,16 @@
 				.filter((id): id is number => id !== undefined);
 		};
 
+		const resolveTimelineIds = (): number[] => {
+			if (event?.timeline_ids !== undefined) return [...event.timeline_ids];
+			if (!event && initialTimelineIds.length > 0) return [...initialTimelineIds];
+			// Brand-new event with no preselection: default to the case's
+			// default timeline so the event shows up in the user's
+			// current view without an extra step.
+			const fallback = timelines.find((t) => t.is_default)?.timeline_id;
+			return fallback != null ? [fallback] : [];
+		};
+
 		form = {
 			event_title: event?.event_title ?? '',
 			event_date: dateFromEvent(event?.event_date),
@@ -114,7 +138,8 @@
 			event_in_summary: event?.event_in_summary ?? false,
 			event_in_graph: event?.event_in_graph ?? true,
 			event_sync_iocs_assets: false,
-			event_color: event?.event_color ?? null
+			event_color: event?.event_color ?? null,
+			timeline_ids: resolveTimelineIds()
 		};
 
 		isSaving = false;
@@ -161,7 +186,8 @@
 				event_sync_iocs_assets: form.event_sync_iocs_assets,
 				event_tags: form.event_tags,
 				event_content: form.event_content,
-				parent_event_id: form.parent_event_id
+				parent_event_id: form.parent_event_id,
+				timeline_ids: form.timeline_ids
 			};
 
 			const saved = event
@@ -219,6 +245,7 @@
 				{parentEvents}
 				{assets}
 				{iocs}
+				{timelines}
 				onUpdateField={updateField}
 			/>
 		</div>

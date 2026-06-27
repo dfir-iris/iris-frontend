@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { CaseTimelineEvent } from '$lib/services/case-timeline.service';
+	import type { CaseTimeline } from '$lib/services/case-timelines.service';
 	import type { EventCategory } from '$lib/services/event-categories.service';
 	import type { Asset } from '$lib/types/resources/asset';
 	import type { Ioc } from '$lib/types/resources/ioc';
@@ -27,6 +28,7 @@
 		event_in_graph: boolean;
 		event_sync_iocs_assets: boolean;
 		event_color: string | null;
+		timeline_ids: number[];
 	};
 
 	type FieldValue = string | number | boolean | number[] | null;
@@ -37,10 +39,29 @@
 		eventCategories: EventCategory[];
 		assets: Asset[];
 		iocs: Ioc[];
+		// Optional so callers that don't expose timeline assignment
+		// (asset/ioc detail tabs) can stay on the same form component
+		// without rendering the timelines section.
+		timelines?: CaseTimeline[];
 		onUpdateField: (field: keyof TimelineEventFormData, value: FieldValue) => void;
 	};
 
-	let { data, parentEvents, eventCategories, assets, iocs, onUpdateField }: Props = $props();
+	let {
+		data,
+		parentEvents,
+		eventCategories,
+		assets,
+		iocs,
+		timelines = [],
+		onUpdateField
+	}: Props = $props();
+
+	const timelineOptions = $derived<SelectOption[]>(
+		timelines.map((t) => ({
+			value: String(t.timeline_id),
+			label: t.is_default ? `${t.name} (default)` : t.name
+		}))
+	);
 
 	const parentEventOptions = $derived<SelectOption[]>(
 		parentEvents.map((event) => ({
@@ -251,6 +272,27 @@
 					/>
 				</div>
 			</div>
+
+			{#if timelines.length > 0}
+				<div class="rounded-lg bg-card/40 p-4 md:col-span-2">
+					<p class="text-sm font-medium text-muted-foreground">Timelines</p>
+					<p class="mt-0.5 text-2xs text-muted-foreground">
+						An event can appear on multiple timelines. Leaving this empty makes the event
+						visible only in the "All" view.
+					</p>
+
+					<div class="mt-1">
+						<SearchSelect
+							multiple
+							value={data.timeline_ids.map(String)}
+							options={timelineOptions}
+							placeholder="Select timelines"
+							searchPlaceholder="Search timelines..."
+							onChange={(value) => onUpdateField('timeline_ids', (value as string[]).map(Number))}
+						/>
+					</div>
+				</div>
+			{/if}
 		</div>
 	</section>
 

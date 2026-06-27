@@ -11,6 +11,10 @@
 		EventCategoriesService,
 		type EventCategory
 	} from '$lib/services/event-categories.service';
+	import {
+		CaseTimelinesService,
+		type CaseTimeline
+	} from '$lib/services/case-timelines.service';
 	import { CaseAssetsService } from '$lib/services/case-assets.service';
 	import { CaseIocsService } from '$lib/services/case-iocs.service';
 	import type { Asset } from '$lib/types/resources/asset';
@@ -31,8 +35,10 @@
 	import ChipHoverHost from '$lib/components/common/MarkDown/ChipHoverHost.svelte';
 	import TimelineTopbar from './components/timeline-topbar.svelte';
 	import TimelineSideToolbar from './components/timeline-side-toolbar.svelte';
+	import TimelineSidebar from './components/timeline-sidebar.svelte';
 	import TimelineView from './components/timeline-view.svelte';
 	import TimelineEventDialog from './components/timeline-event-dialog.svelte';
+	import { toast } from '$lib/stores/toast.store';
 	import CaseWorkspace from '../components/CaseWorkspace.svelte';
 	import type { TimelineFilterData, TimelineFilterFieldValue } from './types';
 
@@ -78,6 +84,12 @@
 	let eventCategories = $state<EventCategory[]>([]);
 	let caseAssets = $state<Asset[]>([]);
 	let caseIocs = $state<Ioc[]>([]);
+	let timelines = $state<CaseTimeline[]>([]);
+	let timelinesLoading = $state<boolean>(true);
+	// Empty set = "show all" (no timeline filter applied). A non-empty
+	// set restricts the timeline view to events linked to ANY of the
+	// selected timelines.
+	let selectedTimelineIds = $state<Set<number>>(new Set());
 	let commentCounts = $state<Record<number, number>>({});
 	let timelineScrollContainer = $state<HTMLDivElement | undefined>(undefined);
 
@@ -103,7 +115,19 @@
 		});
 	};
 
-	const filteredEvents = $derived(timeline.events());
+	// Apply the sidebar's timeline-id multi-select on top of the
+	// server-side filtered list. Empty selection = no extra filter.
+	// We do this client-side because the server's events endpoint
+	// already paginates the case events and the timeline membership
+	// is stamped onto each row — no need for a second round-trip.
+	const filteredEvents = $derived.by(() => {
+		const events = timeline.events();
+		if (selectedTimelineIds.size === 0) return events;
+		const selected = selectedTimelineIds;
+		return events.filter((e) =>
+			(e.timeline_ids ?? []).some((id) => selected.has(id))
+		);
+	});
 
 	// Quick-search: searches across the most useful free-text fields and
 	// resolves to a chronologically-ordered list of event IDs. The bar in
@@ -478,6 +502,84 @@
 		}
 	};
 
+	const loadCaseTimelines = async () => {
+		timelinesLoading = true;
+		try {
+			const caseId = Number(page.params.case_id);
+			const res = await CaseTimelinesService.list(caseId, { fetch });
+			if (res.ok && Array.isArray(res.data)) {
+				timelines = res.data;
+			} else {
+				timelines = [];
+			}
+		} finally {
+			timelinesLoading = false;
+		}
+	};
+
+	const toggleTimelineSelected = (timelineId: number) => {
+		const next = new Set(selectedTimelineIds);
+		if (next.has(timelineId)) next.delete(timelineId);
+		else next.add(timelineId);
+		selectedTimelineIds = next;
+	};
+
+	const selectAllTimelines = () => {
+		selectedTimelineIds = new Set();
+	};
+
+	const createTimeline = async (body: { name: string; color: string | null }) => {
+		const caseId = Number(page.params.case_id);
+		const res = await CaseTimelinesService.create(caseId, body, { fetch });
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			timelines = [...timelines, res.data];
+		} else {
+			toast({
+				title: 'Could not create timeline',
+				description: res.error?.message ?? 'Unknown error',
+				variant: 'destructive'
+			});
+		}
+	};
+
+	const updateTimeline = async (
+		timelineId: number,
+		body: { name?: string; color?: string | null }
+	) => {
+		const caseId = Number(page.params.case_id);
+		const res = await CaseTimelinesService.update(caseId, timelineId, body, { fetch });
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			timelines = timelines.map((t) =>
+				t.timeline_id === timelineId ? (res.data as CaseTimeline) : t
+			);
+		} else {
+			toast({
+				title: 'Could not update timeline',
+				description: res.error?.message ?? 'Unknown error',
+				variant: 'destructive'
+			});
+		}
+	};
+
+	const removeTimeline = async (timelineId: number) => {
+		const caseId = Number(page.params.case_id);
+		const res = await CaseTimelinesService.remove(caseId, timelineId, { fetch });
+		if (res.ok) {
+			timelines = timelines.filter((t) => t.timeline_id !== timelineId);
+			if (selectedTimelineIds.has(timelineId)) {
+				const next = new Set(selectedTimelineIds);
+				next.delete(timelineId);
+				selectedTimelineIds = next;
+			}
+		} else {
+			toast({
+				title: 'Could not delete timeline',
+				description: res.error?.message ?? 'Unknown error',
+				variant: 'destructive'
+			});
+		}
+	};
+
 	const csvEscape = (value: string | number | boolean | null | undefined) => {
 		const text = value === null || value === undefined ? '' : String(value);
 
@@ -650,6 +752,7 @@
 		loadEventCategories();
 		loadCaseAssets();
 		loadCaseIocs();
+		loadCaseTimelines();
 	});
 
 	$effect(() => {
@@ -665,7 +768,18 @@
 </script>
 
 <CaseWorkspace>
-<div class="flex h-full min-h-0 w-full flex-col">
+<div class="flex h-full min-h-0 w-full">
+	<TimelineSidebar
+		{timelines}
+		selectedIds={selectedTimelineIds}
+		loading={timelinesLoading}
+		onToggle={toggleTimelineSelected}
+		onSelectAll={selectAllTimelines}
+		onCreate={createTimeline}
+		onUpdate={updateTimeline}
+		onRemove={removeTimeline}
+	/>
+	<div class="flex h-full min-h-0 flex-1 flex-col">
 	<TimelineTopbar
 		{filters}
 		{eventCategories}
@@ -760,6 +874,7 @@
 			onScrollBottom={scrollBottom}
 		/>
 	</div>
+	</div>
 </div>
 </CaseWorkspace>
 
@@ -770,6 +885,8 @@
 	parentEvents={parentEventCandidates}
 	assets={caseAssets}
 	iocs={caseIocs}
+	{timelines}
+	initialTimelineIds={[...selectedTimelineIds]}
 	{selectedParent}
 	onOpenChange={(open) => (eventDialogOpen = open)}
 />

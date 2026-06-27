@@ -89,6 +89,10 @@ export interface CaseTimelineEvent {
 	user?: string;
 	custom_attributes?: Record<string, unknown> | null;
 	parent_event_id?: number | null;
+	// Ids of every named timeline this event is attached to. Empty
+	// means the event is on no named timeline (only visible in the
+	// "All" view).
+	timeline_ids?: number[];
 }
 
 export interface CreateCaseTimelineEventBody {
@@ -108,6 +112,7 @@ export interface CreateCaseTimelineEventBody {
 	event_content?: string;
 	custom_attributes?: Record<string, unknown>;
 	parent_event_id?: number | null;
+	timeline_ids?: number[];
 }
 
 export interface UpdateCaseTimelineEventBody {
@@ -128,6 +133,7 @@ export interface UpdateCaseTimelineEventBody {
 	event_content?: string;
 	custom_attributes?: Record<string, unknown>;
 	parent_event_id?: number | null;
+	timeline_ids?: number[];
 }
 
 export class CaseTimelineService {

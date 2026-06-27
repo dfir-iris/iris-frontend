@@ -15,11 +15,14 @@
 		LockIcon,
 		MoreHorizontal,
 		Shield,
+		Star,
 		Tag,
 		UserRound
 	} from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { AlertService } from '$lib/services/alerts.service';
+	import { FollowedCasesService, type CaseFollower } from '$lib/services/followed-cases.service';
+	import { current_user } from '$lib/stores/auth.store';
 	import type { Alert } from '$lib/types/resources/alert';
 	import { toast } from '$lib/stores/toast.store';
 	import * as Popover from '$lib/components/ui/popover';
@@ -307,6 +310,72 @@
 		linkedAlertsTotal = 0;
 		void loadLinkedAlerts(id);
 	});
+
+	// Followers: scope is "is the current user following this case + who
+	// else is". The list is public per the project policy — anyone who
+	// can read the case can see who follows it. Loaded eagerly on case
+	// switch so the chip renders without a click delay.
+	let followers = $state<CaseFollower[] | null>(null);
+	let followerLoadError = $state<string | null>(null);
+	let followToggleBusy = $state(false);
+	let lastLoadedFollowersCaseId = -1;
+
+	const myUserId = $derived($current_user?.user_id ?? $current_user?.id ?? null);
+	const isFollowing = $derived(
+		followers != null && myUserId != null && followers.some((f) => f.user_id === myUserId)
+	);
+
+	const loadFollowers = async (id: number) => {
+		followerLoadError = null;
+		try {
+			const res = await FollowedCasesService.listFollowers(id);
+			if (res.ok && Array.isArray(res.data)) {
+				followers = res.data;
+			} else {
+				followers = [];
+				followerLoadError = res.error?.message ?? 'Failed to load followers';
+			}
+		} catch (err) {
+			followers = [];
+			followerLoadError = (err as Error).message;
+		}
+	};
+
+	$effect(() => {
+		const id = caseData?.case_id;
+		if (id == null || id === lastLoadedFollowersCaseId) return;
+		lastLoadedFollowersCaseId = id;
+		followers = null;
+		void loadFollowers(id);
+	});
+
+	const toggleFollow = async () => {
+		const id = caseData?.case_id;
+		if (id == null || followToggleBusy) return;
+		followToggleBusy = true;
+		try {
+			if (isFollowing) {
+				const res = await FollowedCasesService.unfollow(id);
+				if (!res.ok && res.error) {
+					throw new Error(res.error.message);
+				}
+			} else {
+				const res = await FollowedCasesService.follow(id);
+				if (!res.ok && res.error) {
+					throw new Error(res.error.message);
+				}
+			}
+			await loadFollowers(id);
+		} catch (err) {
+			toast({
+				title: 'Could not update follow status',
+				description: (err as Error).message,
+				variant: 'destructive'
+			});
+		} finally {
+			followToggleBusy = false;
+		}
+	};
 </script>
 
 <!--
@@ -695,6 +764,66 @@
 			</Popover.Content>
 		</Popover.Root>
 		{/if}
+
+		<!--
+		  Follow toggle. A star button next to the linked-alerts chip with a
+		  popover that lists every user currently following the case. The
+		  surface is public per the project policy: any user who can read
+		  the case can see who's following.
+		-->
+		<Popover.Root>
+			<Popover.Trigger
+				class="inline-flex h-7 items-center gap-1 rounded-sm border bg-transparent px-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-2 {isFollowing
+					? 'border-amber-500/40 bg-amber-50 text-amber-700 dark:border-amber-500/50 dark:bg-amber-950/40 dark:text-amber-300'
+					: 'border-border text-muted-foreground hover:text-foreground'}"
+				aria-label={isFollowing ? 'Unfollow case' : 'Follow case'}
+				aria-pressed={isFollowing}
+			>
+				<Star size={13} class={isFollowing ? 'fill-current' : ''} />
+				<span class="tabular-nums">{followers?.length ?? 0}</span>
+				<span class="hidden md:inline">
+					{isFollowing ? 'Following' : 'Follow'}
+				</span>
+			</Popover.Trigger>
+			<Popover.Content align="end" class="w-64 p-0">
+				<div class="flex items-center justify-between gap-2 border-b px-3 py-2">
+					<div class="text-xs font-semibold">
+						{followers?.length ?? 0} follower{followers?.length === 1 ? '' : 's'}
+					</div>
+					<Button
+						size="sm"
+						variant={isFollowing ? 'outline' : 'default'}
+						class="h-7 px-2 text-xs"
+						disabled={followToggleBusy}
+						onclick={toggleFollow}
+					>
+						<Star size={12} class={isFollowing ? 'fill-current' : ''} />
+						{isFollowing ? 'Unfollow' : 'Follow'}
+					</Button>
+				</div>
+				<div class="max-h-72 overflow-y-auto">
+					{#if followers == null}
+						<div class="px-3 py-4 text-center text-xs text-muted-foreground">Loading…</div>
+					{:else if followerLoadError}
+						<div class="px-3 py-4 text-center text-xs text-destructive">{followerLoadError}</div>
+					{:else if followers.length === 0}
+						<div class="px-3 py-4 text-center text-xs text-muted-foreground">
+							Nobody is following this case yet.
+						</div>
+					{:else}
+						<ul class="flex flex-col py-1">
+							{#each followers as f (f.user_id)}
+								<li class="flex items-center gap-2 px-3 py-1.5 text-xs">
+									<UserRound size={12} class="opacity-70" />
+									<span class="min-w-0 flex-1 truncate">{f.user_name}</span>
+									<span class="shrink-0 text-2xs text-muted-foreground">@{f.user_login}</span>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+			</Popover.Content>
+		</Popover.Root>
 
 		<div class="mx-0.5 hidden h-5 w-px bg-border sm:block" aria-hidden="true"></div>
 
