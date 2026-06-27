@@ -1,8 +1,16 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
-	import cytoscape from 'cytoscape';
-	import type { Core, ElementDefinition, EventObject } from 'cytoscape';
+	// `cytoscape` touches `document` at top level — that breaks SvelteKit
+	// SSR if the module is imported statically. We also dynamic-import to
+	// keep the Vite dep optimizer from getting wedged when the package
+	// gets added without restarting the dev server. The whole module is
+	// loaded lazily inside `onMount`, where `window` is guaranteed.
+	type CytoscapeFn = typeof import('cytoscape');
+	type Core = import('cytoscape').Core;
+	type ElementDefinition = import('cytoscape').ElementDefinition;
+	type EventObject = import('cytoscape').EventObject;
+	let cytoscape: CytoscapeFn | null = null;
 	import { Save, Plus, Trash2, ExternalLink, ListChecks, HardDriveIcon } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
@@ -61,6 +69,7 @@
 
 	const initCy = () => {
 		if (!containerEl) return;
+		if (!cytoscape) return; // not loaded yet; `load` retries after import
 		if (cy) cy.destroy();
 		cy = cytoscape({
 			container: containerEl,
@@ -228,7 +237,30 @@
 		}
 	};
 
-	onMount(load);
+	onMount(async () => {
+		// Dynamic import — keeps cytoscape out of the SSR module graph
+		// (it touches `document` at top level) and out of the static
+		// dep-optimizer bundle, so a fresh dev server picks it up
+		// without a manual `vite optimize` step.
+		try {
+			const mod = (await import('cytoscape')) as unknown as
+				| CytoscapeFn
+				| { default: CytoscapeFn };
+			cytoscape =
+				'default' in mod && typeof mod.default === 'function'
+					? mod.default
+					: (mod as CytoscapeFn);
+		} catch (err) {
+			console.error('Failed to load cytoscape', err);
+			toast({
+				title: 'Graph library failed to load',
+				description: 'Check the network tab and reload.',
+				variant: 'destructive'
+			});
+			return;
+		}
+		await load();
+	});
 	onDestroy(() => {
 		if (cy) cy.destroy();
 	});
