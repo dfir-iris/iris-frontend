@@ -123,14 +123,19 @@
 								redirectTo: string;
 							};
 
-							auth.setAuth(responseData, tokenInfo, authSettings.mfa_enabled);
+							// Source of truth for "is MFA required?" is the login
+							// response itself (`mfa_required`) — it reflects the
+							// current server policy at the moment we authenticated.
+							// `authSettings.mfa_enabled` (from a separate
+							// /authentication-settings call at page load) is the
+							// fallback for older backends that don't yet return the
+							// flag inline.
+							const mfaRequired = responseData.mfa_required ?? authSettings.mfa_enabled;
 
-							console.log('authSettings:', authSettings)
+							auth.setAuth(responseData, tokenInfo, mfaRequired);
 
-							if (authSettings.mfa_enabled) {
+							if (mfaRequired) {
 								if (!responseData.mfa_setup_complete) {
-									console.log('redirecting to: /login/mfa-setup');
-
 									await goto(
 										redirectTo
 											? `/login/mfa-setup${getRedirectTo(redirectTo)}`
@@ -141,8 +146,6 @@
 								}
 
 								if (!auth.getMfaVerified()) {
-									console.log('redirecting to: /login/mfa-verify');
-
 									await goto(
 										redirectTo
 											? `/login/mfa-verify${getRedirectTo(redirectTo)}`

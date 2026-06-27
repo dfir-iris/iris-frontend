@@ -114,8 +114,20 @@
 		}
 	}
 
-	onMount(() => {
-		const user = get(auth).user;
+	onMount(async () => {
+		// Accept the partial-auth state: the login response set tokens +
+		// user in the store, but on a hard refresh of this page the user
+		// may not be hydrated yet. If tokens are present and still valid,
+		// pull the profile via whoami before bouncing back to /login.
+		let user = get(auth).user;
+
+		if (!user && auth.getAccessToken() && !auth.isRefreshTokenExpired()) {
+			try {
+				user = await auth.loadAuth(fetch);
+			} catch {
+				user = null;
+			}
+		}
 
 		if (user) {
 			buildMfaArtifacts(user).catch((e: unknown) => {

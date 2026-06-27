@@ -38,6 +38,10 @@ export interface LoginResponse extends UserInfo {
 	has_mini_sidebar: boolean;
 	has_deletion_confirmation: boolean;
 	mfa_setup_complete: boolean;
+	// Optional for backward compatibility with backends that don't return
+	// it inline. The login page falls back to `authSettings.mfa_enabled`
+	// when this is undefined.
+	mfa_required?: boolean;
 	tokens: RefreshTokens;
 }
 
