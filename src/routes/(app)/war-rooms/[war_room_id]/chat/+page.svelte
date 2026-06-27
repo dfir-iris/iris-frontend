@@ -273,16 +273,27 @@
 	};
 
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
+	const messageKey = (m: ChatMessage) =>
+		// Live-merged stream mixes real chat ids (positive) and virtual
+		// UserActivity ids (negative) — `message_id` alone isn't ordered
+		// across both. We dedupe on (message_id, created_at) instead so
+		// the poll never appends a row we already have.
+		`${m.message_id}:${m.created_at ?? ''}`;
+
 	const pollNewer = async () => {
 		if (messages.length === 0) return load();
-		const newest = messages[messages.length - 1].message_id;
+		const seen = new Set(messages.map(messageKey));
 		const res = await WarRoomChatService.list(warRoomId, { limit: 50 });
 		if (res.ok && Array.isArray(res.data)) {
-			const fresh = res.data.filter((m) => m.message_id > newest);
+			const fresh = (res.data as ChatMessage[]).filter(
+				(m) => !seen.has(messageKey(m))
+			);
 			if (fresh.length > 0) {
 				const wasAtBottom =
 					listEl != null &&
 					listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 80;
+				// Newest first from the API; reverse so the resulting array
+				// stays chronologically ordered (oldest at top).
 				messages = [...messages, ...[...fresh].reverse()];
 				if (wasAtBottom) scrollToBottom();
 			}
