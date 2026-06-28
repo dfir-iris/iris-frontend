@@ -80,8 +80,16 @@ export class ApiService {
 		return ApiService.request<TRes>('PUT', url, data, options);
 	}
 
-	static async delete<T>(url: string, options: ApiOptions = {}): Promise<RequestResponse<T>> {
-		return ApiService.request<T>('DELETE', url, undefined, options);
+	static async delete<T, TBody = undefined>(
+		url: string,
+		options: ApiOptions = {},
+		// Optional request body. DELETE-with-body is unusual but
+		// occasionally needed (v2 bulk-revoke endpoints do this). The
+		// underlying `fetch` happily forwards the body when present;
+		// callers that don't need it can keep the old two-arg form.
+		body?: TBody
+	): Promise<RequestResponse<T>> {
+		return ApiService.request<T>('DELETE', url, body, options);
 	}
 
 	static async patch<TRes, TBody = unknown>(

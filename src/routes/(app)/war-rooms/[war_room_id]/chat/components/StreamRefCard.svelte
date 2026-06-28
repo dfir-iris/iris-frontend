@@ -135,7 +135,13 @@
 	{#if resolved.href && caseLookup}
 		<!-- Case chip with a name + customer tooltip — same hover UX
 		     the case-notes mention chips give. -->
-		<TooltipProvider>
+		<!--
+		  `delayDuration={0}` makes the tooltip appear instantly on
+		  hover. The stream chip is a glance-and-go affordance — a
+		  300ms wait makes it feel laggy when the operator is scanning
+		  several rows quickly.
+		-->
+		<TooltipProvider delayDuration={0}>
 			<Tooltip>
 				<TooltipTrigger>
 					<a
