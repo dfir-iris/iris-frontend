@@ -1,29 +1,35 @@
 <!--
   War-room datastore side panel.
 
-  Mirrors `CaseDatastorePanel` but aggregates two sources:
-    1. The war room's *own* uploaded files (flat list, drag-drop upload).
-    2. Each attached case's full datastore tree, embedded via
-       `DatastoreTreeNode` so the look matches the case-side panel.
+  Visually identical to the case-side `CaseDatastorePanel` — same
+  `DatastoreTreeNode` chrome, search box, click-to-preview/download —
+  but the **root** is synthesised: one folder per attached case, each
+  containing that case's tree as `children`. So the tree reads:
 
-  Read-only on case datastores (clicking a file downloads it via the
-  authenticated blob URL helper); the operator can still upload files
-  directly to the war room from anywhere with the toolbar button or by
-  dropping files on the panel.
+      ▼ Case #42 — [DATABREACH] Foo
+          ▼ Evidences
+          ▼ IOCs
+              📄 phish.eml
+      ▼ Case #57 — [PHISH] Bar
+          ▼ Notes Upload
+              📄 …
+
+  Read-only on case datastores: file actions resolve to download via
+  the authenticated blob URL; folder edits route the operator to the
+  case page where the full mutation surface lives. War-room files
+  (uploaded directly to the room) still get their own flat list at
+  the top of the panel.
 -->
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import {
-		ChevronDown,
-		ChevronRight,
 		DatabaseIcon,
 		Download,
-		HardDriveIcon,
+		File as FileIcon,
 		RefreshCwIcon,
 		Trash2,
 		UploadIcon,
-		XIcon,
-		File as FileIcon
+		XIcon
 	} from 'lucide-svelte';
 	import { page } from '$app/state';
 	import {
@@ -44,7 +50,10 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { toast } from '$lib/components/ui/toast';
 	import DatastoreTreeNode from '$lib/components/common/Datastore/DatastoreTreeNode.svelte';
-	import type { DataStoreTree } from '$lib/types/resources/datastore';
+	import type {
+		DataStoreTree,
+		DataStoreTreeNode as DataStoreTreeNodeT
+	} from '$lib/types/resources/datastore';
 
 	const panel = getContext<WarRoomDatastorePanelContext>(
 		WAR_ROOM_DATASTORE_PANEL_CTX
@@ -52,35 +61,96 @@
 
 	const warRoomId = $derived(Number(page.params.war_room_id));
 
-	// --- War-room files ----------------------------------------------------
-	let files = $state<WarRoomDatastoreFile[]>([]);
+	// --- War-room files --------------------------------------------------
+	let warRoomFiles = $state<WarRoomDatastoreFile[]>([]);
 	let attachedCases = $state<WarRoomCaseAttachment[]>([]);
-	let loading = $state(false);
+	let loadingMeta = $state(false);
 	let isRefreshing = $state(false);
 	let uploading = $state(false);
 	let dragOver = $state(false);
 	let inputEl: HTMLInputElement | null = $state(null);
 	let lastWarRoomId: number | null = null;
 
+	// --- Aggregated case trees -------------------------------------------
+	// `caseTrees` holds each attached case's full v2 tree, keyed by
+	// case_id. They get merged into a single synthetic root tree
+	// (`mergedTree`) the `DatastoreTreeNode` recursive renderer can
+	// chew on the same way it does for a real case.
+	type CaseTreeState = {
+		loading: boolean;
+		error: string | null;
+		tree: DataStoreTree;
+	};
+	let caseTrees = $state<Record<number, CaseTreeState>>({});
+	// case_id → file_id index, populated whenever we load a tree. The
+	// file-action handler looks up the owning case here so it can call
+	// the correct `CaseDatastoreService` endpoint.
+	let fileOwner = $state<Record<number, number>>({});
+
+	let searchTerm = $state('');
+
+	const indexFiles = (tree: DataStoreTree, caseId: number) => {
+		for (const node of Object.values(tree)) {
+			if (node.type === 'file') {
+				fileOwner[node.file_id] = caseId;
+			} else if (node.type === 'directory') {
+				indexFiles(node.children, caseId);
+			}
+		}
+	};
+
+	const loadCaseTree = async (caseId: number) => {
+		caseTrees[caseId] = {
+			loading: true,
+			error: null,
+			tree: caseTrees[caseId]?.tree ?? {}
+		};
+		const res = await CaseDatastoreService.getTree(caseId);
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			// Backend wraps in { data: <tree> } same as the case context.
+			const payload = res.data as unknown as
+				| { data?: DataStoreTree }
+				| DataStoreTree;
+			const treeData =
+				'data' in (payload as { data?: unknown }) &&
+				(payload as { data?: unknown }).data
+					? ((payload as { data: DataStoreTree }).data)
+					: (payload as DataStoreTree);
+			caseTrees[caseId] = { loading: false, error: null, tree: treeData };
+			indexFiles(treeData, caseId);
+		} else {
+			caseTrees[caseId] = {
+				loading: false,
+				error:
+					typeof res.data === 'string'
+						? res.data
+						: (res.error?.message ?? 'Failed to load datastore'),
+				tree: caseTrees[caseId]?.tree ?? {}
+			};
+		}
+	};
+
 	const load = async () => {
 		if (!warRoomId) return;
-		loading = true;
+		loadingMeta = true;
 		try {
 			const [filesRes, casesRes] = await Promise.all([
 				WarRoomDatastoreService.list(warRoomId),
 				WarRoomsService.listCases(warRoomId)
 			]);
 			if (filesRes.ok && filesRes.data && typeof filesRes.data !== 'string') {
-				const payload = filesRes.data as {
-					files: WarRoomDatastoreFile[];
-				};
-				files = payload.files ?? [];
+				const payload = filesRes.data as { files: WarRoomDatastoreFile[] };
+				warRoomFiles = payload.files ?? [];
 			}
 			if (casesRes.ok && Array.isArray(casesRes.data)) {
 				attachedCases = casesRes.data;
+				// Fan-out the case-tree fetches. We don't await them
+				// individually — the panel renders skeletons inside each
+				// case folder until its tree lands.
+				await Promise.all(attachedCases.map((c) => loadCaseTree(c.case_id)));
 			}
 		} finally {
-			loading = false;
+			loadingMeta = false;
 		}
 	};
 
@@ -89,13 +159,6 @@
 		isRefreshing = true;
 		try {
 			await load();
-			// Refresh any already-expanded case tree so the operator sees
-			// new uploads on the case without having to collapse + expand.
-			for (const caseId of Object.keys(caseTrees).map(Number)) {
-				if (caseTrees[caseId]?.expanded) {
-					await loadCaseTree(caseId);
-				}
-			}
 		} finally {
 			isRefreshing = false;
 		}
@@ -106,11 +169,10 @@
 		if (warRoomId !== lastWarRoomId) {
 			lastWarRoomId = warRoomId;
 			void load();
-		} else if (files.length === 0 && attachedCases.length === 0 && !loading) {
-			void load();
 		}
 	});
 
+	// --- War-room uploads ------------------------------------------------
 	const uploadFiles = async (picked: FileList | File[]) => {
 		const list = Array.from(picked);
 		if (list.length === 0) return;
@@ -151,7 +213,7 @@
 		if (!confirm(`Delete file "${f.filename}"?`)) return;
 		const res = await WarRoomDatastoreService.remove(warRoomId, f.file_id);
 		if (res.ok) {
-			files = files.filter((x) => x.file_id !== f.file_id);
+			warRoomFiles = warRoomFiles.filter((x) => x.file_id !== f.file_id);
 		} else {
 			toast({ title: 'Could not delete file', variant: 'destructive' });
 		}
@@ -165,96 +227,73 @@
 		return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 	};
 
-	// --- Embedded case datastores -----------------------------------------
-	type CaseTreeState = {
-		expanded: boolean;
-		loading: boolean;
-		error: string | null;
-		tree: DataStoreTree;
-		filter: string;
-	};
-	let caseTrees = $state<Record<number, CaseTreeState>>({});
-
-	const ensureState = (caseId: number) => {
-		if (!caseTrees[caseId]) {
-			caseTrees[caseId] = {
-				expanded: false,
-				loading: false,
-				error: null,
-				tree: {},
-				filter: ''
-			};
+	// --- Synthetic merged tree -------------------------------------------
+	// We build one virtual folder per attached case. The dict key is
+	// `d-c<caseId>` so it stays distinct from real folder keys
+	// (`d-<path_id>`), and the synthetic `path_id` is a large negative
+	// number derived from the case id — large enough that it can't
+	// collide with any real path id.
+	const mergedTree = $derived.by<DataStoreTree>(() => {
+		const out: DataStoreTree = {};
+		for (const att of attachedCases) {
+			const state = caseTrees[att.case_id];
+			const childTree = state?.tree ?? {};
+			out[`d-c${att.case_id}`] = {
+				type: 'directory',
+				name: `Case #${att.case_id} — ${att.case_name}`,
+				is_root: true,
+				children: childTree
+			} as DataStoreTreeNodeT;
 		}
-		return caseTrees[caseId];
+		return out;
+	});
+
+	// Action routers ------------------------------------------------------
+	const handleFolderAction = (action: string, _folderId: number) => {
+		if (action === 'select') return;
+		toast({
+			title: 'Open the case to manage folders',
+			description: 'The war-room datastore is read-only for attached cases.'
+		});
 	};
 
-	const loadCaseTree = async (caseId: number) => {
-		const s = ensureState(caseId);
-		s.loading = true;
-		s.error = null;
-		const res = await CaseDatastoreService.getTree(caseId);
-		s.loading = false;
-		if (res.ok && res.data && typeof res.data !== 'string') {
-			// Backend wraps in { data: <tree> } for v2 endpoints — same
-			// indirection as the case-side context.
-			const payload = res.data as unknown as
-				| { data?: DataStoreTree }
-				| DataStoreTree;
-			const treeData =
-				'data' in (payload as { data?: unknown }) &&
-				(payload as { data?: unknown }).data
-					? ((payload as { data: DataStoreTree }).data)
-					: (payload as DataStoreTree);
-			s.tree = treeData;
-		} else {
-			s.error =
-				typeof res.data === 'string'
-					? res.data
-					: (res.error?.message ?? 'Failed to load datastore');
+	const handleFileAction = (action: string, fileId: number) => {
+		const owner = fileOwner[fileId];
+		if (!owner) {
+			toast({ title: 'File not found', variant: 'destructive' });
+			return;
 		}
-	};
-
-	const toggleCase = async (caseId: number) => {
-		const s = ensureState(caseId);
-		s.expanded = !s.expanded;
-		if (s.expanded && Object.keys(s.tree).length === 0 && !s.loading) {
-			await loadCaseTree(caseId);
+		if (action === 'download' || action === 'select' || action === 'preview') {
+			void (async () => {
+				const url = await CaseDatastoreService.fetchFileBlobUrl(owner, fileId);
+				if (typeof url === 'string') {
+					window.open(url, '_blank', 'noopener,noreferrer');
+				} else {
+					toast({ title: 'Could not open the file', variant: 'destructive' });
+				}
+			})();
+			return;
 		}
+		if (action === 'copy-link') {
+			void navigator.clipboard
+				.writeText(
+					`${window.location.origin}/case/${owner}/datastore`
+				)
+				.then(() => toast({ title: 'Case datastore link copied' }))
+				.catch(() =>
+					toast({ title: 'Could not copy link', variant: 'destructive' })
+				);
+			return;
+		}
+		toast({
+			title: 'Open the case to make this change',
+			description: `Open case #${owner} → Datastore for full controls.`
+		});
 	};
 
-	const downloadCaseFile = (caseId: number, fileId: number) => {
-		// `fetchFileBlobUrl` resolves an authenticated blob URL — safe to
-		// hand to window.open. A direct `<a href>` would 401 because the
-		// bearer token isn't on the request.
-		void (async () => {
-			const url = await CaseDatastoreService.fetchFileBlobUrl(caseId, fileId);
-			if (typeof url === 'string') {
-				window.open(url, '_blank', 'noopener,noreferrer');
-			}
-		})();
-	};
-
-	const makeFolderAction =
-		(_caseId: number) => (action: string, _folderId: number) => {
-			// Embedded view is read-only — full controls live on the case page.
-			if (action === 'select') return;
-			toast({
-				title: 'Manage folders on the case page',
-				description: 'Open the case to make folder changes.'
-			});
-		};
-
-	const makeFileAction =
-		(caseId: number) => (action: string, fileId: number) => {
-			if (action === 'download' || action === 'select' || action === 'preview') {
-				downloadCaseFile(caseId, fileId);
-				return;
-			}
-			toast({
-				title: 'Manage files on the case page',
-				description: 'Open the case to delete or move this file.'
-			});
-		};
+	const isLoadingCases = $derived(
+		Object.values(caseTrees).some((s) => s.loading)
+	);
 </script>
 
 <div
@@ -272,7 +311,7 @@
 	ondragleave={() => (dragOver = false)}
 	ondrop={onDrop}
 >
-	<header class="flex items-center justify-between gap-2 border-b px-3 py-2">
+	<header class="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2">
 		<div class="flex items-center gap-2">
 			<DatabaseIcon class="h-3.5 w-3.5 text-muted-foreground" />
 			<h3 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -323,36 +362,44 @@
 		</div>
 	</header>
 
+	<div class="shrink-0 border-b px-3 py-2">
+		<Input
+			value={searchTerm}
+			oninput={(e) => (searchTerm = (e.target as HTMLInputElement).value)}
+			placeholder="Search files…"
+			class="h-7 text-xs"
+		/>
+	</div>
+
 	<div
 		class={[
-			'flex-1 overflow-y-auto transition-colors',
+			'min-h-0 flex-1 overflow-y-auto transition-colors',
 			dragOver ? 'bg-primary/10' : ''
 		]}
 	>
-		<!-- War room files -->
+		<!-- War-room files -->
 		<section class="border-b">
 			<div class="flex items-center gap-2 bg-card/30 px-3 py-1.5">
-				<HardDriveIcon class="h-3 w-3 text-red-500" />
 				<span class="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
 					War room
 				</span>
 				<span class="text-2xs text-muted-foreground tabular-nums">
-					({files.length})
+					({warRoomFiles.length})
 				</span>
 			</div>
-			{#if loading}
+			{#if loadingMeta && warRoomFiles.length === 0}
 				<div class="flex flex-col gap-1 p-2">
 					{#each Array(2) as _}
 						<Skeleton class="h-9 w-full" />
 					{/each}
 				</div>
-			{:else if files.length === 0}
+			{:else if warRoomFiles.length === 0}
 				<p class="px-3 py-3 text-center text-2xs text-muted-foreground">
 					Drop a file to stash a war-room-level artefact.
 				</p>
 			{:else}
 				<ul class="flex flex-col">
-					{#each files as f (f.file_id)}
+					{#each warRoomFiles as f (f.file_id)}
 						<li class="group flex items-center gap-2 px-3 py-1.5">
 							<FileIcon class="h-3 w-3 shrink-0 text-muted-foreground" />
 							<div class="min-w-0 flex-1">
@@ -388,81 +435,34 @@
 			{/if}
 		</section>
 
-		<!-- Per-case embedded trees -->
-		{#if attachedCases.length > 0}
-			<section>
-				<div class="flex items-center gap-2 bg-card/30 px-3 py-1.5">
-					<HardDriveIcon class="h-3 w-3 text-sky-500" />
-					<span class="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
-						Attached cases
-					</span>
-					<span class="text-2xs text-muted-foreground tabular-nums">
-						({attachedCases.length})
-					</span>
-				</div>
-				<div class="divide-y">
-					{#each attachedCases as att (att.case_id)}
-						{@const s = ensureState(att.case_id)}
-						<div>
-							<button
-								type="button"
-								class="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-muted/40"
-								onclick={() => toggleCase(att.case_id)}
-								aria-expanded={s.expanded}
-							>
-								{#if s.expanded}
-									<ChevronDown class="h-3 w-3 shrink-0 text-muted-foreground" />
-								{:else}
-									<ChevronRight class="h-3 w-3 shrink-0 text-muted-foreground" />
-								{/if}
-								<span class="min-w-0 flex-1 truncate text-xs font-medium">
-									{att.case_name}
-								</span>
-								<span class="shrink-0 text-2xs text-muted-foreground">
-									#{att.case_id}
-								</span>
-							</button>
+		<!-- Aggregated case datastores rendered as one big tree -->
+		<section class="px-1 py-2">
+			<div class="flex items-center gap-2 px-2 pb-1">
+				<span class="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+					Cases
+				</span>
+				<span class="text-2xs text-muted-foreground tabular-nums">
+					({attachedCases.length})
+				</span>
+				{#if isLoadingCases}
+					<span class="text-2xs italic text-muted-foreground">loading…</span>
+				{/if}
+			</div>
 
-							{#if s.expanded}
-								<div class="border-t bg-background px-2 py-2">
-									<div class="mb-2 px-1">
-										<Input
-											value={s.filter}
-											oninput={(e) =>
-												(s.filter = (
-													e.target as HTMLInputElement
-												).value)}
-											placeholder="Search files…"
-											class="h-6 text-2xs"
-										/>
-									</div>
-
-									{#if s.loading}
-										<Skeleton class="mx-1 h-16 w-[calc(100%-0.5rem)]" />
-									{:else if s.error}
-										<p class="px-2 py-2 text-2xs text-destructive">
-											{s.error}
-										</p>
-									{:else if Object.keys(s.tree).length === 0}
-										<p class="px-2 py-2 text-2xs text-muted-foreground">
-											Empty datastore.
-										</p>
-									{:else}
-										<div class="text-2xs">
-											<DatastoreTreeNode
-												tree={s.tree}
-												filter={s.filter}
-												onFolderAction={makeFolderAction(att.case_id)}
-												onFileAction={makeFileAction(att.case_id)}
-											/>
-										</div>
-									{/if}
-								</div>
-							{/if}
-						</div>
-					{/each}
-				</div>
-			</section>
-		{/if}
+			{#if attachedCases.length === 0}
+				<p class="px-3 py-3 text-center text-2xs text-muted-foreground">
+					No cases attached. Anything attached later appears here automatically.
+				</p>
+			{:else if Object.keys(mergedTree).length === 0}
+				<Skeleton class="mx-2 h-24 w-[calc(100%-1rem)]" />
+			{:else}
+				<DatastoreTreeNode
+					tree={mergedTree}
+					filter={searchTerm}
+					onFolderAction={handleFolderAction}
+					onFileAction={handleFileAction}
+				/>
+			{/if}
+		</section>
 	</div>
 </div>
