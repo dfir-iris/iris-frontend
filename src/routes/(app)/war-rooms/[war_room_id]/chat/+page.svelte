@@ -1034,6 +1034,7 @@
 									{@const Icon = systemIcon(m.kind)}
 
 									{#if m.kind !== 'message'}
+										{@const actor = m.author_name ?? m.author_login}
 										<li
 											class="flex items-center gap-2 rounded-md border border-dashed border-border/60 bg-card/40 px-3 py-1.5 text-xs"
 										>
@@ -1041,6 +1042,16 @@
 												<Icon class={`h-3.5 w-3.5 shrink-0 ${systemColor(m.kind)}`} />
 											{/if}
 											<span class="min-w-0 flex-1 break-words text-muted-foreground">
+												{#if actor}
+													<!-- Actor first so the operator can see at a glance
+													     who triggered the system event before reading
+													     the body. The avatar isn't here on purpose: the
+													     dashed row is intentionally compact and a tiny
+													     name pill reads better at this height. -->
+													<span class="mr-1 font-medium text-foreground">
+														{actor}
+													</span>
+												{/if}
 												<ChatMessageBody body={m.body ?? ''} onAttachmentClick={openPreview} />
 											</span>
 											{#if m.ref_case_id}

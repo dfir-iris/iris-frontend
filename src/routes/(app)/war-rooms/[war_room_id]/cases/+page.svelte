@@ -248,11 +248,24 @@
 									#{a.case_id}
 								</span>
 							</span>
-							{#if a.note}
-								<span class="line-clamp-1 block text-xs text-muted-foreground">
+							<!--
+							  Secondary line packs the customer name + the
+							  optional attach note. We always render the
+							  customer if known so the operator can spot at a
+							  glance whether several cases under the same
+							  client are in the room.
+							-->
+							<span class="mt-0.5 block truncate text-2xs text-muted-foreground">
+								{#if a.customer_name}
+									{a.customer_name}
+									{#if a.note}
+										<span class="opacity-50">·</span>
+										{a.note}
+									{/if}
+								{:else if a.note}
 									{a.note}
-								</span>
-							{/if}
+								{/if}
+							</span>
 						</span>
 					</button>
 
@@ -376,7 +389,14 @@
 										<span class="font-mono text-2xs text-muted-foreground">
 											#{c.case_id}
 										</span>
-										<span class="min-w-0 flex-1 truncate">{c.case_name}</span>
+										<span class="flex min-w-0 flex-1 flex-col">
+											<span class="truncate">{c.case_name}</span>
+											{#if c.case_customer?.customer_name}
+												<span class="truncate text-2xs text-muted-foreground">
+													{c.case_customer.customer_name}
+												</span>
+											{/if}
+										</span>
 									</span>
 								</label>
 							</li>

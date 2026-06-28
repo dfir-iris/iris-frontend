@@ -16,8 +16,12 @@ export interface WarRoomTask {
 	source_case_task_id: number | null;
 	created_at: string | null;
 	created_by_id: number | null;
+	created_by_login?: string | null;
+	created_by_name?: string | null;
 	closed_at: string | null;
 	closed_by_id: number | null;
+	closed_by_login?: string | null;
+	closed_by_name?: string | null;
 	tags: string | null;
 }
 

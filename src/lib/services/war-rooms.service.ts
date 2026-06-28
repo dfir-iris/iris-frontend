@@ -40,6 +40,8 @@ export interface WarRoomCaseAttachment {
 	war_room_id: number;
 	case_id: number;
 	case_name: string;
+	customer_id: number | null;
+	customer_name: string | null;
 	attached_at: string | null;
 	note: string | null;
 }

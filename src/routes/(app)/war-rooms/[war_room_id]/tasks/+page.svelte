@@ -127,20 +127,33 @@
 								</Button>
 								<div class="min-w-0 flex-1">
 									<p class="truncate text-sm">{t.title}</p>
-									{#if t.description}
-										<p class="line-clamp-1 text-2xs text-muted-foreground">
+									<!--
+									  Attribution line: who's on the hook + who put
+									  it on the board. Both fields come from the
+									  server-joined display name so we don't have
+									  to look up users client-side.
+									-->
+									<p class="line-clamp-1 text-2xs text-muted-foreground">
+										{#if t.assignee_name}
+											<span class="font-medium text-foreground">
+												{t.assignee_name}
+											</span>
+										{:else}
+											<span class="italic">Unassigned</span>
+										{/if}
+										{#if t.created_by_name}
+											<span class="opacity-60">·</span>
+											created by {t.created_by_name}
+										{/if}
+										{#if t.description}
+											<span class="opacity-60">·</span>
 											{t.description}
-										</p>
-									{/if}
+										{/if}
+									</p>
 								</div>
 								{#if t.due_at}
 									<span class="shrink-0 text-2xs text-muted-foreground">
 										Due {new Date(t.due_at).toLocaleDateString()}
-									</span>
-								{/if}
-								{#if t.assignee_name}
-									<span class="shrink-0 text-2xs text-muted-foreground">
-										@{t.assignee_login}
 									</span>
 								{/if}
 								<Button
@@ -175,7 +188,20 @@
 								>
 									<Check class="h-3.5 w-3.5 text-green-600" />
 								</Button>
-								<span class="min-w-0 flex-1 truncate text-sm line-through">{t.title}</span>
+								<div class="min-w-0 flex-1">
+									<p class="truncate text-sm line-through">{t.title}</p>
+									<p class="line-clamp-1 text-2xs">
+										{#if t.closed_by_name}
+											Closed by {t.closed_by_name}
+										{:else}
+											Closed
+										{/if}
+										{#if t.closed_at}
+											<span class="opacity-60">·</span>
+											{new Date(t.closed_at).toLocaleDateString()}
+										{/if}
+									</p>
+								</div>
 								<Button
 									variant="ghost"
 									size="icon"
