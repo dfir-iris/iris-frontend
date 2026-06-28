@@ -18,6 +18,7 @@
 	} from '$lib/contexts/war-room-panels.context.svelte';
 	import WarRoomTopbar from './components/WarRoomTopbar.svelte';
 	import WarRoomTabs from './components/WarRoomTabs.svelte';
+	import WarRoomPeopleBanner from './components/WarRoomPeopleBanner.svelte';
 	import WarRoomWorkspace from './components/WarRoomWorkspace.svelte';
 
 	let { children }: { children: Snippet } = $props();
@@ -63,6 +64,7 @@
 
 <div class="flex h-full w-full flex-col bg-background">
 	<WarRoomTopbar />
+	<WarRoomPeopleBanner />
 	<WarRoomTabs />
 
 	<div class="flex-1 overflow-hidden">

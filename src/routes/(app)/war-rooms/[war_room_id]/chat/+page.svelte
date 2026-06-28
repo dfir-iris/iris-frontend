@@ -1083,6 +1083,7 @@
 												refType={m.ref_type}
 												refId={m.ref_id}
 												refCaseId={m.ref_case_id}
+												{attachedCases}
 											/>
 											<span class="shrink-0 text-2xs text-muted-foreground">
 												{fmtTime(m.created_at)}

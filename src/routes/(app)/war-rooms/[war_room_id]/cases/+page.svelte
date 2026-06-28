@@ -13,12 +13,17 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import {
+		Building2,
+		CalendarDays,
 		ExternalLink,
+		ListChecks,
 		Loader2,
 		Plus,
 		Search,
 		Trash2,
-		WaypointsIcon
+		UserRound,
+		WaypointsIcon,
+		XIcon
 	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
@@ -196,6 +201,80 @@
 		}
 		return out;
 	});
+
+	// --- Attached-list filters -----------------------------------------
+	// Text search hits name / customer / owner / state / id; the toggle
+	// row narrows further by state or "has open tasks". Keep filters
+	// cheap (in-memory) — the war-room rarely has more than a few dozen
+	// cases attached.
+	let listSearch = $state('');
+	let stateFilter = $state<'any' | 'open' | 'closed'>('any');
+	let tasksFilter = $state<'any' | 'with_open' | 'none'>('any');
+
+	const fmtDate = (iso: string | null) => {
+		if (!iso) return null;
+		try {
+			return new Date(iso).toLocaleDateString(undefined, {
+				month: 'short',
+				day: '2-digit',
+				year: 'numeric'
+			});
+		} catch {
+			return iso;
+		}
+	};
+
+	const filteredAttachments = $derived.by<WarRoomCaseAttachment[]>(() => {
+		const needle = listSearch.trim().toLowerCase();
+		return attachments.filter((a) => {
+			if (needle) {
+				const hay = [
+					a.case_name,
+					a.customer_name ?? '',
+					a.owner_name ?? '',
+					a.owner_login ?? '',
+					a.state_name ?? '',
+					`#${a.case_id}`
+				]
+					.join(' ')
+					.toLowerCase();
+				if (!hay.includes(needle)) return false;
+			}
+			if (stateFilter === 'open' && a.close_date) return false;
+			if (stateFilter === 'closed' && !a.close_date) return false;
+			if (tasksFilter === 'with_open' && (a.task_open_count ?? 0) === 0)
+				return false;
+			if (tasksFilter === 'none' && (a.task_count ?? 0) > 0) return false;
+			return true;
+		});
+	});
+
+	const anyFilterActive = $derived(
+		listSearch.trim().length > 0 ||
+			stateFilter !== 'any' ||
+			tasksFilter !== 'any'
+	);
+
+	const clearFilters = () => {
+		listSearch = '';
+		stateFilter = 'any';
+		tasksFilter = 'any';
+	};
+
+	const stateChip = (a: WarRoomCaseAttachment) => {
+		if (a.close_date) {
+			return {
+				label: a.state_name ?? 'Closed',
+				cls: 'border-muted bg-muted/60 text-muted-foreground'
+			};
+		}
+		// Open. Use a neutral-but-positive chip; we don't have severity
+		// here so we don't try to colour by it.
+		return {
+			label: a.state_name ?? 'Open',
+			cls: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/40 dark:bg-emerald-500/15 dark:text-emerald-200'
+		};
+	};
 </script>
 
 <div class="flex h-full w-full flex-col gap-4 overflow-y-auto p-4 sm:p-6">
@@ -215,7 +294,7 @@
 	{#if loading}
 		<div class="flex flex-col gap-2">
 			{#each Array(3) as _}
-				<Skeleton class="h-14 w-full" />
+				<Skeleton class="h-16 w-full" />
 			{/each}
 		</div>
 	{:else if attachments.length === 0}
@@ -229,10 +308,92 @@
 			</Button>
 		</div>
 	{:else}
+		<!--
+		  Filter bar: text search + state + tasks. Pure client-side
+		  filter over `attachments`; the typical war room has a handful
+		  of cases, so a server round-trip would just add latency.
+		-->
+		<div class="flex flex-wrap items-center gap-2 rounded-md border bg-card/40 px-3 py-2">
+			<div class="relative min-w-[240px] flex-1">
+				<Search
+					class="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+				/>
+				<Input
+					value={listSearch}
+					oninput={(e) => (listSearch = (e.target as HTMLInputElement).value)}
+					placeholder="Filter by name, customer, owner, id…"
+					class="h-8 pl-7 text-xs"
+				/>
+			</div>
+
+			<div class="flex shrink-0 items-center gap-1.5 text-2xs">
+				<span class="text-muted-foreground">State</span>
+				{#each [{ k: 'any', l: 'Any' }, { k: 'open', l: 'Open' }, { k: 'closed', l: 'Closed' }] as opt}
+					{@const on = stateFilter === opt.k}
+					<button
+						type="button"
+						class={[
+							'rounded-full border px-2 py-0.5 transition-colors',
+							on
+								? 'border-primary bg-primary/10 text-primary'
+								: 'border-border text-muted-foreground hover:text-foreground'
+						]}
+						onclick={() => (stateFilter = opt.k as 'any' | 'open' | 'closed')}
+					>
+						{opt.l}
+					</button>
+				{/each}
+			</div>
+
+			<div class="flex shrink-0 items-center gap-1.5 text-2xs">
+				<span class="text-muted-foreground">Tasks</span>
+				{#each [{ k: 'any', l: 'Any' }, { k: 'with_open', l: 'Has open' }, { k: 'none', l: 'None' }] as opt}
+					{@const on = tasksFilter === opt.k}
+					<button
+						type="button"
+						class={[
+							'rounded-full border px-2 py-0.5 transition-colors',
+							on
+								? 'border-primary bg-primary/10 text-primary'
+								: 'border-border text-muted-foreground hover:text-foreground'
+						]}
+						onclick={() => (tasksFilter = opt.k as 'any' | 'with_open' | 'none')}
+					>
+						{opt.l}
+					</button>
+				{/each}
+			</div>
+
+			{#if anyFilterActive}
+				<button
+					type="button"
+					class="ml-auto inline-flex items-center gap-1 text-2xs text-muted-foreground transition-colors hover:text-foreground"
+					onclick={clearFilters}
+				>
+					<XIcon class="h-3 w-3" />
+					Clear
+				</button>
+			{/if}
+
+			<span class="shrink-0 text-2xs text-muted-foreground tabular-nums">
+				{filteredAttachments.length} / {attachments.length}
+			</span>
+		</div>
+
+		{#if filteredAttachments.length === 0}
+			<div class="flex flex-1 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+				<p class="text-sm">No cases match the current filters.</p>
+				<Button variant="ghost" size="sm" onclick={clearFilters}>
+					Clear filters
+				</Button>
+			</div>
+		{:else}
 		<ul class="flex flex-col gap-2">
-			{#each attachments as a (a.case_id)}
+			{#each filteredAttachments as a (a.case_id)}
+				{@const chip = stateChip(a)}
+				{@const opened = fmtDate(a.open_date)}
 				<li
-					class="group flex items-center gap-3 rounded-md border bg-card/40 px-3 py-2 transition-colors hover:bg-card"
+					class="group flex items-start gap-3 rounded-md border bg-card/40 px-3 py-2.5 transition-colors hover:bg-card"
 				>
 					<button
 						type="button"
@@ -240,32 +401,61 @@
 						onclick={() => openDetail(a.case_id)}
 						aria-label={`Open details for case #${a.case_id}`}
 					>
-						<WaypointsIcon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+						<WaypointsIcon class="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
 						<span class="min-w-0 flex-1">
+							<!-- Headline row: name + state chip + id -->
 							<span class="flex items-center gap-2">
 								<span class="truncate text-sm font-medium">{a.case_name}</span>
+								<span
+									class={[
+										'shrink-0 rounded-md border px-1.5 py-0.5 text-2xs font-medium',
+										chip.cls
+									]}
+								>
+									{chip.label}
+								</span>
 								<span class="font-mono text-2xs text-muted-foreground">
 									#{a.case_id}
 								</span>
 							</span>
-							<!--
-							  Secondary line packs the customer name + the
-							  optional attach note. We always render the
-							  customer if known so the operator can spot at a
-							  glance whether several cases under the same
-							  client are in the room.
-							-->
-							<span class="mt-0.5 block truncate text-2xs text-muted-foreground">
+
+							<!-- Metadata row: customer · owner · opened · tasks -->
+							<span class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-2xs text-muted-foreground">
 								{#if a.customer_name}
-									{a.customer_name}
-									{#if a.note}
-										<span class="opacity-50">·</span>
-										{a.note}
-									{/if}
-								{:else if a.note}
-									{a.note}
+									<span class="inline-flex items-center gap-1">
+										<Building2 class="h-3 w-3 opacity-70" />
+										<span class="max-w-[14rem] truncate">{a.customer_name}</span>
+									</span>
 								{/if}
+								{#if a.owner_name || a.owner_login}
+									<span class="inline-flex items-center gap-1">
+										<UserRound class="h-3 w-3 opacity-70" />
+										<span class="max-w-[12rem] truncate">
+											{a.owner_name || a.owner_login}
+										</span>
+									</span>
+								{/if}
+								{#if opened}
+									<span class="inline-flex items-center gap-1">
+										<CalendarDays class="h-3 w-3 opacity-70" />
+										<span>Opened {opened}</span>
+									</span>
+								{/if}
+								<span class="inline-flex items-center gap-1">
+									<ListChecks class="h-3 w-3 opacity-70" />
+									<span class="tabular-nums">
+										{a.task_open_count}/{a.task_count}
+									</span>
+									<span class="opacity-70">open</span>
+								</span>
 							</span>
+
+							{#if a.note}
+								<span class="mt-1 line-clamp-2 block text-2xs text-muted-foreground">
+									<span class="opacity-70">Note:</span>
+									{a.note}
+								</span>
+							{/if}
 						</span>
 					</button>
 
@@ -292,6 +482,7 @@
 				</li>
 			{/each}
 		</ul>
+		{/if}
 	{/if}
 </div>
 

@@ -42,8 +42,28 @@ export interface WarRoomCaseAttachment {
 	case_name: string;
 	customer_id: number | null;
 	customer_name: string | null;
+	owner_id: number | null;
+	owner_login: string | null;
+	owner_name: string | null;
+	open_date: string | null;
+	close_date: string | null;
+	state_id: number | null;
+	state_name: string | null;
+	task_count: number;
+	task_open_count: number;
 	attached_at: string | null;
 	note: string | null;
+}
+
+export interface WarRoomPerson {
+	user_id: number;
+	login: string;
+	name: string;
+	email: string | null;
+	role: WarRoomMemberRole | null;
+	is_member: boolean;
+	is_owner: boolean;
+	case_ids: number[];
 }
 
 export interface WarRoomCaseSummary {
@@ -145,6 +165,17 @@ export class WarRoomsService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
 		return ApiService.delete<null>(`/war-rooms/${id}/members/${userId}`, options);
+	}
+
+	// --- People banner ----
+	// Returns the union of war-room members + every user with effective
+	// access to any attached case. Used to render the "people on the
+	// war" banner above the tabs.
+	static listPeople(
+		id: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<WarRoomPerson[]>> {
+		return ApiService.get<WarRoomPerson[]>(`/war-rooms/${id}/people`, options);
 	}
 
 	// --- Case attachment ----
