@@ -11,11 +11,13 @@
 	import { page } from '$app/state';
 	import {
 		AlertCircle,
+		AlertOctagon,
 		ChevronDown,
 		ChevronRight,
 		ClockIcon,
 		FileText,
 		Filter,
+		Gavel,
 		Loader2,
 		Paperclip,
 		Pin,
@@ -38,6 +40,7 @@
 	import AttachmentPreviewDialog, {
 		type AttachmentTarget
 	} from './components/AttachmentPreviewDialog.svelte';
+	import StreamRefCard from './components/StreamRefCard.svelte';
 	import {
 		WarRoomChatService,
 		type ChatMessage,
@@ -478,11 +481,18 @@
 	};
 
 	const SLASH_COMMANDS = [
-		{ cmd: '/note', desc: 'Pin a quick note in the chat' },
+		{ cmd: '/note', desc: 'Pin a quick note' },
 		{ cmd: '/pin', desc: 'Highlight a message' },
-		{ cmd: '/attach <case_id>', desc: 'Attach a case to the war room' },
-		{ cmd: '/task <title>', desc: 'Create a war-room task' },
-		{ cmd: '/sitrep <title>', desc: 'Start a SitRep draft' }
+		{ cmd: '/decision', desc: 'Log a command decision' },
+		{ cmd: '/attach <case_id>', desc: 'Attach a case' },
+		{ cmd: '/detach <case_id>', desc: 'Detach a case' },
+		{ cmd: '/task [@user] <title>', desc: 'Create a task' },
+		{ cmd: '/assign @user <title>', desc: 'Create + assign a task' },
+		{ cmd: '/sitrep <title>', desc: 'Start a SitRep draft' },
+		{ cmd: '/summary', desc: 'Auto-fill SitRep from snapshot' },
+		{ cmd: '/state <…>', desc: 'Flip war-room state' },
+		{ cmd: '/priority <…>', desc: 'Stamp a priority banner' },
+		{ cmd: '/whoami', desc: 'Check current user' }
 	];
 
 	// --- Attachments picker --------------------------------------------------
@@ -637,6 +647,10 @@
 			case 'note':
 			case 'pin':
 				return Pin;
+			case 'decision':
+				return Gavel;
+			case 'priority':
+				return AlertOctagon;
 			case 'system':
 				return AlertCircle;
 			default:
@@ -658,6 +672,10 @@
 			case 'note':
 			case 'pin':
 				return 'text-violet-600 dark:text-violet-400';
+			case 'decision':
+				return 'text-indigo-600 dark:text-indigo-400';
+			case 'priority':
+				return 'text-red-600 dark:text-red-400';
 			default:
 				return 'text-muted-foreground';
 		}
@@ -1054,14 +1072,18 @@
 												{/if}
 												<ChatMessageBody body={m.body ?? ''} onAttachmentClick={openPreview} />
 											</span>
-											{#if m.ref_case_id}
-												<a
-													href={`/case/${m.ref_case_id}`}
-													class="shrink-0 text-2xs text-primary hover:underline"
-												>
-													Case #{m.ref_case_id}
-												</a>
-											{/if}
+											<!--
+											  Reference card: a clickable chip pointing at the
+											  ref_type / ref_id the backend stamped on this row.
+											  Falls back to a non-link badge for self-referential
+											  rows (war_room, war_room_chat).
+											-->
+											<StreamRefCard
+												{warRoomId}
+												refType={m.ref_type}
+												refId={m.ref_id}
+												refCaseId={m.ref_case_id}
+											/>
 											<span class="shrink-0 text-2xs text-muted-foreground">
 												{fmtTime(m.created_at)}
 											</span>

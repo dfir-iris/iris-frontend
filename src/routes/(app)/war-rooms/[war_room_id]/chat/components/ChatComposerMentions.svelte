@@ -46,9 +46,49 @@
 	}[] = [
 		{ cmd: '/note', usage: '/note <text>', desc: 'Pin a quick note in the stream' },
 		{ cmd: '/pin', usage: '/pin <text>', desc: 'Highlight a message' },
-		{ cmd: '/attach', usage: '/attach <case_id>', desc: 'Attach a case to the war room' },
-		{ cmd: '/task', usage: '/task <title>', desc: 'Create a war-room task' },
-		{ cmd: '/sitrep', usage: '/sitrep <title>', desc: 'Start a SitRep draft' }
+		{
+			cmd: '/decision',
+			usage: '/decision <what we decided>',
+			desc: 'Log a command decision (lifted into SitReps)'
+		},
+		{
+			cmd: '/attach',
+			usage: '/attach <case_id> [reason]',
+			desc: 'Attach a case to the war room'
+		},
+		{
+			cmd: '/detach',
+			usage: '/detach <case_id>',
+			desc: 'Detach a case from the war room'
+		},
+		{ cmd: '/task', usage: '/task [@user] <title>', desc: 'Create a war-room task' },
+		{
+			cmd: '/assign',
+			usage: '/assign @user <title>',
+			desc: 'Create a task and assign it to a user'
+		},
+		{ cmd: '/sitrep', usage: '/sitrep <title>', desc: 'Start a SitRep draft' },
+		{
+			cmd: '/summary',
+			usage: '/summary [headline]',
+			desc: 'Auto-fill a SitRep from the current war-room snapshot'
+		},
+		{
+			cmd: '/state',
+			usage: '/state <open|active|standby|closed>',
+			desc: 'Flip the war-room lifecycle state'
+		},
+		{
+			cmd: '/priority',
+			usage: '/priority <low|medium|high|critical>',
+			desc: 'Stamp a priority banner (high/critical also flips state to active)'
+		},
+		{
+			cmd: '/whoami',
+			usage: '/whoami',
+			desc: 'Check which IRIS user this session is authenticated as'
+		},
+		{ cmd: '/help', usage: '/help', desc: 'List all available slash commands' }
 	];
 
 	let open = $state(false);

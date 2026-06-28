@@ -18,7 +18,9 @@ export type ChatMessageKind =
 	| 'case_activity'
 	| 'sitrep_published'
 	| 'note'
-	| 'pin';
+	| 'pin'
+	| 'decision'
+	| 'priority';
 
 export interface ChatReaction {
 	emoji: string;
