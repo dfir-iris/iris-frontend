@@ -33,7 +33,23 @@
 	};
 	let { textarea, body, attachedCases, onChangeBody }: Props = $props();
 
-	type Trigger = 'user' | 'resource';
+	type Trigger = 'user' | 'resource' | 'slash';
+
+	// Static catalogue of slash commands that get autocompleted in the
+	// composer. The labels are short on purpose — the MentionList row
+	// shows the command in the main slot, the sub-label is a hint about
+	// the expected argument.
+	const SLASH_COMMANDS_LIST: {
+		cmd: string;
+		usage: string;
+		desc: string;
+	}[] = [
+		{ cmd: '/note', usage: '/note <text>', desc: 'Pin a quick note in the stream' },
+		{ cmd: '/pin', usage: '/pin <text>', desc: 'Highlight a message' },
+		{ cmd: '/attach', usage: '/attach <case_id>', desc: 'Attach a case to the war room' },
+		{ cmd: '/task', usage: '/task <title>', desc: 'Create a war-room task' },
+		{ cmd: '/sitrep', usage: '/sitrep <title>', desc: 'Start a SitRep draft' }
+	];
 
 	let open = $state(false);
 	let trigger = $state<Trigger>('user');
@@ -209,6 +225,24 @@
 		if (!textarea) return null;
 		const caret = textarea.selectionStart;
 		const text = textarea.value.slice(0, caret);
+
+		// Slash commands only autocomplete when they're the leading
+		// token of the message — that's the same rule the backend uses
+		// to dispatch them. A `/` mid-message is just a literal slash.
+		if (
+			text.length > 0 &&
+			text[0] === '/' &&
+			!/\s/.test(text) &&
+			caret === text.length
+		) {
+			return {
+				start: 0,
+				end: caret,
+				trigger: 'slash' as Trigger,
+				query: text.slice(1)
+			};
+		}
+
 		// Search backward for the nearest `@` or `#` at a word boundary,
 		// stopping at whitespace / newline. Bail if we hit one.
 		for (let i = caret - 1; i >= 0; i--) {
@@ -246,7 +280,26 @@
 		query = t.query;
 		triggerStart = t.start;
 
-		if (t.trigger === 'user') {
+		if (t.trigger === 'slash') {
+			const q = t.query.trim().toLowerCase();
+			const matching = q
+				? SLASH_COMMANDS_LIST.filter(
+						(c) =>
+							c.cmd.slice(1).toLowerCase().startsWith(q) ||
+							c.desc.toLowerCase().includes(q)
+					)
+				: SLASH_COMMANDS_LIST;
+			items = matching.map((c) => ({
+				id: c.cmd,
+				label: c.usage,
+				sublabel: c.desc,
+				// Reuse the 'task' icon — it visually reads as
+				// "actionable command" and matches the existing
+				// MentionList icon vocabulary so we don't have to
+				// extend the kind enum just for this.
+				kind: 'task'
+			}));
+		} else if (t.trigger === 'user') {
 			const users = await loadUsers();
 			const q = t.query.trim();
 			const filtered = q
@@ -292,7 +345,12 @@
 		const after = body.slice(caret);
 
 		let insertion = '';
-		if (trigger === 'user') {
+		if (trigger === 'slash') {
+			// Pull the command name out of `item.id` (which is the raw
+			// slash command, e.g. `/task`). The trailing space puts the
+			// caret right where the argument starts.
+			insertion = `${item.id} `;
+		} else if (trigger === 'user') {
 			insertion = `@${item.sublabel?.replace(/^@/, '') ?? item.label}`;
 		} else {
 			const r = item as ResourceItem;
@@ -315,14 +373,17 @@
 			insertion = `[${typeWord} "${item.label}"](/case/${r.caseId}/${subRoute})`;
 		}
 
-		const next = `${before}${insertion} ${after}`;
+		// Slash completions REPLACE the leading `/` token entirely; @ and
+		// # mentions append a trailing space. Either way, the caret lands
+		// at the end of the inserted text.
+		const tail = trigger === 'slash' ? '' : ' ';
+		const next = `${before}${insertion}${trigger === 'slash' ? '' : tail}${after}`;
 		onChangeBody(next);
 		open = false;
 
-		// Restore caret to just after the inserted text on next tick.
 		queueMicrotask(() => {
 			if (!textarea) return;
-			const newCaret = (before + insertion + ' ').length;
+			const newCaret = (before + insertion).length + tail.length;
 			textarea.focus();
 			textarea.setSelectionRange(newCaret, newCaret);
 		});

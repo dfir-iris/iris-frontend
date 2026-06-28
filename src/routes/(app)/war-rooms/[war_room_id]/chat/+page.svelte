@@ -27,6 +27,7 @@
 		WaypointsIcon
 	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as Popover from '$lib/components/ui/popover';
@@ -105,39 +106,93 @@
 	let excludedCases = $state<Set<number>>(new Set());
 	let excludedCaseActivities = $state<Record<number, Set<string>>>({});
 
-	// Catalogue of activity-type slugs we know about — used to render
-	// the per-case checkbox list. Extending this list is safe: any
-	// stamped slug we haven't enumerated falls under "Other".
-	const ACTIVITY_TYPES = [
-		{ slug: 'note.created', label: 'Note created' },
-		{ slug: 'note.updated', label: 'Note updated' },
-		{ slug: 'note.deleted', label: 'Note deleted' },
-		{ slug: 'directory.created', label: 'Folder created' },
-		{ slug: 'directory.updated', label: 'Folder updated' },
-		{ slug: 'directory.deleted', label: 'Folder deleted' },
-		{ slug: 'ioc.created', label: 'IOC created' },
-		{ slug: 'ioc.updated', label: 'IOC updated' },
-		{ slug: 'ioc.deleted', label: 'IOC deleted' },
-		{ slug: 'asset.created', label: 'Asset created' },
-		{ slug: 'asset.updated', label: 'Asset updated' },
-		{ slug: 'asset.deleted', label: 'Asset deleted' },
-		{ slug: 'evidence.created', label: 'Evidence added' },
-		{ slug: 'evidence.updated', label: 'Evidence updated' },
-		{ slug: 'evidence.deleted', label: 'Evidence deleted' },
-		{ slug: 'task.created', label: 'Task added' },
-		{ slug: 'task.updated', label: 'Task updated' },
-		{ slug: 'task.deleted', label: 'Task deleted' },
-		{ slug: 'event.created', label: 'Timeline event added' },
-		{ slug: 'event.updated', label: 'Timeline event updated' },
-		{ slug: 'event.deleted', label: 'Timeline event deleted' },
-		{ slug: 'case.created', label: 'Case created' },
-		{ slug: 'case.closed', label: 'Case closed' },
-		{ slug: 'case.reopened', label: 'Case re-opened' },
-		{ slug: 'case.updated', label: 'Case updated' },
-		{ slug: 'case.reviewer_changed', label: 'Case reviewer changed' },
-		{ slug: 'alert.linked', label: 'Alert linked / unlinked' },
-		{ slug: 'case.other', label: 'Other case activity' }
+	// Grouped activity types. Categories collapse the 27 flat checkboxes
+	// from earlier into 8 expandable groups so the sidebar stays compact
+	// without losing granularity. Each group has its own checkbox: ticking
+	// it toggles every slug in the group at once; the parent shows an
+	// indeterminate state when some — but not all — child slugs are on.
+	const ACTIVITY_GROUPS: { key: string; label: string; slugs: { slug: string; label: string }[] }[] = [
+		{
+			key: 'notes',
+			label: 'Notes',
+			slugs: [
+				{ slug: 'note.created', label: 'Created' },
+				{ slug: 'note.updated', label: 'Updated' },
+				{ slug: 'note.deleted', label: 'Deleted' },
+				{ slug: 'directory.created', label: 'Folder created' },
+				{ slug: 'directory.updated', label: 'Folder updated' },
+				{ slug: 'directory.deleted', label: 'Folder deleted' }
+			]
+		},
+		{
+			key: 'iocs',
+			label: 'IOCs',
+			slugs: [
+				{ slug: 'ioc.created', label: 'Created' },
+				{ slug: 'ioc.updated', label: 'Updated' },
+				{ slug: 'ioc.deleted', label: 'Deleted' }
+			]
+		},
+		{
+			key: 'assets',
+			label: 'Assets',
+			slugs: [
+				{ slug: 'asset.created', label: 'Created' },
+				{ slug: 'asset.updated', label: 'Updated' },
+				{ slug: 'asset.deleted', label: 'Deleted' }
+			]
+		},
+		{
+			key: 'evidence',
+			label: 'Evidence',
+			slugs: [
+				{ slug: 'evidence.created', label: 'Added' },
+				{ slug: 'evidence.updated', label: 'Updated' },
+				{ slug: 'evidence.deleted', label: 'Deleted' }
+			]
+		},
+		{
+			key: 'tasks',
+			label: 'Tasks',
+			slugs: [
+				{ slug: 'task.created', label: 'Added' },
+				{ slug: 'task.updated', label: 'Updated' },
+				{ slug: 'task.deleted', label: 'Deleted' }
+			]
+		},
+		{
+			key: 'events',
+			label: 'Timeline events',
+			slugs: [
+				{ slug: 'event.created', label: 'Added' },
+				{ slug: 'event.updated', label: 'Updated' },
+				{ slug: 'event.deleted', label: 'Deleted' }
+			]
+		},
+		{
+			key: 'case',
+			label: 'Case lifecycle',
+			slugs: [
+				{ slug: 'case.created', label: 'Created' },
+				{ slug: 'case.closed', label: 'Closed' },
+				{ slug: 'case.reopened', label: 'Re-opened' },
+				{ slug: 'case.updated', label: 'Updated' },
+				{ slug: 'case.reviewer_changed', label: 'Reviewer changed' },
+				{ slug: 'alert.linked', label: 'Alert linked / unlinked' }
+			]
+		},
+		{
+			key: 'other',
+			label: 'Other',
+			slugs: [{ slug: 'case.other', label: 'Uncategorised' }]
+		}
 	];
+
+	// Flat list of all known slugs — used by `selectNone`-style bulk ops
+	// and by the bookkeeping when an entire case is muted.
+	const ALL_ACTIVITY_SLUGS = ACTIVITY_GROUPS.flatMap((g) =>
+		g.slugs.map((s) => s.slug)
+	);
 
 	const globalKeyForKind = (k: ChatMessageKind): string | null => {
 		for (const f of GLOBAL_FILTERS) {
@@ -221,6 +276,47 @@
 			...caseSectionsOpen,
 			[caseId]: !(caseSectionsOpen[caseId] ?? false)
 		};
+	};
+
+	// Per-(case, group) expansion. Stored under a composite key so we
+	// don't have to reset state when the operator switches cases.
+	let groupSectionsOpen = $state<Record<string, boolean>>({});
+	const groupKey = (caseId: number, groupKey: string) =>
+		`${caseId}:${groupKey}`;
+	const toggleGroupSection = (caseId: number, gk: string) => {
+		const k = groupKey(caseId, gk);
+		groupSectionsOpen = { ...groupSectionsOpen, [k]: !groupSectionsOpen[k] };
+	};
+
+	// Aggregate state for a group's parent checkbox: 'all' (every slug on),
+	// 'none' (every slug off) or 'some' (mixed — renders as indeterminate).
+	const groupState = (
+		caseId: number,
+		group: (typeof ACTIVITY_GROUPS)[number]
+	): 'all' | 'none' | 'some' => {
+		const excluded = excludedCaseActivities[caseId] ?? new Set<string>();
+		const onCount = group.slugs.filter((s) => !excluded.has(s.slug)).length;
+		if (onCount === 0) return 'none';
+		if (onCount === group.slugs.length) return 'all';
+		return 'some';
+	};
+
+	const toggleGroup = (
+		caseId: number,
+		group: (typeof ACTIVITY_GROUPS)[number]
+	) => {
+		const current = excludedCaseActivities[caseId] ?? new Set<string>();
+		const next = new Set(current);
+		const state = groupState(caseId, group);
+		// Mixed and all-on collapse to all-off; all-off expands to all-on.
+		// Mirrors the "click an indeterminate checkbox to clear" behaviour
+		// from native tri-state controls.
+		const wantOn = state === 'none';
+		for (const s of group.slugs) {
+			if (wantOn) next.delete(s.slug);
+			else next.add(s.slug);
+		}
+		excludedCaseActivities = { ...excludedCaseActivities, [caseId]: next };
 	};
 
 	// Attached cases drive the attachments picker (events / IOCs / assets
@@ -636,11 +732,12 @@
 	class="grid h-full min-h-0 w-full grid-cols-1 overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)]"
 >
 	<aside
-		class="hidden flex-col border-r bg-card/40 lg:flex"
+		class="hidden min-h-0 flex-col border-r bg-card/40 lg:flex"
 		aria-label="Stream filters"
 	>
-		<!-- Header row with quick select-all / select-none -->
-		<div class="flex items-center justify-between border-b px-4 py-2.5">
+		<!-- Header row with quick select-all / select-none. shrink-0 keeps
+		     it pinned while the inner list scrolls. -->
+		<div class="flex shrink-0 items-center justify-between border-b px-4 py-2.5">
 			<p class="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
 				<Filter class="h-3 w-3" />
 				Filters
@@ -664,6 +761,10 @@
 			{/if}
 		</div>
 
+		<!-- The scroll viewport. `min-h-0` on this AND on the parent
+		     `<aside>` is what lets `overflow-y-auto` actually clip — without
+		     both, the flex container stretches to its content height and
+		     the scrollbar never appears. -->
 		<div class="min-h-0 flex-1 overflow-y-auto">
 			<!-- Global kind toggles -->
 			<section class="border-b px-2 py-2">
@@ -674,32 +775,27 @@
 					{#each GLOBAL_FILTERS as f (f.key)}
 						{@const on = globalFilters.has(f.key)}
 						<li>
-							<button
-								type="button"
+							<label
 								class={[
-									'flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs transition-colors',
+									'flex w-full cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-xs transition-colors',
 									on
 										? 'text-foreground hover:bg-muted/60'
 										: 'text-muted-foreground hover:bg-muted/40'
 								]}
-								onclick={() => toggleGlobal(f.key)}
-								aria-pressed={on}
 							>
 								<span>{f.label}</span>
-								<input
-									type="checkbox"
-									class="pointer-events-none h-3 w-3"
+								<Checkbox
 									checked={on}
-									readonly
-									tabindex="-1"
+									onCheckedChange={() => toggleGlobal(f.key)}
+									aria-label={`Toggle ${f.label}`}
 								/>
-							</button>
+							</label>
 						</li>
 					{/each}
 				</ul>
 			</section>
 
-			<!-- Per-case sub-tree -->
+			<!-- Per-case sub-tree with grouped activity types -->
 			<section class="px-2 py-2">
 				<div class="flex items-center justify-between px-2 pb-1 pt-1">
 					<p class="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -716,7 +812,7 @@
 					<ul class="flex flex-col">
 						{#each attachedCases as att (att.case_id)}
 							{@const caseOn = isCaseOn(att.case_id)}
-							{@const open = caseSectionsOpen[att.case_id] ?? false}
+							{@const caseExpanded = caseSectionsOpen[att.case_id] ?? false}
 							<li>
 								<div
 									class={[
@@ -728,8 +824,9 @@
 										type="button"
 										class="flex flex-1 items-center gap-1.5 text-left"
 										onclick={() => toggleCaseSection(att.case_id)}
+										aria-expanded={caseExpanded}
 									>
-										{#if open}
+										{#if caseExpanded}
 											<ChevronDown class="h-3 w-3 shrink-0 text-muted-foreground" />
 										{:else}
 											<ChevronRight class="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -741,43 +838,80 @@
 											<span class="ml-1">{att.case_name}</span>
 										</span>
 									</button>
-									<input
-										type="checkbox"
-										class="h-3 w-3"
+									<Checkbox
 										checked={caseOn}
-										onchange={() => toggleCase(att.case_id)}
+										onCheckedChange={() => toggleCase(att.case_id)}
 										aria-label={`Toggle case #${att.case_id} in stream`}
 									/>
 								</div>
 
-								{#if open}
-									<ul class="ml-5 flex flex-col border-l border-border/40 pl-2">
-										{#each ACTIVITY_TYPES as t (t.slug)}
-											{@const typeOn = isCaseActivityOn(att.case_id, t.slug)}
+								{#if caseExpanded}
+									<ul class="ml-4 flex flex-col border-l border-border/40 pl-1">
+										{#each ACTIVITY_GROUPS as g (g.key)}
+											{@const gOpen =
+												groupSectionsOpen[groupKey(att.case_id, g.key)] ?? false}
+											{@const gState = groupState(att.case_id, g)}
 											<li>
-												<button
-													type="button"
+												<div
 													class={[
-														'flex w-full items-center justify-between rounded-md px-2 py-1 text-2xs transition-colors',
-														caseOn && typeOn
-															? 'text-foreground hover:bg-muted/60'
-															: 'text-muted-foreground hover:bg-muted/40'
+														'flex items-center gap-1 rounded-md px-2 py-1 transition-colors',
+														caseOn
+															? 'hover:bg-muted/50'
+															: 'opacity-60 hover:bg-muted/30'
 													]}
-													onclick={() =>
-														toggleCaseActivity(att.case_id, t.slug)}
-													disabled={!caseOn}
-													aria-pressed={typeOn}
 												>
-													<span class="truncate">{t.label}</span>
-													<input
-														type="checkbox"
-														class="pointer-events-none h-3 w-3 shrink-0"
-														checked={caseOn && typeOn}
+													<button
+														type="button"
+														class="flex flex-1 items-center gap-1.5 text-left"
+														onclick={() => toggleGroupSection(att.case_id, g.key)}
+														aria-expanded={gOpen}
+													>
+														{#if gOpen}
+															<ChevronDown class="h-3 w-3 shrink-0 text-muted-foreground" />
+														{:else}
+															<ChevronRight class="h-3 w-3 shrink-0 text-muted-foreground" />
+														{/if}
+														<span class="text-2xs">{g.label}</span>
+													</button>
+													<Checkbox
+														checked={gState === 'all'}
+														indeterminate={gState === 'some'}
+														onCheckedChange={() => toggleGroup(att.case_id, g)}
 														disabled={!caseOn}
-														readonly
-														tabindex="-1"
+														aria-label={`Toggle ${g.label} for case #${att.case_id}`}
 													/>
-												</button>
+												</div>
+
+												{#if gOpen}
+													<ul class="ml-4 flex flex-col border-l border-border/30 pl-1">
+														{#each g.slugs as s (s.slug)}
+															{@const typeOn = isCaseActivityOn(
+																att.case_id,
+																s.slug
+															)}
+															<li>
+																<label
+																	class={[
+																		'flex w-full cursor-pointer items-center justify-between rounded-md px-2 py-0.5 text-2xs transition-colors',
+																		caseOn && typeOn
+																			? 'text-foreground hover:bg-muted/50'
+																			: 'text-muted-foreground hover:bg-muted/30',
+																		!caseOn && 'cursor-not-allowed'
+																	]}
+																>
+																	<span class="truncate">{s.label}</span>
+																	<Checkbox
+																		checked={caseOn && typeOn}
+																		onCheckedChange={() =>
+																			toggleCaseActivity(att.case_id, s.slug)}
+																		disabled={!caseOn}
+																		aria-label={s.label}
+																	/>
+																</label>
+															</li>
+														{/each}
+													</ul>
+												{/if}
 											</li>
 										{/each}
 									</ul>
