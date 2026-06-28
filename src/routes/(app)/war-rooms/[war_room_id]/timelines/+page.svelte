@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { Plus, Pencil, Trash2 } from 'lucide-svelte';
+	import { Plus, Pencil, Trash2, Search, X } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Checkbox } from '$lib/components/ui/checkbox';
@@ -29,6 +29,13 @@
 
 	let selectedIds = $state<Set<number>>(new Set());
 
+	// Filters (client-side, mirrors case-timeline UX)
+	let filterText = $state('');
+	let filterFrom = $state('');
+	let filterTo = $state('');
+	let filterCategory = $state('');
+
+	// Timeline create/edit
 	let addOpen = $state(false);
 	let newName = $state('');
 	let newColor = $state('#3b82f6');
@@ -38,11 +45,21 @@
 	let editingName = $state('');
 	let editingColor = $state('#3b82f6');
 
+	// Event create/edit — reuse a single dialog with mode flag
 	let entryOpen = $state(false);
+	let entryMode = $state<'create' | 'edit'>('create');
+	let entryEventId = $state<number | null>(null);
 	let entryTimelineId = $state<number | null>(null);
 	let entryTitle = $state('');
 	let entryContent = $state('');
 	let entryDate = $state('');
+	let entryCategory = $state('');
+	let entryColor = $state('');
+
+	// Drag state — track which event is being dragged so the sidebar
+	// can show a drop affordance and the drop handler can reparent it.
+	let dragEventId = $state<number | null>(null);
+	let dragOverTimelineId = $state<number | null>(null);
 
 	const load = async () => {
 		loading = true;
@@ -133,29 +150,137 @@
 		}
 	};
 
-	const openEntry = (t: WarRoomTimeline) => {
+	const openCreateEvent = (t: WarRoomTimeline) => {
+		entryMode = 'create';
+		entryEventId = null;
 		entryTimelineId = t.timeline_id;
 		entryTitle = '';
 		entryContent = '';
 		entryDate = new Date().toISOString().slice(0, 16);
+		entryCategory = '';
+		entryColor = '';
+		entryOpen = true;
+	};
+
+	const openEditEvent = (e: WarRoomTimelineEvent) => {
+		entryMode = 'edit';
+		entryEventId = e.id;
+		entryTimelineId = e.timeline_id;
+		entryTitle = e.title ?? '';
+		entryContent = e.content ?? '';
+		entryDate = e.event_date ? e.event_date.slice(0, 16) : '';
+		entryCategory = e.category ?? '';
+		entryColor = e.color ?? '';
 		entryOpen = true;
 	};
 
 	const submitEntry = async () => {
-		if (entryTimelineId == null) return;
 		const title = entryTitle.trim();
 		if (!title) return;
 		saving = true;
-		const res = await WarRoomTimelinesService.addEvent(warRoomId, entryTimelineId, {
-			title,
-			content: entryContent.trim() || null,
-			event_date: entryDate || null
-		});
-		saving = false;
-		if (res.ok) {
-			entryOpen = false;
-			load();
+		if (entryMode === 'create') {
+			if (entryTimelineId == null) {
+				saving = false;
+				return;
+			}
+			const res = await WarRoomTimelinesService.addEvent(warRoomId, entryTimelineId, {
+				title,
+				content: entryContent.trim() || null,
+				event_date: entryDate || null,
+				category: entryCategory.trim() || null,
+				color: entryColor || null
+			});
+			saving = false;
+			if (res.ok) {
+				entryOpen = false;
+				load();
+			} else {
+				toast({ title: 'Could not create event', variant: 'destructive' });
+			}
+		} else {
+			if (entryEventId == null) {
+				saving = false;
+				return;
+			}
+			const res = await WarRoomTimelinesService.updateEvent(warRoomId, entryEventId, {
+				title,
+				content: entryContent.trim() || null,
+				event_date: entryDate || null,
+				category: entryCategory.trim() || null,
+				color: entryColor || null
+			});
+			saving = false;
+			if (res.ok && res.data && typeof res.data !== 'string') {
+				const next = res.data as WarRoomTimelineEvent;
+				events = events.map((x) => (x.id === next.id ? next : x));
+				entryOpen = false;
+			} else {
+				toast({ title: 'Could not update event', variant: 'destructive' });
+			}
 		}
+	};
+
+	const removeEvent = async (e: WarRoomTimelineEvent) => {
+		if (!confirm('Delete this event?')) return;
+		const res = await WarRoomTimelinesService.removeEvent(warRoomId, e.id);
+		if (res.ok) {
+			events = events.filter((x) => x.id !== e.id);
+		}
+	};
+
+	// Drag-and-drop: move an event to another timeline.
+	//
+	// We use HTML5 native DnD so we don't pull in a library for one
+	// feature. The dataTransfer payload is just the event id as text,
+	// and `dragEventId` mirrors it so Svelte reactivity can highlight
+	// drop targets during the drag.
+	const onDragStart = (ev: DragEvent, e: WarRoomTimelineEvent) => {
+		dragEventId = e.id;
+		if (ev.dataTransfer) {
+			ev.dataTransfer.effectAllowed = 'move';
+			ev.dataTransfer.setData('text/plain', String(e.id));
+		}
+	};
+
+	const onDragEnd = () => {
+		dragEventId = null;
+		dragOverTimelineId = null;
+	};
+
+	const onTimelineDragOver = (ev: DragEvent, timelineId: number) => {
+		if (dragEventId == null) return;
+		const e = events.find((x) => x.id === dragEventId);
+		if (!e || e.timeline_id === timelineId) return;
+		ev.preventDefault();
+		if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'move';
+		dragOverTimelineId = timelineId;
+	};
+
+	const onTimelineDrop = async (ev: DragEvent, timelineId: number) => {
+		if (dragEventId == null) return;
+		ev.preventDefault();
+		const eventId = dragEventId;
+		const draggedEvent = events.find((x) => x.id === eventId);
+		dragEventId = null;
+		dragOverTimelineId = null;
+		if (!draggedEvent || draggedEvent.timeline_id === timelineId) return;
+		const res = await WarRoomTimelinesService.updateEvent(warRoomId, eventId, {
+			timeline_id: timelineId
+		});
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			const next = res.data as WarRoomTimelineEvent;
+			events = events.map((x) => (x.id === next.id ? next : x));
+			toast({ title: 'Event moved' });
+		} else {
+			toast({ title: 'Could not move event', variant: 'destructive' });
+		}
+	};
+
+	const clearFilters = () => {
+		filterText = '';
+		filterFrom = '';
+		filterTo = '';
+		filterCategory = '';
 	};
 
 	const fmtDate = (iso: string | null) => {
@@ -168,6 +293,39 @@
 	};
 
 	const tlById = $derived(new Map(timelines.map((t) => [t.timeline_id, t])));
+
+	const filteredEvents = $derived.by(() => {
+		const needle = filterText.trim().toLowerCase();
+		const cat = filterCategory.trim().toLowerCase();
+		const from = filterFrom ? new Date(filterFrom).getTime() : null;
+		const to = filterTo ? new Date(filterTo).getTime() : null;
+		return events.filter((e) => {
+			if (needle) {
+				const hay = (
+					(e.title ?? '') +
+					' ' +
+					(e.content ?? '') +
+					' ' +
+					(e.category ?? '')
+				).toLowerCase();
+				if (!hay.includes(needle)) return false;
+			}
+			if (cat) {
+				if (!e.category || !e.category.toLowerCase().includes(cat)) return false;
+			}
+			if (from != null || to != null) {
+				const ts = e.event_date ? new Date(e.event_date).getTime() : NaN;
+				if (Number.isNaN(ts)) return false;
+				if (from != null && ts < from) return false;
+				if (to != null && ts > to) return false;
+			}
+			return true;
+		});
+	});
+
+	const filtersActive = $derived(
+		Boolean(filterText || filterCategory || filterFrom || filterTo)
+	);
 </script>
 
 <div class="grid h-full w-full grid-cols-[240px_minmax(0,1fr)] overflow-hidden">
@@ -203,6 +361,7 @@
 					{#each timelines as t (t.timeline_id)}
 						{@const checked = selectedIds.has(t.timeline_id)}
 						{@const safeColor = safeHexColor(t.color)}
+						{@const isDropTarget = dragOverTimelineId === t.timeline_id}
 						<li class="group">
 							{#if editingId === t.timeline_id}
 								<div class="flex flex-col gap-1 px-2 py-1.5">
@@ -233,8 +392,14 @@
 								</div>
 							{:else}
 								<div
+									role="group"
 									class="flex items-center gap-2 rounded-sm px-2 py-1 transition-colors hover:bg-muted/50"
 									class:bg-muted={checked}
+									class:ring-2={isDropTarget}
+									class:ring-primary={isDropTarget}
+									ondragover={(e) => onTimelineDragOver(e, t.timeline_id)}
+									ondragleave={() => (dragOverTimelineId = null)}
+									ondrop={(e) => onTimelineDrop(e, t.timeline_id)}
 								>
 									<Checkbox
 										{checked}
@@ -259,7 +424,7 @@
 											size="icon"
 											variant="ghost"
 											class="h-5 w-5"
-											onclick={() => openEntry(t)}
+											onclick={() => openCreateEvent(t)}
 											aria-label={`Add event to ${t.name}`}
 										>
 											<Plus class="h-3 w-3" />
@@ -290,49 +455,142 @@
 						</li>
 					{/each}
 				</ul>
+				{#if dragEventId != null}
+					<p class="px-3 py-2 text-2xs italic text-muted-foreground">
+						Drop on a timeline to move the event.
+					</p>
+				{/if}
 			{/if}
 		</div>
 	</aside>
 
-	<div class="h-full overflow-y-auto p-6">
-		{#if loading}
-			<Skeleton class="h-32 w-full" />
-		{:else if events.length === 0}
-			<div class="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground">
-				<p class="text-sm">No events on the selected timelines yet.</p>
+	<div class="flex h-full flex-col overflow-hidden">
+		<!-- Filter bar — search/category/date range, mirrors the case-timeline UX. -->
+		<div class="flex flex-wrap items-center gap-2 border-b bg-card/20 px-4 py-2">
+			<div class="relative">
+				<Search class="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+				<Input
+					value={filterText}
+					oninput={(e) => (filterText = (e.target as HTMLInputElement).value)}
+					placeholder="Search title/content/category…"
+					class="h-8 w-64 pl-7 text-xs"
+				/>
 			</div>
-		{:else}
-			<ol class="relative ml-2 border-l">
-				{#each events as e (e.id)}
-					{@const tl = tlById.get(e.timeline_id)}
-					{@const safeColor = safeHexColor(e.color ?? tl?.color ?? null)}
-					<li class="mb-4 ml-4">
-						<span
-							class="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border border-background"
-							style:background-color={safeColor ?? '#94a3b8'}
-							aria-hidden="true"
-						></span>
-						<div class="rounded-md border bg-card/40 px-3 py-2">
-							<div class="flex items-center justify-between gap-2">
-								<p class="text-sm font-medium">{e.title ?? '(no title)'}</p>
-								<span class="text-2xs text-muted-foreground">{fmtDate(e.event_date)}</span>
+			<Input
+				value={filterCategory}
+				oninput={(e) => (filterCategory = (e.target as HTMLInputElement).value)}
+				placeholder="Category"
+				class="h-8 w-36 text-xs"
+			/>
+			<label class="flex items-center gap-1 text-2xs text-muted-foreground">
+				From
+				<Input
+					type="datetime-local"
+					value={filterFrom}
+					oninput={(e) => (filterFrom = (e.target as HTMLInputElement).value)}
+					class="h-8 w-44 text-xs"
+				/>
+			</label>
+			<label class="flex items-center gap-1 text-2xs text-muted-foreground">
+				To
+				<Input
+					type="datetime-local"
+					value={filterTo}
+					oninput={(e) => (filterTo = (e.target as HTMLInputElement).value)}
+					class="h-8 w-44 text-xs"
+				/>
+			</label>
+			{#if filtersActive}
+				<Button variant="ghost" size="sm" class="h-8" onclick={clearFilters}>
+					<X class="mr-1 h-3 w-3" /> Clear
+				</Button>
+			{/if}
+			<span class="ml-auto text-2xs text-muted-foreground">
+				{filteredEvents.length} / {events.length} events
+			</span>
+		</div>
+
+		<div class="flex-1 overflow-y-auto p-6">
+			{#if loading}
+				<Skeleton class="h-32 w-full" />
+			{:else if events.length === 0}
+				<div class="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+					<p class="text-sm">No events on the selected timelines yet.</p>
+				</div>
+			{:else if filteredEvents.length === 0}
+				<div class="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+					<p class="text-sm">No events match the current filters.</p>
+				</div>
+			{:else}
+				<ol class="relative ml-2 border-l">
+					{#each filteredEvents as e (e.id)}
+						{@const tl = tlById.get(e.timeline_id)}
+						{@const safeColor = safeHexColor(e.color ?? tl?.color ?? null)}
+						{@const isDragging = dragEventId === e.id}
+						<li class="mb-4 ml-4">
+							<span
+								class="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border border-background"
+								style:background-color={safeColor ?? '#94a3b8'}
+								aria-hidden="true"
+							></span>
+							<div
+								role="article"
+								draggable="true"
+								ondragstart={(ev) => onDragStart(ev, e)}
+								ondragend={onDragEnd}
+								class="group/event cursor-grab rounded-md border bg-card/40 px-3 py-2 active:cursor-grabbing"
+								class:opacity-50={isDragging}
+							>
+								<div class="flex items-center justify-between gap-2">
+									<p class="text-sm font-medium">{e.title ?? '(no title)'}</p>
+									<div class="flex items-center gap-2">
+										<span class="text-2xs text-muted-foreground">{fmtDate(e.event_date)}</span>
+										<div class="hidden items-center gap-0.5 group-hover/event:flex">
+											<Button
+												size="icon"
+												variant="ghost"
+												class="h-6 w-6"
+												onclick={() => openEditEvent(e)}
+												aria-label="Edit event"
+											>
+												<Pencil class="h-3 w-3" />
+											</Button>
+											<Button
+												size="icon"
+												variant="ghost"
+												class="h-6 w-6 text-destructive hover:text-destructive"
+												onclick={() => removeEvent(e)}
+												aria-label="Delete event"
+											>
+												<Trash2 class="h-3 w-3" />
+											</Button>
+										</div>
+									</div>
+								</div>
+								<div class="flex flex-wrap items-center gap-1.5">
+									{#if tl}
+										<span class="text-2xs uppercase tracking-wider text-muted-foreground">{tl.name}</span>
+									{/if}
+									{#if e.category}
+										<span class="rounded border bg-muted/60 px-1.5 py-px text-[10px] font-medium uppercase tracking-wider">
+											{e.category}
+										</span>
+									{/if}
+								</div>
+								{#if e.content}
+									<p class="mt-1 whitespace-pre-wrap break-words text-xs">{e.content}</p>
+								{/if}
+								{#if e.case_id}
+									<a href={`/case/${e.case_id}`} class="mt-1 inline-block text-2xs text-primary hover:underline">
+										Case #{e.case_id}
+									</a>
+								{/if}
 							</div>
-							{#if tl}
-								<p class="text-2xs uppercase tracking-wider text-muted-foreground">{tl.name}</p>
-							{/if}
-							{#if e.content}
-								<p class="mt-1 whitespace-pre-wrap break-words text-xs">{e.content}</p>
-							{/if}
-							{#if e.case_id}
-								<a href={`/case/${e.case_id}`} class="mt-1 inline-block text-2xs text-primary hover:underline">
-									Case #{e.case_id}
-								</a>
-							{/if}
-						</div>
-					</li>
-				{/each}
-			</ol>
-		{/if}
+						</li>
+					{/each}
+				</ol>
+			{/if}
+		</div>
 	</div>
 </div>
 
@@ -367,7 +625,7 @@
 <Dialog bind:open={entryOpen}>
 	<DialogContent>
 		<DialogHeader>
-			<DialogTitle>New timeline entry</DialogTitle>
+			<DialogTitle>{entryMode === 'create' ? 'New timeline entry' : 'Edit timeline entry'}</DialogTitle>
 		</DialogHeader>
 		<div class="flex flex-col gap-3 py-2">
 			<Input
@@ -380,6 +638,32 @@
 				value={entryDate}
 				oninput={(e) => (entryDate = (e.target as HTMLInputElement).value)}
 			/>
+			<div class="flex items-center gap-2">
+				<Input
+					value={entryCategory}
+					oninput={(e) => (entryCategory = (e.target as HTMLInputElement).value)}
+					placeholder="Category (optional)"
+					class="flex-1"
+				/>
+				<input
+					type="color"
+					value={entryColor || '#3b82f6'}
+					oninput={(e) => (entryColor = (e.target as HTMLInputElement).value)}
+					class="h-8 w-12 cursor-pointer rounded border bg-transparent p-0"
+					title="Event color"
+				/>
+				{#if entryColor}
+					<Button
+						size="icon"
+						variant="ghost"
+						class="h-8 w-8"
+						onclick={() => (entryColor = '')}
+						aria-label="Clear color"
+					>
+						<X class="h-3.5 w-3.5" />
+					</Button>
+				{/if}
+			</div>
 			<textarea
 				value={entryContent}
 				oninput={(e) => (entryContent = (e.target as HTMLTextAreaElement).value)}
@@ -393,7 +677,7 @@
 				Cancel
 			</Button>
 			<Button onclick={submitEntry} disabled={saving || !entryTitle.trim()}>
-				{saving ? 'Saving…' : 'Save'}
+				{saving ? 'Saving…' : entryMode === 'create' ? 'Save' : 'Update'}
 			</Button>
 		</DialogFooter>
 	</DialogContent>

@@ -23,8 +23,19 @@ export interface WarRoomTimelineEvent {
 	event_date: string | null;
 	event_tz: string | null;
 	color: string | null;
+	category: string | null;
 	created_at: string | null;
 	created_by_id: number | null;
+}
+
+export interface UpdateWarRoomTimelineEventBody {
+	title?: string | null;
+	content?: string | null;
+	event_date?: string | null;
+	event_tz?: string | null;
+	color?: string | null;
+	category?: string | null;
+	timeline_id?: number;
 }
 
 export class WarRoomTimelinesService {
@@ -92,6 +103,7 @@ export class WarRoomTimelinesService {
 			event_date?: string | null;
 			event_tz?: string | null;
 			color?: string | null;
+			category?: string | null;
 			case_id?: number | null;
 			event_id?: number | null;
 		},
@@ -99,6 +111,19 @@ export class WarRoomTimelinesService {
 	): Promise<RequestResponse<WarRoomTimelineEvent>> {
 		return ApiService.post(
 			`/war-rooms/${warRoomId}/timelines/${timelineId}/events`,
+			body,
+			options
+		);
+	}
+
+	static updateEvent(
+		warRoomId: number,
+		eventId: number,
+		body: UpdateWarRoomTimelineEventBody,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<WarRoomTimelineEvent>> {
+		return ApiService.patch(
+			`/war-rooms/${warRoomId}/timelines/events/${eventId}`,
 			body,
 			options
 		);
