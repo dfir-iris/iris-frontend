@@ -83,11 +83,6 @@
 			usage: '/priority <low|medium|high|critical>',
 			desc: 'Stamp a priority banner (high/critical also flips state to active)'
 		},
-		{
-			cmd: '/whoami',
-			usage: '/whoami',
-			desc: 'Check which IRIS user this session is authenticated as'
-		},
 		{ cmd: '/help', usage: '/help', desc: 'List all available slash commands' }
 	];
 

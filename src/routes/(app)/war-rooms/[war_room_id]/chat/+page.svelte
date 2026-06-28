@@ -491,8 +491,7 @@
 		{ cmd: '/sitrep <title>', desc: 'Start a SitRep draft' },
 		{ cmd: '/summary', desc: 'Auto-fill SitRep from snapshot' },
 		{ cmd: '/state <…>', desc: 'Flip war-room state' },
-		{ cmd: '/priority <…>', desc: 'Stamp a priority banner' },
-		{ cmd: '/whoami', desc: 'Check current user' }
+		{ cmd: '/priority <…>', desc: 'Stamp a priority banner' }
 	];
 
 	// --- Attachments picker --------------------------------------------------
