@@ -82,17 +82,23 @@
 		tree: DataStoreTree;
 	};
 	let caseTrees = $state<Record<number, CaseTreeState>>({});
-	// case_id → file_id index, populated whenever we load a tree. The
-	// file-action handler looks up the owning case here so it can call
-	// the correct `CaseDatastoreService` endpoint.
-	let fileOwner = $state<Record<number, number>>({});
+	// file_id → { case_id, file_original_name } index, populated whenever
+	// we load a tree. The file-action handler looks up the owning case
+	// here so it can call the correct `CaseDatastoreService` endpoint,
+	// and keeps the original filename around so `<a download>` produces
+	// the real name instead of a UUID blob URL.
+	type FileEntry = { caseId: number; filename: string };
+	let fileIndex = $state<Record<number, FileEntry>>({});
 
 	let searchTerm = $state('');
 
 	const indexFiles = (tree: DataStoreTree, caseId: number) => {
 		for (const node of Object.values(tree)) {
 			if (node.type === 'file') {
-				fileOwner[node.file_id] = caseId;
+				fileIndex[node.file_id] = {
+					caseId,
+					filename: node.file_original_name
+				};
 			} else if (node.type === 'directory') {
 				indexFiles(node.children, caseId);
 			}
@@ -257,37 +263,79 @@
 		});
 	};
 
-	const handleFileAction = (action: string, fileId: number) => {
-		const owner = fileOwner[fileId];
-		if (!owner) {
+	const handleFileAction = async (action: string, fileId: number) => {
+		const entry = fileIndex[fileId];
+		if (!entry) {
 			toast({ title: 'File not found', variant: 'destructive' });
 			return;
 		}
-		if (action === 'download' || action === 'select' || action === 'preview') {
-			void (async () => {
-				const url = await CaseDatastoreService.fetchFileBlobUrl(owner, fileId);
-				if (typeof url === 'string') {
-					window.open(url, '_blank', 'noopener,noreferrer');
-				} else {
-					toast({ title: 'Could not open the file', variant: 'destructive' });
-				}
-			})();
+		const { caseId, filename } = entry;
+
+		// `preview` / `download` / row-click `select` all want the bytes.
+		// `fetchFileBlobUrl` is the bearer-aware helper that produces a
+		// short-lived blob URL; using the raw `/api/v2/cases/<id>/datastore/files/<fid>`
+		// in a plain `<a href>` would 401 because the browser doesn't
+		// attach the Authorization header on naked navigations.
+		if (action === 'preview' || action === 'select') {
+			const fetched = await CaseDatastoreService.fetchFileBlobUrl(
+				caseId,
+				fileId
+			);
+			if (!fetched) {
+				toast({
+					title: 'Could not open file',
+					description: 'The server rejected the request.',
+					variant: 'destructive'
+				});
+				return;
+			}
+			const w = window.open(fetched.url, '_blank', 'noopener');
+			// Revoke after the new tab has had a chance to take ownership
+			// of the blob — same 60s window the case-side panel uses.
+			setTimeout(() => URL.revokeObjectURL(fetched.url), 60_000);
+			if (!w) {
+				toast({ title: 'Pop-up blocked', variant: 'warning' });
+			}
 			return;
 		}
+
+		if (action === 'download') {
+			const fetched = await CaseDatastoreService.fetchFileBlobUrl(
+				caseId,
+				fileId
+			);
+			if (!fetched) {
+				toast({
+					title: 'Could not download file',
+					description: 'The server rejected the request.',
+					variant: 'destructive'
+				});
+				return;
+			}
+			const a = document.createElement('a');
+			a.href = fetched.url;
+			a.download = filename || fetched.filename || '';
+			a.rel = 'noopener';
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
+			URL.revokeObjectURL(fetched.url);
+			return;
+		}
+
 		if (action === 'copy-link') {
 			void navigator.clipboard
-				.writeText(
-					`${window.location.origin}/case/${owner}/datastore`
-				)
+				.writeText(`${window.location.origin}/case/${caseId}/datastore`)
 				.then(() => toast({ title: 'Case datastore link copied' }))
 				.catch(() =>
 					toast({ title: 'Could not copy link', variant: 'destructive' })
 				);
 			return;
 		}
+
 		toast({
 			title: 'Open the case to make this change',
-			description: `Open case #${owner} → Datastore for full controls.`
+			description: `Open case #${caseId} → Datastore for full controls.`
 		});
 	};
 
