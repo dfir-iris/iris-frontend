@@ -12,6 +12,7 @@
 	import {
 		AlertCircle,
 		AlertOctagon,
+		Bell,
 		ChevronDown,
 		ChevronRight,
 		ClockIcon,
@@ -19,6 +20,7 @@
 		Filter,
 		Gavel,
 		Loader2,
+		MessageSquare,
 		Paperclip,
 		Pin,
 		ListChecks,
@@ -41,10 +43,12 @@
 		type AttachmentTarget
 	} from './components/AttachmentPreviewDialog.svelte';
 	import StreamRefCard from './components/StreamRefCard.svelte';
+	import WarRoomThreadPane from './components/WarRoomThreadPane.svelte';
 	import {
 		WarRoomChatService,
 		type ChatMessage,
-		type ChatMessageKind
+		type ChatMessageKind,
+		type ChatThreadRoot
 	} from '$lib/services/war-room-chat.service';
 	import {
 		WarRoomsService,
@@ -402,7 +406,11 @@
 	onMount(() => {
 		void load();
 		void loadAttachedCases();
-		pollTimer = setInterval(() => void pollNewer(), 4000);
+		void loadThreads();
+		pollTimer = setInterval(() => {
+			void pollNewer();
+			void loadThreads();
+		}, 4000);
 	});
 
 	onDestroy(() => {
@@ -418,6 +426,7 @@
 		if (res.ok) {
 			body = '';
 			await pollNewer();
+			void loadThreads();
 			scrollToBottom();
 			composerEl?.focus();
 		} else {
@@ -491,8 +500,75 @@
 		{ cmd: '/sitrep <title>', desc: 'Start a SitRep draft' },
 		{ cmd: '/summary', desc: 'Auto-fill SitRep from snapshot' },
 		{ cmd: '/state <…>', desc: 'Flip war-room state' },
-		{ cmd: '/priority <…>', desc: 'Stamp a priority banner' }
+		{ cmd: '/priority <…>', desc: 'Stamp a priority banner' },
+		{ cmd: '/thread <title>', desc: 'Open a named topic' }
 	];
+
+	// --- Threads ---------------------------------------------------------
+	//
+	// The threads sidebar pulls `/chat/threads` — roots that have either
+	// at least one reply or a named title. Clicking a thread opens the
+	// side-pane on the right of the stream.
+	//
+	// Refreshes piggy-back on the existing chat poll: every 4s we also
+	// re-fetch the threads list so reply counts and last-activity stay
+	// fresh while the operator is looking at the page.
+
+	let threads = $state<ChatThreadRoot[]>([]);
+	let openThread = $state<ChatThreadRoot | null>(null);
+
+	const loadThreads = async () => {
+		const res = await WarRoomChatService.listThreads(warRoomId);
+		if (res.ok && Array.isArray(res.data)) {
+			threads = res.data as ChatThreadRoot[];
+			// Keep the currently open thread's badge state in sync — if a
+			// reply landed since we opened it, the side-pane gets the
+			// updated reply_count without a manual refetch.
+			if (openThread) {
+				const updated = threads.find((t) => t.message_id === openThread!.message_id);
+				if (updated) openThread = updated;
+			}
+		}
+	};
+
+	const openThreadFor = async (messageId: number) => {
+		// First check the threads list — if the message is already a root
+		// there, we can open immediately.
+		const existing = threads.find((t) => t.message_id === messageId);
+		if (existing) {
+			openThread = existing;
+			return;
+		}
+		// Otherwise we need to materialise a synthetic root from the
+		// message data we have, then re-fetch the threads list so the new
+		// thread shows up in the sidebar after the first reply lands.
+		const m = messages.find((x) => x.message_id === messageId);
+		if (!m) return;
+		openThread = {
+			message_id: m.message_id,
+			thread_title: m.thread_title,
+			preview: (m.body ?? '').slice(0, 200) || null,
+			kind: m.kind,
+			author_id: m.author_id,
+			author_login: m.author_login,
+			author_name: m.author_name,
+			reply_count: 0,
+			last_activity_at: m.created_at,
+			created_at: m.created_at,
+			deleted_at: m.deleted_at,
+			is_followed: false
+		};
+	};
+
+	const closeThread = () => {
+		openThread = null;
+	};
+
+	// Cheap lookup so the per-message Reply chip can show "N replies"
+	// without scanning the threads list each render.
+	const replyCountByRoot = $derived(
+		new Map(threads.map((t) => [t.message_id, t.reply_count]))
+	);
 
 	// --- Attachments picker --------------------------------------------------
 	// One picker covers four resource types pulled from the attached
@@ -939,6 +1015,52 @@
 				{/if}
 			</section>
 
+			<!-- Threads -->
+			<section class="border-t px-2 py-2">
+				<p class="px-2 pb-1 pt-1 flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+					<MessageSquare class="h-3 w-3" />
+					Threads ({threads.length})
+				</p>
+				{#if threads.length === 0}
+					<p class="px-2 py-2 text-2xs text-muted-foreground">
+						Reply to any message or use <code class="rounded bg-muted px-1 py-0.5 font-mono">/thread</code> to start one.
+					</p>
+				{:else}
+					<ul class="flex flex-col">
+						{#each threads as t (t.message_id)}
+							{@const active = openThread?.message_id === t.message_id}
+							<li>
+								<button
+									type="button"
+									class={[
+										'flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors',
+										active ? 'bg-muted' : 'hover:bg-muted/60'
+									]}
+									onclick={() => openThreadFor(t.message_id)}
+								>
+									<div class="flex items-center gap-1">
+										{#if t.is_followed}
+											<Bell class="h-3 w-3 shrink-0 text-primary" />
+										{/if}
+										<span class="min-w-0 flex-1 truncate text-xs font-medium">
+											{t.thread_title ?? (t.preview ?? '(thread)').slice(0, 60)}
+										</span>
+									</div>
+									<div class="flex items-center gap-2 text-2xs text-muted-foreground">
+										<span>
+											{t.reply_count} {t.reply_count === 1 ? 'reply' : 'replies'}
+										</span>
+										{#if t.author_name || t.author_login}
+											<span class="truncate">· {t.author_name ?? t.author_login}</span>
+										{/if}
+									</div>
+								</button>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
+
 			<!-- Slash commands reference -->
 			<section class="border-t px-4 py-3">
 				<p class="mb-2 flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -959,7 +1081,9 @@
 		</div>
 	</aside>
 
-	<div class="flex h-full min-h-0 min-w-0 flex-col">
+	<!-- Right side: stream column + optional thread side-pane. -->
+	<div class="flex h-full min-h-0 min-w-0 flex-row">
+	<div class="flex h-full min-h-0 min-w-0 flex-1 flex-col">
 		<!-- Compact summary visible only when sidebar is hidden. -->
 		<div class="flex items-center gap-2 overflow-x-auto border-b px-4 py-2 lg:hidden">
 			<Filter class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -1089,13 +1213,40 @@
 											</span>
 										</li>
 									{:else if cont}
-										<li class="flex gap-3 pl-11">
-											<p class="min-w-0 flex-1 break-words text-sm">
-												<ChatMessageBody body={m.body ?? ''} onAttachmentClick={openPreview} />
-											</p>
+										{@const replyCount = replyCountByRoot.get(m.message_id) ?? 0}
+										<li class="group/msg flex gap-3 pl-11">
+											<div class="min-w-0 flex-1">
+												<p class="break-words text-sm">
+													<ChatMessageBody body={m.body ?? ''} onAttachmentClick={openPreview} />
+												</p>
+												<div class="flex items-center gap-2">
+													{#if replyCount > 0 || m.thread_title}
+														<button
+															type="button"
+															class="mt-1 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-2xs text-primary hover:bg-primary/15"
+															onclick={() => openThreadFor(m.message_id)}
+														>
+															<MessageSquare class="h-3 w-3" />
+															{#if m.thread_title}
+																{m.thread_title}
+															{:else}
+																{replyCount} {replyCount === 1 ? 'reply' : 'replies'}
+															{/if}
+														</button>
+													{/if}
+													<button
+														type="button"
+														class="invisible mt-1 text-2xs text-muted-foreground hover:text-foreground group-hover/msg:visible"
+														onclick={() => openThreadFor(m.message_id)}
+													>
+														Reply in thread
+													</button>
+												</div>
+											</div>
 										</li>
 									{:else}
-										<li class="flex gap-3 pt-2">
+										{@const replyCount = replyCountByRoot.get(m.message_id) ?? 0}
+										<li class="group/msg flex gap-3 pt-2">
 											<UserAvatar
 												userId={m.author_id ?? undefined}
 												name={m.author_name ?? m.author_login ?? 'Unknown'}
@@ -1118,6 +1269,29 @@
 												<p class="mt-0.5 break-words text-sm">
 													<ChatMessageBody body={m.body ?? ''} onAttachmentClick={openPreview} />
 												</p>
+												<div class="flex items-center gap-2">
+													{#if replyCount > 0 || m.thread_title}
+														<button
+															type="button"
+															class="mt-1 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-2xs text-primary hover:bg-primary/15"
+															onclick={() => openThreadFor(m.message_id)}
+														>
+															<MessageSquare class="h-3 w-3" />
+															{#if m.thread_title}
+																{m.thread_title}
+															{:else}
+																{replyCount} {replyCount === 1 ? 'reply' : 'replies'}
+															{/if}
+														</button>
+													{/if}
+													<button
+														type="button"
+														class="invisible mt-1 text-2xs text-muted-foreground hover:text-foreground group-hover/msg:visible"
+														onclick={() => openThreadFor(m.message_id)}
+													>
+														Reply in thread
+													</button>
+												</div>
 											</div>
 										</li>
 									{/if}
@@ -1274,6 +1448,16 @@
 				for commands
 			</p>
 		</form>
+	</div>
+
+	{#if openThread}
+		<WarRoomThreadPane
+			warRoomId={warRoomId}
+			root={openThread}
+			onClose={closeThread}
+			onChanged={loadThreads}
+		/>
+	{/if}
 	</div>
 </div>
 

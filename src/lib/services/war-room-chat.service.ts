@@ -46,10 +46,33 @@ export interface ChatMessage {
 	 * Stream tab uses this to drive per-case, per-type filter checkboxes.
 	 */
 	activity_type: string | null;
+	/**
+	 * Threading. `parent_message_id` is non-null on replies and points
+	 * to the thread root. `thread_title` is set only when a root has
+	 * been promoted to a named topic. Both fields are null on virtual
+	 * UA rows so the stream renderer can treat them as plain entries.
+	 */
+	parent_message_id: number | null;
+	thread_title: string | null;
 	created_at: string | null;
 	edited_at: string | null;
 	deleted_at: string | null;
 	reactions: ChatReaction[];
+}
+
+export interface ChatThreadRoot {
+	message_id: number;
+	thread_title: string | null;
+	preview: string | null;
+	kind: ChatMessageKind;
+	author_id: number | null;
+	author_login: string | null;
+	author_name: string | null;
+	reply_count: number;
+	last_activity_at: string | null;
+	created_at: string | null;
+	deleted_at: string | null;
+	is_followed: boolean;
 }
 
 export interface ListChatParams {
@@ -112,6 +135,76 @@ export class WarRoomChatService {
 		return ApiService.post(
 			`/war-rooms/${warRoomId}/chat/${messageId}/reactions`,
 			{ emoji },
+			options
+		);
+	}
+
+	static listThreads(
+		warRoomId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<ChatThreadRoot[]>> {
+		return ApiService.get<ChatThreadRoot[]>(
+			`/war-rooms/${warRoomId}/chat/threads`,
+			options
+		);
+	}
+
+	static listReplies(
+		warRoomId: number,
+		rootMessageId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<ChatMessage[]>> {
+		return ApiService.get<ChatMessage[]>(
+			`/war-rooms/${warRoomId}/chat/${rootMessageId}/replies`,
+			options
+		);
+	}
+
+	static reply(
+		warRoomId: number,
+		rootMessageId: number,
+		body: string,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<{ message_id: number; parent_message_id: number }>> {
+		return ApiService.post(
+			`/war-rooms/${warRoomId}/chat/${rootMessageId}/replies`,
+			{ body },
+			options
+		);
+	}
+
+	static setThreadTitle(
+		warRoomId: number,
+		rootMessageId: number,
+		title: string | null,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<{ message_id: number; thread_title: string | null }>> {
+		return ApiService.patch(
+			`/war-rooms/${warRoomId}/chat/${rootMessageId}/thread-title`,
+			{ title },
+			options
+		);
+	}
+
+	static followThread(
+		warRoomId: number,
+		rootMessageId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<{ message_id: number; added: boolean }>> {
+		return ApiService.post(
+			`/war-rooms/${warRoomId}/chat/${rootMessageId}/follow`,
+			{},
+			options
+		);
+	}
+
+	static unfollowThread(
+		warRoomId: number,
+		rootMessageId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<{ message_id: number; removed: boolean }>> {
+		return ApiService.delete<{ message_id: number; removed: boolean }>(
+			`/war-rooms/${warRoomId}/chat/${rootMessageId}/follow`,
 			options
 		);
 	}

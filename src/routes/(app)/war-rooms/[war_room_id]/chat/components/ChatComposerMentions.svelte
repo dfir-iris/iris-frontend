@@ -83,6 +83,11 @@
 			usage: '/priority <low|medium|high|critical>',
 			desc: 'Stamp a priority banner (high/critical also flips state to active)'
 		},
+		{
+			cmd: '/thread',
+			usage: '/thread <title>',
+			desc: 'Open a named topic that operators can follow + reply to'
+		},
 		{ cmd: '/help', usage: '/help', desc: 'List all available slash commands' }
 	];
 
