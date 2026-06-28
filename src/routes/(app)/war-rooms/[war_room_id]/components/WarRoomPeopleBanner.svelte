@@ -1,17 +1,19 @@
 <!--
   "Who's on the war" strip between the topbar and the tab nav.
 
-  Renders a tight, overlapping avatar row with a colour-muted ring
-  signalling each person's relationship to the room:
-    * IC (lead) — amber ring + crown indicator on hover
-    * member   — primary ring
-    * owner    — sky ring (case owner without explicit membership)
-    * access   — neutral ring (effective case access only)
+  Design constraints learnt the hard way after two messy iterations:
 
-  Click `+N` to open a popover with the full, filterable list. Hover
-  any avatar to instantly see the name, role, and case-access count
-  in a Tooltip — no 300ms delay, since the strip exists *for* glanceable
-  context.
+    1. Avatars OVERLAP each other (Slack-style), not stack with rings.
+       Each ring on every avatar was the source of the previous rainbow
+       look. Now we use one shared 2px white/card-coloured separator
+       between overlapping avatars and that's it.
+    2. Show FEW avatars (max 6) at this size; the popover is where the
+       full list lives. The strip is a glanceable summary, not the
+       directory.
+    3. Role signal is one tiny indicator next to the count, not a halo
+       per avatar.
+    4. Click `+N` opens the popover; hovering any avatar pops a
+       Tooltip *instantly* (no 300ms wait).
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
@@ -59,7 +61,10 @@
 
 	onMount(load);
 
-	const MAX_VISIBLE = 10;
+	// Keep the avatar count tight. Six is enough to communicate "there
+	// are several people here"; the popover behind `+N` does the heavy
+	// lifting when the operator wants the actual roster.
+	const MAX_VISIBLE = 6;
 	const visible = $derived(people.slice(0, MAX_VISIBLE));
 	const overflow = $derived(Math.max(0, people.length - MAX_VISIBLE));
 
@@ -72,22 +77,6 @@
 		return 'access';
 	};
 
-	// Ring tint per relationship. Compact + consistent so the strip
-	// reads as a unified group instead of a rainbow of avatar-fallback
-	// colours.
-	const ringClass = (cls: PersonClass): string => {
-		switch (cls) {
-			case 'lead':
-				return 'ring-amber-400 dark:ring-amber-300';
-			case 'member':
-				return 'ring-primary/70';
-			case 'owner':
-				return 'ring-sky-500/70';
-			default:
-				return 'ring-border';
-		}
-	};
-
 	const roleLabel = (p: WarRoomPerson) => {
 		if (p.is_member && p.role) return p.role;
 		if (p.is_owner) return 'case owner';
@@ -95,6 +84,9 @@
 	};
 
 	const memberCount = $derived(people.filter((p) => p.is_member).length);
+	const leadCount = $derived(
+		people.filter((p) => p.is_member && p.role === 'lead').length
+	);
 	const ownerCount = $derived(
 		people.filter((p) => p.is_owner && !p.is_member).length
 	);
@@ -113,8 +105,6 @@
 		);
 	});
 
-	// Group rows in the popover so the IC reads first, then members,
-	// then owners, then everyone else with case access.
 	const groupedForPopover = $derived.by(() => {
 		const groups: { label: string; rows: WarRoomPerson[] }[] = [];
 		const push = (label: string, predicate: (p: WarRoomPerson) => boolean) => {
@@ -153,22 +143,29 @@
 		</p>
 	{:else}
 		<div class="flex min-w-0 flex-1 items-center gap-2">
+			<!--
+			  Overlapping avatar strip. The single shared ring is on the
+			  CONTAINER's children via `[&>*]:ring-2 [&>*]:ring-card` —
+			  that gives each avatar exactly one card-coloured separator
+			  ring against its neighbours, no rainbow ring stack.
+			-->
 			<TooltipProvider delayDuration={0}>
-				<div class="flex items-center -space-x-2">
+				<div class="flex items-center -space-x-1.5 [&>div]:ring-2 [&>div]:ring-card">
 					{#each visible as p (p.user_id)}
 						{@const cls = classify(p)}
 						<Tooltip>
 							<TooltipTrigger>
-								<div class="relative">
+								<div
+									class="relative rounded-full transition-transform hover:z-10 hover:scale-110"
+								>
 									<UserAvatar
 										userId={p.user_id}
 										name={p.name || p.login}
 										size="size-6"
-										class={`ring-2 ring-offset-1 ring-offset-card transition-transform hover:z-10 hover:scale-110 ${ringClass(cls)}`}
 									/>
 									{#if cls === 'lead'}
-										<!-- Crown sits over the avatar so the IC is
-										     unmistakable at a glance. -->
+										<!-- Tiny crown for the IC. No tinted ring, no
+										     halo — just one glyph in the corner. -->
 										<Crown
 											class="absolute -right-1 -top-1.5 h-2.5 w-2.5 fill-amber-400 text-amber-600 drop-shadow"
 										/>
@@ -194,10 +191,6 @@
 			</TooltipProvider>
 
 			{#if overflow > 0}
-				<!-- `+N` opens a full popover with the rest of the list. The
-				     tooltip-only behaviour earlier was a UX dead-end: the
-				     operator could see the count but had no way to actually
-				     see who those people were. -->
 				<Popover.Root bind:open={listOpen}>
 					<Popover.Trigger
 						class="ml-1 flex h-6 shrink-0 items-center justify-center rounded-full border bg-muted px-2 text-2xs font-medium text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
@@ -258,7 +251,6 @@
 														userId={p.user_id}
 														name={p.name || p.login}
 														size="size-6"
-														class={`ring-2 ring-offset-1 ring-offset-card ${ringClass(cls)}`}
 													/>
 													{#if cls === 'lead'}
 														<Crown
@@ -291,23 +283,35 @@
 				</Popover.Root>
 			{/if}
 
-			<!-- Compact legend on the right — small, only on lg+. -->
+			<!--
+			  Right-edge breakdown: thin counters by relationship. Lives
+			  on lg+ to avoid wrapping on narrow viewports. No coloured
+			  dots — they were doing the same job as the rings and
+			  contributed to the previous mess.
+			-->
 			<div class="ml-auto hidden flex-wrap items-center gap-x-3 gap-y-0.5 text-2xs text-muted-foreground lg:flex">
-				{#if memberCount > 0}
+				{#if leadCount > 0}
 					<span class="inline-flex items-center gap-1">
-						<span class="h-2 w-2 rounded-full bg-primary/70"></span>
-						{memberCount} member{memberCount === 1 ? '' : 's'}
+						<Crown class="h-2.5 w-2.5 fill-amber-400 text-amber-600" />
+						<span class="tabular-nums">
+							{leadCount} lead{leadCount === 1 ? '' : 's'}
+						</span>
+					</span>
+				{/if}
+				{#if memberCount - leadCount > 0}
+					<span class="tabular-nums">
+						{memberCount - leadCount} member{memberCount - leadCount === 1
+							? ''
+							: 's'}
 					</span>
 				{/if}
 				{#if ownerCount > 0}
-					<span class="inline-flex items-center gap-1">
-						<span class="h-2 w-2 rounded-full bg-sky-500/70"></span>
+					<span class="tabular-nums">
 						{ownerCount} owner{ownerCount === 1 ? '' : 's'}
 					</span>
 				{/if}
 				{#if accessCount > 0}
-					<span class="inline-flex items-center gap-1">
-						<span class="h-2 w-2 rounded-full bg-border"></span>
+					<span class="tabular-nums">
 						{accessCount} access
 					</span>
 				{/if}
