@@ -649,16 +649,14 @@
 					href={myUserId != null
 						? `/cases?case_owner_id=${myUserId}&is_open=true`
 						: '/cases?is_open=true'}
-					class="group flex flex-col gap-0.5 transition-colors"
+					class="group flex flex-col gap-2 transition-colors"
 				>
-					<span class="flex items-baseline gap-1.5">
-						<span class="text-3xl font-semibold tabular-nums leading-none text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400">
-							{openCasesState.loading ? '—' : openCasesState.total}
-						</span>
-					</span>
 					<span class="flex items-center gap-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
 						<LayersIcon class="h-3 w-3 text-blue-500" />
 						My open cases
+					</span>
+					<span class="text-3xl font-semibold tabular-nums leading-none text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400">
+						{openCasesState.loading ? '—' : openCasesState.total}
 					</span>
 				</a>
 
@@ -677,8 +675,12 @@
 							? `/alerts?alert_owner_id=${myUserId}`
 							: '/alerts';
 					})()}
-					class="group flex flex-col gap-0.5 transition-colors"
+					class="group flex flex-col gap-2 transition-colors"
 				>
+					<span class="flex items-center gap-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+						<BellRingIcon class="h-3 w-3 text-red-500" />
+						My open alerts
+					</span>
 					<span class="text-3xl font-semibold tabular-nums leading-none text-foreground group-hover:text-red-600 dark:group-hover:text-red-400">
 						{kpiState.loading && kpiState.data == null
 							? alertsState.loading
@@ -686,33 +688,29 @@
 								: alertsState.total
 							: kpiState.data?.assigned_alerts.count ?? alertsState.total}
 					</span>
-					<span class="flex items-center gap-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
-						<BellRingIcon class="h-3 w-3 text-red-500" />
-						My open alerts
-					</span>
 				</a>
 
 				<div class="hidden w-px self-stretch bg-border/60 lg:block" aria-hidden="true"></div>
 
-				<div class="flex flex-col gap-0.5">
-					<span class="text-3xl font-semibold tabular-nums leading-none">
-						{tasksState.loading ? '—' : tasksState.total}
-					</span>
+				<div class="flex flex-col gap-2">
 					<span class="flex items-center gap-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
 						<CheckCheckIcon class="h-3 w-3 text-emerald-500" />
 						Pending tasks
+					</span>
+					<span class="text-3xl font-semibold tabular-nums leading-none">
+						{tasksState.loading ? '—' : tasksState.total}
 					</span>
 				</div>
 
 				<div class="hidden w-px self-stretch bg-border/60 lg:block" aria-hidden="true"></div>
 
-				<div class="flex flex-col gap-0.5">
-					<span class="text-3xl font-semibold tabular-nums leading-none">
-						{kpiState.loading ? '—' : kpiState.data?.cases_closed_last_30d ?? 0}
-					</span>
+				<div class="flex flex-col gap-2">
 					<span class="flex items-center gap-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
 						<CheckCheckIcon class="h-3 w-3 text-violet-500" />
 						Closed (30d)
+					</span>
+					<span class="text-3xl font-semibold tabular-nums leading-none">
+						{kpiState.loading ? '—' : kpiState.data?.cases_closed_last_30d ?? 0}
 					</span>
 				</div>
 			</div>
