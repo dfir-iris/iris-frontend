@@ -91,6 +91,10 @@ const config: Config = {
 				},
 				iris: {
 					blue: 'hsl(var(--iris-blue) / <alpha-value>)'
+				},
+				link: {
+					DEFAULT: 'hsl(var(--link) / <alpha-value>)',
+					hover: 'hsl(var(--link-hover) / <alpha-value>)'
 				}
 			},
 			maxWidth: {
