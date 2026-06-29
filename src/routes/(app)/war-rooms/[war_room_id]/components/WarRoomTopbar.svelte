@@ -56,6 +56,7 @@
 	} from '$lib/services/war-rooms.service';
 	import { SeveritiesService, type Severity } from '$lib/services/severities.service';
 	import { safeHexColor } from '$lib/utils/color';
+	import WarRoomPeopleBanner from './WarRoomPeopleBanner.svelte';
 
 	const ctx = getContext<WarRoomContext>(WAR_ROOM_CTX);
 	const datastorePanel = getContext<WarRoomDatastorePanelContext>(
@@ -410,6 +411,13 @@
 						<span>Created {createdLabel}</span>
 					</span>
 				{/if}
+
+				<!-- People summary: avatars + role counts, hover to expand
+				     into the grouped roster popover. Sits right next to
+				     "Created on" so the metadata row reads as one strip. -->
+				<span class="opacity-30">·</span>
+				<WarRoomPeopleBanner />
+
 				{#if room.description}
 					<span class="opacity-30">·</span>
 					<span class="max-w-[36rem] truncate" title={room.description}>
