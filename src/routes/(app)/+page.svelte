@@ -24,7 +24,6 @@
 		ListIcon,
 		PlusIcon,
 		RefreshCwIcon,
-		ShieldAlertIcon,
 		Star
 	} from 'lucide-svelte';
 	import { goto } from '$app/navigation';
@@ -86,22 +85,6 @@
 	};
 
 	const PREVIEW_LIMIT = 5;
-	const TREND_DAYS = 30;
-	// Sample size for the trend/severity-breakdown derived from alerts.
-	// 1000 covers an active SOC's last month without being expensive.
-	const TREND_SAMPLE_SIZE = 1000;
-
-	type TrendBucket = { date: string; label: string; count: number };
-	type SeverityCount = { name: string; count: number; color: string };
-
-	// Lucide-friendly tones, kept consistent with the SeverityBadge colors.
-	const SEVERITY_TONES: Record<string, string> = {
-		Critical: 'bg-red-500',
-		High: 'bg-orange-500',
-		Medium: 'bg-amber-500',
-		Low: 'bg-emerald-500',
-		Unspecified: 'bg-slate-400'
-	};
 
 	// Alert statuses that mean "this alert is done and out of the queue".
 	// Everything else (New / Assigned / In progress / Pending / Unspecified)
@@ -171,35 +154,6 @@
 		allLoaded: false,
 		error: null
 	});
-
-	// Aggregate visualizations derived from a single larger alert pull —
-	// trend per day + severity breakdown — so we don't fire N separate
-	// per-bucket queries.
-	let trendState = $state<{
-		buckets: TrendBucket[];
-		bySeverity: SeverityCount[];
-		total: number;
-		loading: boolean;
-		error: string | null;
-	}>({
-		buckets: [],
-		bySeverity: [],
-		total: 0,
-		loading: true,
-		error: null
-	});
-
-	// Cases-per-month trend across the last 6 months. Bucketed coarser
-	// than alerts because case volume is naturally lower; a month grain
-	// is the right level to surface seasonality / workload swings.
-	const CASES_TREND_MONTHS = 6;
-	let casesTrendState = $state<{
-		buckets: TrendBucket[];
-		total: number;
-		loading: boolean;
-		error: string | null;
-	}>({ buckets: [], total: 0, loading: true, error: null });
-
 
 	const firstName = $derived(
 		($current_user?.user_name ?? '').split(/[\s,]/)[0] || 'investigator'
@@ -314,133 +268,6 @@
 			value: [...TERMINAL_ALERT_STATUS]
 		}
 	]);
-
-	// Build the date-bucket trend + severity breakdown from a single alerts
-	// pull over the trend window. Buckets are seeded with zero counts so
-	// quiet days still render and the X axis stays continuous.
-	const loadTrend = async () => {
-		if (!alerts) {
-			trendState = { ...trendState, loading: false };
-			return;
-		}
-		trendState.loading = true;
-		trendState.error = null;
-		try {
-			const end = new Date();
-			const start = new Date(end);
-			start.setDate(end.getDate() - (TREND_DAYS - 1));
-			start.setHours(0, 0, 0, 0);
-
-			const toIso = (d: Date) => d.toISOString();
-
-			const res = await alerts.listPaginated({
-				page: 1,
-				per_page: TREND_SAMPLE_SIZE,
-				creation_start_date: toIso(start),
-				creation_end_date: toIso(end),
-				...(myUserId != null ? { alert_owner_id: myUserId } : {})
-			});
-			const { items, total } = unwrapPaginated<Alert>(res);
-
-			// Seed empty buckets for every day in the window so the chart
-			// renders a continuous strip even when nothing happened.
-			const buckets: TrendBucket[] = [];
-			const bucketByKey = new Map<string, TrendBucket>();
-			for (let i = 0; i < TREND_DAYS; i++) {
-				const d = new Date(start);
-				d.setDate(start.getDate() + i);
-				const key = d.toISOString().slice(0, 10);
-				const label = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-				const bucket: TrendBucket = { date: key, label, count: 0 };
-				buckets.push(bucket);
-				bucketByKey.set(key, bucket);
-			}
-
-			const sevCounts = new Map<string, number>();
-			for (const a of items) {
-				const key = (a.alert_creation_time ?? '').slice(0, 10);
-				const bucket = bucketByKey.get(key);
-				if (bucket) bucket.count += 1;
-
-				const sevName = a.severity?.severity_name ?? 'Unspecified';
-				sevCounts.set(sevName, (sevCounts.get(sevName) ?? 0) + 1);
-			}
-
-			const bySeverity: SeverityCount[] = ['Critical', 'High', 'Medium', 'Low', 'Unspecified']
-				.map((name) => ({
-					name,
-					count: sevCounts.get(name) ?? 0,
-					color: SEVERITY_TONES[name] ?? 'bg-slate-400'
-				}))
-				.filter((s) => s.count > 0);
-
-			trendState = {
-				buckets,
-				bySeverity,
-				total,
-				loading: false,
-				error: null
-			};
-		} catch (e) {
-			trendState = { ...trendState, loading: false, error: (e as Error).message };
-		}
-	};
-
-	// Cases opened per month across the last CASES_TREND_MONTHS months.
-	// We fetch a generous page (cases volume is much lower than alerts)
-	// and bucket by year-month client-side. Bucket keys are seeded so
-	// quiet months still render a slot in the chart.
-	const CASES_TREND_SAMPLE = 500;
-	const loadCasesTrend = async () => {
-		if (!cases) {
-			casesTrendState = { ...casesTrendState, loading: false };
-			return;
-		}
-		casesTrendState.loading = true;
-		casesTrendState.error = null;
-		try {
-			const end = new Date();
-			const start = new Date(end.getFullYear(), end.getMonth() - (CASES_TREND_MONTHS - 1), 1);
-			const startIso = `${start.toISOString().slice(0, 10)}T00:00:00`;
-			const endIso = `${end.toISOString().slice(0, 10)}T23:59:59`;
-
-			const res = await cases.listPaginated({
-				page: 1,
-				per_page: CASES_TREND_SAMPLE,
-				start_open_date: startIso,
-				end_open_date: endIso
-			});
-			const { items } = unwrapPaginated<Case>(res);
-
-			const buckets: TrendBucket[] = [];
-			const bucketByKey = new Map<string, TrendBucket>();
-			for (let i = 0; i < CASES_TREND_MONTHS; i++) {
-				const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
-				const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-				const label = d.toLocaleDateString(undefined, { month: 'short' });
-				const bucket: TrendBucket = { date: key, label, count: 0 };
-				buckets.push(bucket);
-				bucketByKey.set(key, bucket);
-			}
-
-			let total = 0;
-			for (const c of items) {
-				if (!c.open_date) continue;
-				const d = new Date(c.open_date);
-				if (Number.isNaN(d.getTime())) continue;
-				const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-				const bucket = bucketByKey.get(key);
-				if (bucket) {
-					bucket.count += 1;
-					total += 1;
-				}
-			}
-
-			casesTrendState = { buckets, total, loading: false, error: null };
-		} catch (e) {
-			casesTrendState = { ...casesTrendState, loading: false, error: (e as Error).message };
-		}
-	};
 
 	const loadAlerts = async () => {
 		if (!alerts) {
@@ -716,8 +543,6 @@
 		void loadFollowedCases();
 		void loadAlerts();
 		void loadTasks();
-		void loadTrend();
-		void loadCasesTrend();
 		void loadActivity();
 		void loadCaseActivity();
 		void loadKpis();
@@ -749,20 +574,6 @@
 		return d.toLocaleDateString();
 	};
 
-	const trendMax = $derived(
-		trendState.buckets.reduce((m, b) => (b.count > m ? b.count : m), 0)
-	);
-	const trendTotal = $derived(
-		trendState.buckets.reduce((sum, b) => sum + b.count, 0)
-	);
-
-	const casesTrendMax = $derived(
-		casesTrendState.buckets.reduce((m, b) => (b.count > m ? b.count : m), 0)
-	);
-	const casesTrendTotal = $derived(
-		casesTrendState.buckets.reduce((sum, b) => sum + b.count, 0)
-	);
-
 	const stripCaseIdPrefix = (name: string): string => {
 		// Cases are stored as "#42 - Title" — for the dashboard list a clean
 		// title reads better; the case id is shown separately as a chip.
@@ -780,281 +591,139 @@
 	<title>Dashboard | DFIR-IRIS</title>
 </svelte:head>
 
-<div class="flex h-full w-full min-w-0 flex-1 flex-col gap-5 overflow-auto p-6">
-	<!-- Header strip: greeting + compact KPIs -->
-	<section
-		class="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 shadow-elevation-1 lg:flex-row lg:items-center lg:gap-4"
-	>
-		<div class="flex min-w-0 items-baseline gap-2 lg:flex-1">
-			<h1 class="truncate text-sm font-semibold leading-none">
-				{greeting()}, {firstName}
-			</h1>
-			<span class="hidden truncate text-xs text-muted-foreground md:inline">
-				· Here's where things stand
-			</span>
-		</div>
-
-		<div class="flex flex-wrap items-center gap-1.5">
-			<a
-				href={myUserId != null
-					? `/cases?case_owner_id=${myUserId}&is_open=true`
-					: '/cases?is_open=true'}
-				class="group inline-flex items-center gap-1.5 rounded-md border border-border/40 bg-muted/40 px-2 py-1 text-xs transition-colors hover:border-border hover:bg-muted/70"
-			>
-				<LayersIcon size={12} class="text-blue-500" />
-				<span class="text-muted-foreground">Open cases</span>
-				<span class="font-semibold tabular-nums">
-					{openCasesState.loading ? '…' : openCasesState.total}
-				</span>
-			</a>
-
-			<a
-				href={(() => {
-					// Prefer the precise filter the backend returned with the
-					// KPI count (only the status ids it actually counts as
-					// "open"). Falls back to the rougher owner-only deep-link
-					// while the KPI request is in-flight.
-					const f = kpiState.data?.assigned_alerts.filter;
-					if (f && f.alert_status_id.length > 0) {
-						const statuses = f.alert_status_id
-							.map((id) => `alert_status_id=${id}`)
-							.join('&');
-						return `/alerts?alert_owner_id=${f.alert_owner_id}&${statuses}`;
-					}
-					return myUserId != null
-						? `/alerts?alert_owner_id=${myUserId}`
-						: '/alerts';
-				})()}
-				class="group inline-flex items-center gap-1.5 rounded-md border border-border/40 bg-muted/40 px-2 py-1 text-xs transition-colors hover:border-border hover:bg-muted/70"
-			>
-				<BellRingIcon size={12} class="text-red-500" />
-				<span class="text-muted-foreground">Open alerts</span>
-				<span class="font-semibold tabular-nums">
-					{kpiState.loading && kpiState.data == null
-						? alertsState.loading
-							? '…'
-							: alertsState.total
-						: kpiState.data?.assigned_alerts.count ?? alertsState.total}
-				</span>
-			</a>
-
-			<span
-				class="group inline-flex items-center gap-1.5 rounded-md border border-border/40 bg-muted/40 px-2 py-1 text-xs"
-			>
-				<CheckCheckIcon size={12} class="text-emerald-500" />
-				<span class="text-muted-foreground">Pending tasks</span>
-				<span class="font-semibold tabular-nums">
-					{tasksState.loading ? '…' : tasksState.total}
-				</span>
-			</span>
-
-			<!-- Throughput metric — closed cases in the last 30 days. Not a
-			     deep-link because /cases doesn't yet accept a closed-since
-			     filter; the number alone is the signal. -->
-			<span
-				class="group inline-flex items-center gap-1.5 rounded-md border border-border/40 bg-muted/40 px-2 py-1 text-xs"
-			>
-				<CheckCheckIcon size={12} class="text-violet-500" />
-				<span class="text-muted-foreground">Closed (30d)</span>
-				<span class="font-semibold tabular-nums">
-					{kpiState.loading ? '…' : kpiState.data?.cases_closed_last_30d ?? 0}
-				</span>
-			</span>
-		</div>
-
-		<div class="hidden h-6 w-px shrink-0 bg-border/60 lg:block" aria-hidden="true"></div>
-
-		<div class="flex items-center gap-1">
-			<Button
-				variant="ghost"
-				size="icon"
-				class="h-8 w-8"
-				onclick={refreshAll}
-				aria-label="Refresh dashboard"
-				title="Refresh"
-			>
-				<RefreshCwIcon class="h-3.5 w-3.5" />
-			</Button>
-		</div>
-	</section>
-
+<div class="flex h-full w-full min-w-0 flex-1 flex-col gap-6 overflow-auto bg-gradient-to-b from-muted/30 via-background to-background p-6">
 	<!--
-	  Insights row: alerts-per-day mini chart on the left, severity
-	  breakdown on the right. Both derived from a single ~14d alerts pull
-	  to keep the request count down. Useful at-a-glance signal for the
-	  current workload shape.
+	  Hero band. One single panel: greeting on the left, four big inline
+	  metrics on the right (no nested card boxes). Numbers are the visual
+	  hierarchy — large tabular figures with a small label underneath; the
+	  whole figure is a deep-link where it makes sense. A subtle separator
+	  divides each metric. Reads as a magazine masthead rather than the
+	  earlier "four little cards in a row" look.
 	-->
-	<div class="grid grid-cols-1 gap-5 xl:grid-cols-3">
-		<section
-			class="flex flex-col rounded-xl border border-border/60 bg-card shadow-elevation-1 xl:col-span-2"
-		>
-			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
-				<div class="flex items-center gap-2 min-w-0">
-					<BellRingIcon class="h-4 w-4 shrink-0 text-blue-500" />
-					<h2 class="text-sm font-semibold">Alerts in the last {TREND_DAYS} days</h2>
-					{#if trendTotal > 0}
-						<span class="text-xs text-muted-foreground tabular-nums">
-							{trendTotal}
+	<section
+		class="relative overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elevation-1"
+	>
+		<!-- Soft tinted glow tucked behind the greeting so the panel has a
+		     mood rather than being a flat white slab. -->
+		<div
+			class="pointer-events-none absolute -left-24 -top-24 h-56 w-56 rounded-full bg-blue-500/10 blur-3xl"
+			aria-hidden="true"
+		></div>
+		<div
+			class="pointer-events-none absolute -right-32 -bottom-32 h-64 w-64 rounded-full bg-violet-500/10 blur-3xl"
+			aria-hidden="true"
+		></div>
+
+		<div class="relative flex flex-col gap-6 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
+			<!-- Greeting block -->
+			<div class="flex min-w-0 items-center gap-3">
+				<div class="min-w-0">
+					<p class="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+						{greeting()}
+					</p>
+					<h1 class="truncate text-2xl font-semibold leading-tight tracking-tight">
+						{firstName}
+					</h1>
+				</div>
+
+				<Button
+					variant="ghost"
+					size="icon"
+					class="ml-2 h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+					onclick={refreshAll}
+					aria-label="Refresh dashboard"
+					title="Refresh"
+				>
+					<RefreshCwIcon class="h-3.5 w-3.5" />
+				</Button>
+			</div>
+
+			<!-- Inline metric strip. Each metric is value + label stacked,
+			     separated by a hairline divider on lg+. The two "owned" rows
+			     are clickable; the two derived counters are static. -->
+			<div class="flex flex-wrap items-stretch gap-x-6 gap-y-3 lg:gap-x-8">
+				<a
+					href={myUserId != null
+						? `/cases?case_owner_id=${myUserId}&is_open=true`
+						: '/cases?is_open=true'}
+					class="group flex flex-col gap-0.5 transition-colors"
+				>
+					<span class="flex items-baseline gap-1.5">
+						<span class="text-3xl font-semibold tabular-nums leading-none text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400">
+							{openCasesState.loading ? '—' : openCasesState.total}
 						</span>
-					{/if}
-				</div>
-				<span class="text-2xs text-muted-foreground">peak {trendMax}/day</span>
-			</header>
-
-			<div class="flex-1 px-4 py-3">
-				{#if trendState.loading}
-					<Skeleton class="h-24 w-full" />
-				{:else if trendState.error}
-					<div class="text-center text-xs text-destructive">{trendState.error}</div>
-				{:else if trendTotal === 0}
-					<div class="flex h-24 items-center justify-center text-xs text-muted-foreground">
-						No alerts in this window.
-					</div>
-				{:else}
-					<!--
-					  Minimal SVG bar chart — no external charting lib so the
-					  bundle stays small. Bars are rendered relative to the
-					  per-window peak; a faint baseline + label per bar keep
-					  the chart self-describing.
-					-->
-					<div class="flex h-28 items-end gap-[3px]">
-						{#each trendState.buckets as b (b.date)}
-							{@const heightPct = trendMax > 0 ? (b.count / trendMax) * 100 : 0}
-							<div
-								class="group relative flex h-full flex-1 flex-col justify-end"
-								title={`${b.label}: ${b.count} alert${b.count === 1 ? '' : 's'}`}
-							>
-								<div
-									class="rounded-sm bg-blue-500/70 transition-all group-hover:bg-blue-500"
-									style="height: {Math.max(heightPct, b.count > 0 ? 4 : 0)}%"
-								></div>
-							</div>
-						{/each}
-					</div>
-					<div class="mt-1 flex justify-between text-[10px] text-muted-foreground">
-						<span>{trendState.buckets[0]?.label}</span>
-						<span>{trendState.buckets[trendState.buckets.length - 1]?.label}</span>
-					</div>
-				{/if}
-			</div>
-		</section>
-
-		<section
-			class="flex flex-col rounded-xl border border-border/60 bg-card shadow-elevation-1"
-		>
-			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
-				<div class="flex items-center gap-2 min-w-0">
-					<ShieldAlertIcon class="h-4 w-4 shrink-0 text-amber-500" />
-					<h2 class="text-sm font-semibold">By severity</h2>
-				</div>
-				<span class="text-2xs text-muted-foreground">last {TREND_DAYS}d</span>
-			</header>
-
-			<div class="flex flex-col gap-3 px-4 py-3">
-				{#if trendState.loading}
-					<Skeleton class="h-3 w-full" />
-					<Skeleton class="h-16 w-full" />
-				{:else if trendState.bySeverity.length === 0}
-					<div class="flex h-24 items-center justify-center text-xs text-muted-foreground">
-						—
-					</div>
-				{:else}
-					{@const total = trendState.bySeverity.reduce((s, x) => s + x.count, 0)}
-					<!-- Stacked horizontal bar -->
-					<div class="flex h-2 w-full overflow-hidden rounded-full bg-muted/40">
-						{#each trendState.bySeverity as s (s.name)}
-							<div
-								class={s.color}
-								style="width: {(s.count / total) * 100}%"
-								title={`${s.name}: ${s.count}`}
-							></div>
-						{/each}
-					</div>
-					<ul class="flex flex-col gap-1.5 text-xs">
-						{#each trendState.bySeverity as s (s.name)}
-							<li class="flex items-center gap-2">
-								<span class="h-2 w-2 shrink-0 rounded-full {s.color}"></span>
-								<span class="flex-1 truncate text-muted-foreground">{s.name}</span>
-								<span class="tabular-nums font-medium">{s.count}</span>
-								<span class="w-10 text-right tabular-nums text-2xs text-muted-foreground">
-									{Math.round((s.count / total) * 100)}%
-								</span>
-							</li>
-						{/each}
-					</ul>
-				{/if}
-			</div>
-		</section>
-	</div>
-
-	<!--
-	  Cases trend: monthly volume across the last 6 months. Coarser grain
-	  than the alerts chart because case opening cadence is naturally
-	  lower; daily buckets would be mostly zero. Pairs visually with the
-	  alerts trend above.
-	-->
-	<section
-		class="flex flex-col rounded-xl border border-border/60 bg-card shadow-elevation-1"
-	>
-		<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
-			<div class="flex items-center gap-2 min-w-0">
-				<LayersIcon class="h-4 w-4 shrink-0 text-emerald-500" />
-				<h2 class="text-sm font-semibold">
-					Cases opened in the last {CASES_TREND_MONTHS} months
-				</h2>
-				{#if casesTrendTotal > 0}
-					<span class="text-xs text-muted-foreground tabular-nums">
-						{casesTrendTotal}
 					</span>
-				{/if}
-			</div>
-			<span class="text-2xs text-muted-foreground">peak {casesTrendMax}/month</span>
-		</header>
+					<span class="flex items-center gap-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+						<LayersIcon class="h-3 w-3 text-blue-500" />
+						My open cases
+					</span>
+				</a>
 
-		<div class="px-4 py-3">
-			{#if casesTrendState.loading}
-				<Skeleton class="h-24 w-full" />
-			{:else if casesTrendState.error}
-				<div class="text-center text-xs text-destructive">{casesTrendState.error}</div>
-			{:else if casesTrendTotal === 0}
-				<div class="flex h-24 items-center justify-center text-xs text-muted-foreground">
-					No cases opened in this window.
+				<div class="hidden w-px self-stretch bg-border/60 lg:block" aria-hidden="true"></div>
+
+				<a
+					href={(() => {
+						const f = kpiState.data?.assigned_alerts.filter;
+						if (f && f.alert_status_id.length > 0) {
+							const statuses = f.alert_status_id
+								.map((id) => `alert_status_id=${id}`)
+								.join('&');
+							return `/alerts?alert_owner_id=${f.alert_owner_id}&${statuses}`;
+						}
+						return myUserId != null
+							? `/alerts?alert_owner_id=${myUserId}`
+							: '/alerts';
+					})()}
+					class="group flex flex-col gap-0.5 transition-colors"
+				>
+					<span class="text-3xl font-semibold tabular-nums leading-none text-foreground group-hover:text-red-600 dark:group-hover:text-red-400">
+						{kpiState.loading && kpiState.data == null
+							? alertsState.loading
+								? '—'
+								: alertsState.total
+							: kpiState.data?.assigned_alerts.count ?? alertsState.total}
+					</span>
+					<span class="flex items-center gap-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+						<BellRingIcon class="h-3 w-3 text-red-500" />
+						My open alerts
+					</span>
+				</a>
+
+				<div class="hidden w-px self-stretch bg-border/60 lg:block" aria-hidden="true"></div>
+
+				<div class="flex flex-col gap-0.5">
+					<span class="text-3xl font-semibold tabular-nums leading-none">
+						{tasksState.loading ? '—' : tasksState.total}
+					</span>
+					<span class="flex items-center gap-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+						<CheckCheckIcon class="h-3 w-3 text-emerald-500" />
+						Pending tasks
+					</span>
 				</div>
-			{:else}
-				<div class="flex h-28 items-end gap-2">
-					{#each casesTrendState.buckets as b (b.date)}
-						{@const heightPct = casesTrendMax > 0 ? (b.count / casesTrendMax) * 100 : 0}
-						<div
-							class="group relative flex h-full flex-1 flex-col justify-end"
-							title={`${b.label}: ${b.count} case${b.count === 1 ? '' : 's'}`}
-						>
-							<div
-								class="rounded-sm bg-emerald-500/70 transition-all group-hover:bg-emerald-500"
-								style="height: {Math.max(heightPct, b.count > 0 ? 6 : 0)}%"
-							></div>
-						</div>
-					{/each}
+
+				<div class="hidden w-px self-stretch bg-border/60 lg:block" aria-hidden="true"></div>
+
+				<div class="flex flex-col gap-0.5">
+					<span class="text-3xl font-semibold tabular-nums leading-none">
+						{kpiState.loading ? '—' : kpiState.data?.cases_closed_last_30d ?? 0}
+					</span>
+					<span class="flex items-center gap-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+						<CheckCheckIcon class="h-3 w-3 text-violet-500" />
+						Closed (30d)
+					</span>
 				</div>
-				<div class="mt-1 flex justify-between text-[10px] text-muted-foreground">
-					{#each casesTrendState.buckets as b (b.date)}
-						<span class="flex-1 text-center">{b.label}</span>
-					{/each}
-				</div>
-			{/if}
+			</div>
 		</div>
 	</section>
 
 	<!--
-	  First row: open cases (wider) + open alerts (narrower). Classic
-	  flex layout — column-stack on small screens, row at lg+. Width is
-	  controlled with explicit basis percentages so the children can't
-	  push each other off the row, and `min-w-0` keeps long titles from
-	  forcing horizontal scroll.
+	  Row A — primary "your work" line: open cases (2/3) + open alerts (1/3).
+	  These are the operator's daily entry points; everything else below
+	  is reference / signal.
 	-->
 	<div class="flex flex-col gap-5 lg:flex-row">
-		<div class="flex min-w-0 flex-col gap-5 lg:basis-2/3">
 		<section
-			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1"
+			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 lg:basis-2/3"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
 				<div class="flex items-center gap-2 min-w-0">
@@ -1128,69 +797,6 @@
 				{/if}
 			</div>
 		</section>
-
-		<!--
-		  Following section. Lists cases the current user has explicitly
-		  followed via the case-detail "Follow" toggle. Hidden when the
-		  list is empty so the dashboard doesn't surface an empty card
-		  for users who have not opted in to the feature.
-		-->
-		{#if followedCasesState.loading || followedCasesState.items.length > 0}
-		<section
-			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1"
-		>
-			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
-				<div class="flex items-center gap-2 min-w-0">
-					<Star class="h-4 w-4 shrink-0 fill-amber-500 text-amber-500" />
-					<h2 class="text-sm font-semibold">Following</h2>
-					{#if followedCasesState.total > 0}
-						<span class="text-xs text-muted-foreground tabular-nums">
-							{followedCasesState.total}
-						</span>
-					{/if}
-				</div>
-			</header>
-
-			<div class="flex-1 overflow-auto">
-				{#if followedCasesState.loading}
-					<div class="space-y-2 p-4">
-						{#each Array(PREVIEW_LIMIT) as _}
-							<Skeleton class="h-9 w-full" />
-						{/each}
-					</div>
-				{:else if followedCasesState.error}
-					<div class="p-6 text-center text-xs text-destructive">{followedCasesState.error}</div>
-				{:else}
-					<ul class="divide-y">
-						{#each followedCasesState.items as c (c.case_id)}
-							<li>
-								<a
-									href={`/case/${c.case_id}`}
-									class="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/50"
-								>
-									<span class="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
-										#{c.case_id}
-									</span>
-									<span class="min-w-0 flex-1 truncate text-sm font-medium" title={c.case_name}>
-										{stripCaseIdPrefix(c.case_name)}
-									</span>
-									<div class="hidden items-center gap-1.5 sm:flex">
-										{#if c.severity?.severity_name}
-											<SeverityBadge severity={c.severity.severity_name as SeverityName} icon_only />
-										{/if}
-										{#if c.state?.state_name}
-											<StatusBadge status={c.state.state_name as CaseStatus} icon_only />
-										{/if}
-									</div>
-								</a>
-							</li>
-						{/each}
-					</ul>
-				{/if}
-			</div>
-		</section>
-		{/if}
-		</div>
 
 		<!-- Open alerts assigned to me -->
 		<section
@@ -1266,10 +872,10 @@
 	</div>
 
 	<!--
-	  Second row: pending tasks + major case activities + per-case
-	  activity log. Three equal-width tiles via plain flex-basis-1/3, no
-	  custom CSS grid. Same height (22rem) as row 1 so the visual rhythm
-	  matches.
+	  Row B — secondary "your work" line: pending tasks (1/3) + followed
+	  cases (2/3). Both are user-scoped, kept just below Row A so the
+	  whole "your stuff" cluster stays visually together at the top of
+	  the dashboard.
 	-->
 	<div class="flex flex-col gap-5 lg:flex-row">
 		<section
@@ -1341,11 +947,87 @@
 		</section>
 
 		<!--
+		  Following: cases the current user has explicitly followed via the
+		  case-detail "Follow" toggle. Promoted to the top cluster (next to
+		  pending tasks) because it's a high-signal personal queue — the
+		  cases this operator wants to keep eyes on. Empty / loading is
+		  rendered as a tile (rather than hidden) so the row keeps a
+		  consistent shape.
+		-->
+		<section
+			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 lg:basis-2/3"
+		>
+			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
+				<div class="flex items-center gap-2 min-w-0">
+					<Star class="h-4 w-4 shrink-0 fill-amber-500 text-amber-500" />
+					<h2 class="text-sm font-semibold">Following</h2>
+					{#if followedCasesState.total > 0}
+						<span class="text-xs text-muted-foreground tabular-nums">
+							{followedCasesState.total}
+						</span>
+					{/if}
+				</div>
+			</header>
+
+			<div class="flex-1 overflow-auto">
+				{#if followedCasesState.loading}
+					<div class="space-y-2 p-4">
+						{#each Array(PREVIEW_LIMIT) as _}
+							<Skeleton class="h-9 w-full" />
+						{/each}
+					</div>
+				{:else if followedCasesState.error}
+					<div class="p-6 text-center text-xs text-destructive">{followedCasesState.error}</div>
+				{:else if followedCasesState.items.length === 0}
+					<div class="flex flex-col items-center justify-center gap-2 p-8 text-center">
+						<Star class="h-8 w-8 text-muted-foreground/40" />
+						<p class="text-sm text-muted-foreground">
+							You aren't following any cases yet. Open a case and click ★ Follow to keep it pinned here.
+						</p>
+					</div>
+				{:else}
+					<ul class="divide-y">
+						{#each followedCasesState.items as c (c.case_id)}
+							<li>
+								<a
+									href={`/case/${c.case_id}`}
+									class="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/50"
+								>
+									<span class="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+										#{c.case_id}
+									</span>
+									<span class="min-w-0 flex-1 truncate text-sm font-medium" title={c.case_name}>
+										{stripCaseIdPrefix(c.case_name)}
+									</span>
+									<div class="hidden items-center gap-1.5 sm:flex">
+										{#if c.severity?.severity_name}
+											<SeverityBadge severity={c.severity.severity_name as SeverityName} icon_only />
+										{/if}
+										{#if c.state?.state_name}
+											<StatusBadge status={c.state.state_name as CaseStatus} icon_only />
+										{/if}
+									</div>
+								</a>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</div>
+		</section>
+	</div>
+
+	<!--
+	  Activity feeds row: major case lifecycle (created / closed) on the
+	  left, per-case event log on the right. Global signal — sits at the
+	  bottom of the page.
+	-->
+	<div class="flex flex-col gap-5 lg:flex-row">
+		<!--
 		  High-signal case lifecycle feed (created/closed), scoped to cases
 		  the current user can access. Infinite-scroll and read-only.
 		-->
 		<section
-			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 lg:basis-1/3"
+			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 lg:basis-1/2"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
 				<div class="flex items-center gap-2 min-w-0">
@@ -1434,7 +1116,7 @@
 		  per-case event stream rather than just create/close.
 		-->
 		<section
-			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 lg:basis-1/3"
+			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 lg:basis-1/2"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
 				<div class="flex items-center gap-2 min-w-0">
