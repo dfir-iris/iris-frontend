@@ -13,11 +13,12 @@
 -->
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { Bell, BellOff, Loader2, Pencil, Send, X, Check } from 'lucide-svelte';
+	import { Bell, BellOff, Loader2, Pencil, Send, Trash2, X, Check } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { toast } from '$lib/components/ui/toast';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
+	import { current_user } from '$lib/stores/auth.store';
 	import {
 		WarRoomChatService,
 		type ChatMessage,
@@ -78,6 +79,21 @@
 		root.message_id;
 		void load();
 	});
+
+	const currentUserId = $derived(($current_user?.user_id ?? null) as number | null);
+
+	const removeReply = async (r: ChatMessage) => {
+		if (!confirm('Delete this reply?')) return;
+		const res = await WarRoomChatService.remove(warRoomId, r.message_id);
+		if (res.ok) {
+			// Drop locally; the next reply count refresh comes via the
+			// parent's poll on the next tick.
+			replies = replies.filter((x) => x.message_id !== r.message_id);
+			onChanged();
+		} else {
+			toast({ title: 'Could not delete reply', variant: 'destructive' });
+		}
+	};
 
 	const send = async () => {
 		const text = body.trim();
@@ -264,7 +280,7 @@
 		{:else}
 			<ul class="flex flex-col gap-3">
 				{#each replies as r (r.message_id)}
-					<li class="flex gap-2">
+					<li class="group/reply flex gap-2">
 						<UserAvatar
 							userId={r.author_id ?? undefined}
 							name={r.author_name ?? r.author_login ?? 'Unknown'}
@@ -276,6 +292,16 @@
 									{r.author_name ?? r.author_login ?? 'Unknown'}
 								</span>
 								<span class="text-2xs text-muted-foreground">{fmtTime(r.created_at)}</span>
+								{#if currentUserId != null && r.author_id === currentUserId}
+									<button
+										type="button"
+										class="invisible ml-auto inline-flex items-center gap-0.5 text-2xs text-destructive hover:text-destructive/80 group-hover/reply:visible"
+										onclick={() => removeReply(r)}
+										aria-label="Delete reply"
+									>
+										<Trash2 class="h-3 w-3" />
+									</button>
+								{/if}
 							</div>
 							<div class="mt-0.5 break-words text-xs">
 								<ChatMessageBody body={r.body ?? ''} onAttachmentClick={() => {}} />

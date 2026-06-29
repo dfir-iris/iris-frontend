@@ -27,6 +27,7 @@
 		Search,
 		Send,
 		Slash,
+		Trash2,
 		Waypoints,
 		WaypointsIcon
 	} from 'lucide-svelte';
@@ -54,6 +55,7 @@
 		WarRoomsService,
 		type WarRoomCaseAttachment
 	} from '$lib/services/war-rooms.service';
+	import { current_user } from '$lib/stores/auth.store';
 	import { CaseIocsService } from '$lib/services/case-iocs.service';
 	import { CaseAssetsService } from '$lib/services/case-assets.service';
 	import { CaseTimelineService } from '$lib/services/case-timeline.service';
@@ -416,6 +418,38 @@
 	onDestroy(() => {
 		if (pollTimer) clearInterval(pollTimer);
 	});
+
+	// Used by the per-bubble delete affordance to decide whether to render
+	// the Trash button. Server-side enforcement is the source of truth
+	// (the DELETE endpoint rejects anything but the author), but hiding
+	// the button for non-authors keeps the UI honest.
+	const currentUserId = $derived(($current_user?.user_id ?? null) as number | null);
+
+	const removeMessage = async (m: ChatMessage) => {
+		if (!confirm('Delete this message? It will be hidden from the stream.')) return;
+		const res = await WarRoomChatService.remove(warRoomId, m.message_id);
+		if (res.ok) {
+			// Mirror the server's soft-delete: stamp deleted_at locally so
+			// the existing `.filter((m) => m.deleted_at)` in visibleMessages
+			// drops it without waiting for the next poll.
+			messages = messages.map((x) =>
+				x.message_id === m.message_id
+					? { ...x, deleted_at: new Date().toISOString(), body: null }
+					: x
+			);
+		} else {
+			toast({
+				title: 'Could not delete message',
+				description:
+					typeof res.data === 'string'
+						? res.data
+						: ((res.data as { message?: string } | null)?.message ??
+							res.error?.message ??
+							'Unknown error'),
+				variant: 'destructive'
+			});
+		}
+	};
 
 	const send = async () => {
 		const text = body.trim();
@@ -1241,6 +1275,17 @@
 													>
 														Reply in thread
 													</button>
+													{#if currentUserId != null && m.author_id === currentUserId}
+														<button
+															type="button"
+															class="invisible mt-1 inline-flex items-center gap-0.5 text-2xs text-destructive hover:text-destructive/80 group-hover/msg:visible"
+															onclick={() => removeMessage(m)}
+															aria-label="Delete message"
+														>
+															<Trash2 class="h-3 w-3" />
+															Delete
+														</button>
+													{/if}
 												</div>
 											</div>
 										</li>
@@ -1291,6 +1336,17 @@
 													>
 														Reply in thread
 													</button>
+													{#if currentUserId != null && m.author_id === currentUserId}
+														<button
+															type="button"
+															class="invisible mt-1 inline-flex items-center gap-0.5 text-2xs text-destructive hover:text-destructive/80 group-hover/msg:visible"
+															onclick={() => removeMessage(m)}
+															aria-label="Delete message"
+														>
+															<Trash2 class="h-3 w-3" />
+															Delete
+														</button>
+													{/if}
 												</div>
 											</div>
 										</li>
