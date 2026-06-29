@@ -79,6 +79,13 @@
 			requires: 'alerts_read'
 		},
 		{
+			label: 'War Rooms',
+			path: '/war-rooms',
+			icon: ShieldAlert,
+			matchPrefix: true,
+			requires: 'war_rooms_read'
+		},
+		{
 			label: 'Search',
 			path: '/search',
 			icon: SearchIcon,
@@ -90,14 +97,7 @@
 			icon: FileTextIcon,
 			requires: ['activities_read', 'all_activities_read']
 		},
-		{ label: 'Dim Tasks', path: '/dim-tasks', icon: FileStackIcon },
-		{
-			label: 'War Rooms',
-			path: '/war-rooms',
-			icon: ShieldAlert,
-			matchPrefix: true,
-			requires: 'war_rooms_read'
-		}
+		{ label: 'Dim Tasks', path: '/dim-tasks', icon: FileStackIcon }
 	]);
 
 	/**
