@@ -221,6 +221,18 @@
 		severities.find((s) => s.severity_id === room?.severity_id) ?? null
 	);
 
+	// When the room loads with a severity already set, we need the
+	// taxonomy in memory so the chip can render its name — otherwise the
+	// trigger falls through to the "Criticality" placeholder until the
+	// user happens to open the dropdown. Lazy-load was a footgun here:
+	// the chip looked unset after every page refresh even though the
+	// row had a severity_id persisted.
+	$effect(() => {
+		if (room?.severity_id != null && !severitiesLoaded && !severitiesLoading) {
+			void loadSeverities();
+		}
+	});
+
 	// Map severity name → chip palette. The taxonomy ships with at
 	// least Low/Medium/High/Critical; deployments add custom ones, so
 	// the default branch keeps a neutral muted look.
