@@ -614,7 +614,7 @@
 			aria-hidden="true"
 		></div>
 
-		<div class="relative flex flex-col gap-6 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
+		<div class="relative flex flex-col gap-6 px-6 py-5 lg:flex-row lg:items-center">
 			<!-- Greeting block -->
 			<div class="flex min-w-0 items-center gap-3">
 				<div class="min-w-0">
@@ -640,8 +640,11 @@
 
 			<!-- Inline metric strip. Each metric is value + label stacked,
 			     separated by a hairline divider on lg+. The two "owned" rows
-			     are clickable; the two derived counters are static. -->
-			<div class="flex flex-wrap items-stretch gap-x-6 gap-y-3 lg:gap-x-8">
+			     are clickable; the two derived counters are static. `ml-auto`
+			     on lg pushes the strip flush to the right edge of the band
+			     while keeping the greeting natural-width on the left —
+			     `justify-between` left a big empty gap between them. -->
+			<div class="flex flex-wrap items-stretch gap-x-6 gap-y-3 lg:ml-auto lg:gap-x-8">
 				<a
 					href={myUserId != null
 						? `/cases?case_owner_id=${myUserId}&is_open=true`
