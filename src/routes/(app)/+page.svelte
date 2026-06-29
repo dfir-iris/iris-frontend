@@ -614,7 +614,7 @@
 			aria-hidden="true"
 		></div>
 
-		<div class="relative flex flex-col gap-6 px-6 py-5 lg:flex-row lg:items-center">
+		<div class="relative flex flex-col gap-6 px-6 py-8 lg:flex-row lg:items-center">
 			<!-- Greeting block -->
 			<div class="flex min-w-0 items-center gap-3">
 				<div class="min-w-0">
@@ -649,7 +649,7 @@
 					href={myUserId != null
 						? `/cases?case_owner_id=${myUserId}&is_open=true`
 						: '/cases?is_open=true'}
-					class="group flex flex-col gap-0.5 transition-colors"
+					class="group flex flex-col gap-2 transition-colors"
 				>
 					<span class="flex items-baseline gap-1.5">
 						<span class="text-3xl font-semibold tabular-nums leading-none text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400">
@@ -677,7 +677,7 @@
 							? `/alerts?alert_owner_id=${myUserId}`
 							: '/alerts';
 					})()}
-					class="group flex flex-col gap-0.5 transition-colors"
+					class="group flex flex-col gap-2 transition-colors"
 				>
 					<span class="text-3xl font-semibold tabular-nums leading-none text-foreground group-hover:text-red-600 dark:group-hover:text-red-400">
 						{kpiState.loading && kpiState.data == null
@@ -694,7 +694,7 @@
 
 				<div class="hidden w-px self-stretch bg-border/60 lg:block" aria-hidden="true"></div>
 
-				<div class="flex flex-col gap-0.5">
+				<div class="flex flex-col gap-2">
 					<span class="text-3xl font-semibold tabular-nums leading-none">
 						{tasksState.loading ? '—' : tasksState.total}
 					</span>
@@ -706,7 +706,7 @@
 
 				<div class="hidden w-px self-stretch bg-border/60 lg:block" aria-hidden="true"></div>
 
-				<div class="flex flex-col gap-0.5">
+				<div class="flex flex-col gap-2">
 					<span class="text-3xl font-semibold tabular-nums leading-none">
 						{kpiState.loading ? '—' : kpiState.data?.cases_closed_last_30d ?? 0}
 					</span>
