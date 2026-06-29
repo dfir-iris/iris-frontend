@@ -4,8 +4,10 @@
 	import type { EventCategory } from '$lib/services/event-categories.service';
 	import type { Asset } from '$lib/types/resources/asset';
 	import type { Ioc } from '$lib/types/resources/ioc';
+	import { PlusIcon, RotateCwIcon } from 'lucide-svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { Button } from '$lib/components/ui/button';
 	import { MarkDownEditor } from '$lib/components/common/MarkDown';
 	import SearchSelect, {
 		type SelectOption
@@ -43,6 +45,15 @@
 		// (asset/ioc detail tabs) can stay on the same form component
 		// without rendering the timelines section.
 		timelines?: CaseTimeline[];
+		// Optional refresh / add affordances for the asset and IOC pickers.
+		// When provided, a small ↻ and + button render next to the picker
+		// header so the user can pull new entries or open the create
+		// modal without leaving the event dialog. Callers that don't pass
+		// them (asset/ioc detail tabs) just don't see the buttons.
+		onRefreshAssets?: () => void | Promise<void>;
+		onAddAsset?: () => void;
+		onRefreshIocs?: () => void | Promise<void>;
+		onAddIoc?: () => void;
 		onUpdateField: (field: keyof TimelineEventFormData, value: FieldValue) => void;
 	};
 
@@ -53,6 +64,10 @@
 		assets,
 		iocs,
 		timelines = [],
+		onRefreshAssets,
+		onAddAsset,
+		onRefreshIocs,
+		onAddIoc,
 		onUpdateField
 	}: Props = $props();
 
@@ -244,7 +259,37 @@
 			</div>
 
 			<div class="rounded-lg bg-card/40 p-4">
-				<p class="text-sm font-medium text-muted-foreground">Link to Assets</p>
+				<div class="flex items-center justify-between gap-2">
+					<p class="text-sm font-medium text-muted-foreground">Link to Assets</p>
+					{#if onRefreshAssets || onAddAsset}
+						<div class="flex items-center gap-1">
+							{#if onRefreshAssets}
+								<Button
+									variant="ghost"
+									size="icon"
+									class="h-6 w-6 text-muted-foreground hover:text-foreground"
+									onclick={() => onRefreshAssets?.()}
+									title="Refresh assets list"
+									aria-label="Refresh assets list"
+								>
+									<RotateCwIcon class="h-3.5 w-3.5" />
+								</Button>
+							{/if}
+							{#if onAddAsset}
+								<Button
+									variant="ghost"
+									size="icon"
+									class="h-6 w-6 text-muted-foreground hover:text-foreground"
+									onclick={() => onAddAsset?.()}
+									title="Add a new asset"
+									aria-label="Add a new asset"
+								>
+									<PlusIcon class="h-3.5 w-3.5" />
+								</Button>
+							{/if}
+						</div>
+					{/if}
+				</div>
 
 				<div class="mt-1">
 					<SearchSelect
@@ -259,7 +304,37 @@
 			</div>
 
 			<div class="rounded-lg bg-card/40 p-4">
-				<p class="text-sm font-medium text-muted-foreground">Link to IOCs</p>
+				<div class="flex items-center justify-between gap-2">
+					<p class="text-sm font-medium text-muted-foreground">Link to IOCs</p>
+					{#if onRefreshIocs || onAddIoc}
+						<div class="flex items-center gap-1">
+							{#if onRefreshIocs}
+								<Button
+									variant="ghost"
+									size="icon"
+									class="h-6 w-6 text-muted-foreground hover:text-foreground"
+									onclick={() => onRefreshIocs?.()}
+									title="Refresh IOCs list"
+									aria-label="Refresh IOCs list"
+								>
+									<RotateCwIcon class="h-3.5 w-3.5" />
+								</Button>
+							{/if}
+							{#if onAddIoc}
+								<Button
+									variant="ghost"
+									size="icon"
+									class="h-6 w-6 text-muted-foreground hover:text-foreground"
+									onclick={() => onAddIoc?.()}
+									title="Add a new IOC"
+									aria-label="Add a new IOC"
+								>
+									<PlusIcon class="h-3.5 w-3.5" />
+								</Button>
+							{/if}
+						</div>
+					{/if}
+				</div>
 
 				<div class="mt-1">
 					<SearchSelect

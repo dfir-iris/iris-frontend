@@ -30,6 +30,14 @@
 		type CaseAccessContext
 	} from '$lib/contexts/case-access.context.svelte';
 	import {
+		CASE_ASSETS_CTX,
+		type CaseAssetsContext
+	} from '$lib/contexts/case-assets.context.svelte';
+	import {
+		CASE_IOCS_CTX,
+		type CaseIocsContext
+	} from '$lib/contexts/case-iocs.context.svelte';
+	import {
 		COMMENTS_PANEL_CTX,
 		type CommentsPanelContext
 	} from '$lib/contexts/comments-panel.context.svelte';
@@ -74,6 +82,8 @@
 
 	const commentsPanel = getContext<CommentsPanelContext>(COMMENTS_PANEL_CTX);
 	const caseAccess = getContext<CaseAccessContext | undefined>(CASE_ACCESS_CTX);
+	const caseAssetsCtx = getContext<CaseAssetsContext | undefined>(CASE_ASSETS_CTX);
+	const caseIocsCtx = getContext<CaseIocsContext | undefined>(CASE_IOCS_CTX);
 	const canEdit = $derived(caseAccess?.canEdit() ?? false);
 
 	let filters = $state<TimelineFilterData>(emptyFilters());
@@ -511,6 +521,42 @@
 		}
 	};
 
+	// "Add asset" / "Add IOC" affordances next to the Link-to pickers in
+	// the event dialog. We open the case-level add modals (mounted in
+	// `+layout.svelte`) by flipping their shared UI state, then watch
+	// `showAddModal` flipping back to false to refetch the local
+	// asset/IOC lists so newly-created entries are immediately pickable
+	// without leaving the event dialog.
+	let assetsAddOpenWatcher = false;
+	let iocsAddOpenWatcher = false;
+	$effect(() => {
+		if (!caseAssetsCtx) return;
+		const open = caseAssetsCtx.ui.showAddModal;
+		if (open) {
+			assetsAddOpenWatcher = true;
+		} else if (assetsAddOpenWatcher) {
+			assetsAddOpenWatcher = false;
+			void loadCaseAssets();
+		}
+	});
+	$effect(() => {
+		if (!caseIocsCtx) return;
+		const open = caseIocsCtx.ui.showAddModal;
+		if (open) {
+			iocsAddOpenWatcher = true;
+		} else if (iocsAddOpenWatcher) {
+			iocsAddOpenWatcher = false;
+			void loadCaseIocs();
+		}
+	});
+
+	const openAddAsset = () => {
+		if (caseAssetsCtx) caseAssetsCtx.ui.showAddModal = true;
+	};
+	const openAddIoc = () => {
+		if (caseIocsCtx) caseIocsCtx.ui.showAddModal = true;
+	};
+
 	const loadCaseTimelines = async () => {
 		timelinesLoading = true;
 		try {
@@ -901,6 +947,10 @@
 	{timelines}
 	initialTimelineIds={[...selectedTimelineIds]}
 	{selectedParent}
+	onRefreshAssets={loadCaseAssets}
+	onAddAsset={openAddAsset}
+	onRefreshIocs={loadCaseIocs}
+	onAddIoc={openAddIoc}
 	onOpenChange={(open) => (eventDialogOpen = open)}
 />
 

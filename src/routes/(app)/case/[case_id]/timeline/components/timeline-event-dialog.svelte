@@ -37,6 +37,14 @@
 		// timeline tabs to pin the surrounding context as a starting point.
 		initialAssetIds?: number[];
 		initialIocIds?: number[];
+		// Optional refresh / add affordances next to the Link-to pickers
+		// inside the form. The timeline page wires these to refetch its
+		// local asset/IOC list and open the asset/IOC add modals; other
+		// hosts (asset/ioc detail tabs) omit them.
+		onRefreshAssets?: () => void | Promise<void>;
+		onAddAsset?: () => void;
+		onRefreshIocs?: () => void | Promise<void>;
+		onAddIoc?: () => void;
 		onOpenChange: (open: boolean) => void;
 	};
 
@@ -54,6 +62,10 @@
 		selectedParent,
 		initialAssetIds = [],
 		initialIocIds = [],
+		onRefreshAssets,
+		onAddAsset,
+		onRefreshIocs,
+		onAddIoc,
 		onOpenChange
 	}: Props = $props();
 
@@ -246,6 +258,10 @@
 				{assets}
 				{iocs}
 				{timelines}
+				{onRefreshAssets}
+				{onAddAsset}
+				{onRefreshIocs}
+				{onAddIoc}
 				onUpdateField={updateField}
 			/>
 		</div>
