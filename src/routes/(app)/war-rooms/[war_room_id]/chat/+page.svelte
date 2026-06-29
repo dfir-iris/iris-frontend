@@ -922,8 +922,60 @@
 				</ul>
 			</section>
 
-			<!-- Per-case sub-tree with grouped activity types -->
-			<section class="px-2 py-2">
+			<!-- Threads — sits directly under Stream lanes so the operator's
+			     active conversations stay at the top of the sidebar, above
+			     the per-case filter tree. -->
+			<section class="border-t px-2 py-2">
+				<p class="px-2 pb-1 pt-1 flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+					<MessageSquare class="h-3 w-3" />
+					Threads ({threads.length})
+				</p>
+				{#if threads.length === 0}
+					<p class="px-2 py-2 text-2xs text-muted-foreground">
+						Reply to any message or use <code class="rounded bg-muted px-1 py-0.5 font-mono">/thread</code> to start one.
+					</p>
+				{:else}
+					<ul class="flex flex-col">
+						{#each threads as t (t.message_id)}
+							{@const active = openThread?.message_id === t.message_id}
+							<li>
+								<button
+									type="button"
+									class={[
+										'flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors',
+										active ? 'bg-muted' : 'hover:bg-muted/60'
+									]}
+									onclick={() => openThreadFor(t.message_id)}
+								>
+									<div class="flex items-center gap-1">
+										{#if t.is_followed}
+											<Bell class="h-3 w-3 shrink-0 text-primary" />
+										{/if}
+										<span class="min-w-0 flex-1 truncate text-xs font-medium">
+											{t.thread_title ?? (t.preview ?? '(thread)').slice(0, 60)}
+										</span>
+									</div>
+									<div class="flex items-center gap-2 text-2xs text-muted-foreground">
+										<span>
+											{t.reply_count} {t.reply_count === 1 ? 'reply' : 'replies'}
+										</span>
+										{#if t.author_name || t.author_login}
+											<span class="truncate">· {t.author_name ?? t.author_login}</span>
+										{/if}
+									</div>
+								</button>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
+
+			<!-- Per-case sub-tree with grouped activity types. The list
+			     itself is capped at a comfortable max-height and scrolls
+			     internally — otherwise a war room with many attached
+			     cases would push the slash-command reference off the
+			     bottom of the sidebar. -->
+			<section class="border-t px-2 py-2">
 				<div class="flex items-center justify-between px-2 pb-1 pt-1">
 					<p class="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
 						<Waypoints class="h-3 w-3" />
@@ -936,7 +988,7 @@
 						No cases attached. Anything attached later will appear here automatically.
 					</p>
 				{:else}
-					<ul class="flex flex-col">
+					<ul class="flex max-h-72 flex-col overflow-y-auto">
 						{#each attachedCases as att (att.case_id)}
 							{@const caseOn = isCaseOn(att.case_id)}
 							{@const caseExpanded = caseSectionsOpen[att.case_id] ?? false}
@@ -958,11 +1010,8 @@
 										{:else}
 											<ChevronRight class="h-3 w-3 shrink-0 text-muted-foreground" />
 										{/if}
-										<span class="min-w-0 flex-1 truncate text-xs">
-											<span class="font-mono text-2xs text-muted-foreground">
-												#{att.case_id}
-											</span>
-											<span class="ml-1">{att.case_name}</span>
+										<span class="min-w-0 flex-1 truncate text-xs" title={att.case_name}>
+											{att.case_name}
 										</span>
 									</button>
 									<Checkbox
@@ -1043,52 +1092,6 @@
 										{/each}
 									</ul>
 								{/if}
-							</li>
-						{/each}
-					</ul>
-				{/if}
-			</section>
-
-			<!-- Threads -->
-			<section class="border-t px-2 py-2">
-				<p class="px-2 pb-1 pt-1 flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
-					<MessageSquare class="h-3 w-3" />
-					Threads ({threads.length})
-				</p>
-				{#if threads.length === 0}
-					<p class="px-2 py-2 text-2xs text-muted-foreground">
-						Reply to any message or use <code class="rounded bg-muted px-1 py-0.5 font-mono">/thread</code> to start one.
-					</p>
-				{:else}
-					<ul class="flex flex-col">
-						{#each threads as t (t.message_id)}
-							{@const active = openThread?.message_id === t.message_id}
-							<li>
-								<button
-									type="button"
-									class={[
-										'flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors',
-										active ? 'bg-muted' : 'hover:bg-muted/60'
-									]}
-									onclick={() => openThreadFor(t.message_id)}
-								>
-									<div class="flex items-center gap-1">
-										{#if t.is_followed}
-											<Bell class="h-3 w-3 shrink-0 text-primary" />
-										{/if}
-										<span class="min-w-0 flex-1 truncate text-xs font-medium">
-											{t.thread_title ?? (t.preview ?? '(thread)').slice(0, 60)}
-										</span>
-									</div>
-									<div class="flex items-center gap-2 text-2xs text-muted-foreground">
-										<span>
-											{t.reply_count} {t.reply_count === 1 ? 'reply' : 'replies'}
-										</span>
-										{#if t.author_name || t.author_login}
-											<span class="truncate">· {t.author_name ?? t.author_login}</span>
-										{/if}
-									</div>
-								</button>
 							</li>
 						{/each}
 					</ul>
