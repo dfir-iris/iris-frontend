@@ -278,6 +278,11 @@
 		excludedCases = new Set(attachedCases.map((c) => c.case_id));
 	};
 
+	// Slash-commands reference is low-signal once the operator knows the
+	// vocabulary — fold by default so it doesn't push Threads / Cases
+	// content off the bottom of the sidebar. Click the header to reveal.
+	let slashOpen = $state(false);
+
 	// Per-case section expansion (collapsed by default — keeps the pane
 	// short when many cases are attached).
 	let caseSectionsOpen = $state<Record<number, boolean>>({});
@@ -903,8 +908,10 @@
 		<!-- The scroll viewport. `min-h-0` on this AND on the parent
 		     `<aside>` is what lets `overflow-y-auto` actually clip — without
 		     both, the flex container stretches to its content height and
-		     the scrollbar never appears. -->
-		<div class="min-h-0 flex-1 overflow-y-auto">
+		     the scrollbar never appears. `stream-thin-scroll` matches the
+		     hover-to-reveal style used in notes / tasks so the sidebar
+		     bar isn't a fat default UA bar. -->
+		<div class="stream-thin-scroll min-h-0 flex-1 overflow-y-auto">
 			<!-- Global kind toggles -->
 			<section class="border-b px-2 py-2">
 				<p class="px-2 pb-1 pt-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -947,7 +954,7 @@
 						Reply to any message or use <code class="rounded bg-muted px-1 py-0.5 font-mono">/thread</code> to start one.
 					</p>
 				{:else}
-					<ul class="flex flex-col">
+					<ul class="stream-thin-scroll flex max-h-72 flex-col overflow-y-auto">
 						{#each threads as t (t.message_id)}
 							{@const active = openThread?.message_id === t.message_id}
 							<li>
@@ -1000,7 +1007,7 @@
 						No cases attached. Anything attached later will appear here automatically.
 					</p>
 				{:else}
-					<ul class="flex max-h-72 flex-col overflow-y-auto">
+					<ul class="stream-thin-scroll flex max-h-72 flex-col overflow-y-auto">
 						{#each attachedCases as att (att.case_id)}
 							{@const caseOn = isCaseOn(att.case_id)}
 							{@const caseExpanded = caseSectionsOpen[att.case_id] ?? false}
@@ -1110,22 +1117,36 @@
 				{/if}
 			</section>
 
-			<!-- Slash commands reference -->
+			<!-- Slash commands reference. Folded by default — once an
+			     operator knows the vocabulary this just takes space; the
+			     header expands it on click. -->
 			<section class="border-t px-4 py-3">
-				<p class="mb-2 flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+				<button
+					type="button"
+					class="flex w-full items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+					onclick={() => (slashOpen = !slashOpen)}
+					aria-expanded={slashOpen}
+				>
+					{#if slashOpen}
+						<ChevronDown class="h-3 w-3 shrink-0" />
+					{:else}
+						<ChevronRight class="h-3 w-3 shrink-0" />
+					{/if}
 					<Slash class="h-3 w-3" />
 					Slash commands
-				</p>
-				<ul class="space-y-1.5">
-					{#each SLASH_COMMANDS as c}
-						<li class="text-2xs">
-							<code class="rounded bg-muted px-1 py-0.5 font-mono text-foreground">
-								{c.cmd}
-							</code>
-							<p class="mt-0.5 pl-1 text-muted-foreground">{c.desc}</p>
-						</li>
-					{/each}
-				</ul>
+				</button>
+				{#if slashOpen}
+					<ul class="mt-2 space-y-1.5">
+						{#each SLASH_COMMANDS as c}
+							<li class="text-2xs">
+								<code class="rounded bg-muted px-1 py-0.5 font-mono text-foreground">
+									{c.cmd}
+								</code>
+								<p class="mt-0.5 pl-1 text-muted-foreground">{c.desc}</p>
+							</li>
+						{/each}
+					</ul>
+				{/if}
 			</section>
 		</div>
 	</Resizable.Pane>
@@ -1539,3 +1560,43 @@
 	target={previewTarget}
 	onOpenChange={(v) => (previewOpen = v)}
 />
+
+<style>
+	/*
+	  Thin, hover-to-reveal scrollbar used inside the stream filters
+	  sidebar — same pattern as `.notes-tree-scroll` in the case notes
+	  layout so the look is consistent across the app. The default UA
+	  scrollbar inside the narrow filter pane looked chunky and dated.
+	*/
+	.stream-thin-scroll {
+		scrollbar-width: thin;
+		scrollbar-color: transparent transparent;
+		transition: scrollbar-color 0.2s ease;
+	}
+
+	.stream-thin-scroll:hover {
+		scrollbar-color: hsl(var(--muted-foreground) / 0.35) transparent;
+	}
+
+	.stream-thin-scroll::-webkit-scrollbar {
+		width: 6px;
+	}
+
+	.stream-thin-scroll::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	.stream-thin-scroll::-webkit-scrollbar-thumb {
+		background-color: transparent;
+		border-radius: 999px;
+		transition: background-color 0.2s ease;
+	}
+
+	.stream-thin-scroll:hover::-webkit-scrollbar-thumb {
+		background-color: hsl(var(--muted-foreground) / 0.35);
+	}
+
+	.stream-thin-scroll::-webkit-scrollbar-thumb:hover {
+		background-color: hsl(var(--muted-foreground) / 0.55);
+	}
+</style>
