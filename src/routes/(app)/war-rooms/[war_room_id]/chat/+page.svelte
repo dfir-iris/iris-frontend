@@ -35,6 +35,7 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import * as Resizable from '$lib/components/ui/resizable/index.js';
 	import * as Popover from '$lib/components/ui/popover';
 	import { toast } from '$lib/components/ui/toast';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
@@ -855,12 +856,23 @@
 	`attachedCases` state, not a snapshot — so its activity starts
 	showing up the moment it's attached.
 -->
-<div
-	class="grid h-full min-h-0 w-full grid-cols-1 overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)]"
+<!--
+	Outer split: the filters sidebar on the left is now user-resizable —
+	defaults to ~22 % of the chat surface, drag the handle to widen for a
+	long case list or narrow when threads are the focus. Pane sizes are
+	persisted in localStorage by `paneforge` keyed on `autoSaveId` so the
+	choice survives reloads.
+-->
+<Resizable.PaneGroup
+	direction="horizontal"
+	autoSaveId="war-room-chat-sidebar"
+	class="h-full min-h-0 w-full overflow-hidden"
 >
-	<aside
-		class="hidden min-h-0 flex-col border-r bg-card/40 lg:flex"
-		aria-label="Stream filters"
+	<Resizable.Pane
+		defaultSize={22}
+		minSize={14}
+		maxSize={45}
+		class="flex min-h-0 flex-col border-r bg-card/40"
 	>
 		<!-- Header row with quick select-all / select-none. shrink-0 keeps
 		     it pinned while the inner list scrolls. -->
@@ -1116,10 +1128,12 @@
 				</ul>
 			</section>
 		</div>
-	</aside>
+	</Resizable.Pane>
+
+	<Resizable.Handle class="bg-transparent hover:bg-border" />
 
 	<!-- Right side: stream column + optional thread side-pane. -->
-	<div class="flex h-full min-h-0 min-w-0 flex-row">
+	<Resizable.Pane class="flex h-full min-h-0 min-w-0 flex-row">
 	<div class="flex h-full min-h-0 min-w-0 flex-1 flex-col">
 		<!-- Compact summary visible only when sidebar is hidden. -->
 		<div class="flex items-center gap-2 overflow-x-auto border-b px-4 py-2 lg:hidden">
@@ -1517,8 +1531,8 @@
 			onChanged={loadThreads}
 		/>
 	{/if}
-	</div>
-</div>
+	</Resizable.Pane>
+</Resizable.PaneGroup>
 
 <AttachmentPreviewDialog
 	bind:open={previewOpen}
