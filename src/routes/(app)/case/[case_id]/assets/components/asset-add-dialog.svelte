@@ -149,7 +149,16 @@
 			variant: 'success'
 		});
 
+		// If the dialog was opened from outside the assets section
+		// (e.g. inline from the timeline event modal), don't pull the
+		// user away from where they were. Only navigate when they're
+		// already inside /case/.../assets — that's where the "open the
+		// new asset" UX makes sense.
+		const onAssetsRoute = page.url.pathname.startsWith(`/case/${caseId}/assets`);
+
 		close();
+
+		if (!onAssetsRoute) return;
 
 		if (createdAssets.length === 1) {
 			await goto(`/case/${caseId}/assets/${createdAssets[0].asset_id}`, { replaceState: true });
@@ -382,7 +391,10 @@
 		if (!nextOpen) close();
 	}}
 >
-	<Dialog.Content class="flex max-h-[90vh] max-w-[980px] flex-col gap-0 overflow-hidden p-0">
+	<Dialog.Content
+		class="z-[70] flex max-h-[90vh] max-w-[980px] flex-col gap-0 overflow-hidden p-0"
+		overlayClass="z-[60]"
+	>
 		<Dialog.Header class="shrink-0 border-b px-6 py-4">
 			<Dialog.Title class="text-base font-medium">Add assets</Dialog.Title>
 		</Dialog.Header>

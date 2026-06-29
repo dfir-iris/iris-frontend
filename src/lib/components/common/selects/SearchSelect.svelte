@@ -127,9 +127,17 @@
 	  to center an oversized popover. `align="start"` keeps the popover's
 	  left edge flush with the trigger's left edge.
 	-->
+	<!--
+	  z-[80] keeps the dropdown above stacked dialogs. The default
+	  popover content is z-50; a popover opened inside an add-modal
+	  that itself opens on top of another dialog (event modal → asset
+	  add modal → type/TLP dropdown) would otherwise render *under* the
+	  asset modal's z-[70] content. Setting z-[80] here means the
+	  dropdown always paints above the modal it lives inside.
+	-->
 	<Popover.Content
 		align="start"
-		class="w-[--bits-popover-anchor-width] min-w-[--bits-popover-anchor-width] max-w-[calc(100vw-3rem)] p-1.5"
+		class="z-[80] w-[--bits-popover-anchor-width] min-w-[--bits-popover-anchor-width] max-w-[calc(100vw-3rem)] p-1.5"
 	>
 		<Input
 			type="text"

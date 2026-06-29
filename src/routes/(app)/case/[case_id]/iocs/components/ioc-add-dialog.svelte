@@ -118,7 +118,14 @@
 			variant: 'success'
 		});
 
+		// Only navigate to the new IOC when the dialog was opened from
+		// within the IOCs section — otherwise we'd yank the user out of
+		// e.g. the timeline event modal they were composing.
+		const onIocsRoute = page.url.pathname.startsWith(`/case/${caseId}/iocs`);
+
 		close();
+
+		if (!onIocsRoute) return;
 
 		if (createdIocs.length === 1) {
 			await goto(`/case/${caseId}/iocs/${createdIocs[0].ioc_id}`, { replaceState: true });
@@ -356,7 +363,10 @@
 		if (!nextOpen) close();
 	}}
 >
-	<Dialog.Content class="flex max-h-[90vh] max-w-[980px] flex-col gap-0 overflow-hidden p-0">
+	<Dialog.Content
+		class="z-[70] flex max-h-[90vh] max-w-[980px] flex-col gap-0 overflow-hidden p-0"
+		overlayClass="z-[60]"
+	>
 		<Dialog.Header class="shrink-0 border-b px-6 py-4">
 			<Dialog.Title class="text-base font-medium">Add IOCs</Dialog.Title>
 		</Dialog.Header>

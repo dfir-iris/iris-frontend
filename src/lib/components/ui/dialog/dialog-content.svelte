@@ -8,17 +8,25 @@
 	let {
 		ref = $bindable(null),
 		class: className,
+		// When a dialog needs to stack on top of another already-open
+		// dialog (e.g. opening the asset-add modal from within the
+		// timeline event modal), pass a higher-z utility here to
+		// override the default `z-50` on the overlay. The Content's
+		// z-index is overridden via `class={"z-[…]"}` which `twMerge`
+		// resolves cleanly.
+		overlayClass,
 		portalProps,
 		children,
 		...restProps
 	}: WithoutChildrenOrChild<DialogPrimitive.ContentProps> & {
+		overlayClass?: string;
 		portalProps?: DialogPrimitive.PortalProps;
 		children: Snippet;
 	} = $props();
 </script>
 
 <DialogPrimitive.Portal {...portalProps}>
-	<DialogOverlay />
+	<DialogOverlay class={overlayClass} />
 	<DialogPrimitive.Content
 		bind:ref
 		class={cn(
