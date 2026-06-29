@@ -614,7 +614,7 @@
 			aria-hidden="true"
 		></div>
 
-		<div class="relative flex flex-col gap-6 px-6 py-8 lg:flex-row lg:items-center">
+		<div class="relative flex flex-col gap-6 px-6 py-5 lg:flex-row lg:items-center">
 			<!-- Greeting block -->
 			<div class="flex min-w-0 items-center gap-3">
 				<div class="min-w-0">
@@ -999,9 +999,19 @@
 									<span class="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
 										#{c.case_id}
 									</span>
-									<span class="min-w-0 flex-1 truncate text-sm font-medium" title={c.case_name}>
-										{stripCaseIdPrefix(c.case_name)}
-									</span>
+									<div class="min-w-0 flex-1">
+										<div class="truncate text-sm font-medium" title={c.case_name}>
+											{stripCaseIdPrefix(c.case_name)}
+										</div>
+										{#if c.case_customer?.customer_name}
+											<div
+												class="truncate text-2xs text-muted-foreground"
+												title={c.case_customer.customer_name}
+											>
+												{c.case_customer.customer_name}
+											</div>
+										{/if}
+									</div>
 									<div class="hidden items-center gap-1.5 sm:flex">
 										{#if c.severity?.severity_name}
 											<SeverityBadge severity={c.severity.severity_name as SeverityName} icon_only />
