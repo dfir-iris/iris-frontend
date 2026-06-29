@@ -35,16 +35,6 @@
 
 		--iris-blue: 214 91% 22%;
 
-		/*
-		 * Dedicated link token. Stays in brand blue territory but defined
-		 * separately from `--primary` so its dark-mode lightness can be
-		 * raised independently — `--primary` doubles as a button
-		 * background and can't be brightened without breaking that, but
-		 * link text against a dark surface needs ~60% L to clear AA.
-		 */
-		--link: 214 91% 35%;
-		--link-hover: 214 91% 28%;
-
 		--radius: 0.75rem;
 
 		--table-primary: 220 20% 97%;
@@ -105,16 +95,6 @@
 		 * blue (defined above) since it pops against a white sidebar.
 		 */
 		--iris-blue: 222 22% 11%;
-
-		/*
-		 * Link colour for dark mode — raise lightness to ~65 % so text
-		 * links clear AA contrast against the dark card / table surfaces.
-		 * The brand `--primary` (22 % L) reads as nearly black on dark
-		 * backgrounds; touching `--primary` itself would knock buttons
-		 * out of brand, so we keep a separate `--link` token.
-		 */
-		--link: 214 90% 65%;
-		--link-hover: 214 90% 75%;
 
 		--table-primary: 228 25% 9%;
 		--table-primary-hover: 228 25% 12%;

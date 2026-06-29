@@ -581,7 +581,7 @@
 									<p class="mt-1 whitespace-pre-wrap break-words text-xs">{e.content}</p>
 								{/if}
 								{#if e.case_id}
-									<a href={`/case/${e.case_id}`} class="mt-1 inline-block text-2xs text-link hover:underline">
+									<a href={`/case/${e.case_id}`} class="mt-1 inline-block text-2xs text-primary hover:underline">
 										Case #{e.case_id}
 									</a>
 								{/if}
