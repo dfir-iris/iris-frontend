@@ -601,7 +601,7 @@
 	  earlier "four little cards in a row" look.
 	-->
 	<section
-		class="relative overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elevation-1"
+		class="relative shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elevation-1"
 	>
 		<!-- Soft tinted glow tucked behind the greeting so the panel has a
 		     mood rather than being a flat white slab. -->
