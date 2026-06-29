@@ -21,6 +21,10 @@
 	import DetailsTab from './details-tab.svelte';
 	import CommentsTab from './comments-tab.svelte';
 	import { CASE_TASKS_CTX, type CaseTasksContext } from '$lib/contexts/case-tasks.context.svelte';
+	import {
+		CASE_ACCESS_CTX,
+		type CaseAccessContext
+	} from '$lib/contexts/case-access.context.svelte';
 
 	type EditData = {
 		task_title: string;
@@ -41,6 +45,8 @@
 	} = $props();
 
 	const caseTasks = getContext<CaseTasksContext>(CASE_TASKS_CTX);
+	const caseAccess = getContext<CaseAccessContext | undefined>(CASE_ACCESS_CTX);
+	const canEdit = $derived(caseAccess?.canEdit() ?? false);
 
 	const task = $derived(caseTasks.byId[taskId]);
 
@@ -273,6 +279,7 @@
 								onDeleteTask={handleTaskDeleted}
 								{isSaving}
 								deleteUrl={`/api/v2/cases/${caseId}/tasks/${task.id}`}
+								{canEdit}
 							/>
 						</TabsContent>
 

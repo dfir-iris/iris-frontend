@@ -61,6 +61,7 @@
 		onDeleteTask?: () => void;
 		isSaving?: boolean;
 		deleteUrl?: string;
+		canEdit?: boolean;
 	};
 
 	let {
@@ -74,7 +75,8 @@
 		onSaveChanges = () => {},
 		onDeleteTask = () => {},
 		isSaving = false,
-		deleteUrl = ''
+		deleteUrl = '',
+		canEdit = true
 	}: Props = $props();
 
 	let taskStatuses = $state<TaskStatus[]>([]);
@@ -136,33 +138,35 @@
 			</div>
 
 			<div class="flex shrink-0 items-center gap-2">
-				{#if isEditing}
-					<Button variant="outline" size="sm" onclick={onCancelEditing} disabled={isSaving}>
-						<XIcon class="h-4 w-4" />
-						Cancel
-					</Button>
+				{#if canEdit}
+					{#if isEditing}
+						<Button variant="outline" size="sm" onclick={onCancelEditing} disabled={isSaving}>
+							<XIcon class="h-4 w-4" />
+							Cancel
+						</Button>
 
-					<Button variant="default" size="sm" onclick={onSaveChanges} disabled={isSaving}>
-						{#if isSaving}
-							<span class="animate-spin">⟳</span>
-							Saving...
-						{:else}
-							<SaveIcon class="h-4 w-4" />
-							Save Changes
-						{/if}
-					</Button>
-				{:else}
-					<Button variant="outline" size="sm" onclick={onStartEditing}>
-						<EditIcon class="h-4 w-4" />
-						Edit
-					</Button>
+						<Button variant="default" size="sm" onclick={onSaveChanges} disabled={isSaving}>
+							{#if isSaving}
+								<span class="animate-spin">⟳</span>
+								Saving...
+							{:else}
+								<SaveIcon class="h-4 w-4" />
+								Save Changes
+							{/if}
+						</Button>
+					{:else}
+						<Button variant="outline" size="sm" onclick={onStartEditing}>
+							<EditIcon class="h-4 w-4" />
+							Edit
+						</Button>
 
-					<DeleteButton
-						url={deleteUrl}
-						onrefresh={onDeleteTask}
-						buttonText="Delete"
-						deletion_prompt_message={`Are you sure you want to delete the task "${task.task_title}"? This action cannot be undone.`}
-					/>
+						<DeleteButton
+							url={deleteUrl}
+							onrefresh={onDeleteTask}
+							buttonText="Delete"
+							deletion_prompt_message={`Are you sure you want to delete the task "${task.task_title}"? This action cannot be undone.`}
+						/>
+					{/if}
 				{/if}
 
 				<DropdownMenu bind:open={isMenuOpen}>
@@ -220,9 +224,9 @@
 							}}><FileSymlinkIcon /> Markdown Link</DropdownMenuItem
 						>
 
-						<Separator />
+						{#if canEdit && hookOptions.length}
+							<Separator />
 
-						{#if hookOptions.length}
 							{#each hookOptions as hookOption}
 								<DropdownMenuItem onclick={() => callModule(hookOption)}
 									>{hookOption.manual_hook_ui_name}</DropdownMenuItem

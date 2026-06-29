@@ -12,6 +12,11 @@
 		createCaseNotesContext,
 		type CaseNotesContext
 	} from '$lib/contexts/case-notes.context.svelte';
+	import {
+		CASE_ACCESS_CTX,
+		type CaseAccessContext
+	} from '$lib/contexts/case-access.context.svelte';
+	import { getContext } from 'svelte';
 	import type { NoteFolder } from '$lib/types/resources/note';
 	import type { ContextMenu, ContextMenuSource } from './types';
 	import NotesTree, { type DragItem } from './components/notes-tree.svelte';
@@ -26,8 +31,11 @@
 	let { children }: { children: Snippet } = $props();
 
 	const notes = createCaseNotesContext(() => Number(page.params.case_id));
+	const caseAccess = getContext<CaseAccessContext>(CASE_ACCESS_CTX);
 
 	setContext<CaseNotesContext>(CASE_NOTES_CTX, notes);
+
+	const canEdit = $derived(caseAccess?.canEdit() ?? false);
 
 	let showNewFolder = $state<boolean>(false);
 	let showConfirmDelete = $state<boolean>(false);
@@ -262,27 +270,29 @@
 			<div class="flex flex-row items-center gap-1 px-3 pb-2 pt-3">
 				<h2 class="w-full text-lg font-semibold">Notes</h2>
 
-				<Button
-					variant="ghost"
-					size="icon"
-					aria-label="Add folder"
-					title="New folder"
-					class="h-8 w-8"
-					onclick={() => (showNewFolder = true)}
-				>
-					<FolderPlusIcon class="h-4 w-4" />
-				</Button>
+				{#if canEdit}
+					<Button
+						variant="ghost"
+						size="icon"
+						aria-label="Add folder"
+						title="New folder"
+						class="h-8 w-8"
+						onclick={() => (showNewFolder = true)}
+					>
+						<FolderPlusIcon class="h-4 w-4" />
+					</Button>
 
-				<Button
-					variant="ghost"
-					size="icon"
-					aria-label="Add note"
-					title="New note"
-					class="h-8 w-8"
-					onclick={() => newNote(notes)}
-				>
-					<FilePlusIcon class="h-4 w-4" />
-				</Button>
+					<Button
+						variant="ghost"
+						size="icon"
+						aria-label="Add note"
+						title="New note"
+						class="h-8 w-8"
+						onclick={() => newNote(notes)}
+					>
+						<FilePlusIcon class="h-4 w-4" />
+					</Button>
+				{/if}
 			</div>
 
 			<div class="px-3 pb-2">
@@ -388,6 +398,7 @@
 			{#if contextMenu.open}
 				<NotesContextMenu
 					{contextMenu}
+					{canEdit}
 					onNewNote={() => {
 						closeContextMenu();
 

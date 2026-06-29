@@ -5,6 +5,7 @@ import { auth } from '$lib/stores/auth.store';
 import { AuthService } from './auth.service';
 import { API_BASE_URL } from '$lib/config/api.config';
 import { ApiLogger } from '$lib/utils/api-logger';
+import { toast } from '$lib/stores/toast.store';
 
 export type ResponseData<T> = T | string | null;
 
@@ -215,6 +216,27 @@ export class ApiService {
 					responseBody,
 					Date.now() - startTime
 				);
+
+				// Forbidden (403) — surfaced for mutating verbs only so the
+				// user gets a coherent "you can't do that" message instead
+				// of the section's generic "Update failed" toast. Read-only
+				// views are gated at the UI layer via case-access, but if
+				// one slips through (race condition, server policy change,
+				// stale cached UI) this is the safety net. GETs are left
+				// alone — a 403 on a background read should fail silently
+				// rather than spamming toasts.
+				if (
+					response.status === 403 &&
+					browser &&
+					['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase())
+				) {
+					toast({
+						title: "You don't have permission to do that",
+						description:
+							'Your access level on this case does not allow this action.',
+						variant: 'destructive'
+					});
+				}
 
 				// Check for unauthorized access (401)
 				if (response.status === 401 && !skipAuthRedirect && !skipTokenRefresh) {

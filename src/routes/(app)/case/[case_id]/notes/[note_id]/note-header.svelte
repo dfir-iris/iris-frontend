@@ -46,6 +46,10 @@
 		saving?: boolean;
 		lastError?: string | null;
 		typingUser?: string | null;
+		/** When false, the header hides the Save / Rename / Delete affordances.
+		 *  Read-only users still see the metadata, history, and share/export
+		 *  actions because those don't mutate server state. */
+		canEdit?: boolean;
 		onSaveNote: () => void;
 		onDeleteNote: () => void;
 		/** Fires when the user picks "Restore this revision" inside
@@ -60,6 +64,7 @@
 		saving = false,
 		lastError = null,
 		typingUser = null,
+		canEdit = true,
 		onSaveNote,
 		onDeleteNote,
 		onRestoreRevision
@@ -142,21 +147,30 @@
 
 <div class="flex items-start justify-between gap-4">
 	<div class="flex min-w-0 flex-col">
-		<div
-			role="button"
-			tabindex="0"
-			title={note.note_title}
-			class="cursor-pointer truncate rounded-sm px-1 text-xl font-semibold leading-tight transition-colors hover:bg-muted/60"
-			onclick={() => (showNoteRename = true)}
-			onkeydown={(e) => {
-				if (e.key === 'Enter' || e.key === ' ') {
-					e.preventDefault();
-					showNoteRename = true;
-				}
-			}}
-		>
-			{note.note_title}
-		</div>
+		{#if canEdit}
+			<div
+				role="button"
+				tabindex="0"
+				title={note.note_title}
+				class="cursor-pointer truncate rounded-sm px-1 text-xl font-semibold leading-tight transition-colors hover:bg-muted/60"
+				onclick={() => (showNoteRename = true)}
+				onkeydown={(e) => {
+					if (e.key === 'Enter' || e.key === ' ') {
+						e.preventDefault();
+						showNoteRename = true;
+					}
+				}}
+			>
+				{note.note_title}
+			</div>
+		{:else}
+			<div
+				title={note.note_title}
+				class="truncate rounded-sm px-1 text-xl font-semibold leading-tight"
+			>
+				{note.note_title}
+			</div>
+		{/if}
 
 		<div class="mt-1 flex items-center gap-2 px-1 text-xs text-muted-foreground">
 			<span class="truncate">#{note.note_id} · {note.note_uuid}</span>
@@ -180,14 +194,16 @@
 			<span class="text-xs italic text-muted-foreground">{typingUser} is typing…</span>
 		{/if}
 
-		{#if lastError}
-			<Badge variant="compromised" class="flex px-2 py-0.5">Error</Badge>
-		{:else if saving}
-			<Badge variant="destructive" class="flex px-2 py-0.5">Saving...</Badge>
-		{:else if dirty}
-			<Badge variant="destructive" class="flex px-2 py-0.5">Unsaved changes</Badge>
-		{:else}
-			<Badge variant="green" class="flex px-2 py-0.5">Changes saved</Badge>
+		{#if canEdit}
+			{#if lastError}
+				<Badge variant="compromised" class="flex px-2 py-0.5">Error</Badge>
+			{:else if saving}
+				<Badge variant="destructive" class="flex px-2 py-0.5">Saving...</Badge>
+			{:else if dirty}
+				<Badge variant="destructive" class="flex px-2 py-0.5">Unsaved changes</Badge>
+			{:else}
+				<Badge variant="green" class="flex px-2 py-0.5">Changes saved</Badge>
+			{/if}
 		{/if}
 
 		{#if lastSaved && lastSaved.date > entered}
@@ -198,17 +214,19 @@
 			</div>
 		{/if}
 
-		<TooltipProvider>
-			<Tooltip>
-				<TooltipTrigger>
-					<Button variant="link" size="xs" onclick={() => onSaveNote()}>
-						<SaveIcon />
-					</Button>
-				</TooltipTrigger>
+		{#if canEdit}
+			<TooltipProvider>
+				<Tooltip>
+					<TooltipTrigger>
+						<Button variant="link" size="xs" onclick={() => onSaveNote()}>
+							<SaveIcon />
+						</Button>
+					</TooltipTrigger>
 
-				<TooltipContent align="center" side="bottom">Save note</TooltipContent>
-			</Tooltip>
-		</TooltipProvider>
+					<TooltipContent align="center" side="bottom">Save note</TooltipContent>
+				</Tooltip>
+			</TooltipProvider>
+		{/if}
 
 		<TooltipProvider>
 			<Tooltip>
@@ -337,17 +355,19 @@
 			</Tooltip>
 		</TooltipProvider>
 
-		<TooltipProvider>
-			<Tooltip>
-				<TooltipTrigger>
-					<Button variant="link" size="xs" onclick={() => (showConfirmDelete = true)}>
-						<TrashIcon class="text-red-500" />
-					</Button>
-				</TooltipTrigger>
+		{#if canEdit}
+			<TooltipProvider>
+				<Tooltip>
+					<TooltipTrigger>
+						<Button variant="link" size="xs" onclick={() => (showConfirmDelete = true)}>
+							<TrashIcon class="text-red-500" />
+						</Button>
+					</TooltipTrigger>
 
-				<TooltipContent align="center" side="bottom">Delete note</TooltipContent>
-			</Tooltip>
-		</TooltipProvider>
+					<TooltipContent align="center" side="bottom">Delete note</TooltipContent>
+				</Tooltip>
+			</TooltipProvider>
+		{/if}
 	</div>
 </div>
 

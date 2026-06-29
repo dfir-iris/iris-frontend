@@ -60,6 +60,10 @@
 		DATASTORE_PANEL_CTX,
 		type DatastorePanelContext
 	} from '$lib/contexts/datastore-panel.context.svelte';
+	import {
+		CASE_ACCESS_CTX,
+		type CaseAccessContext
+	} from '$lib/contexts/case-access.context.svelte';
 	import CaseAddDropdown from './CaseAddDropdown.svelte';
 	import CaseQuickAddButton from './CaseQuickAddButton.svelte';
 	import type { Snippet } from 'svelte';
@@ -73,6 +77,8 @@
 	const cases = getContext<CasesContext>(CASES_CTX);
 	const activityPanel = getContext<ActivityPanelContext | undefined>(ACTIVITY_PANEL_CTX);
 	const datastorePanel = getContext<DatastorePanelContext | undefined>(DATASTORE_PANEL_CTX);
+	const caseAccess = getContext<CaseAccessContext | undefined>(CASE_ACCESS_CTX);
+	const canEdit = $derived(caseAccess?.canEdit() ?? true);
 
 	type IconComponent = typeof Shield | typeof Activity;
 
@@ -652,51 +658,56 @@
 			→ Eradication → Recovery → … → Closed without leaving the topbar.
 			A closed case also gets a Reopen path via this menu.
 		-->
-		<DropdownMenu onOpenChange={handleStateMenuOpen}>
-			<DropdownMenuTrigger>
-				<!--
-				  Status and severity are now two adjacent but visually
-				  separate chips. Only Status is the dropdown trigger
-				  (state is editable from here, severity isn't), but a
-				  thin `gap-1.5` between them is enough to read them as
-				  two boxes rather than one merged pill.
-				-->
-				<div
-					class="hidden items-center gap-1.5 transition-colors sm:flex"
-					title="Change case state"
-				>
-					<StatusBadge {status} />
-					<SeverityBadge {severity} />
-				</div>
-				<!-- Below sm : icon-only, clickable -->
-				<div class="flex items-center gap-1 sm:hidden">
-					<StatusBadge {status} icon_only />
-					<SeverityBadge {severity} icon_only />
-				</div>
-			</DropdownMenuTrigger>
-			<DropdownMenuContent align="end" class="min-w-[200px]">
-				<DropdownMenuLabel>Change case state</DropdownMenuLabel>
-				<DropdownMenuSeparator />
-				{#if !states}
-					<div class="px-2 py-1.5 text-xs text-muted-foreground">Loading states…</div>
-				{:else}
-					{#each states as s (s.state_id)}
-						{@const isCurrent = caseData?.state?.state_id === s.state_id}
-						<DropdownMenuItem
-							disabled={isCurrent}
-							onclick={() => !isCurrent && setCaseState(s.state_id)}
-						>
-							<span class="flex w-full items-center justify-between gap-2">
-								<span class="truncate">{s.state_name}</span>
-								{#if isCurrent}
-									<CheckCircle2Icon size={12} class="shrink-0 text-emerald-500" />
-								{/if}
-							</span>
-						</DropdownMenuItem>
-					{/each}
-				{/if}
-			</DropdownMenuContent>
-		</DropdownMenu>
+		{#if canEdit}
+			<DropdownMenu onOpenChange={handleStateMenuOpen}>
+				<DropdownMenuTrigger>
+					<div
+						class="hidden items-center gap-1.5 transition-colors sm:flex"
+						title="Change case state"
+					>
+						<StatusBadge {status} />
+						<SeverityBadge {severity} />
+					</div>
+					<div class="flex items-center gap-1 sm:hidden">
+						<StatusBadge {status} icon_only />
+						<SeverityBadge {severity} icon_only />
+					</div>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end" class="min-w-[200px]">
+					<DropdownMenuLabel>Change case state</DropdownMenuLabel>
+					<DropdownMenuSeparator />
+					{#if !states}
+						<div class="px-2 py-1.5 text-xs text-muted-foreground">Loading states…</div>
+					{:else}
+						{#each states as s (s.state_id)}
+							{@const isCurrent = caseData?.state?.state_id === s.state_id}
+							<DropdownMenuItem
+								disabled={isCurrent}
+								onclick={() => !isCurrent && setCaseState(s.state_id)}
+							>
+								<span class="flex w-full items-center justify-between gap-2">
+									<span class="truncate">{s.state_name}</span>
+									{#if isCurrent}
+										<CheckCircle2Icon size={12} class="shrink-0 text-emerald-500" />
+									{/if}
+								</span>
+							</DropdownMenuItem>
+						{/each}
+					{/if}
+				</DropdownMenuContent>
+			</DropdownMenu>
+		{:else}
+			<!-- Read-only users still see the status + severity chips, just
+				 not as a dropdown trigger. -->
+			<div class="hidden items-center gap-1.5 sm:flex" title="Case state">
+				<StatusBadge {status} />
+				<SeverityBadge {severity} />
+			</div>
+			<div class="flex items-center gap-1 sm:hidden">
+				<StatusBadge {status} icon_only />
+				<SeverityBadge {severity} icon_only />
+			</div>
+		{/if}
 
 		<!--
 			Linked-alerts indicator: count is loaded eagerly on case change
@@ -906,9 +917,11 @@
 			same conceptual group. DataStore/Activity panel toggles trail
 			behind as utilities.
 		-->
-		<CaseQuickAddButton />
+		{#if canEdit}
+			<CaseQuickAddButton />
 
-		<CaseAddDropdown buttonClass="h-8 w-8 rounded-sm p-0 [&_span]:hidden" />
+			<CaseAddDropdown buttonClass="h-8 w-8 rounded-sm p-0 [&_span]:hidden" />
+		{/if}
 
 		{#if datastorePanel}
 			{@const dsOpen = datastorePanel.state.open}
@@ -982,9 +995,11 @@
 				<DropdownMenuLabel>Manage Case</DropdownMenuLabel>
 				<DropdownMenuSeparator />
 
-				<DropdownMenuItem onclick={() => (cases.ui.showManageModal = true)}>
-					Edit Case Details
-				</DropdownMenuItem>
+				{#if canEdit}
+					<DropdownMenuItem onclick={() => (cases.ui.showManageModal = true)}>
+						Edit Case Details
+					</DropdownMenuItem>
+				{/if}
 
 				{#if menuItems}
 					<DropdownMenuSeparator />
@@ -993,7 +1008,9 @@
 
 				<DropdownMenuSeparator />
 				<DropdownMenuItem>Export Case</DropdownMenuItem>
-				<DropdownMenuItem>Archive Case</DropdownMenuItem>
+				{#if canEdit}
+					<DropdownMenuItem>Archive Case</DropdownMenuItem>
+				{/if}
 			</DropdownMenuContent>
 		</DropdownMenu>
 	</div>

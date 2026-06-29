@@ -26,6 +26,7 @@
 		onComments: (eventId: number) => void;
 		onDuplicate: (eventId: number) => void;
 		onDelete: (eventId: number) => void;
+		canEdit?: boolean;
 	};
 
 	let {
@@ -46,7 +47,8 @@
 		onFlag,
 		onComments,
 		onDuplicate,
-		onDelete
+		onDelete,
+		canEdit = true
 	}: Props = $props();
 
 	const formatGroupDate = (raw: string) => {
@@ -109,6 +111,7 @@
 		{onComments}
 		{onDuplicate}
 		{onDelete}
+		{canEdit}
 	/>
 
 	{#if childrenVisible}
@@ -161,6 +164,7 @@
 			{onComments}
 			{onDuplicate}
 			{onDelete}
+			{canEdit}
 		/>
 
 		{#if childrenVisible}
@@ -203,6 +207,7 @@
 					{onComments}
 					{onDuplicate}
 					{onDelete}
+					{canEdit}
 				/>
 
 				{#if childrenVisible}
@@ -239,6 +244,7 @@
 					{onComments}
 					{onDuplicate}
 					{onDelete}
+					{canEdit}
 				/>
 
 				{#if childrenVisible}

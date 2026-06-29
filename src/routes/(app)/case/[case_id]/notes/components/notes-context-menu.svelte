@@ -4,6 +4,9 @@
 
 	type Props = {
 		contextMenu: ContextMenu;
+		/** When false, mutating entries (new/rename/move/delete) are hidden.
+		 *  Read-only users still get the copy-link/copy-md-link entries. */
+		canEdit?: boolean;
 		onNewNote: (folderId?: number) => void;
 		onNewFolder: (folderId?: number) => void;
 		onCopyLink: (noteId?: number) => void;
@@ -15,6 +18,7 @@
 
 	let {
 		contextMenu,
+		canEdit = true,
 		onNewNote,
 		onNewFolder,
 		onCopyLink,
@@ -34,7 +38,7 @@
 	onclick={(event) => event.stopPropagation()}
 	onkeydown={(event) => event.stopPropagation()}
 >
-	{#if contextMenu.source === 'folder' && contextMenu.folderId}
+	{#if contextMenu.source === 'folder' && contextMenu.folderId && canEdit}
 		<Button
 			variant="ghost"
 			class="w-full justify-start"
@@ -66,19 +70,21 @@
 		</Button>
 	{/if}
 
-	<hr class="my-1" />
+	{#if canEdit}
+		<hr class="my-1" />
 
-	<Button variant="ghost" class="w-full justify-start" onclick={onRename}>Rename</Button>
+		<Button variant="ghost" class="w-full justify-start" onclick={onRename}>Rename</Button>
 
-	<Button variant="ghost" class="w-full justify-start" onclick={onMove}>Move</Button>
+		<Button variant="ghost" class="w-full justify-start" onclick={onMove}>Move</Button>
 
-	<hr class="my-1" />
+		<hr class="my-1" />
 
-	<Button
-		variant="ghost"
-		class="w-full justify-start text-red-500 hover:text-red-600"
-		onclick={onDelete}
-	>
-		Delete
-	</Button>
+		<Button
+			variant="ghost"
+			class="w-full justify-start text-red-500 hover:text-red-600"
+			onclick={onDelete}
+		>
+			Delete
+		</Button>
+	{/if}
 </div>

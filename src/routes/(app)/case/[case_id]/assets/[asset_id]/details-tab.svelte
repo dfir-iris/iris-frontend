@@ -53,6 +53,10 @@
 		onSaveChanges?: () => void;
 		onDeleteAsset?: () => void;
 		isSaving?: boolean;
+		/** When false, Edit / Delete / Save controls and module hooks are
+		 *  hidden. Read-only users still see field values, share link, and
+		 *  markdown-link copy actions because those don't mutate state. */
+		canEdit?: boolean;
 	};
 
 	let {
@@ -65,7 +69,8 @@
 		onCancelEditing = () => {},
 		onSaveChanges = () => {},
 		onDeleteAsset = () => {},
-		isSaving = false
+		isSaving = false,
+		canEdit = true
 	}: Props = $props();
 
 	let assetTypes = $state<AssetType[]>([]);
@@ -119,33 +124,35 @@
 			</div>
 
 			<div class="flex items-center gap-2">
-				{#if isEditing}
-					<Button variant="outline" size="sm" onclick={onCancelEditing} disabled={isSaving}>
-						<XIcon class="h-4 w-4" />
-						Cancel
-					</Button>
+				{#if canEdit}
+					{#if isEditing}
+						<Button variant="outline" size="sm" onclick={onCancelEditing} disabled={isSaving}>
+							<XIcon class="h-4 w-4" />
+							Cancel
+						</Button>
 
-					<Button size="sm" onclick={onSaveChanges} disabled={isSaving}>
-						{#if isSaving}
-							<span class="animate-spin">⟳</span>
-							Saving...
-						{:else}
-							<SaveIcon class="h-4 w-4" />
-							Save Changes
-						{/if}
-					</Button>
-				{:else}
-					<Button variant="outline" size="sm" onclick={onStartEditing}>
-						<EditIcon class="h-4 w-4" />
-						Edit Asset
-					</Button>
+						<Button size="sm" onclick={onSaveChanges} disabled={isSaving}>
+							{#if isSaving}
+								<span class="animate-spin">⟳</span>
+								Saving...
+							{:else}
+								<SaveIcon class="h-4 w-4" />
+								Save Changes
+							{/if}
+						</Button>
+					{:else}
+						<Button variant="outline" size="sm" onclick={onStartEditing}>
+							<EditIcon class="h-4 w-4" />
+							Edit Asset
+						</Button>
 
-					<DeleteButton
-						url={`/api/v2/cases/${caseId}/assets/${asset.asset_id}`}
-						onrefresh={onDeleteAsset}
-						buttonText="Delete"
-						deletion_prompt_message={`Are you sure you want to delete the asset "${asset.asset_name}"? This action cannot be undone.`}
-					/>
+						<DeleteButton
+							url={`/api/v2/cases/${caseId}/assets/${asset.asset_id}`}
+							onrefresh={onDeleteAsset}
+							buttonText="Delete"
+							deletion_prompt_message={`Are you sure you want to delete the asset "${asset.asset_name}"? This action cannot be undone.`}
+						/>
+					{/if}
 				{/if}
 
 				<DropdownMenu bind:open={isMenuOpen}>
@@ -203,9 +210,9 @@
 							}}><FileSymlinkIcon /> Markdown Link</DropdownMenuItem
 						>
 
-						<Separator />
+						{#if canEdit && hookOptions.length}
+							<Separator />
 
-						{#if hookOptions.length}
 							{#each hookOptions as hookOption}
 								<DropdownMenuItem onclick={() => callModule(hookOption)}
 									>{hookOption.manual_hook_ui_name}</DropdownMenuItem

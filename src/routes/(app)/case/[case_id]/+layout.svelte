@@ -40,6 +40,11 @@
 		type CaseDatastoreContext
 	} from '$lib/contexts/case-datastore.context.svelte';
 	import {
+		CASE_ACCESS_CTX,
+		createCaseAccessContext,
+		type CaseAccessContext
+	} from '$lib/contexts/case-access.context.svelte';
+	import {
 		COMMENTS_PANEL_CTX,
 		createCommentsPanelContext,
 		type CommentsPanelContext
@@ -65,6 +70,7 @@
 	} from '$lib/components/ui/dropdown-menu';
 	import { toast } from '$lib/components/ui/toast';
 	import CaseTopbar from './components/CaseTopbar.svelte';
+	import ReadOnlyBanner from './components/ReadOnlyBanner.svelte';
 	import RequestReviewDialog from './components/RequestReviewDialog.svelte';
 	import { callHook } from './utils/hooks';
 	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
@@ -91,6 +97,7 @@
 	const caseTasks = createCaseTasksContext(() => Number(page.params.case_id));
 	const caseEvidences = createCaseEvidencesContext(() => Number(page.params.case_id));
 	const caseDatastore = createCaseDatastoreContext(() => Number(page.params.case_id));
+	const caseAccess = createCaseAccessContext(() => Number(page.params.case_id));
 
 	setContext<CaseAssetsContext>(CASE_ASSETS_CTX, caseAssets);
 	setContext<CaseIocsContext>(CASE_IOCS_CTX, caseIocs);
@@ -98,6 +105,7 @@
 	setContext<CaseTasksContext>(CASE_TASKS_CTX, caseTasks);
 	setContext<CaseEvidencesContext>(CASE_EVIDENCES_CTX, caseEvidences);
 	setContext<CaseDatastoreContext>(CASE_DATASTORE_CTX, caseDatastore);
+	setContext<CaseAccessContext>(CASE_ACCESS_CTX, caseAccess);
 
 	const commentsPanel = createCommentsPanelContext();
 	setContext<CommentsPanelContext>(COMMENTS_PANEL_CTX, commentsPanel);
@@ -151,6 +159,7 @@
 			caseTasks.reset();
 			caseEvidences.reset();
 			caseDatastore.reset();
+			caseAccess.reset();
 		}
 		lastCaseId = case_id;
 
@@ -163,6 +172,8 @@
 		if (!current || current.case_id !== case_id) {
 			cases.load({ case_ids: [case_id] });
 		}
+
+		caseAccess.load();
 	});
 
 	onMount(async () => {
@@ -263,29 +274,31 @@
 		<ChartLineIcon class="mr-2 size-4" /> Activity report
 	</DropdownMenuItem>
 
-	<DropdownMenuSeparator />
-	<DropdownMenuLabel>Workflow</DropdownMenuLabel>
-	<DropdownMenuItem>
-		<HardDriveUploadIcon class="mr-2 size-4" /> Pipelines
-	</DropdownMenuItem>
-	{#if hookOptions.length}
-		<DropdownMenuSub>
-			<DropdownMenuSubTrigger>
-				<ZapIcon class="mr-2 size-4" /> Processors
-			</DropdownMenuSubTrigger>
-			<DropdownMenuSubContent>
-				{#each hookOptions as hookOption}
-					<DropdownMenuItem onclick={() => callModule(hookOption)}>
-						{hookOption.manual_hook_ui_name}
-					</DropdownMenuItem>
-				{/each}
-			</DropdownMenuSubContent>
-		</DropdownMenuSub>
-	{/if}
-	{#if currentCase?.review_status === null}
-		<DropdownMenuItem onclick={() => (showRequestReview = true)}>
-			<ClipboardCheckIcon class="mr-2 size-4" /> Request review
+	{#if caseAccess.canEdit()}
+		<DropdownMenuSeparator />
+		<DropdownMenuLabel>Workflow</DropdownMenuLabel>
+		<DropdownMenuItem>
+			<HardDriveUploadIcon class="mr-2 size-4" /> Pipelines
 		</DropdownMenuItem>
+		{#if hookOptions.length}
+			<DropdownMenuSub>
+				<DropdownMenuSubTrigger>
+					<ZapIcon class="mr-2 size-4" /> Processors
+				</DropdownMenuSubTrigger>
+				<DropdownMenuSubContent>
+					{#each hookOptions as hookOption}
+						<DropdownMenuItem onclick={() => callModule(hookOption)}>
+							{hookOption.manual_hook_ui_name}
+						</DropdownMenuItem>
+					{/each}
+				</DropdownMenuSubContent>
+			</DropdownMenuSub>
+		{/if}
+		{#if currentCase?.review_status === null}
+			<DropdownMenuItem onclick={() => (showRequestReview = true)}>
+				<ClipboardCheckIcon class="mr-2 size-4" /> Request review
+			</DropdownMenuItem>
+		{/if}
 	{/if}
 {/snippet}
 
@@ -302,6 +315,10 @@
 {:else}
 	<div class="flex w-full grow flex-col bg-background">
 		<CaseTopbar menuItems={caseMenuItems} />
+
+		{#if caseAccess.isReadOnly()}
+			<ReadOnlyBanner />
+		{/if}
 
 		<div class="flex grow overflow-y-auto">
 			{@render children()}

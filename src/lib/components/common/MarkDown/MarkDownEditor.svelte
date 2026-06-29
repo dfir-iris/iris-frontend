@@ -71,7 +71,8 @@
 		savedAt,
 		onRemoteSave,
 		onRemoteChange,
-		initialMode = 'view'
+		initialMode = 'view',
+		readOnly = false
 	} = $props<{
 		value: string;
 		onChange: (v: string) => void;
@@ -83,6 +84,7 @@
 		onRemoteSave?: (content: string) => void;
 		onRemoteChange?: (user: string) => void;
 		initialMode?: 'view' | 'edit' | 'edit-preview';
+		readOnly?: boolean;
 	}>();
 
 	type ViewMode = 'view' | 'edit' | 'edit-preview';
@@ -122,6 +124,7 @@
 	});
 
 	const enterEdit = async () => {
+		if (readOnly) return;
 		if (viewMode === 'view') {
 			viewMode = 'edit';
 			await tick();
@@ -1323,7 +1326,13 @@
 			>
 				{#if (value ?? '').trim().length === 0}
 					<p class="italic text-muted-foreground">
-						{viewMode === 'edit-preview' ? 'Nothing to preview yet.' : 'Double-click to edit…'}
+						{#if viewMode === 'edit-preview'}
+							Nothing to preview yet.
+						{:else if readOnly}
+							No content.
+						{:else}
+							Double-click to edit…
+						{/if}
 					</p>
 				{:else}
 					<!-- eslint-disable-next-line svelte/no-at-html-tags -->

@@ -72,6 +72,10 @@ export interface CaseAccessUserRow extends UserInfo {
 	user_access_level: CaseAccessLevel;
 }
 
+export interface CaseAccessMe {
+	access_level: CaseAccessLevel;
+}
+
 export type FilterCasesParams = Omit<ListCasesParams, 'order_by' | 'is_open'>;
 
 export type FilterCasesMessage = {
@@ -161,6 +165,16 @@ export class CaseService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<CaseAccessUserRow[]>> {
 		return ApiService.get<CaseAccessUserRow[]>(`/api/v2/cases/${caseId}/access/users`, options);
+	}
+
+	// Current user's effective access level for a case. Backed by
+	// `GET /api/v2/cases/{id}/access/me`. The SPA loads this once per case
+	// view to gate edit/delete affordances before they 403.
+	static async getMyAccess(
+		caseId: CaseIdentifier,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<CaseAccessMe>> {
+		return ApiService.get<CaseAccessMe>(`/api/v2/cases/${caseId}/access/me`, options);
 	}
 
 	// Subset of `listAccessUsers` restricted to users with full case access

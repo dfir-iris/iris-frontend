@@ -47,6 +47,7 @@
 		onDownloadCsv: () => void;
 		onDownloadCsvWithUserInfo: () => void;
 		onUploadCsv: () => void;
+		canEdit?: boolean;
 	};
 
 	let {
@@ -68,7 +69,8 @@
 		onQuickSearchPrev,
 		onDownloadCsv,
 		onDownloadCsvWithUserInfo,
-		onUploadCsv
+		onUploadCsv,
+		canEdit = true
 	}: Props = $props();
 
 	let isMenuOpen = $state(false);
@@ -229,9 +231,11 @@
 						Download as CSV with user info
 					</DropdownMenuItem>
 
-					<Separator class="my-2" />
+					{#if canEdit}
+						<Separator class="my-2" />
 
-					<DropdownMenuItem onclick={onUploadCsv}>Upload CSV of events</DropdownMenuItem>
+						<DropdownMenuItem onclick={onUploadCsv}>Upload CSV of events</DropdownMenuItem>
+					{/if}
 				</DropdownMenuContent>
 			</DropdownMenu>
 		</div>

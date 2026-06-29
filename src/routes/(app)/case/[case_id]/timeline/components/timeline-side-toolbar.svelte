@@ -19,6 +19,7 @@
 		onRefresh: () => void;
 		onScrollTop: () => void;
 		onScrollBottom: () => void;
+		canEdit?: boolean;
 	};
 
 	let {
@@ -29,7 +30,8 @@
 		onToggleFoldAll,
 		onRefresh,
 		onScrollTop,
-		onScrollBottom
+		onScrollBottom,
+		canEdit = true
 	}: Props = $props();
 </script>
 
@@ -44,25 +46,27 @@
 	<div
 		class="pointer-events-auto flex flex-col items-center gap-1 rounded-full border border-white/10 p-1 shadow-lg ring-1 ring-black/5 backdrop-blur-md dark:border-white/5 dark:ring-white/5"
 	>
-		{#if selecting}
+		{#if canEdit}
+			{#if selecting}
+				<Button
+					variant="ghost"
+					size="icon"
+					class="size-8 text-red-500 hover:text-red-700"
+					onclick={onDelete}><Trash2Icon class="size-4" /></Button
+				>
+			{/if}
+
 			<Button
 				variant="ghost"
 				size="icon"
-				class="size-8 text-red-500 hover:text-red-700"
-				onclick={onDelete}><Trash2Icon class="size-4" /></Button
+				class={`size-8 ${selecting ? 'ring ring-amber-500' : ''}`}
+				onclick={onToggleSelecting}><CheckCheckIcon class="size-4" /></Button
 			>
+
+			<Button variant="ghost" size="icon" class="size-8 rounded-full bg-transparent text-muted-foreground/70 hover:bg-white/30 hover:text-foreground hover:backdrop-blur-sm dark:hover:bg-white/10" onclick={onAddEvent}>
+				<PlusCircleIcon class="size-4" />
+			</Button>
 		{/if}
-
-		<Button
-			variant="ghost"
-			size="icon"
-			class={`size-8 ${selecting ? 'ring ring-amber-500' : ''}`}
-			onclick={onToggleSelecting}><CheckCheckIcon class="size-4" /></Button
-		>
-
-		<Button variant="ghost" size="icon" class="size-8 rounded-full bg-transparent text-muted-foreground/70 hover:bg-white/30 hover:text-foreground hover:backdrop-blur-sm dark:hover:bg-white/10" onclick={onAddEvent}>
-			<PlusCircleIcon class="size-4" />
-		</Button>
 		<Button variant="ghost" size="icon" class="size-8 rounded-full bg-transparent text-muted-foreground/70 hover:bg-white/30 hover:text-foreground hover:backdrop-blur-sm dark:hover:bg-white/10" onclick={onToggleFoldAll}>
 			<ListTreeIcon class="size-4" />
 		</Button>

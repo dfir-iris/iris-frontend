@@ -27,6 +27,7 @@
 			body: { name?: string; color?: string | null }
 		) => Promise<void>;
 		onRemove: (timelineId: number) => Promise<void>;
+		canEdit?: boolean;
 	};
 
 	let {
@@ -37,7 +38,8 @@
 		onSelectAll,
 		onCreate,
 		onUpdate,
-		onRemove
+		onRemove,
+		canEdit = true
 	}: Props = $props();
 
 	let addingOpen = $state(false);
@@ -112,18 +114,20 @@
 				<span class="text-2xs text-muted-foreground tabular-nums">{timelines.length}</span>
 			{/if}
 		</div>
-		<Button
-			size="icon"
-			variant="ghost"
-			class="h-6 w-6"
-			onclick={() => (addingOpen = !addingOpen)}
-			aria-label="Add timeline"
-		>
-			<Plus size={12} />
-		</Button>
+		{#if canEdit}
+			<Button
+				size="icon"
+				variant="ghost"
+				class="h-6 w-6"
+				onclick={() => (addingOpen = !addingOpen)}
+				aria-label="Add timeline"
+			>
+				<Plus size={12} />
+			</Button>
+		{/if}
 	</header>
 
-	{#if addingOpen}
+	{#if addingOpen && canEdit}
 		<div class="flex flex-col gap-2 border-b px-3 py-2">
 			<Input
 				value={newName}
@@ -230,28 +234,30 @@
 										Default
 									</span>
 								{/if}
-								<div class="hidden shrink-0 items-center gap-0.5 group-hover:flex">
-									<Button
-										size="icon"
-										variant="ghost"
-										class="h-5 w-5"
-										onclick={() => startEdit(t)}
-										aria-label={`Edit ${t.name}`}
-									>
-										<Pencil size={10} />
-									</Button>
-									{#if !t.is_default}
+								{#if canEdit}
+									<div class="hidden shrink-0 items-center gap-0.5 group-hover:flex">
 										<Button
 											size="icon"
 											variant="ghost"
-											class="h-5 w-5 text-destructive hover:text-destructive"
-											onclick={() => onRemove(t.timeline_id)}
-											aria-label={`Delete ${t.name}`}
+											class="h-5 w-5"
+											onclick={() => startEdit(t)}
+											aria-label={`Edit ${t.name}`}
 										>
-											<Trash2 size={10} />
+											<Pencil size={10} />
 										</Button>
-									{/if}
-								</div>
+										{#if !t.is_default}
+											<Button
+												size="icon"
+												variant="ghost"
+												class="h-5 w-5 text-destructive hover:text-destructive"
+												onclick={() => onRemove(t.timeline_id)}
+												aria-label={`Delete ${t.name}`}
+											>
+												<Trash2 size={10} />
+											</Button>
+										{/if}
+									</div>
+								{/if}
 							</div>
 						{/if}
 					</li>

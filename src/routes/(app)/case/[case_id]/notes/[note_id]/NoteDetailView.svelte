@@ -9,6 +9,10 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import { CASE_NOTES_CTX, type CaseNotesContext } from '$lib/contexts/case-notes.context.svelte';
+	import {
+		CASE_ACCESS_CTX,
+		type CaseAccessContext
+	} from '$lib/contexts/case-access.context.svelte';
 	import MarkDownEditor from '$lib/components/common/MarkDown/MarkDownEditor.svelte';
 	import NoteHeader from './note-header.svelte';
 
@@ -23,7 +27,9 @@
 	} = $props();
 
 	const notes = getContext<CaseNotesContext>(CASE_NOTES_CTX);
+	const caseAccess = getContext<CaseAccessContext>(CASE_ACCESS_CTX);
 	const note = $derived(notes.byId[noteId]);
+	const canEdit = $derived(caseAccess.canEdit());
 
 	let draftContent = $state('');
 	let baseContent = $state('');
@@ -123,6 +129,7 @@
 				{saving}
 				{lastError}
 				{typingUser}
+				{canEdit}
 				onSaveNote={saveNote}
 				onDeleteNote={handleDelete}
 				onRestoreRevision={handleRestoredRevision}
@@ -144,6 +151,7 @@
 					{savedAt}
 					onRemoteSave={handleRemoteSave}
 					onRemoteChange={handleRemoteChange}
+					readOnly={!canEdit}
 				/>
 			{/key}
 		</div>

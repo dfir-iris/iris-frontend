@@ -25,6 +25,10 @@
 		CASE_ASSETS_CTX,
 		type CaseAssetsContext
 	} from '$lib/contexts/case-assets.context.svelte';
+	import {
+		CASE_ACCESS_CTX,
+		type CaseAccessContext
+	} from '$lib/contexts/case-access.context.svelte';
 	import type { UpdateCaseAssetBody } from '$lib/services/case-assets.service';
 	import { CommentsService, type Comment } from '$lib/services/comments.service';
 	import { normalizeTags, stringToTags, tagsToString } from '$lib/utils/tags';
@@ -60,6 +64,8 @@
 	} = $props();
 
 	const caseAssets = getContext<CaseAssetsContext>(CASE_ASSETS_CTX);
+	const caseAccess = getContext<CaseAccessContext>(CASE_ACCESS_CTX);
+	const canEdit = $derived(caseAccess?.canEdit() ?? false);
 
 	const asset = $derived(caseAssets.byId[assetId]);
 	// Component-level caseId reactive on the route param. Used by the
@@ -357,6 +363,7 @@
 								onSaveChanges={saveChanges}
 								onDeleteAsset={handleAssetDeleted}
 								{isSaving}
+								{canEdit}
 							/>
 						</TabsContent>
 

@@ -26,6 +26,10 @@
 		type CaseTimelineContext
 	} from '$lib/contexts/case-timeline.context.svelte';
 	import {
+		CASE_ACCESS_CTX,
+		type CaseAccessContext
+	} from '$lib/contexts/case-access.context.svelte';
+	import {
 		COMMENTS_PANEL_CTX,
 		type CommentsPanelContext
 	} from '$lib/contexts/comments-panel.context.svelte';
@@ -69,6 +73,8 @@
 	setContext<CaseTimelineContext>(CASE_TIMELINE_CTX, timeline);
 
 	const commentsPanel = getContext<CommentsPanelContext>(COMMENTS_PANEL_CTX);
+	const caseAccess = getContext<CaseAccessContext | undefined>(CASE_ACCESS_CTX);
+	const canEdit = $derived(caseAccess?.canEdit() ?? false);
 
 	let filters = $state<TimelineFilterData>(emptyFilters());
 	let viewMode = $state<'list' | 'tree'>('tree');
@@ -333,6 +339,7 @@
 	};
 
 	const addEvent = () => {
+		if (!canEdit) return;
 		selectedEvent = undefined;
 		selectedParent = undefined;
 		eventDialogOpen = true;
@@ -349,6 +356,7 @@
 	});
 
 	const addChildEvent = async (eventId: number) => {
+		if (!canEdit) return;
 		const event = await timeline.getEvent(eventId);
 
 		if (!event) return;
@@ -359,6 +367,7 @@
 	};
 
 	const editEvent = async (eventId: number) => {
+		if (!canEdit) return;
 		const event = await timeline.getEvent(eventId);
 
 		if (!event) return;
@@ -778,6 +787,7 @@
 		onCreate={createTimeline}
 		onUpdate={updateTimeline}
 		onRemove={removeTimeline}
+		{canEdit}
 	/>
 	<div class="flex h-full min-h-0 flex-1 flex-col">
 	<TimelineTopbar
@@ -800,6 +810,7 @@
 		onDownloadCsv={() => downloadTimelineCsv(false)}
 		onDownloadCsvWithUserInfo={() => downloadTimelineCsv(true)}
 		onUploadCsv={uploadTimelineCsv}
+		{canEdit}
 	/>
 
 	<div
@@ -839,6 +850,7 @@
 					onComments={showComments}
 					onDuplicate={duplicateEvent}
 					onDelete={deleteEvent}
+					{canEdit}
 				/>
 
 				<div
@@ -872,6 +884,7 @@
 			onRefresh={refreshTimeline}
 			onScrollTop={scrollTop}
 			onScrollBottom={scrollBottom}
+			{canEdit}
 		/>
 	</div>
 	</div>

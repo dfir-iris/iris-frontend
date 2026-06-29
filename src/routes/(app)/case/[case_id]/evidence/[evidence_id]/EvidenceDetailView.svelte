@@ -22,6 +22,10 @@
 		CASE_EVIDENCES_CTX,
 		type CaseEvidencesContext
 	} from '$lib/contexts/case-evidences.context.svelte';
+	import {
+		CASE_ACCESS_CTX,
+		type CaseAccessContext
+	} from '$lib/contexts/case-access.context.svelte';
 
 	type EditData = {
 		filename: string;
@@ -43,6 +47,8 @@
 	} = $props();
 
 	const caseEvidences = getContext<CaseEvidencesContext>(CASE_EVIDENCES_CTX);
+	const caseAccess = getContext<CaseAccessContext | undefined>(CASE_ACCESS_CTX);
+	const canEdit = $derived(caseAccess?.canEdit() ?? false);
 
 	const evidence = $derived(caseEvidences.byId[evidenceId]);
 
@@ -269,6 +275,7 @@
 								onDeleteEvidence={handleEvidenceDeleted}
 								{isSaving}
 								deleteUrl={`/api/v2/cases/${caseId}/evidences/${evidence.id}`}
+								{canEdit}
 							/>
 						</TabsContent>
 

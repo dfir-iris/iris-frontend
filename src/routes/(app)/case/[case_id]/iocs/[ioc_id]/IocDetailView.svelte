@@ -19,6 +19,10 @@
 		SearchIcon
 	} from 'lucide-svelte';
 	import { CASE_IOCS_CTX, type CaseIocsContext } from '$lib/contexts/case-iocs.context.svelte';
+	import {
+		CASE_ACCESS_CTX,
+		type CaseAccessContext
+	} from '$lib/contexts/case-access.context.svelte';
 	import type { UpdateCaseIocBody } from '$lib/services/case-iocs.service';
 	import { CommentsService, type Comment } from '$lib/services/comments.service';
 	import { normalizeTags, stringToTags, tagsToString } from '$lib/utils/tags';
@@ -54,6 +58,8 @@
 	} = $props();
 
 	const caseIocs = getContext<CaseIocsContext>(CASE_IOCS_CTX);
+	const caseAccess = getContext<CaseAccessContext | undefined>(CASE_ACCESS_CTX);
+	const canEdit = $derived(caseAccess?.canEdit() ?? false);
 
 	const ioc = $derived(caseIocs.byId[iocId]);
 
@@ -318,6 +324,7 @@
 								onDeleteIoc={handleIocDeleted}
 								{isSaving}
 								deleteUrl={`/api/v2/cases/${caseId}/iocs/${ioc.ioc_id}`}
+								{canEdit}
 							/>
 						</TabsContent>
 

@@ -53,6 +53,7 @@
 		onComments: (eventId: number) => void;
 		onDuplicate: (eventId: number) => void;
 		onDelete: (eventId: number) => void;
+		canEdit?: boolean;
 	};
 
 	let {
@@ -74,7 +75,8 @@
 		onFlag,
 		onComments,
 		onDuplicate,
-		onDelete
+		onDelete,
+		canEdit = true
 	}: Props = $props();
 
 	const eventDateObj = $derived(new Date(event.event_date));
@@ -428,38 +430,40 @@
 				</div>
 
 				<div class="absolute right-2 top-2 z-[1] flex shrink-0 items-center gap-0.5 rounded-md border border-border/40 bg-popover/95 px-1 py-0.5 opacity-0 shadow-md backdrop-blur transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 dark:border-slate-700 dark:bg-slate-800/95">
-					<TooltipProvider>
-						<Tooltip>
-							<TooltipTrigger>
-								<Button variant="ghost" size="icon" class="size-7" onclick={() => onEdit(event.event_id)}>
-									<EditIcon class="size-3.5" />
-								</Button>
-							</TooltipTrigger>
-							<TooltipContent>Edit</TooltipContent>
-						</Tooltip>
-					</TooltipProvider>
+					{#if canEdit}
+						<TooltipProvider>
+							<Tooltip>
+								<TooltipTrigger>
+									<Button variant="ghost" size="icon" class="size-7" onclick={() => onEdit(event.event_id)}>
+										<EditIcon class="size-3.5" />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>Edit</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
 
-					<TooltipProvider>
-						<Tooltip>
-							<TooltipTrigger>
-								<Button variant="ghost" size="icon" class="size-7" onclick={() => onAddChild(event.event_id)}>
-									<GitBranchPlusIcon class="size-3.5" />
-								</Button>
-							</TooltipTrigger>
-							<TooltipContent>Add child event</TooltipContent>
-						</Tooltip>
-					</TooltipProvider>
+						<TooltipProvider>
+							<Tooltip>
+								<TooltipTrigger>
+									<Button variant="ghost" size="icon" class="size-7" onclick={() => onAddChild(event.event_id)}>
+										<GitBranchPlusIcon class="size-3.5" />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>Add child event</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
 
-					<TooltipProvider>
-						<Tooltip>
-							<TooltipTrigger>
-								<Button variant="ghost" size="icon" class="size-7" onclick={() => onFlag(event.event_id)}>
-									<FlagIcon class={`size-3.5 ${event.event_is_flagged ? 'fill-red-500 text-red-500' : ''}`} />
-								</Button>
-							</TooltipTrigger>
-							<TooltipContent>{event.event_is_flagged ? 'Unflag' : 'Flag'}</TooltipContent>
-						</Tooltip>
-					</TooltipProvider>
+						<TooltipProvider>
+							<Tooltip>
+								<TooltipTrigger>
+									<Button variant="ghost" size="icon" class="size-7" onclick={() => onFlag(event.event_id)}>
+										<FlagIcon class={`size-3.5 ${event.event_is_flagged ? 'fill-red-500 text-red-500' : ''}`} />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>{event.event_is_flagged ? 'Unflag' : 'Flag'}</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
+					{/if}
 
 					<TooltipProvider>
 						<Tooltip>
@@ -495,13 +499,15 @@
 							<DropdownMenuItem onclick={copyMarkdownLink}>
 								<FileSymlinkIcon class="mr-2 size-3.5" /> Markdown link
 							</DropdownMenuItem>
-							<DropdownMenuItem onclick={() => onDuplicate(event.event_id)}>
-								<CopyIcon class="mr-2 size-3.5" /> Duplicate
-							</DropdownMenuItem>
-							<Separator />
-							<DropdownMenuItem class="text-red-500" onclick={() => onDelete(event.event_id)}>
-								<Trash2Icon class="mr-2 size-3.5" /> Delete
-							</DropdownMenuItem>
+							{#if canEdit}
+								<DropdownMenuItem onclick={() => onDuplicate(event.event_id)}>
+									<CopyIcon class="mr-2 size-3.5" /> Duplicate
+								</DropdownMenuItem>
+								<Separator />
+								<DropdownMenuItem class="text-red-500" onclick={() => onDelete(event.event_id)}>
+									<Trash2Icon class="mr-2 size-3.5" /> Delete
+								</DropdownMenuItem>
+							{/if}
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</div>

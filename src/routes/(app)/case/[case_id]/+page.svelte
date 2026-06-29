@@ -26,6 +26,10 @@
 		CASE_EVIDENCES_CTX,
 		type CaseEvidencesContext
 	} from '$lib/contexts/case-evidences.context.svelte';
+	import {
+		CASE_ACCESS_CTX,
+		type CaseAccessContext
+	} from '$lib/contexts/case-access.context.svelte';
 	import { current_user } from '$lib/stores/auth.store';
 	import type { Case } from '$lib/types/resources/case';
 	import type { Task } from '$lib/types/resources/task';
@@ -43,6 +47,9 @@
 	const caseAssets = getContext<CaseAssetsContext>(CASE_ASSETS_CTX);
 	const caseIocs = getContext<CaseIocsContext>(CASE_IOCS_CTX);
 	const caseEvidences = getContext<CaseEvidencesContext>(CASE_EVIDENCES_CTX);
+	const caseAccess = getContext<CaseAccessContext>(CASE_ACCESS_CTX);
+
+	const canEdit = $derived(caseAccess.canEdit());
 
 	const case_id = cases.currentCaseId();
 	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
@@ -518,16 +525,18 @@
 								<span class="ml-1 hidden sm:inline">Refresh</span>
 							</Button>
 
-							<Button
-								variant="default"
-								size="xs"
-								disabled={saving || !dirty}
-								onclick={save}
-								title="Save"
-							>
-								<SaveIcon size={12} />
-								<span class="ml-1 hidden sm:inline">Save</span>
-							</Button>
+							{#if canEdit}
+								<Button
+									variant="default"
+									size="xs"
+									disabled={saving || !dirty}
+									onclick={save}
+									title="Save"
+								>
+									<SaveIcon size={12} />
+									<span class="ml-1 hidden sm:inline">Save</span>
+								</Button>
+							{/if}
 						</div>
 					</div>
 				</header>
@@ -558,6 +567,7 @@
 						caseId={case_id}
 						{savedAt}
 						onRemoteSave={handleRemoteSave}
+						readOnly={!canEdit}
 					/>
 				</div>
 			</section>

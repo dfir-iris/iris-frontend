@@ -56,6 +56,7 @@
 		onDeleteEvidence?: () => void;
 		isSaving?: boolean;
 		deleteUrl?: string;
+		canEdit?: boolean;
 	};
 
 	let {
@@ -69,7 +70,8 @@
 		onSaveChanges = () => {},
 		onDeleteEvidence = () => {},
 		isSaving = false,
-		deleteUrl = ''
+		deleteUrl = '',
+		canEdit = true
 	}: Props = $props();
 
 	let evidenceTypes = $state<EvidenceType[]>([]);
@@ -131,33 +133,35 @@
 			</div>
 
 			<div class="flex shrink-0 items-center gap-2">
-				{#if isEditing}
-					<Button variant="outline" size="sm" onclick={onCancelEditing} disabled={isSaving}>
-						<XIcon class="h-4 w-4" />
-						Cancel
-					</Button>
+				{#if canEdit}
+					{#if isEditing}
+						<Button variant="outline" size="sm" onclick={onCancelEditing} disabled={isSaving}>
+							<XIcon class="h-4 w-4" />
+							Cancel
+						</Button>
 
-					<Button variant="default" size="sm" onclick={onSaveChanges} disabled={isSaving}>
-						{#if isSaving}
-							<span class="animate-spin">⟳</span>
-							Saving...
-						{:else}
-							<SaveIcon class="h-4 w-4" />
-							Save Changes
-						{/if}
-					</Button>
-				{:else}
-					<Button variant="outline" size="sm" onclick={onStartEditing}>
-						<EditIcon class="h-4 w-4" />
-						Edit
-					</Button>
+						<Button variant="default" size="sm" onclick={onSaveChanges} disabled={isSaving}>
+							{#if isSaving}
+								<span class="animate-spin">⟳</span>
+								Saving...
+							{:else}
+								<SaveIcon class="h-4 w-4" />
+								Save Changes
+							{/if}
+						</Button>
+					{:else}
+						<Button variant="outline" size="sm" onclick={onStartEditing}>
+							<EditIcon class="h-4 w-4" />
+							Edit
+						</Button>
 
-					<DeleteButton
-						url={deleteUrl}
-						onrefresh={onDeleteEvidence}
-						buttonText="Delete"
-						deletion_prompt_message={`Are you sure you want to delete the evidence "${evidence.filename}"? This action cannot be undone.`}
-					/>
+						<DeleteButton
+							url={deleteUrl}
+							onrefresh={onDeleteEvidence}
+							buttonText="Delete"
+							deletion_prompt_message={`Are you sure you want to delete the evidence "${evidence.filename}"? This action cannot be undone.`}
+						/>
+					{/if}
 				{/if}
 
 				<DropdownMenu bind:open={isMenuOpen}>
