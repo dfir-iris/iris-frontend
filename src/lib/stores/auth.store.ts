@@ -86,6 +86,16 @@ function normalizeUser(payload: unknown): LoginResponse | null {
 const createAuthStore = () => {
 	const { subscribe, set, update } = writable<AuthState>(loadInitialState());
 
+	// Dedup guard for `loadAuth`. Both the root layout effect and the
+	// sidebar's UserMenu effect used to fire `loadAuth` on mount, racing
+	// each other's `/whoami` + token-refresh calls. If the token was
+	// close to expiry, the slower caller would arrive at /auth/refresh-
+	// token with a rotated refresh token, get a 401, and call
+	// `clearAuth()` — wiping the user state the first call had just
+	// populated. Cache the in-flight promise so concurrent callers
+	// share the result.
+	let loadAuthInflight: Promise<LoginResponse | null> | null = null;
+
 	const store = {
 		subscribe,
 		setAuth: (response: LoginResponse, tokens: TokenInfo, mfaEnabled?: boolean) => {
@@ -161,37 +171,55 @@ const createAuthStore = () => {
 			// Already have user data
 			if (current.user) return current.user;
 
+			// A second caller arrived while the first /whoami is still
+			// in flight — share its result instead of racing.
+			if (loadAuthInflight) return loadAuthInflight;
+
 			// Check if we have valid tokens
-			if (current.tokens) {
+			if (!current.tokens) return null;
+
+			loadAuthInflight = (async () => {
 				try {
 					const response = await ApiService.get<LoginResponse>('/api/v2/auth/whoami', {
 						fetch: fetchFn,
 						headers: {
-							Authorization: `Bearer ${current.tokens.accessToken}`
+							Authorization: `Bearer ${current.tokens!.accessToken}`
 						}
 					});
 
-					// If successful, update user info
-					update((state) => ({
-						...state,
-						user: normalizeUser(response.data as LoginResponse)
-					}));
+					const fresh = normalizeUser(response.data as LoginResponse);
 
-					return response.data as LoginResponse;
-				} catch (error) {
-					console.error('loadAuth failed:', error);
+					if (fresh) {
+						update((state) => ({ ...state, user: fresh }));
+						return fresh;
+					}
 
-					store.clearAuth();
-
+					// `whoami` returned no usable user payload (4xx /
+					// network error). Only wipe global auth for callers
+					// that explicitly need it for routing — otherwise
+					// a transient failure on a background loader would
+					// log the user out across the whole app.
 					if (redirectOnFailure) {
+						store.clearAuth();
 						throw redirect(302, '/login');
 					}
 
 					return null;
-				}
-			}
+				} catch (error) {
+					console.error('loadAuth failed:', error);
 
-			return null;
+					if (redirectOnFailure) {
+						store.clearAuth();
+						throw redirect(302, '/login');
+					}
+
+					return null;
+				} finally {
+					loadAuthInflight = null;
+				}
+			})();
+
+			return loadAuthInflight;
 		},
 		getMfaEnabled: (): boolean => {
 			const current = get(store);

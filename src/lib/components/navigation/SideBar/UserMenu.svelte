@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { browser } from '$app/environment';
-	import { auth, current_user, username } from '$lib/stores/auth.store';
+	import { current_user, username } from '$lib/stores/auth.store';
 	import { mode, toggleMode } from 'mode-watcher';
 	import { LogOutIcon, MoonIcon, SlidersHorizontalIcon, SunIcon } from 'lucide-svelte';
 	import { AuthService } from '$lib/services/auth.service';
@@ -18,16 +17,10 @@
 	const pathname = $derived(page.url.pathname);
 	const hash = $derived(page.url.hash);
 
-	let didLoadAuth = false;
-
-	$effect(() => {
-		if (!browser) return;
-		if (didLoadAuth) return;
-		didLoadAuth = true;
-
-		void auth.loadAuth(fetch, false);
-	});
-
+	// Auth is loaded from the root `+layout.svelte` effect; a second
+	// `loadAuth` call here used to race the first one, sometimes wiping
+	// the just-populated user state on token-rotation 401s. Read the
+	// auth-store directly instead.
 	const logout = () => {
 		console.log('Logging out...');
 
