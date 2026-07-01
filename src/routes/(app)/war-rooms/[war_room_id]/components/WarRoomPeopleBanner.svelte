@@ -3,13 +3,11 @@
 
   Lives inside `WarRoomTopbar`'s metadata row (next to "Created on") so
   the operator gets a roster summary without burning a second header
-  row. Hovering the strip peeks the full grouped list (Leads / Members /
-  Case owners / Case access) with a search box; the peek auto-dismisses
-  once the cursor leaves the panel. Clicking the strip *commits* the
-  popover open — from that point the panel stays open until dismissed
-  explicitly (X, Escape, click-outside, or a second click on the strip),
-  which is what the user needs when they actually want to read the list
-  or type into the search field without the popover snapping shut.
+  row. Clicking the strip opens the full grouped list (Leads / Members /
+  Case owners / Case access) with a search box; the panel stays open
+  until dismissed via the X, Escape, click-outside, or a second click on
+  the strip. Hover no longer opens the popover — it was too easy to
+  trigger accidentally while moving around the topbar.
 
   Design notes (kept from the earlier banner version):
     1. Avatars OVERLAP each other (Slack-style) with one shared
@@ -114,101 +112,20 @@
 		return groups;
 	});
 
-	// Two-mode open state:
-	//   * "peek"   — opened by hovering the trigger; auto-closes on
-	//                mouseleave (with a short grace period so the cursor
-	//                can travel from trigger to content).
-	//   * "commit" — opened by clicking, or by the cursor entering the
-	//                content panel. Only closes on explicit dismissal
-	//                (X, Escape, click-outside, or a second click on
-	//                the trigger).
-	// Once committed, mouseleave does NOT close the popover — otherwise
-	// the user can't reach the X or the search input without the panel
-	// snapping shut.
-	let closeTimer: ReturnType<typeof setTimeout> | null = null;
-	let reopenLockUntil = 0;
-	let committed = $state(false);
-	const clearCloseTimer = () => {
-		if (closeTimer) {
-			clearTimeout(closeTimer);
-			closeTimer = null;
-		}
-	};
-	// After an explicit dismiss the portalled content unmounts and the
-	// browser fires mouseenter on whatever is now the topmost element
-	// under the cursor — which, since the trigger sits directly under the
-	// popover, is the trigger itself. Without this lockout the popover
-	// reopens instantly and the X, Escape, click-outside all appear to do
-	// nothing. Using `performance.now()` keeps this SSR-safe.
-	const inReopenLockout = () =>
-		typeof performance !== 'undefined' && performance.now() < reopenLockUntil;
-	const openHover = () => {
-		if (inReopenLockout()) return;
-		clearCloseTimer();
-		listOpen = true;
-	};
-	const scheduleClose = () => {
-		if (committed) return;
-		clearCloseTimer();
-		closeTimer = setTimeout(() => {
-			listOpen = false;
-			closeTimer = null;
-		}, 120);
-	};
-	// Any pointer-down inside the panel commits — the user is
-	// interacting, so we're past the peek phase.
-	const commitOnEnter = () => {
-		if (inReopenLockout()) return;
-		clearCloseTimer();
-		committed = true;
-		listOpen = true;
-	};
-	// Click on the trigger toggles: if already open, dismiss; otherwise
-	// commit-open. This lets a user click the strip to close the
-	// popover without having to reach for the X.
-	const toggleCommit = () => {
-		clearCloseTimer();
-		if (listOpen) {
-			dismiss();
-		} else {
-			committed = true;
-			listOpen = true;
-		}
-	};
+	// Simple click-to-toggle. `Popover.Trigger` toggles `listOpen` on
+	// click via `bind:open`; the X, Escape, and outside-click close it
+	// through the Popover.Content event hooks below. No hover behaviour
+	// — the strip used to peek-on-hover but was too easy to trigger
+	// accidentally while navigating the topbar.
 	const dismiss = () => {
-		committed = false;
 		listOpen = false;
-		clearCloseTimer();
-		if (typeof performance !== 'undefined') {
-			// 400ms is comfortably longer than the popover close animation
-			// (~150ms) and any synthetic mouseenter that fires as the
-			// portal unmounts, but short enough that a deliberate re-hover
-			// still opens the popover as usual.
-			reopenLockUntil = performance.now() + 400;
-		}
 	};
-
-	// Reset the committed flag whenever the popover fully closes so the
-	// next hover-open behaves the same as the first.
-	$effect(() => {
-		if (!listOpen) committed = false;
-	});
 </script>
 
 <Popover.Root bind:open={listOpen}>
 	<Popover.Trigger
 		class="inline-flex items-center gap-2 rounded-md px-1.5 py-0.5 text-2xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 		aria-label={`${people.length} people on this war room`}
-		onmouseenter={openHover}
-		onmouseleave={scheduleClose}
-		onfocus={openHover}
-		onclick={(e) => {
-			// Prevent Popover.Trigger's built-in toggle so our
-			// committed-state toggle wins (otherwise the two flips cancel
-			// and the popover state never changes on click).
-			e.preventDefault();
-			toggleCommit();
-		}}
 	>
 		{#if loading}
 			<div class="flex items-center -space-x-1.5">
@@ -283,7 +200,6 @@
 		align="start"
 		side="bottom"
 		class="w-80 p-0"
-		onmouseenter={commitOnEnter}
 		onEscapeKeydown={dismiss}
 		onInteractOutside={dismiss}
 	>
