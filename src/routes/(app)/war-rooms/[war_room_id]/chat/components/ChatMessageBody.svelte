@@ -3,21 +3,26 @@
   plain; markdown attachment links inserted by the composer are picked
   out and re-rendered as inline resource cards (Event / IOC / Asset /
   Task) so they look like real attached references instead of raw
-  `[Asset "foo"](...)` markdown.
+  `[Asset "foo"](...)` markdown. `@login` mentions are lifted into
+  small chips so an operator can spot at a glance who's being paged;
+  self-mentions get a warmer highlight so you notice when *you* were
+  named.
 
   The matcher is intentionally narrow: it only recognises the four
-  formats the composer emits. Any other markdown link (or bare URL)
-  falls through to a plain `<a>` so external URLs the operator
-  pastes still hyperlink.
+  attachment formats the composer emits. Any other markdown link (or
+  bare URL) falls through to a plain `<a>` so external URLs the
+  operator pastes still hyperlink.
 -->
 <script lang="ts">
 	import {
 		AlertCircleIcon,
+		AtSignIcon,
 		ClockIcon,
 		ExternalLink,
 		ListChecksIcon,
 		MonitorIcon
 	} from 'lucide-svelte';
+	import { current_user } from '$lib/stores/auth.store';
 
 	type Props = {
 		body: string;
@@ -40,7 +45,8 @@
 				label: string;
 				href: string;
 		  }
-		| { kind: 'link'; label: string; href: string };
+		| { kind: 'link'; label: string; href: string }
+		| { kind: 'mention'; handle: string };
 
 	// Composer-emitted format: `[Event "Foo"](/case/123/timeline)` etc.
 	// Capture: type word, the quoted label, and the href.
@@ -48,15 +54,21 @@
 		/\[(Event|IOC|Asset|Task) "([^"]+)"\]\((\/[^)\s]+)\)/g;
 	// Fallback for plain markdown links.
 	const PLAIN_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^)\s]+|\/[^)\s]+)\)/g;
+	// `@handle` at a word boundary. The negative lookbehind stops us
+	// matching the `@` inside an email address (foo@bar.com). Handles
+	// are alphanumeric plus `._-`, matching what the composer inserts
+	// off `user_login` — same shape as IRIS usernames elsewhere.
+	const MENTION_RE = /(?<![A-Za-z0-9._-])@([A-Za-z0-9._-]+)/g;
 
 	const parse = (text: string): Segment[] => {
 		if (!text) return [];
 		const segments: Segment[] = [];
 		let cursor = 0;
 
-		// First pass: pull every attachment we recognise. Anything not
-		// claimed by the attachment matcher falls through to the
-		// plain-link pass, then to literal text.
+		// Collect every recognised span; later spans that would overlap
+		// an earlier one get dropped. Order of matcher registration
+		// therefore matters — attachments first (most specific),
+		// plain markdown links next, then mentions.
 		const matches: Array<{
 			start: number;
 			end: number;
@@ -93,6 +105,19 @@
 				seg: { kind: 'link', label: m[1], href: m[2] }
 			});
 		}
+		MENTION_RE.lastIndex = 0;
+		while ((m = MENTION_RE.exec(text)) !== null) {
+			const start = m.index;
+			const end = start + m[0].length;
+			// Skip if the `@handle` sits inside an already-matched span
+			// (e.g. inside a markdown link's label or href).
+			if (matches.some((x) => start < x.end && end > x.start)) continue;
+			matches.push({
+				start,
+				end,
+				seg: { kind: 'mention', handle: m[1] }
+			});
+		}
 		matches.sort((a, b) => a.start - b.start);
 
 		for (const m of matches) {
@@ -109,6 +134,16 @@
 	};
 
 	const segments = $derived(parse(body));
+
+	// Case-insensitive compare so `@Pamicelli`, `@pamicelli`, and
+	// `@PAMICELLI` all pop the same self-highlight. `user_login` is the
+	// canonical string the composer inserts, but a human writing a
+	// mention by hand may vary the casing.
+	const selfLogin = $derived(
+		($current_user?.user_login ?? '').toLowerCase() || null
+	);
+	const isSelfMention = (handle: string) =>
+		selfLogin != null && handle.toLowerCase() === selfLogin;
 
 	const attachmentMeta = (type: 'event' | 'ioc' | 'asset' | 'task') => {
 		switch (type) {
@@ -160,7 +195,17 @@
 				<meta.Icon class="h-3 w-3 shrink-0" />
 				<span class="truncate">{seg.label}</span>
 				<ExternalLink class="h-2.5 w-2.5 shrink-0 opacity-60" />
-			</button>{:else}<a
+			</button>{:else if seg.kind === 'mention'}{@const self = isSelfMention(seg.handle)}<span
+				class={[
+					'mx-0.5 inline-flex items-baseline gap-0.5 rounded-md border px-1.5 py-0 align-baseline text-2xs font-medium transition-colors',
+					self
+						? 'border-amber-500/60 bg-amber-500/15 text-amber-800 dark:border-amber-400/50 dark:bg-amber-500/20 dark:text-amber-200'
+						: 'border-sky-500/30 bg-sky-500/10 text-sky-800 dark:border-sky-400/30 dark:bg-sky-500/15 dark:text-sky-200'
+				]}
+				title={self ? `${seg.handle} — that's you` : `Mention: ${seg.handle}`}
+			>
+				<AtSignIcon class="h-2.5 w-2.5 shrink-0 self-center opacity-80" />{seg.handle}</span
+			>{:else}<a
 				href={seg.href}
 				class="text-primary underline-offset-2 hover:underline"
 				target={seg.href.startsWith('http') ? '_blank' : undefined}

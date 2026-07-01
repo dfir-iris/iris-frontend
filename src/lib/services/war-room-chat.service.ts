@@ -80,6 +80,13 @@ export interface ListChatParams {
 	limit?: number;
 	kinds?: ChatMessageKind[];
 	caseIds?: number[];
+	/**
+	 * Free-text needle. Applied server-side as a case-insensitive
+	 * ILIKE against the chat body and (for case activity rows) the
+	 * activity description. Empty / whitespace is treated as "no
+	 * filter" so callers can pass `search` unconditionally.
+	 */
+	search?: string;
 }
 
 export class WarRoomChatService {
@@ -94,6 +101,8 @@ export class WarRoomChatService {
 		if (params.kinds && params.kinds.length) qs.set('kinds', params.kinds.join(','));
 		if (params.caseIds && params.caseIds.length)
 			qs.set('case_ids', params.caseIds.join(','));
+		if (params.search && params.search.trim())
+			qs.set('search', params.search.trim());
 		const tail = qs.toString();
 		const path = tail
 			? `/war-rooms/${warRoomId}/chat?${tail}`

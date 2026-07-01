@@ -29,7 +29,8 @@
 		Slash,
 		Trash2,
 		Waypoints,
-		WaypointsIcon
+		WaypointsIcon,
+		X
 	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
@@ -350,12 +351,25 @@
 		if (listEl) listEl.scrollTop = listEl.scrollHeight;
 	};
 
+	// Top-of-stream quick-filter. Free text is sent to the server as a
+	// `search` param on every list call so filtering doesn't rely on
+	// how much has been paged into memory — a match from six weeks ago
+	// shows up as long as it's in the DB.
+	let streamSearch = $state('');
+	let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+	// Snapshot the actively-applied search string so poll / loadOlder
+	// keep using the same needle even if the user is mid-typing when
+	// a poll tick fires.
+	let appliedSearch = $state('');
+
 	const load = async () => {
 		loading = true;
-		const res = await WarRoomChatService.list(warRoomId, { limit: 80 });
+		const search = appliedSearch || undefined;
+		const res = await WarRoomChatService.list(warRoomId, { limit: 80, search });
 		if (res.ok && Array.isArray(res.data)) {
 			messages = [...res.data].reverse();
 			if (res.data.length < 80) exhausted = true;
+			else exhausted = false;
 		}
 		loading = false;
 		scrollToBottom();
@@ -365,7 +379,12 @@
 		if (loadingMore || exhausted || messages.length === 0) return;
 		loadingMore = true;
 		const before = messages[0].message_id;
-		const res = await WarRoomChatService.list(warRoomId, { before, limit: 80 });
+		const search = appliedSearch || undefined;
+		const res = await WarRoomChatService.list(warRoomId, {
+			before,
+			limit: 80,
+			search
+		});
 		loadingMore = false;
 		if (res.ok && Array.isArray(res.data)) {
 			if (res.data.length === 0) {
@@ -395,7 +414,8 @@
 	const pollNewer = async () => {
 		if (messages.length === 0) return load();
 		const seen = new Set(messages.map(messageKey));
-		const res = await WarRoomChatService.list(warRoomId, { limit: 50 });
+		const search = appliedSearch || undefined;
+		const res = await WarRoomChatService.list(warRoomId, { limit: 50, search });
 		if (res.ok && Array.isArray(res.data)) {
 			const fresh = (res.data as ChatMessage[]).filter(
 				(m) => !seen.has(messageKey(m))
@@ -409,6 +429,32 @@
 				messages = [...messages, ...[...fresh].reverse()];
 				if (wasAtBottom) scrollToBottom();
 			}
+		}
+	};
+
+	// Debounced apply — 250ms after the operator stops typing, we
+	// promote the input into `appliedSearch` and reload the stream.
+	// Same feel as the topbar global search's debounce.
+	const scheduleStreamSearch = () => {
+		if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+		searchDebounceTimer = setTimeout(() => {
+			const next = streamSearch.trim();
+			if (next === appliedSearch) return;
+			appliedSearch = next;
+			exhausted = false;
+			messages = [];
+			void load();
+		}, 250);
+	};
+
+	const clearStreamSearch = () => {
+		if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+		streamSearch = '';
+		if (appliedSearch !== '') {
+			appliedSearch = '';
+			exhausted = false;
+			messages = [];
+			void load();
 		}
 	};
 
@@ -1436,6 +1482,63 @@
 			{/if}
 		</div>
 
+		<!--
+		  Top-of-stream quick filter. Hits the server (case-insensitive
+		  ILIKE against the message body + case-activity description),
+		  so a hit from six weeks ago surfaces without the operator
+		  having to page all the way back. Enter clears the debounce so
+		  the query runs immediately; Escape clears the field.
+		-->
+		<div class="flex shrink-0 items-center gap-2 border-b bg-background/60 px-4 py-2">
+			<div class="relative flex-1">
+				<Search
+					class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+				/>
+				<Input
+					value={streamSearch}
+					oninput={(e) => {
+						streamSearch = (e.target as HTMLInputElement).value;
+						scheduleStreamSearch();
+					}}
+					onkeydown={(e) => {
+						if (e.key === 'Enter') {
+							e.preventDefault();
+							if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+							const next = streamSearch.trim();
+							if (next !== appliedSearch) {
+								appliedSearch = next;
+								exhausted = false;
+								messages = [];
+								void load();
+							}
+						} else if (e.key === 'Escape') {
+							e.preventDefault();
+							clearStreamSearch();
+						}
+					}}
+					placeholder="Filter the stream — messages, decisions, case activity…"
+					class="h-8 pl-8 pr-8 text-xs"
+					aria-label="Filter the stream"
+				/>
+				{#if streamSearch}
+					<button
+						type="button"
+						class="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+						onclick={clearStreamSearch}
+						aria-label="Clear filter"
+						title="Clear (Esc)"
+					>
+						<X class="h-3 w-3" />
+					</button>
+				{/if}
+			</div>
+			{#if appliedSearch && !loading}
+				<span class="shrink-0 text-2xs text-muted-foreground">
+					{visibleMessages.length} match{visibleMessages.length === 1 ? '' : 'es'}
+				</span>
+			{/if}
+		</div>
+
 		<!-- Stream. min-w-0 above keeps long messages from forcing the
 		     column wider than the grid track allows. -->
 		<div bind:this={listEl} class="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
@@ -1473,11 +1576,24 @@
 					<div class="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground">
 						<Send class="h-6 w-6 opacity-30" />
 						<p class="text-sm">
-							{messages.length === 0
-								? 'No activity yet. Drop the first message or attach a case.'
-								: 'No entries match the current filters.'}
+							{#if appliedSearch && messages.length === 0}
+								No stream entries match “{appliedSearch}”.
+							{:else if messages.length === 0}
+								No activity yet. Drop the first message or attach a case.
+							{:else}
+								No entries match the current filters.
+							{/if}
 						</p>
-						{#if anyExclusion}
+						{#if appliedSearch && messages.length === 0}
+							<Button
+								size="sm"
+								variant="ghost"
+								class="h-7 text-2xs"
+								onclick={clearStreamSearch}
+							>
+								Clear search
+							</Button>
+						{:else if anyExclusion}
 							<Button
 								size="sm"
 								variant="ghost"
