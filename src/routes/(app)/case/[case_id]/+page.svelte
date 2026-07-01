@@ -51,7 +51,12 @@
 
 	const canEdit = $derived(caseAccess.canEdit());
 
-	const case_id = cases.currentCaseId();
+	// Must stay reactive: SvelteKit reuses this page component when the
+	// user navigates between two `[case_id]` routes (e.g. case 1 → Overview
+	// → case 2), so a `const case_id = …` captured at script init would
+	// stick to the first case forever — counts, chip hrefs, and the
+	// "N people on case" avatars would all keep pointing at case #1.
+	const case_id = $derived(cases.currentCaseId());
 	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
 
 	let caseDescription = $state('');
@@ -306,11 +311,24 @@
 		tick = setInterval(() => {
 			now = new Date();
 		}, 1000);
+	});
 
-		// Load everything in parallel without touching the case-* contexts'
-		// list state. `loadMyTasks` doubles as the tasks-count source;
-		// `loadCounts` issues at most three batched queries for the other
-		// totals (and skips any that are already cached on the contexts).
+	// Reload the per-case data whenever the URL case_id changes. This
+	// fires once on mount and again on every case switch (which reuses
+	// this page component instead of remounting it). We zero the local
+	// caches synchronously so the chips can't flash the previous case's
+	// numbers before the new fetches resolve.
+	let lastLoadedCaseId = -1;
+	$effect(() => {
+		const id = case_id;
+		if (!Number.isFinite(id) || id === lastLoadedCaseId) return;
+		lastLoadedCaseId = id;
+
+		counts = { assets: 0, iocs: 0, tasks: 0, evidence: 0 };
+		countsLoaded = false;
+		myTasks = [];
+		contributors = [];
+
 		void Promise.all([loadCounts(), loadMyTasks(), loadContributors()]);
 	});
 
@@ -329,7 +347,7 @@
 </script>
 
 <svelte:head>
-	<title>Case #{case_id} | IRIS</title>
+	<title>#{case_id} - Summary</title>
 </svelte:head>
 
 <!--
