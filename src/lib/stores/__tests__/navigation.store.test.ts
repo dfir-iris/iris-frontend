@@ -54,21 +54,21 @@ describe('navigation store', () => {
 
 		const unsub = navigation.subscribe(() => {});
 
-		pageMock.set({ url: new URL('https://example.com/dashboard') });
+		pageMock.set({ url: new URL('https://example.com/cases') });
 
-		expect(goto).toHaveBeenCalledWith('/login?redirect=%2Fdashboard');
+		expect(goto).toHaveBeenCalledWith('/login?redirect=%2Fcases');
 
 		unsub();
 	});
 
-	it('redirects authenticated user away from public path to dashboard', () => {
+	it('redirects authenticated user away from public path to app root', () => {
 		(auth.isAuthenticated as unknown as vi.Mock).mockReturnValue(true);
 
 		const unsub = navigation.subscribe(() => {});
 
 		pageMock.set({ url: new URL('https://example.com/login') });
 
-		expect(goto).toHaveBeenCalledWith('/dashboard');
+		expect(goto).toHaveBeenCalledWith('/');
 
 		unsub();
 	});
@@ -78,7 +78,7 @@ describe('navigation store', () => {
 
 		const unsub = navigation.subscribe(() => {});
 
-		pageMock.set({ url: new URL('https://example.com/dashboard') });
+		pageMock.set({ url: new URL('https://example.com/cases') });
 
 		expect(goto).not.toHaveBeenCalled();
 

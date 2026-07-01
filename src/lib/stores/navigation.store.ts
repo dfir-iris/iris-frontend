@@ -3,7 +3,7 @@ import { goto } from '$app/navigation';
 import { page } from '$app/stores';
 import { derived } from 'svelte/store';
 
-const protectedPaths = ['/dashboard', '/cases', '/analysis'];
+const protectedPaths = ['/cases', '/analysis', '/dashboards'];
 const publicPaths = ['/login', '/register', '/forgot-password'];
 
 export const navigation = derived([page], ([$page]) => {
@@ -15,6 +15,8 @@ export const navigation = derived([page], ([$page]) => {
 	}
 
 	if (publicPaths.includes(path) && auth.isAuthenticated()) {
-		goto('/dashboard');
+		// App root is the SvelteKit index page ((app)/+page.svelte).
+		// There is no top-level /dashboard route.
+		goto('/');
 	}
 });
