@@ -22,6 +22,7 @@
 	import { page as pageStore } from '$app/state';
 	import {
 		BiohazardIcon,
+		BookOpenIcon,
 		ClockIcon,
 		ComputerIcon,
 		FileLock2Icon,
@@ -43,7 +44,8 @@
 		type AssetRow,
 		type EventRow,
 		type TaskRow,
-		type EvidenceRow
+		type EvidenceRow,
+		type SummaryRow
 	} from '$lib/services/search.service';
 
 	const cases = getContext<CasesContext>(CASES_CTX);
@@ -57,7 +59,8 @@
 		notes: { label: 'Note', Icon: FileTextIcon, color: 'text-blue-500' },
 		tasks: { label: 'Task', Icon: SquareCheckBigIcon, color: 'text-violet-500' },
 		evidences: { label: 'Evidence', Icon: FileLock2Icon, color: 'text-rose-500' },
-		comments: { label: 'Comment', Icon: MessageSquareTextIcon, color: 'text-violet-500' }
+		comments: { label: 'Comment', Icon: MessageSquareTextIcon, color: 'text-violet-500' },
+		summaries: { label: 'Summary', Icon: BookOpenIcon, color: 'text-indigo-500' }
 	};
 	const ALL_TYPES: SearchType[] = Object.keys(TYPE_META) as SearchType[];
 
@@ -380,6 +383,14 @@
 					primary: r.filename,
 					secondary: r.file_hash ?? r.file_description,
 					href: `/case/${r.case_id}/evidence`
+				};
+			}
+			case 'summaries': {
+				const r = row as SummaryRow;
+				return {
+					primary: r.case_name,
+					secondary: r.summary_excerpt ? stripHtml(r.summary_excerpt) : null,
+					href: `/case/${r.case_id}`
 				};
 			}
 		}

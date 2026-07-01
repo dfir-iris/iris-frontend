@@ -19,6 +19,7 @@
 	import { goto } from '$app/navigation';
 	import {
 		BiohazardIcon,
+		BookOpenIcon,
 		ChevronLeftIcon,
 		ChevronRightIcon,
 		ClockIcon,
@@ -50,11 +51,13 @@
 		type AssetRow,
 		type EventRow,
 		type TaskRow,
-		type EvidenceRow
+		type EvidenceRow,
+		type SummaryRow
 	} from '$lib/services/search.service';
 
 	// Catalog of selectable types. Order = display order in the chip row.
 	const TYPE_CATALOG: { value: SearchType; label: string; Icon: typeof FileTextIcon; color: string }[] = [
+		{ value: 'summaries', label: 'Summaries', Icon: BookOpenIcon, color: 'text-indigo-500' },
 		{ value: 'ioc', label: 'IOC', Icon: BiohazardIcon, color: 'text-amber-500' },
 		{ value: 'assets', label: 'Assets', Icon: ComputerIcon, color: 'text-sky-500' },
 		{ value: 'events', label: 'Events', Icon: ClockIcon, color: 'text-emerald-500' },
@@ -370,6 +373,18 @@
 					secondary: secondary || null,
 					meta: 'Evidence',
 					href: `/case/${r.case_id}/evidence`
+				};
+			}
+			case 'summaries': {
+				const r = row as SummaryRow;
+				// The full description would blow out the row height; the
+				// list here is a signal, the case page is where the operator
+				// reads the whole thing.
+				return {
+					primary: r.case_name,
+					secondary: r.summary_excerpt ? stripHtml(r.summary_excerpt) : null,
+					meta: 'Summary',
+					href: `/case/${r.case_id}`
 				};
 			}
 		}

@@ -11,7 +11,8 @@ export type SearchType =
 	| 'assets'
 	| 'events'
 	| 'tasks'
-	| 'evidences';
+	| 'evidences'
+	| 'summaries';
 
 export interface SearchPagination {
 	total: number;
@@ -92,6 +93,13 @@ export interface EvidenceRow extends BaseRow {
 	file_hash: string | null;
 }
 
+// Case-summary matches. `result_id` mirrors `case_id` — the summary
+// lives on the case row itself, so a row here effectively *is* the case.
+export interface SummaryRow extends BaseRow {
+	type: 'summaries';
+	summary_excerpt: string | null;
+}
+
 export type SearchResultRow =
 	| IocRow
 	| NoteRow
@@ -99,7 +107,8 @@ export type SearchResultRow =
 	| AssetRow
 	| EventRow
 	| TaskRow
-	| EvidenceRow;
+	| EvidenceRow
+	| SummaryRow;
 
 export interface SearchParams {
 	value: string;
