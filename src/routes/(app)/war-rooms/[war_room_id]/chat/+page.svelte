@@ -557,16 +557,33 @@
 	let threads = $state<ChatThreadRoot[]>([]);
 	let openThread = $state<ChatThreadRoot | null>(null);
 
+	// Fields that actually change over time on a thread root; used to
+	// decide whether the currently-open thread's props need to be
+	// reassigned. Without this check, every poll (~4s) reassigns
+	// `openThread` to a fresh object even when nothing changed — which
+	// re-triggers the pane's `$effect` and blanks the visible reply
+	// list into a "Loading replies…" spinner. That's what the operator
+	// sees as a constant "refresh flicker".
+	const threadChanged = (a: ChatThreadRoot, b: ChatThreadRoot) =>
+		a.reply_count !== b.reply_count ||
+		a.last_activity_at !== b.last_activity_at ||
+		a.thread_title !== b.thread_title ||
+		a.is_followed !== b.is_followed ||
+		a.deleted_at !== b.deleted_at;
+
 	const loadThreads = async () => {
 		const res = await WarRoomChatService.listThreads(warRoomId);
 		if (res.ok && Array.isArray(res.data)) {
 			threads = res.data as ChatThreadRoot[];
-			// Keep the currently open thread's badge state in sync — if a
-			// reply landed since we opened it, the side-pane gets the
-			// updated reply_count without a manual refetch.
+			// Keep the currently open thread's badge state in sync — but
+			// only reassign if the row *actually* changed. Otherwise the
+			// pane's $effect fires on every no-op poll and blanks the
+			// reply list.
 			if (openThread) {
 				const updated = threads.find((t) => t.message_id === openThread!.message_id);
-				if (updated) openThread = updated;
+				if (updated && threadChanged(openThread, updated)) {
+					openThread = updated;
+				}
 			}
 		}
 	};
@@ -1548,6 +1565,8 @@
 		<WarRoomThreadPane
 			warRoomId={warRoomId}
 			root={openThread}
+			{attachedCases}
+			onAttachmentClick={openPreview}
 			onClose={closeThread}
 			onChanged={loadThreads}
 		/>

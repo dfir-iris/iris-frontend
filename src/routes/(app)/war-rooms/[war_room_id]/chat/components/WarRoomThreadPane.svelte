@@ -13,9 +13,11 @@
 -->
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { Bell, BellOff, Loader2, Pencil, Send, Trash2, X, Check } from 'lucide-svelte';
+	import { Bell, BellOff, Loader2, Paperclip, Pencil, Search, Send, Trash2, X, Check } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import * as Popover from '$lib/components/ui/popover';
+	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
 	import { toast } from '$lib/components/ui/toast';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import { current_user } from '$lib/stores/auth.store';
@@ -24,18 +26,41 @@
 		type ChatMessage,
 		type ChatThreadRoot
 	} from '$lib/services/war-room-chat.service';
+	import type { WarRoomCaseAttachment } from '$lib/services/war-rooms.service';
+	import { CaseIocsService } from '$lib/services/case-iocs.service';
+	import { CaseAssetsService } from '$lib/services/case-assets.service';
+	import { CaseTimelineService } from '$lib/services/case-timeline.service';
+	import { CaseTasksService } from '$lib/services/case-tasks.service';
 	import ChatMessageBody from './ChatMessageBody.svelte';
+	import ChatComposerMentions from './ChatComposerMentions.svelte';
 
 	interface Props {
 		warRoomId: number;
 		root: ChatThreadRoot;
+		/**
+		 * Cases attached to the war room, propagated from the parent so the
+		 * reply composer can offer the same attachments picker (events /
+		 * IOCs / assets / tasks) as the main chat composer.
+		 */
+		attachedCases: WarRoomCaseAttachment[];
+		/**
+		 * Passed to <ChatMessageBody> on each rendered reply so clicking a
+		 * `[Event "…"](/case/…)` chip pops the same preview dialog the main
+		 * stream uses instead of hard-navigating away from the war room.
+		 */
+		onAttachmentClick: (t: { type: 'event' | 'ioc' | 'asset' | 'task'; label: string; href: string }) => void;
 		onClose: () => void;
 		onChanged: () => void;
 	}
 
-	const { warRoomId, root, onClose, onChanged }: Props = $props();
+	const { warRoomId, root, attachedCases, onAttachmentClick, onClose, onChanged }: Props = $props();
 
 	let replies = $state<ChatMessage[]>([]);
+	// `loading` is true only for the *initial* fetch of a thread — a
+	// blank-and-spinner state is fine there. Background refetches (poll
+	// pulled a new reply, or the operator sent one) reuse the existing
+	// list and merge new rows in without flipping this flag, so the pane
+	// doesn't visibly refresh every 4 seconds.
 	let loading = $state(true);
 	let body = $state('');
 	let sending = $state(false);
@@ -63,8 +88,11 @@
 		if (listEl) listEl.scrollTop = listEl.scrollHeight;
 	};
 
-	const load = async () => {
+	// Full replace — used only for the initial fetch, or when the
+	// operator switches to a different thread.
+	const loadInitial = async () => {
 		loading = true;
+		replies = [];
 		const res = await WarRoomChatService.listReplies(warRoomId, root.message_id);
 		if (res.ok && Array.isArray(res.data)) {
 			replies = res.data as ChatMessage[];
@@ -73,22 +101,78 @@
 		void scrollToBottom();
 	};
 
+	// Background merge — silent. Keeps existing rows in place and just
+	// appends anything new so the list doesn't flash blank. Preserves
+	// scroll position unless the operator was already at the bottom, in
+	// which case we follow the newest reply down.
+	const refetchSilently = async () => {
+		const rootId = root.message_id;
+		const res = await WarRoomChatService.listReplies(warRoomId, rootId);
+		// Root may have changed while the request was in flight.
+		if (rootId !== root.message_id) return;
+		if (!res.ok || !Array.isArray(res.data)) return;
+		const incoming = res.data as ChatMessage[];
+		const seen = new Set(replies.map((r) => r.message_id));
+		const fresh = incoming.filter((r) => !seen.has(r.message_id));
+		const wasAtBottom =
+			listEl != null &&
+			listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 80;
+		// In-place patch for rows we already have (edits/soft-deletes),
+		// then append the new tail.
+		const byId = new Map(incoming.map((r) => [r.message_id, r]));
+		replies = replies.map((r) => byId.get(r.message_id) ?? r).concat(fresh);
+		if (fresh.length > 0 && wasAtBottom) void scrollToBottom();
+	};
+
+	// Two effects with different keys — critical for the no-flicker
+	// behaviour. Switching threads (message_id changes) does a full
+	// reload; a poll landing new activity on the *same* thread only
+	// triggers a silent merge.
+	let lastRootId: number | null = null;
 	$effect(() => {
-		// Re-fetch when the operator switches threads — `root.message_id`
-		// is what we key on.
-		root.message_id;
-		void load();
+		if (root.message_id !== lastRootId) {
+			lastRootId = root.message_id;
+			void loadInitial();
+		}
+	});
+
+	$effect(() => {
+		// Runs on same-thread updates (reply_count, last_activity_at). The
+		// message_id check keeps this from double-firing alongside the
+		// initial load above.
+		root.last_activity_at;
+		root.reply_count;
+		if (root.message_id === lastRootId && !loading) {
+			void refetchSilently();
+		}
 	});
 
 	const currentUserId = $derived(($current_user?.user_id ?? null) as number | null);
 
-	const removeReply = async (r: ChatMessage) => {
-		if (!confirm('Delete this reply?')) return;
-		const res = await WarRoomChatService.remove(warRoomId, r.message_id);
+	// Confirm dialog state (parity with the sitreps page pattern) — a
+	// single ConfirmationDialog handles the "delete reply" prompt so we
+	// don't fall back to window.confirm.
+	let confirmOpen = $state(false);
+	let confirmTitle = $state('');
+	let confirmMessage = $state('');
+	let pendingDeleteId: number | null = null;
+
+	const requestDelete = (r: ChatMessage) => {
+		pendingDeleteId = r.message_id;
+		confirmTitle = 'Delete this reply?';
+		confirmMessage = 'It will be hidden from the thread. This can\'t be undone.';
+		confirmOpen = true;
+	};
+
+	const runDelete = async () => {
+		const id = pendingDeleteId;
+		pendingDeleteId = null;
+		if (id == null) return;
+		const res = await WarRoomChatService.remove(warRoomId, id);
 		if (res.ok) {
-			// Drop locally; the next reply count refresh comes via the
+			// Drop locally; the next reply-count refresh comes via the
 			// parent's poll on the next tick.
-			replies = replies.filter((x) => x.message_id !== r.message_id);
+			replies = replies.filter((x) => x.message_id !== id);
 			onChanged();
 		} else {
 			toast({ title: 'Could not delete reply', variant: 'destructive' });
@@ -103,7 +187,9 @@
 		sending = false;
 		if (res.ok) {
 			body = '';
-			await load();
+			// Merge the new reply in without blanking the pane; the parent
+			// poll will refresh reply_count on its own cadence.
+			await refetchSilently();
 			onChanged();
 			composerEl?.focus();
 		} else {
@@ -111,11 +197,140 @@
 		}
 	};
 
+	// Mentions autocomplete — same component the main composer uses. The
+	// popup owns Up/Down/Enter/Esc when open; we only handle Enter-sends
+	// when it hasn't claimed the key.
+	let mentions = $state<{
+		handleKeydown: (e: KeyboardEvent) => boolean;
+		handleInput: () => void;
+	} | null>(null);
+
 	const onKey = (e: KeyboardEvent) => {
+		if (mentions?.handleKeydown(e)) return;
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
 			void send();
 		}
+	};
+
+	const onInput = (e: Event) => {
+		body = (e.target as HTMLTextAreaElement).value;
+		mentions?.handleInput();
+	};
+
+	// ---- Attachments picker (mirrors the main composer) ----------------
+
+	type ResourceKind = 'event' | 'ioc' | 'asset' | 'task';
+
+	let attachOpen = $state(false);
+	let attachKind = $state<ResourceKind>('event');
+	let attachCaseId = $state<number | null>(null);
+	let attachSearch = $state('');
+	let attachLoading = $state(false);
+
+	type Picker = { id: number; label: string; sub?: string; caseId: number };
+	let pickerRows = $state<Picker[]>([]);
+
+	$effect(() => {
+		if (attachOpen && attachCaseId == null && attachedCases.length > 0) {
+			attachCaseId = attachedCases[0].case_id;
+		}
+	});
+
+	$effect(() => {
+		if (!attachOpen || attachCaseId == null) return;
+		void loadPickerRows();
+	});
+
+	const loadPickerRows = async () => {
+		if (attachCaseId == null) return;
+		attachLoading = true;
+		pickerRows = [];
+		const caseId = attachCaseId;
+		try {
+			if (attachKind === 'event') {
+				const res = await CaseTimelineService.listEvents(caseId, {}, {}, { per_page: 25 });
+				if (res.ok && res.data && typeof res.data !== 'string') {
+					const payload = res.data as { timeline?: Array<Record<string, unknown>> };
+					pickerRows = (payload.timeline ?? []).map((e) => ({
+						id: Number((e as { event_id: number }).event_id),
+						label:
+							String((e as { event_title?: string }).event_title ?? '') ||
+							`Event #${(e as { event_id: number }).event_id}`,
+						sub:
+							typeof (e as { event_date?: string }).event_date === 'string'
+								? new Date((e as { event_date: string }).event_date).toLocaleString()
+								: undefined,
+						caseId
+					}));
+				}
+			} else if (attachKind === 'ioc') {
+				const res = await CaseIocsService.list(caseId, { per_page: 25 });
+				if (res.ok && res.data && typeof res.data !== 'string') {
+					const payload = res.data as unknown as { data?: Array<Record<string, unknown>> };
+					pickerRows = (payload.data ?? []).map((i) => ({
+						id: Number((i as { ioc_id: number }).ioc_id),
+						label:
+							String((i as { ioc_value?: string }).ioc_value ?? '') ||
+							`IOC #${(i as { ioc_id: number }).ioc_id}`,
+						sub: String((i as { ioc_type?: string }).ioc_type ?? ''),
+						caseId
+					}));
+				}
+			} else if (attachKind === 'asset') {
+				const res = await CaseAssetsService.list(caseId, { per_page: 25 });
+				if (res.ok && res.data && typeof res.data !== 'string') {
+					const payload = res.data as unknown as { data?: Array<Record<string, unknown>> };
+					pickerRows = (payload.data ?? []).map((a) => ({
+						id: Number((a as { asset_id: number }).asset_id),
+						label:
+							String((a as { asset_name?: string }).asset_name ?? '') ||
+							`Asset #${(a as { asset_id: number }).asset_id}`,
+						sub: String((a as { asset_type_name?: string }).asset_type_name ?? ''),
+						caseId
+					}));
+				}
+			} else if (attachKind === 'task') {
+				const res = await CaseTasksService.list(caseId, { per_page: 25 });
+				if (res.ok && res.data && typeof res.data !== 'string') {
+					const payload = res.data as unknown as { data?: Array<Record<string, unknown>> };
+					pickerRows = (payload.data ?? []).map((t) => ({
+						id: Number((t as { id: number }).id ?? (t as { task_id?: number }).task_id ?? 0),
+						label:
+							String((t as { task_title?: string }).task_title ?? '') ||
+							`Task #${(t as { id: number }).id}`,
+						caseId
+					}));
+				}
+			}
+		} finally {
+			attachLoading = false;
+		}
+	};
+
+	const filteredPickerRows = $derived.by(() => {
+		const needle = attachSearch.trim().toLowerCase();
+		if (!needle) return pickerRows;
+		return pickerRows.filter(
+			(r) =>
+				r.label.toLowerCase().includes(needle) ||
+				(r.sub ?? '').toLowerCase().includes(needle)
+		);
+	});
+
+	const insertAttachment = (row: Picker) => {
+		const link =
+			attachKind === 'event'
+				? `[Event "${row.label}"](/case/${row.caseId}/timeline)`
+				: attachKind === 'ioc'
+					? `[IOC "${row.label}"](/case/${row.caseId}/iocs)`
+					: attachKind === 'asset'
+						? `[Asset "${row.label}"](/case/${row.caseId}/assets)`
+						: `[Task "${row.label}"](/case/${row.caseId}/tasks)`;
+		body = body ? `${body} ${link}` : link;
+		attachOpen = false;
+		attachSearch = '';
+		composerEl?.focus();
 	};
 
 	const startEditTitle = () => {
@@ -292,11 +507,14 @@
 									{r.author_name ?? r.author_login ?? 'Unknown'}
 								</span>
 								<span class="text-2xs text-muted-foreground">{fmtTime(r.created_at)}</span>
+								{#if r.edited_at}
+									<span class="text-2xs italic text-muted-foreground">(edited)</span>
+								{/if}
 								{#if currentUserId != null && r.author_id === currentUserId}
 									<button
 										type="button"
 										class="invisible ml-auto inline-flex items-center gap-0.5 text-2xs text-destructive hover:text-destructive/80 group-hover/reply:visible"
-										onclick={() => removeReply(r)}
+										onclick={() => requestDelete(r)}
 										aria-label="Delete reply"
 									>
 										<Trash2 class="h-3 w-3" />
@@ -304,7 +522,7 @@
 								{/if}
 							</div>
 							<div class="mt-0.5 break-words text-xs">
-								<ChatMessageBody body={r.body ?? ''} onAttachmentClick={() => {}} />
+								<ChatMessageBody body={r.body ?? ''} onAttachmentClick={onAttachmentClick} />
 							</div>
 						</div>
 					</li>
@@ -313,7 +531,12 @@
 		{/if}
 	</div>
 
-	<!-- Reply composer. -->
+	<!--
+	  Reply composer. Same feature set as the main chat composer:
+	  attachments picker (events / IOCs / assets / tasks from any
+	  attached case), @mentions autocomplete, and the same
+	  Enter/Shift+Enter contract.
+	-->
 	<form
 		class="shrink-0 border-t bg-background/80 px-3 py-2"
 		onsubmit={(e) => {
@@ -322,15 +545,112 @@
 		}}
 	>
 		<div class="flex items-end gap-2 rounded-lg border bg-card px-2 py-1.5 focus-within:ring-1 focus-within:ring-ring">
+			<Popover.Root bind:open={attachOpen}>
+				<Popover.Trigger
+					class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+					aria-label="Attach a case element"
+				>
+					<Paperclip size={13} />
+				</Popover.Trigger>
+				<Popover.Content side="top" align="start" class="w-80 p-0">
+					{#if attachedCases.length === 0}
+						<div class="p-4 text-center text-xs text-muted-foreground">
+							No cases attached to this war room yet — attach one in the Cases tab.
+						</div>
+					{:else}
+						<div class="flex items-center gap-1 border-b p-2">
+							{#each [{ k: 'event', l: 'Events' }, { k: 'ioc', l: 'IOCs' }, { k: 'asset', l: 'Assets' }, { k: 'task', l: 'Tasks' }] as t}
+								{@const on = attachKind === (t.k as ResourceKind)}
+								<button
+									type="button"
+									class={[
+										'flex-1 rounded-md px-2 py-1 text-2xs transition-colors',
+										on ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+									]}
+									onclick={() => (attachKind = t.k as ResourceKind)}
+								>
+									{t.l}
+								</button>
+							{/each}
+						</div>
+
+						<div class="border-b p-2">
+							<label class="block text-2xs uppercase tracking-wider text-muted-foreground" for="thread-attach-case">
+								Case
+							</label>
+							<select
+								id="thread-attach-case"
+								bind:value={attachCaseId}
+								class="mt-1 h-7 w-full rounded border bg-background px-2 text-xs"
+							>
+								{#each attachedCases as c (c.case_id)}
+									<option value={c.case_id}>#{c.case_id} — {c.case_name}</option>
+								{/each}
+							</select>
+						</div>
+
+						<div class="border-b p-2">
+							<div class="relative">
+								<Search class="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+								<Input
+									value={attachSearch}
+									oninput={(e) => (attachSearch = (e.target as HTMLInputElement).value)}
+									placeholder="Search…"
+									class="h-7 pl-7 text-xs"
+								/>
+							</div>
+						</div>
+
+						<div class="max-h-72 overflow-y-auto">
+							{#if attachLoading}
+								<div class="p-3 text-center text-xs text-muted-foreground">Loading…</div>
+							{:else if filteredPickerRows.length === 0}
+								<div class="p-3 text-center text-xs text-muted-foreground">Nothing here.</div>
+							{:else}
+								<ul>
+									{#each filteredPickerRows as r (r.id)}
+										<li>
+											<button
+												type="button"
+												class="flex w-full items-start gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-muted/60"
+												onclick={() => insertAttachment(r)}
+											>
+												<span class="min-w-0 flex-1">
+													<span class="block truncate font-medium">{r.label}</span>
+													{#if r.sub}
+														<span class="block truncate text-2xs text-muted-foreground">
+															{r.sub}
+														</span>
+													{/if}
+												</span>
+											</button>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</div>
+					{/if}
+				</Popover.Content>
+			</Popover.Root>
+
 			<textarea
 				bind:this={composerEl}
 				value={body}
-				oninput={(e) => (body = (e.target as HTMLTextAreaElement).value)}
+				oninput={onInput}
 				onkeydown={onKey}
-				placeholder="Reply in thread…"
+				placeholder="Reply in thread… @mentions, /commands, attachments"
 				rows="1"
 				class="flex-1 resize-none bg-transparent text-xs leading-relaxed outline-none placeholder:text-muted-foreground"
 			></textarea>
+
+			<ChatComposerMentions
+				bind:this={mentions}
+				textarea={composerEl}
+				{body}
+				{attachedCases}
+				onChangeBody={(v) => (body = v)}
+			/>
+
 			<Button
 				type="submit"
 				size="sm"
@@ -345,5 +665,19 @@
 				Reply
 			</Button>
 		</div>
+		<p class="mt-1 px-1 text-2xs text-muted-foreground">
+			<kbd class="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">Enter</kbd>
+			to send · <kbd class="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">Shift+Enter</kbd>
+			for newline
+		</p>
 	</form>
 </aside>
+
+<ConfirmationDialog
+	bind:open={confirmOpen}
+	title={confirmTitle}
+	message={confirmMessage}
+	confirmText="Delete"
+	confirmButtonVariant="destructive"
+	onConfirm={runDelete}
+/>
