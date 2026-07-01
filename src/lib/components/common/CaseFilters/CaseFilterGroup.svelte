@@ -59,6 +59,24 @@
 	const operationNeedsValue = (operation: FilterOperation) =>
 		OPERATIONS.find((o) => o.value === operation)?.needsValue ?? true;
 
+	// Value-picker (dropdown) fields — Owner, Severity, Customer, State —
+	// emit exact strings from a fixed list. That's the right control for
+	// `equals` / `not equals`, but the substring operators (contains,
+	// starts_with, ends_with, and their negations) compare partial
+	// strings server-side: picking a full login for `starts_with` never
+	// matches anything sensible. For those ops we drop back to the
+	// free-text input even when the field has a picker.
+	const SUBSTRING_OPS: FilterOperation[] = [
+		'contains',
+		'not_contains',
+		'starts_with',
+		'not_starts_with',
+		'ends_with',
+		'not_ends_with'
+	];
+	const usePickerFor = (operation: FilterOperation) =>
+		!SUBSTRING_OPS.includes(operation);
+
 	const setLogic = (logic: FilterLogic) => onChange({ ...group, logic });
 
 	const updateItem = (idx: number, next: FilterTreeNode) => {
@@ -90,8 +108,14 @@
 		const node = group.items[idx];
 		if (isGroup(node)) return;
 		const def = defs.find((d) => d.id === fieldId);
+		// Only wipe the current value when the new field forces the value
+		// picker AND the picker's fixed options don't cover it. Substring
+		// operators bypass the picker (see usePickerFor), so keep the
+		// free-text value in that case even when the field has options.
+		const pickerActive =
+			!!def?.valueOptions && def.valueOptions.length > 0 && usePickerFor(node.operation);
 		const stillValid =
-			!def?.valueOptions || def.valueOptions.some((o) => o.value === node.value);
+			!pickerActive || def!.valueOptions!.some((o) => o.value === node.value);
 		updateItem(idx, { ...node, fieldId, value: stillValid ? node.value : '' });
 	};
 
@@ -218,7 +242,7 @@
 							disabled
 							value=""
 						/>
-					{:else if fieldDef?.valueOptions && fieldDef.valueOptions.length > 0}
+					{:else if fieldDef?.valueOptions && fieldDef.valueOptions.length > 0 && usePickerFor(f.operation)}
 						<Select value={f.value} onValueChange={(v) => setValue(idx, v)} type="single">
 							<SelectTrigger>
 								{fieldDef.valueOptions.find((o) => o.value === f.value)?.label ?? 'Pick a value'}
