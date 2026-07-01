@@ -149,6 +149,22 @@ export class WarRoomChatService {
 		);
 	}
 
+	/**
+	 * Trace log — every decision / pin / note in the war room, top-level
+	 * or nested in a thread, newest first. Powers the "Decisions & Pins"
+	 * sidebar index; the main chat listing skips replies so a decision
+	 * posted inside a thread wouldn't be visible there.
+	 */
+	static listTraceLog(
+		warRoomId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<ChatMessage[]>> {
+		return ApiService.get<ChatMessage[]>(
+			`/war-rooms/${warRoomId}/chat/trace-log`,
+			options
+		);
+	}
+
 	static listReplies(
 		warRoomId: number,
 		rootMessageId: number,

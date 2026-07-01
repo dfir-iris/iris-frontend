@@ -13,7 +13,22 @@
 -->
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { Bell, BellOff, Loader2, Paperclip, Pencil, Search, Send, Trash2, X, Check } from 'lucide-svelte';
+	import {
+		AlertCircle,
+		AlertOctagon,
+		Bell,
+		BellOff,
+		Gavel,
+		Loader2,
+		Paperclip,
+		Pencil,
+		Pin,
+		Search,
+		Send,
+		Trash2,
+		X,
+		Check
+	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import * as Popover from '$lib/components/ui/popover';
@@ -24,6 +39,7 @@
 	import {
 		WarRoomChatService,
 		type ChatMessage,
+		type ChatMessageKind,
 		type ChatThreadRoot
 	} from '$lib/services/war-room-chat.service';
 	import type { WarRoomCaseAttachment } from '$lib/services/war-rooms.service';
@@ -385,6 +401,39 @@
 			return '';
 		}
 	};
+
+	// Kind → icon / color, kept in sync with the main stream so a
+	// decision reply looks the same in the thread as it does when
+	// posted top-level.
+	const systemIcon = (k: ChatMessageKind) => {
+		switch (k) {
+			case 'note':
+			case 'pin':
+				return Pin;
+			case 'decision':
+				return Gavel;
+			case 'priority':
+				return AlertOctagon;
+			case 'system':
+				return AlertCircle;
+			default:
+				return null;
+		}
+	};
+
+	const systemColor = (k: ChatMessageKind) => {
+		switch (k) {
+			case 'note':
+			case 'pin':
+				return 'text-violet-600 dark:text-violet-400';
+			case 'decision':
+				return 'text-indigo-600 dark:text-indigo-400';
+			case 'priority':
+				return 'text-red-600 dark:text-red-400';
+			default:
+				return 'text-muted-foreground';
+		}
+	};
 </script>
 
 <aside class="flex h-full min-h-0 w-[380px] shrink-0 flex-col border-l bg-card/30">
@@ -495,30 +544,71 @@
 		{:else}
 			<ul class="flex flex-col gap-3">
 				{#each replies as r (r.message_id)}
-					<li class="group/reply flex gap-2">
-						<UserAvatar
-							userId={r.author_id ?? undefined}
-							name={r.author_name ?? r.author_login ?? 'Unknown'}
-							size="size-7"
-						/>
-						<div class="min-w-0 flex-1">
-							<div class="flex items-baseline gap-2">
-								<span class="text-xs font-semibold">
-									{r.author_name ?? r.author_login ?? 'Unknown'}
-								</span>
-								<span class="text-2xs text-muted-foreground">{fmtTime(r.created_at)}</span>
-								{#if r.edited_at}
-									<span class="text-2xs italic text-muted-foreground">(edited)</span>
-								{/if}
-								{#if currentUserId != null && r.author_id === currentUserId}
-									<button
-										type="button"
-										class="invisible ml-auto inline-flex items-center gap-0.5 text-2xs text-destructive hover:text-destructive/80 group-hover/reply:visible"
-										onclick={() => requestDelete(r)}
-										aria-label="Delete reply"
-									>
-										<Trash2 class="h-3 w-3" />
-									</button>
+					{@const Icon = systemIcon(r.kind)}
+					{#if r.kind !== 'message' && Icon}
+						<!--
+						  Structured trace reply — decision / pin / note /
+						  priority / system. Same visual treatment as on the
+						  main stream so a decision posted inside a thread
+						  reads as "a decision", not a plain chat bubble.
+						-->
+						<li
+							class="group/reply flex items-start gap-2 rounded-md border border-dashed border-border/60 bg-card/40 px-3 py-2 text-xs"
+						>
+							<Icon class={`mt-0.5 h-3.5 w-3.5 shrink-0 ${systemColor(r.kind)}`} />
+							<div class="min-w-0 flex-1">
+								<div class="flex flex-wrap items-baseline gap-2">
+									<span class="text-2xs uppercase tracking-wider text-muted-foreground">
+										{r.kind}
+									</span>
+									<span class="text-xs font-semibold text-foreground">
+										{r.author_name ?? r.author_login ?? 'Unknown'}
+									</span>
+									<span class="text-2xs text-muted-foreground">{fmtTime(r.created_at)}</span>
+									{#if r.edited_at}
+										<span class="text-2xs italic text-muted-foreground">(edited)</span>
+									{/if}
+									{#if currentUserId != null && r.author_id === currentUserId}
+										<button
+											type="button"
+											class="invisible ml-auto inline-flex items-center gap-0.5 text-2xs text-destructive hover:text-destructive/80 group-hover/reply:visible"
+											onclick={() => requestDelete(r)}
+											aria-label="Delete reply"
+										>
+											<Trash2 class="h-3 w-3" />
+										</button>
+									{/if}
+								</div>
+								<div class="mt-1 break-words text-xs">
+									<ChatMessageBody body={r.body ?? ''} onAttachmentClick={onAttachmentClick} />
+								</div>
+							</div>
+						</li>
+					{:else}
+						<li class="group/reply flex gap-2">
+							<UserAvatar
+								userId={r.author_id ?? undefined}
+								name={r.author_name ?? r.author_login ?? 'Unknown'}
+								size="size-7"
+							/>
+							<div class="min-w-0 flex-1">
+								<div class="flex items-baseline gap-2">
+									<span class="text-xs font-semibold">
+										{r.author_name ?? r.author_login ?? 'Unknown'}
+									</span>
+									<span class="text-2xs text-muted-foreground">{fmtTime(r.created_at)}</span>
+									{#if r.edited_at}
+										<span class="text-2xs italic text-muted-foreground">(edited)</span>
+									{/if}
+									{#if currentUserId != null && r.author_id === currentUserId}
+										<button
+											type="button"
+											class="invisible ml-auto inline-flex items-center gap-0.5 text-2xs text-destructive hover:text-destructive/80 group-hover/reply:visible"
+											onclick={() => requestDelete(r)}
+											aria-label="Delete reply"
+										>
+											<Trash2 class="h-3 w-3" />
+										</button>
 								{/if}
 							</div>
 							<div class="mt-0.5 break-words text-xs">
@@ -526,6 +616,7 @@
 							</div>
 						</div>
 					</li>
+					{/if}
 				{/each}
 			</ul>
 		{/if}

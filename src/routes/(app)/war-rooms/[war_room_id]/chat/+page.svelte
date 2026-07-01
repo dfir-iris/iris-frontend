@@ -37,6 +37,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as Resizable from '$lib/components/ui/resizable/index.js';
 	import * as Popover from '$lib/components/ui/popover';
+	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
 	import { toast } from '$lib/components/ui/toast';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import ChatMessageBody from './components/ChatMessageBody.svelte';
@@ -415,9 +416,11 @@
 		void load();
 		void loadAttachedCases();
 		void loadThreads();
+		void loadTraceLog();
 		pollTimer = setInterval(() => {
 			void pollNewer();
 			void loadThreads();
+			void loadTraceLog();
 		}, 4000);
 	});
 
@@ -431,18 +434,53 @@
 	// the button for non-authors keeps the UI honest.
 	const currentUserId = $derived(($current_user?.user_id ?? null) as number | null);
 
-	const removeMessage = async (m: ChatMessage) => {
-		if (!confirm('Delete this message? It will be hidden from the stream.')) return;
-		const res = await WarRoomChatService.remove(warRoomId, m.message_id);
+	// Shared confirmation dialog state — one modal handles every
+	// "are you sure?" on this page (delete a message, delete a
+	// decision/pin from the trace log). Each call site stashes the
+	// copy + the action to run; the dialog closes itself and fires
+	// the closure via `onConfirm`.
+	let confirmOpen = $state(false);
+	let confirmTitle = $state('');
+	let confirmMessage = $state('');
+	let confirmActionText = $state('Delete');
+	let pendingAction: (() => Promise<void>) | null = null;
+
+	const askConfirm = (opts: {
+		title: string;
+		message: string;
+		actionText?: string;
+		run: () => Promise<void>;
+	}) => {
+		confirmTitle = opts.title;
+		confirmMessage = opts.message;
+		confirmActionText = opts.actionText ?? 'Delete';
+		pendingAction = opts.run;
+		confirmOpen = true;
+	};
+
+	const runConfirmed = () => {
+		const action = pendingAction;
+		pendingAction = null;
+		if (action) void action();
+	};
+
+	const doRemoveMessage = async (messageId: number) => {
+		const res = await WarRoomChatService.remove(warRoomId, messageId);
 		if (res.ok) {
 			// Mirror the server's soft-delete: stamp deleted_at locally so
 			// the existing `.filter((m) => m.deleted_at)` in visibleMessages
 			// drops it without waiting for the next poll.
 			messages = messages.map((x) =>
-				x.message_id === m.message_id
+				x.message_id === messageId
 					? { ...x, deleted_at: new Date().toISOString(), body: null }
 					: x
 			);
+			// If the deleted row was a trace-worthy kind, drop it from the
+			// sidebar index too instead of waiting for the next poll —
+			// otherwise the operator would keep seeing an entry they just
+			// removed. The next poll would reconcile anyway; this is just
+			// for immediacy.
+			traceLog = traceLog.filter((t) => t.message_id !== messageId);
 		} else {
 			toast({
 				title: 'Could not delete message',
@@ -457,6 +495,28 @@
 		}
 	};
 
+	const removeMessage = (m: ChatMessage) => {
+		askConfirm({
+			title: 'Delete this message?',
+			message: 'It will be hidden from the stream. This can\'t be undone.',
+			run: () => doRemoveMessage(m.message_id)
+		});
+	};
+
+	// Sidebar delete for decisions / pins / notes. Same soft-delete on
+	// the server; the trace log's own row disappears from the
+	// filteredTraceLog once the local `traceLog` is patched.
+	const removeTraceEntry = (t: ChatMessage) => {
+		const label = t.kind === 'decision' ? 'decision' : t.kind === 'pin' ? 'pin' : 'note';
+		askConfirm({
+			title: `Delete this ${label}?`,
+			message:
+				`It will be removed from the stream and the Decisions & Pins index. ` +
+				`This can't be undone.`,
+			run: () => doRemoveMessage(t.message_id)
+		});
+	};
+
 	const send = async () => {
 		const text = body.trim();
 		if (!text) return;
@@ -467,6 +527,7 @@
 			body = '';
 			await pollNewer();
 			void loadThreads();
+			void loadTraceLog();
 			scrollToBottom();
 			composerEl?.focus();
 		} else {
@@ -620,6 +681,83 @@
 	const closeThread = () => {
 		openThread = null;
 	};
+
+	// --- Decisions & Pins sidebar index --------------------------------
+	//
+	// A time-ordered "who decided what and when" surface. Pulls
+	// `/chat/trace-log` which returns every decision / pin / note in the
+	// war room — including replies inside threads, which the main
+	// stream listing hides. Refreshes on the same 4s cadence as the
+	// stream and threads.
+	let traceLog = $state<ChatMessage[]>([]);
+	let traceFilter = $state('');
+
+	const loadTraceLog = async () => {
+		const res = await WarRoomChatService.listTraceLog(warRoomId);
+		if (res.ok && Array.isArray(res.data)) {
+			traceLog = res.data as ChatMessage[];
+		}
+	};
+
+	// Filter matches body text, kind label, or author. Case-insensitive.
+	// Empty needle short-circuits to avoid re-allocating the array on
+	// every render while nothing's typed.
+	const filteredTraceLog = $derived.by(() => {
+		const needle = traceFilter.trim().toLowerCase();
+		if (!needle) return traceLog;
+		return traceLog.filter((t) => {
+			const body = (t.body ?? '').toLowerCase();
+			const kind = (t.kind ?? '').toLowerCase();
+			const author = (t.author_name ?? t.author_login ?? '').toLowerCase();
+			return body.includes(needle) || kind.includes(needle) || author.includes(needle);
+		});
+	});
+
+	// Jump to a trace entry: if it's a reply, open the thread pane so
+	// the entry is visible in-context; otherwise scroll the main
+	// stream to that row and highlight it briefly.
+	let highlightMessageId = $state<number | null>(null);
+	const jumpToTrace = async (m: ChatMessage) => {
+		if (m.parent_message_id != null) {
+			await openThreadFor(m.parent_message_id);
+			return;
+		}
+		const target = listEl?.querySelector(
+			`[data-message-id="${m.message_id}"]`
+		) as HTMLElement | null;
+		if (target) {
+			target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			highlightMessageId = m.message_id;
+			// Clear the highlight after a moment so it doesn't stick if the
+			// user scrolls elsewhere.
+			setTimeout(() => {
+				if (highlightMessageId === m.message_id) highlightMessageId = null;
+			}, 1600);
+		} else {
+			// The row isn't currently paged in — nudge the operator to
+			// scroll back. Cheap and honest; no jarring silent no-op.
+			toast({
+				title: 'Message not loaded',
+				description: 'Scroll back with "Load earlier messages" to find it.',
+				variant: 'warning'
+			});
+		}
+	};
+
+	const traceKindMeta = (k: ChatMessageKind) => {
+		if (k === 'decision') return { Icon: Gavel, color: 'text-indigo-600 dark:text-indigo-400', label: 'Decision' };
+		if (k === 'pin') return { Icon: Pin, color: 'text-violet-600 dark:text-violet-400', label: 'Pin' };
+		return { Icon: Pin, color: 'text-violet-500 dark:text-violet-300', label: 'Note' };
+	};
+
+	const stripMarkdown = (s: string) =>
+		s
+			// Drop `[label](href)` down to `label` so the preview reads
+			// clean; keeps the human-authored text but hides the link
+			// noise a `/decision` mentioning an attachment would carry.
+			.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+			.replace(/\s+/g, ' ')
+			.trim();
 
 	// Cheap lookup so the per-message Reply chip can show "N replies"
 	// without scanning the threads list each render.
@@ -929,39 +1067,11 @@
 		     hover-to-reveal style used in notes / tasks so the sidebar
 		     bar isn't a fat default UA bar. -->
 		<div class="stream-thin-scroll min-h-0 flex-1 overflow-y-auto">
-			<!-- Global kind toggles -->
+			<!-- Threads at the top of the sidebar so the operator's active
+			     conversations are the first thing they see when the pane
+			     opens. Decisions & Pins follow below, then the Stream
+			     lanes filters, per-case tree, and slash-command reference. -->
 			<section class="border-b px-2 py-2">
-				<p class="px-2 pb-1 pt-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
-					Stream lanes
-				</p>
-				<ul class="flex flex-col">
-					{#each GLOBAL_FILTERS as f (f.key)}
-						{@const on = globalFilters.has(f.key)}
-						<li>
-							<label
-								class={[
-									'flex w-full cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-xs transition-colors',
-									on
-										? 'text-foreground hover:bg-muted/60'
-										: 'text-muted-foreground hover:bg-muted/40'
-								]}
-							>
-								<span>{f.label}</span>
-								<Checkbox
-									checked={on}
-									onCheckedChange={() => toggleGlobal(f.key)}
-									aria-label={`Toggle ${f.label}`}
-								/>
-							</label>
-						</li>
-					{/each}
-				</ul>
-			</section>
-
-			<!-- Threads — sits directly under Stream lanes so the operator's
-			     active conversations stay at the top of the sidebar, above
-			     the per-case filter tree. -->
-			<section class="border-t px-2 py-2">
 				<p class="px-2 pb-1 pt-1 flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
 					<MessageSquare class="h-3 w-3" />
 					Threads ({threads.length})
@@ -1004,6 +1114,139 @@
 						{/each}
 					</ul>
 				{/if}
+			</section>
+
+			<!--
+			  Decisions & Pins — the trace log of everything the room
+			  officially decided or pinned, top-level or inside a
+			  thread. Newest first so the last thing decided is at the
+			  top. Click a row to jump: replies open their thread pane,
+			  top-level entries scroll the main stream and briefly ring
+			  the row.
+			-->
+			<section class="border-t px-2 py-2">
+				<p class="flex items-center gap-1.5 px-2 pb-1 pt-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+					<Gavel class="h-3 w-3" />
+					Decisions & Pins ({traceLog.length})
+				</p>
+				{#if traceLog.length === 0}
+					<p class="px-2 py-2 text-2xs text-muted-foreground">
+						Use <code class="rounded bg-muted px-1 py-0.5 font-mono">/decision</code>
+						or <code class="rounded bg-muted px-1 py-0.5 font-mono">/pin</code> to record
+						something the room should remember.
+					</p>
+				{:else}
+					<!--
+					  Search box narrows the trace list by body / kind /
+					  author. Kept inline (no debounce) — the list is small
+					  enough that a client-side filter on each keystroke is
+					  cheap, and the operator sees results immediately.
+					-->
+					<div class="relative px-1 pb-1">
+						<Search class="pointer-events-none absolute left-3 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+						<Input
+							value={traceFilter}
+							oninput={(e) => (traceFilter = (e.target as HTMLInputElement).value)}
+							placeholder="Search decisions & pins"
+							class="h-7 pl-7 text-2xs"
+							aria-label="Search decisions & pins"
+						/>
+					</div>
+
+					{#if filteredTraceLog.length === 0}
+						<p class="px-2 py-2 text-2xs text-muted-foreground">
+							No matches for “{traceFilter}”.
+						</p>
+					{:else}
+						<!--
+						  Scroll cap: taller than the Threads list because
+						  decisions/pins are the audit trail an operator
+						  actively reads back through, not a summary
+						  glance. `stream-thin-scroll` matches the rest of
+						  the sidebar's scrollbar style.
+						-->
+						<ul class="stream-thin-scroll flex max-h-96 flex-col overflow-y-auto">
+							{#each filteredTraceLog as t (t.message_id)}
+								{@const meta = traceKindMeta(t.kind)}
+								{@const bodyText = stripMarkdown(t.body ?? '')}
+								{@const canDelete = currentUserId != null && t.author_id === currentUserId}
+								<li class="group/trace flex items-start gap-1 rounded-md px-1 py-0.5 transition-colors hover:bg-muted/60">
+									<button
+										type="button"
+										class="flex min-w-0 flex-1 items-start gap-2 rounded-md px-1 py-1 text-left"
+										onclick={() => jumpToTrace(t)}
+										title="Jump to this entry"
+									>
+										<meta.Icon class={`mt-0.5 h-3 w-3 shrink-0 ${meta.color}`} />
+										<div class="min-w-0 flex-1">
+											<p class="line-clamp-2 text-xs">
+												{bodyText || '—'}
+											</p>
+											<div class="mt-0.5 flex items-center gap-1.5 text-2xs text-muted-foreground">
+												<span class="uppercase tracking-wider">{meta.label}</span>
+												<span class="opacity-40">·</span>
+												<span class="truncate">
+													{t.author_name ?? t.author_login ?? 'Unknown'}
+												</span>
+												{#if t.created_at}
+													<span class="opacity-40">·</span>
+													<span class="shrink-0">{fmtTime(t.created_at)}</span>
+												{/if}
+												{#if t.parent_message_id != null}
+													<span class="opacity-40">·</span>
+													<span class="shrink-0 italic">in thread</span>
+												{/if}
+											</div>
+										</div>
+									</button>
+									{#if canDelete}
+										<button
+											type="button"
+											class="invisible mt-1 shrink-0 rounded p-1 text-destructive transition-colors hover:bg-destructive/10 group-hover/trace:visible focus:visible"
+											onclick={() => removeTraceEntry(t)}
+											aria-label={`Delete this ${meta.label.toLowerCase()}`}
+											title="Delete"
+										>
+											<Trash2 class="h-3 w-3" />
+										</button>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				{/if}
+			</section>
+
+			<!-- Stream lanes toggles: sit below the trace views (Threads,
+			     Decisions & Pins) because in normal operation an IC
+			     spends more time reading those than tweaking which
+			     activity kinds are visible. -->
+			<section class="border-t px-2 py-2">
+				<p class="px-2 pb-1 pt-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+					Stream lanes
+				</p>
+				<ul class="flex flex-col">
+					{#each GLOBAL_FILTERS as f (f.key)}
+						{@const on = globalFilters.has(f.key)}
+						<li>
+							<label
+								class={[
+									'flex w-full cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-xs transition-colors',
+									on
+										? 'text-foreground hover:bg-muted/60'
+										: 'text-muted-foreground hover:bg-muted/40'
+								]}
+							>
+								<span>{f.label}</span>
+								<Checkbox
+									checked={on}
+									onCheckedChange={() => toggleGlobal(f.key)}
+									aria-label={`Toggle ${f.label}`}
+								/>
+							</label>
+						</li>
+					{/each}
+				</ul>
 			</section>
 
 			<!-- Per-case sub-tree with grouped activity types. The list
@@ -1266,7 +1509,11 @@
 									{#if m.kind !== 'message'}
 										{@const actor = m.author_name ?? m.author_login}
 										<li
-											class="flex items-center gap-2 rounded-md border border-dashed border-border/60 bg-card/40 px-3 py-1.5 text-xs"
+											data-message-id={m.message_id}
+											class={[
+												'flex items-center gap-2 rounded-md border border-dashed border-border/60 bg-card/40 px-3 py-1.5 text-xs transition-colors',
+												highlightMessageId === m.message_id && 'ring-2 ring-primary/60'
+											]}
 										>
 											{#if Icon}
 												<Icon class={`h-3.5 w-3.5 shrink-0 ${systemColor(m.kind)}`} />
@@ -1303,7 +1550,13 @@
 										</li>
 									{:else if cont}
 										{@const replyCount = replyCountByRoot.get(m.message_id) ?? 0}
-										<li class="group/msg flex gap-3 pl-11">
+										<li
+											data-message-id={m.message_id}
+											class={[
+												'group/msg flex gap-3 pl-11 transition-colors',
+												highlightMessageId === m.message_id && 'rounded-md ring-2 ring-primary/60'
+											]}
+										>
 											<div class="min-w-0 flex-1">
 												<p class="break-words text-sm">
 													<ChatMessageBody body={m.body ?? ''} onAttachmentClick={openPreview} />
@@ -1346,7 +1599,13 @@
 										</li>
 									{:else}
 										{@const replyCount = replyCountByRoot.get(m.message_id) ?? 0}
-										<li class="group/msg flex gap-3 pt-2">
+										<li
+											data-message-id={m.message_id}
+											class={[
+												'group/msg flex gap-3 pt-2 transition-colors',
+												highlightMessageId === m.message_id && 'rounded-md ring-2 ring-primary/60'
+											]}
+										>
 											<UserAvatar
 												userId={m.author_id ?? undefined}
 												name={m.author_name ?? m.author_login ?? 'Unknown'}
@@ -1578,6 +1837,15 @@
 	bind:open={previewOpen}
 	target={previewTarget}
 	onOpenChange={(v) => (previewOpen = v)}
+/>
+
+<ConfirmationDialog
+	bind:open={confirmOpen}
+	title={confirmTitle}
+	message={confirmMessage}
+	confirmText={confirmActionText}
+	confirmButtonVariant="destructive"
+	onConfirm={runConfirmed}
 />
 
 <style>
