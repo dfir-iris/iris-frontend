@@ -105,6 +105,40 @@ class AuthenticationService {
 		}
 	}
 
+	/**
+	 * Trade the one-time OIDC session cookie set by the Flask
+	 * /oidc-authorize callback for JWT access + refresh tokens.
+	 *
+	 * The cookie is sent automatically because this is a same-origin
+	 * POST. The backend clears the session immediately after minting
+	 * tokens, so this call is single-use: a page refresh (or replay)
+	 * after success will get a 403.
+	 */
+	async oidcExchange(): Promise<LoginResponse> {
+		const response = await ApiService.post<LoginResponse>(
+			'/api/v2/auth/oidc-exchange',
+			{},
+			{ skipTokenRefresh: true }
+		);
+
+		if (!response.ok) {
+			throw new Error(response.error ? response.error.message : 'OIDC exchange failed');
+		}
+
+		const responseData = response.data as LoginResponse;
+
+		const tokenInfo = {
+			accessToken: responseData.tokens.access_token,
+			refreshToken: responseData.tokens.refresh_token,
+			accessTokenExpiresAt: responseData.tokens.access_token_expires_at,
+			refreshTokenExpiresAt: responseData.tokens.refresh_token_expires_at
+		};
+
+		auth.setAuth(responseData, tokenInfo);
+
+		return responseData;
+	}
+
 	async logout() {
 		try {
 			await ApiService.post('/api/v2/auth/logout', {});

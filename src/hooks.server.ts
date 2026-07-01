@@ -1,6 +1,5 @@
 import type { Handle } from '@sveltejs/kit';
 import { API_BASE_URL } from '$lib/config/api.config';
-import { DEV } from 'esm-env';
 import { env } from '$env/dynamic/public';
 import sharp from 'sharp';
 
@@ -197,15 +196,6 @@ async function proxyOidc(event: Parameters<Handle>[0]['event']): Promise<Respons
  * Fetches current auth state, returning it as a events.local
  */
 export const handle: Handle = async ({ event, resolve }) => {
-	const requestId = crypto.randomUUID();
-
-	// Log incoming request
-	if (DEV) {
-		console.log(
-			`[${requestId}] 📥 Request: ${event.request.method} ${event.url.pathname}${event.url.search}`
-		);
-	}
-
 	if (
 		(event.url.pathname === '/oidc-login' || event.url.pathname === '/oidc-authorize') &&
 		(event.request.method === 'GET' || event.request.method === 'POST')
@@ -247,11 +237,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 		const apiUrl = `${base.replace(/\/$/, '')}${upstreamPath}${event.url.search}`;
 
-		if (DEV) {
-			console.log(`Proxying ${event.request.method} request to ${apiUrl}`);
-			console.log('authorization:', event.request.headers.get('authorization'));
-		}
-
 		try {
 			// Public (browser-facing) origin (same logic as OIDC passthrough)
 			const pub = new URL(env.PUBLIC_EXTERNAL_API_URL);
@@ -290,8 +275,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 				out.set(k, v);
 			}
 
-			console.log('response:', response);
-
 			copySetCookie(response.headers, out);
 
 			return new Response(response.body, {
@@ -314,12 +297,5 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	// Continue normal request handling for non-proxy paths
-	const response = await resolve(event);
-
-	// Log response
-	if (DEV) {
-		console.log(`[${requestId}] 📤 Response: ${response.status}`);
-	}
-
-	return response;
+	return resolve(event);
 };

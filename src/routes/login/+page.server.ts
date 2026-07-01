@@ -2,11 +2,44 @@ import { ApiService } from '$lib/services/api.service';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { isServerReachable } from '$lib/utils/server-health';
-import { AuthService } from '$lib/services/auth.service';
+import { AuthService, type AuthSettings } from '$lib/services/auth.service';
+
+// Safe defaults for when `/manage/server/authentication-settings` is
+// unreachable or returns a non-JSON body. Without this, the login page
+// crashes (`Cannot read properties of null (reading 'oidc_enabled')`)
+// the moment the backend is briefly down or hidden behind a misrouted
+// proxy — which makes the outage worse: the user can't even see the
+// login form to retry. Default to "local auth only, MFA off" so the
+// classic username/password form still renders.
+const DEFAULT_AUTH_SETTINGS: AuthSettings = {
+	oidc_enabled: false,
+	mfa_enabled: false
+};
 
 export const load: PageServerLoad = async () => {
 	const isReachable = await isServerReachable();
-	const authSettings = await AuthService.getAuthSettings();
+
+	let authSettings: AuthSettings = DEFAULT_AUTH_SETTINGS;
+	try {
+		const fetched = await AuthService.getAuthSettings();
+		if (fetched && typeof fetched === 'object') {
+			authSettings = {
+				oidc_enabled: Boolean(fetched.oidc_enabled),
+				mfa_enabled: Boolean(fetched.mfa_enabled)
+			};
+		} else {
+			console.warn(
+				'[login] authentication-settings returned a non-object payload; ' +
+					'falling back to local-auth defaults'
+			);
+		}
+	} catch (err) {
+		console.warn(
+			'[login] failed to load authentication-settings; falling back to ' +
+				'local-auth defaults. Error:',
+			err
+		);
+	}
 
 	return {
 		authSettings,
