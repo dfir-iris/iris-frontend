@@ -12,6 +12,7 @@
 		DialogHeader,
 		DialogTitle
 	} from '$lib/components/ui/dialog';
+	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { toast } from '$lib/components/ui/toast';
 	import {
@@ -90,7 +91,7 @@
 	};
 
 	const startEdit = () => {
-		if (!detail || detail.published) return;
+		if (!detail) return;
 		editing = true;
 	};
 
@@ -118,9 +119,40 @@
 		}
 	};
 
-	const publish = async () => {
+	// One ConfirmationDialog instance drives every "are you sure?" prompt
+	// on this page (publish, delete draft, delete published). Each call
+	// site stashes the copy + the action to run on confirm — the dialog
+	// then closes itself and fires the closure via `onConfirm`.
+	let confirmOpen = $state(false);
+	let confirmTitle = $state('');
+	let confirmMessage = $state('');
+	let confirmActionText = $state('Confirm');
+	let confirmVariant = $state<'default' | 'destructive'>('destructive');
+	let pendingAction: (() => Promise<void>) | null = null;
+
+	const askConfirm = (opts: {
+		title: string;
+		message: string;
+		actionText: string;
+		variant?: 'default' | 'destructive';
+		run: () => Promise<void>;
+	}) => {
+		confirmTitle = opts.title;
+		confirmMessage = opts.message;
+		confirmActionText = opts.actionText;
+		confirmVariant = opts.variant ?? 'destructive';
+		pendingAction = opts.run;
+		confirmOpen = true;
+	};
+
+	const runConfirmed = () => {
+		const action = pendingAction;
+		pendingAction = null;
+		if (action) void action();
+	};
+
+	const doPublish = async () => {
 		if (!detail) return;
-		if (!confirm('Publish this SitRep? Once published it cannot be edited.')) return;
 		saving = true;
 		const res = await WarRoomSitRepsService.publish(warRoomId, detail.sitrep_id);
 		saving = false;
@@ -134,17 +166,49 @@
 		}
 	};
 
-	const remove = async (s: WarRoomSitRep) => {
-		if (s.published) return;
-		if (!confirm(`Delete draft SitRep "${s.title}"?`)) return;
+	const publish = () => {
+		if (!detail) return;
+		askConfirm({
+			title: `Publish "${detail.title}"?`,
+			message: 'It stays editable — publishing just marks the state.',
+			actionText: 'Publish',
+			variant: 'default',
+			run: doPublish
+		});
+	};
+
+	const doRemove = async (s: WarRoomSitRep) => {
 		const res = await WarRoomSitRepsService.remove(warRoomId, s.sitrep_id);
 		if (res.ok) {
 			sitreps = sitreps.filter((x) => x.sitrep_id !== s.sitrep_id);
 			if (selectedId === s.sitrep_id) {
+				editing = false;
 				selectedId = sitreps[0]?.sitrep_id ?? null;
-				if (selectedId != null) loadDetail(selectedId);
+				if (selectedId != null) {
+					loadDetail(selectedId);
+				} else {
+					// Nothing left — clear the detail pane so it doesn't
+					// keep showing the row we just deleted.
+					detail = null;
+				}
 			}
+		} else {
+			toast({ title: 'Could not delete SitRep', variant: 'destructive' });
 		}
+	};
+
+	const remove = (s: WarRoomSitRep) => {
+		askConfirm({
+			title: s.published
+				? `Delete published SitRep v${s.version}?`
+				: `Delete draft "${s.title}"?`,
+			message: s.published
+				? `"${s.title}" has been broadcast to the room's chat. Deleting removes the record entirely — this can't be undone.`
+				: 'This removes the draft. It cannot be undone.',
+			actionText: 'Delete',
+			variant: 'destructive',
+			run: () => doRemove(s)
+		});
 	};
 </script>
 
@@ -198,16 +262,14 @@
 									</p>
 								</div>
 							</button>
-							{#if !s.published}
-								<button
-									type="button"
-									class="opacity-0 transition-opacity group-hover:opacity-100"
-									onclick={() => remove(s)}
-									aria-label="Delete draft"
-								>
-									<Trash2 class="h-3 w-3 text-destructive" />
-								</button>
-							{/if}
+							<button
+								type="button"
+								class="opacity-0 transition-opacity group-hover:opacity-100"
+								onclick={() => remove(s)}
+								aria-label={s.published ? 'Delete SitRep' : 'Delete draft'}
+							>
+								<Trash2 class="h-3 w-3 text-destructive" />
+							</button>
 						</li>
 					{/each}
 				</ul>
@@ -269,25 +331,43 @@
 						<Download class="h-3.5 w-3.5" />
 						<span class="ml-1 text-2xs">PDF</span>
 					</a>
-					{#if !detail.published}
-						{#if editing}
-							<Button size="sm" variant="ghost" onclick={cancelEdit} disabled={saving}>
-								Cancel
-							</Button>
-							<Button size="sm" onclick={save} disabled={saving}>
-								{saving ? 'Saving…' : 'Save'}
-							</Button>
-							<Button size="sm" variant="default" onclick={publish} disabled={saving}>
-								<Send class="mr-1 h-3.5 w-3.5" />
-								Publish
-							</Button>
-						{:else}
-							<Button size="sm" onclick={startEdit}>Edit</Button>
+					<!--
+					  Edit + save/cancel are always available: publishing is
+					  a state marker, not a write-lock. Publish only shows
+					  for drafts — a published SitRep can't be published
+					  again, but it can still be edited or deleted.
+					-->
+					{#if editing}
+						<Button size="sm" variant="ghost" onclick={cancelEdit} disabled={saving}>
+							Cancel
+						</Button>
+						<Button size="sm" onclick={save} disabled={saving}>
+							{saving ? 'Saving…' : 'Save'}
+						</Button>
+						{#if !detail.published}
 							<Button size="sm" variant="default" onclick={publish} disabled={saving}>
 								<Send class="mr-1 h-3.5 w-3.5" />
 								Publish
 							</Button>
 						{/if}
+					{:else}
+						<Button size="sm" onclick={startEdit}>Edit</Button>
+						{#if !detail.published}
+							<Button size="sm" variant="default" onclick={publish} disabled={saving}>
+								<Send class="mr-1 h-3.5 w-3.5" />
+								Publish
+							</Button>
+						{/if}
+						<Button
+							size="sm"
+							variant="ghost"
+							class="text-destructive hover:text-destructive"
+							onclick={() => detail && remove(detail)}
+							disabled={saving}
+							aria-label="Delete SitRep"
+						>
+							<Trash2 class="h-3.5 w-3.5" />
+						</Button>
 					{/if}
 				</div>
 			</header>
@@ -337,3 +417,13 @@
 		</DialogFooter>
 	</DialogContent>
 </Dialog>
+
+<ConfirmationDialog
+	bind:open={confirmOpen}
+	title={confirmTitle}
+	message={confirmMessage}
+	confirmText={confirmActionText}
+	confirmButtonVariant={confirmVariant}
+	onConfirm={runConfirmed}
+	showIcon={confirmVariant === 'destructive'}
+/>
