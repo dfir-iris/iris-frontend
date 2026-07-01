@@ -19,6 +19,10 @@
 	};
 </script>
 
+<svelte:head>
+	<title>#{caseId} - IOC #{iocId}</title>
+</svelte:head>
+
 {#if Number.isFinite(iocId)}
 	<IocDetailView {caseId} {iocId} onAfterDelete={handleAfterDelete} />
 {:else}

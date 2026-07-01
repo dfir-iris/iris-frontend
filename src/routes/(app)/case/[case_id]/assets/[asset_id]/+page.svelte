@@ -19,6 +19,10 @@
 	};
 </script>
 
+<svelte:head>
+	<title>#{caseId} - Asset #{assetId}</title>
+</svelte:head>
+
 {#if Number.isFinite(assetId)}
 	<AssetDetailView {assetId} onAfterDelete={handleAfterDelete} />
 {:else}

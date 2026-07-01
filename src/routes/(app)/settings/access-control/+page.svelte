@@ -112,7 +112,7 @@
 </script>
 
 <svelte:head>
-	<title>Access Control | DFIR-IRIS</title>
+	<title>Access Control</title>
 </svelte:head>
 
 <div class="flex h-full w-full flex-col overflow-hidden">

@@ -64,6 +64,10 @@
 	});
 </script>
 
+<svelte:head>
+	<title>{ctx.room?.name ?? 'War Room'}</title>
+</svelte:head>
+
 <div class="flex h-full w-full flex-col bg-background">
 	<WarRoomTopbar />
 	<WarRoomTabs />

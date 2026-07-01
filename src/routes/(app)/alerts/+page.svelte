@@ -617,7 +617,7 @@
 </script>
 
 <svelte:head>
-	<title>Alerts | DFIR-IRIS</title>
+	<title>Alerts</title>
 </svelte:head>
 
 <!--

@@ -19,6 +19,10 @@
 	};
 </script>
 
+<svelte:head>
+	<title>#{caseId} - Task #{taskId}</title>
+</svelte:head>
+
 {#if Number.isFinite(taskId)}
 	<TaskDetailView {caseId} {taskId} onAfterDelete={handleAfterDelete} />
 {:else}

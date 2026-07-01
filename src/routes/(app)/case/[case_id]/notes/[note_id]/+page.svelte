@@ -16,6 +16,10 @@
 	};
 </script>
 
+<svelte:head>
+	<title>#{caseId} - Note #{noteId}</title>
+</svelte:head>
+
 {#if Number.isFinite(noteId)}
 	<NoteDetailView {caseId} {noteId} onAfterDelete={handleAfterDelete} />
 {/if}

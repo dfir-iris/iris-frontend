@@ -36,7 +36,7 @@
 </script>
 
 <svelte:head>
-	<title>Settings | DFIR-IRIS</title>
+	<title>Settings</title>
 </svelte:head>
 
 <!--

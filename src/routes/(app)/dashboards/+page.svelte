@@ -60,6 +60,10 @@
 	});
 </script>
 
+<svelte:head>
+	<title>Dashboards</title>
+</svelte:head>
+
 <div class="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-6">
 	<header class="flex items-end justify-between">
 		<div>

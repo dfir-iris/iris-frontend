@@ -584,6 +584,10 @@
 	});
 </script>
 
+<svelte:head>
+	<title>Editing {name || 'dashboard'}</title>
+</svelte:head>
+
 <div class="mx-auto flex w-full max-w-screen-2xl flex-col gap-4 p-6">
 	<header class="flex items-end justify-between">
 		<div class="flex flex-col gap-1">

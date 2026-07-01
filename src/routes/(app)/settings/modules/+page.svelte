@@ -488,7 +488,7 @@
 </script>
 
 <svelte:head>
-	<title>Modules | DFIR-IRIS</title>
+	<title>Modules</title>
 </svelte:head>
 
 <div class="flex h-full w-full flex-col overflow-hidden">

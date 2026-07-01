@@ -151,7 +151,7 @@
 </script>
 
 <svelte:head>
-	<title>Alert #{alert_id} | DFIR-IRIS</title>
+	<title>Alert #{alert_id}</title>
 </svelte:head>
 
 <div class="mx-auto flex h-full w-full max-w-8xl grow flex-col gap-4 overflow-y-auto p-4">

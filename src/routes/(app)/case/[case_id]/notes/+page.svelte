@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import { CoffeeIcon } from 'lucide-svelte';
+	import { page } from '$app/state';
 	import { Button } from '$lib/components/ui/button';
 	import NotesNewFolderDialog from './components/notes-new-folder-dialog.svelte';
 	import { CASE_NOTES_CTX, type CaseNotesContext } from '$lib/contexts/case-notes.context.svelte';
@@ -17,6 +18,10 @@
 		showNewFolder = false;
 	};
 </script>
+
+<svelte:head>
+	<title>#{page.params.case_id} - Notes</title>
+</svelte:head>
 
 <div class="flex h-full w-full flex-col items-center gap-2 bg-white pt-8 text-lg dark:bg-black/80">
 	<p class="flex gap-2">It looks pretty empty <CoffeeIcon /></p>

@@ -432,7 +432,7 @@
 </script>
 
 <svelte:head>
-	<title>Case Templates | DFIR-IRIS</title>
+	<title>Case Templates</title>
 </svelte:head>
 
 <div class="flex h-full w-full flex-col overflow-hidden">

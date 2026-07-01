@@ -270,7 +270,7 @@
 </script>
 
 <svelte:head>
-	<title>Dim Tasks | DFIR-IRIS</title>
+	<title>Dim Tasks</title>
 </svelte:head>
 
 <div class="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-8">

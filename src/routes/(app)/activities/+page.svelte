@@ -321,7 +321,7 @@
 </script>
 
 <svelte:head>
-	<title>Activities | DFIR-IRIS</title>
+	<title>Activities</title>
 </svelte:head>
 
 <div class="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-8">

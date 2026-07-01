@@ -495,7 +495,7 @@
 </script>
 
 <svelte:head>
-	<title>Report Templates | DFIR-IRIS</title>
+	<title>Report Templates</title>
 </svelte:head>
 
 <div class="flex h-full w-full flex-col overflow-hidden">

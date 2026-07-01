@@ -428,7 +428,7 @@
 </script>
 
 <svelte:head>
-	<title>Cases | DFIR-IRIS</title>
+	<title>Cases</title>
 </svelte:head>
 
 <!--

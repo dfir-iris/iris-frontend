@@ -187,7 +187,7 @@
 </script>
 
 <svelte:head>
-	<title>Server Settings | DFIR-IRIS</title>
+	<title>Server Settings</title>
 </svelte:head>
 
 <div class="flex h-full w-full flex-col overflow-hidden">

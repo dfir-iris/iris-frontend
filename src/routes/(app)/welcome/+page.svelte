@@ -27,7 +27,7 @@
 </script>
 
 <svelte:head>
-	<title>Welcome | DFIR-IRIS</title>
+	<title>Welcome</title>
 </svelte:head>
 
 <div class="mx-auto my-4 w-full max-w-6xl">

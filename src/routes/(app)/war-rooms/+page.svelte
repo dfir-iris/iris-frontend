@@ -112,6 +112,10 @@
 	};
 </script>
 
+<svelte:head>
+	<title>War Rooms</title>
+</svelte:head>
+
 <div class="flex h-full w-full flex-col gap-4 p-6">
 	<header class="flex flex-wrap items-end justify-between gap-3">
 		<div class="flex items-center gap-3">

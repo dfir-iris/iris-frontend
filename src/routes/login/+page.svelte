@@ -7,7 +7,8 @@
 	import { goto } from '$app/navigation';
 	import { auth, type TokenInfo } from '$lib/stores/auth.store';
 	import { enhance } from '$app/forms';
-	import { type AuthSettings, type LoginResponse } from '$lib/services/auth.service';
+	import { AuthService, type AuthSettings, type LoginResponse } from '$lib/services/auth.service';
+	import { page } from '$app/stores';
 
 	let isLoading = false;
 	let showPassword = false;
@@ -15,17 +16,45 @@
 
 	export let form: { error?: string } | null;
 	export let data: {
-		authSettings: AuthSettings;
+		authSettings: AuthSettings | null;
 		serverStatus: 'online' | 'offline';
 		serverCheckMessage: string;
 	};
 
-	let { authSettings, serverStatus, serverCheckMessage } = data;
+	// Defensive default. The loader normally returns a populated
+	// `authSettings`, but a stale client-side navigation or a future
+	// loader regression could deliver `null`; treating that as
+	// "local auth only" is the right fail-safe so the login form
+	// still renders.
+	const SAFE_AUTH_SETTINGS: AuthSettings = { oidc_enabled: false, mfa_enabled: false };
+
+	let { serverStatus, serverCheckMessage } = data;
+	let authSettings: AuthSettings = data.authSettings ?? SAFE_AUTH_SETTINGS;
 
 	const getRedirectTo = (redirectTo?: string) =>
 		redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : '';
 
 	onMount(async () => {
+		// When Flask's /oidc-authorize succeeds it redirects the browser
+		// to /login?oidc=1 with a one-time OIDC-authenticated session
+		// cookie. Trade that cookie for JWT access + refresh tokens
+		// exactly once, then fall through to the normal post-login
+		// routing (MFA gate, then the app root).
+		if ($page.url.searchParams.get('oidc') === '1') {
+			try {
+				await AuthService.oidcExchange();
+				// Strip the ?oidc=1 marker so a refresh of this page
+				// doesn't attempt a second exchange (which would 403).
+				const clean = new URL($page.url);
+				clean.searchParams.delete('oidc');
+				history.replaceState({}, '', clean.pathname + clean.search);
+			} catch (e) {
+				console.error('OIDC exchange failed:', e);
+				error = 'SSO sign-in failed. Please try again.';
+				auth.clearAuth();
+			}
+		}
+
 		await auth.loadAuth(fetch, true);
 
 		const hasValidTokens =
@@ -59,7 +88,7 @@
 </script>
 
 <svelte:head>
-	<title>Log In | DFIR-IRIS</title>
+	<title>Log In</title>
 </svelte:head>
 
 <div

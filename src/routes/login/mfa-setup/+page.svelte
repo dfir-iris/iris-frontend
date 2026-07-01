@@ -144,7 +144,7 @@
 </script>
 
 <svelte:head>
-	<title>MFA Setup | DFIR-IRIS</title>
+	<title>MFA Setup</title>
 </svelte:head>
 
 <div

@@ -394,7 +394,7 @@
 </script>
 
 <svelte:head>
-	<title>Search | DFIR-IRIS</title>
+	<title>Search</title>
 </svelte:head>
 
 <div class="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-8">

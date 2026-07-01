@@ -588,7 +588,7 @@
 </script>
 
 <svelte:head>
-	<title>Dashboard | DFIR-IRIS</title>
+	<title>Dashboard</title>
 </svelte:head>
 
 <div class="flex h-full w-full min-w-0 flex-1 flex-col gap-6 overflow-auto bg-gradient-to-b from-muted/30 via-background to-background p-6">

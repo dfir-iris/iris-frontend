@@ -211,6 +211,10 @@
 	});
 </script>
 
+<svelte:head>
+	<title>#{page.params.case_id} - Graph</title>
+</svelte:head>
+
 <CaseWorkspace>
 <div class="flex h-full min-h-0 w-full flex-col">
 	<div class="border-b bg-muted/40">

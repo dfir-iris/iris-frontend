@@ -482,7 +482,7 @@
 </script>
 
 <svelte:head>
-	<title>Customers | DFIR-IRIS</title>
+	<title>Customers</title>
 </svelte:head>
 
 <div class="flex h-full w-full flex-col overflow-hidden">

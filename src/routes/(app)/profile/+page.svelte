@@ -217,7 +217,7 @@
 </script>
 
 <svelte:head>
-	<title>My profile | DFIR-IRIS</title>
+	<title>My profile</title>
 </svelte:head>
 
 <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">

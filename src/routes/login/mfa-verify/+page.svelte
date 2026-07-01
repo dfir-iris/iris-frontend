@@ -29,7 +29,7 @@
 </script>
 
 <svelte:head>
-	<title>MFA Verify | DFIR-IRIS</title>
+	<title>MFA Verify</title>
 </svelte:head>
 
 <div

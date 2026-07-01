@@ -529,7 +529,7 @@
 </script>
 
 <svelte:head>
-	<title>Case Objects | DFIR-IRIS</title>
+	<title>Case Objects</title>
 </svelte:head>
 
 <div class="flex h-full w-full flex-col overflow-hidden">
