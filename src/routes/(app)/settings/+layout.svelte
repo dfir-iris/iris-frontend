@@ -4,10 +4,13 @@
 	import {
 		BellIcon,
 		BookDashedIcon,
+		CheckSquareIcon,
 		CircleUserIcon,
+		FilterIcon,
 		Icon,
 		LayersIcon,
 		LockKeyholeIcon,
+		MailIcon,
 		NewspaperIcon,
 		ServerIcon,
 		SettingsIcon,
@@ -28,6 +31,9 @@
 		{ icon: NewspaperIcon, label: 'Report Templates', href: '/report-templates' },
 		{ icon: LockKeyholeIcon, label: 'Access Control', href: '/access-control' },
 		{ icon: BellIcon, label: 'Notifications', href: '/notifications' },
+		{ icon: MailIcon, label: 'Mail rules', href: '/mail' },
+		{ icon: FilterIcon, label: 'Incident rules', href: '/incident-rules' },
+		{ icon: CheckSquareIcon, label: 'Investigation flows', href: '/investigation-flows' },
 		{ icon: SettingsIcon, label: 'Server Settings', href: '/server' }
 	];
 

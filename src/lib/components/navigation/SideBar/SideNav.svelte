@@ -8,6 +8,7 @@
 		FolderIcon,
 		HouseIcon,
 		LayoutDashboardIcon,
+		LayersIcon,
 		InfoIcon,
 		SearchIcon,
 		SettingsIcon,
@@ -77,6 +78,13 @@
 			icon: BellIcon,
 			matchPrefix: true,
 			requires: 'alerts_read'
+		},
+		{
+			label: 'Incidents',
+			path: '/incidents',
+			icon: LayersIcon,
+			matchPrefix: true,
+			requires: 'incidents_read'
 		},
 		{
 			label: 'War Rooms',

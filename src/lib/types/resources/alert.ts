@@ -36,6 +36,9 @@ export interface Alert {
 
 	cases: number[];
 	comments: number[];
+	incidents: number[];
+	alert_investigation_flow_id: number | null;
+	investigation_flow: { flow_id: number; flow_name: string } | null;
 
 	alert_context: Record<string, string>;
 

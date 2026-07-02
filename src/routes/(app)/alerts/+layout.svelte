@@ -16,8 +16,14 @@
 		createCommentsPanelContext,
 		type CommentsPanelContext
 	} from '$lib/contexts/comments-panel.context.svelte';
+	import {
+		INVESTIGATION_FLOW_PANEL_CTX,
+		createInvestigationFlowPanelContext,
+		type InvestigationFlowPanelContext
+	} from '$lib/contexts/investigation-flow-panel.context.svelte';
 	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
 	import CommentsPanel from '$lib/components/common/Comments/CommentsPanel.svelte';
+	import InvestigationFlowPanel from '$lib/components/common/InvestigationFlow/InvestigationFlowPanel.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -25,6 +31,9 @@
 
 	const commentsPanel = createCommentsPanelContext();
 	setContext<CommentsPanelContext>(COMMENTS_PANEL_CTX, commentsPanel);
+
+	const investigationFlowPanel = createInvestigationFlowPanelContext();
+	setContext<InvestigationFlowPanelContext>(INVESTIGATION_FLOW_PANEL_CTX, investigationFlowPanel);
 
 	// Refresh the alert whenever the panel closes against an entity, so
 	// the comment count badge on the AlertCard reflects any change the
@@ -64,6 +73,15 @@
   layout did.
 -->
 <div class="flex h-full w-full grow gap-3 sm:gap-4">
+	{#if investigationFlowPanel.state.open}
+		<aside
+			class="my-3 ml-3 h-[calc(100%-1.5rem)] w-full max-w-md shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elevation-2 sm:my-4 sm:ml-4 sm:h-[calc(100%-2rem)]"
+			aria-label="Investigation flow"
+		>
+			<InvestigationFlowPanel />
+		</aside>
+	{/if}
+
 	<div class="flex min-h-0 min-w-0 flex-1 flex-col">
 		{@render children()}
 	</div>
