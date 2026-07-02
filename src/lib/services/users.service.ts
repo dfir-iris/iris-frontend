@@ -53,9 +53,40 @@ export interface UpdateUserBody {
  * existing caller reaches into `res.data.data` to unwrap, so the
  * URL swap is transparent.
  */
+/**
+ * Minimal shape returned by /api/v2/users/mentionable. Deliberately
+ * a subset of `User` — no email / permissions / groups — so the
+ * mention popup can't leak permission info to non-admin users.
+ */
+export interface MentionableUser {
+	user_id: number;
+	user_login: string;
+	user_name: string;
+}
+
 export class UsersService {
 	static async list(options: ApiOptions = {}): Promise<RequestResponse<Paginated<User>>> {
 		return ApiService.get<Paginated<User>>('/manage/users?per_page=200', options);
+	}
+
+	/**
+	 * Lightweight user directory reachable by any authenticated user.
+	 * Used by the @-mention autocomplete in the rich-text editor so
+	 * analysts (who can't call the admin `/manage/users` endpoint)
+	 * can still tag colleagues in notes / comments / chat.
+	 *
+	 * The `q` param is a case-insensitive substring match against
+	 * login OR display name. Empty `q` returns the first N active
+	 * users — the client then narrows further via fuzzy match.
+	 */
+	static async listMentionable(
+		q: string = '',
+		options: ApiOptions = {}
+	): Promise<RequestResponse<{ data: MentionableUser[] }>> {
+		// Absolute /api/v2 path — buildApiUrl detects the prefix and
+		// skips double-prefixing.
+		const path = ApiService.withQuery('/api/v2/users/mentionable', { q });
+		return ApiService.get<{ data: MentionableUser[] }>(path, options);
 	}
 
 	static async get(

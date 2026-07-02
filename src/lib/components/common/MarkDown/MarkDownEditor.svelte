@@ -43,7 +43,7 @@
 	import { createMentionNode } from './mention-node';
 	import { buildSuggestion } from './mentions.svelte';
 	import type { MentionItem } from './MentionList.svelte';
-	import { UsersService, type User } from '$lib/services/users.service';
+	import { UsersService, type MentionableUser } from '$lib/services/users.service';
 	import { CASE_ASSETS_CTX, type CaseAssetsContext } from '$lib/contexts/case-assets.context.svelte';
 	import { CASE_IOCS_CTX, type CaseIocsContext } from '$lib/contexts/case-iocs.context.svelte';
 	import { CASE_NOTES_CTX, type CaseNotesContext } from '$lib/contexts/case-notes.context.svelte';
@@ -402,26 +402,27 @@
 	const caseTasks = getContext<CaseTasksContext | undefined>(CASE_TASKS_CTX);
 	const caseDatastore = getContext<CaseDatastoreContext | undefined>(CASE_DATASTORE_CTX);
 
-	let usersCache: User[] | null = null;
-	let usersPromise: Promise<User[]> | null = null;
+	let usersCache: MentionableUser[] | null = null;
+	let usersPromise: Promise<MentionableUser[]> | null = null;
 
-	const loadUsers = async (): Promise<User[]> => {
+	const loadUsers = async (): Promise<MentionableUser[]> => {
 		if (usersCache) return usersCache;
 		if (!usersPromise) {
 			usersPromise = (async () => {
-				// /manage/users/list returns the legacy IRIS wrapper
-				//   { status, message, data: User[] }
-				// nested inside our RequestResponse.data — same indirection every
-				// other caller in the app uses.
-				const res = await UsersService.list();
+				// `/api/v2/users/mentionable` is auth-gated but not admin-
+				// gated, so analysts (who can't call `/manage/users`) can
+				// still list colleagues to mention. Payload is deliberately
+				// minimal (id, login, name) — the popup does its own fuzzy
+				// filter locally on top of this cache.
+				const res = await UsersService.listMentionable();
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				const inner = (res?.data as any)?.data;
 				if (Array.isArray(inner)) {
-					usersCache = inner as User[];
+					usersCache = inner as MentionableUser[];
 					return usersCache;
 				}
 				if (Array.isArray(res?.data)) {
-					usersCache = res.data as User[];
+					usersCache = res.data as MentionableUser[];
 					return usersCache;
 				}
 				usersCache = [];

@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 	import {
+		BellIcon,
 		BookDashedIcon,
 		CircleUserIcon,
 		Icon,
@@ -26,6 +27,7 @@
 		{ icon: BookDashedIcon, label: 'Case Templates', href: '/case-templates' },
 		{ icon: NewspaperIcon, label: 'Report Templates', href: '/report-templates' },
 		{ icon: LockKeyholeIcon, label: 'Access Control', href: '/access-control' },
+		{ icon: BellIcon, label: 'Notifications', href: '/notifications' },
 		{ icon: SettingsIcon, label: 'Server Settings', href: '/server' }
 	];
 

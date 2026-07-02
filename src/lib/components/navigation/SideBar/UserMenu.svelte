@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import { current_user, username } from '$lib/stores/auth.store';
 	import { mode, toggleMode } from 'mode-watcher';
-	import { LogOutIcon, MoonIcon, SlidersHorizontalIcon, SunIcon } from 'lucide-svelte';
+	import { BellIcon, LogOutIcon, MoonIcon, SlidersHorizontalIcon, SunIcon } from 'lucide-svelte';
 	import { AuthService } from '$lib/services/auth.service';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import MenuItem from './MenuItem.svelte';
@@ -56,6 +56,14 @@
 			href="/profile"
 			liClass="mt-4"
 			active={pathname === '/profile'}
+		/>
+
+		<MenuItem
+			{collapsed}
+			label="Notifications"
+			icon={BellIcon}
+			href="/profile/notifications"
+			active={pathname === '/profile/notifications'}
 		/>
 
 		{#if $mode === 'light'}

@@ -20,6 +20,7 @@
 	import { goto } from '$app/navigation';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import ActionButton from './ActionButton.svelte';
+	import NotificationBell from './NotificationBell.svelte';
 	import SwitchContextModal from './SwitchContextModal.svelte';
 	import TopBarSearch from './TopBarSearch.svelte';
 
@@ -243,6 +244,8 @@
 		<TopBarSearch />
 
 		<div class="mx-1 hidden h-5 w-px bg-white/15 sm:block" aria-hidden="true"></div>
+
+		<NotificationBell />
 
 		{#each topBarButtons as topBarButton}
 			<ActionButton
