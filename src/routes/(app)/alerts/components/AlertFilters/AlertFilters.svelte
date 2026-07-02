@@ -356,6 +356,23 @@
 					oninput={(e) => setNum('case_id', (e.currentTarget as HTMLInputElement).value)}
 				/>
 			</div>
+
+			<!--
+			  Incident linkage. Accepts an incident id (positive number) or
+			  `-1` to surface un-grouped alerts. Text input keeps the UI
+			  consistent with the sibling Case ID field; typing "-1" is a
+			  documented shortcut for "no incident".
+			-->
+			<div class="space-y-0.5">
+				<div class="text-xs text-muted-foreground">Incident ID (-1 = none)</div>
+				<Input
+					class="h-8 text-xs"
+					inputmode="numeric"
+					placeholder="Incident ID or -1"
+					value={value.incident_id == null ? '' : String(value.incident_id)}
+					oninput={(e) => setNum('incident_id', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</div>
 		</div>
 	</div>
 

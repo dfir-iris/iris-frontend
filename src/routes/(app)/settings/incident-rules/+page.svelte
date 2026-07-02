@@ -32,11 +32,45 @@
 	let titleTemplate = $state('');
 	let testMatches = $state<number[] | null>(null);
 
+	// Common correlation entities. `field` matches the backend's group_by
+	// vocabulary — the same DSL `apply_custom_conditions` uses, so
+	// relationship-joined paths (`assets.asset_name`) are valid.
+	const CORRELATION_PRESETS = [
+		{ label: 'Same host', field: 'assets.asset_name' },
+		{ label: 'Same IP', field: 'assets.asset_ip' },
+		{ label: 'Same user (owner)', field: 'alert_owner_id' },
+		{ label: 'Same source', field: 'alert_source' },
+		{ label: 'Same title', field: 'alert_title' },
+		{ label: 'Same IOC', field: 'iocs.ioc_value' }
+	];
+
+	const splitCsv = (csv: string): string[] =>
+		csv
+			.split(',')
+			.map((s) => s.trim())
+			.filter(Boolean);
+
+	const groupByHasField = (csv: string, field: string): boolean =>
+		splitCsv(csv).includes(field);
+
+	const toggleGroupByField = (csv: string, field: string): string => {
+		const list = splitCsv(csv);
+		const idx = list.indexOf(field);
+		if (idx === -1) list.push(field);
+		else list.splice(idx, 1);
+		return list.join(', ');
+	};
+
 	let deleteOpen = $state(false);
 	let ruleToDelete = $state<IncidentRule | null>(null);
 
 	let backfillOpen = $state(false);
 	let backfilling = $state(false);
+
+	// How many days of history Test / Back-fill consider. 30 matches
+	// the backend default; kept editable so analysts can widen or narrow
+	// the window per rule as they iterate.
+	let sampleDays = $state<number>(30);
 
 	const showError = (msg: string) => toast({ title: msg, variant: 'destructive' });
 	const showSuccess = (msg: string) => toast({ title: msg, variant: 'success' });
@@ -155,7 +189,9 @@
 			return;
 		}
 		try {
-			const res = await IncidentRulesService.test(editing.rule_id, { sample_days: 30 });
+			const res = await IncidentRulesService.test(editing.rule_id, {
+				sample_days: sampleDays
+			});
 			testMatches =
 				(res.data as { matching_alert_ids?: number[] })?.matching_alert_ids ?? [];
 		} catch {
@@ -168,7 +204,7 @@
 		backfilling = true;
 		try {
 			const res = await IncidentRulesService.backfill(editing.rule_id, {
-				sample_days: 30
+				sample_days: sampleDays
 			});
 			const payload =
 				res.data && typeof res.data === 'object' ? (res.data as BackfillRuleResponse) : null;
@@ -338,34 +374,78 @@
 					</p>
 				</div>
 
-				<div class="mt-4 grid gap-3 sm:grid-cols-2">
-					<div class="flex flex-col gap-1">
-						<label
-							for="rule-window"
-							class="text-2xs uppercase tracking-wide text-muted-foreground"
-						>
-							Stacking window (seconds — alerts inside the same window and same
-							group-by keys stack)
-						</label>
-						<Input
-							id="rule-window"
-							type="number"
-							placeholder="3600"
-							bind:value={timeWindowSeconds}
-						/>
+				<!--
+				  Correlation section — this is the load-bearing bit of a
+				  rule. The engine already supports arbitrary group-by
+				  fields, but analysts don't think in field names; they
+				  think in entities ("same host", "same user"). The chips
+				  below one-click those into the CSV that the backend
+				  consumes verbatim, plus a free-text field for anything
+				  the presets don't cover.
+				-->
+				<div class="mt-4 rounded-md border border-primary/20 bg-primary/5 p-3">
+					<p class="mb-1 text-2xs font-semibold uppercase tracking-wide text-primary">
+						Correlation
+					</p>
+					<p class="mb-3 text-xs text-muted-foreground">
+						Group matching alerts into <em>one incident</em> when they share the same value on
+						these fields, within the stacking window below. Example: 10 failed-login alerts
+						from the same host in 5 minutes → one “Brute force on host X” incident.
+					</p>
+					<div class="mb-2 flex flex-wrap items-center gap-2">
+						{#each CORRELATION_PRESETS as preset (preset.field)}
+							{@const active = groupByHasField(groupByCsv, preset.field)}
+							<button
+								type="button"
+								class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors {active
+									? 'border-primary bg-primary text-primary-foreground'
+									: 'border-border bg-background hover:bg-muted'}"
+								onclick={() => (groupByCsv = toggleGroupByField(groupByCsv, preset.field))}
+							>
+								{preset.label}
+								<span class="text-2xs opacity-70">({preset.field})</span>
+							</button>
+						{/each}
 					</div>
-					<div class="flex flex-col gap-1">
-						<label
-							for="rule-groupby"
-							class="text-2xs uppercase tracking-wide text-muted-foreground"
-						>
-							Group by (comma-separated fields)
-						</label>
-						<Input
-							id="rule-groupby"
-							placeholder="alert_customer_id, alert_source"
-							bind:value={groupByCsv}
-						/>
+					<div class="grid gap-3 sm:grid-cols-2">
+						<div class="flex flex-col gap-1">
+							<label
+								for="rule-groupby"
+								class="text-2xs uppercase tracking-wide text-muted-foreground"
+							>
+								Correlation keys (comma-separated)
+							</label>
+							<Input
+								id="rule-groupby"
+								placeholder="e.g. alert_customer_id, assets.asset_name"
+								bind:value={groupByCsv}
+							/>
+							<p class="text-2xs text-muted-foreground">
+								Tenant scope (<code class="rounded bg-muted px-1"
+									>alert_customer_id</code
+								>) is added automatically if you don't include it — an incident never
+								mixes tenants.
+							</p>
+						</div>
+						<div class="flex flex-col gap-1">
+							<label
+								for="rule-window"
+								class="text-2xs uppercase tracking-wide text-muted-foreground"
+							>
+								Stacking window (seconds)
+							</label>
+							<Input
+								id="rule-window"
+								type="number"
+								placeholder="3600"
+								bind:value={timeWindowSeconds}
+							/>
+							<p class="text-2xs text-muted-foreground">
+								Alerts that arrive within this window and match the correlation keys
+								above stack into the same incident. Leave blank to stack forever (open
+								incident stays open).
+							</p>
+						</div>
 					</div>
 				</div>
 
@@ -383,9 +463,32 @@
 					/>
 				</div>
 
-				<div class="mt-4 flex flex-wrap items-center gap-2">
+				<div class="mt-4 flex flex-wrap items-center gap-3">
 					<Button onclick={save}>Save</Button>
 					<Button variant="outline" onclick={() => (editing = null)}>Cancel</Button>
+
+					<!--
+					  History window used by Test AND Back-fill. Kept as
+					  one control on purpose — testing against a window
+					  before back-filling on it is the usual workflow, so
+					  a shared value avoids accidental mismatches.
+					-->
+					<div class="flex items-center gap-2 border-l pl-3">
+						<label
+							for="rule-sample-days"
+							class="text-2xs uppercase tracking-wide text-muted-foreground"
+						>
+							History window (days)
+						</label>
+						<Input
+							id="rule-sample-days"
+							type="number"
+							min="1"
+							class="w-24"
+							bind:value={sampleDays}
+						/>
+					</div>
+
 					<Button variant="ghost" onclick={runTest}>
 						<PlayIcon class="mr-2 h-4 w-4" /> Test
 					</Button>
@@ -399,7 +502,9 @@
 					</Button>
 					{#if testMatches !== null}
 						<span class="text-xs text-muted-foreground">
-							Matched {testMatches.length} alert(s) from the last 30 days
+							Matched {testMatches.length} alert(s) from the last {sampleDays} day{sampleDays === 1
+								? ''
+								: 's'}
 						</span>
 					{/if}
 				</div>
@@ -422,7 +527,7 @@
 <ConfirmationDialog
 	bind:open={backfillOpen}
 	title="Back-fill previous alerts?"
-	message={`Apply this rule to matching alerts from the last 30 days. Alerts already grouped into an incident are skipped, and the stacking window / group-by keys keep the operation idempotent — re-running produces no duplicates.`}
+	message={`Apply this rule to matching alerts from the last ${sampleDays} day${sampleDays === 1 ? '' : 's'}. Alerts already grouped into an incident are skipped, and the stacking window / group-by keys keep the operation idempotent — re-running produces no duplicates.`}
 	confirmText="Back-fill"
 	confirmButtonVariant="default"
 	onConfirm={runBackfill}

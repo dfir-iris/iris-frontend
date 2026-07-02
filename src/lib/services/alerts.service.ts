@@ -23,6 +23,12 @@ export interface FilterAlertsParams {
 	alert_ids?: string | number[];
 	source_reference?: string;
 	case_id?: number;
+	/**
+	 * Filter by incident membership.
+	 *   * positive number → alerts attached to that incident
+	 *   * -1              → alerts NOT attached to any incident (orphans)
+	 */
+	incident_id?: number;
 	alert_owner_id?: number;
 	resolution_status_id?: number;
 	page?: number;

@@ -5,6 +5,7 @@
 		EyeIcon,
 		LinkIcon,
 		ShieldAlertIcon,
+		ShieldIcon,
 		UnlinkIcon,
 		UserCircleIcon,
 		ZapIcon
@@ -50,6 +51,28 @@
 </script>
 
 <Card.Footer class="flex flex-col items-start gap-2 !px-4 !py-3">
+	<!--
+	  Incident linkage row — sits above the cases row on purpose. In
+	  the analyst workflow "which incident owns this alert" is the
+	  more triage-critical question than "which case does it belong
+	  to" (cases only appear after escalation). Rendering it first
+	  puts it where the eye lands.
+	-->
+	{#if alert.incidents?.length}
+		<div class="flex flex-wrap items-center gap-2">
+			{#each alert.incidents as incidentId (incidentId)}
+				<a
+					href={`/incidents/${incidentId}`}
+					class="inline-flex items-center gap-1 rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-0.5 text-2xs font-medium text-red-700 transition-colors hover:bg-red-500/20 dark:text-red-300"
+					title={`Part of incident #${incidentId}`}
+				>
+					<ShieldIcon size="12" />
+					Incident #{incidentId}
+				</a>
+			{/each}
+		</div>
+	{/if}
+
 	{#if alert.cases}
 		<div class="flex flex-wrap items-center gap-3">
 			{#each alert.cases as linkedCase}

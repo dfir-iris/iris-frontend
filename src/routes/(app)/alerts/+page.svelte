@@ -17,6 +17,10 @@
 		COMMENTS_PANEL_CTX,
 		type CommentsPanelContext
 	} from '$lib/contexts/comments-panel.context.svelte';
+	import {
+		INVESTIGATION_FLOW_PANEL_CTX,
+		type InvestigationFlowPanelContext
+	} from '$lib/contexts/investigation-flow-panel.context.svelte';
 	import type { RequestResponse, Paginated } from '$lib/services/api.service';
 	import type { UpdateAlertBody } from '$lib/services/alerts.service';
 	import {
@@ -90,6 +94,7 @@
 		'alert_ids',
 		'source_reference',
 		'case_id',
+		'incident_id',
 		'alert_owner_id',
 		'resolution_status_id',
 		'sort'
@@ -105,6 +110,9 @@
 	const alerts = getContext<AlertsContext>(ALERTS_CTX);
 	const cases = getContext<CasesContext>(CASES_CTX);
 	const commentsPanel = getContext<CommentsPanelContext>(COMMENTS_PANEL_CTX);
+	const investigationFlowPanel = getContext<InvestigationFlowPanelContext>(
+		INVESTIGATION_FLOW_PANEL_CTX
+	);
 
 	let status = $state<'initial' | 'loading' | 'ready'>('initial');
 	let filtersOpen = $state(false);
@@ -164,6 +172,7 @@
 				key === 'alert_classification_id' ||
 				key === 'alert_customer_id' ||
 				key === 'case_id' ||
+				key === 'incident_id' ||
 				key === 'alert_owner_id' ||
 				key === 'resolution_status_id'
 			) {
@@ -933,6 +942,11 @@
 									label: alert.alert_title ?? `Alert #${alert.alert_id}`
 								});
 							}}
+							onShowInvestigationFlow={() =>
+								investigationFlowPanel.open({
+									id: alert.alert_id,
+									label: alert.alert_title ?? `Alert #${alert.alert_id}`
+								})}
 							onShowMerge={() => {
 								selected = { ...selected, [alert.alert_id]: true };
 								showMerge = true;

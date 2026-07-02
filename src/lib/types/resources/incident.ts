@@ -4,6 +4,15 @@ export interface IncidentStatus {
 	status_description?: string | null;
 }
 
+// Free-form audit-trail dictionary keyed by unix timestamp. Matches the
+// shape produced by `add_obj_history_entry` on the backend — each entry
+// carries {user, user_id, action}. Kept as `Record` so consumers iterate
+// with Object.entries() and sort by numeric key.
+export type IncidentModificationHistory = Record<
+	string,
+	{ user: string; user_id: number; action: string }
+> | null;
+
 export interface Incident {
 	incident_id: number;
 	incident_uuid: string;
@@ -24,4 +33,6 @@ export interface Incident {
 	severity?: { severity_id: number; severity_name: string };
 	customer?: { customer_id: number; customer_name: string };
 	owner?: { id: number; user_name: string; user_login: string; user_email: string };
+	modification_history?: IncidentModificationHistory;
+	source_rule?: { rule_id: number; rule_name: string } | null;
 }

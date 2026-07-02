@@ -8,6 +8,7 @@ export type CommentObjectType =
 	| 'assets'
 	| 'events'
 	| 'evidences'
+	| 'incidents'
 	| 'iocs'
 	| 'notes'
 	| 'tasks';
