@@ -32,6 +32,42 @@ export interface ServerSettings {
 	password_policy_special_chars: string | null;
 	enforce_mfa: boolean;
 	force_confirmation_before_delete: boolean;
+
+	// ---- Mail — outbound (SMTP) --------------------------------------
+	mail_smtp_enabled: boolean | null;
+	mail_smtp_host: string | null;
+	mail_smtp_port: number | null;
+	mail_smtp_user: string | null;
+	// Never present in a GET response — write-only.
+	mail_smtp_password?: string | null;
+	// Derived boolean the backend attaches to the GET dump so the SPA
+	// can render a "•••••" placeholder vs an empty input.
+	mail_smtp_password_set?: boolean;
+	mail_smtp_use_tls: boolean | null;
+	mail_smtp_use_ssl: boolean | null;
+	mail_from_address: string | null;
+	mail_from_name: string | null;
+
+	// ---- Mail — inbound (IMAP) ---------------------------------------
+	mail_imap_enabled: boolean | null;
+	mail_imap_host: string | null;
+	mail_imap_port: number | null;
+	mail_imap_user: string | null;
+	mail_imap_password?: string | null;
+	mail_imap_password_set?: boolean;
+	mail_imap_use_ssl: boolean | null;
+	mail_imap_mailbox: string | null;
+	mail_imap_poll_interval_sec: number | null;
+	mail_imap_max_attachment_mb: number | null;
+}
+
+export interface TestMailBody {
+	to: string;
+}
+
+export interface TestMailResult {
+	delivered: boolean;
+	to: string;
 }
 
 /**
@@ -77,5 +113,18 @@ export class ServerSettingsService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<BackupResult>> {
 		return ApiService.post<BackupResult>('/manage/server/backups/db', {}, options);
+	}
+
+	/**
+	 * Trigger a probe SMTP send using the current mail config.
+	 * Runs synchronously on the server — this is a diagnostic, not the
+	 * normal delivery path.
+	 */
+	static async sendTestMail(
+		body: TestMailBody,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<TestMailResult>> {
+		return ApiService.post<TestMailResult>(
+			'/manage/server/mail/test-send', body, options);
 	}
 }

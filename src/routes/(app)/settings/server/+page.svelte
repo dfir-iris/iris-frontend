@@ -20,10 +20,13 @@
 	import { onMount } from 'svelte';
 	import {
 		DatabaseIcon,
+		InboxIcon,
 		KeyRoundIcon,
+		MailIcon,
 		PowerIcon,
 		RefreshCwIcon,
 		SaveIcon,
+		SendIcon,
 		ServerCogIcon,
 		ShieldAlertIcon,
 		WifiIcon
@@ -54,6 +57,13 @@
 	let backupBusy = $state(false);
 	let backupLogs = $state<string[] | null>(null);
 	let backupError = $state<string | null>(null);
+
+	// Mail test-send state. `testMailBusy` guards double-submits;
+	// the result string is either a green success line or a red
+	// error line rendered inline under the Send button.
+	let testMailRecipient = $state('');
+	let testMailBusy = $state(false);
+	let testMailResult = $state<{ ok: boolean; text: string } | null>(null);
 
 	// Shared confirmation dialog (used for the destructive-ish Run
 	// backup button — it's long-running and writes to disk so a
@@ -183,6 +193,40 @@
 
 	const runConfirm = async () => {
 		await confirmAction();
+	};
+
+	// Mail test-send. Blocks on the SMTP round-trip — if that
+	// takes >30s the backend returns an error. Persist the SMTP
+	// config first if the admin still has unsaved edits, so the
+	// probe sees what they just typed.
+	const sendTestMail = async () => {
+		if (!testMailRecipient || testMailBusy) return;
+		testMailBusy = true;
+		testMailResult = null;
+		try {
+			if (isDirty) {
+				await save();
+			}
+			const res = await ServerSettingsService.sendTestMail({
+				to: testMailRecipient
+			});
+			if (res.ok && res.data && typeof res.data !== 'string') {
+				testMailResult = {
+					ok: true,
+					text: `Test email delivered to ${(res.data as { to: string }).to}.`
+				};
+			} else {
+				const data = res.data as { message?: string } | null;
+				testMailResult = {
+					ok: false,
+					text: data?.message ?? res.error?.message ?? 'Test send failed'
+				};
+			}
+		} catch (e) {
+			testMailResult = { ok: false, text: (e as Error).message };
+		} finally {
+			testMailBusy = false;
+		}
 	};
 </script>
 
@@ -524,6 +568,261 @@
 								</p>
 							</div>
 						</label>
+					</div>
+				</section>
+
+				<!--
+				  Mail — outbound (SMTP).
+				  Password field is treated as "write-only" — the backend
+				  never returns it. When `mail_smtp_password_set` is
+				  true we render a "•••••" placeholder so the admin
+				  knows a password is stored; typing anything replaces
+				  it. Empty submit = clear.
+				-->
+				<section class="rounded-md border">
+					<header class="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
+						<div class="flex items-center gap-2">
+							<MailIcon size={14} class="text-muted-foreground" />
+							<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+								Outbound mail (SMTP)
+							</h2>
+						</div>
+						<div class="flex items-center gap-2">
+							<span class="text-2xs text-muted-foreground">Enabled</span>
+							<Switch
+								checked={!!form.mail_smtp_enabled}
+								onCheckedChange={(v: boolean) => (form.mail_smtp_enabled = v)}
+								disabled={saving}
+							/>
+						</div>
+					</header>
+					<div class="grid grid-cols-1 gap-3 p-4 text-xs sm:grid-cols-2">
+						<div class="flex flex-col gap-1">
+							<label for="smtp-host" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">SMTP host</label>
+							<Input id="smtp-host" class="h-7 text-xs"
+								placeholder="smtp.example.com"
+								value={String(form.mail_smtp_host ?? '')}
+								disabled={saving}
+								oninput={(e) => (form.mail_smtp_host = (e.currentTarget as HTMLInputElement).value || null)}
+							/>
+						</div>
+						<div class="flex flex-col gap-1">
+							<label for="smtp-port" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Port</label>
+							<Input id="smtp-port" class="h-7 text-xs" type="number"
+								placeholder="587"
+								value={String(form.mail_smtp_port ?? '')}
+								disabled={saving}
+								oninput={(e) => {
+									const raw = (e.currentTarget as HTMLInputElement).value;
+									form.mail_smtp_port = raw === '' ? null : Number(raw);
+								}}
+							/>
+						</div>
+						<div class="flex flex-col gap-1">
+							<label for="smtp-user" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Username</label>
+							<Input id="smtp-user" class="h-7 text-xs"
+								value={String(form.mail_smtp_user ?? '')}
+								disabled={saving}
+								oninput={(e) => (form.mail_smtp_user = (e.currentTarget as HTMLInputElement).value || null)}
+							/>
+						</div>
+						<div class="flex flex-col gap-1">
+							<label for="smtp-pass" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+								Password
+								{#if payload?.settings.mail_smtp_password_set}
+									<span class="ml-1 text-muted-foreground/70">(stored — leave blank to keep)</span>
+								{/if}
+							</label>
+							<Input id="smtp-pass" class="h-7 text-xs" type="password"
+								placeholder={payload?.settings.mail_smtp_password_set ? '•••••••••' : ''}
+								value={String(form.mail_smtp_password ?? '')}
+								disabled={saving}
+								oninput={(e) => (form.mail_smtp_password = (e.currentTarget as HTMLInputElement).value || null)}
+							/>
+						</div>
+						<label class="flex cursor-pointer items-center gap-2 sm:col-span-1">
+							<Switch
+								checked={!!form.mail_smtp_use_tls}
+								onCheckedChange={(v: boolean) => (form.mail_smtp_use_tls = v)}
+								disabled={saving}
+							/>
+							<span class="text-2xs">STARTTLS</span>
+						</label>
+						<label class="flex cursor-pointer items-center gap-2 sm:col-span-1">
+							<Switch
+								checked={!!form.mail_smtp_use_ssl}
+								onCheckedChange={(v: boolean) => (form.mail_smtp_use_ssl = v)}
+								disabled={saving}
+							/>
+							<span class="text-2xs">Implicit SSL</span>
+						</label>
+						<div class="flex flex-col gap-1">
+							<label for="smtp-from-addr" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">From address</label>
+							<Input id="smtp-from-addr" class="h-7 text-xs"
+								placeholder="iris@example.com"
+								value={String(form.mail_from_address ?? '')}
+								disabled={saving}
+								oninput={(e) => (form.mail_from_address = (e.currentTarget as HTMLInputElement).value || null)}
+							/>
+						</div>
+						<div class="flex flex-col gap-1">
+							<label for="smtp-from-name" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">From name (optional)</label>
+							<Input id="smtp-from-name" class="h-7 text-xs"
+								placeholder="IRIS Notifications"
+								value={String(form.mail_from_name ?? '')}
+								disabled={saving}
+								oninput={(e) => (form.mail_from_name = (e.currentTarget as HTMLInputElement).value || null)}
+							/>
+						</div>
+
+						<!-- Test send -->
+						<div class="sm:col-span-2 flex flex-col gap-2 rounded-md border-t pt-3">
+							<label for="smtp-test-to" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+								Send a test email
+							</label>
+							<div class="flex items-center gap-2">
+								<Input id="smtp-test-to" class="h-7 flex-1 text-xs"
+									placeholder="you@example.com"
+									type="email"
+									value={testMailRecipient}
+									disabled={testMailBusy}
+									oninput={(e) => (testMailRecipient = (e.currentTarget as HTMLInputElement).value)}
+								/>
+								<Button size="sm" class="h-7"
+									onclick={sendTestMail}
+									disabled={testMailBusy || !testMailRecipient}
+								>
+									<SendIcon size={12} class="mr-1" />
+									{testMailBusy ? 'Sending…' : 'Send test'}
+								</Button>
+							</div>
+							{#if testMailResult}
+								<p class="text-2xs {testMailResult.ok ? 'text-emerald-600' : 'text-destructive'}">
+									{testMailResult.text}
+								</p>
+							{/if}
+							<p class="text-2xs text-muted-foreground">
+								Sends synchronously using the SMTP config above.
+								Any unsaved edits are saved first.
+							</p>
+						</div>
+					</div>
+				</section>
+
+				<!--
+				  Mail — inbound (IMAP).
+				  Poll interval is applied on save (the backend refreshes
+				  the Celery beat schedule live). The rules driving what
+				  each inbound message becomes are on the /settings/mail
+				  page.
+				-->
+				<section class="rounded-md border">
+					<header class="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
+						<div class="flex items-center gap-2">
+							<InboxIcon size={14} class="text-muted-foreground" />
+							<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+								Inbound mail (IMAP)
+							</h2>
+						</div>
+						<div class="flex items-center gap-2">
+							<span class="text-2xs text-muted-foreground">Enabled</span>
+							<Switch
+								checked={!!form.mail_imap_enabled}
+								onCheckedChange={(v: boolean) => (form.mail_imap_enabled = v)}
+								disabled={saving}
+							/>
+						</div>
+					</header>
+					<div class="grid grid-cols-1 gap-3 p-4 text-xs sm:grid-cols-2">
+						<div class="flex flex-col gap-1">
+							<label for="imap-host" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">IMAP host</label>
+							<Input id="imap-host" class="h-7 text-xs"
+								placeholder="imap.example.com"
+								value={String(form.mail_imap_host ?? '')}
+								disabled={saving}
+								oninput={(e) => (form.mail_imap_host = (e.currentTarget as HTMLInputElement).value || null)}
+							/>
+						</div>
+						<div class="flex flex-col gap-1">
+							<label for="imap-port" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Port</label>
+							<Input id="imap-port" class="h-7 text-xs" type="number"
+								placeholder="993"
+								value={String(form.mail_imap_port ?? '')}
+								disabled={saving}
+								oninput={(e) => {
+									const raw = (e.currentTarget as HTMLInputElement).value;
+									form.mail_imap_port = raw === '' ? null : Number(raw);
+								}}
+							/>
+						</div>
+						<div class="flex flex-col gap-1">
+							<label for="imap-user" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Username</label>
+							<Input id="imap-user" class="h-7 text-xs"
+								value={String(form.mail_imap_user ?? '')}
+								disabled={saving}
+								oninput={(e) => (form.mail_imap_user = (e.currentTarget as HTMLInputElement).value || null)}
+							/>
+						</div>
+						<div class="flex flex-col gap-1">
+							<label for="imap-pass" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+								Password
+								{#if payload?.settings.mail_imap_password_set}
+									<span class="ml-1 text-muted-foreground/70">(stored — leave blank to keep)</span>
+								{/if}
+							</label>
+							<Input id="imap-pass" class="h-7 text-xs" type="password"
+								placeholder={payload?.settings.mail_imap_password_set ? '•••••••••' : ''}
+								value={String(form.mail_imap_password ?? '')}
+								disabled={saving}
+								oninput={(e) => (form.mail_imap_password = (e.currentTarget as HTMLInputElement).value || null)}
+							/>
+						</div>
+						<label class="flex cursor-pointer items-center gap-2 sm:col-span-1">
+							<Switch
+								checked={!!form.mail_imap_use_ssl}
+								onCheckedChange={(v: boolean) => (form.mail_imap_use_ssl = v)}
+								disabled={saving}
+							/>
+							<span class="text-2xs">Use SSL</span>
+						</label>
+						<div class="flex flex-col gap-1">
+							<label for="imap-mailbox" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Mailbox</label>
+							<Input id="imap-mailbox" class="h-7 text-xs"
+								placeholder="INBOX"
+								value={String(form.mail_imap_mailbox ?? '')}
+								disabled={saving}
+								oninput={(e) => (form.mail_imap_mailbox = (e.currentTarget as HTMLInputElement).value || null)}
+							/>
+						</div>
+						<div class="flex flex-col gap-1">
+							<label for="imap-poll" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Poll interval (sec)</label>
+							<Input id="imap-poll" class="h-7 text-xs" type="number" min="60"
+								placeholder="300"
+								value={String(form.mail_imap_poll_interval_sec ?? '')}
+								disabled={saving}
+								oninput={(e) => {
+									const raw = (e.currentTarget as HTMLInputElement).value;
+									form.mail_imap_poll_interval_sec = raw === '' ? null : Number(raw);
+								}}
+							/>
+						</div>
+						<div class="flex flex-col gap-1">
+							<label for="imap-attach-mb" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Max attachment (MB)</label>
+							<Input id="imap-attach-mb" class="h-7 text-xs" type="number" min="1"
+								placeholder="20"
+								value={String(form.mail_imap_max_attachment_mb ?? '')}
+								disabled={saving}
+								oninput={(e) => {
+									const raw = (e.currentTarget as HTMLInputElement).value;
+									form.mail_imap_max_attachment_mb = raw === '' ? null : Number(raw);
+								}}
+							/>
+						</div>
+						<p class="sm:col-span-2 text-2xs text-muted-foreground">
+							Poll cadence is capped at ≥60s server-side to avoid hammering the IMAP endpoint.
+							Rules that decide what each inbound message becomes live on the
+							<a class="underline hover:text-foreground" href="/settings/mail">Mail rules</a> page.
+						</p>
 					</div>
 				</section>
 
