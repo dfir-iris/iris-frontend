@@ -19,6 +19,8 @@
 	import { getContext, tick } from 'svelte';
 	import {
 		AlertOctagon,
+		ArchiveIcon,
+		ArchiveRestoreIcon,
 		ArrowLeftIcon,
 		CalendarIcon,
 		CheckIcon,
@@ -173,6 +175,34 @@
 		} else if (e.key === 'Escape') {
 			e.preventDefault();
 			cancelNameEdit();
+		}
+	};
+
+	// --- Archive toggle -------------------------------------------------
+	const isArchived = $derived(room?.archived_at != null);
+	let archiveSaving = $state(false);
+
+	const toggleArchive = async () => {
+		if (!room || archiveSaving) return;
+		archiveSaving = true;
+		const res = isArchived
+			? await WarRoomsService.unarchive(room.war_room_id)
+			: await WarRoomsService.archive(room.war_room_id);
+		archiveSaving = false;
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			ctx.setRoom(res.data as WarRoom);
+			toast({
+				title: isArchived
+					? `Restored "${(res.data as WarRoom).name}"`
+					: `Archived "${(res.data as WarRoom).name}"`
+			});
+		} else {
+			toast({
+				title: 'Could not update archive state',
+				description:
+					typeof res.data === 'string' ? res.data : (res.error?.message ?? undefined),
+				variant: 'destructive'
+			});
 		}
 	};
 
@@ -395,6 +425,15 @@
 						Closed
 					</span>
 				{/if}
+				{#if isArchived}
+					<span
+						class="inline-flex shrink-0 items-center gap-1 rounded-md border border-muted-foreground/30 bg-muted/60 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+						title="This war room has been archived"
+					>
+						<ArchiveIcon size={10} />
+						Archived
+					</span>
+				{/if}
 			{/if}
 		</div>
 
@@ -540,6 +579,31 @@
 		{/if}
 
 		<div class="hidden h-5 w-px bg-border sm:block" aria-hidden="true"></div>
+
+		<!--
+		  Archive / restore. Filing decision, independent from the state
+		  chip — an archived room keeps its state so restoring it lands
+		  it exactly where it was.
+		-->
+		<Button
+			variant="ghost"
+			size="sm"
+			class="h-7 gap-1.5 px-2 text-xs"
+			onclick={toggleArchive}
+			disabled={archiveSaving || !room}
+			aria-label={isArchived ? 'Restore war room' : 'Archive war room'}
+			title={isArchived
+				? 'Move this war room back to the live list'
+				: 'File this war room away — state is preserved'}
+		>
+			{#if isArchived}
+				<ArchiveRestoreIcon size={13} />
+				<span class="hidden md:inline">Restore</span>
+			{:else}
+				<ArchiveIcon size={13} />
+				<span class="hidden md:inline">Archive</span>
+			{/if}
+		</Button>
 
 		<Button
 			variant={datastorePanel.state.open ? 'secondary' : 'ghost'}

@@ -24,6 +24,14 @@ export interface WarRoom {
 	created_by_id: number | null;
 	closed_at: string | null;
 	closed_by_id: number | null;
+	/**
+	 * Archive is a filing decision independent of `state`. When set,
+	 * the room falls out of the default list and lands in the
+	 * "Archived" section; `state` is preserved so unarchiving restores
+	 * the room to exactly the lifecycle stage it was in.
+	 */
+	archived_at: string | null;
+	archived_by_id: number | null;
 	custom_attributes: Record<string, unknown> | null;
 }
 
@@ -105,6 +113,13 @@ export interface AttachCaseBody {
 export interface ListWarRoomsParams {
 	state?: WarRoomState;
 	search?: string;
+	/**
+	 * Archive lens for the list endpoint:
+	 *   * omitted / 'live' — live rooms only (default; archived are hidden)
+	 *   * 'archived'       — archived rooms only
+	 *   * 'any'            — both
+	 */
+	archived?: 'live' | 'archived' | 'any';
 }
 
 export class WarRoomsService {
@@ -115,9 +130,19 @@ export class WarRoomsService {
 		const qs = new URLSearchParams();
 		if (params.state) qs.set('state', params.state);
 		if (params.search) qs.set('search', params.search);
+		if (params.archived === 'archived') qs.set('archived', 'true');
+		else if (params.archived === 'any') qs.set('archived', 'any');
 		const tail = qs.toString();
 		const path = tail ? `/war-rooms?${tail}` : '/war-rooms';
 		return ApiService.get<WarRoom[]>(path, options);
+	}
+
+	static archive(id: number, options: ApiOptions = {}): Promise<RequestResponse<WarRoom>> {
+		return ApiService.post<WarRoom>(`/war-rooms/${id}/archive`, {}, options);
+	}
+
+	static unarchive(id: number, options: ApiOptions = {}): Promise<RequestResponse<WarRoom>> {
+		return ApiService.delete<WarRoom>(`/war-rooms/${id}/archive`, options);
 	}
 
 	static create(

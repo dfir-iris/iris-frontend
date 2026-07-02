@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, getContext } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { Plus, ShieldAlert, Search, Radio, Moon, Archive } from 'lucide-svelte';
+	import { ChevronDown, ChevronRight, Plus, ShieldAlert, Search, Radio, Moon, Archive } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import {
@@ -24,10 +24,20 @@
 
 	const userCtx = getContext<UserCtx>(USER_CTX);
 
-	let rooms = $state<WarRoom[]>([]);
+	// Two lists live in parallel: the live rooms (default view) and
+	// the archived roster. Fetched together via `archived: 'any'` so
+	// the operator can toggle the Archived section open without a
+	// second round-trip. The server already sorts by state priority
+	// (active > open > standby > closed) so `activeRooms` renders
+	// open ones first without a client-side re-sort.
+	let activeRooms = $state<WarRoom[]>([]);
+	let archivedRooms = $state<WarRoom[]>([]);
 	let loading = $state(true);
 	let stateFilter = $state<WarRoomState | ''>('');
 	let search = $state('');
+	// Collapsed by default — an operator opening this page is mostly
+	// there for live rooms; archived is a "look back" affordance.
+	let archivedOpen = $state(false);
 
 	let createOpen = $state(false);
 	let creating = $state(false);
@@ -49,12 +59,54 @@
 		loading = true;
 		const res = await WarRoomsService.list({
 			state: stateFilter || undefined,
-			search: search.trim() || undefined
+			search: search.trim() || undefined,
+			archived: 'any'
 		});
 		if (res.ok && Array.isArray(res.data)) {
-			rooms = res.data;
+			const rows = res.data as WarRoom[];
+			// Partition on the client so a single fetch fills both
+			// sections. Server ordering (state priority + created_at)
+			// is preserved because Array.filter is stable.
+			activeRooms = rows.filter((r) => r.archived_at == null);
+			archivedRooms = rows.filter((r) => r.archived_at != null);
 		}
 		loading = false;
+	};
+
+	const doArchive = async (room: WarRoom, e: MouseEvent) => {
+		// The row is an <a>; block navigation on the archive click and
+		// call the API instead. Also stop propagation so parent
+		// listeners don't see a bubbled click.
+		e.preventDefault();
+		e.stopPropagation();
+		const res = await WarRoomsService.archive(room.war_room_id);
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			toast({ title: `Archived "${room.name}"` });
+			await load();
+			archivedOpen = true;
+		} else {
+			toast({
+				title: 'Could not archive war room',
+				description: res.error?.message ?? 'Unknown error',
+				variant: 'destructive'
+			});
+		}
+	};
+
+	const doUnarchive = async (room: WarRoom, e: MouseEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		const res = await WarRoomsService.unarchive(room.war_room_id);
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			toast({ title: `Restored "${room.name}"` });
+			await load();
+		} else {
+			toast({
+				title: 'Could not unarchive war room',
+				description: res.error?.message ?? 'Unknown error',
+				variant: 'destructive'
+			});
+		}
 	};
 
 	onMount(load);
@@ -170,13 +222,84 @@
 	</div>
 
 	<div class="flex-1 overflow-y-auto">
+		{#snippet roomCard(room: WarRoom, isArchived: boolean)}
+			<a
+				href={`/war-rooms/${room.war_room_id}`}
+				class={[
+					'group flex h-full flex-col gap-2 rounded-lg border bg-card/50 p-4 transition-colors hover:bg-card',
+					isArchived && 'opacity-70 hover:opacity-100'
+				]}
+			>
+				<div class="flex items-start justify-between gap-2">
+					<div class="flex min-w-0 items-center gap-2">
+						{#if room.color}
+							<span
+								class="h-3 w-3 shrink-0 rounded-full"
+								style={`background-color: ${room.color};`}
+								aria-hidden="true"
+							></span>
+						{/if}
+						<h2 class="truncate text-sm font-semibold">{room.name}</h2>
+					</div>
+					<span
+						class={[
+							'shrink-0 rounded-full px-2 py-0.5 text-2xs font-medium uppercase tracking-wider ring-1',
+							stateColor(room.state)
+						]}
+					>
+						{room.state}
+					</span>
+				</div>
+				{#if room.description}
+					<p class="line-clamp-2 text-xs text-muted-foreground">
+						{room.description}
+					</p>
+				{/if}
+				<div class="mt-auto flex items-center justify-between gap-3 text-2xs text-muted-foreground">
+					<span>
+						{#if isArchived && room.archived_at}
+							Archived {new Date(room.archived_at).toLocaleDateString()}
+						{:else if room.created_at}
+							Created {new Date(room.created_at).toLocaleDateString()}
+						{/if}
+					</span>
+					<!--
+					  Archive / restore lives on the card so the operator
+					  doesn't have to open a war room just to file it away.
+					  Uses invisible-until-hover so the card stays clean at
+					  a glance.
+					-->
+					{#if isArchived}
+						<button
+							type="button"
+							class="invisible rounded px-1.5 py-0.5 text-2xs text-primary transition-colors hover:bg-primary/10 group-hover:visible"
+							onclick={(e) => doUnarchive(room, e)}
+							title="Move back to the live list"
+						>
+							Restore
+						</button>
+					{:else}
+						<button
+							type="button"
+							class="invisible inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-2xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground group-hover:visible"
+							onclick={(e) => doArchive(room, e)}
+							title="File this room away — state is preserved"
+						>
+							<Archive class="h-3 w-3" />
+							Archive
+						</button>
+					{/if}
+				</div>
+			</a>
+		{/snippet}
+
 		{#if loading}
 			<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
 				{#each Array(3) as _}
 					<Skeleton class="h-32 w-full" />
 				{/each}
 			</div>
-		{:else if rooms.length === 0}
+		{:else if activeRooms.length === 0 && archivedRooms.length === 0}
 			<div class="flex h-full flex-col items-center justify-center gap-2 text-center">
 				<ShieldAlert class="h-10 w-10 text-muted-foreground/50" />
 				<p class="text-sm text-muted-foreground">No war rooms yet.</p>
@@ -187,44 +310,56 @@
 				{/if}
 			</div>
 		{:else}
-			<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-				{#each rooms as room (room.war_room_id)}
-					<a
-						href={`/war-rooms/${room.war_room_id}`}
-						class="group flex h-full flex-col gap-2 rounded-lg border bg-card/50 p-4 transition-colors hover:bg-card"
-					>
-						<div class="flex items-start justify-between gap-2">
-							<div class="flex items-center gap-2 min-w-0">
-								{#if room.color}
-									<span
-										class="h-3 w-3 shrink-0 rounded-full"
-										style={`background-color: ${room.color};`}
-										aria-hidden="true"
-									></span>
-								{/if}
-								<h2 class="truncate text-sm font-semibold">{room.name}</h2>
-							</div>
-							<span
-								class={[
-									'shrink-0 rounded-full px-2 py-0.5 text-2xs font-medium uppercase tracking-wider ring-1',
-									stateColor(room.state)
-								]}
-							>
-								{room.state}
-							</span>
+			<div class="flex flex-col gap-6">
+				<!--
+				  Live rooms — sorted server-side by state priority
+				  (active → open → standby → closed), then by creation
+				  date desc. This is the operator's normal working list.
+				-->
+				<section class="flex flex-col gap-2">
+					{#if activeRooms.length === 0}
+						<p class="text-sm text-muted-foreground">
+							No live war rooms match the current filters.
+						</p>
+					{:else}
+						<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+							{#each activeRooms as room (room.war_room_id)}
+								{@render roomCard(room, false)}
+							{/each}
 						</div>
-						{#if room.description}
-							<p class="line-clamp-2 text-xs text-muted-foreground">
-								{room.description}
-							</p>
-						{/if}
-						<div class="mt-auto flex items-center gap-3 text-2xs text-muted-foreground">
-							{#if room.created_at}
-								<span>Created {new Date(room.created_at).toLocaleDateString()}</span>
+					{/if}
+				</section>
+
+				<!--
+				  Archived section: collapsed by default. Rooms live here
+				  after an operator files them away; state is preserved
+				  so they can be restored to exactly where they were.
+				-->
+				{#if archivedRooms.length > 0}
+					<section class="flex flex-col gap-2">
+						<button
+							type="button"
+							class="group flex items-center gap-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+							onclick={() => (archivedOpen = !archivedOpen)}
+							aria-expanded={archivedOpen}
+						>
+							{#if archivedOpen}
+								<ChevronDown class="h-3 w-3" />
+							{:else}
+								<ChevronRight class="h-3 w-3" />
 							{/if}
-						</div>
-					</a>
-				{/each}
+							<Archive class="h-3.5 w-3.5" />
+							Archived ({archivedRooms.length})
+						</button>
+						{#if archivedOpen}
+							<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+								{#each archivedRooms as room (room.war_room_id)}
+									{@render roomCard(room, true)}
+								{/each}
+							</div>
+						{/if}
+					</section>
+				{/if}
 			</div>
 		{/if}
 	</div>
