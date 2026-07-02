@@ -13,8 +13,6 @@
 		INVESTIGATION_FLOW_PANEL_CTX,
 		type InvestigationFlowPanelContext
 	} from '$lib/contexts/investigation-flow-panel.context.svelte';
-	import Button from '$lib/components/ui/button/button.svelte';
-	import { CheckSquareIcon } from 'lucide-svelte';
 	import type { UpdateAlertBody } from '$lib/services/alerts.service';
 	import type { AlertStatus } from '$lib/services/alert-status.service';
 	import { current_user } from '$lib/stores/auth.store';
@@ -168,36 +166,17 @@
 		<div class="flex items-center gap-2 text-sm text-muted-foreground">Loading...</div>
 	{:then alert}
 		{#if alert}
-			<!--
-			  Investigation-flow trigger — enabled only when a flow is
-			  attached to the alert (either by a rule or manually). Sits
-			  above the AlertCard because the flow panel opens on the
-			  LEFT of the layout, so keeping the trigger inside the alert
-			  body (which centers on the page) would leave the analyst
-			  hunting for what opened the side pane.
-			-->
-			{#if alert.investigation_flow}
-				<div class="flex justify-start">
-					<Button
-						variant="outline"
-						size="sm"
-						onclick={() =>
-							investigationFlowPanel.open({
-								id: alert.alert_id,
-								label: alert.alert_title ?? `Alert #${alert.alert_id}`
-							})}
-					>
-						<CheckSquareIcon class="mr-2 h-4 w-4" />
-						Investigation flow: {alert.investigation_flow.flow_name}
-					</Button>
-				</div>
-			{/if}
 			<AlertCard
 				{alert}
 				{alertStatuses}
 				onAssign={() => assign(alert)}
 				onAssignToCurrentUser={() => assignToCurrentUser(alert)}
 				onSetStatus={(s) => setStatus(s)}
+				onShowInvestigationFlow={() =>
+					investigationFlowPanel.open({
+						id: alert.alert_id,
+						label: alert.alert_title ?? `Alert #${alert.alert_id}`
+					})}
 				onShowEdit={() => (showAlertEdit = true)}
 				onShowHistory={() => (showAlertHistory = true)}
 				onShowComments={() =>

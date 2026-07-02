@@ -29,10 +29,40 @@
 
 	const alerts = getContext<AlertsContext>(ALERTS_CTX);
 
-	const commentsPanel = createCommentsPanelContext();
-	setContext<CommentsPanelContext>(COMMENTS_PANEL_CTX, commentsPanel);
+	// Both panels live on the RIGHT and target the same aside slot. To
+	// keep them mutually exclusive we wrap each context's `open()` to
+	// close its counterpart FIRST, synchronously — this is race-free
+	// (unlike an after-the-fact `$effect` which needs a tick to react
+	// and can transiently render both asides overlapping).
+	//
+	// The wrapper preserves the underlying context's own `state` /
+	// `close` / `clearEntity` via prototype spread so any consumer that
+	// captured the pre-wrap context still sees the same state object.
+	const rawCommentsPanel = createCommentsPanelContext();
+	const rawFlowPanel = createInvestigationFlowPanelContext();
 
-	const investigationFlowPanel = createInvestigationFlowPanelContext();
+	const commentsPanel: CommentsPanelContext = {
+		...rawCommentsPanel,
+		get state() {
+			return rawCommentsPanel.state;
+		},
+		open: (entity) => {
+			rawFlowPanel.close();
+			rawCommentsPanel.open(entity);
+		}
+	};
+	const investigationFlowPanel: InvestigationFlowPanelContext = {
+		...rawFlowPanel,
+		get state() {
+			return rawFlowPanel.state;
+		},
+		open: (entity) => {
+			rawCommentsPanel.close();
+			rawFlowPanel.open(entity);
+		}
+	};
+
+	setContext<CommentsPanelContext>(COMMENTS_PANEL_CTX, commentsPanel);
 	setContext<InvestigationFlowPanelContext>(INVESTIGATION_FLOW_PANEL_CTX, investigationFlowPanel);
 
 	// Refresh the alert whenever the panel closes against an entity, so
@@ -57,6 +87,7 @@
 			void alerts.get(id);
 		}
 	});
+
 </script>
 
 <!--
@@ -73,18 +104,24 @@
   layout did.
 -->
 <div class="flex h-full w-full grow gap-3 sm:gap-4">
+	<div class="flex min-h-0 min-w-0 flex-1 flex-col">
+		{@render children()}
+	</div>
+
+	<!--
+	  Both the investigation-flow pane and the comments pane live on the
+	  right. Mutually exclusive at open time (see the $effect above) so
+	  only one is ever mounted — no need for gymnastics to fit both in
+	  the same column.
+	-->
 	{#if investigationFlowPanel.state.open}
 		<aside
-			class="my-3 ml-3 h-[calc(100%-1.5rem)] w-full max-w-md shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elevation-2 sm:my-4 sm:ml-4 sm:h-[calc(100%-2rem)]"
+			class="my-3 mr-3 h-[calc(100%-1.5rem)] w-full max-w-md shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elevation-2 sm:my-4 sm:mr-4 sm:h-[calc(100%-2rem)]"
 			aria-label="Investigation flow"
 		>
 			<InvestigationFlowPanel />
 		</aside>
 	{/if}
-
-	<div class="flex min-h-0 min-w-0 flex-1 flex-col">
-		{@render children()}
-	</div>
 
 	{#if commentsPanel.state.open}
 		<aside

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import {
+		CheckSquareIcon,
 		ChevronDownIcon,
 		EllipsisVerticalIcon,
 		FileSymlinkIcon,
@@ -44,7 +45,8 @@
 		onShowMerge,
 		onShowClose,
 		onUnlinkCase,
-		onDelete
+		onDelete,
+		onShowInvestigationFlow
 	}: {
 		alert: Alert;
 		alertStatuses: AlertStatus[];
@@ -61,6 +63,11 @@
 		onShowClose: (withNote: boolean) => void;
 		onUnlinkCase: (case_id: number) => void;
 		onDelete: () => void;
+		// Optional — only surfaced when the parent supplies a handler AND
+		// the alert has a flow attached. Kept optional so the countless
+		// other AlertCard call sites (which don't know about flows) don't
+		// need to be touched.
+		onShowInvestigationFlow?: () => void;
 	} = $props();
 
 	const getBackgroundBySeverity = (severity: string): string => {
@@ -151,6 +158,29 @@
 			</div>
 
 			<div class="flex min-w-0 flex-wrap items-center gap-3 sm:gap-6">
+				<!--
+				  Investigation-flow trigger — always visible when a flow
+				  is attached (unlike the neighbouring actions row it does
+				  NOT hide behind :hover, because the button doubles as an
+				  indicator that this alert has a checklist ready).
+				  Rendered outside Collapsible.Trigger so clicking it does
+				  not toggle the card. Handler is optional — call sites
+				  that don't wire it up simply won't see the button.
+				-->
+				{#if alert.investigation_flow && onShowInvestigationFlow}
+					<Button
+						variant="outline"
+						size="xs"
+						class="border-primary/40 text-primary hover:bg-primary/10"
+						onclick={(e) => {
+							e.stopPropagation();
+							onShowInvestigationFlow?.();
+						}}
+					>
+						<CheckSquareIcon class="mr-1 h-3.5 w-3.5" />
+						Investigation flow
+					</Button>
+				{/if}
 				<div
 					class={`hidden flex-wrap items-center gap-2 transition-opacity sm:flex ${showHeaderActions ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
 				>

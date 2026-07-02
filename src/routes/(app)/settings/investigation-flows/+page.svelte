@@ -34,6 +34,7 @@
 	import { Loading } from '$lib/components/ui/loading';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { toast } from '$lib/components/ui/toast';
+	import { MarkDownEditor } from '$lib/components/common/MarkDown';
 	import ConditionsBuilder, {
 		emptyRootGroup,
 		type GroupNode
@@ -449,23 +450,52 @@
 												onblur={() => saveStep(step)}
 												placeholder="Step title"
 											/>
-											<Textarea
-												class="mt-2"
-												rows={2}
-												placeholder="Description (markdown supported)"
-												bind:value={step.step_description as string}
-												onblur={() => saveStep(step)}
-											/>
+											<!--
+											  Rich markdown description editor — same one
+											  analysts use for comments and case notes, so
+											  step descriptions support links, fenced code
+											  blocks, admonition-style blockquotes, tables,
+											  and mentions. `initialMode="edit-preview"`
+											  is a split view: authoring on the left, live
+											  preview on the right, so authors can see what
+											  analysts will see in the pane. onSave fires
+											  on ⌘/Ctrl-S; the explicit "Save" button below
+											  makes it discoverable.
+											-->
 											<label
-												class="mt-2 inline-flex items-center gap-2 text-xs text-muted-foreground"
+												for="step-desc-{step.step_id}"
+												class="mt-2 block text-2xs uppercase tracking-wide text-muted-foreground"
 											>
-												<input
-													type="checkbox"
-													bind:checked={step.step_is_required}
-													onchange={() => saveStep(step)}
-												/>
-												Required step
+												Description
 											</label>
+											<div id="step-desc-{step.step_id}" class="mt-1">
+												<MarkDownEditor
+													value={step.step_description ?? ''}
+													onChange={(v: string) =>
+														(step.step_description = v)}
+													onSave={() => saveStep(step)}
+													initialMode="edit-preview"
+												/>
+											</div>
+											<div class="mt-1 flex items-center justify-between">
+												<label
+													class="inline-flex items-center gap-2 text-xs text-muted-foreground"
+												>
+													<input
+														type="checkbox"
+														bind:checked={step.step_is_required}
+														onchange={() => saveStep(step)}
+													/>
+													Required step
+												</label>
+												<Button
+													size="xs"
+													variant="outline"
+													onclick={() => saveStep(step)}
+												>
+													Save description
+												</Button>
+											</div>
 										</div>
 										<div class="flex shrink-0 flex-col gap-1">
 											<Button
