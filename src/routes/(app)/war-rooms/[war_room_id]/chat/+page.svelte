@@ -59,6 +59,7 @@
 		type WarRoomCaseAttachment
 	} from '$lib/services/war-rooms.service';
 	import { current_user } from '$lib/stores/auth.store';
+	import { UsersService } from '$lib/services/users.service';
 	import { CaseIocsService } from '$lib/services/case-iocs.service';
 	import { CaseAssetsService } from '$lib/services/case-assets.service';
 	import { CaseTimelineService } from '$lib/services/case-timeline.service';
@@ -117,6 +118,81 @@
 	// Per-case exclusions. Empty by default — operator opts out.
 	let excludedCases = $state<Set<number>>(new Set());
 	let excludedCaseActivities = $state<Record<number, Set<string>>>({});
+
+	// --- Persistent filter preferences ----------------------------------
+	//
+	// One preference bag per user, keyed as `war_room_stream`, applies
+	// across every war room they open. Loaded once on mount from the
+	// server; saved with a debounce whenever the operator flips a
+	// toggle. Sets aren't JSON — we serialize them as arrays and
+	// rehydrate back into Sets on read. The `filtersHydrated` gate
+	// stops us from persisting the initial-render defaults before the
+	// server round-trip finishes, which would race the server-side
+	// preference back to defaults.
+	type StreamPrefs = {
+		globalFilters: string[];
+		excludedCases: number[];
+		excludedCaseActivities: Record<string, string[]>;
+	};
+	const STREAM_PREF_KEY = 'war_room_stream';
+	let filtersHydrated = $state(false);
+	let savePrefTimer: ReturnType<typeof setTimeout> | null = null;
+
+	const loadFilterPrefs = async () => {
+		try {
+			const res = await UsersService.getMyPreference<StreamPrefs>(STREAM_PREF_KEY);
+			if (res.ok && res.data && typeof res.data !== 'string') {
+				const value = (res.data as { value: StreamPrefs | null }).value;
+				if (value && typeof value === 'object') {
+					if (Array.isArray(value.globalFilters)) {
+						globalFilters = new Set(value.globalFilters);
+					}
+					if (Array.isArray(value.excludedCases)) {
+						excludedCases = new Set(value.excludedCases);
+					}
+					if (value.excludedCaseActivities && typeof value.excludedCaseActivities === 'object') {
+						const next: Record<number, Set<string>> = {};
+						for (const [k, v] of Object.entries(value.excludedCaseActivities)) {
+							const caseId = Number(k);
+							if (Number.isFinite(caseId) && Array.isArray(v)) {
+								next[caseId] = new Set(v);
+							}
+						}
+						excludedCaseActivities = next;
+					}
+				}
+			}
+		} finally {
+			filtersHydrated = true;
+		}
+	};
+
+	const saveFilterPrefsNow = async () => {
+		const payload: StreamPrefs = {
+			globalFilters: Array.from(globalFilters),
+			excludedCases: Array.from(excludedCases),
+			excludedCaseActivities: Object.fromEntries(
+				Object.entries(excludedCaseActivities).map(([k, v]) => [k, Array.from(v)])
+			)
+		};
+		await UsersService.setMyPreference(STREAM_PREF_KEY, payload);
+	};
+
+	// Every relevant state change schedules a save 500ms later. That
+	// coalesces bursts (e.g. toggling several checkboxes in a row) into
+	// a single PUT while still feeling responsive if the operator moves
+	// on. The `$effect` reads all three states so any of them changing
+	// arms the timer.
+	$effect(() => {
+		void globalFilters;
+		void excludedCases;
+		void excludedCaseActivities;
+		if (!filtersHydrated) return;
+		if (savePrefTimer) clearTimeout(savePrefTimer);
+		savePrefTimer = setTimeout(() => {
+			void saveFilterPrefsNow();
+		}, 500);
+	});
 
 	// Grouped activity types. Categories collapse the 27 flat checkboxes
 	// from earlier into 8 expandable groups so the sidebar stays compact
@@ -459,6 +535,12 @@
 	};
 
 	onMount(() => {
+		// Hydrate filter prefs before the first paint so the sidebar
+		// renders with the operator's saved selection rather than the
+		// "everything on" defaults. `void`d intentionally: the load
+		// helpers below don't depend on prefs, they'll rerender when
+		// the filters settle.
+		void loadFilterPrefs();
 		void load();
 		void loadAttachedCases();
 		void loadThreads();

@@ -86,4 +86,31 @@ export class UsersService {
 	): Promise<RequestResponse<null>> {
 		return ApiService.delete<null>(`/manage/users/${userId}`, options);
 	}
+
+	// --- Per-user preferences --------------------------------------------
+	//
+	// Read/write a single top-level key in the caller's own preferences
+	// JSONB bag. `T` lets each feature namespace declare its own shape
+	// at the call site (e.g. `getMyPreference<WarRoomStreamPrefs>('war_room_stream')`).
+	static async getMyPreference<T = unknown>(
+		key: string,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<{ key: string; value: T | null }>> {
+		return ApiService.get<{ key: string; value: T | null }>(
+			`/manage/users/me/preferences/${encodeURIComponent(key)}`,
+			options
+		);
+	}
+
+	static async setMyPreference<T = unknown>(
+		key: string,
+		value: T | null,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<{ key: string; value: T | null }>> {
+		return ApiService.put<{ key: string; value: T | null }>(
+			`/manage/users/me/preferences/${encodeURIComponent(key)}`,
+			{ value },
+			options
+		);
+	}
 }
