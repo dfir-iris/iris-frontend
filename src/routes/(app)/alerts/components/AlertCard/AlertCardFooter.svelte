@@ -204,21 +204,23 @@
 			</Tooltip>
 		</TooltipProvider>
 
-		<TooltipProvider>
-			<Tooltip>
-				<TooltipTrigger class="cursor-default">
-					<div class="flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-2xs font-medium text-foreground">
-						<ShieldAlertIcon size="12" />
+		{#if alert.classification?.name}
+			<TooltipProvider>
+				<Tooltip>
+					<TooltipTrigger class="cursor-default">
+						<div class="flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-2xs font-medium text-foreground">
+							<ShieldAlertIcon size="12" />
 
-						{alert.classification.name}
-					</div>
-				</TooltipTrigger>
+							{alert.classification.name}
+						</div>
+					</TooltipTrigger>
 
-				<TooltipContent>
-					<p class="text-xs">Alert classification</p>
-				</TooltipContent>
-			</Tooltip>
-		</TooltipProvider>
+					<TooltipContent>
+						<p class="text-xs">Alert classification</p>
+					</TooltipContent>
+				</Tooltip>
+			</TooltipProvider>
+		{/if}
 	</div>
 
 	{#if alert.alert_tags}

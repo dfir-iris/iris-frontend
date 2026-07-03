@@ -43,7 +43,7 @@
 					</div>
 					<div class="text-xs font-medium">{item.alert_description}</div>
 				</div>
-                {#if item.classification.name_expanded}
+                {#if item.classification?.name_expanded}
                     <div class="flex items-center gap-2">
                         <StatusBadge status={item.status?.status_name} icon_only={true}/>
 						<SeverityBadge severity={item.severity.severity_name} icon_only={true} />
