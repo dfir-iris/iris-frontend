@@ -13,7 +13,7 @@
 
   Closed war rooms get a soft red gradient banner to match the case
   closed banner — the visual cue is the same so an operator working
-  multiple incidents can tell at a glance which workspace they're in.
+  multiple alert clusters can tell at a glance which workspace they're in.
 -->
 <script lang="ts">
 	import { getContext, tick } from 'svelte';
@@ -77,7 +77,7 @@
 
 	const stateChip = (state?: WarRoomState | string) => {
 		// Lined up with the SOC IR severity palette: active = red (live
-		// incident), open = amber (engaged but not on fire), standby =
+		// cluster), open = amber (engaged but not on fire), standby =
 		// blue (monitoring), closed = neutral.
 		switch (state) {
 			case 'active':

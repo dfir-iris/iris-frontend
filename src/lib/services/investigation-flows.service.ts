@@ -130,35 +130,35 @@ export class InvestigationFlowsService {
 		);
 	}
 
-	// --- Incident-scoped progress (mirrors the alert endpoints) ---
+	// --- AlertCluster-scoped progress (mirrors the alert endpoints) ---
 
-	static async getIncidentProgress(incidentId: number, options: ApiOptions = {}) {
+	static async getAlertClusterProgress(alertClusterId: number, options: ApiOptions = {}) {
 		return ApiService.get<InvestigationOverview>(
-			`/api/v2/incidents/${incidentId}/investigation-progress`,
+			`/api/v2/alert-clusters/${alertClusterId}/investigation-progress`,
 			options
 		);
 	}
 
-	static async recordIncidentProgress(
-		incidentId: number,
+	static async recordAlertClusterProgress(
+		alertClusterId: number,
 		stepId: number,
 		note: string | undefined,
 		options: ApiOptions = {}
 	) {
 		return ApiService.post<InvestigationProgress, { note?: string }>(
-			`/api/v2/incidents/${incidentId}/investigation-progress/${stepId}`,
+			`/api/v2/alert-clusters/${alertClusterId}/investigation-progress/${stepId}`,
 			{ note },
 			options
 		);
 	}
 
-	static async uncheckIncidentProgress(
-		incidentId: number,
+	static async uncheckAlertClusterProgress(
+		alertClusterId: number,
 		stepId: number,
 		options: ApiOptions = {}
 	) {
 		return ApiService.delete<null>(
-			`/api/v2/incidents/${incidentId}/investigation-progress/${stepId}`,
+			`/api/v2/alert-clusters/${alertClusterId}/investigation-progress/${stepId}`,
 			options
 		);
 	}

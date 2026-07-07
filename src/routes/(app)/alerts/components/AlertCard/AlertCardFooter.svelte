@@ -52,22 +52,22 @@
 
 <Card.Footer class="flex flex-col items-start gap-2 !px-4 !py-3">
 	<!--
-	  Incident linkage row — sits above the cases row on purpose. In
-	  the analyst workflow "which incident owns this alert" is the
+	  AlertCluster linkage row — sits above the cases row on purpose. In
+	  the analyst workflow "which alert cluster owns this alert" is the
 	  more triage-critical question than "which case does it belong
 	  to" (cases only appear after escalation). Rendering it first
 	  puts it where the eye lands.
 	-->
-	{#if alert.incidents?.length}
+	{#if alert.clusters?.length}
 		<div class="flex flex-wrap items-center gap-2">
-			{#each alert.incidents as incidentId (incidentId)}
+			{#each alert.clusters as alertClusterId (alertClusterId)}
 				<a
-					href={`/incidents/${incidentId}`}
+					href={`/alert-clusters/${alertClusterId}`}
 					class="inline-flex items-center gap-1 rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-0.5 text-2xs font-medium text-red-700 transition-colors hover:bg-red-500/20 dark:text-red-300"
-					title={`Part of incident #${incidentId}`}
+					title={`Part of alert cluster #${alertClusterId}`}
 				>
 					<ShieldIcon size="12" />
-					Incident #{incidentId}
+					AlertCluster #{alertClusterId}
 				</a>
 			{/each}
 		</div>

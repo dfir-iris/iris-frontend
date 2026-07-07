@@ -80,11 +80,11 @@
 			requires: 'alerts_read'
 		},
 		{
-			label: 'Incidents',
-			path: '/incidents',
+			label: 'Alert Clusters',
+			path: '/alert-clusters',
 			icon: LayersIcon,
 			matchPrefix: true,
-			requires: 'incidents_read'
+			requires: 'alert_clusters_read'
 		},
 		{
 			label: 'War Rooms',

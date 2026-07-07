@@ -32,7 +32,7 @@
 		{ icon: LockKeyholeIcon, label: 'Access Control', href: '/access-control' },
 		{ icon: BellIcon, label: 'Notifications', href: '/notifications' },
 		{ icon: MailIcon, label: 'Mail rules', href: '/mail' },
-		{ icon: FilterIcon, label: 'Incident rules', href: '/incident-rules' },
+		{ icon: FilterIcon, label: 'Clustering Rules', href: '/cluster-rules' },
 		{ icon: CheckSquareIcon, label: 'Investigation flows', href: '/investigation-flows' },
 		{ icon: SettingsIcon, label: 'Server Settings', href: '/server' }
 	];

@@ -1,5 +1,5 @@
 <!--
-  Incidents overview. Same visual language as the cases-list page:
+  AlertClusters overview. Same visual language as the cases-list page:
   white workspace, `h1` heading, filter row inline with search on the
   right, a bordered table below with column headers and hover rows.
   Rich per-row metadata (severity chip, status pill, id/title, alert
@@ -21,18 +21,18 @@
 	} from '$lib/components/ui/select';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import AlertsPagination from '../alerts/components/alerts-pagination.svelte';
-	import { IncidentsService, type PaginatedIncidents } from '$lib/services/incidents.service';
+	import { AlertClustersService, type PaginatedAlertClusters } from '$lib/services/alert-clusters.service';
 	import {
-		IncidentStatusService,
-		type IncidentStatus
-	} from '$lib/services/incident-status.service';
+		AlertClusterStatusService,
+		type AlertClusterStatus
+	} from '$lib/services/alert-cluster-status.service';
 	import { SeveritiesService, type Severity } from '$lib/services/severities.service';
 	import { CustomersService, type Customer } from '$lib/services/customers.service';
-	import type { Incident } from '$lib/types/resources/incident';
+	import type { AlertCluster } from '$lib/types/resources/alert-cluster';
 	import { DEFAULT_DEBOUNCE, DEFAULT_ITEMS_PER_PAGE } from '$lib/config/api.config';
 	import { mediumDateTimeFormatter } from '$lib/utils/time-formatter';
 
-	let incidents = $state<Incident[]>([]);
+	let clusters = $state<AlertCluster[]>([]);
 	let total = $state(0);
 	let pageNum = $state(1);
 	let perPage = $state(DEFAULT_ITEMS_PER_PAGE);
@@ -43,7 +43,7 @@
 	let loading = $state(false);
 	let searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
-	let statuses = $state<IncidentStatus[]>([]);
+	let statuses = $state<AlertClusterStatus[]>([]);
 	let severities = $state<Severity[]>([]);
 	let customers = $state<Customer[]>([]);
 
@@ -91,16 +91,16 @@
 	const load = async () => {
 		loading = true;
 		try {
-			const res = await IncidentsService.list({
+			const res = await AlertClustersService.list({
 				page: pageNum,
 				per_page: perPage,
 				title: titleFilter || undefined,
 				status_id: statusFilter ? Number(statusFilter) : undefined,
 				customer_id: customerFilter ? Number(customerFilter) : undefined,
-				sort: 'incident_creation_time desc'
+				sort: 'cluster_creation_time desc'
 			});
 			const payload =
-				res.data && typeof res.data === 'object' ? (res.data as PaginatedIncidents) : null;
+				res.data && typeof res.data === 'object' ? (res.data as PaginatedAlertClusters) : null;
 			let list = payload?.data ?? [];
 			// Severity is client-side filtered: the backend search API
 			// doesn't expose severity as a query param yet. Cheap for
@@ -108,9 +108,9 @@
 			// grows unwieldy.
 			if (severityFilter) {
 				const target = Number(severityFilter);
-				list = list.filter((i) => i.incident_severity_id === target);
+				list = list.filter((i) => i.cluster_severity_id === target);
 			}
-			incidents = list;
+			clusters = list;
 			total = payload?.total ?? 0;
 		} finally {
 			loading = false;
@@ -149,9 +149,9 @@
 	);
 
 	onMount(async () => {
-		void IncidentStatusService.list().then((r) => {
+		void AlertClusterStatusService.list().then((r) => {
 			if (r.data && typeof r.data === 'object') {
-				statuses = (r.data as { data?: IncidentStatus[] }).data ?? [];
+				statuses = (r.data as { data?: AlertClusterStatus[] }).data ?? [];
 			}
 		});
 		void SeveritiesService.list().then((r) => {
@@ -170,7 +170,7 @@
 </script>
 
 <svelte:head>
-	<title>Incidents</title>
+	<title>Alert Clusters</title>
 </svelte:head>
 
 <!--
@@ -185,7 +185,7 @@
 	>
 	<!-- ==================== Header ==================== -->
 	<div class="flex shrink-0 flex-row items-center gap-4">
-		<h1 class="text-xl font-semibold tracking-tight">Incidents</h1>
+		<h1 class="text-xl font-semibold tracking-tight">Alert Clusters</h1>
 		<span class="text-xs text-muted-foreground">
 			{total} total — alert clusters awaiting triage
 		</span>
@@ -308,7 +308,7 @@
 					class="sticky top-0 z-10 bg-muted/50 text-left text-2xs uppercase tracking-wide text-muted-foreground backdrop-blur"
 				>
 					<tr>
-						<th class="px-4 py-2.5 font-medium">Incident</th>
+						<th class="px-4 py-2.5 font-medium">Alert Cluster</th>
 						<th class="px-4 py-2.5 font-medium">Severity</th>
 						<th class="px-4 py-2.5 font-medium">Status</th>
 						<th class="px-4 py-2.5 text-center font-medium">Alerts</th>
@@ -325,38 +325,38 @@
 								<div class="flex justify-center"><Loading /></div>
 							</td>
 						</tr>
-					{:else if incidents.length === 0}
+					{:else if clusters.length === 0}
 						<tr>
 							<td colspan="8" class="px-4 py-16">
 								<div class="flex flex-col items-center gap-2 text-center">
 									<ShieldAlertIcon class="h-8 w-8 text-muted-foreground/50" />
-									<p class="text-sm font-medium">No incidents match</p>
+									<p class="text-sm font-medium">No alert clusters match</p>
 									<p class="text-xs text-muted-foreground">
 										{hasActiveFilters
 											? 'Try widening your filters.'
-											: 'Incidents will appear here as rules fire.'}
+											: 'AlertClusters will appear here as rules fire.'}
 									</p>
 								</div>
 							</td>
 						</tr>
 					{:else}
-						{#each incidents as inc (inc.incident_id)}
+						{#each clusters as inc (inc.cluster_id)}
 							<tr
 								class="cursor-pointer border-t transition-colors hover:bg-muted/30"
-								onclick={() => goto(`/incidents/${inc.incident_id}`)}
+								onclick={() => goto(`/alert-clusters/${inc.cluster_id}`)}
 							>
 								<td class="max-w-md px-4 py-3">
 									<div class="flex min-w-0 items-center gap-2">
 										<span class="truncate font-medium">
-											<span class="text-muted-foreground">#{inc.incident_id}</span>
-											— {inc.incident_title}
+											<span class="text-muted-foreground">#{inc.cluster_id}</span>
+											— {inc.cluster_title}
 										</span>
-										{#if inc.incident_case_id}
+										{#if inc.cluster_case_id}
 											<span
 												class="rounded-full bg-green-500/10 px-1.5 py-0.5 text-2xs font-medium text-green-700"
 												title="Escalated to case"
 											>
-												→ case #{inc.incident_case_id}
+												→ case #{inc.cluster_case_id}
 											</span>
 										{/if}
 									</div>
@@ -365,10 +365,10 @@
 								<td class="px-4 py-3">
 									<span
 										class="inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-medium {severityChip(
-											severityLabel(inc.incident_severity_id)
+											severityLabel(inc.cluster_severity_id)
 										)}"
 									>
-										{severityLabel(inc.incident_severity_id)}
+										{severityLabel(inc.cluster_severity_id)}
 									</span>
 								</td>
 
@@ -414,7 +414,7 @@
 								</td>
 
 								<td class="px-4 py-3 text-xs text-muted-foreground">
-									{mediumDateTimeFormatter(new Date(inc.incident_creation_time))}
+									{mediumDateTimeFormatter(new Date(inc.cluster_creation_time))}
 								</td>
 							</tr>
 						{/each}
@@ -428,7 +428,7 @@
 	{#if total > 0 && totalPages > 1}
 		<div class="flex shrink-0 items-center justify-between">
 			<p class="text-2xs text-muted-foreground">
-				Page {pageNum} of {totalPages} — {total} incident{total === 1 ? '' : 's'}
+				Page {pageNum} of {totalPages} — {total} alert cluster{total === 1 ? '' : 's'}
 			</p>
 			<AlertsPagination
 				page={pageNum}

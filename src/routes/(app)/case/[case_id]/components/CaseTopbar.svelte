@@ -25,7 +25,7 @@
 	import { AlertService } from '$lib/services/alerts.service';
 	import { CaseService } from '$lib/services/case.service';
 	import { FollowedCasesService, type CaseFollower } from '$lib/services/followed-cases.service';
-	import { IncidentsService } from '$lib/services/incidents.service';
+	import { AlertClustersService } from '$lib/services/alert-clusters.service';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
 	import {
 		SeveritiesService,
@@ -365,53 +365,53 @@
 		void loadLinkedAlerts(id);
 	});
 
-	// Source-incident chip. Cases created via incident escalate/merge
-	// carry a back-link to the incident; we surface it in the topbar
+	// Source-alert cluster chip. Cases created via alert cluster escalate/merge
+	// carry a back-link to the cluster; we surface it in the topbar
 	// next to the linked-alerts chip so analysts can hop back with one
 	// click. Loaded eagerly on case switch — same lazy-avoiding pattern
 	// as the alerts chip so the label appears without a popover click.
-	let sourceIncident = $state<import('$lib/services/incidents.service').CaseSourceIncident | null>(
+	let sourceAlertCluster = $state<import('$lib/services/alert-clusters.service').CaseSourceAlertCluster | null>(
 		null
 	);
-	let lastLoadedSourceIncidentCaseId = -1;
+	let lastLoadedSourceAlertClusterCaseId = -1;
 
-	const loadSourceIncident = async (id: number) => {
+	const loadSourceAlertCluster = async (id: number) => {
 		try {
-			const res = await IncidentsService.forCase(id);
+			const res = await AlertClustersService.forCase(id);
 			if (res.ok && res.data && typeof res.data === 'object') {
-				sourceIncident = res.data;
+				sourceAlertCluster = res.data;
 			} else {
-				sourceIncident = null;
+				sourceAlertCluster = null;
 			}
 		} catch {
-			sourceIncident = null;
+			sourceAlertCluster = null;
 		}
 	};
 
 	$effect(() => {
 		const id = caseData?.case_id;
-		if (id == null || id === lastLoadedSourceIncidentCaseId) return;
-		lastLoadedSourceIncidentCaseId = id;
-		sourceIncident = null;
-		void loadSourceIncident(id);
+		if (id == null || id === lastLoadedSourceAlertClusterCaseId) return;
+		lastLoadedSourceAlertClusterCaseId = id;
+		sourceAlertCluster = null;
+		void loadSourceAlertCluster(id);
 	});
 
-	// Confirmation is intentional: unlinking rewrites the incident's
+	// Confirmation is intentional: unlinking rewrites the alert cluster's
 	// status back to Investigating AND detaches every member alert from
 	// the case (each alert flips back to Assigned). That's not something
 	// we want a mis-click to trigger.
-	let showConfirmUnlinkIncident = $state(false);
+	let showConfirmUnlinkAlertCluster = $state(false);
 
-	const unlinkSourceIncident = () => {
-		if (!sourceIncident) return;
-		showConfirmUnlinkIncident = true;
+	const unlinkSourceAlertCluster = () => {
+		if (!sourceAlertCluster) return;
+		showConfirmUnlinkAlertCluster = true;
 	};
 
-	const confirmUnlinkSourceIncident = async () => {
+	const confirmUnlinkSourceAlertCluster = async () => {
 		const id = caseData?.case_id;
 		if (id == null) return;
 		try {
-			const res = await CaseService.unlinkSourceIncident(id);
+			const res = await CaseService.unlinkSourceAlertCluster(id);
 			if (!res.ok) {
 				const msg =
 					(res.data as { message?: string } | null)?.message ??
@@ -420,8 +420,8 @@
 				toast({ title: 'Unlink failed', description: msg, variant: 'destructive' });
 				return;
 			}
-			toast({ title: 'Incident unlinked from case' });
-			sourceIncident = null;
+			toast({ title: 'AlertCluster unlinked from case' });
+			sourceAlertCluster = null;
 			// Also refresh linked-alerts count — the unlink dropped every
 			// member alert off the case, so the chip should shrink.
 			void loadLinkedAlerts(id);
@@ -991,38 +991,38 @@
 		{/if}
 
 		<!--
-		  Source-incident chip. Rendered only when this case was created
-		  from (or merged into by) an incident. Doubles as a dropdown so
-		  analysts can either jump back to the incident or unlink the
-		  case-incident relationship in one place; the visual matches the
+		  Source-alert cluster chip. Rendered only when this case was created
+		  from (or merged into by) an cluster. Doubles as a dropdown so
+		  analysts can either jump back to the alert cluster or unlink the
+		  case-alert cluster relationship in one place; the visual matches the
 		  linked-alerts chip so it reads as a peer navigation control.
 		-->
-		{#if sourceIncident}
+		{#if sourceAlertCluster}
 			<DropdownMenu>
 				<DropdownMenuTrigger>
 					<span
 						class="inline-flex h-7 cursor-pointer items-center gap-1 rounded-sm border border-red-500/30 bg-red-500/10 px-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-2 dark:text-red-300"
-						title={`Incident #${sourceIncident.incident_id}: ${sourceIncident.incident_title}`}
+						title={`Alert Cluster #${sourceAlertCluster.cluster_id}: ${sourceAlertCluster.cluster_title}`}
 					>
 						<ShieldAlert size={13} />
-						<span class="tabular-nums">#{sourceIncident.incident_id}</span>
+						<span class="tabular-nums">#{sourceAlertCluster.cluster_id}</span>
 						<span class="hidden max-w-[10rem] truncate md:inline">
-							{sourceIncident.incident_title}
+							{sourceAlertCluster.cluster_title}
 						</span>
 					</span>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end" class="min-w-[220px]">
-					<DropdownMenuLabel>Source incident</DropdownMenuLabel>
+					<DropdownMenuLabel>Source alert cluster</DropdownMenuLabel>
 					<DropdownMenuSeparator />
-					<DropdownMenuItem onclick={() => goto(`/incidents/${sourceIncident?.incident_id}`)}>
-						Open incident #{sourceIncident.incident_id}
+					<DropdownMenuItem onclick={() => goto(`/alert-clusters/${sourceAlertCluster?.cluster_id}`)}>
+						Open alert cluster #{sourceAlertCluster.cluster_id}
 					</DropdownMenuItem>
 					{#if canEdit}
 						<DropdownMenuItem
 							class="text-destructive focus:text-destructive"
-							onclick={unlinkSourceIncident}
+							onclick={unlinkSourceAlertCluster}
 						>
-							Unlink from incident
+							Unlink from alert cluster
 						</DropdownMenuItem>
 					{/if}
 				</DropdownMenuContent>
@@ -1239,8 +1239,8 @@
 </div>
 
 <ConfirmationDialog
-	bind:open={showConfirmUnlinkIncident}
-	title="Unlink incident from case?"
-	message={`Incident #${sourceIncident?.incident_id ?? ''} will go back to Investigating and every alert currently linked to this case will be detached (status reset to Assigned). The case itself remains.`}
-	onConfirm={confirmUnlinkSourceIncident}
+	bind:open={showConfirmUnlinkAlertCluster}
+	title="Unlink alert cluster from case?"
+	message={`Alert Cluster #${sourceAlertCluster?.cluster_id ?? ''} will go back to Investigating and every alert currently linked to this case will be detached (status reset to Assigned). The case itself remains.`}
+	onConfirm={confirmUnlinkSourceAlertCluster}
 />

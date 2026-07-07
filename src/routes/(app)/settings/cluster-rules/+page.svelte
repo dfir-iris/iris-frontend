@@ -1,5 +1,5 @@
 <!--
-  Incident-rules admin. Rules stack alerts into incidents.
+  Cluster-rules admin. Rules stack alerts into alert clusters.
 
   Investigation-flow attachment is authored on the *flow* itself (see
   /settings/investigation-flows) — this page focuses purely on the
@@ -20,12 +20,12 @@
 		emptyRootGroup,
 		type GroupNode
 	} from '$lib/components/common/ConditionsBuilder/ConditionsBuilder.svelte';
-	import { IncidentRulesService, type BackfillRuleResponse } from '$lib/services/incident-rules.service';
-	import type { IncidentRule } from '$lib/types/resources/incident-rule';
+	import { ClusterRulesService, type BackfillRuleResponse } from '$lib/services/cluster-rules.service';
+	import type { ClusterRule } from '$lib/types/resources/cluster-rule';
 
-	let rules = $state<IncidentRule[]>([]);
+	let rules = $state<ClusterRule[]>([]);
 	let loading = $state(false);
-	let editing = $state<IncidentRule | null>(null);
+	let editing = $state<ClusterRule | null>(null);
 	let conditionsTree = $state<GroupNode>(emptyRootGroup());
 	let timeWindowSeconds = $state<number | null>(null);
 	let groupByCsv = $state('');
@@ -62,7 +62,7 @@
 	};
 
 	let deleteOpen = $state(false);
-	let ruleToDelete = $state<IncidentRule | null>(null);
+	let ruleToDelete = $state<ClusterRule | null>(null);
 
 	let backfillOpen = $state(false);
 	let backfilling = $state(false);
@@ -78,8 +78,8 @@
 	const load = async () => {
 		loading = true;
 		try {
-			const res = await IncidentRulesService.list();
-			rules = (res.data as IncidentRule[]) ?? [];
+			const res = await ClusterRulesService.list();
+			rules = (res.data as ClusterRule[]) ?? [];
 		} catch {
 			showError('Failed to load rules');
 		} finally {
@@ -87,7 +87,7 @@
 		}
 	};
 
-	const startEdit = (rule: IncidentRule | null) => {
+	const startEdit = (rule: ClusterRule | null) => {
 		editing = rule ?? {
 			rule_id: 0,
 			rule_uuid: '',
@@ -97,7 +97,7 @@
 			rule_priority: 100,
 			rule_customer_scope: null,
 			rule_conditions: { logic: 'and', conditions: [] },
-			rule_action_type: 'create_incident',
+			rule_action_type: 'create_cluster',
 			rule_action_config: {},
 			rule_created_at: '',
 			rule_updated_at: ''
@@ -146,17 +146,17 @@
 						}
 					: {})
 			},
-			rule_action_type: 'create_incident' as const,
+			rule_action_type: 'create_cluster' as const,
 			rule_action_config: {
 				...(titleTemplate ? { title_template: titleTemplate } : {})
 			}
 		};
 		try {
 			if (editing.rule_id === 0) {
-				await IncidentRulesService.create(body);
+				await ClusterRulesService.create(body);
 				showSuccess('Rule created');
 			} else {
-				await IncidentRulesService.update(editing.rule_id, body);
+				await ClusterRulesService.update(editing.rule_id, body);
 				showSuccess('Rule updated');
 			}
 			editing = null;
@@ -166,7 +166,7 @@
 		}
 	};
 
-	const askDelete = (rule: IncidentRule) => {
+	const askDelete = (rule: ClusterRule) => {
 		ruleToDelete = rule;
 		deleteOpen = true;
 	};
@@ -174,7 +174,7 @@
 	const confirmDelete = async () => {
 		if (!ruleToDelete) return;
 		try {
-			await IncidentRulesService.remove(ruleToDelete.rule_id);
+			await ClusterRulesService.remove(ruleToDelete.rule_id);
 			showSuccess('Rule deleted');
 			ruleToDelete = null;
 			await load();
@@ -189,7 +189,7 @@
 			return;
 		}
 		try {
-			const res = await IncidentRulesService.test(editing.rule_id, {
+			const res = await ClusterRulesService.test(editing.rule_id, {
 				sample_days: sampleDays
 			});
 			testMatches =
@@ -203,7 +203,7 @@
 		if (!editing || editing.rule_id === 0) return;
 		backfilling = true;
 		try {
-			const res = await IncidentRulesService.backfill(editing.rule_id, {
+			const res = await ClusterRulesService.backfill(editing.rule_id, {
 				sample_days: sampleDays
 			});
 			const payload =
@@ -211,8 +211,8 @@
 			if (payload) {
 				const parts: string[] = [];
 				if (payload.attached) parts.push(`${payload.attached} attached`);
-				if (payload.skipped_already_in_incident)
-					parts.push(`${payload.skipped_already_in_incident} skipped (already in incident)`);
+				if (payload.skipped_already_in_cluster)
+					parts.push(`${payload.skipped_already_in_cluster} skipped (already in cluster)`);
 				if (payload.errors) parts.push(`${payload.errors} error(s)`);
 				const summary = parts.length
 					? parts.join(' · ')
@@ -231,7 +231,7 @@
 </script>
 
 <svelte:head>
-	<title>Incident rules</title>
+	<title>Clustering Rules</title>
 </svelte:head>
 
 <div class="flex h-full min-h-0 w-full flex-col gap-4 p-4">
@@ -239,9 +239,9 @@
 		<div class="flex items-center gap-2">
 			<FilterIcon class="h-5 w-5 text-muted-foreground" />
 			<div>
-				<h1 class="text-base font-semibold">Incident rules</h1>
+				<h1 class="text-base font-semibold">Clustering Rules</h1>
 				<p class="text-2xs uppercase tracking-wide text-muted-foreground">
-					Auto-stack alerts into incidents on match
+					Auto-stack alerts into alert clusters on match
 				</p>
 			</div>
 		</div>
@@ -255,7 +255,7 @@
 			<Loading />
 		{:else if rules.length === 0}
 			<p class="text-sm text-muted-foreground">
-				No rules yet. Create one to auto-group repeat alerts into a single incident.
+				No rules yet. Create one to auto-group repeat alerts into a single cluster.
 			</p>
 		{:else}
 			<div class="overflow-hidden rounded-md border">
@@ -388,9 +388,9 @@
 						Correlation
 					</p>
 					<p class="mb-3 text-xs text-muted-foreground">
-						Group matching alerts into <em>one incident</em> when they share the same value on
+						Group matching alerts into <em>one alert cluster</em> when they share the same value on
 						these fields, within the stacking window below. Example: 10 failed-login alerts
-						from the same host in 5 minutes → one “Brute force on host X” incident.
+						from the same host in 5 minutes → one “Brute force on host X” cluster.
 					</p>
 					<div class="mb-2 flex flex-wrap items-center gap-2">
 						{#each CORRELATION_PRESETS as preset (preset.field)}
@@ -423,7 +423,7 @@
 							<p class="text-2xs text-muted-foreground">
 								Tenant scope (<code class="rounded bg-muted px-1"
 									>alert_customer_id</code
-								>) is added automatically if you don't include it — an incident never
+								>) is added automatically if you don't include it — an alert cluster never
 								mixes tenants.
 							</p>
 						</div>
@@ -442,8 +442,8 @@
 							/>
 							<p class="text-2xs text-muted-foreground">
 								Alerts that arrive within this window and match the correlation keys
-								above stack into the same incident. Leave blank to stack forever (open
-								incident stays open).
+								above stack into the same cluster. Leave blank to stack forever (open
+								alert cluster stays open).
 							</p>
 						</div>
 					</div>
@@ -454,7 +454,7 @@
 						for="rule-title"
 						class="text-2xs uppercase tracking-wide text-muted-foreground"
 					>
-						Incident title template ({'{alert_title}'} is substituted from the first alert)
+						AlertCluster title template ({'{alert_title}'} is substituted from the first alert)
 					</label>
 					<Input
 						id="rule-title"
@@ -527,7 +527,7 @@
 <ConfirmationDialog
 	bind:open={backfillOpen}
 	title="Back-fill previous alerts?"
-	message={`Apply this rule to matching alerts from the last ${sampleDays} day${sampleDays === 1 ? '' : 's'}. Alerts already grouped into an incident are skipped, and the stacking window / group-by keys keep the operation idempotent — re-running produces no duplicates.`}
+	message={`Apply this rule to matching alerts from the last ${sampleDays} day${sampleDays === 1 ? '' : 's'}. Alerts already grouped into an alert cluster are skipped, and the stacking window / group-by keys keep the operation idempotent — re-running produces no duplicates.`}
 	confirmText="Back-fill"
 	confirmButtonVariant="default"
 	onConfirm={runBackfill}

@@ -1,7 +1,7 @@
 // Historically we also had 'attach_flow'; that action was removed in
 // favour of investigation flows carrying their own conditions. Rules
-// only stack alerts into incidents now.
-export type RuleAction = 'create_incident';
+// only stack alerts into clusters now.
+export type RuleAction = 'create_cluster';
 
 export interface RuleConditionLeaf {
 	field: string;
@@ -20,7 +20,7 @@ export interface RuleConditionGroup {
 export type RuleConditionNode = RuleConditionLeaf | RuleConditionGroup;
 
 // Root of the DSL — a group plus optional stacking metadata used by
-// the incident-rules `create_incident` action.
+// the cluster-rules `create_cluster` action.
 export interface RuleConditions {
 	logic?: 'and' | 'or' | 'not';
 	conditions: RuleConditionNode[];
@@ -32,7 +32,7 @@ export interface RuleConditions {
 // `RuleCondition` still resolves to the leaf shape.
 export type RuleCondition = RuleConditionLeaf;
 
-export interface IncidentRule {
+export interface ClusterRule {
 	rule_id: number;
 	rule_uuid: string;
 	rule_name: string;

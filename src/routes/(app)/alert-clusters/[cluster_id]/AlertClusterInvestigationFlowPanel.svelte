@@ -1,14 +1,14 @@
 <!--
-  Investigation-flow side pane for an incident. Local to the incident
+  Investigation-flow side pane for an cluster. Local to the alert cluster
   detail route (no cross-route context needed — an analyst only ever
-  looks at one incident at a time). Visual and interaction language
+  looks at one alert cluster at a time). Visual and interaction language
   mirrors `$lib/components/common/InvestigationFlow/InvestigationFlowPanel.svelte`
-  so the alert and incident checklists feel identical.
+  so the alert and alert cluster checklists feel identical.
 
   Differences vs the alert pane:
-    * Data source — `getIncidentProgress` + `recordIncidentProgress`.
+    * Data source — `getAlertClusterProgress` + `recordAlertClusterProgress`.
     * `entity` is passed in as a prop instead of read from context, so
-      the incident detail page can render this pane without needing a
+      the alert cluster detail page can render this pane without needing a
       workspace-level provider.
 -->
 <script lang="ts">
@@ -27,12 +27,12 @@
 		InvestigationOverview,
 		InvestigationProgress
 	} from '$lib/types/resources/investigation-flow';
-	import type { Incident } from '$lib/types/resources/incident';
+	import type { AlertCluster } from '$lib/types/resources/alert-cluster';
 
 	let {
-		incident,
+		cluster,
 		onClose
-	}: { incident: Incident; onClose: () => void } = $props();
+	}: { cluster: AlertCluster; onClose: () => void } = $props();
 
 	let overview = $state<InvestigationOverview | null>(null);
 	let loading = $state(false);
@@ -42,8 +42,8 @@
 	const load = async () => {
 		loading = true;
 		try {
-			const res = await InvestigationFlowsService.getIncidentProgress(
-				incident.incident_id
+			const res = await InvestigationFlowsService.getAlertClusterProgress(
+				cluster.cluster_id
 			);
 			overview = (res.data as InvestigationOverview) ?? null;
 		} finally {
@@ -52,7 +52,7 @@
 	};
 
 	$effect(() => {
-		void incident.incident_id;
+		void cluster.cluster_id;
 		void load();
 		noteDrafts = {};
 		noteEditingFor = null;
@@ -72,14 +72,14 @@
 
 	const toggleStep = async (stepId: number, checked: boolean) => {
 		if (checked) {
-			await InvestigationFlowsService.recordIncidentProgress(
-				incident.incident_id,
+			await InvestigationFlowsService.recordAlertClusterProgress(
+				cluster.cluster_id,
 				stepId,
 				noteDrafts[stepId]
 			);
 		} else {
-			await InvestigationFlowsService.uncheckIncidentProgress(
-				incident.incident_id,
+			await InvestigationFlowsService.uncheckAlertClusterProgress(
+				cluster.cluster_id,
 				stepId
 			);
 			noteEditingFor = null;
@@ -88,8 +88,8 @@
 	};
 
 	const saveNote = async (stepId: number) => {
-		await InvestigationFlowsService.recordIncidentProgress(
-			incident.incident_id,
+		await InvestigationFlowsService.recordAlertClusterProgress(
+			cluster.cluster_id,
 			stepId,
 			noteDrafts[stepId] ?? ''
 		);
@@ -162,7 +162,7 @@
 			<div class="p-6 text-center text-sm text-muted-foreground">Loading…</div>
 		{:else if !overview?.flow_id}
 			<div class="p-6 text-center text-sm text-muted-foreground">
-				No investigation flow attached to this incident.
+				No investigation flow attached to this cluster.
 			</div>
 		{:else}
 			<ol class="space-y-3 p-4">

@@ -1,4 +1,4 @@
-export type FlowTarget = 'alert' | 'incident' | 'both';
+export type FlowTarget = 'alert' | 'alert_cluster' | 'both';
 
 export interface FlowConditionLeaf {
 	field: string;
@@ -12,7 +12,7 @@ export interface FlowConditionGroup {
 }
 
 // A condition node is either a leaf or a nested group — the DSL
-// mirrors the incident-rules one, and the recursion is what the UI
+// mirrors the alert cluster-rules one, and the recursion is what the UI
 // builder relies on to author nested AND/OR trees.
 export type FlowConditionNode = FlowConditionLeaf | FlowConditionGroup;
 
@@ -53,7 +53,7 @@ export interface InvestigationFlow {
 export interface InvestigationProgress {
 	id: number;
 	alert_id?: number;
-	incident_id?: number;
+	cluster_id?: number;
 	step_id: number;
 	completed_by_user_id: number;
 	completed_at: string;
@@ -62,7 +62,7 @@ export interface InvestigationProgress {
 }
 
 // Kept the old name as an alias for existing imports while we roll the
-// component out — the alert and incident panels use the same overview
+// component out — the alert and alert cluster panels use the same overview
 // payload shape, so a single type covers both.
 export type AlertInvestigationProgress = InvestigationProgress;
 
@@ -78,5 +78,5 @@ export type AlertInvestigationOverview = InvestigationOverview;
 export interface DeployFlowResult {
 	flow_id: number;
 	alerts_attached: number;
-	incidents_attached: number;
+	clusters_attached: number;
 }

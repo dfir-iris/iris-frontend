@@ -38,11 +38,11 @@ export const Permission = {
 	war_rooms_read: 0x8000,
 	war_rooms_write: 0x10000,
 	war_rooms_create: 0x20000,
-	incidents_read: 0x40000,
-	incidents_write: 0x80000,
-	incidents_delete: 0x100000,
-	incident_rules_read: 0x200000,
-	incident_rules_write: 0x400000,
+	alert_clusters_read: 0x40000,
+	alert_clusters_write: 0x80000,
+	alert_clusters_delete: 0x100000,
+	cluster_rules_read: 0x200000,
+	cluster_rules_write: 0x400000,
 	investigation_flows_read: 0x800000,
 	investigation_flows_write: 0x1000000
 } as const;

@@ -36,7 +36,7 @@ export interface Alert {
 
 	cases: number[];
 	comments: number[];
-	incidents: number[];
+	clusters: number[];
 	alert_investigation_flow_id: number | null;
 	investigation_flow: { flow_id: number; flow_name: string } | null;
 

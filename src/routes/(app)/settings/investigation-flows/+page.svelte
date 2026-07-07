@@ -2,17 +2,17 @@
   Investigation-flow authoring.
 
   A flow declares:
-    * `flow_target` — which entity it can attach to (alert / incident / both)
-    * `flow_conditions` — the same AND/OR DSL as incident rules, edited
+    * `flow_target` — which entity it can attach to (alert / alert cluster / both)
+    * `flow_conditions` — the same AND/OR DSL as clustering rules, edited
       through the shared ConditionsBuilder
     * `steps` — the ordered checklist analysts work through in the
-      alert / incident left pane
+      alert / alert cluster left pane
 
   Two additional behaviours beyond CRUD:
     * On save, the backend Celery hooks re-evaluate flow attachment
-      against new alerts / incidents automatically.
+      against new alerts / alert clusters automatically.
     * "Deploy to existing" attaches this flow to *historical* alerts
-      / incidents whose contents match its conditions and that don't
+      / alert clusters whose contents match its conditions and that don't
       already have a flow attached (see `deploy_flow` in the business
       layer).
 -->
@@ -210,8 +210,8 @@
 				const parts: string[] = [];
 				if (payload.alerts_attached > 0)
 					parts.push(`${payload.alerts_attached} alert(s)`);
-				if (payload.incidents_attached > 0)
-					parts.push(`${payload.incidents_attached} incident(s)`);
+				if (payload.clusters_attached > 0)
+					parts.push(`${payload.clusters_attached} alert cluster(s)`);
 				const msg = parts.length ? `Attached to ${parts.join(', ')}` : 'No matches found';
 				showSuccess(msg);
 			}
@@ -292,7 +292,7 @@
 			<div>
 				<h1 class="text-base font-semibold">Investigation flows</h1>
 				<p class="text-2xs uppercase tracking-wide text-muted-foreground">
-					Guided triage checklists · attached to alerts and/or incidents on match
+					Guided triage checklists · attached to alerts and/or alert clusters on match
 				</p>
 			</div>
 		</div>
@@ -384,8 +384,8 @@
 								bind:value={editTarget}
 							>
 								<option value="alert">Alerts only</option>
-								<option value="incident">Incidents only</option>
-								<option value="both">Both alerts and incidents</option>
+								<option value="alert_cluster">Alert clusters only</option>
+								<option value="both">Both alerts and alert clusters</option>
 							</select>
 						</div>
 						<div class="flex flex-col gap-1">
@@ -401,7 +401,7 @@
 					<p class="mb-2 mt-4 text-2xs uppercase tracking-wide text-muted-foreground">
 						Match conditions (empty = never auto-attaches)
 					</p>
-					<ConditionsBuilder bind:value={editConditions} target={editTarget === 'incident' ? 'incident' : 'alert'} />
+					<ConditionsBuilder bind:value={editConditions} target={editTarget === 'alert_cluster' ? 'alert_cluster' : 'alert'} />
 
 					<div class="mt-4 flex flex-wrap items-center gap-2">
 						<Button onclick={saveMetadata}>Save changes</Button>
@@ -410,7 +410,7 @@
 							{deploying ? 'Deploying…' : 'Deploy to existing'}
 						</Button>
 						<span class="text-xs text-muted-foreground">
-							Deploy back-fills this flow onto historical alerts / incidents that
+							Deploy back-fills this flow onto historical alerts / alert clusters that
 							match and don't already have a flow attached.
 						</span>
 					</div>
@@ -543,7 +543,7 @@
 			<Dialog.Title>New investigation flow</Dialog.Title>
 			<Dialog.Description>
 				Give the flow a clear name — analysts will see it in the left pane of any alert or
-				incident it attaches to. You'll set the match conditions after creating it.
+				alert cluster it attaches to. You'll set the match conditions after creating it.
 			</Dialog.Description>
 		</Dialog.Header>
 		<div class="flex flex-col gap-3 pt-2">

@@ -50,7 +50,7 @@
 			color: 'bg-teal-100 text-teal-800 hover:bg-teal-200 dark:bg-teal-700/30 dark:text-teal-300 dark:hover:bg-teal-700/40',
 			icon: ActivityIcon
 		},
-		'Post-Incident': {
+		'Post-AlertCluster': {
 			color: 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200 dark:bg-indigo-700/30 dark:text-indigo-300 dark:hover:bg-indigo-700/40',
 			icon: ArchiveIcon
 		},

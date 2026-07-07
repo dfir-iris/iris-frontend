@@ -96,7 +96,7 @@
 		'alert_ids',
 		'source_reference',
 		'case_id',
-		'incident_id',
+		'cluster_id',
 		'alert_owner_id',
 		'resolution_status_id',
 		'sort'
@@ -175,7 +175,7 @@
 				key === 'alert_classification_id' ||
 				key === 'alert_customer_id' ||
 				key === 'case_id' ||
-				key === 'incident_id' ||
+				key === 'cluster_id' ||
 				key === 'alert_owner_id' ||
 				key === 'resolution_status_id'
 			) {

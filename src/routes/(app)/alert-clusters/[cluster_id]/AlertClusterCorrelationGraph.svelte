@@ -21,10 +21,10 @@
 	import iocSvg from 'lucide-static/icons/link.svg?raw';
 	import { goto } from '$app/navigation';
 	import {
-		IncidentsService,
-		type IncidentGraph,
-		type IncidentGraphNode
-	} from '$lib/services/incidents.service';
+		AlertClustersService,
+		type AlertClusterGraph,
+		type AlertClusterGraphNode
+	} from '$lib/services/alert-clusters.service';
 	import VisNetwork, {
 		type VisNode,
 		type VisEdge,
@@ -38,14 +38,14 @@
 	type Group = 'alert' | 'ioc' | 'asset';
 
 	type Props = {
-		incidentId: number;
+		alertClusterId: number;
 		// The parent tab renders this component whether the graph tab is
 		// active or not; we only want to fetch on activation so switching
 		// through the tabs doesn't fire needless requests on every visit.
 		active: boolean;
 	};
 
-	let { incidentId, active }: Props = $props();
+	let { alertClusterId, active }: Props = $props();
 
 	const isDark = $derived($mode === 'dark');
 	const strokeColor = $derived(isDark ? '#f9fafb' : '#111827');
@@ -78,12 +78,12 @@
 
 	let loading = $state(false);
 	let error = $state<string | null>(null);
-	let graph = $state<IncidentGraph>({ nodes: [], edges: [] });
+	let graph = $state<AlertClusterGraph>({ nodes: [], edges: [] });
 	let network = $state<Network | null>(null);
 
-	// Cache scope: fetch once per (incident, active-flip). Analysts can
+	// Cache scope: fetch once per (cluster, active-flip). Analysts can
 	// press the toolbar Refresh button when they want fresh data.
-	let lastFetchedIncidentId = $state<number | null>(null);
+	let lastFetchedAlertClusterId = $state<number | null>(null);
 
 	// UX state
 	let searchQuery = $state('');
@@ -117,7 +117,7 @@
 		autoResize: true,
 		layout: {
 			improvedLayout: true,
-			randomSeed: incidentId
+			randomSeed: alertClusterId
 		},
 		nodes: {
 			// `scaling.label` shrinks labels as the user zooms out so
@@ -194,10 +194,10 @@
 		physicsEnabled = true;
 		autoFreezeArmed = true;
 		try {
-			const res = await IncidentsService.graph(incidentId);
+			const res = await AlertClustersService.graph(alertClusterId);
 			if (res.ok && res.data && typeof res.data === 'object' && 'nodes' in res.data) {
-				graph = res.data as IncidentGraph;
-				lastFetchedIncidentId = incidentId;
+				graph = res.data as AlertClusterGraph;
+				lastFetchedAlertClusterId = alertClusterId;
 			} else {
 				const msg =
 					(res.data as { message?: string } | null)?.message ??
@@ -215,11 +215,11 @@
 	};
 
 	// Lazy load on first activation. `active` is a prop that flips true
-	// when the parent's `activeTab === 'graph'`. Re-loads on incident id
-	// change; a manual refresh clears `lastFetchedIncidentId` too.
+	// when the parent's `activeTab === 'graph'`. Re-loads on alert cluster id
+	// change; a manual refresh clears `lastFetchedAlertClusterId` too.
 	$effect(() => {
 		if (!active) return;
-		if (lastFetchedIncidentId === incidentId) return;
+		if (lastFetchedAlertClusterId === alertClusterId) return;
 		void load();
 	});
 
@@ -381,7 +381,7 @@
 	const displayedNodes = $derived(nodes.filter((n) => visibleGroups[(n.group as Group) ?? 'alert']));
 
 	const nodeById = $derived.by(() => {
-		const m = new Map<string, IncidentGraphNode>();
+		const m = new Map<string, AlertClusterGraphNode>();
 		for (const n of graph.nodes) m.set(n.id, n);
 		return m;
 	});
@@ -392,14 +392,14 @@
 	// or terminating at it) so the details rail can list them with quick
 	// pivots. Alerts show connected IOCs+assets; IOCs/assets show which
 	// alerts they appeared in.
-	const selectedNeighbours = $derived.by<IncidentGraphNode[]>(() => {
+	const selectedNeighbours = $derived.by<AlertClusterGraphNode[]>(() => {
 		if (!selectedNodeId) return [];
 		const neighbourIds = new Set<string>();
 		for (const e of graph.edges) {
 			if (e.from === selectedNodeId) neighbourIds.add(e.to);
 			else if (e.to === selectedNodeId) neighbourIds.add(e.from);
 		}
-		const out: IncidentGraphNode[] = [];
+		const out: AlertClusterGraphNode[] = [];
 		for (const id of neighbourIds) {
 			const n = nodeById.get(id);
 			if (n) out.push(n);
@@ -511,7 +511,7 @@
 
 	const getRawId = (nodeId: string): string => nodeId.split(/_/)[1];
 
-	const openOrPivot = (node: IncidentGraphNode) => {
+	const openOrPivot = (node: AlertClusterGraphNode) => {
 		if (node.group === 'alert') {
 			goto(`/alerts/${getRawId(node.id)}`);
 			return;
@@ -669,7 +669,7 @@
 				variant="ghost"
 				size="xs"
 				onclick={() => {
-					lastFetchedIncidentId = null;
+					lastFetchedAlertClusterId = null;
 					void load();
 				}}
 				title="Refresh graph"

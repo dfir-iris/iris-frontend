@@ -358,19 +358,19 @@
 			</div>
 
 			<!--
-			  Incident linkage. Accepts an incident id (positive number) or
+			  AlertCluster linkage. Accepts an alert cluster id (positive number) or
 			  `-1` to surface un-grouped alerts. Text input keeps the UI
 			  consistent with the sibling Case ID field; typing "-1" is a
-			  documented shortcut for "no incident".
+			  documented shortcut for "no alert cluster".
 			-->
 			<div class="space-y-0.5">
-				<div class="text-xs text-muted-foreground">Incident ID (-1 = none)</div>
+				<div class="text-xs text-muted-foreground">Alert Cluster ID (-1 = none)</div>
 				<Input
 					class="h-8 text-xs"
 					inputmode="numeric"
-					placeholder="Incident ID or -1"
-					value={value.incident_id == null ? '' : String(value.incident_id)}
-					oninput={(e) => setNum('incident_id', (e.currentTarget as HTMLInputElement).value)}
+					placeholder="Alert Cluster ID or -1"
+					value={value.cluster_id == null ? '' : String(value.cluster_id)}
+					oninput={(e) => setNum('cluster_id', (e.currentTarget as HTMLInputElement).value)}
 				/>
 			</div>
 		</div>

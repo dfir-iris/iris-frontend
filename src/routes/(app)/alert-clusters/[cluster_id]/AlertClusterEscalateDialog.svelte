@@ -14,11 +14,11 @@
 	import type { Case } from '$lib/types/resources/case';
 
 	// The dialog collects everything the caller needs to hit either
-	// `POST /api/v2/incidents/{id}/escalate` (new case) or
-	// `POST /api/v2/incidents/{id}/merge` (existing case). Bodies are
+	// `POST /api/v2/alert-clusters/{id}/escalate` (new case) or
+	// `POST /api/v2/alert-clusters/{id}/merge` (existing case). Bodies are
 	// shaped for those two endpoints — the parent handler picks which
 	// service call to fire based on `mode`.
-	export type IncidentEscalatePayload =
+	export type AlertClusterEscalatePayload =
 		| {
 				mode: 'new';
 				case_title: string;
@@ -36,18 +36,18 @@
 
 	type Props = {
 		open: boolean;
-		incidentTitle: string;
-		incidentDescription: string;
-		incidentCustomerId: number | null;
+		alertClusterTitle: string;
+		alertClusterDescription: string;
+		alertClusterCustomerId: number | null;
 		onClose: () => void;
-		onConfirm: (payload: IncidentEscalatePayload) => void;
+		onConfirm: (payload: AlertClusterEscalatePayload) => void;
 	};
 
 	let {
 		open = $bindable(),
-		incidentTitle,
-		incidentDescription,
-		incidentCustomerId,
+		alertClusterTitle,
+		alertClusterDescription,
+		alertClusterCustomerId,
 		onClose,
 		onConfirm
 	}: Props = $props();
@@ -61,8 +61,8 @@
 	let importAsEvent = $state(true);
 
 	// Existing-case list is fetched lazily on dialog open. Scoped to the
-	// incident's customer so analysts can't accidentally merge a tenant's
-	// incident into another tenant's case (the backend also enforces this,
+	// alert cluster's customer so analysts can't accidentally merge a tenant's
+	// alert cluster into another tenant's case (the backend also enforces this,
 	// but filtering the picker prevents 400s at submit time).
 	let cases = $state<Case[]>([]);
 	let loadingCases = $state(false);
@@ -77,13 +77,13 @@
 	);
 
 	const getTitle = () =>
-		mode === 'existing' ? 'Merge incident into an existing case' : 'Escalate incident to a new case';
+		mode === 'existing' ? 'Merge alert cluster into an existing case' : 'Escalate alert cluster to a new case';
 
 	const resetForm = () => {
 		mode = 'new';
 		targetCaseId = '';
-		caseTitle = incidentTitle;
-		note = incidentDescription ?? '';
+		caseTitle = alertClusterTitle;
+		note = alertClusterDescription ?? '';
 		tags = '';
 		importAsEvent = true;
 	};
@@ -92,7 +92,7 @@
 		loadingCases = true;
 		try {
 			const params: Record<string, unknown> = { per_page: 200 };
-			if (incidentCustomerId != null) params.case_customer_id = incidentCustomerId;
+			if (alertClusterCustomerId != null) params.case_customer_id = alertClusterCustomerId;
 			const res = await CaseService.list(params);
 			if (res.ok && res.data && typeof res.data === 'object') {
 				const body = res.data as { data?: Case[] };
@@ -112,7 +112,7 @@
 	// and every fetch resolution retriggered the effect. `untrack()` scopes
 	// the resetForm+load work outside the reactive graph so we only re-fire
 	// when `open` actually flips. `lastOpen` prevents re-firing when other
-	// prop reads (unlikely, but the `incident*` props are captured on read)
+	// prop reads (unlikely, but the `alert cluster*` props are captured on read)
 	// happen while the dialog is open.
 	let lastOpen = false;
 	$effect(() => {
@@ -155,20 +155,20 @@
 				{#if mode === 'new'}
 					<div class="space-y-2">
 						<p class="text-sm text-muted-foreground">
-							A new case will be created from this incident. Every alert on the incident is
+							A new case will be created from this cluster. Every alert on the alert cluster is
 							linked to the new case along with its IOCs and assets.
 						</p>
 					</div>
 					<div class="space-y-2">
-						<Label for="incident-escalate-case-title" class="block text-sm font-medium">
+						<Label for="cluster-escalate-case-title" class="block text-sm font-medium">
 							New case title *
 						</Label>
-						<Input id="incident-escalate-case-title" bind:value={caseTitle} />
+						<Input id="cluster-escalate-case-title" bind:value={caseTitle} />
 					</div>
 				{:else}
 					<div class="space-y-2">
 						<p class="text-sm text-muted-foreground">
-							Merge every alert on this incident into the selected case. IOCs and assets are
+							Merge every alert on this alert cluster into the selected case. IOCs and assets are
 							deduped against what the case already holds.
 						</p>
 					</div>
@@ -185,28 +185,28 @@
 				{/if}
 
 				<div class="space-y-2">
-					<Label for="incident-escalate-note" class="block text-sm font-medium">
+					<Label for="cluster-escalate-note" class="block text-sm font-medium">
 						Escalation note
 					</Label>
 					<textarea
-						id="incident-escalate-note"
+						id="cluster-escalate-note"
 						class="min-h-28 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-ring"
 						bind:value={note}
 					></textarea>
 				</div>
 
 				<div class="space-y-2">
-					<Label for="incident-escalate-tags" class="block text-sm font-medium">Case tags</Label>
+					<Label for="cluster-escalate-tags" class="block text-sm font-medium">Case tags</Label>
 					<TagInput bind:tags outputFormat="string" placeholder="Add tags..." maxTags={20} />
 				</div>
 
 				<div class="flex items-center gap-2">
 					<Checkbox
-						id="incident-escalate-add-event"
+						id="cluster-escalate-add-event"
 						checked={importAsEvent}
 						onCheckedChange={(checked) => (importAsEvent = checked === true)}
 					/>
-					<Label for="incident-escalate-add-event" class="text-sm font-normal">
+					<Label for="cluster-escalate-add-event" class="text-sm font-normal">
 						Add alerts as events in the case timeline
 					</Label>
 				</div>

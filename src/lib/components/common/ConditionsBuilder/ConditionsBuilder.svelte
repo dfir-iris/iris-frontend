@@ -60,7 +60,7 @@
 	type AnyNode = LeafNode | GroupNode;
 
 	// Field-name suggestions per target — sourced directly from the SQLAlchemy
-	// models (`app/models/alerts.py::Alert`, `app/models/incidents.py::Incident`).
+	// models (`app/models/alerts.py::Alert`, `app/models/alert_clusters.py::AlertCluster`).
 	// Kept in the same order as the model so the datalist reads top-down like the
 	// schema. Not enforced — the field is a free-text Input so callers can also
 	// reach relationship.field paths (e.g. `assets.asset_name`, `iocs.ioc_value`)
@@ -109,29 +109,29 @@
 			'alert_context.rule_name',
 			'alert_source_content.event_type'
 		],
-		incident: [
-			'incident_id',
-			'incident_uuid',
-			'incident_title',
-			'incident_description',
-			'incident_status_id',
-			'incident_severity_id',
-			'incident_customer_id',
-			'incident_owner_id',
-			'incident_creation_time',
-			'incident_source_rule_id',
-			'incident_case_id',
-			'incident_dedupe_key',
-			'incident_investigation_flow_id'
+	alert_cluster: [
+			'cluster_id',
+			'cluster_uuid',
+			'cluster_title',
+			'cluster_description',
+			'cluster_status_id',
+			'cluster_severity_id',
+			'cluster_customer_id',
+			'cluster_owner_id',
+			'cluster_creation_time',
+			'cluster_source_rule_id',
+			'cluster_case_id',
+			'cluster_dedupe_key',
+			'cluster_investigation_flow_id'
 		]
 	};
 
 	let {
 		value = $bindable<GroupNode>(),
-		target = 'alert' as 'alert' | 'incident'
+		target = 'alert' as 'alert' | 'alert_cluster'
 	}: {
 		value: GroupNode;
-		target?: 'alert' | 'incident';
+		target?: 'alert' | 'alert_cluster';
 	} = $props();
 
 	const isGroup = (n: AnyNode): n is GroupNode =>
@@ -143,7 +143,7 @@
 	const fields = $derived(FIELD_SUGGESTIONS[target] ?? []);
 	// Compute `listId` reactively — the naive `const` captured the
 	// initial `target` value only, which broke the datalist wiring
-	// when a caller swapped `target='incident'` on the same instance.
+	// when a caller swapped `target='alert_cluster'` on the same instance.
 	const listId = $derived(`condition-fields-${target}`);
 
 	// ---- Path-based mutation ----

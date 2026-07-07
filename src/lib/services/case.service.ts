@@ -158,7 +158,7 @@ export class CaseService {
 
 	// Detach one alert from a case. Case-scoped: the ACL check on the
 	// server hits the case, not the alert, so callers use it from the
-	// case-side UI (linked-alerts popover, source-incident dropdown).
+	// case-side UI (linked-alerts popover, source-alert cluster dropdown).
 	// Server resets the alert's status to `Assigned` so it re-enters
 	// the analyst queue instead of staying flagged as Escalated/Merged.
 	static async unlinkAlert(
@@ -169,16 +169,16 @@ export class CaseService {
 		return ApiService.delete<null>(`/api/v2/cases/${caseId}/alerts/${alertId}`, options);
 	}
 
-	// Unlink the source incident from a case. Reverses the entire
-	// escalate/merge in one call: incident goes back to Investigating,
+	// Unlink the source alert cluster from a case. Reverses the entire
+	// escalate/merge in one call: alert cluster goes back to Investigating,
 	// every member alert is detached from the case and re-Assigned.
-	// Returns `{unlinked: false}` when the case had no source incident.
-	static async unlinkSourceIncident(
+	// Returns `{unlinked: false}` when the case had no source cluster.
+	static async unlinkSourceAlertCluster(
 		caseId: CaseIdentifier,
 		options: ApiOptions = {}
-	): Promise<RequestResponse<{ unlinked: boolean; incident_id?: number }>> {
-		return ApiService.delete<{ unlinked: boolean; incident_id?: number }>(
-			`/api/v2/cases/${caseId}/source-incident`,
+	): Promise<RequestResponse<{ unlinked: boolean; cluster_id?: number }>> {
+		return ApiService.delete<{ unlinked: boolean; cluster_id?: number }>(
+			`/api/v2/cases/${caseId}/source-alert-cluster`,
 			options
 		);
 	}

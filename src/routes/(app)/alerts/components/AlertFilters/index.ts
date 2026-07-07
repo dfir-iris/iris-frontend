@@ -24,7 +24,7 @@ export type Filters = Pick<
 	| 'alert_ids'
 	| 'source_reference'
 	| 'case_id'
-	| 'incident_id'
+	| 'cluster_id'
 	| 'alert_owner_id'
 	| 'resolution_status_id'
 	| 'sort'

@@ -1,5 +1,5 @@
 <!--
-  Incident detail. Mirrors the case-detail visual language: white
+  AlertCluster detail. Mirrors the case-detail visual language: white
   workspace, tabs as an underline strip on top of a bordered content
   region, no card-in-card nesting. Sections use plain borders on the
   workspace background — the analyst sees one continuous canvas, not
@@ -55,32 +55,32 @@
 	import { toast } from '$lib/components/ui/toast';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import { MarkDownEditor } from '$lib/components/common/MarkDown';
-	import IncidentInvestigationFlowPanel from './IncidentInvestigationFlowPanel.svelte';
-	import IncidentEscalateDialog, {
-		type IncidentEscalatePayload
-	} from './IncidentEscalateDialog.svelte';
-	import IncidentCorrelationGraph from './IncidentCorrelationGraph.svelte';
-	import { IncidentsService } from '$lib/services/incidents.service';
+	import AlertClusterInvestigationFlowPanel from './AlertClusterInvestigationFlowPanel.svelte';
+	import AlertClusterEscalateDialog, {
+		type AlertClusterEscalatePayload
+	} from './AlertClusterEscalateDialog.svelte';
+	import AlertClusterCorrelationGraph from './AlertClusterCorrelationGraph.svelte';
+	import { AlertClustersService } from '$lib/services/alert-clusters.service';
 	import { AlertService } from '$lib/services/alerts.service';
 	import { CommentsService, type Comment } from '$lib/services/comments.service';
 	import {
-		IncidentStatusService,
-		type IncidentStatus
-	} from '$lib/services/incident-status.service';
+		AlertClusterStatusService,
+		type AlertClusterStatus
+	} from '$lib/services/alert-cluster-status.service';
 	import { SeveritiesService, type Severity } from '$lib/services/severities.service';
 	import { UsersService, type User } from '$lib/services/users.service';
-	import type { Incident } from '$lib/types/resources/incident';
+	import type { AlertCluster } from '$lib/types/resources/alert-cluster';
 	import type { Alert } from '$lib/types/resources/alert';
 	import type { Asset } from '$lib/types/resources/asset';
 	import type { Ioc } from '$lib/types/resources/ioc';
 	import { mediumDateTimeFormatter } from '$lib/utils/time-formatter';
 
-	const incidentId = Number(page.params.incident_id);
+	const alertClusterId = Number(page.params.cluster_id);
 
-	let incident = $state<Incident | null>(null);
+	let cluster = $state<AlertCluster | null>(null);
 	let alerts = $state<Alert[]>([]);
 	let comments = $state<Comment[]>([]);
-	let statuses = $state<IncidentStatus[]>([]);
+	let statuses = $state<AlertClusterStatus[]>([]);
 	let severities = $state<Severity[]>([]);
 	let users = $state<User[]>([]);
 	let loading = $state(true);
@@ -90,20 +90,20 @@
 	let activeTab = $state<'summary' | 'alerts' | 'assets' | 'iocs' | 'graph' | 'timeline' | 'activity'>('summary');
 
 	// Summary editor state — mirrors the CaseSummary card pattern.
-	// `incident_description` is loaded via load() and persisted through
-	// updateField. Real-time collab isn't wired for incidents yet (no
-	// `incident-summary:<id>` doc kind on the backend), so this is a
+	// `cluster_description` is loaded via load() and persisted through
+	// updateField. Real-time collab isn't wired for alert clusters yet (no
+	// `alert cluster-summary:<id>` doc kind on the backend), so this is a
 	// plain save-on-click editor with dirty/saving/synced chrome.
-	let incidentSummary = $state('');
-	let baseIncidentSummary = $state('');
+	let alertClusterSummary = $state('');
+	let baseAlertClusterSummary = $state('');
 	let summarySaving = $state(false);
 	let summaryError = $state<string | null>(null);
 	let summarySavedAt = $state(0);
 	let summaryLoadedAt = $state(new Date());
 	let summaryNow = $state(new Date());
-	const summaryDirty = $derived(incidentSummary !== baseIncidentSummary);
+	const summaryDirty = $derived(alertClusterSummary !== baseAlertClusterSummary);
 
-	const isEscalated = $derived(!!incident?.incident_case_id);
+	const isEscalated = $derived(!!cluster?.cluster_case_id);
 
 	// Aggregated across every member alert.
 	const iocs = $derived<Ioc[]>(dedupeIocs(alerts));
@@ -169,24 +169,24 @@
 	const load = async () => {
 		loading = true;
 		try {
-			const res = await IncidentsService.get(incidentId);
-			incident =
-				res.data && typeof res.data === 'object' ? (res.data as Incident) : null;
-			if (incident) {
-				// Seed the summary editor from the freshly loaded incident.
+			const res = await AlertClustersService.get(alertClusterId);
+			cluster =
+				res.data && typeof res.data === 'object' ? (res.data as AlertCluster) : null;
+			if (cluster) {
+				// Seed the summary editor from the freshly loaded cluster.
 				// Preserve unsaved local edits: if the user is mid-edit and a
 				// background reload happens, only overwrite when the description
 				// has actually changed on the server (i.e. base moved).
-				const remote = incident.incident_description ?? '';
-				if (remote !== baseIncidentSummary) {
-					baseIncidentSummary = remote;
-					if (!summaryDirty) incidentSummary = remote;
+				const remote = cluster.cluster_description ?? '';
+				if (remote !== baseAlertClusterSummary) {
+					baseAlertClusterSummary = remote;
+					if (!summaryDirty) alertClusterSummary = remote;
 				}
 				summaryLoadedAt = new Date();
 			}
-			if (incident && incident.alert_ids?.length) {
+			if (cluster && cluster.alert_ids?.length) {
 				const fetched = await Promise.all(
-					incident.alert_ids.map(async (id) => {
+					cluster.alert_ids.map(async (id) => {
 						const r = await AlertService.get(id);
 						return r.data && typeof r.data === 'object' ? (r.data as Alert) : null;
 					})
@@ -202,12 +202,12 @@
 	};
 
 	const saveSummary = async () => {
-		if (!incident || summarySaving) return;
+		if (!cluster || summarySaving) return;
 		summarySaving = true;
 		summaryError = null;
 		try {
-			const res = await IncidentsService.update(incident.incident_id, {
-				incident_description: incidentSummary
+			const res = await AlertClustersService.update(cluster.cluster_id, {
+				cluster_description: alertClusterSummary
 			});
 			if (!res.ok) {
 				const message =
@@ -217,12 +217,12 @@
 				summaryError = message;
 				return;
 			}
-			baseIncidentSummary = incidentSummary;
+			baseAlertClusterSummary = alertClusterSummary;
 			summarySavedAt = Date.now();
 			summaryLoadedAt = new Date();
-			// Reflect the new value in the in-memory incident so the
+			// Reflect the new value in the in-memory alert cluster so the
 			// next background reload doesn't clobber it.
-			if (incident) incident.incident_description = incidentSummary;
+			if (cluster) cluster.cluster_description = alertClusterSummary;
 		} catch (err) {
 			summaryError = (err as Error).message;
 		} finally {
@@ -231,12 +231,12 @@
 	};
 
 	const refreshSummary = async () => {
-		if (!incident) return;
-		const res = await IncidentsService.get(incident.incident_id);
+		if (!cluster) return;
+		const res = await AlertClustersService.get(cluster.cluster_id);
 		if (res.ok && res.data && typeof res.data === 'object') {
-			const remote = (res.data as Incident).incident_description ?? '';
-			baseIncidentSummary = remote;
-			incidentSummary = remote;
+			const remote = (res.data as AlertCluster).cluster_description ?? '';
+			baseAlertClusterSummary = remote;
+			alertClusterSummary = remote;
 			summaryLoadedAt = new Date();
 			summaryError = null;
 		}
@@ -255,7 +255,7 @@
 	const summarySyncedAbsolute = $derived(summaryLoadedAt.toLocaleTimeString());
 
 	const loadComments = async () => {
-		const res = await CommentsService.list('incidents', incidentId, { per_page: 200 });
+		const res = await CommentsService.list('alert_clusters', alertClusterId, { per_page: 200 });
 		const payload = res.data && typeof res.data === 'object' ? res.data : null;
 		if (payload && Array.isArray((payload as { data?: Comment[] }).data)) {
 			comments = ((payload as { data: Comment[] }).data ?? []).slice().sort((a, b) => {
@@ -267,8 +267,8 @@
 	};
 
 	const removeAlert = async (alertId: number) => {
-		if (!incident) return;
-		await IncidentsService.removeAlert(incident.incident_id, alertId);
+		if (!cluster) return;
+		await AlertClustersService.removeAlert(cluster.cluster_id, alertId);
 		await load();
 	};
 
@@ -278,10 +278,10 @@
 	let unlinking = $state(false);
 
 	const unlinkFromCase = async () => {
-		if (!incident || unlinking) return;
+		if (!cluster || unlinking) return;
 		unlinking = true;
 		try {
-			const res = await IncidentsService.unlinkCase(incident.incident_id);
+			const res = await AlertClustersService.unlinkCase(cluster.cluster_id);
 			if (!res.ok) {
 				const msg =
 					(res.data as { message?: string } | null)?.message ??
@@ -290,7 +290,7 @@
 				toast({ title: 'Unlink failed', description: msg, variant: 'destructive' });
 				return;
 			}
-			toast({ title: 'Incident unlinked from case' });
+			toast({ title: 'AlertCluster unlinked from case' });
 			await load();
 		} catch (err) {
 			toast({
@@ -303,19 +303,19 @@
 		}
 	};
 
-	const submitEscalateOrMerge = async (payload: IncidentEscalatePayload) => {
-		if (!incident || escalating) return;
+	const submitEscalateOrMerge = async (payload: AlertClusterEscalatePayload) => {
+		if (!cluster || escalating) return;
 		escalating = true;
 		try {
 			const res =
 				payload.mode === 'new'
-					? await IncidentsService.escalate(incident.incident_id, {
+					? await AlertClustersService.escalate(cluster.cluster_id, {
 							case_title: payload.case_title,
 							note: payload.note || undefined,
 							import_as_event: payload.import_as_event,
 							case_tags: payload.case_tags || undefined
 						})
-					: await IncidentsService.merge(incident.incident_id, {
+					: await AlertClustersService.merge(cluster.cluster_id, {
 							target_case_id: payload.target_case_id,
 							note: payload.note || undefined,
 							import_as_event: payload.import_as_event,
@@ -348,9 +348,9 @@
 	};
 
 	const updateField = async (patch: Record<string, unknown>) => {
-		if (!incident) return;
+		if (!cluster) return;
 		try {
-			await IncidentsService.update(incident.incident_id, patch);
+			await AlertClustersService.update(cluster.cluster_id, patch);
 			await load();
 		} catch {
 			toast({ title: 'Update failed', variant: 'destructive' });
@@ -362,11 +362,11 @@
 		if (!text || posting) return;
 		posting = true;
 		try {
-			await CommentsService.create('incidents', incidentId, { comment_text: text });
+			await CommentsService.create('alert_clusters', alertClusterId, { comment_text: text });
 			commentDraft = '';
 			await loadComments();
-			await IncidentsService.get(incidentId).then((r) => {
-				if (r.data && typeof r.data === 'object') incident = r.data as Incident;
+			await AlertClustersService.get(alertClusterId).then((r) => {
+				if (r.data && typeof r.data === 'object') cluster = r.data as AlertCluster;
 			});
 		} catch {
 			toast({ title: 'Comment failed', variant: 'destructive' });
@@ -394,7 +394,7 @@
 				detail: `${alert.severity?.severity_name ?? '?'} · ${alert.alert_source}`
 			});
 		}
-		const history = incident?.modification_history ?? null;
+		const history = cluster?.modification_history ?? null;
 		if (history) {
 			for (const [key, entry] of Object.entries(history)) {
 				const ts = Number(key);
@@ -419,9 +419,9 @@
 	}
 
 	onMount(async () => {
-		void IncidentStatusService.list().then((r) => {
+		void AlertClusterStatusService.list().then((r) => {
 			if (r.data && typeof r.data === 'object') {
-				statuses = (r.data as { data?: IncidentStatus[] }).data ?? [];
+				statuses = (r.data as { data?: AlertClusterStatus[] }).data ?? [];
 			}
 		});
 		void SeveritiesService.list().then((r) => {
@@ -446,7 +446,7 @@
 </script>
 
 <svelte:head>
-	<title>Incident #{incidentId}</title>
+	<title>Alert Cluster #{alertClusterId}</title>
 </svelte:head>
 
 <!--
@@ -464,7 +464,7 @@
 			<div class="p-6">
 				<Loading />
 			</div>
-		{:else if !incident}
+		{:else if !cluster}
 			<p class="p-6">Not found.</p>
 		{:else}
 			<!-- ============================================================
@@ -479,30 +479,30 @@
 						</div>
 						<div class="min-w-0">
 							<h1 class="truncate text-xl font-semibold tracking-tight">
-								<span class="text-muted-foreground">#{incident.incident_id}</span>
-								— {incident.incident_title}
+								<span class="text-muted-foreground">#{cluster.cluster_id}</span>
+								— {cluster.cluster_title}
 							</h1>
 							<p
 								class="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground"
 							>
 								<span class="inline-flex items-center gap-1">
 									<ClockIcon class="h-3 w-3" />
-									Opened {mediumDateTimeFormatter(new Date(incident.incident_creation_time))}
+									Opened {mediumDateTimeFormatter(new Date(cluster.cluster_creation_time))}
 								</span>
-								{#if incident.customer?.customer_name}
+								{#if cluster.customer?.customer_name}
 									<span class="inline-flex items-center gap-1">
 										<BuildingIcon class="h-3 w-3" />
-										{incident.customer.customer_name}
+										{cluster.customer.customer_name}
 									</span>
 								{/if}
-								{#if incident.source_rule}
+								{#if cluster.source_rule}
 									<a
 										class="inline-flex items-center gap-1 hover:text-foreground hover:underline"
-										href="/settings/incident-rules"
+										href="/settings/cluster-rules"
 										title="Created by rule"
 									>
 										<BookmarkIcon class="h-3 w-3" />
-										Rule: {incident.source_rule.rule_name}
+										Rule: {cluster.source_rule.rule_name}
 									</a>
 								{/if}
 							</p>
@@ -510,14 +510,14 @@
 					</div>
 
 					<div class="flex flex-wrap items-center gap-2">
-						{#if incident.investigation_flow}
+						{#if cluster.investigation_flow}
 							<Button
 								variant="outline"
 								size="sm"
 								onclick={() => (flowPanelOpen = !flowPanelOpen)}
 							>
 								<CheckSquareIcon class="mr-2 h-4 w-4" />
-								Flow: {incident.investigation_flow.flow_name}
+								Flow: {cluster.investigation_flow.flow_name}
 							</Button>
 						{/if}
 						{#if !isEscalated}
@@ -534,16 +534,16 @@
 									<Button variant="outline" disabled={unlinking}>
 										{unlinking
 											? 'Unlinking…'
-											: `Linked case #${incident.incident_case_id}`}
+											: `Linked case #${cluster.cluster_case_id}`}
 									</Button>
 								</DropdownMenuTrigger>
 								<DropdownMenuContent align="end" class="min-w-[220px]">
 									<DropdownMenuLabel>Linked case</DropdownMenuLabel>
 									<DropdownMenuSeparator />
 									<DropdownMenuItem
-										onclick={() => goto(`/case/${incident?.incident_case_id}`)}
+										onclick={() => goto(`/case/${cluster?.cluster_case_id}`)}
 									>
-										Open case #{incident.incident_case_id}
+										Open case #{cluster.cluster_case_id}
 									</DropdownMenuItem>
 									<DropdownMenuItem
 										class="text-destructive focus:text-destructive"
@@ -569,21 +569,21 @@
 							{#if isEscalated}
 								<span
 									class="rounded-full px-2.5 py-0.5 text-xs font-medium {statusChip(
-										incident.status?.status_name ?? ''
+										cluster.status?.status_name ?? ''
 									)}"
 								>
-									{incident.status?.status_name ?? '—'}
+									{cluster.status?.status_name ?? '—'}
 								</span>
 							{:else}
 								<Popover.Root>
 									<Popover.Trigger>
 										<span
 											class="cursor-pointer rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors hover:brightness-95 {statusChip(
-												incident.status?.status_name ?? ''
+												cluster.status?.status_name ?? ''
 											)}"
 											title="Change status"
 										>
-											{incident.status?.status_name ?? '—'}
+											{cluster.status?.status_name ?? '—'}
 										</span>
 									</Popover.Trigger>
 									<Popover.Content align="start" class="w-56 p-0">
@@ -593,11 +593,11 @@
 											<Command.List class="max-h-[240px] overflow-y-auto">
 												<Command.Group>
 													{#each statuses as s (s.status_id)}
-														{@const isCurrent = incident.incident_status_id === s.status_id}
+														{@const isCurrent = cluster.cluster_status_id === s.status_id}
 														<Command.Item
 															value={s.status_name}
 															onSelect={() =>
-																!isCurrent && updateField({ incident_status_id: s.status_id })}
+																!isCurrent && updateField({ cluster_status_id: s.status_id })}
 														>
 															<span class="flex w-full items-center justify-between gap-2">
 																<span class="truncate">{s.status_name}</span>
@@ -624,27 +624,27 @@
 							{#if isEscalated}
 								<span
 									class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium {severityChip(
-										severityLabel(incident.incident_severity_id)
+										severityLabel(cluster.cluster_severity_id)
 									)}"
 								>
 									<FlameIcon class="h-3 w-3" />
-									{severityLabel(incident.incident_severity_id)}
+									{severityLabel(cluster.cluster_severity_id)}
 								</span>
 							{:else}
 								<Popover.Root>
 									<Popover.Trigger>
 										<span
 											class="inline-flex cursor-pointer items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors hover:brightness-95 {severityChip(
-												severityLabel(incident.incident_severity_id)
+												severityLabel(cluster.cluster_severity_id)
 											)}"
 											title="Change severity"
 										>
 											<FlameIcon class="h-3 w-3" />
-											{severityLabel(incident.incident_severity_id)}
+											{severityLabel(cluster.cluster_severity_id)}
 										</span>
 									</Popover.Trigger>
 									<Popover.Content align="start" class="w-56 p-0">
-										{@const currentSevId = incident.incident_severity_id ?? null}
+										{@const currentSevId = cluster.cluster_severity_id ?? null}
 										<Command.Root>
 											<Command.Input placeholder="Search severity..." class="h-9" />
 											<Command.Empty>No severity found.</Command.Empty>
@@ -656,7 +656,7 @@
 															value={s.severity_name}
 															onSelect={() =>
 																!isCurrent &&
-																updateField({ incident_severity_id: s.severity_id })}
+																updateField({ cluster_severity_id: s.severity_id })}
 														>
 															<span class="flex w-full items-center justify-between gap-2">
 																<span class="truncate">{s.severity_name}</span>
@@ -681,13 +681,13 @@
 						</span>
 						<div class="flex items-center gap-2">
 							{#if isEscalated}
-								{#if incident.owner}
+								{#if cluster.owner}
 									<UserAvatar
-										userId={incident.owner.id}
-										name={incident.owner.user_name}
+										userId={cluster.owner.id}
+										name={cluster.owner.user_name}
 										size="size-6"
 									/>
-									<span class="text-sm">{incident.owner.user_name}</span>
+									<span class="text-sm">{cluster.owner.user_name}</span>
 								{:else}
 									<span class="text-sm italic text-muted-foreground">Unassigned</span>
 								{/if}
@@ -696,22 +696,22 @@
 									<Popover.Trigger>
 										<span
 											class="inline-flex cursor-pointer items-center gap-2 rounded-full px-1 py-0.5 text-sm transition-colors hover:bg-muted"
-											title={incident.owner ? 'Reassign owner' : 'Assign owner'}
+											title={cluster.owner ? 'Reassign owner' : 'Assign owner'}
 										>
-											{#if incident.owner}
+											{#if cluster.owner}
 												<UserAvatar
-													userId={incident.owner.id}
-													name={incident.owner.user_name}
+													userId={cluster.owner.id}
+													name={cluster.owner.user_name}
 													size="size-6"
 												/>
-												<span>{incident.owner.user_name}</span>
+												<span>{cluster.owner.user_name}</span>
 											{:else}
 												<span class="italic text-muted-foreground">Unassigned</span>
 											{/if}
 										</span>
 									</Popover.Trigger>
 									<Popover.Content align="start" class="w-64 p-0">
-										{@const currentOwnerId = incident.incident_owner_id ?? null}
+										{@const currentOwnerId = cluster.cluster_owner_id ?? null}
 										<Command.Root>
 											<Command.Input placeholder="Search user..." class="h-9" />
 											<Command.Empty>No user found.</Command.Empty>
@@ -720,7 +720,7 @@
 													<Command.Item
 														value="Unassigned"
 														onSelect={() =>
-															currentOwnerId != null && updateField({ incident_owner_id: null })}
+															currentOwnerId != null && updateField({ cluster_owner_id: null })}
 													>
 														<span class="flex w-full items-center justify-between gap-2">
 															<span class="truncate italic text-muted-foreground">Unassigned</span>
@@ -734,7 +734,7 @@
 														<Command.Item
 															value={`${u.user_name} ${u.user_login}`}
 															onSelect={() =>
-																!isCurrent && updateField({ incident_owner_id: u.user_id })}
+																!isCurrent && updateField({ cluster_owner_id: u.user_id })}
 														>
 															<span class="flex w-full items-center justify-between gap-2">
 																<span class="min-w-0 truncate">
@@ -864,9 +864,9 @@
 						: 'overflow-y-auto px-6 py-5'}"
 				>
 					<!-- ============ Summary ============
-						 Markdown editor bound to `incident_description` with
+						 Markdown editor bound to `cluster_description` with
 						 dirty/saving/synced chrome, refresh + save. Real-time
-						 collab isn't wired for incidents yet: saves go through
+						 collab isn't wired for alert clusters yet: saves go through
 						 the normal PUT and refresh pulls the latest. -->
 					<TabsContent value="summary">
 						<div class="flex flex-wrap items-center justify-between gap-3 pb-3">
@@ -945,8 +945,8 @@
 
 						<div class="rounded-md border bg-muted/20 p-4">
 							<MarkDownEditor
-								value={incidentSummary}
-								onChange={(v) => (incidentSummary = v)}
+								value={alertClusterSummary}
+								onChange={(v) => (alertClusterSummary = v)}
 								onSave={() => saveSummary()}
 								readOnly={isEscalated}
 							/>
@@ -1017,7 +1017,7 @@
 														<Button
 															variant="ghost"
 															size="icon"
-															aria-label="Remove from incident"
+															aria-label="Remove from alert cluster"
 															onclick={() => removeAlert(alert.alert_id)}
 														>
 															<TrashIcon class="h-4 w-4" />
@@ -1125,7 +1125,7 @@
 					<!-- ============ Correlation graph ============
 						 Node/edge network built server-side from every member
 						 alert's IOCs and assets. Loaded lazily on first tab
-						 activation so a large incident doesn't pay the fetch
+						 activation so a large alert cluster doesn't pay the fetch
 						 cost until the analyst asks for it. Uses `mt-0` so it
 						 sits flush against the tabs strip; the graph owns the
 						 whole panel below that.
@@ -1141,8 +1141,8 @@
 						value="graph"
 						class="mt-0 h-full flex-col data-[state=active]:flex"
 					>
-						<IncidentCorrelationGraph
-							incidentId={incident.incident_id}
+						<AlertClusterCorrelationGraph
+							alertClusterId={cluster.cluster_id}
 							active={activeTab === 'graph'}
 						/>
 					</TabsContent>
@@ -1198,7 +1198,7 @@
 						<div class="mx-auto flex max-w-3xl flex-col gap-4">
 							<div class="rounded-md border p-3">
 								<Textarea
-									placeholder="Add a note or update on this incident…"
+									placeholder="Add a note or update on this alert cluster…"
 									rows={3}
 									bind:value={commentDraft}
 								/>
@@ -1240,36 +1240,36 @@
 
 	<!--
 	  Right-side investigation-flow pane — placement matches the
-	  alert-scoped pane so alerts and incidents share the same spatial
+	  alert-scoped pane so alerts and alert clusters share the same spatial
 	  convention.
 	-->
-	{#if flowPanelOpen && incident}
+	{#if flowPanelOpen && cluster}
 		<aside
 			class="my-3 mr-3 h-[calc(100%-1.5rem)] w-full max-w-md shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elevation-2 sm:my-4 sm:mr-4 sm:h-[calc(100%-2rem)]"
 			aria-label="Investigation flow"
 		>
-			<IncidentInvestigationFlowPanel
-				incident={incident}
+			<AlertClusterInvestigationFlowPanel
+				cluster={cluster}
 				onClose={() => (flowPanelOpen = false)}
 			/>
 		</aside>
 	{/if}
 </div>
 
-{#if incident}
-	<IncidentEscalateDialog
+{#if cluster}
+	<AlertClusterEscalateDialog
 		bind:open={escalateDialogOpen}
-		incidentTitle={incident.incident_title}
-		incidentDescription={incident.incident_description ?? ''}
-		incidentCustomerId={incident.incident_customer_id ?? null}
+		alertClusterTitle={cluster.cluster_title}
+		alertClusterDescription={cluster.cluster_description ?? ''}
+		alertClusterCustomerId={cluster.cluster_customer_id ?? null}
 		onClose={() => (escalateDialogOpen = false)}
 		onConfirm={submitEscalateOrMerge}
 	/>
 
 	<ConfirmationDialog
 		bind:open={showConfirmUnlinkCase}
-		title="Unlink incident from case?"
-		message={`Incident #${incident.incident_id} will go back to Investigating and its ${alerts.length} alert${alerts.length === 1 ? '' : 's'} will be detached from case #${incident.incident_case_id} (status reset to Assigned). The case itself remains.`}
+		title="Unlink alert cluster from case?"
+		message={`Alert Cluster #${cluster.cluster_id} will go back to Investigating and its ${alerts.length} alert${alerts.length === 1 ? '' : 's'} will be detached from case #${cluster.cluster_case_id} (status reset to Assigned). The case itself remains.`}
 		onConfirm={unlinkFromCase}
 	/>
 {/if}

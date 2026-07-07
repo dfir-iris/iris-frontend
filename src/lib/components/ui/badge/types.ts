@@ -9,7 +9,7 @@ export type CaseStatus =
 	| 'Containment'
 	| 'Eradication'
 	| 'Recovery'
-	| 'Post-Incident'
+	| 'Post-AlertCluster'
 	| 'Reporting'
 	| 'Merged'
 	| 'Assigned'
