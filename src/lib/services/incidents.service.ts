@@ -55,6 +55,25 @@ export interface CaseSourceIncident {
 	incident_status: string | null;
 }
 
+export interface IncidentGraphNode {
+	id: string;
+	label: string;
+	title?: string;
+	group: 'alert' | 'ioc' | 'asset';
+	image?: string;
+}
+
+export interface IncidentGraphEdge {
+	from: string;
+	to: string;
+	dashes?: boolean;
+}
+
+export interface IncidentGraph {
+	nodes: IncidentGraphNode[];
+	edges: IncidentGraphEdge[];
+}
+
 export interface PaginatedIncidents {
 	data: Incident[];
 	total: number;
@@ -128,5 +147,23 @@ export class IncidentsService {
 			`/api/v2/cases/${caseId}/source-incident`,
 			options
 		);
+	}
+
+	// Reverse an incident->case escalation/merge from the incident side.
+	// Server clears `incident_case_id`, moves the incident back to
+	// `Investigating`, and re-assigns every member alert. Returns
+	// `{unlinked: false}` when nothing was linked (idempotent no-op).
+	static async unlinkCase(id: number, options: ApiOptions = {}) {
+		return ApiService.delete<{ unlinked: boolean; incident_id?: number }>(
+			`/api/v2/incidents/${id}/case`,
+			options
+		);
+	}
+
+	// Correlation graph across the incident's member alerts. IOCs and
+	// assets are deduplicated server-side so shared indicators show as
+	// junction points between multiple alert nodes.
+	static async graph(id: number, options: ApiOptions = {}) {
+		return ApiService.get<IncidentGraph>(`/api/v2/incidents/${id}/graph`, options);
 	}
 }

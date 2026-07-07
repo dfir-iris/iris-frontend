@@ -156,6 +156,33 @@ export class CaseService {
 		return ApiService.post<Case>(`/api/v2/cases/${caseId}/reopen`, {}, options);
 	}
 
+	// Detach one alert from a case. Case-scoped: the ACL check on the
+	// server hits the case, not the alert, so callers use it from the
+	// case-side UI (linked-alerts popover, source-incident dropdown).
+	// Server resets the alert's status to `Assigned` so it re-enters
+	// the analyst queue instead of staying flagged as Escalated/Merged.
+	static async unlinkAlert(
+		caseId: CaseIdentifier,
+		alertId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<null>> {
+		return ApiService.delete<null>(`/api/v2/cases/${caseId}/alerts/${alertId}`, options);
+	}
+
+	// Unlink the source incident from a case. Reverses the entire
+	// escalate/merge in one call: incident goes back to Investigating,
+	// every member alert is detached from the case and re-Assigned.
+	// Returns `{unlinked: false}` when the case had no source incident.
+	static async unlinkSourceIncident(
+		caseId: CaseIdentifier,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<{ unlinked: boolean; incident_id?: number }>> {
+		return ApiService.delete<{ unlinked: boolean; incident_id?: number }>(
+			`/api/v2/cases/${caseId}/source-incident`,
+			options
+		);
+	}
+
 	// Every user with effective access to a case, with their access level.
 	// Backed by v2 endpoint `GET /api/v2/cases/{id}/access/users`. Useful
 	// for the case-manage modal (which shows everyone) — for pickers that

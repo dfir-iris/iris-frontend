@@ -18,8 +18,14 @@
 		edges: VisEdge[];
 		options?: Options;
 		className?: string;
-		onClick?: () => void;
+		onClick?: (detail: { nodeId?: IdType }) => void;
 		onContextMenu?: (detail: { x: number; y: number; nodeId?: IdType }) => void;
+		// Callback fired once the underlying vis-network `Network` is
+		// constructed. Consumers use it to drive imperative APIs the
+		// declarative props don't cover — `.focus`, `.selectNodes`,
+		// `.fit`, physics toggles, etc. Called again with `null` on
+		// destroy so the consumer can drop any cached handle.
+		onReady?: (network: Network | null) => void;
 	};
 
 	type NetworkEvent = {
@@ -29,7 +35,15 @@
 		};
 	};
 
-	let { nodes, edges, options = {}, className = '', onClick, onContextMenu }: Props = $props();
+	let {
+		nodes,
+		edges,
+		options = {},
+		className = '',
+		onClick,
+		onContextMenu,
+		onReady
+	}: Props = $props();
 
 	let container = $state<HTMLDivElement | null>(null);
 	let network = $state<Network | null>(null);
@@ -67,9 +81,13 @@
 			options
 		);
 
-		const handleClick = () => {
+		const handleClick = (params: NetworkEvent) => {
 			showTooltip();
-			onClick?.();
+			// Include the clicked node id (or undefined for empty-canvas
+			// clicks) so consumers can drive selection panels without
+			// wiring the vis-network `selectNode` event separately.
+			const nodeId = network?.getNodeAt(params.pointer.DOM);
+			onClick?.({ nodeId });
 		};
 
 		const handleContext = (params: NetworkEvent) => {
@@ -88,6 +106,8 @@
 		network.on('click', handleClick);
 		network.on('oncontext', handleContext);
 
+		onReady?.(network);
+
 		let resizeTimeout: ReturnType<typeof setTimeout>;
 
 		const observer = new ResizeObserver(() => (resizeTimeout = setTimeout(() => network?.fit())));
@@ -103,6 +123,7 @@
 			network = null;
 			nodesDataSet = null;
 			edgesDataSet = null;
+			onReady?.(null);
 		};
 	});
 

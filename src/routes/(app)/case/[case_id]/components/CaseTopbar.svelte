@@ -18,12 +18,15 @@
 		ShieldAlert,
 		Star,
 		Tag,
+		Unlink2,
 		UserRound
 	} from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { AlertService } from '$lib/services/alerts.service';
+	import { CaseService } from '$lib/services/case.service';
 	import { FollowedCasesService, type CaseFollower } from '$lib/services/followed-cases.service';
 	import { IncidentsService } from '$lib/services/incidents.service';
+	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
 	import {
 		SeveritiesService,
 		type Severity as ApiSeverity
@@ -392,6 +395,71 @@
 		sourceIncident = null;
 		void loadSourceIncident(id);
 	});
+
+	// Confirmation is intentional: unlinking rewrites the incident's
+	// status back to Investigating AND detaches every member alert from
+	// the case (each alert flips back to Assigned). That's not something
+	// we want a mis-click to trigger.
+	let showConfirmUnlinkIncident = $state(false);
+
+	const unlinkSourceIncident = () => {
+		if (!sourceIncident) return;
+		showConfirmUnlinkIncident = true;
+	};
+
+	const confirmUnlinkSourceIncident = async () => {
+		const id = caseData?.case_id;
+		if (id == null) return;
+		try {
+			const res = await CaseService.unlinkSourceIncident(id);
+			if (!res.ok) {
+				const msg =
+					(res.data as { message?: string } | null)?.message ??
+					res.error?.message ??
+					`Unlink failed (HTTP ${res.status})`;
+				toast({ title: 'Unlink failed', description: msg, variant: 'destructive' });
+				return;
+			}
+			toast({ title: 'Incident unlinked from case' });
+			sourceIncident = null;
+			// Also refresh linked-alerts count — the unlink dropped every
+			// member alert off the case, so the chip should shrink.
+			void loadLinkedAlerts(id);
+		} catch (err) {
+			toast({
+				title: 'Unlink failed',
+				description: (err as Error).message,
+				variant: 'destructive'
+			});
+		}
+	};
+
+	// Per-alert unlink from the linked-alerts popover. Fires directly
+	// (no confirm) because it only affects one row and the popover is
+	// already an explicit "here are the linked alerts" surface.
+	const unlinkAlertFromCase = async (alertId: number) => {
+		const id = caseData?.case_id;
+		if (id == null) return;
+		try {
+			const res = await CaseService.unlinkAlert(id, alertId);
+			if (!res.ok) {
+				const msg =
+					(res.data as { message?: string } | null)?.message ??
+					res.error?.message ??
+					`Unlink failed (HTTP ${res.status})`;
+				toast({ title: 'Unlink failed', description: msg, variant: 'destructive' });
+				return;
+			}
+			toast({ title: `Alert #${alertId} unlinked` });
+			void loadLinkedAlerts(id);
+		} catch (err) {
+			toast({
+				title: 'Unlink failed',
+				description: (err as Error).message,
+				variant: 'destructive'
+			});
+		}
+	};
 
 	// Followers: scope is "is the current user following this case + who
 	// else is". The list is public per the project policy — anyone who
@@ -865,10 +933,10 @@
 					{:else}
 						<ul class="flex flex-col py-1">
 							{#each linkedAlerts as alert (alert.alert_id)}
-								<li>
+								<li class="group flex items-stretch">
 									<a
 										href={`/alerts/${alert.alert_id}`}
-										class="flex w-full flex-col gap-0.5 px-3 py-2 text-xs transition-colors hover:bg-muted/60"
+										class="flex min-w-0 flex-1 flex-col gap-0.5 px-3 py-2 text-xs transition-colors hover:bg-muted/60"
 									>
 										<div class="flex items-center gap-2">
 											<span class="shrink-0 font-mono text-2xs text-muted-foreground">
@@ -884,6 +952,21 @@
 											</div>
 										{/if}
 									</a>
+									{#if canEdit}
+										<button
+											type="button"
+											class="mr-1 my-1 rounded-sm px-2 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+											aria-label={`Unlink alert #${alert.alert_id} from case`}
+											title="Unlink from case"
+											onclick={(e) => {
+												e.preventDefault();
+												e.stopPropagation();
+												void unlinkAlertFromCase(alert.alert_id);
+											}}
+										>
+											<Unlink2 size={13} />
+										</button>
+									{/if}
 								</li>
 							{/each}
 						</ul>
@@ -909,23 +992,41 @@
 
 		<!--
 		  Source-incident chip. Rendered only when this case was created
-		  from (or merged into by) an incident — clicking jumps to the
-		  incident detail page so the analyst can walk back up the chain.
-		  Mirrors the linked-alerts chip visually so it reads as a peer
-		  navigation control, not another action button.
+		  from (or merged into by) an incident. Doubles as a dropdown so
+		  analysts can either jump back to the incident or unlink the
+		  case-incident relationship in one place; the visual matches the
+		  linked-alerts chip so it reads as a peer navigation control.
 		-->
 		{#if sourceIncident}
-			<a
-				href={`/incidents/${sourceIncident.incident_id}`}
-				class="inline-flex h-7 items-center gap-1 rounded-sm border border-red-500/30 bg-red-500/10 px-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-2 dark:text-red-300"
-				title={`Back to incident #${sourceIncident.incident_id}: ${sourceIncident.incident_title}`}
-			>
-				<ShieldAlert size={13} />
-				<span class="tabular-nums">#{sourceIncident.incident_id}</span>
-				<span class="hidden max-w-[10rem] truncate md:inline">
-					{sourceIncident.incident_title}
-				</span>
-			</a>
+			<DropdownMenu>
+				<DropdownMenuTrigger>
+					<span
+						class="inline-flex h-7 cursor-pointer items-center gap-1 rounded-sm border border-red-500/30 bg-red-500/10 px-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-2 dark:text-red-300"
+						title={`Incident #${sourceIncident.incident_id}: ${sourceIncident.incident_title}`}
+					>
+						<ShieldAlert size={13} />
+						<span class="tabular-nums">#{sourceIncident.incident_id}</span>
+						<span class="hidden max-w-[10rem] truncate md:inline">
+							{sourceIncident.incident_title}
+						</span>
+					</span>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end" class="min-w-[220px]">
+					<DropdownMenuLabel>Source incident</DropdownMenuLabel>
+					<DropdownMenuSeparator />
+					<DropdownMenuItem onclick={() => goto(`/incidents/${sourceIncident?.incident_id}`)}>
+						Open incident #{sourceIncident.incident_id}
+					</DropdownMenuItem>
+					{#if canEdit}
+						<DropdownMenuItem
+							class="text-destructive focus:text-destructive"
+							onclick={unlinkSourceIncident}
+						>
+							Unlink from incident
+						</DropdownMenuItem>
+					{/if}
+				</DropdownMenuContent>
+			</DropdownMenu>
 		{/if}
 
 		<!--
@@ -1136,3 +1237,10 @@
 		</DropdownMenu>
 	</div>
 </div>
+
+<ConfirmationDialog
+	bind:open={showConfirmUnlinkIncident}
+	title="Unlink incident from case?"
+	message={`Incident #${sourceIncident?.incident_id ?? ''} will go back to Investigating and every alert currently linked to this case will be detached (status reset to Assigned). The case itself remains.`}
+	onConfirm={confirmUnlinkSourceIncident}
+/>

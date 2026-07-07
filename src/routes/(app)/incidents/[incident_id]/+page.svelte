@@ -25,6 +25,7 @@
 		FileTextIcon,
 		FingerprintIcon,
 		FlameIcon,
+		GitForkIcon,
 		HardDriveIcon,
 		HistoryIcon,
 		LayersIcon,
@@ -41,6 +42,15 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import * as Popover from '$lib/components/ui/popover';
 	import * as Command from '$lib/components/ui/command';
+	import {
+		DropdownMenu,
+		DropdownMenuContent,
+		DropdownMenuItem,
+		DropdownMenuLabel,
+		DropdownMenuSeparator,
+		DropdownMenuTrigger
+	} from '$lib/components/ui/dropdown-menu';
+	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
 	import { toast } from '$lib/components/ui/toast';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
@@ -49,6 +59,7 @@
 	import IncidentEscalateDialog, {
 		type IncidentEscalatePayload
 	} from './IncidentEscalateDialog.svelte';
+	import IncidentCorrelationGraph from './IncidentCorrelationGraph.svelte';
 	import { IncidentsService } from '$lib/services/incidents.service';
 	import { AlertService } from '$lib/services/alerts.service';
 	import { CommentsService, type Comment } from '$lib/services/comments.service';
@@ -76,7 +87,7 @@
 	let flowPanelOpen = $state(false);
 	let commentDraft = $state('');
 	let posting = $state(false);
-	let activeTab = $state<'alerts' | 'assets' | 'iocs' | 'timeline' | 'activity'>('alerts');
+	let activeTab = $state<'summary' | 'alerts' | 'assets' | 'iocs' | 'graph' | 'timeline' | 'activity'>('summary');
 
 	// Summary editor state — mirrors the CaseSummary card pattern.
 	// `incident_description` is loaded via load() and persisted through
@@ -263,6 +274,34 @@
 
 	let escalating = $state(false);
 	let escalateDialogOpen = $state(false);
+	let showConfirmUnlinkCase = $state(false);
+	let unlinking = $state(false);
+
+	const unlinkFromCase = async () => {
+		if (!incident || unlinking) return;
+		unlinking = true;
+		try {
+			const res = await IncidentsService.unlinkCase(incident.incident_id);
+			if (!res.ok) {
+				const msg =
+					(res.data as { message?: string } | null)?.message ??
+					res.error?.message ??
+					`Unlink failed (HTTP ${res.status})`;
+				toast({ title: 'Unlink failed', description: msg, variant: 'destructive' });
+				return;
+			}
+			toast({ title: 'Incident unlinked from case' });
+			await load();
+		} catch (err) {
+			toast({
+				title: 'Unlink failed',
+				description: (err as Error).message,
+				variant: 'destructive'
+			});
+		} finally {
+			unlinking = false;
+		}
+	};
 
 	const submitEscalateOrMerge = async (payload: IncidentEscalatePayload) => {
 		if (!incident || escalating) return;
@@ -490,9 +529,30 @@
 								{escalating ? 'Working…' : 'Escalate or merge…'}
 							</Button>
 						{:else}
-							<Button variant="outline" onclick={() => goto(`/case/${incident?.incident_case_id}`)}>
-								Open linked case #{incident.incident_case_id}
-							</Button>
+							<DropdownMenu>
+								<DropdownMenuTrigger>
+									<Button variant="outline" disabled={unlinking}>
+										{unlinking
+											? 'Unlinking…'
+											: `Linked case #${incident.incident_case_id}`}
+									</Button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="end" class="min-w-[220px]">
+									<DropdownMenuLabel>Linked case</DropdownMenuLabel>
+									<DropdownMenuSeparator />
+									<DropdownMenuItem
+										onclick={() => goto(`/case/${incident?.incident_case_id}`)}
+									>
+										Open case #{incident.incident_case_id}
+									</DropdownMenuItem>
+									<DropdownMenuItem
+										class="text-destructive focus:text-destructive"
+										onclick={() => (showConfirmUnlinkCase = true)}
+									>
+										Unlink from case
+									</DropdownMenuItem>
+								</DropdownMenuContent>
+							</DropdownMenu>
 						{/if}
 					</div>
 				</div>
@@ -699,113 +759,6 @@
 			</header>
 
 			<!-- ============================================================
-				 Summary — mirrors the CaseSummary card. Markdown editor bound
-				 to `incident_description`, with dirty/saving/synced chrome in
-				 the header. Real-time collab isn't wired for incidents yet:
-				 saves go through the normal PUT and refresh pulls the latest.
-				 ============================================================ -->
-			<section
-				class="mx-6 my-4 overflow-hidden rounded-xl border border-border/60 bg-card text-card-foreground shadow-elevation-2"
-			>
-				<header
-					class="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-muted/30 px-5 py-3"
-				>
-					<div class="flex min-w-0 items-center gap-2">
-						<div
-							class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
-						>
-							<FileTextIcon size={16} />
-						</div>
-						<div class="min-w-0">
-							<h2 class="truncate text-sm font-semibold leading-tight">Summary</h2>
-						</div>
-					</div>
-
-					<div class="flex flex-wrap items-center gap-2">
-						{#if summaryError}
-							<span
-								class="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive"
-							>
-								<CircleAlertIcon size={12} />
-								Error
-							</span>
-						{:else if summarySaving}
-							<span
-								class="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400"
-							>
-								<LoaderIcon size={12} class="animate-spin" />
-								Saving…
-							</span>
-						{:else if summaryDirty}
-							<span
-								class="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400"
-							>
-								<CircleDotIcon size={12} />
-								Unsaved changes
-							</span>
-						{:else}
-							<span
-								class="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400"
-							>
-								<CheckCircle2Icon size={12} />
-								All changes saved
-							</span>
-						{/if}
-
-						<span
-							class="hidden text-xs text-muted-foreground sm:inline"
-							title={`Last synced at ${summarySyncedAbsolute}`}
-						>
-							Synced {summarySyncedRelative}
-						</span>
-
-						<div class="flex items-center gap-1">
-							<Button
-								variant="ghost"
-								size="xs"
-								disabled={loading}
-								onclick={refreshSummary}
-								title="Refresh"
-							>
-								<RefreshCwIcon size={12} class={loading ? 'animate-spin' : ''} />
-								<span class="ml-1 hidden sm:inline">Refresh</span>
-							</Button>
-
-							{#if !isEscalated}
-								<Button
-									variant="default"
-									size="xs"
-									disabled={summarySaving || !summaryDirty}
-									onclick={saveSummary}
-									title="Save"
-								>
-									<SaveIcon size={12} />
-									<span class="ml-1 hidden sm:inline">Save</span>
-								</Button>
-							{/if}
-						</div>
-					</div>
-				</header>
-
-				{#if summaryError}
-					<div
-						class="border-b border-destructive/30 bg-destructive/5 px-5 py-2 text-xs text-destructive"
-					>
-						{summaryError}
-					</div>
-				{/if}
-
-				<div class="max-h-[calc(100vh-24rem)] min-h-[16rem] overflow-y-auto p-5">
-					<MarkDownEditor
-						value={incidentSummary}
-						onChange={(v) => (incidentSummary = v)}
-						onSave={() => saveSummary()}
-						readOnly={isEscalated}
-					/>
-				</div>
-			</section>
-
-			<!-- ============================================================
 				 Tabs — case-style: underline strip, no rounded chrome, sits
 				 flush against the header separator.
 				 ============================================================ -->
@@ -816,6 +769,21 @@
 			>
 				<div class="shrink-0 border-b bg-card px-6">
 					<TabsList class="h-auto rounded-none border-0 bg-transparent p-0">
+						<TabsTrigger
+							value="summary"
+							class="flex items-center gap-2 rounded-none px-4 py-3 text-sm transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent"
+						>
+							<FileTextIcon class="h-4 w-4" />
+							Summary
+							{#if summaryDirty}
+								<span
+									class="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-2xs font-medium text-amber-700 dark:text-amber-400"
+									title="Unsaved changes"
+								>
+									•
+								</span>
+							{/if}
+						</TabsTrigger>
 						<TabsTrigger
 							value="alerts"
 							class="flex items-center gap-2 rounded-none px-4 py-3 text-sm transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent"
@@ -853,6 +821,13 @@
 							</span>
 						</TabsTrigger>
 						<TabsTrigger
+							value="graph"
+							class="flex items-center gap-2 rounded-none px-4 py-3 text-sm transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent"
+						>
+							<GitForkIcon class="h-4 w-4" />
+							Correlation
+						</TabsTrigger>
+						<TabsTrigger
 							value="timeline"
 							class="flex items-center gap-2 rounded-none px-4 py-3 text-sm transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent"
 						>
@@ -876,7 +851,108 @@
 					</TabsList>
 				</div>
 
-				<div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+				<!--
+					Padding / scroll live on the outer wrapper for text-heavy
+					tabs. The graph tab renders edge-to-edge and manages its
+					own overflow, so we drop padding + scroll when it's
+					active — otherwise the graph would sit inside a padded
+					scroll box and never reach the panel's full height.
+				-->
+				<div
+					class="min-h-0 flex-1 {activeTab === 'graph'
+						? 'overflow-hidden'
+						: 'overflow-y-auto px-6 py-5'}"
+				>
+					<!-- ============ Summary ============
+						 Markdown editor bound to `incident_description` with
+						 dirty/saving/synced chrome, refresh + save. Real-time
+						 collab isn't wired for incidents yet: saves go through
+						 the normal PUT and refresh pulls the latest. -->
+					<TabsContent value="summary">
+						<div class="flex flex-wrap items-center justify-between gap-3 pb-3">
+							<div class="flex flex-wrap items-center gap-2">
+								{#if summaryError}
+									<span
+										class="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive"
+									>
+										<CircleAlertIcon size={12} />
+										Error
+									</span>
+								{:else if summarySaving}
+									<span
+										class="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400"
+									>
+										<LoaderIcon size={12} class="animate-spin" />
+										Saving…
+									</span>
+								{:else if summaryDirty}
+									<span
+										class="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400"
+									>
+										<CircleDotIcon size={12} />
+										Unsaved changes
+									</span>
+								{:else}
+									<span
+										class="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400"
+									>
+										<CheckCircle2Icon size={12} />
+										All changes saved
+									</span>
+								{/if}
+								<span
+									class="hidden text-xs text-muted-foreground sm:inline"
+									title={`Last synced at ${summarySyncedAbsolute}`}
+								>
+									Synced {summarySyncedRelative}
+								</span>
+							</div>
+
+							<div class="flex items-center gap-1">
+								<Button
+									variant="ghost"
+									size="xs"
+									disabled={loading}
+									onclick={refreshSummary}
+									title="Refresh"
+								>
+									<RefreshCwIcon size={12} class={loading ? 'animate-spin' : ''} />
+									<span class="ml-1 hidden sm:inline">Refresh</span>
+								</Button>
+
+								{#if !isEscalated}
+									<Button
+										variant="default"
+										size="xs"
+										disabled={summarySaving || !summaryDirty}
+										onclick={saveSummary}
+										title="Save"
+									>
+										<SaveIcon size={12} />
+										<span class="ml-1 hidden sm:inline">Save</span>
+									</Button>
+								{/if}
+							</div>
+						</div>
+
+						{#if summaryError}
+							<div
+								class="mb-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+							>
+								{summaryError}
+							</div>
+						{/if}
+
+						<div class="rounded-md border bg-muted/20 p-4">
+							<MarkDownEditor
+								value={incidentSummary}
+								onChange={(v) => (incidentSummary = v)}
+								onSave={() => saveSummary()}
+								readOnly={isEscalated}
+							/>
+						</div>
+					</TabsContent>
+
 					<!-- ============ Alerts ============ -->
 					<TabsContent value="alerts">
 						{#if alerts.length === 0}
@@ -1046,6 +1122,31 @@
 						{/if}
 					</TabsContent>
 
+					<!-- ============ Correlation graph ============
+						 Node/edge network built server-side from every member
+						 alert's IOCs and assets. Loaded lazily on first tab
+						 activation so a large incident doesn't pay the fetch
+						 cost until the analyst asks for it. Uses `mt-0` so it
+						 sits flush against the tabs strip; the graph owns the
+						 whole panel below that.
+
+						 IMPORTANT: `data-[state=active]:flex` is required —
+						 plain `flex` overrides the `[hidden]` attribute
+						 bits-ui sets on inactive panels (utility class
+						 specificity beats the user-agent stylesheet), which
+						 leaves the graph visible on top of Timeline/Activity.
+						 The state-scoped variant only applies flex when
+						 active. -->
+					<TabsContent
+						value="graph"
+						class="mt-0 h-full flex-col data-[state=active]:flex"
+					>
+						<IncidentCorrelationGraph
+							incidentId={incident.incident_id}
+							active={activeTab === 'graph'}
+						/>
+					</TabsContent>
+
 					<!-- ============ Timeline ============ -->
 					<TabsContent value="timeline">
 						{#if timeline.length === 0}
@@ -1163,5 +1264,12 @@
 		incidentCustomerId={incident.incident_customer_id ?? null}
 		onClose={() => (escalateDialogOpen = false)}
 		onConfirm={submitEscalateOrMerge}
+	/>
+
+	<ConfirmationDialog
+		bind:open={showConfirmUnlinkCase}
+		title="Unlink incident from case?"
+		message={`Incident #${incident.incident_id} will go back to Investigating and its ${alerts.length} alert${alerts.length === 1 ? '' : 's'} will be detached from case #${incident.incident_case_id} (status reset to Assigned). The case itself remains.`}
+		onConfirm={unlinkFromCase}
 	/>
 {/if}
