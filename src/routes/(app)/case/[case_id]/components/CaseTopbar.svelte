@@ -24,6 +24,10 @@
 	import { AlertService } from '$lib/services/alerts.service';
 	import { FollowedCasesService, type CaseFollower } from '$lib/services/followed-cases.service';
 	import {
+		SeveritiesService,
+		type Severity as ApiSeverity
+	} from '$lib/services/severities.service';
+	import {
 		WarRoomsService,
 		type WarRoomCaseSummary
 	} from '$lib/services/war-rooms.service';
@@ -270,6 +274,40 @@
 		} catch (err) {
 			toast({
 				title: 'Failed to update case state',
+				description: (err as Error).message,
+				variant: 'destructive'
+			});
+		}
+	};
+
+	// Severity picker mirrors the state-picker pattern: lazy-load once
+	// on first open, then PUT the selected severity via cases.patch().
+	let severities = $state<ApiSeverity[] | null>(null);
+	let severitiesLoading = $state(false);
+
+	const handleSeverityMenuOpen = async (open: boolean) => {
+		if (!open || severities || severitiesLoading) return;
+		severitiesLoading = true;
+		try {
+			const res = await SeveritiesService.list();
+			const body = res.data as unknown;
+			const list = Array.isArray(body)
+				? (body as ApiSeverity[])
+				: ((body as { data?: ApiSeverity[] })?.data ?? null);
+			severities = Array.isArray(list) ? list : [];
+		} finally {
+			severitiesLoading = false;
+		}
+	};
+
+	const setCaseSeverity = async (severityId: number) => {
+		const id = caseData?.case_id;
+		if (!id) return;
+		try {
+			await cases.patch(id, { severity_id: severityId });
+		} catch (err) {
+			toast({
+				title: 'Failed to update case severity',
 				description: (err as Error).message,
 				variant: 'destructive'
 			});
@@ -659,43 +697,73 @@
 			A closed case also gets a Reopen path via this menu.
 		-->
 		{#if canEdit}
-			<DropdownMenu onOpenChange={handleStateMenuOpen}>
-				<DropdownMenuTrigger>
-					<div
-						class="hidden items-center gap-1.5 transition-colors sm:flex"
-						title="Change case state"
-					>
-						<StatusBadge {status} />
-						<SeverityBadge {severity} />
-					</div>
-					<div class="flex items-center gap-1 sm:hidden">
-						<StatusBadge {status} icon_only />
-						<SeverityBadge {severity} icon_only />
-					</div>
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end" class="min-w-[200px]">
-					<DropdownMenuLabel>Change case state</DropdownMenuLabel>
-					<DropdownMenuSeparator />
-					{#if !states}
-						<div class="px-2 py-1.5 text-xs text-muted-foreground">Loading states…</div>
-					{:else}
-						{#each states as s (s.state_id)}
-							{@const isCurrent = caseData?.state?.state_id === s.state_id}
-							<DropdownMenuItem
-								disabled={isCurrent}
-								onclick={() => !isCurrent && setCaseState(s.state_id)}
-							>
-								<span class="flex w-full items-center justify-between gap-2">
-									<span class="truncate">{s.state_name}</span>
-									{#if isCurrent}
-										<CheckCircle2Icon size={12} class="shrink-0 text-emerald-500" />
-									{/if}
-								</span>
-							</DropdownMenuItem>
-						{/each}
-					{/if}
-				</DropdownMenuContent>
-			</DropdownMenu>
+			<div class="flex items-center gap-1.5">
+				<DropdownMenu onOpenChange={handleStateMenuOpen}>
+					<DropdownMenuTrigger>
+						<div class="hidden transition-colors sm:block" title="Change case state">
+							<StatusBadge {status} />
+						</div>
+						<div class="sm:hidden">
+							<StatusBadge {status} icon_only />
+						</div>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="end" class="min-w-[200px]">
+						<DropdownMenuLabel>Change case state</DropdownMenuLabel>
+						<DropdownMenuSeparator />
+						{#if !states}
+							<div class="px-2 py-1.5 text-xs text-muted-foreground">Loading states…</div>
+						{:else}
+							{#each states as s (s.state_id)}
+								{@const isCurrent = caseData?.state?.state_id === s.state_id}
+								<DropdownMenuItem
+									disabled={isCurrent}
+									onclick={() => !isCurrent && setCaseState(s.state_id)}
+								>
+									<span class="flex w-full items-center justify-between gap-2">
+										<span class="truncate">{s.state_name}</span>
+										{#if isCurrent}
+											<CheckCircle2Icon size={12} class="shrink-0 text-emerald-500" />
+										{/if}
+									</span>
+								</DropdownMenuItem>
+							{/each}
+						{/if}
+					</DropdownMenuContent>
+				</DropdownMenu>
+
+				<DropdownMenu onOpenChange={handleSeverityMenuOpen}>
+					<DropdownMenuTrigger>
+						<div class="hidden transition-colors sm:block" title="Change case severity">
+							<SeverityBadge {severity} />
+						</div>
+						<div class="sm:hidden">
+							<SeverityBadge {severity} icon_only />
+						</div>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="end" class="min-w-[200px]">
+						<DropdownMenuLabel>Change case severity</DropdownMenuLabel>
+						<DropdownMenuSeparator />
+						{#if !severities}
+							<div class="px-2 py-1.5 text-xs text-muted-foreground">Loading severities…</div>
+						{:else}
+							{#each severities as s (s.severity_id)}
+								{@const isCurrent = caseData?.severity?.severity_id === s.severity_id}
+								<DropdownMenuItem
+									disabled={isCurrent}
+									onclick={() => !isCurrent && setCaseSeverity(s.severity_id)}
+								>
+									<span class="flex w-full items-center justify-between gap-2">
+										<span class="truncate">{s.severity_name}</span>
+										{#if isCurrent}
+											<CheckCircle2Icon size={12} class="shrink-0 text-emerald-500" />
+										{/if}
+									</span>
+								</DropdownMenuItem>
+							{/each}
+						{/if}
+					</DropdownMenuContent>
+				</DropdownMenu>
+			</div>
 		{:else}
 			<!-- Read-only users still see the status + severity chips, just
 				 not as a dropdown trigger. -->
