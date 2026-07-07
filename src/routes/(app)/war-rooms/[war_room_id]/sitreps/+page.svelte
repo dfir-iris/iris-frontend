@@ -380,6 +380,8 @@
 							onChange={(v) => (editBody = v)}
 							onSave={save}
 							initialMode="edit"
+							collabMode="sitrep"
+							sitrepId={detail.sitrep_id}
 						/>
 					{/key}
 				{:else}

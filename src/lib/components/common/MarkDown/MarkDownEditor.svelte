@@ -35,11 +35,22 @@
 	import { TableHeader } from '@tiptap/extension-table-header';
 	import { TableCell } from '@tiptap/extension-table-cell';
 	import { Markdown } from 'tiptap-markdown';
-	import { Step } from '@tiptap/pm/transform';
 	import { ApiService } from '$lib/services/api.service';
 	import { auth } from '$lib/stores/auth.store';
 	import { io, type Socket } from 'socket.io-client';
 	import { env } from '$env/dynamic/public';
+	import * as Y from 'yjs';
+	import { Awareness } from 'y-protocols/awareness';
+	import Collaboration from '@tiptap/extension-collaboration';
+	// `extension-collaboration-caret` supersedes `extension-collaboration-cursor`
+	// for tiptap 3.22+. The old package (v3.0.0) was mispublished and pins
+	// against `y-prosemirror`'s ySyncPluginKey directly, while the current
+	// collaboration extension uses `@tiptap/y-tiptap`'s rebranded key. Mixing
+	// the two produces "can't access property 'doc', ystate is undefined"
+	// at cursor-plugin init because the keys don't match. Caret uses the
+	// same y-tiptap import path, so state lookup works.
+	import CollaborationCaret from '@tiptap/extension-collaboration-caret';
+	import { SocketYjsProvider } from '$lib/collab/socket-yjs-provider';
 	import { createMentionNode } from './mention-node';
 	import { buildSuggestion } from './mentions.svelte';
 	import type { MentionItem } from './MentionList.svelte';
@@ -61,16 +72,24 @@
 	import TaskDetailDialog from '../../../../routes/(app)/case/[case_id]/tasks/[task_id]/TaskDetailDialog.svelte';
 	import NoteDetailDialog from '../../../../routes/(app)/case/[case_id]/notes/[note_id]/NoteDetailDialog.svelte';
 
+	// `savedAt`, `onRemoteSave`, `onRemoteChange` are kept in the prop
+	// shape so existing call sites don't have to change, but they're
+	// no-ops now that Yjs handles sync + presence. Removing them would
+	// be a breaking API change across every editor mount in the SPA;
+	// the underscore prefixes signal intent to the type-check pass
+	// without touching the public shape.
 	let {
 		value,
 		onChange,
 		onSave,
 		caseId,
 		noteId,
+		warRoomNoteId,
+		sitrepId,
 		collabMode,
-		savedAt,
-		onRemoteSave,
-		onRemoteChange,
+		savedAt: _savedAt,
+		onRemoteSave: _onRemoteSave,
+		onRemoteChange: _onRemoteChange,
 		initialMode = 'view',
 		readOnly = false
 	} = $props<{
@@ -79,7 +98,9 @@
 		onSave: () => void;
 		caseId?: number | string | null;
 		noteId?: number | string | null;
-		collabMode?: 'case' | 'note';
+		warRoomNoteId?: number | string | null;
+		sitrepId?: number | string | null;
+		collabMode?: 'case' | 'note' | 'war-room-note' | 'sitrep';
 		savedAt?: number;
 		onRemoteSave?: (content: string) => void;
 		onRemoteChange?: (user: string) => void;
@@ -124,7 +145,7 @@
 	});
 
 	const enterEdit = async () => {
-		if (readOnly) return;
+		if (effectiveReadOnly) return;
 		if (viewMode === 'view') {
 			viewMode = 'edit';
 			await tick();
@@ -142,129 +163,190 @@
 
 	let editorElement = $state<HTMLDivElement | null>(null);
 	let editor: Editor | null = null;
-	let skipUpdate = false;
 	let uploading = $state(false);
+	// `typingUser` fed the old "X is typing…" hint above the toolbar.
+	// Yjs's CollaborationCursor replaces it with per-user cursor
+	// decorations, but the template block that reads this state is
+	// left in place (null → hidden via `{#if}`) so we don't churn the
+	// toolbar markup in the same commit as the collab swap.
 	let typingUser = $state<string | null>(null);
-	let typingTimeout: ReturnType<typeof setTimeout> | null = null;
 	// Reactive flag for the contextual table toolbar. Updated from the tiptap
 	// selection-update hook so Svelte re-renders the toolbar when the caret
 	// moves into or out of a table cell.
 	let inTable = $state(false);
 
-	// --- Socket.IO collaboration ---
-	let socket: Socket | null = null;
-	// Flag: true when applying remote changes OR prop-sync setContent — prevents
-	// re-emitting on the socket and prevents onChange from firing back to the parent.
-	let suppressLocal = false;
-	// Track which room we've asked the server to put us in, so the channel-change
-	// $effect below can re-join when the caller swaps caseId / noteId without
-	// remounting the editor.
-	let joinedChannel: string | null = null;
+	// --- Real-time collaboration (Yjs) -----------------------------------
+	// The editor is CRDT-backed via Yjs + TipTap's Collaboration extension.
+	// The server (`/collab` SocketIO namespace) is a dumb relay: we ship it
+	// opaque Yjs updates and it fans them out to peers on the same doc.
+	// See `iris-frontend/src/lib/collab/socket-yjs-provider.ts` for the
+	// transport shim.
 
-	// Collaboration mode: 'case' (summary) uses case-wide channel + generic change/save
-	// events; 'note' uses a per-note channel + change-note/save-note events so two
-	// notes in the same case don't clobber each other's edits.
-	//
-	// Channel format MUST start with `case-{caseId}` because the backend's
-	// ac_socket_requires decorator parses the case id from the channel string as
-	// `int(chan_id.replace('case-', '').split('-')[0])` to check access rights.
-	const mode = $derived(collabMode ?? (noteId ? 'note' : 'case'));
-	const channel = $derived(
-		mode === 'note'
-			? caseId && noteId
-				? `case-${caseId}-note-${noteId}`
-				: null
-			: caseId
-				? `case-${caseId}`
-				: null
+	// Collaboration mode drives the doc-name we open on the server:
+	//   * 'note'           → `note:<noteId>`
+	//   * 'case' (summary) → `case-summary:<caseId>`
+	//   * 'war-room-note'  → `war-room-note:<warRoomNoteId>`
+	//   * 'sitrep'         → `sitrep:<sitrepId>`
+	// The mode inference falls back to case-summary when nothing more
+	// specific is supplied — the same behaviour as before phase 2.
+	const mode = $derived(
+		collabMode ??
+			(warRoomNoteId ? 'war-room-note' : sitrepId ? 'sitrep' : noteId ? 'note' : 'case')
 	);
-	const joinEvent = $derived(mode === 'note' ? 'join-notes' : 'join');
-	const changeEvent = $derived(mode === 'note' ? 'change-note' : 'change');
-	const saveEvent = $derived(mode === 'note' ? 'save-note' : 'save');
+	const docName = $derived(
+		mode === 'note'
+			? noteId
+				? `note:${noteId}`
+				: null
+			: mode === 'war-room-note'
+				? warRoomNoteId
+					? `war-room-note:${warRoomNoteId}`
+					: null
+				: mode === 'sitrep'
+					? sitrepId
+						? `sitrep:${sitrepId}`
+						: null
+					: caseId
+						? `case-summary:${caseId}`
+						: null
+	);
 
-	const connectSocket = () => {
-		if (!channel) return;
+	let socket: Socket | null = null;
+	// `ydoc` and `awareness` are created EAGERLY (in the same tick as the
+	// component's `<script>` runs, before `onMount`) rather than lazily
+	// inside `connectCollab()`, because they need to be non-null when we
+	// construct the TipTap `Editor` — the Collaboration extension binds
+	// the ProseMirror doc to a Y.XmlFragment at extension-init time, and
+	// if we hand it a null document the binding never happens. The
+	// socket/provider are still lazy: those come up in `connectCollab()`.
+	//
+	// `untrack()` mirrors the pattern used above for `initialMode`: we
+	// intentionally want the value of `docName` at construction time,
+	// not a reactive subscription. Subsequent doc changes go through
+	// the doc-change $effect which tears down and re-creates both.
+	let ydoc: Y.Doc | null = untrack(() => (docName ? new Y.Doc() : null));
+	let provider: SocketYjsProvider | null = null;
+	// Awareness identity for the CollaborationCursor extension. We fill
+	// this in once the server's sync-init hands us the resolved user info.
+	let awareness: Awareness | null = ydoc ? new Awareness(ydoc) : null;
+	// Read-only bit computed from the server's `can_write` on join. The
+	// server is the single source of truth for editor content in Option
+	// A — it's also the single source of truth for the write-permission
+	// answer. We never seed content from any client-side fallback path,
+	// so if the server reports read-only that's the whole story.
+	let readOnlyFromServer = $state(false);
+	// Effective read-only combines the caller's opt-in (`readOnly` prop)
+	// with the server's verdict. A local user editing the DOM without
+	// write access can still generate Yjs updates, but the server drops
+	// them — this signal prevents that from happening client-side too.
+	const effectiveReadOnly = $derived(readOnly || readOnlyFromServer);
+
+	// `onUpdate` fires on every ProseMirror doc change — including the
+	// very first mutation caused by applying the server's initial
+	// `y_state`. If we called `onChange(md)` on that first mutation,
+	// the parent's `draftContent` would drift from its `baseContent`
+	// due to cosmetic differences between the server-column markdown
+	// and what tiptap-markdown renders (whitespace, escape backslashes,
+	// trailing newlines). Parents that derive "unsaved" from
+	// `draft !== base` would then flag every freshly-opened note as
+	// dirty. We hold `onChange` back until the initial `sync-init`
+	// has been applied — after that, every onChange is a user edit.
+	//
+	// Non-collab callers (no docName, e.g. task/evidence forms) don't
+	// go through `sync-init` at all, so we default the flag to true
+	// for them so their onChange fires immediately.
+	//
+	// `untrack()` — we deliberately want the initial value only. The
+	// caller wraps this component in `{#key <id>}` so a docName swap
+	// forces a full remount, which is when this initialiser re-runs.
+	let readyForOnChange = $state<boolean>(untrack(() => !docName));
+
+	const connectCollab = () => {
+		if (!docName || !ydoc || !awareness) return;
 
 		const token = auth.getAccessToken();
 		const baseUrl = env.PUBLIC_EXTERNAL_API_URL?.replace(/\/$/, '') ?? '';
 
-		socket = io(baseUrl, {
+		// WebSocket-first for low latency; polling fallback covers proxies
+		// that block WS.
+		//
+		// Auth: the SPA's Flask-issued JWT lives in localStorage. We CAN'T
+		// carry it in a header on WS handshakes (browsers strip custom
+		// headers on the upgrade), so we send it via socket.io's own
+		// `auth` handshake payload — the backend's `on_connect(auth)`
+		// receives it verbatim regardless of transport. `extraHeaders`
+		// stays as a belt-and-braces for polling-only proxies.
+		socket = io(`${baseUrl}/collab`, {
+			auth: token ? { token } : {},
 			extraHeaders: token ? { Authorization: `Bearer ${token}` } : {},
-			transports: ['polling', 'websocket']
-		});
-
-		socket.on('connect', () => {
-			if (!channel) return;
-			socket?.emit(joinEvent, { channel });
-			joinedChannel = channel;
+			transports: ['websocket', 'polling'],
+			reconnectionAttempts: 5
 		});
 
 		socket.on('connect_error', (err) => {
-			console.error('Socket connection error:', err.message);
+			console.error('Collab socket connection error:', err.message);
 		});
 
-		socket.on(
-			changeEvent,
-			(data: { steps?: unknown[]; channel?: string; last_change?: string }) => {
-				if (!editor || !data.steps?.length) return;
-
-				// Show typing indicator
-				if (data.last_change) {
-					typingUser = data.last_change;
-					onRemoteChange?.(data.last_change);
-					if (typingTimeout) clearTimeout(typingTimeout);
-					typingTimeout = setTimeout(() => (typingUser = null), 2000);
-				}
-
-				suppressLocal = true;
-				try {
-					const tr = editor.state.tr;
-					for (const stepJson of data.steps) {
-						const step = Step.fromJSON(editor.state.schema, stepJson as Record<string, unknown>);
-						tr.step(step);
-					}
-					editor.view.dispatch(tr);
-				} catch (e) {
-					// Steps couldn't be applied (e.g. position mismatch from concurrent edits).
-					// Fall back to a full re-fetch of the description so clients converge.
-					console.warn('Collab step apply failed, requesting full sync', e);
-				} finally {
-					suppressLocal = false;
-				}
+		provider = new SocketYjsProvider({
+			socket,
+			docName,
+			ydoc,
+			awareness,
+			onSyncInit: ({ canWrite, user }) => {
+				readOnlyFromServer = !canWrite;
+				// Set the local awareness user AFTER we know who the server
+				// thinks we are. `name` and `userId` are what peers see on
+				// our cursor — but note that we DO NOT rely on peers being
+				// honest about their own values. `SocketYjsProvider` rewrites
+				// every incoming peer's `user.name` / `user.userId` from the
+				// server-attested `awareness-identity` broadcast before the
+				// cursor extension renders them, so a malicious peer can't
+				// pretend to be someone else here. `color` is presentational
+				// only and we pass it through as-is.
+				awareness?.setLocalStateField('user', {
+					name: user.name ?? 'user',
+					userId: user.id,
+					color: pickCursorColor(user.id ?? 0)
+				});
+				// No cold-start seeding path anymore. The server owns the
+				// authoritative Y.Doc (see `iris_engine/collab/render.py`
+				// and `business/collab.ensure_snapshot`) — by the time this
+				// callback fires, the server has already sent us the
+				// y_state bytes and `SocketYjsProvider` has applied them.
+				// The editor's XmlFragment is populated correctly; any
+				// client-side `commands.setContent()` here would produce
+				// content duplication.
+				//
+				// From here on, onUpdate → onChange is a real user edit.
+				// See `readyForOnChange` at the top of the module for the
+				// reason we gated it in the first place.
+				readyForOnChange = true;
+			},
+			onPermissionDenied: () => {
+				readOnlyFromServer = true;
 			}
-		);
-
-		socket.on(saveEvent, (data: { content?: string; last_saved?: string }) => {
-			typingUser = null;
-
-			if (!data.content || !editor) return;
-
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const localMd = (editor.storage as any).markdown.getMarkdown() as string;
-
-			const normalized = normalizeLegacyContent(data.content);
-			if (localMd !== normalized) {
-				// Out of sync — replace content with what was saved
-				suppressLocal = true;
-				try {
-					editor.commands.setContent(normalized);
-				} finally {
-					suppressLocal = false;
-				}
-			}
-
-			// Tell parent to mark as saved (sets baseDescription = caseDescription)
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const md = (editor.storage as any).markdown.getMarkdown() as string;
-			onChange(md);
-			onRemoteSave?.(md);
 		});
 	};
 
-	const disconnectSocket = () => {
+	const disconnectCollab = () => {
+		provider?.destroy();
+		provider = null;
+		ydoc?.destroy();
+		ydoc = null;
+		awareness = null;
 		socket?.disconnect();
 		socket = null;
 	};
+
+	// Deterministic per-user color for cursor decoration. Not security-
+	// sensitive — just needs to be stable across sessions so User Alice
+	// always shows up with the same shade to everyone else.
+	const CURSOR_PALETTE = [
+		'#f87171', '#fb923c', '#fbbf24', '#4ade80',
+		'#22d3ee', '#60a5fa', '#a78bfa', '#f472b6'
+	];
+	const pickCursorColor = (userId: number) =>
+		CURSOR_PALETTE[Math.abs(userId) % CURSOR_PALETTE.length];
 
 	// --- Image upload ---
 	const uploadImage = async (file: File): Promise<string | null> => {
@@ -903,6 +985,12 @@
 			extensions: [
 				StarterKit.configure({
 					heading: { levels: [1, 2, 3] },
+					// Yjs's Collaboration extension supplies its own undo/redo
+					// via `y-prosemirror` — running both would double-apply
+					// undo transactions. StarterKit v3 renamed the toggle to
+					// `undoRedo`; disabling it is the officially documented
+					// setup for collab-enabled TipTap editors.
+					undoRedo: false,
 					// StarterKit v3 ships Link. Configure it here instead of
 					// registering a second Link extension — which triggers a
 					// `Duplicate extension names found: ['link']` warning and
@@ -912,6 +1000,32 @@
 						HTMLAttributes: { class: 'text-blue-500 underline' }
 					}
 				}),
+				// Real-time CRDT sync. The Collaboration extension binds
+				// the editor's ProseMirror state to a `Y.XmlFragment` on
+				// the Y.Doc; every local edit becomes an outbound Yjs
+				// update, every remote update is applied without ever
+				// touching the raw editor state.
+				...(ydoc
+					? [
+							Collaboration.configure({ document: ydoc }),
+							...(awareness
+								? [
+										CollaborationCaret.configure({
+											// The extension expects a provider-shaped object with
+											// `.awareness`. We're not using Hocuspocus — we've got
+											// our own Socket.IO transport — so we pass a plain
+											// wrapper. Only `.awareness` is read at runtime.
+											provider: { awareness } as never,
+											// Seed the local awareness user with a null-safe default;
+											// `sync-init` fires a moment later and overwrites this
+											// with the server-attested identity via
+											// `setLocalStateField('user', ...)`.
+											user: { name: 'user', color: pickCursorColor(0) }
+										})
+									]
+								: [])
+						]
+					: []),
 				// Image node extended with:
 				//  - a `width` attribute so users can resize and round-trip
 				//    (serialized as <img width> since markdown ![]() has no
@@ -977,7 +1091,17 @@
 					['asset', 'ioc', 'note', 'task', 'datastore']
 				)
 			],
-			content: normalizeLegacyContent(value ?? ''),
+			// In collab mode (docName set) the initial content is seeded
+			// from the server's `sync-init` payload — starting with `value`
+			// here would race the Yjs replay and produce a brief flash of
+			// stale content before the doc syncs in. Non-collab callers
+			// still get their prop content immediately.
+			content: docName ? '' : normalizeLegacyContent(value ?? ''),
+			// Initial editability. `effectiveReadOnly` is reactive; we
+			// wire a `$effect` below to keep TipTap in sync when the
+			// server flips the read-only flag mid-session (e.g. an ACL
+			// revocation while the editor is open).
+			editable: !effectiveReadOnly,
 			editorProps: {
 				attributes: {
 					// Tight `py-1` + `first:mt-0` on headings keeps the first
@@ -1002,19 +1126,27 @@
 				handlePaste,
 				handleDrop
 			},
-			onTransaction: ({ transaction }) => {
-				if (suppressLocal || !transaction.docChanged || !socket?.connected || !channel) return;
-
-				const steps = transaction.steps.map((step) => step.toJSON());
-				socket.emit(changeEvent, { steps, channel });
-			},
+			// Yjs owns wire sync via the Collaboration extension +
+			// `ydoc.on('update')` in the provider. This hook only
+			// mirrors the current markdown rendering to the parent so
+			// its `value` prop / save-badge logic keeps working; the
+			// server derives its own markdown from the authoritative
+			// Y.Doc when it flushes to the source column (see
+			// `iris_engine/collab/render.py`).
 			onUpdate: ({ editor: e }) => {
-				// Don't push changes back to parent during remote or prop-sync updates
-				if (suppressLocal) return;
-
-				skipUpdate = true;
+				// Suppress the very first onUpdate that fires when the
+				// server's y_state is replayed into the editor. Without
+				// this, the parent's `draftContent` diverges from
+				// `baseContent` (because tiptap-markdown renders back
+				// with slightly different whitespace / escapes than the
+				// raw source column carries) and every opened note
+				// looks dirty. `readyForOnChange` flips to true from
+				// the provider's `onSyncInit` handler, after which every
+				// subsequent onUpdate is a real user edit.
+				if (!readyForOnChange) return;
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				onChange((e.storage as any).markdown.getMarkdown());
+				const md = (e.storage as any).markdown.getMarkdown() as string;
+				onChange(md);
 			},
 			onSelectionUpdate: ({ editor: e }) => {
 				// Tracks whether the caret is inside a table so we can reveal
@@ -1023,62 +1155,78 @@
 			}
 		});
 
-		if (channel) {
-			connectSocket();
+		if (docName) {
+			connectCollab();
+			// Intentionally no safety-net seed: the server is the sole
+			// source of truth for editor content in Option A. If
+			// `sync-init` never arrives, the editor stays empty and the
+			// `[collab] connect_error` log tells operators why. Falling
+			// back to `value` from the parent would be the bug that
+			// produced content duplication in the previous design.
 		}
 	});
 
-	// When the channel changes (e.g. navigating between notes without
-	// remounting the editor), join the new room on the server so we receive
-	// broadcasts for the new target.
+	// The Collaboration extension binds the ProseMirror doc to a
+	// specific Y.XmlFragment at extension-init time (in `new Editor`);
+	// swapping the Y.Doc afterwards does NOT rebind, and quietly leaves
+	// the editor pointing at a dead fragment. Parent pages already wrap
+	// this component in `{#key <id>}` so navigating between notes /
+	// sitreps forces a full remount, which is the only reliable way to
+	// swap docs. We assert that the docName never mutates under our
+	// feet, and log loudly if it does — so a future refactor that
+	// removes the `{#key ...}` at the call site surfaces immediately
+	// rather than silently breaking collab.
+	// `untrack()` — same reason as the eager `ydoc`/`awareness` init above:
+	// we deliberately snapshot the initial docName and let the $effect
+	// below detect divergences, rather than reactively subscribing here.
+	let joinedDoc: string | null = $state(untrack(() => docName));
 	$effect(() => {
-		const current = channel;
-		if (!current || !socket?.connected) return;
-		if (current === joinedChannel) return;
-
-		socket.emit(joinEvent, { channel: current });
-		joinedChannel = current;
+		const current = docName;
+		if (current === joinedDoc) return;
+		console.warn(
+			`collab: docName changed under a mounted editor (${joinedDoc} → ${current}). ` +
+				`Wrap the editor in {#key <id>} at the call site to force a remount instead.`
+		);
+		joinedDoc = current;
 	});
 
-	// Emit socket save when parent signals a successful save
-	let prevSavedAt = 0;
+	// Keep TipTap's editable state in lockstep with the effective
+	// read-only signal. This covers three transitions:
+	//   1. Caller flips `readOnly` prop (e.g. a parent switches modes).
+	//   2. Server reports `can_write=false` at join time.
+	//   3. Server sends a mid-session `permission-denied` after an
+	//      ACL change.
+	// TipTap's `setEditable(false)` refuses local mutations at the
+	// ProseMirror layer, so Yjs never sees an update to forward. Belt
+	// AND braces — the server also drops writes from unauthorised users
+	// via `resolve_doc` on every incoming `sync` message.
 	$effect(() => {
-		const ts = savedAt ?? 0;
-		if (ts && ts !== prevSavedAt && socket?.connected && channel && editor) {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const md = (editor.storage as any).markdown.getMarkdown() as string;
-			socket.emit(saveEvent, { channel, content: md });
-		}
-		prevSavedAt = ts;
-	});
-
-	// Sync editor content when value prop changes externally
-	$effect(() => {
-		const v = normalizeLegacyContent(value ?? '');
-
 		if (!editor) return;
-
-		if (skipUpdate) {
-			skipUpdate = false;
-			return;
-		}
-
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const currentMd = (editor.storage as any).markdown.getMarkdown();
-
-		if (v !== currentMd) {
-			suppressLocal = true;
-			try {
-				editor.commands.setContent(v);
-			} finally {
-				suppressLocal = false;
-			}
+		editor.setEditable(!effectiveReadOnly);
+		if (effectiveReadOnly && viewMode !== 'view') {
+			// If we were in edit mode when access was revoked, fall back
+			// to the read-only rendered view so the user isn't staring
+			// at a locked-out editable surface.
+			viewMode = 'view';
 		}
 	});
+
+	// `savedAt` is now cosmetic — Yjs syncs continuously and the server
+	// flushes to the source column on last-client-disconnect (plus, in
+	// a future revision, on a periodic tick). Parent components can
+	// keep passing `savedAt` for their save-badge UI; we no longer
+	// re-broadcast on it.
+	//
+	// `value` prop → editor content sync is also gone for collab mode:
+	// Yjs is the source of truth once we've joined a doc, and blindly
+	// calling `setContent` here would clobber concurrent remote edits.
+	// The one-time cold-start seeding lives in `onSyncInit` above.
+	// Non-collab callers (no docName) get their content via `content:`
+	// in the Editor constructor, which is unchanged.
 
 	onDestroy(() => {
 		closePopover();
-		disconnectSocket();
+		disconnectCollab();
 		editor?.destroy();
 	});
 
@@ -1099,6 +1247,21 @@
 		the raw HSL variables and `isolation: isolate` on the shell so paint
 		order is unambiguous regardless of what the ProseMirror DOM sets.
 	-->
+	{#if readOnlyFromServer}
+		<!--
+			Server-side ACL banner. Rendered even when `readOnly` was
+			also passed by the caller, because "the caller set us to
+			view-only" and "the server refuses your write" mean very
+			different things to the user and only the second one
+			warrants a warning.
+		-->
+		<div
+			class="mb-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-200"
+			role="status"
+		>
+			You don't have permission to edit this document. Changes are read-only.
+		</div>
+	{/if}
 	{#if viewMode !== 'view'}
 	<div
 		class="markdown-editor-toolbar flex items-center gap-0.5 rounded-md border border-border px-1.5 py-1"
@@ -1329,7 +1492,7 @@
 					<p class="italic text-muted-foreground">
 						{#if viewMode === 'edit-preview'}
 							Nothing to preview yet.
-						{:else if readOnly}
+						{:else if effectiveReadOnly}
 							No content.
 						{:else}
 							Double-click to edit…
@@ -1553,5 +1716,63 @@
 	:global(.markdown-editor-body) {
 		overflow-wrap: anywhere;
 		word-break: break-word;
+	}
+
+	/*
+	 * Remote-cursor styling for `@tiptap/extension-collaboration-caret`.
+	 *
+	 * Without these rules the extension inserts unstyled `<span class=
+	 * "collaboration-carets__caret">` + `<div class=".__label">` nodes
+	 * into the text flow. Every keystroke triggers a re-render (see the
+	 * awareness event chain) and the unstyled label ends up briefly
+	 * pushing surrounding text around — which reads as "text blinking
+	 * because it comes and goes." Positioning the label absolutely
+	 * anchors it out of the flow and stops the flicker.
+	 *
+	 * The `border-color` and `background-color` are picked from the
+	 * `user.color` attribute the client sets when it seeds local
+	 * awareness (see `pickCursorColor(user.id)`). The extension writes
+	 * that color as an inline style on the caret span, so we don't need
+	 * to hardcode anything here — we only own the layout.
+	 */
+	:global(.collaboration-carets__caret) {
+		position: relative;
+		border-left: 1px solid;
+		border-right: 1px solid;
+		margin-left: -1px;
+		margin-right: -1px;
+		pointer-events: none;
+		word-break: normal;
+	}
+
+	:global(.collaboration-carets__label) {
+		position: absolute;
+		top: -1.4em;
+		left: -1px;
+		padding: 0.1rem 0.4rem;
+		border-radius: 3px 3px 3px 0;
+		font-size: 0.7rem;
+		font-weight: 500;
+		line-height: 1;
+		color: white;
+		white-space: nowrap;
+		user-select: none;
+		/* Keep the label above the sticky toolbar layer but below modal
+		   dialogs. Also fade to make rapid cursor movement feel less
+		   twitchy without hiding presence entirely. */
+		z-index: 5;
+		opacity: 0.9;
+		transition: opacity 100ms ease;
+	}
+
+	/*
+	 * Optional selection tint for a remote peer's ProseMirror selection.
+	 * y-prosemirror's default selectionBuilder returns
+	 * `{ nodeName: 'span', class: 'ProseMirror-yjs-selection', style: ...}`.
+	 * The inline style already sets background-color; we only need to
+	 * keep it from swallowing pointer events on our own content.
+	 */
+	:global(.ProseMirror-yjs-selection) {
+		pointer-events: none;
 	}
 </style>

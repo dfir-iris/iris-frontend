@@ -142,6 +142,12 @@ function createNotificationsStore() {
 		const baseUrl = env.PUBLIC_EXTERNAL_API_URL?.replace(/\/$/, '') ?? '';
 
 		socket = io(`${baseUrl}/notifications`, {
+			// `auth` is delivered in socket.io's handshake payload —
+			// works on WS transport, which strips custom headers by
+			// browser policy. `extraHeaders` stays as a belt-and-braces
+			// for polling-only proxies. See `on_connect` in
+			// `notification_event_handlers.py` for the server side.
+			auth: token ? { token } : {},
 			extraHeaders: token ? { Authorization: `Bearer ${token}` } : {},
 			// `websocket` FIRST, `polling` fallback. Long-polling adds
 			// significant push latency (server buffers events until the

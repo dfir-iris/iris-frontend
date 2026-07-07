@@ -494,6 +494,8 @@
 							{onChange}
 							onSave={save}
 							savedAt={savedAtMs}
+							collabMode="war-room-note"
+							warRoomNoteId={selected.note_id}
 						/>
 					{/key}
 				</div>
