@@ -114,7 +114,28 @@
 	// state_referenced_locally warning.
 	let viewMode = $state<ViewMode>(untrack(() => initialMode));
 
-	const renderedHtml = $derived(DOMPurify.sanitize(converter.makeHtml(value ?? '')));
+	// In collab mode the parent's `value` prop is empty on mount and only
+	// gets populated by an async fetch that races the Yjs sync-init.
+	// Both the view-mode preview and the "empty" placeholder used to key
+	// off `value`, which is why you'd see the note briefly, then the
+	// placeholder, then a false "unsaved changes" badge. We now:
+	//   * gate the "empty" placeholder behind `hasHydrated` so it never
+	//     flashes before we know whether the doc actually is empty.
+	//   * derive the view-mode preview from an editor-tracked HTML
+	//     snapshot (`viewHtml`) for collab callers, so the parent's
+	//     stale/empty `value` doesn't leak into the display.
+	// `hasHydrated` and `viewHtml` are populated below in the collab
+	// wire-up path (see the `onUpdate` hook and the connectCollab
+	// sync-init handler). Non-collab callers set `viewHtml` from the
+	// showdown-based converter path — same as before this fix.
+	let hasHydrated = $state<boolean>(false);
+	let viewHtml = $state<string>('');
+	let viewIsEmpty = $state<boolean>(true);
+
+	// The HTML we render inside {@html …} in view / edit-preview modes.
+	// Kept as an alias for `viewHtml` so the surrounding markup that
+	// used to read `renderedHtml` continues to work.
+	const renderedHtml = $derived(viewHtml);
 
 	// Container for the {@html renderedHtml} preview. We bind it so we
 	// can sweep its `<img>` children and swap any datastore URLs to
@@ -211,6 +232,31 @@
 						: null
 	);
 
+	// Non-collab callers (no docName): hydrate immediately and drive the
+	// view-mode HTML from the same showdown-converter pipeline used
+	// before this fix. Keeps the legacy plain-form/task/evidence/IOC/
+	// asset call sites working unchanged.
+	untrack(() => {
+		if (!docName) {
+			hasHydrated = true;
+			const md = value ?? '';
+			viewHtml = DOMPurify.sanitize(converter.makeHtml(md));
+			viewIsEmpty = md.trim().length === 0;
+		}
+	});
+
+	// Non-collab: keep the preview aligned with the parent's `value` prop
+	// so external state changes (form field updates, restored revisions
+	// on the non-collab path) refresh the view. This is a no-op in
+	// collab mode — that path is fed by `editor.getHTML()` on every
+	// ProseMirror update instead (see the onUpdate hook below).
+	$effect(() => {
+		if (docName) return;
+		const md = value ?? '';
+		viewHtml = DOMPurify.sanitize(converter.makeHtml(md));
+		viewIsEmpty = md.trim().length === 0;
+	});
+
 	let socket: Socket | null = null;
 	// `ydoc` and `awareness` are created EAGERLY (in the same tick as the
 	// component's `<script>` runs, before `onMount`) rather than lazily
@@ -260,6 +306,16 @@
 	// caller wraps this component in `{#key <id>}` so a docName swap
 	// forces a full remount, which is when this initialiser re-runs.
 	let readyForOnChange = $state<boolean>(untrack(() => !docName));
+	// Last markdown we handed the parent via `onChange`. Guards against
+	// echo emissions: y-prosemirror often fires a second `onUpdate` right
+	// after the initial `sync-init` replay (a housekeeping flush that
+	// re-serialises the same state). Without this guard, that second
+	// tick would call `onChange(md)` with a string identical to the one
+	// we suppressed the first time, and the parent's `draftContent`
+	// would suddenly diverge from `baseContent` — the phantom "unsaved
+	// changes" you'd see on every freshly-loaded note. Comparing string
+	// equality is cheap next to the ProseMirror-to-markdown render.
+	let lastEmittedMarkdown: string | null = null;
 
 	const connectCollab = () => {
 		if (!docName || !ydoc || !awareness) return;
@@ -321,6 +377,19 @@
 				// See `readyForOnChange` at the top of the module for the
 				// reason we gated it in the first place.
 				readyForOnChange = true;
+				// The view-mode mirror is fed from `onUpdate`, NOT from
+				// here. sync-init runs at the socket-message boundary —
+				// before y-prosemirror has flushed the applied Y-state
+				// into ProseMirror's document — so reading
+				// `editor.storage.markdown.getMarkdown()` right now would
+				// return an empty string and (via `lastEmittedMarkdown`)
+				// silently swallow the subsequent onUpdate that carries
+				// the real content. `hasHydrated` still flips true here
+				// so the view-mode template stops showing the loading
+				// skeleton; the next `onUpdate` (y-prosemirror's
+				// post-sync flush) populates the mirror before the next
+				// paint.
+				hasHydrated = true;
 			},
 			onPermissionDenied: () => {
 				readOnlyFromServer = true;
@@ -1007,7 +1076,16 @@
 				// touching the raw editor state.
 				...(ydoc
 					? [
-							Collaboration.configure({ document: ydoc }),
+							// `field: 'prosemirror'` matches the XmlFragment name
+					// the server writes to in `iris_engine/collab/render.py`
+					// (see `_PROSEMIRROR_FIELD`). y-tiptap defaults to
+					// `'default'` — if we accept that, the editor pulls
+					// from an empty fragment and the note stays blank
+					// even though `y_state` was applied to the doc. Yes,
+					// really: y-prosemirror uses NAMED XmlFragments
+					// inside the Y.Doc as its ProseMirror-bound root,
+					// and both sides have to agree on the name.
+					Collaboration.configure({ document: ydoc, field: 'prosemirror' }),
 							...(awareness
 								? [
 										CollaborationCaret.configure({
@@ -1134,18 +1212,33 @@
 			// Y.Doc when it flushes to the source column (see
 			// `iris_engine/collab/render.py`).
 			onUpdate: ({ editor: e }) => {
-				// Suppress the very first onUpdate that fires when the
-				// server's y_state is replayed into the editor. Without
-				// this, the parent's `draftContent` diverges from
-				// `baseContent` (because tiptap-markdown renders back
-				// with slightly different whitespace / escapes than the
-				// raw source column carries) and every opened note
-				// looks dirty. `readyForOnChange` flips to true from
-				// the provider's `onSyncInit` handler, after which every
-				// subsequent onUpdate is a real user edit.
-				if (!readyForOnChange) return;
+				// Always refresh the view-mode HTML snapshot from the
+				// current ProseMirror doc, INCLUDING the initial onUpdate
+				// y-prosemirror fires when it flushes the server's
+				// y_state. That first flush is how view-only viewers
+				// ever see content — if we bail out early here, the
+				// view stays permanently blank.
+				viewHtml = e.getHTML();
+				viewIsEmpty = e.isEmpty;
+				// The parent-visible `onChange` emission is a separate
+				// concern: we gate it on `readyForOnChange` so the
+				// initial hydration doesn't look like a user edit and
+				// doesn't flip the parent's dirty flag.
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				const md = (e.storage as any).markdown.getMarkdown() as string;
+				if (!readyForOnChange) {
+					// Record what we just rendered so the immediate
+					// post-hydration flush (y-prosemirror often emits a
+					// second identical onUpdate one tick after sync-init)
+					// is treated as an echo and skipped below.
+					lastEmittedMarkdown = md;
+					return;
+				}
+				// Skip echo emissions: identical markdown means no user
+				// edit happened; passing it to `onChange` would
+				// spuriously flip the parent's dirty flag.
+				if (md === lastEmittedMarkdown) return;
+				lastEmittedMarkdown = md;
 				onChange(md);
 			},
 			onSelectionUpdate: ({ editor: e }) => {
@@ -1488,7 +1581,21 @@
 					? 'rounded-md border border-border/50 bg-background p-3'
 					: ''}"
 			>
-				{#if (value ?? '').trim().length === 0}
+				{#if !hasHydrated}
+					<!--
+						Collab mode, waiting for the server's sync-init. We used
+						to fall through to "Double-click to edit…" here, which
+						flashed the empty-state placeholder for every doc that
+						had content — including ones the user could see loaded
+						a moment earlier. A soft skeleton stripe reads as "still
+						loading" rather than "this doc is empty, edit me".
+					-->
+					<div class="space-y-2 px-1 py-2" aria-hidden="true">
+						<div class="h-3 w-2/3 animate-pulse rounded bg-muted/50"></div>
+						<div class="h-3 w-11/12 animate-pulse rounded bg-muted/40"></div>
+						<div class="h-3 w-4/5 animate-pulse rounded bg-muted/40"></div>
+					</div>
+				{:else if viewIsEmpty}
 					<p class="italic text-muted-foreground">
 						{#if viewMode === 'edit-preview'}
 							Nothing to preview yet.
