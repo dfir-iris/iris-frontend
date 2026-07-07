@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { RequestResponse } from '$lib/services/api.service';
-	import { UsersService, type User } from '$lib/services/users.service';
+	import { UsersService, type MentionableUser } from '$lib/services/users.service';
 	import type { Alert } from '$lib/types/resources/alert';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -20,13 +19,23 @@
 
 	let { open = $bindable(), alert, ownerId, onOwnerIdChange, onConfirm }: Props = $props();
 
-	let users = $state<User[]>([]);
+	let users = $state<MentionableUser[]>([]);
 
 	const DEFAULT_VALUE = 'Select user';
 
+	// `/api/v2/users/mentionable` is auth-gated but not admin-gated, so
+	// standard analysts (who can't call `/manage/users`) can still
+	// reassign alerts to colleagues.
 	const loadReassignUsers = async () => {
-		const usersResponse = (await UsersService.list()).data as unknown as RequestResponse<User[]>;
-		users = usersResponse.data as User[];
+		const res = await UsersService.listMentionable();
+		const inner = (res?.data as { data?: MentionableUser[] })?.data;
+		if (Array.isArray(inner)) {
+			users = inner;
+		} else if (Array.isArray(res?.data)) {
+			users = res.data as unknown as MentionableUser[];
+		} else {
+			users = [];
+		}
 	};
 
 	onMount(() => loadReassignUsers());

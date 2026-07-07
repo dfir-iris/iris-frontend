@@ -94,7 +94,8 @@ const config: Config = {
 				}
 			},
 			maxWidth: {
-				'8xl': '96rem'
+				'8xl': '96rem',
+				'9xl': '120rem'
 			},
 			boxShadow: {
 				'glow-blue': '0 0 24px -2px rgba(30, 64, 120, 0.3)'

@@ -124,7 +124,7 @@
 	);
 </script>
 
-<form class="max-w-9xl mx-auto rounded-xl border bg-muted/100 p-5 shadow-sm" onsubmit={submit}>
+<form class="w-full rounded-xl border bg-muted/100 p-5 shadow-sm" onsubmit={submit}>
 	<div class="space-y-4">
 		<div class="grid grid-cols-2 gap-x-3 gap-y-3 md:grid-cols-4">
 			<div class="space-y-0.5">

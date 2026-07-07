@@ -46,6 +46,7 @@
 	} from '$lib/components/ui/dropdown-menu';
 	import { Loading } from '$lib/components/ui/loading';
 	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
+	import { SearchableSelect } from '$lib/components/ui/searchable-select';
 	import {
 		AlertFilters,
 		defaultFilters,
@@ -142,6 +143,7 @@
 	let reassignOwnerId = $state<string>('');
 
 	let showConfirmDelete = $state(false);
+	let showConfirmDeletePreset = $state(false);
 
 	let showAlertHistory = $state(false);
 	let showAlertEdit = $state(false);
@@ -376,6 +378,41 @@
 	};
 
 	const clearSavedFilterSelection = () => (selectedSavedFilterId = '');
+
+	// The selected preset — resolved from the live list so the trash
+	// affordance and its ownership check reflect the latest server
+	// state (name change, ownership transfer, etc.).
+	const selectedSavedFilter = $derived(
+		selectedSavedFilterId === ''
+			? null
+			: (alerts.savedFilters.items.find(
+					(f) => String(f.filter_id) === selectedSavedFilterId
+				) ?? null)
+	);
+
+	// Only surface the delete button when the current user created the
+	// preset; the backend rejects deletes from anyone else anyway, but
+	// hiding the affordance avoids a confusing failure state.
+	const canDeleteSelectedFilter = $derived(
+		selectedSavedFilter !== null &&
+			$current_user?.id != null &&
+			selectedSavedFilter.created_by === $current_user.id
+	);
+
+	const deleteSelectedSavedFilter = async () => {
+		if (!selectedSavedFilter) {
+			showConfirmDeletePreset = false;
+			return;
+		}
+
+		const removed = await alerts.removeSavedFilter(selectedSavedFilter.filter_id);
+
+		showConfirmDeletePreset = false;
+
+		if (removed) {
+			clearSavedFilterSelection();
+		}
+	};
 
 	const saveAsFilter = async (
 		current: Filters,
@@ -638,7 +675,7 @@
   (mounted in the alerts +layout.svelte) sits as a sibling outside of
   this scrolling region and stays full-height alongside.
 -->
-<div class="mx-auto flex h-full min-h-0 w-full max-w-8xl grow flex-col overflow-hidden p-6 pb-0">
+<div class="mx-auto flex h-full min-h-0 w-full max-w-9xl grow flex-col overflow-hidden p-6 pb-0">
 	{#if status === 'initial'}
 		<div class="flex h-full w-full items-center justify-center">
 			<Loading size={32} />
@@ -652,12 +689,12 @@
 			  pinned while the alert list below scrolls.
 			-->
 			<div class="flex shrink-0 flex-col gap-5">
-				<h2 class="text-lg font-semibold">
-					{getTotal({ data: alertsData } as RequestResponse<Paginated<Alert>>)} Alerts
-				</h2>
+			<div class="flex items-center justify-between gap-4">
+				<div class="flex items-center gap-3">
+					<h2 class="text-lg font-semibold whitespace-nowrap">
+						{getTotal({ data: alertsData } as RequestResponse<Paginated<Alert>>)} Alerts
+					</h2>
 
-			<div class="flex items-center justify-between">
-				<div class="flex gap-2">
 					<Button
 						size="xs"
 						variant={filtersOpen ? 'default' : 'outline'}
@@ -667,38 +704,52 @@
 					</Button>
 
 					{#if alerts.savedFilters.items.length}
-						<Select
-							value={selectedSavedFilterId}
-							onValueChange={(v) => {
-								if (v === '') {
-									clearSavedFilterSelection();
-									return;
-								}
+						<div class="flex items-center gap-1">
+							<div
+								class="w-48 [&_button[role=combobox]]:!h-7 [&_button[role=combobox]]:!px-2.5 [&_button[role=combobox]]:!py-0 [&_button[role=combobox]]:!text-xs [&_button[role=combobox]]:!rounded-md [&_button[role=combobox]]:!font-normal"
+							>
+								<SearchableSelect
+									value={selectedSavedFilterId}
+									placeholder="Select preset filter"
+									searchPlaceholder="Search preset filters..."
+									emptyMessage="No preset filters found."
+									items={alerts.savedFilters.items.map((filter) => ({
+										value: String(filter.filter_id),
+										label: filter.filter_name
+									}))}
+									onValueChange={(v) => {
+										if (v === '') {
+											clearSavedFilterSelection();
+											return;
+										}
 
-								selectedSavedFilterId = v;
+										selectedSavedFilterId = v;
 
-								const id = Number(v);
-								if (!Number.isFinite(id)) return;
+										const id = Number(v);
+										if (!Number.isFinite(id)) return;
 
-								applySavedFilter(id);
-								filtersOpen = true;
-							}}
-							type="single"
-						>
-							<SelectTrigger>Select preset filter</SelectTrigger>
+										applySavedFilter(id);
+										filtersOpen = true;
+									}}
+								/>
+							</div>
 
-							<SelectContent>
-								<SelectItem value="">Select preset filter</SelectItem>
-
-								{#each alerts.savedFilters.items as filter (filter.filter_id)}
-									<SelectItem value={String(filter.filter_id)}>{filter.filter_name}</SelectItem>
-								{/each}
-							</SelectContent>
-						</Select>
+							{#if canDeleteSelectedFilter}
+								<Button
+									variant="outline"
+									size="xs"
+									title="Delete preset filter"
+									aria-label="Delete preset filter"
+									onclick={() => (showConfirmDeletePreset = true)}
+								>
+									<TrashIcon class="h-4 w-4" />
+								</Button>
+							{/if}
+						</div>
 					{/if}
 				</div>
 
-				<div class="flex gap-2">
+				<div class="flex items-center gap-2">
 					{#if selecting}
 						<Button variant="outline" size="xs" onclick={cancelSelect}>Cancel</Button>
 
@@ -759,7 +810,7 @@
 						}}
 						type="single"
 					>
-						<SelectTrigger>{query.per_page} entries per page</SelectTrigger>
+						<SelectTrigger class="h-7 px-2.5 py-0">{query.per_page} entries per page</SelectTrigger>
 
 						<SelectContent>
 							{#each perPageOptions as perPageOption}
@@ -769,6 +820,10 @@
 					</Select>
 				</div>
 			</div>
+
+			{#if getPagesCount() > 1}
+				<AlertsPagination page={query.page} pages={getPagesCount()} onPageChange={changePage} />
+			{/if}
 
 			{#if filtersOpen}
 				<AlertFilters
@@ -879,12 +934,6 @@
 					>
 				</div>
 			{/if}
-
-				{#if getPagesCount() > 1}
-					<div class="flex">
-						<AlertsPagination page={query.page} pages={getPagesCount()} onPageChange={changePage} />
-					</div>
-				{/if}
 			</div>
 
 			<!--
@@ -898,9 +947,9 @@
 			  / last card sits flush against the fade and looks half-
 			  obscured at rest).
 			-->
-			<div class="relative flex min-h-0 min-w-0 flex-1 flex-col">
+			<div class="relative -mr-6 flex min-h-0 min-w-0 flex-1 flex-col">
 				<ul
-					class="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto px-1 pr-3 pt-4 pb-6"
+					class="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto px-1 pr-6 pt-4 pb-6"
 				>
 				{#each alertsData.data as alert (alert.alert_id)}
 					<li class="flex min-w-0 items-center gap-4">
@@ -975,11 +1024,11 @@
 
 				<!--
 				  Frosted fade-out strips so cards melt into the page
-				  background at the top/bottom/right of the scroll
-				  viewport instead of getting hard-clipped at the
-				  edge. `pointer-events-none` keeps them click-
-				  through; subtle `backdrop-blur` softens card text
-				  passing under the fade.
+				  background at the top/bottom of the scroll viewport
+				  instead of getting hard-clipped at the edge.
+				  `pointer-events-none` keeps them click-through;
+				  subtle `backdrop-blur` softens card text passing
+				  under the fade.
 				-->
 				<div
 					class="pointer-events-none absolute inset-x-0 top-0 z-10 h-6 bg-gradient-to-b from-background via-background/85 to-transparent backdrop-blur-[1px]"
@@ -987,16 +1036,8 @@
 				<div
 					class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-8 bg-gradient-to-t from-background via-background/85 to-transparent backdrop-blur-[1px]"
 				></div>
-				<div
-					class="pointer-events-none absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-background/80 to-transparent"
-				></div>
 			</div>
 
-			{#if getPagesCount() > 1}
-				<div class="flex shrink-0 pb-4">
-					<AlertsPagination page={query.page} pages={getPagesCount()} onPageChange={changePage} />
-				</div>
-			{/if}
 		</div>
 	{/if}
 </div>
@@ -1044,4 +1085,12 @@
 	message="You are about to delete this forever. This cannot be reverted. All associated data will be deleted."
 	onConfirm={deleteSelected}
 	onCancel={() => (showConfirmDelete = false)}
+/>
+
+<ConfirmationDialog
+	bind:open={showConfirmDeletePreset}
+	title="Delete preset filter?"
+	message={`Are you sure you want to delete "${selectedSavedFilter?.filter_name ?? ''}"? This cannot be undone.`}
+	onConfirm={deleteSelectedSavedFilter}
+	onCancel={() => (showConfirmDeletePreset = false)}
 />
