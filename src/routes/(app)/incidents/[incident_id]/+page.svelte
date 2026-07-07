@@ -14,18 +14,24 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import {
-		AlignLeftIcon,
 		ArrowUpRightIcon,
 		BookmarkIcon,
 		BuildingIcon,
+		CheckCircle2Icon,
 		CheckSquareIcon,
+		CircleAlertIcon,
+		CircleDotIcon,
 		ClockIcon,
+		FileTextIcon,
 		FingerprintIcon,
 		FlameIcon,
 		HardDriveIcon,
 		HistoryIcon,
 		LayersIcon,
+		LoaderIcon,
 		MessageSquareIcon,
+		RefreshCwIcon,
+		SaveIcon,
 		SendHorizonalIcon,
 		ShieldAlertIcon,
 		TrashIcon
@@ -33,16 +39,16 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { Loading } from '$lib/components/ui/loading';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import {
-		Select,
-		SelectContent,
-		SelectItem,
-		SelectTrigger
-	} from '$lib/components/ui/select';
+	import * as Popover from '$lib/components/ui/popover';
+	import * as Command from '$lib/components/ui/command';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
 	import { toast } from '$lib/components/ui/toast';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
+	import { MarkDownEditor } from '$lib/components/common/MarkDown';
 	import IncidentInvestigationFlowPanel from './IncidentInvestigationFlowPanel.svelte';
+	import IncidentEscalateDialog, {
+		type IncidentEscalatePayload
+	} from './IncidentEscalateDialog.svelte';
 	import { IncidentsService } from '$lib/services/incidents.service';
 	import { AlertService } from '$lib/services/alerts.service';
 	import { CommentsService, type Comment } from '$lib/services/comments.service';
@@ -71,6 +77,20 @@
 	let commentDraft = $state('');
 	let posting = $state(false);
 	let activeTab = $state<'alerts' | 'assets' | 'iocs' | 'timeline' | 'activity'>('alerts');
+
+	// Summary editor state — mirrors the CaseSummary card pattern.
+	// `incident_description` is loaded via load() and persisted through
+	// updateField. Real-time collab isn't wired for incidents yet (no
+	// `incident-summary:<id>` doc kind on the backend), so this is a
+	// plain save-on-click editor with dirty/saving/synced chrome.
+	let incidentSummary = $state('');
+	let baseIncidentSummary = $state('');
+	let summarySaving = $state(false);
+	let summaryError = $state<string | null>(null);
+	let summarySavedAt = $state(0);
+	let summaryLoadedAt = $state(new Date());
+	let summaryNow = $state(new Date());
+	const summaryDirty = $derived(incidentSummary !== baseIncidentSummary);
 
 	const isEscalated = $derived(!!incident?.incident_case_id);
 
@@ -141,6 +161,18 @@
 			const res = await IncidentsService.get(incidentId);
 			incident =
 				res.data && typeof res.data === 'object' ? (res.data as Incident) : null;
+			if (incident) {
+				// Seed the summary editor from the freshly loaded incident.
+				// Preserve unsaved local edits: if the user is mid-edit and a
+				// background reload happens, only overwrite when the description
+				// has actually changed on the server (i.e. base moved).
+				const remote = incident.incident_description ?? '';
+				if (remote !== baseIncidentSummary) {
+					baseIncidentSummary = remote;
+					if (!summaryDirty) incidentSummary = remote;
+				}
+				summaryLoadedAt = new Date();
+			}
 			if (incident && incident.alert_ids?.length) {
 				const fetched = await Promise.all(
 					incident.alert_ids.map(async (id) => {
@@ -157,6 +189,59 @@
 			loading = false;
 		}
 	};
+
+	const saveSummary = async () => {
+		if (!incident || summarySaving) return;
+		summarySaving = true;
+		summaryError = null;
+		try {
+			const res = await IncidentsService.update(incident.incident_id, {
+				incident_description: incidentSummary
+			});
+			if (!res.ok) {
+				const message =
+					(res.data as { message?: string } | null)?.message ??
+					res.error?.message ??
+					`Save failed (HTTP ${res.status})`;
+				summaryError = message;
+				return;
+			}
+			baseIncidentSummary = incidentSummary;
+			summarySavedAt = Date.now();
+			summaryLoadedAt = new Date();
+			// Reflect the new value in the in-memory incident so the
+			// next background reload doesn't clobber it.
+			if (incident) incident.incident_description = incidentSummary;
+		} catch (err) {
+			summaryError = (err as Error).message;
+		} finally {
+			summarySaving = false;
+		}
+	};
+
+	const refreshSummary = async () => {
+		if (!incident) return;
+		const res = await IncidentsService.get(incident.incident_id);
+		if (res.ok && res.data && typeof res.data === 'object') {
+			const remote = (res.data as Incident).incident_description ?? '';
+			baseIncidentSummary = remote;
+			incidentSummary = remote;
+			summaryLoadedAt = new Date();
+			summaryError = null;
+		}
+	};
+
+	const summaryRelativeTime = (from: Date, to: Date): string => {
+		const diff = Math.max(0, Math.round((to.getTime() - from.getTime()) / 1000));
+		if (diff < 5) return 'just now';
+		if (diff < 60) return `${diff}s ago`;
+		if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+		if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+		return from.toLocaleDateString();
+	};
+
+	const summarySyncedRelative = $derived(summaryRelativeTime(summaryLoadedAt, summaryNow));
+	const summarySyncedAbsolute = $derived(summaryLoadedAt.toLocaleTimeString());
 
 	const loadComments = async () => {
 		const res = await CommentsService.list('incidents', incidentId, { per_page: 200 });
@@ -176,15 +261,50 @@
 		await load();
 	};
 
-	const escalate = async () => {
-		if (!incident) return;
-		const res = await IncidentsService.escalate(incident.incident_id, {
-			case_title: incident.incident_title,
-			note: incident.incident_description ?? undefined
-		});
-		const payload = res.data && typeof res.data === 'object' ? res.data : null;
-		if (payload && 'case_id' in payload && payload.case_id) {
-			goto(`/case/${payload.case_id}`);
+	let escalating = $state(false);
+	let escalateDialogOpen = $state(false);
+
+	const submitEscalateOrMerge = async (payload: IncidentEscalatePayload) => {
+		if (!incident || escalating) return;
+		escalating = true;
+		try {
+			const res =
+				payload.mode === 'new'
+					? await IncidentsService.escalate(incident.incident_id, {
+							case_title: payload.case_title,
+							note: payload.note || undefined,
+							import_as_event: payload.import_as_event,
+							case_tags: payload.case_tags || undefined
+						})
+					: await IncidentsService.merge(incident.incident_id, {
+							target_case_id: payload.target_case_id,
+							note: payload.note || undefined,
+							import_as_event: payload.import_as_event,
+							case_tags: payload.case_tags || undefined
+						});
+			const body = res.data && typeof res.data === 'object' ? res.data : null;
+			if (res.ok && body && 'case_id' in body && body.case_id) {
+				escalateDialogOpen = false;
+				goto(`/case/${body.case_id}`);
+				return;
+			}
+			const message =
+				(body as { message?: string } | null)?.message ??
+				res.error?.message ??
+				`${payload.mode === 'new' ? 'Escalation' : 'Merge'} failed (HTTP ${res.status})`;
+			toast({
+				title: payload.mode === 'new' ? 'Escalation failed' : 'Merge failed',
+				description: message,
+				variant: 'destructive'
+			});
+		} catch (err) {
+			toast({
+				title: payload.mode === 'new' ? 'Escalation failed' : 'Merge failed',
+				description: (err as Error).message,
+				variant: 'destructive'
+			});
+		} finally {
+			escalating = false;
 		}
 	};
 
@@ -277,7 +397,12 @@
 				);
 			}
 		});
+		// Tick a "now" state every 30s so the "Synced X ago" chip in the
+		// summary header stays reasonably fresh. 30s is coarse enough not
+		// to churn the DOM; the value is only shown as a hint anyway.
+		const tick = setInterval(() => (summaryNow = new Date()), 30_000);
 		await load();
+		return () => clearInterval(tick);
 	});
 </script>
 
@@ -357,8 +482,12 @@
 							</Button>
 						{/if}
 						{#if !isEscalated}
-							<Button onclick={escalate} disabled={alerts.length === 0}>
-								<ArrowUpRightIcon class="mr-2 h-4 w-4" /> Escalate to case
+							<Button
+								onclick={() => (escalateDialogOpen = true)}
+								disabled={alerts.length === 0 || escalating}
+							>
+								<ArrowUpRightIcon class="mr-2 h-4 w-4" />
+								{escalating ? 'Working…' : 'Escalate or merge…'}
 							</Button>
 						{:else}
 							<Button variant="outline" onclick={() => goto(`/case/${incident?.incident_case_id}`)}>
@@ -377,28 +506,52 @@
 							Status
 						</span>
 						<div class="flex items-center gap-2">
-							<span
-								class="rounded-full px-2.5 py-0.5 text-xs font-medium {statusChip(
-									incident.status?.status_name ?? ''
-								)}"
-							>
-								{incident.status?.status_name ?? '—'}
-							</span>
-							{#if !isEscalated}
-								<Select
-									value={String(incident.incident_status_id)}
-									onValueChange={(v) => updateField({ incident_status_id: Number(v) })}
-									type="single"
+							{#if isEscalated}
+								<span
+									class="rounded-full px-2.5 py-0.5 text-xs font-medium {statusChip(
+										incident.status?.status_name ?? ''
+									)}"
 								>
-									<SelectTrigger class="h-7 w-auto min-w-[130px] text-xs">
-										Change
-									</SelectTrigger>
-									<SelectContent>
-										{#each statuses as s (s.status_id)}
-											<SelectItem value={String(s.status_id)}>{s.status_name}</SelectItem>
-										{/each}
-									</SelectContent>
-								</Select>
+									{incident.status?.status_name ?? '—'}
+								</span>
+							{:else}
+								<Popover.Root>
+									<Popover.Trigger>
+										<span
+											class="cursor-pointer rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors hover:brightness-95 {statusChip(
+												incident.status?.status_name ?? ''
+											)}"
+											title="Change status"
+										>
+											{incident.status?.status_name ?? '—'}
+										</span>
+									</Popover.Trigger>
+									<Popover.Content align="start" class="w-56 p-0">
+										<Command.Root>
+											<Command.Input placeholder="Search status..." class="h-9" />
+											<Command.Empty>No status found.</Command.Empty>
+											<Command.List class="max-h-[240px] overflow-y-auto">
+												<Command.Group>
+													{#each statuses as s (s.status_id)}
+														{@const isCurrent = incident.incident_status_id === s.status_id}
+														<Command.Item
+															value={s.status_name}
+															onSelect={() =>
+																!isCurrent && updateField({ incident_status_id: s.status_id })}
+														>
+															<span class="flex w-full items-center justify-between gap-2">
+																<span class="truncate">{s.status_name}</span>
+																{#if isCurrent}
+																	<CheckCircle2Icon size={12} class="shrink-0 text-emerald-500" />
+																{/if}
+															</span>
+														</Command.Item>
+													{/each}
+												</Command.Group>
+											</Command.List>
+										</Command.Root>
+									</Popover.Content>
+								</Popover.Root>
 							{/if}
 						</div>
 					</div>
@@ -408,31 +561,56 @@
 							Severity
 						</span>
 						<div class="flex items-center gap-2">
-							<span
-								class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium {severityChip(
-									severityLabel(incident.incident_severity_id)
-								)}"
-							>
-								<FlameIcon class="h-3 w-3" />
-								{severityLabel(incident.incident_severity_id)}
-							</span>
-							{#if !isEscalated}
-								<Select
-									value={String(incident.incident_severity_id ?? '')}
-									onValueChange={(v) =>
-										updateField({ incident_severity_id: v === '' ? null : Number(v) })}
-									type="single"
+							{#if isEscalated}
+								<span
+									class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium {severityChip(
+										severityLabel(incident.incident_severity_id)
+									)}"
 								>
-									<SelectTrigger class="h-7 w-auto min-w-[130px] text-xs">
-										Change
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="">Unspecified</SelectItem>
-										{#each severities as s (s.severity_id)}
-											<SelectItem value={String(s.severity_id)}>{s.severity_name}</SelectItem>
-										{/each}
-									</SelectContent>
-								</Select>
+									<FlameIcon class="h-3 w-3" />
+									{severityLabel(incident.incident_severity_id)}
+								</span>
+							{:else}
+								<Popover.Root>
+									<Popover.Trigger>
+										<span
+											class="inline-flex cursor-pointer items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors hover:brightness-95 {severityChip(
+												severityLabel(incident.incident_severity_id)
+											)}"
+											title="Change severity"
+										>
+											<FlameIcon class="h-3 w-3" />
+											{severityLabel(incident.incident_severity_id)}
+										</span>
+									</Popover.Trigger>
+									<Popover.Content align="start" class="w-56 p-0">
+										{@const currentSevId = incident.incident_severity_id ?? null}
+										<Command.Root>
+											<Command.Input placeholder="Search severity..." class="h-9" />
+											<Command.Empty>No severity found.</Command.Empty>
+											<Command.List class="max-h-[240px] overflow-y-auto">
+												<Command.Group>
+													{#each severities as s (s.severity_id)}
+														{@const isCurrent = currentSevId === s.severity_id}
+														<Command.Item
+															value={s.severity_name}
+															onSelect={() =>
+																!isCurrent &&
+																updateField({ incident_severity_id: s.severity_id })}
+														>
+															<span class="flex w-full items-center justify-between gap-2">
+																<span class="truncate">{s.severity_name}</span>
+																{#if isCurrent}
+																	<CheckCircle2Icon size={12} class="shrink-0 text-emerald-500" />
+																{/if}
+															</span>
+														</Command.Item>
+													{/each}
+												</Command.Group>
+											</Command.List>
+										</Command.Root>
+									</Popover.Content>
+								</Popover.Root>
 							{/if}
 						</div>
 					</div>
@@ -442,51 +620,190 @@
 							Owner
 						</span>
 						<div class="flex items-center gap-2">
-							{#if incident.owner}
-								<UserAvatar
-									userId={incident.owner.id}
-									name={incident.owner.user_name}
-									size="size-6"
-								/>
-								<span class="text-sm">{incident.owner.user_name}</span>
+							{#if isEscalated}
+								{#if incident.owner}
+									<UserAvatar
+										userId={incident.owner.id}
+										name={incident.owner.user_name}
+										size="size-6"
+									/>
+									<span class="text-sm">{incident.owner.user_name}</span>
+								{:else}
+									<span class="text-sm italic text-muted-foreground">Unassigned</span>
+								{/if}
 							{:else}
-								<span class="text-sm italic text-muted-foreground">Unassigned</span>
-							{/if}
-							{#if !isEscalated}
-								<Select
-									value={String(incident.incident_owner_id ?? '')}
-									onValueChange={(v) =>
-										updateField({ incident_owner_id: v === '' ? null : Number(v) })}
-									type="single"
-								>
-									<SelectTrigger class="h-7 w-auto min-w-[130px] text-xs">
-										Assign
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="">Unassigned</SelectItem>
-										{#each users as u (u.user_id)}
-											<SelectItem value={String(u.user_id)}
-												>{u.user_name} ({u.user_login})</SelectItem
-											>
-										{/each}
-									</SelectContent>
-								</Select>
+								<Popover.Root>
+									<Popover.Trigger>
+										<span
+											class="inline-flex cursor-pointer items-center gap-2 rounded-full px-1 py-0.5 text-sm transition-colors hover:bg-muted"
+											title={incident.owner ? 'Reassign owner' : 'Assign owner'}
+										>
+											{#if incident.owner}
+												<UserAvatar
+													userId={incident.owner.id}
+													name={incident.owner.user_name}
+													size="size-6"
+												/>
+												<span>{incident.owner.user_name}</span>
+											{:else}
+												<span class="italic text-muted-foreground">Unassigned</span>
+											{/if}
+										</span>
+									</Popover.Trigger>
+									<Popover.Content align="start" class="w-64 p-0">
+										{@const currentOwnerId = incident.incident_owner_id ?? null}
+										<Command.Root>
+											<Command.Input placeholder="Search user..." class="h-9" />
+											<Command.Empty>No user found.</Command.Empty>
+											<Command.List class="max-h-[280px] overflow-y-auto">
+												<Command.Group>
+													<Command.Item
+														value="Unassigned"
+														onSelect={() =>
+															currentOwnerId != null && updateField({ incident_owner_id: null })}
+													>
+														<span class="flex w-full items-center justify-between gap-2">
+															<span class="truncate italic text-muted-foreground">Unassigned</span>
+															{#if currentOwnerId == null}
+																<CheckCircle2Icon size={12} class="shrink-0 text-emerald-500" />
+															{/if}
+														</span>
+													</Command.Item>
+													{#each users as u (u.user_id)}
+														{@const isCurrent = currentOwnerId === u.user_id}
+														<Command.Item
+															value={`${u.user_name} ${u.user_login}`}
+															onSelect={() =>
+																!isCurrent && updateField({ incident_owner_id: u.user_id })}
+														>
+															<span class="flex w-full items-center justify-between gap-2">
+																<span class="min-w-0 truncate">
+																	{u.user_name} <span class="text-muted-foreground">({u.user_login})</span>
+																</span>
+																{#if isCurrent}
+																	<CheckCircle2Icon size={12} class="shrink-0 text-emerald-500" />
+																{/if}
+															</span>
+														</Command.Item>
+													{/each}
+												</Command.Group>
+											</Command.List>
+										</Command.Root>
+									</Popover.Content>
+								</Popover.Root>
 							{/if}
 						</div>
 					</div>
 				</div>
 
-				<!-- Description sits under the fields row in the same
-					 header block — one continuous strip, no card nesting.
-					 Kept subdued (muted foreground) so the title still
-					 dominates. -->
-				{#if incident.incident_description}
-					<div class="mt-4 flex items-start gap-2 text-sm text-foreground/80">
-						<AlignLeftIcon class="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-						<p class="whitespace-pre-wrap">{incident.incident_description}</p>
+			</header>
+
+			<!-- ============================================================
+				 Summary — mirrors the CaseSummary card. Markdown editor bound
+				 to `incident_description`, with dirty/saving/synced chrome in
+				 the header. Real-time collab isn't wired for incidents yet:
+				 saves go through the normal PUT and refresh pulls the latest.
+				 ============================================================ -->
+			<section
+				class="mx-6 my-4 overflow-hidden rounded-xl border border-border/60 bg-card text-card-foreground shadow-elevation-2"
+			>
+				<header
+					class="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-muted/30 px-5 py-3"
+				>
+					<div class="flex min-w-0 items-center gap-2">
+						<div
+							class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+						>
+							<FileTextIcon size={16} />
+						</div>
+						<div class="min-w-0">
+							<h2 class="truncate text-sm font-semibold leading-tight">Summary</h2>
+						</div>
+					</div>
+
+					<div class="flex flex-wrap items-center gap-2">
+						{#if summaryError}
+							<span
+								class="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive"
+							>
+								<CircleAlertIcon size={12} />
+								Error
+							</span>
+						{:else if summarySaving}
+							<span
+								class="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400"
+							>
+								<LoaderIcon size={12} class="animate-spin" />
+								Saving…
+							</span>
+						{:else if summaryDirty}
+							<span
+								class="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400"
+							>
+								<CircleDotIcon size={12} />
+								Unsaved changes
+							</span>
+						{:else}
+							<span
+								class="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400"
+							>
+								<CheckCircle2Icon size={12} />
+								All changes saved
+							</span>
+						{/if}
+
+						<span
+							class="hidden text-xs text-muted-foreground sm:inline"
+							title={`Last synced at ${summarySyncedAbsolute}`}
+						>
+							Synced {summarySyncedRelative}
+						</span>
+
+						<div class="flex items-center gap-1">
+							<Button
+								variant="ghost"
+								size="xs"
+								disabled={loading}
+								onclick={refreshSummary}
+								title="Refresh"
+							>
+								<RefreshCwIcon size={12} class={loading ? 'animate-spin' : ''} />
+								<span class="ml-1 hidden sm:inline">Refresh</span>
+							</Button>
+
+							{#if !isEscalated}
+								<Button
+									variant="default"
+									size="xs"
+									disabled={summarySaving || !summaryDirty}
+									onclick={saveSummary}
+									title="Save"
+								>
+									<SaveIcon size={12} />
+									<span class="ml-1 hidden sm:inline">Save</span>
+								</Button>
+							{/if}
+						</div>
+					</div>
+				</header>
+
+				{#if summaryError}
+					<div
+						class="border-b border-destructive/30 bg-destructive/5 px-5 py-2 text-xs text-destructive"
+					>
+						{summaryError}
 					</div>
 				{/if}
-			</header>
+
+				<div class="max-h-[calc(100vh-24rem)] min-h-[16rem] overflow-y-auto p-5">
+					<MarkDownEditor
+						value={incidentSummary}
+						onChange={(v) => (incidentSummary = v)}
+						onSave={() => saveSummary()}
+						readOnly={isEscalated}
+					/>
+				</div>
+			</section>
 
 			<!-- ============================================================
 				 Tabs — case-style: underline strip, no rounded chrome, sits
@@ -837,3 +1154,14 @@
 		</aside>
 	{/if}
 </div>
+
+{#if incident}
+	<IncidentEscalateDialog
+		bind:open={escalateDialogOpen}
+		incidentTitle={incident.incident_title}
+		incidentDescription={incident.incident_description ?? ''}
+		incidentCustomerId={incident.incident_customer_id ?? null}
+		onClose={() => (escalateDialogOpen = false)}
+		onConfirm={submitEscalateOrMerge}
+	/>
+{/if}

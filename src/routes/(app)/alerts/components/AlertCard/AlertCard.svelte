@@ -132,7 +132,7 @@
 
 					<button
 						class={`absolute left-5 top-3 z-0 flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium text-white ${alert.owner ? 'bg-blue-400' : 'bg-orange-700'}`}
-						title="Reasign alert"
+						title={alert.owner ? `Owner: ${alert.owner.user_name ?? alert.owner.user_login ?? ''} — click to reassign` : 'Unassigned — click to assign'}
 						onclick={onAssign}
 					>
 						{#if alert.owner}

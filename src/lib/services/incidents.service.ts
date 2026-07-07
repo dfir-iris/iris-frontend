@@ -37,9 +37,22 @@ export interface EscalateIncidentBody {
 	case_tags?: string;
 }
 
+export interface MergeIncidentBody {
+	target_case_id: number;
+	note?: string;
+	import_as_event?: boolean;
+	case_tags?: string;
+}
+
 export interface EscalateIncidentResponse {
 	incident_id: number;
 	case_id: number;
+}
+
+export interface CaseSourceIncident {
+	incident_id: number;
+	incident_title: string;
+	incident_status: string | null;
 }
 
 export interface PaginatedIncidents {
@@ -91,6 +104,28 @@ export class IncidentsService {
 		return ApiService.post<EscalateIncidentResponse, EscalateIncidentBody>(
 			`/api/v2/incidents/${id}/escalate`,
 			body,
+			options
+		);
+	}
+
+	// Merge an incident's alerts into an existing case. Returns the same
+	// `{ incident_id, case_id }` envelope as escalate so the caller can
+	// navigate to the target case on success.
+	static async merge(id: number, body: MergeIncidentBody, options: ApiOptions = {}) {
+		return ApiService.post<EscalateIncidentResponse, MergeIncidentBody>(
+			`/api/v2/incidents/${id}/merge`,
+			body,
+			options
+		);
+	}
+
+	// Reverse lookup used by the case detail topbar to render a
+	// "back to source incident" chip when the case was created from
+	// (or merged into by) an incident. Backend returns `null` when the
+	// case has no source incident so the chip can hide itself.
+	static async forCase(caseId: number, options: ApiOptions = {}) {
+		return ApiService.get<CaseSourceIncident | null>(
+			`/api/v2/cases/${caseId}/source-incident`,
 			options
 		);
 	}

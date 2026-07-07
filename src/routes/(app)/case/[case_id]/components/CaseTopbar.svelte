@@ -23,6 +23,7 @@
 	import { goto } from '$app/navigation';
 	import { AlertService } from '$lib/services/alerts.service';
 	import { FollowedCasesService, type CaseFollower } from '$lib/services/followed-cases.service';
+	import { IncidentsService } from '$lib/services/incidents.service';
 	import {
 		SeveritiesService,
 		type Severity as ApiSeverity
@@ -359,6 +360,37 @@
 		linkedAlerts = null;
 		linkedAlertsTotal = 0;
 		void loadLinkedAlerts(id);
+	});
+
+	// Source-incident chip. Cases created via incident escalate/merge
+	// carry a back-link to the incident; we surface it in the topbar
+	// next to the linked-alerts chip so analysts can hop back with one
+	// click. Loaded eagerly on case switch — same lazy-avoiding pattern
+	// as the alerts chip so the label appears without a popover click.
+	let sourceIncident = $state<import('$lib/services/incidents.service').CaseSourceIncident | null>(
+		null
+	);
+	let lastLoadedSourceIncidentCaseId = -1;
+
+	const loadSourceIncident = async (id: number) => {
+		try {
+			const res = await IncidentsService.forCase(id);
+			if (res.ok && res.data && typeof res.data === 'object') {
+				sourceIncident = res.data;
+			} else {
+				sourceIncident = null;
+			}
+		} catch {
+			sourceIncident = null;
+		}
+	};
+
+	$effect(() => {
+		const id = caseData?.case_id;
+		if (id == null || id === lastLoadedSourceIncidentCaseId) return;
+		lastLoadedSourceIncidentCaseId = id;
+		sourceIncident = null;
+		void loadSourceIncident(id);
 	});
 
 	// Followers: scope is "is the current user following this case + who
@@ -873,6 +905,27 @@
 				{/if}
 			</Popover.Content>
 		</Popover.Root>
+		{/if}
+
+		<!--
+		  Source-incident chip. Rendered only when this case was created
+		  from (or merged into by) an incident — clicking jumps to the
+		  incident detail page so the analyst can walk back up the chain.
+		  Mirrors the linked-alerts chip visually so it reads as a peer
+		  navigation control, not another action button.
+		-->
+		{#if sourceIncident}
+			<a
+				href={`/incidents/${sourceIncident.incident_id}`}
+				class="inline-flex h-7 items-center gap-1 rounded-sm border border-red-500/30 bg-red-500/10 px-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-2 dark:text-red-300"
+				title={`Back to incident #${sourceIncident.incident_id}: ${sourceIncident.incident_title}`}
+			>
+				<ShieldAlert size={13} />
+				<span class="tabular-nums">#{sourceIncident.incident_id}</span>
+				<span class="hidden max-w-[10rem] truncate md:inline">
+					{sourceIncident.incident_title}
+				</span>
+			</a>
 		{/if}
 
 		<!--
