@@ -45,6 +45,7 @@
 		DropdownMenuTrigger
 	} from '$lib/components/ui/dropdown-menu';
 	import { Loading } from '$lib/components/ui/loading';
+	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
 	import { SearchableSelect } from '$lib/components/ui/searchable-select';
 	import {
@@ -729,7 +730,6 @@
 										if (!Number.isFinite(id)) return;
 
 										applySavedFilter(id);
-										filtersOpen = true;
 									}}
 								/>
 							</div>
@@ -947,9 +947,10 @@
 			  / last card sits flush against the fade and looks half-
 			  obscured at rest).
 			-->
-			<div class="relative -mr-6 flex min-h-0 min-w-0 flex-1 flex-col">
+			<div class="relative -mx-6 flex min-h-0 min-w-0 flex-1 flex-col">
+				<ScrollArea class="min-h-0 min-w-0 flex-1">
 				<ul
-					class="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto px-1 pr-6 pt-4 pb-6"
+					class="flex min-w-0 flex-col gap-4 pl-16 pr-16 pt-4 pb-6"
 				>
 				{#each alertsData.data as alert (alert.alert_id)}
 					<li class="flex min-w-0 items-center gap-4">
@@ -1021,6 +1022,7 @@
 					</li>
 				{/each}
 			</ul>
+				</ScrollArea>
 
 				<!--
 				  Frosted fade-out strips so cards melt into the page

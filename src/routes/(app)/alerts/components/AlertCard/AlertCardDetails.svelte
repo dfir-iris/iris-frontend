@@ -103,7 +103,14 @@
 
 	<!-- Raw Alert -->
 	<div class="rounded-lg border border-border/50 bg-muted/30 p-4">
-		<h4 class="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Raw Alert</h4>
+		<div class="mb-3 flex items-center justify-between gap-2">
+			<h4 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Raw Alert</h4>
+			<ClipboardCopy
+				value={JSON.stringify(alert.alert_source_content, null, 2)}
+				tooltipText="Copy raw alert"
+				alwaysVisible
+			/>
+		</div>
 		<Collapsible.Root bind:open={showRawAlert}>
 			<Collapsible.Trigger>
 				<Button variant="outline" size="sm">
