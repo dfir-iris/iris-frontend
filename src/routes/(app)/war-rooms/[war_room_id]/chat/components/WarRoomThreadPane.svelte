@@ -163,7 +163,9 @@
 		}
 	});
 
-	const currentUserId = $derived(($current_user?.user_id ?? null) as number | null);
+	const currentUserId = $derived(
+		(($current_user?.user_id ?? $current_user?.id) ?? null) as number | null
+	);
 
 	// Confirm dialog state (parity with the sitreps page pattern) — a
 	// single ConfirmationDialog handles the "delete reply" prompt so we

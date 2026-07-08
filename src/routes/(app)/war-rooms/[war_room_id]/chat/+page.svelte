@@ -567,7 +567,12 @@
 	// the Trash button. Server-side enforcement is the source of truth
 	// (the DELETE endpoint rejects anything but the author), but hiding
 	// the button for non-authors keeps the UI honest.
-	const currentUserId = $derived(($current_user?.user_id ?? null) as number | null);
+	// Some auth flows populate `user_id` (v2 login), others populate
+	// `id` (session hydrate) — mirror the fallback used everywhere
+	// else in the app so we don't miss the caller's id.
+	const currentUserId = $derived(
+		(($current_user?.user_id ?? $current_user?.id) ?? null) as number | null
+	);
 
 	// Shared confirmation dialog state — one modal handles every
 	// "are you sure?" on this page (delete a message, delete a
