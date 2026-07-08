@@ -2122,29 +2122,37 @@
 													>
 														Reply in thread
 													</button>
-													<div class="relative">
-														<button
-															type="button"
-															class="mt-1 inline-flex items-center gap-0.5 text-2xs text-muted-foreground/60 transition-colors hover:text-foreground"
-															onclick={(e) => openReactPicker(m.message_id, e.currentTarget)}
-															aria-label="Add reaction"
-															title="Add reaction"
-														>
-															<SmilePlus class="h-3 w-3" />
-															React
-														</button>
-														{#if reactPickerFor === m.message_id}
-															<EmojiPickerPopover
-																open={true}
-																onOpenChange={(v) => { if (!v) closeReactPicker(); }}
-																onPick={(emoji) => {
-																	void toggleReaction(m.message_id, emoji);
-																	closeReactPicker();
-																}}
-																anchor={reactPickerAnchor}
-															/>
-														{/if}
-													</div>
+													<!--
+													  Hidden once the message already has reactions —
+													  the pill row's own "+" button (rendered by
+													  <MessageReactions>) is the entry point in that
+													  case, so a duplicate here just adds noise.
+													-->
+													{#if (m.reactions ?? []).length === 0}
+														<div class="relative">
+															<button
+																type="button"
+																class="mt-1 inline-flex items-center gap-0.5 text-2xs text-muted-foreground/60 transition-colors hover:text-foreground"
+																onclick={(e) => openReactPicker(m.message_id, e.currentTarget)}
+																aria-label="Add reaction"
+																title="Add reaction"
+															>
+																<SmilePlus class="h-3 w-3" />
+																React
+															</button>
+															{#if reactPickerFor === m.message_id}
+																<EmojiPickerPopover
+																	open={true}
+																	onOpenChange={(v) => { if (!v) closeReactPicker(); }}
+																	onPick={(emoji) => {
+																		void toggleReaction(m.message_id, emoji);
+																		closeReactPicker();
+																	}}
+																	anchor={reactPickerAnchor}
+																/>
+															{/if}
+														</div>
+													{/if}
 													<button
 														type="button"
 														class="mt-1 inline-flex items-center gap-0.5 text-2xs {m.is_pinned
@@ -2245,29 +2253,37 @@
 													>
 														Reply in thread
 													</button>
-													<div class="relative">
-														<button
-															type="button"
-															class="mt-1 inline-flex items-center gap-0.5 text-2xs text-muted-foreground/60 transition-colors hover:text-foreground"
-															onclick={(e) => openReactPicker(m.message_id, e.currentTarget)}
-															aria-label="Add reaction"
-															title="Add reaction"
-														>
-															<SmilePlus class="h-3 w-3" />
-															React
-														</button>
-														{#if reactPickerFor === m.message_id}
-															<EmojiPickerPopover
-																open={true}
-																onOpenChange={(v) => { if (!v) closeReactPicker(); }}
-																onPick={(emoji) => {
-																	void toggleReaction(m.message_id, emoji);
-																	closeReactPicker();
-																}}
-																anchor={reactPickerAnchor}
-															/>
-														{/if}
-													</div>
+													<!--
+													  Hidden once the message already has reactions —
+													  the pill row's own "+" button (rendered by
+													  <MessageReactions>) is the entry point in that
+													  case, so a duplicate here just adds noise.
+													-->
+													{#if (m.reactions ?? []).length === 0}
+														<div class="relative">
+															<button
+																type="button"
+																class="mt-1 inline-flex items-center gap-0.5 text-2xs text-muted-foreground/60 transition-colors hover:text-foreground"
+																onclick={(e) => openReactPicker(m.message_id, e.currentTarget)}
+																aria-label="Add reaction"
+																title="Add reaction"
+															>
+																<SmilePlus class="h-3 w-3" />
+																React
+															</button>
+															{#if reactPickerFor === m.message_id}
+																<EmojiPickerPopover
+																	open={true}
+																	onOpenChange={(v) => { if (!v) closeReactPicker(); }}
+																	onPick={(emoji) => {
+																		void toggleReaction(m.message_id, emoji);
+																		closeReactPicker();
+																	}}
+																	anchor={reactPickerAnchor}
+																/>
+															{/if}
+														</div>
+													{/if}
 													<button
 														type="button"
 														class="mt-1 inline-flex items-center gap-0.5 text-2xs {m.is_pinned
