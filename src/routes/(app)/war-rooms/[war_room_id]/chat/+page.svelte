@@ -661,49 +661,30 @@
 
 	// Toggle the caller's reaction on `emoji` for `messageId`. The
 	// backend handler is idempotent — same emoji from the same user
-	// adds it if absent, removes it otherwise. We optimistically patch
-	// the local `reactions` array so the pill updates instantly; the
-	// next poll (or refetch) reconciles the count if the server saw a
-	// concurrent write.
+	// adds it if absent, removes it otherwise. We call the server
+	// first (single source of truth), then patch the local reactions
+	// array from the response so the pill always matches server state.
+	//
+	// Optimistic-then-reconcile was tried first, but the mutation
+	// pattern `messages[idx] = {...}` doesn't propagate through the
+	// `visibleMessages → groups` derived chain in all cases (the
+	// filter callback doesn't touch `.reactions`, so Svelte's
+	// fine-grained tracking can miss the reaction-only change). A
+	// full array reassignment guarantees the reactive chain re-runs.
 	const toggleReaction = async (messageId: number, emoji: string) => {
-		if (currentUserId == null) return;
+		if (currentUserId == null) {
+			toast({
+				title: 'Not signed in',
+				description: 'Could not identify the current user.',
+				variant: 'destructive'
+			});
+			return;
+		}
 		const idx = messages.findIndex((m) => m.message_id === messageId);
 		if (idx < 0) return;
 		const msg = messages[idx];
-		const existing = (msg.reactions ?? []).find((r) => r.emoji === emoji);
-		const mine = existing?.user_ids.includes(currentUserId) ?? false;
-
-		const nextReactions = [...(msg.reactions ?? [])];
-		if (existing) {
-			const rIdx = nextReactions.findIndex((r) => r.emoji === emoji);
-			if (mine) {
-				const nextUsers = existing.user_ids.filter((u) => u !== currentUserId);
-				if (nextUsers.length === 0) {
-					nextReactions.splice(rIdx, 1);
-				} else {
-					nextReactions[rIdx] = {
-						...existing,
-						count: nextUsers.length,
-						user_ids: nextUsers
-					};
-				}
-			} else {
-				nextReactions[rIdx] = {
-					...existing,
-					count: existing.count + 1,
-					user_ids: [...existing.user_ids, currentUserId]
-				};
-			}
-		} else {
-			nextReactions.push({ emoji, count: 1, user_ids: [currentUserId] });
-		}
-		messages[idx] = { ...msg, reactions: nextReactions };
-
 		const res = await WarRoomChatService.toggleReaction(warRoomId, messageId, emoji);
 		if (!res.ok) {
-			// Revert the optimistic patch — swap the message back to its
-			// pre-click state so the user sees a truthful count.
-			messages[idx] = msg;
 			toast({
 				title: 'Could not save reaction',
 				description:
@@ -714,7 +695,42 @@
 							'Unknown error'),
 				variant: 'destructive'
 			});
+			return;
 		}
+		const added = (res.data as { added: boolean } | null)?.added ?? true;
+		const currentReactions = msg.reactions ?? [];
+		const existing = currentReactions.find((r) => r.emoji === emoji);
+		let nextReactions: typeof currentReactions;
+		if (existing) {
+			nextReactions = currentReactions
+				.map((r) => {
+					if (r.emoji !== emoji) return r;
+					if (added) {
+						if (r.user_ids.includes(currentUserId)) return r;
+						return {
+							...r,
+							count: r.count + 1,
+							user_ids: [...r.user_ids, currentUserId]
+						};
+					}
+					const users = r.user_ids.filter((u) => u !== currentUserId);
+					return { ...r, count: users.length, user_ids: users };
+				})
+				.filter((r) => r.count > 0);
+		} else if (added) {
+			nextReactions = [
+				...currentReactions,
+				{ emoji, count: 1, user_ids: [currentUserId] }
+			];
+		} else {
+			nextReactions = currentReactions;
+		}
+		// Full array reassignment — Svelte 5 tracks the top-level
+		// binding, and reassigning to a fresh array guarantees every
+		// derived that reads from `messages` reruns.
+		messages = messages.map((m, i) =>
+			i === idx ? { ...m, reactions: nextReactions } : m
+		);
 	};
 
 	// Poll composer state. `pollComposerOpen` toggles the modal;
@@ -762,10 +778,14 @@
 		if (idx < 0) return;
 		const msg = messages[idx];
 		if (!msg.poll) return;
-		const pollId = msg.poll.poll_id;
-		const res = await WarRoomChatService.voteOnPoll(warRoomId, pollId, optionIds);
+		const res = await WarRoomChatService.voteOnPoll(
+			warRoomId, msg.poll.poll_id, optionIds
+		);
 		if (res.ok && res.data) {
-			messages[idx] = { ...msg, poll: res.data as ChatPoll };
+			const nextPoll = res.data as ChatPoll;
+			messages = messages.map((x, i) =>
+				i === idx ? { ...x, poll: nextPoll } : x
+			);
 		} else {
 			toast({
 				title: 'Could not save vote',
@@ -787,7 +807,10 @@
 		if (!msg.poll) return;
 		const res = await WarRoomChatService.closePoll(warRoomId, msg.poll.poll_id);
 		if (res.ok && res.data) {
-			messages[idx] = { ...msg, poll: res.data as ChatPoll };
+			const nextPoll = res.data as ChatPoll;
+			messages = messages.map((x, i) =>
+				i === idx ? { ...x, poll: nextPoll } : x
+			);
 		} else {
 			toast({
 				title: 'Could not close poll',
@@ -803,17 +826,15 @@
 	};
 
 	// Toggle the sticky pin on a message. Backend enforces war-room
-	// write. Optimistically flips `is_pinned` locally; the trace-log
-	// poll picks up the row (or drops it) within a tick.
+	// write. We call the server first, then reassign the messages
+	// array so Svelte's reactive chain (visibleMessages → groups →
+	// #each) re-runs — same pattern as `toggleReaction` above.
 	const togglePin = async (m: ChatMessage) => {
 		const idx = messages.findIndex((x) => x.message_id === m.message_id);
 		if (idx < 0) return;
-		const before = messages[idx];
-		const next = !before.is_pinned;
-		messages[idx] = { ...before, is_pinned: next };
+		const next = !m.is_pinned;
 		const res = await WarRoomChatService.setMessagePin(warRoomId, m.message_id, next);
 		if (!res.ok) {
-			messages[idx] = before;
 			toast({
 				title: next ? 'Could not pin message' : 'Could not unpin message',
 				description:
@@ -826,6 +847,9 @@
 			});
 			return;
 		}
+		messages = messages.map((x, i) =>
+			i === idx ? { ...x, is_pinned: next } : x
+		);
 		void loadTraceLog();
 	};
 
