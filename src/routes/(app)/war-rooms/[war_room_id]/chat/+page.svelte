@@ -52,6 +52,7 @@
 	import StreamRefCard from './components/StreamRefCard.svelte';
 	import WarRoomThreadPane from './components/WarRoomThreadPane.svelte';
 	import MessageReactions from './components/MessageReactions.svelte';
+	import EmojiPickerPopover from './components/EmojiPickerPopover.svelte';
 	import PollCard from './components/PollCard.svelte';
 	import PollComposer from './components/PollComposer.svelte';
 	import {
@@ -736,6 +737,29 @@
 		messages = messages.map((m, i) =>
 			i === idx ? { ...m, reactions: nextReactions } : m
 		);
+	};
+
+	// Which message's action-strip emoji picker is currently open, or
+	// null if no picker is showing. Single-open enforced so the operator
+	// can't leave two popovers hanging over the stream. `reactPickerAnchor`
+	// is the button element the popover positions itself against.
+	let reactPickerFor = $state<number | null>(null);
+	let reactPickerAnchor = $state<HTMLButtonElement | null>(null);
+
+	const openReactPicker = (messageId: number, anchor: HTMLButtonElement) => {
+		if (reactPickerFor === messageId) {
+			// Second click on the same button — treat as close.
+			reactPickerFor = null;
+			reactPickerAnchor = null;
+			return;
+		}
+		reactPickerFor = messageId;
+		reactPickerAnchor = anchor;
+	};
+
+	const closeReactPicker = () => {
+		reactPickerFor = null;
+		reactPickerAnchor = null;
 	};
 
 	// Poll composer state. `pollComposerOpen` toggles the modal;
@@ -2098,16 +2122,29 @@
 													>
 														Reply in thread
 													</button>
-													<button
-														type="button"
-														class="mt-1 inline-flex items-center gap-0.5 text-2xs text-muted-foreground/60 transition-colors hover:text-foreground"
-														onclick={() => void toggleReaction(m.message_id, '👍')}
-														aria-label="React with thumbs up"
-														title="Quick react 👍 (open picker via the pill row's + button)"
-													>
-														<SmilePlus class="h-3 w-3" />
-														React
-													</button>
+													<div class="relative">
+														<button
+															type="button"
+															class="mt-1 inline-flex items-center gap-0.5 text-2xs text-muted-foreground/60 transition-colors hover:text-foreground"
+															onclick={(e) => openReactPicker(m.message_id, e.currentTarget)}
+															aria-label="Add reaction"
+															title="Add reaction"
+														>
+															<SmilePlus class="h-3 w-3" />
+															React
+														</button>
+														{#if reactPickerFor === m.message_id}
+															<EmojiPickerPopover
+																open={true}
+																onOpenChange={(v) => { if (!v) closeReactPicker(); }}
+																onPick={(emoji) => {
+																	void toggleReaction(m.message_id, emoji);
+																	closeReactPicker();
+																}}
+																anchor={reactPickerAnchor}
+															/>
+														{/if}
+													</div>
 													<button
 														type="button"
 														class="mt-1 inline-flex items-center gap-0.5 text-2xs {m.is_pinned
@@ -2208,16 +2245,29 @@
 													>
 														Reply in thread
 													</button>
-													<button
-														type="button"
-														class="mt-1 inline-flex items-center gap-0.5 text-2xs text-muted-foreground/60 transition-colors hover:text-foreground"
-														onclick={() => void toggleReaction(m.message_id, '👍')}
-														aria-label="React with thumbs up"
-														title="Quick react 👍 (open picker via the pill row's + button)"
-													>
-														<SmilePlus class="h-3 w-3" />
-														React
-													</button>
+													<div class="relative">
+														<button
+															type="button"
+															class="mt-1 inline-flex items-center gap-0.5 text-2xs text-muted-foreground/60 transition-colors hover:text-foreground"
+															onclick={(e) => openReactPicker(m.message_id, e.currentTarget)}
+															aria-label="Add reaction"
+															title="Add reaction"
+														>
+															<SmilePlus class="h-3 w-3" />
+															React
+														</button>
+														{#if reactPickerFor === m.message_id}
+															<EmojiPickerPopover
+																open={true}
+																onOpenChange={(v) => { if (!v) closeReactPicker(); }}
+																onPick={(emoji) => {
+																	void toggleReaction(m.message_id, emoji);
+																	closeReactPicker();
+																}}
+																anchor={reactPickerAnchor}
+															/>
+														{/if}
+													</div>
 													<button
 														type="button"
 														class="mt-1 inline-flex items-center gap-0.5 text-2xs {m.is_pinned
