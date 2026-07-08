@@ -2015,10 +2015,8 @@
 													>
 														{#if m.is_pinned}
 															<PinOff class="h-3 w-3" />
-															Unpin
 														{:else}
 															<Pin class="h-3 w-3" />
-															Pin
 														{/if}
 													</button>
 												</div>
@@ -2100,45 +2098,51 @@
 														onToggle={(emoji) => void toggleReaction(m.message_id, emoji)}
 													/>
 												{/if}
-												<div class="flex items-center gap-2">
-													{#if replyCount > 0 || m.thread_title}
-														<button
-															type="button"
-															class="mt-1 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-2xs text-primary hover:bg-primary/15"
-															onclick={() => openThreadFor(m.message_id)}
-														>
-															<MessageSquare class="h-3 w-3" />
-															{#if m.thread_title}
-																{m.thread_title}
-															{:else}
-																{replyCount} {replyCount === 1 ? 'reply' : 'replies'}
-															{/if}
-														</button>
-													{/if}
+												<!--
+												  Thread chip lives on its own row — always visible so
+												  operators can see reply counts at rest. The action
+												  strip below is hover-only.
+												-->
+												{#if replyCount > 0 || m.thread_title}
 													<button
 														type="button"
-														class="mt-1 text-2xs text-muted-foreground/60 transition-colors hover:text-foreground"
+														class="mt-1 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-2xs text-primary hover:bg-primary/15"
+														onclick={() => openThreadFor(m.message_id)}
+													>
+														<MessageSquare class="h-3 w-3" />
+														{#if m.thread_title}
+															{m.thread_title}
+														{:else}
+															{replyCount} {replyCount === 1 ? 'reply' : 'replies'}
+														{/if}
+													</button>
+												{/if}
+												<!--
+												  Message action strip — Reply / React / Pin / Delete.
+												  Icon-only for compactness. Revealed on hover of the
+												  parent `group/msg` container so the stream stays
+												  visually calm at rest. Kept in the DOM (opacity
+												  instead of `hidden`) so layout doesn't jump and the
+												  popover anchors keep working.
+												-->
+												<div class="mt-1 flex h-6 items-center gap-1 opacity-0 transition-opacity group-hover/msg:opacity-100 focus-within:opacity-100">
+													<button
+														type="button"
+														class="inline-flex h-6 items-center rounded px-1.5 text-2xs text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
 														onclick={() => openThreadFor(m.message_id)}
 													>
 														Reply in thread
 													</button>
-													<!--
-													  Hidden once the message already has reactions —
-													  the pill row's own "+" button (rendered by
-													  <MessageReactions>) is the entry point in that
-													  case, so a duplicate here just adds noise.
-													-->
 													{#if (m.reactions ?? []).length === 0}
 														<div class="relative">
 															<button
 																type="button"
-																class="mt-1 inline-flex items-center gap-0.5 text-2xs text-muted-foreground/60 transition-colors hover:text-foreground"
+																class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
 																onclick={(e) => openReactPicker(m.message_id, e.currentTarget)}
 																aria-label="Add reaction"
 																title="Add reaction"
 															>
-																<SmilePlus class="h-3 w-3" />
-																React
+																<SmilePlus class="h-3.5 w-3.5" />
 															</button>
 															{#if reactPickerFor === m.message_id}
 																<EmojiPickerPopover
@@ -2155,30 +2159,28 @@
 													{/if}
 													<button
 														type="button"
-														class="mt-1 inline-flex items-center gap-0.5 text-2xs {m.is_pinned
+														class="inline-flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-muted {m.is_pinned
 															? 'text-primary'
-															: 'text-muted-foreground/60 hover:text-foreground'} transition-colors"
+															: 'text-muted-foreground/70 hover:text-foreground'}"
 														onclick={() => void togglePin(m)}
 														aria-label={m.is_pinned ? 'Unpin message' : 'Pin message'}
 														title={m.is_pinned ? 'Unpin' : 'Pin'}
 													>
 														{#if m.is_pinned}
-															<PinOff class="h-3 w-3" />
-															Unpin
+															<PinOff class="h-3.5 w-3.5" />
 														{:else}
-															<Pin class="h-3 w-3" />
-															Pin
+															<Pin class="h-3.5 w-3.5" />
 														{/if}
 													</button>
 													{#if currentUserId != null && m.author_id === currentUserId}
 														<button
 															type="button"
-															class="mt-1 inline-flex items-center gap-0.5 text-2xs text-destructive/60 transition-colors hover:text-destructive"
+															class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
 															onclick={() => removeMessage(m)}
 															aria-label="Delete message"
+															title="Delete"
 														>
-															<Trash2 class="h-3 w-3" />
-															Delete
+															<Trash2 class="h-3.5 w-3.5" />
 														</button>
 													{/if}
 												</div>
@@ -2231,45 +2233,38 @@
 														onToggle={(emoji) => void toggleReaction(m.message_id, emoji)}
 													/>
 												{/if}
-												<div class="flex items-center gap-2">
-													{#if replyCount > 0 || m.thread_title}
-														<button
-															type="button"
-															class="mt-1 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-2xs text-primary hover:bg-primary/15"
-															onclick={() => openThreadFor(m.message_id)}
-														>
-															<MessageSquare class="h-3 w-3" />
-															{#if m.thread_title}
-																{m.thread_title}
-															{:else}
-																{replyCount} {replyCount === 1 ? 'reply' : 'replies'}
-															{/if}
-														</button>
-													{/if}
+												{#if replyCount > 0 || m.thread_title}
 													<button
 														type="button"
-														class="mt-1 text-2xs text-muted-foreground/60 transition-colors hover:text-foreground"
+														class="mt-1 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-2xs text-primary hover:bg-primary/15"
+														onclick={() => openThreadFor(m.message_id)}
+													>
+														<MessageSquare class="h-3 w-3" />
+														{#if m.thread_title}
+															{m.thread_title}
+														{:else}
+															{replyCount} {replyCount === 1 ? 'reply' : 'replies'}
+														{/if}
+													</button>
+												{/if}
+												<div class="mt-1 flex h-6 items-center gap-1 opacity-0 transition-opacity group-hover/msg:opacity-100 focus-within:opacity-100">
+													<button
+														type="button"
+														class="inline-flex h-6 items-center rounded px-1.5 text-2xs text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
 														onclick={() => openThreadFor(m.message_id)}
 													>
 														Reply in thread
 													</button>
-													<!--
-													  Hidden once the message already has reactions —
-													  the pill row's own "+" button (rendered by
-													  <MessageReactions>) is the entry point in that
-													  case, so a duplicate here just adds noise.
-													-->
 													{#if (m.reactions ?? []).length === 0}
 														<div class="relative">
 															<button
 																type="button"
-																class="mt-1 inline-flex items-center gap-0.5 text-2xs text-muted-foreground/60 transition-colors hover:text-foreground"
+																class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
 																onclick={(e) => openReactPicker(m.message_id, e.currentTarget)}
 																aria-label="Add reaction"
 																title="Add reaction"
 															>
-																<SmilePlus class="h-3 w-3" />
-																React
+																<SmilePlus class="h-3.5 w-3.5" />
 															</button>
 															{#if reactPickerFor === m.message_id}
 																<EmojiPickerPopover
@@ -2286,30 +2281,28 @@
 													{/if}
 													<button
 														type="button"
-														class="mt-1 inline-flex items-center gap-0.5 text-2xs {m.is_pinned
+														class="inline-flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-muted {m.is_pinned
 															? 'text-primary'
-															: 'text-muted-foreground/60 hover:text-foreground'} transition-colors"
+															: 'text-muted-foreground/70 hover:text-foreground'}"
 														onclick={() => void togglePin(m)}
 														aria-label={m.is_pinned ? 'Unpin message' : 'Pin message'}
 														title={m.is_pinned ? 'Unpin' : 'Pin'}
 													>
 														{#if m.is_pinned}
-															<PinOff class="h-3 w-3" />
-															Unpin
+															<PinOff class="h-3.5 w-3.5" />
 														{:else}
-															<Pin class="h-3 w-3" />
-															Pin
+															<Pin class="h-3.5 w-3.5" />
 														{/if}
 													</button>
 													{#if currentUserId != null && m.author_id === currentUserId}
 														<button
 															type="button"
-															class="mt-1 inline-flex items-center gap-0.5 text-2xs text-destructive/60 transition-colors hover:text-destructive"
+															class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
 															onclick={() => removeMessage(m)}
 															aria-label="Delete message"
+															title="Delete"
 														>
-															<Trash2 class="h-3 w-3" />
-															Delete
+															<Trash2 class="h-3.5 w-3.5" />
 														</button>
 													{/if}
 												</div>
