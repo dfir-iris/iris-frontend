@@ -500,19 +500,50 @@
 		const seen = new Set(messages.map(messageKey));
 		const search = appliedSearch || undefined;
 		const res = await WarRoomChatService.list(warRoomId, { limit: 50, search });
-		if (res.ok && Array.isArray(res.data)) {
-			const fresh = (res.data as ChatMessage[]).filter(
-				(m) => !seen.has(messageKey(m))
-			);
-			if (fresh.length > 0) {
-				const wasAtBottom =
-					listEl != null &&
-					listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 80;
-				// Newest first from the API; reverse so the resulting array
-				// stays chronologically ordered (oldest at top).
-				messages = [...messages, ...[...fresh].reverse()];
-				if (wasAtBottom) scrollToBottom();
-			}
+		if (!res.ok || !Array.isArray(res.data)) return;
+		const incoming = res.data as ChatMessage[];
+		const fresh = incoming.filter((m) => !seen.has(messageKey(m)));
+
+		// Merge server state for live-changing fields on rows we
+		// already have. Reactions and polls both mutate after their
+		// row's `created_at`, so filtering them out as "seen" leaves
+		// the SPA showing stale tallies. Vote counts and reaction
+		// pills need to reflect other operators' actions.
+		const byId = new Map<number, ChatMessage>();
+		for (const m of incoming) byId.set(m.message_id, m);
+		let changed = false;
+		const merged = messages.map((m) => {
+			const server = byId.get(m.message_id);
+			if (!server) return m;
+			// Cheap identity check first — skip the object churn when
+			// nothing we care about moved.
+			const reactionsSame =
+				JSON.stringify(m.reactions ?? []) === JSON.stringify(server.reactions ?? []);
+			const pollSame =
+				JSON.stringify(m.poll ?? null) === JSON.stringify(server.poll ?? null);
+			const pinSame = m.is_pinned === server.is_pinned;
+			if (reactionsSame && pollSame && pinSame) return m;
+			changed = true;
+			return {
+				...m,
+				reactions: server.reactions,
+				poll: server.poll,
+				is_pinned: server.is_pinned,
+				edited_at: server.edited_at,
+				deleted_at: server.deleted_at
+			};
+		});
+
+		if (fresh.length > 0) {
+			const wasAtBottom =
+				listEl != null &&
+				listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 80;
+			// Newest first from the API; reverse so the resulting array
+			// stays chronologically ordered (oldest at top).
+			messages = [...merged, ...[...fresh].reverse()];
+			if (wasAtBottom) scrollToBottom();
+		} else if (changed) {
+			messages = merged;
 		}
 	};
 
@@ -2003,22 +2034,33 @@
 														onClose={() => closePoll(m.message_id)}
 													/>
 												</div>
-												<div class="flex items-center gap-2">
+												<div class="mt-1 flex h-6 items-center gap-1 opacity-0 transition-opacity group-hover/msg:opacity-100 focus-within:opacity-100">
 													<button
 														type="button"
-														class="mt-1 inline-flex items-center gap-0.5 text-2xs {m.is_pinned
+														class="inline-flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-muted {m.is_pinned
 															? 'text-primary'
-															: 'text-muted-foreground/60 hover:text-foreground'} transition-colors"
+															: 'text-muted-foreground/70 hover:text-foreground'}"
 														onclick={() => void togglePin(m)}
 														aria-label={m.is_pinned ? 'Unpin message' : 'Pin message'}
 														title={m.is_pinned ? 'Unpin' : 'Pin'}
 													>
 														{#if m.is_pinned}
-															<PinOff class="h-3 w-3" />
+															<PinOff class="h-3.5 w-3.5" />
 														{:else}
-															<Pin class="h-3 w-3" />
+															<Pin class="h-3.5 w-3.5" />
 														{/if}
 													</button>
+													{#if currentUserId != null && m.author_id === currentUserId}
+														<button
+															type="button"
+															class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
+															onclick={() => removeMessage(m)}
+															aria-label="Delete poll"
+															title="Delete"
+														>
+															<Trash2 class="h-3.5 w-3.5" />
+														</button>
+													{/if}
 												</div>
 											</div>
 										</li>
