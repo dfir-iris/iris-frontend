@@ -82,6 +82,7 @@
 		"ag-grid-community": "^33.0.3",
 		"dompurify": "^3.3.1",
 		"echarts": "^5.5.1",
+		"emoji-picker-element": "^1.29.1",
 		"fast-sort": "^3.4.1",
 		"fast-xml-parser": "^5.0.6",
 		"lucide-static": "^1.0.1",

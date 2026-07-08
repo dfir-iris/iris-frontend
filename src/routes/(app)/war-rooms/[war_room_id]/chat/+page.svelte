@@ -12,6 +12,7 @@
 	import {
 		AlertCircle,
 		AlertOctagon,
+		BarChart3,
 		Bell,
 		ChevronDown,
 		ChevronRight,
@@ -23,10 +24,12 @@
 		MessageSquare,
 		Paperclip,
 		Pin,
+		PinOff,
 		ListChecks,
 		Search,
 		Send,
 		Slash,
+		SmilePlus,
 		Trash2,
 		Waypoints,
 		WaypointsIcon,
@@ -48,10 +51,14 @@
 	} from './components/AttachmentPreviewDialog.svelte';
 	import StreamRefCard from './components/StreamRefCard.svelte';
 	import WarRoomThreadPane from './components/WarRoomThreadPane.svelte';
+	import MessageReactions from './components/MessageReactions.svelte';
+	import PollCard from './components/PollCard.svelte';
+	import PollComposer from './components/PollComposer.svelte';
 	import {
 		WarRoomChatService,
 		type ChatMessage,
 		type ChatMessageKind,
+		type ChatPoll,
 		type ChatThreadRoot
 	} from '$lib/services/war-room-chat.service';
 	import {
@@ -635,7 +642,14 @@
 	// the server; the trace log's own row disappears from the
 	// filteredTraceLog once the local `traceLog` is patched.
 	const removeTraceEntry = (t: ChatMessage) => {
-		const label = t.kind === 'decision' ? 'decision' : t.kind === 'pin' ? 'pin' : 'note';
+		const label =
+			t.kind === 'decision'
+				? 'decision'
+				: t.kind === 'pin'
+					? 'pin'
+					: t.is_pinned
+						? 'pinned message'
+						: 'note';
 		askConfirm({
 			title: `Delete this ${label}?`,
 			message:
@@ -643,6 +657,176 @@
 				`This can't be undone.`,
 			run: () => doRemoveMessage(t.message_id)
 		});
+	};
+
+	// Toggle the caller's reaction on `emoji` for `messageId`. The
+	// backend handler is idempotent — same emoji from the same user
+	// adds it if absent, removes it otherwise. We optimistically patch
+	// the local `reactions` array so the pill updates instantly; the
+	// next poll (or refetch) reconciles the count if the server saw a
+	// concurrent write.
+	const toggleReaction = async (messageId: number, emoji: string) => {
+		if (currentUserId == null) return;
+		const idx = messages.findIndex((m) => m.message_id === messageId);
+		if (idx < 0) return;
+		const msg = messages[idx];
+		const existing = (msg.reactions ?? []).find((r) => r.emoji === emoji);
+		const mine = existing?.user_ids.includes(currentUserId) ?? false;
+
+		const nextReactions = [...(msg.reactions ?? [])];
+		if (existing) {
+			const rIdx = nextReactions.findIndex((r) => r.emoji === emoji);
+			if (mine) {
+				const nextUsers = existing.user_ids.filter((u) => u !== currentUserId);
+				if (nextUsers.length === 0) {
+					nextReactions.splice(rIdx, 1);
+				} else {
+					nextReactions[rIdx] = {
+						...existing,
+						count: nextUsers.length,
+						user_ids: nextUsers
+					};
+				}
+			} else {
+				nextReactions[rIdx] = {
+					...existing,
+					count: existing.count + 1,
+					user_ids: [...existing.user_ids, currentUserId]
+				};
+			}
+		} else {
+			nextReactions.push({ emoji, count: 1, user_ids: [currentUserId] });
+		}
+		messages[idx] = { ...msg, reactions: nextReactions };
+
+		const res = await WarRoomChatService.toggleReaction(warRoomId, messageId, emoji);
+		if (!res.ok) {
+			// Revert the optimistic patch — swap the message back to its
+			// pre-click state so the user sees a truthful count.
+			messages[idx] = msg;
+			toast({
+				title: 'Could not save reaction',
+				description:
+					typeof res.data === 'string'
+						? res.data
+						: ((res.data as { message?: string } | null)?.message ??
+							res.error?.message ??
+							'Unknown error'),
+				variant: 'destructive'
+			});
+		}
+	};
+
+	// Poll composer state. `pollComposerOpen` toggles the modal;
+	// `submitPoll` bridges the composer's payload to the REST layer
+	// and returns a boolean so the modal can decide whether to
+	// dismiss on success.
+	let pollComposerOpen = $state(false);
+
+	const submitPoll = async (body: {
+		question: string;
+		options: string[];
+		is_multi_select: boolean;
+		is_anonymous: boolean;
+		closes_at: string | null;
+	}): Promise<boolean> => {
+		const res = await WarRoomChatService.createPoll(warRoomId, body);
+		if (res.ok) {
+			// A companion `kind='poll'` chat message was created on the
+			// server; grabbing the newest page picks it up and inlines
+			// its poll state so the stream can render the card right away.
+			await pollNewer();
+			scrollToBottom();
+			return true;
+		}
+		toast({
+			title: 'Could not create poll',
+			description:
+				typeof res.data === 'string'
+					? res.data
+					: ((res.data as { message?: string } | null)?.message ??
+						res.error?.message ??
+						'Unknown error'),
+			variant: 'destructive'
+		});
+		return false;
+	};
+
+	// Cast the caller's votes for a poll living at `messageId`. We
+	// optimistically patch the inlined poll state so the card
+	// re-renders instantly, then refetch the authoritative state on
+	// success to reconcile tallies (other users may have voted
+	// concurrently).
+	const voteOnPoll = async (messageId: number, optionIds: number[]) => {
+		const idx = messages.findIndex((m) => m.message_id === messageId);
+		if (idx < 0) return;
+		const msg = messages[idx];
+		if (!msg.poll) return;
+		const pollId = msg.poll.poll_id;
+		const res = await WarRoomChatService.voteOnPoll(warRoomId, pollId, optionIds);
+		if (res.ok && res.data) {
+			messages[idx] = { ...msg, poll: res.data as ChatPoll };
+		} else {
+			toast({
+				title: 'Could not save vote',
+				description:
+					typeof res.data === 'string'
+						? res.data
+						: ((res.data as { message?: string } | null)?.message ??
+							res.error?.message ??
+							'Unknown error'),
+				variant: 'destructive'
+			});
+		}
+	};
+
+	const closePoll = async (messageId: number) => {
+		const idx = messages.findIndex((m) => m.message_id === messageId);
+		if (idx < 0) return;
+		const msg = messages[idx];
+		if (!msg.poll) return;
+		const res = await WarRoomChatService.closePoll(warRoomId, msg.poll.poll_id);
+		if (res.ok && res.data) {
+			messages[idx] = { ...msg, poll: res.data as ChatPoll };
+		} else {
+			toast({
+				title: 'Could not close poll',
+				description:
+					typeof res.data === 'string'
+						? res.data
+						: ((res.data as { message?: string } | null)?.message ??
+							res.error?.message ??
+							'Unknown error'),
+				variant: 'destructive'
+			});
+		}
+	};
+
+	// Toggle the sticky pin on a message. Backend enforces war-room
+	// write. Optimistically flips `is_pinned` locally; the trace-log
+	// poll picks up the row (or drops it) within a tick.
+	const togglePin = async (m: ChatMessage) => {
+		const idx = messages.findIndex((x) => x.message_id === m.message_id);
+		if (idx < 0) return;
+		const before = messages[idx];
+		const next = !before.is_pinned;
+		messages[idx] = { ...before, is_pinned: next };
+		const res = await WarRoomChatService.setMessagePin(warRoomId, m.message_id, next);
+		if (!res.ok) {
+			messages[idx] = before;
+			toast({
+				title: next ? 'Could not pin message' : 'Could not unpin message',
+				description:
+					typeof res.data === 'string'
+						? res.data
+						: ((res.data as { message?: string } | null)?.message ??
+							res.error?.message ??
+							'Unknown error'),
+				variant: 'destructive'
+			});
+			return;
+		}
+		void loadTraceLog();
 	};
 
 	const send = async () => {
@@ -872,9 +1056,17 @@
 		}
 	};
 
-	const traceKindMeta = (k: ChatMessageKind) => {
-		if (k === 'decision') return { Icon: Gavel, color: 'text-indigo-600 dark:text-indigo-400', label: 'Decision' };
-		if (k === 'pin') return { Icon: Pin, color: 'text-violet-600 dark:text-violet-400', label: 'Pin' };
+	// Trace-log row metadata. Pinned regular messages (`kind='message'`,
+	// `is_pinned=true`) are surfaced in the same sidebar as decisions
+	// and system pins — the backend widens the query, we just need to
+	// paint them with the pin icon since their kind is still 'message'.
+	const traceRowMeta = (t: ChatMessage) => {
+		if (t.kind === 'decision')
+			return { Icon: Gavel, color: 'text-indigo-600 dark:text-indigo-400', label: 'Decision' };
+		if (t.kind === 'pin')
+			return { Icon: Pin, color: 'text-violet-600 dark:text-violet-400', label: 'Pin' };
+		if (t.is_pinned)
+			return { Icon: Pin, color: 'text-primary', label: 'Pinned' };
 		return { Icon: Pin, color: 'text-violet-500 dark:text-violet-300', label: 'Note' };
 	};
 
@@ -1295,7 +1487,7 @@
 						-->
 						<ul class="stream-thin-scroll flex max-h-96 flex-col overflow-y-auto">
 							{#each filteredTraceLog as t (t.message_id)}
-								{@const meta = traceKindMeta(t.kind)}
+								{@const meta = traceRowMeta(t)}
 								{@const bodyText = stripMarkdown(t.body ?? '')}
 								{@const canDelete = currentUserId != null && t.author_id === currentUserId}
 								<li class="group/trace flex items-start gap-1 rounded-md px-1 py-0.5 transition-colors hover:bg-muted/60">
@@ -1704,7 +1896,82 @@
 									{@const cont = isContinuation(m, prev)}
 									{@const Icon = systemIcon(m.kind)}
 
-									{#if m.kind !== 'message'}
+									{#if m.kind === 'poll' && m.poll}
+										<!--
+										  Poll message. Full-width card with the author's
+										  avatar + name header, then the interactive poll
+										  card. Uses the same start-of-group layout as
+										  regular messages so voter attribution reads
+										  naturally in the stream.
+										-->
+										{@const pollCanClose =
+											currentUserId != null &&
+											m.poll.author_id === currentUserId &&
+											!m.poll.is_closed}
+										<li
+											data-message-id={m.message_id}
+											class={[
+												'group/msg flex gap-3 pt-2 transition-colors',
+												highlightMessageId === m.message_id && 'rounded-md ring-2 ring-primary/60'
+											]}
+										>
+											<UserAvatar
+												userId={m.author_id ?? undefined}
+												name={m.author_name ?? m.author_login ?? 'Unknown'}
+												size="size-8"
+											/>
+											<div class="min-w-0 flex-1">
+												<div class="flex items-baseline gap-2">
+													<span class="text-sm font-semibold text-foreground">
+														{m.author_name ?? m.author_login ?? 'Unknown'}
+													</span>
+													<span class="text-2xs text-muted-foreground">
+														{fmtTime(m.created_at)}
+													</span>
+													<span class="text-2xs italic text-muted-foreground">
+														posted a poll
+													</span>
+													{#if m.is_pinned}
+														<span
+															class="inline-flex items-center gap-0.5 rounded bg-primary/10 px-1 py-0.5 text-2xs text-primary"
+															title="Pinned"
+														>
+															<Pin class="h-2.5 w-2.5" />
+															Pinned
+														</span>
+													{/if}
+												</div>
+												<div class="mt-1">
+													<PollCard
+														poll={m.poll}
+														{currentUserId}
+														canClose={pollCanClose}
+														onVote={(optionIds) => voteOnPoll(m.message_id, optionIds)}
+														onClose={() => closePoll(m.message_id)}
+													/>
+												</div>
+												<div class="flex items-center gap-2">
+													<button
+														type="button"
+														class="mt-1 inline-flex items-center gap-0.5 text-2xs {m.is_pinned
+															? 'text-primary'
+															: 'text-muted-foreground/60 hover:text-foreground'} transition-colors"
+														onclick={() => void togglePin(m)}
+														aria-label={m.is_pinned ? 'Unpin message' : 'Pin message'}
+														title={m.is_pinned ? 'Unpin' : 'Pin'}
+													>
+														{#if m.is_pinned}
+															<PinOff class="h-3 w-3" />
+															Unpin
+														{:else}
+															<Pin class="h-3 w-3" />
+															Pin
+														{/if}
+													</button>
+												</div>
+											</div>
+										</li>
+									{:else if m.kind !== 'message'}
 										{@const actor = m.author_name ?? m.author_login}
 										<li
 											data-message-id={m.message_id}
@@ -1758,7 +2025,28 @@
 											<div class="min-w-0 flex-1">
 												<p class="break-words text-sm">
 													<ChatMessageBody body={m.body ?? ''} onAttachmentClick={openPreview} />
+													{#if m.is_pinned}
+														<!--
+														  Pin badge next to body content. On continuation
+														  rows there's no timestamp header to anchor to, so
+														  we inline the badge at the end of the body.
+														-->
+														<span
+															class="ml-1 inline-flex items-center gap-0.5 rounded bg-primary/10 px-1 py-0.5 align-middle text-2xs text-primary"
+															title="Pinned"
+														>
+															<Pin class="h-2.5 w-2.5" />
+															Pinned
+														</span>
+													{/if}
 												</p>
+												{#if (m.reactions ?? []).length > 0}
+													<MessageReactions
+														reactions={m.reactions}
+														{currentUserId}
+														onToggle={(emoji) => void toggleReaction(m.message_id, emoji)}
+													/>
+												{/if}
 												<div class="flex items-center gap-2">
 													{#if replyCount > 0 || m.thread_title}
 														<button
@@ -1776,15 +2064,42 @@
 													{/if}
 													<button
 														type="button"
-														class="invisible mt-1 text-2xs text-muted-foreground hover:text-foreground group-hover/msg:visible"
+														class="mt-1 text-2xs text-muted-foreground/60 transition-colors hover:text-foreground"
 														onclick={() => openThreadFor(m.message_id)}
 													>
 														Reply in thread
 													</button>
+													<button
+														type="button"
+														class="mt-1 inline-flex items-center gap-0.5 text-2xs text-muted-foreground/60 transition-colors hover:text-foreground"
+														onclick={() => void toggleReaction(m.message_id, '👍')}
+														aria-label="React with thumbs up"
+														title="Quick react 👍 (open picker via the pill row's + button)"
+													>
+														<SmilePlus class="h-3 w-3" />
+														React
+													</button>
+													<button
+														type="button"
+														class="mt-1 inline-flex items-center gap-0.5 text-2xs {m.is_pinned
+															? 'text-primary'
+															: 'text-muted-foreground/60 hover:text-foreground'} transition-colors"
+														onclick={() => void togglePin(m)}
+														aria-label={m.is_pinned ? 'Unpin message' : 'Pin message'}
+														title={m.is_pinned ? 'Unpin' : 'Pin'}
+													>
+														{#if m.is_pinned}
+															<PinOff class="h-3 w-3" />
+															Unpin
+														{:else}
+															<Pin class="h-3 w-3" />
+															Pin
+														{/if}
+													</button>
 													{#if currentUserId != null && m.author_id === currentUserId}
 														<button
 															type="button"
-															class="invisible mt-1 inline-flex items-center gap-0.5 text-2xs text-destructive hover:text-destructive/80 group-hover/msg:visible"
+															class="mt-1 inline-flex items-center gap-0.5 text-2xs text-destructive/60 transition-colors hover:text-destructive"
 															onclick={() => removeMessage(m)}
 															aria-label="Delete message"
 														>
@@ -1822,10 +2137,26 @@
 															(edited)
 														</span>
 													{/if}
+													{#if m.is_pinned}
+														<span
+															class="inline-flex items-center gap-0.5 rounded bg-primary/10 px-1 py-0.5 text-2xs text-primary"
+															title="Pinned"
+														>
+															<Pin class="h-2.5 w-2.5" />
+															Pinned
+														</span>
+													{/if}
 												</div>
 												<p class="mt-0.5 break-words text-sm">
 													<ChatMessageBody body={m.body ?? ''} onAttachmentClick={openPreview} />
 												</p>
+												{#if (m.reactions ?? []).length > 0}
+													<MessageReactions
+														reactions={m.reactions}
+														{currentUserId}
+														onToggle={(emoji) => void toggleReaction(m.message_id, emoji)}
+													/>
+												{/if}
 												<div class="flex items-center gap-2">
 													{#if replyCount > 0 || m.thread_title}
 														<button
@@ -1843,15 +2174,42 @@
 													{/if}
 													<button
 														type="button"
-														class="invisible mt-1 text-2xs text-muted-foreground hover:text-foreground group-hover/msg:visible"
+														class="mt-1 text-2xs text-muted-foreground/60 transition-colors hover:text-foreground"
 														onclick={() => openThreadFor(m.message_id)}
 													>
 														Reply in thread
 													</button>
+													<button
+														type="button"
+														class="mt-1 inline-flex items-center gap-0.5 text-2xs text-muted-foreground/60 transition-colors hover:text-foreground"
+														onclick={() => void toggleReaction(m.message_id, '👍')}
+														aria-label="React with thumbs up"
+														title="Quick react 👍 (open picker via the pill row's + button)"
+													>
+														<SmilePlus class="h-3 w-3" />
+														React
+													</button>
+													<button
+														type="button"
+														class="mt-1 inline-flex items-center gap-0.5 text-2xs {m.is_pinned
+															? 'text-primary'
+															: 'text-muted-foreground/60 hover:text-foreground'} transition-colors"
+														onclick={() => void togglePin(m)}
+														aria-label={m.is_pinned ? 'Unpin message' : 'Pin message'}
+														title={m.is_pinned ? 'Unpin' : 'Pin'}
+													>
+														{#if m.is_pinned}
+															<PinOff class="h-3 w-3" />
+															Unpin
+														{:else}
+															<Pin class="h-3 w-3" />
+															Pin
+														{/if}
+													</button>
 													{#if currentUserId != null && m.author_id === currentUserId}
 														<button
 															type="button"
-															class="invisible mt-1 inline-flex items-center gap-0.5 text-2xs text-destructive hover:text-destructive/80 group-hover/msg:visible"
+															class="mt-1 inline-flex items-center gap-0.5 text-2xs text-destructive/60 transition-colors hover:text-destructive"
 															onclick={() => removeMessage(m)}
 															aria-label="Delete message"
 														>
@@ -1880,6 +2238,15 @@
 			}}
 		>
 			<div class="flex items-end gap-2 rounded-xl border bg-card px-3 py-2 focus-within:ring-1 focus-within:ring-ring">
+				<button
+					type="button"
+					class="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+					onclick={() => (pollComposerOpen = true)}
+					aria-label="Create a poll"
+					title="Create a poll"
+				>
+					<BarChart3 size={15} />
+				</button>
 				<Popover.Root bind:open={attachOpen}>
 					<Popover.Trigger
 						class="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -2044,6 +2411,12 @@
 	confirmText={confirmActionText}
 	confirmButtonVariant="destructive"
 	onConfirm={runConfirmed}
+/>
+
+<PollComposer
+	open={pollComposerOpen}
+	onOpenChange={(v) => (pollComposerOpen = v)}
+	onSubmit={submitPoll}
 />
 
 <style>

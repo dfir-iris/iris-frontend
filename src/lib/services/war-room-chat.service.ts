@@ -20,12 +20,45 @@ export type ChatMessageKind =
 	| 'note'
 	| 'pin'
 	| 'decision'
-	| 'priority';
+	| 'priority'
+	| 'poll';
 
 export interface ChatReaction {
 	emoji: string;
 	count: number;
 	user_ids: number[];
+}
+
+export interface ChatPollOptionVoter {
+	user_id: number;
+	user_login: string | null;
+	user_name: string | null;
+}
+
+export interface ChatPollOption {
+	option_id: number;
+	label: string;
+	sort_order: number;
+	vote_count: number;
+	/** Only populated on non-anonymous polls. */
+	voters?: ChatPollOptionVoter[];
+}
+
+export interface ChatPoll {
+	poll_id: number;
+	war_room_id: number;
+	author_id: number | null;
+	question: string;
+	is_multi_select: boolean;
+	is_anonymous: boolean;
+	closes_at: string | null;
+	closed_at: string | null;
+	is_closed: boolean;
+	chat_message_id: number | null;
+	created_at: string | null;
+	/** Viewer's own selections. Always populated (even on anonymous polls). */
+	my_votes: number[];
+	options: ChatPollOption[];
 }
 
 export interface ChatMessage {
@@ -54,10 +87,22 @@ export interface ChatMessage {
 	 */
 	parent_message_id: number | null;
 	thread_title: string | null;
+	/**
+	 * Analyst-toggled sticky flag. When true the message gets a small
+	 * pin badge inline in the stream and surfaces in the "Decisions &
+	 * Pins" sidebar. `getattr`-guarded on the backend so pre-migration
+	 * databases return `false` rather than 500'ing the read.
+	 */
+	is_pinned: boolean;
 	created_at: string | null;
 	edited_at: string | null;
 	deleted_at: string | null;
 	reactions: ChatReaction[];
+	/**
+	 * Inlined poll state on `kind==='poll'` messages so the stream
+	 * loads without a second RPC per poll. Null for every other kind.
+	 */
+	poll?: ChatPoll | null;
 }
 
 export interface ChatThreadRoot {
@@ -144,6 +189,81 @@ export class WarRoomChatService {
 		return ApiService.post(
 			`/war-rooms/${warRoomId}/chat/${messageId}/reactions`,
 			{ emoji },
+			options
+		);
+	}
+
+	/**
+	 * Toggle the sticky pin flag on a message. Backend enforces
+	 * war-room write access; anyone with write can pin/unpin (unlike
+	 * edit/delete which are author-only).
+	 */
+	static setMessagePin(
+		warRoomId: number,
+		messageId: number,
+		isPinned: boolean,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<{ message_id: number; is_pinned: boolean }>> {
+		return ApiService.patch(
+			`/war-rooms/${warRoomId}/chat/${messageId}/pin`,
+			{ is_pinned: isPinned },
+			options
+		);
+	}
+
+	// ---- Polls ----------------------------------------------------
+
+	static createPoll(
+		warRoomId: number,
+		body: {
+			question: string;
+			options: string[];
+			is_multi_select?: boolean;
+			is_anonymous?: boolean;
+			closes_at?: string | null;
+		},
+		options: ApiOptions = {}
+	): Promise<RequestResponse<{ message_id: number; poll_id: number }>> {
+		return ApiService.post(
+			`/war-rooms/${warRoomId}/chat/polls`,
+			body,
+			options
+		);
+	}
+
+	static getPoll(
+		warRoomId: number,
+		pollId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<ChatPoll>> {
+		return ApiService.get<ChatPoll>(
+			`/war-rooms/${warRoomId}/chat/polls/${pollId}`,
+			options
+		);
+	}
+
+	/** Replace the caller's votes for a poll. `[]` clears them entirely. */
+	static voteOnPoll(
+		warRoomId: number,
+		pollId: number,
+		optionIds: number[],
+		options: ApiOptions = {}
+	): Promise<RequestResponse<ChatPoll>> {
+		return ApiService.post<ChatPoll>(
+			`/war-rooms/${warRoomId}/chat/polls/${pollId}/vote`,
+			{ option_ids: optionIds },
+			options
+		);
+	}
+
+	static closePoll(
+		warRoomId: number,
+		pollId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<ChatPoll>> {
+		return ApiService.post<ChatPoll>(
+			`/war-rooms/${warRoomId}/chat/polls/${pollId}/close`,
+			{},
 			options
 		);
 	}
