@@ -133,9 +133,17 @@
 			  `emoji-click` event we listen for above. Absolutely
 			  positioned bottom-full so it doesn't push message
 			  content down.
+
+			  `data-source` overrides the library's default of
+			  jsdelivr.net (blocked by our CSP `connect-src 'self'`).
+			  The JSON file lives in /static/emoji/ and ships with the
+			  bundle, so the picker fetches from same-origin. The file
+			  is ~440KB uncompressed but is served gzipped and the
+			  library caches it in IndexedDB on first load — subsequent
+			  opens are effectively free.
 			-->
 			<div class="absolute bottom-full left-0 z-50 mb-2 shadow-lg">
-				<emoji-picker bind:this={pickerEl}></emoji-picker>
+				<emoji-picker bind:this={pickerEl} data-source="/emoji/data.json"></emoji-picker>
 			</div>
 		{/if}
 	</div>
