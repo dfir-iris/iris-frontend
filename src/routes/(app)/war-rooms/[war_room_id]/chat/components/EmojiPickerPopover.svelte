@@ -86,7 +86,7 @@
 	  fetches from same-origin. The library caches it in IndexedDB
 	  on first load — subsequent opens are effectively free.
 	-->
-	<div class="absolute bottom-full left-0 z-50 mb-2 shadow-lg">
+	<div class="absolute bottom-full right-0 z-50 mb-2 shadow-lg">
 		<emoji-picker bind:this={pickerEl} data-source="/emoji/data.json"></emoji-picker>
 	</div>
 {/if}
