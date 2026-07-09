@@ -2034,7 +2034,7 @@
 														onClose={() => closePoll(m.message_id)}
 													/>
 												</div>
-												<div class="mt-1 flex h-6 items-center gap-1 opacity-0 transition-opacity group-hover/msg:opacity-100 focus-within:opacity-100">
+												<div class="mt-1 hidden h-6 items-center gap-1 group-hover/msg:flex focus-within:flex">
 													<button
 														type="button"
 														class="inline-flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-muted {m.is_pinned
@@ -2167,7 +2167,7 @@
 												  instead of `hidden`) so layout doesn't jump and the
 												  popover anchors keep working.
 												-->
-												<div class="mt-1 flex h-6 items-center gap-1 opacity-0 transition-opacity group-hover/msg:opacity-100 focus-within:opacity-100">
+												<div class="mt-1 hidden h-6 items-center gap-1 group-hover/msg:flex focus-within:flex">
 													<button
 														type="button"
 														class="inline-flex h-6 items-center rounded px-1.5 text-2xs text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
@@ -2289,7 +2289,7 @@
 														{/if}
 													</button>
 												{/if}
-												<div class="mt-1 flex h-6 items-center gap-1 opacity-0 transition-opacity group-hover/msg:opacity-100 focus-within:opacity-100">
+												<div class="mt-1 hidden h-6 items-center gap-1 group-hover/msg:flex focus-within:flex">
 													<button
 														type="button"
 														class="inline-flex h-6 items-center rounded px-1.5 text-2xs text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
