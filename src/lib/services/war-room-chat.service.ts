@@ -94,6 +94,14 @@ export interface ChatMessage {
 	 * databases return `false` rather than 500'ing the read.
 	 */
 	is_pinned: boolean;
+	/**
+	 * Topic partition — the top-level lane this message belongs to.
+	 * `null` means the message is on the war-room's Main topic (either
+	 * the message pre-dates the topics migration or the poster left
+	 * `topic_id` unset). The sidebar always shows Main as its first
+	 * entry so a `null` value still has a clear rendering.
+	 */
+	topic_id: number | null;
 	created_at: string | null;
 	edited_at: string | null;
 	deleted_at: string | null;
@@ -103,6 +111,18 @@ export interface ChatMessage {
 	 * loads without a second RPC per poll. Null for every other kind.
 	 */
 	poll?: ChatPoll | null;
+}
+
+export interface ChatTopic {
+	topic_id: number;
+	war_room_id: number;
+	name: string;
+	is_main: boolean;
+	created_by_id: number | null;
+	created_at: string | null;
+	/** Non-null once the topic has been archived. Archived topics stay
+	 * readable but the composer refuses to post into them. */
+	archived_at: string | null;
 }
 
 export interface ChatThreadRoot {
@@ -132,6 +152,14 @@ export interface ListChatParams {
 	 * filter" so callers can pass `search` unconditionally.
 	 */
 	search?: string;
+	/**
+	 * Topic-id filter. When populated the server returns only messages
+	 * belonging to one of these topics; a `null`-topic message (which
+	 * lives on Main) is included when the Main topic id is in this
+	 * list. Omit the field entirely to skip the filter — sending an
+	 * empty array intentionally returns nothing.
+	 */
+	topicIds?: number[];
 }
 
 export class WarRoomChatService {
@@ -148,6 +176,8 @@ export class WarRoomChatService {
 			qs.set('case_ids', params.caseIds.join(','));
 		if (params.search && params.search.trim())
 			qs.set('search', params.search.trim());
+		if (params.topicIds !== undefined)
+			qs.set('topic_ids', params.topicIds.join(','));
 		const tail = qs.toString();
 		const path = tail
 			? `/war-rooms/${warRoomId}/chat?${tail}`
@@ -158,9 +188,20 @@ export class WarRoomChatService {
 	static post(
 		warRoomId: number,
 		body: string,
+		topicId: number | null = null,
 		options: ApiOptions = {}
-	): Promise<RequestResponse<{ message_id: number; kind: ChatMessageKind }>> {
-		return ApiService.post(`/war-rooms/${warRoomId}/chat`, { body }, options);
+	): Promise<
+		RequestResponse<{
+			message_id: number;
+			kind: ChatMessageKind;
+			/** Populated when the posted body was `/topic <name>` — the SPA
+			 * uses this to auto-switch the selection to the new topic. */
+			topic?: ChatTopic;
+		}>
+	> {
+		const payload: { body: string; topic_id?: number } = { body };
+		if (topicId != null) payload.topic_id = topicId;
+		return ApiService.post(`/war-rooms/${warRoomId}/chat`, payload, options);
 	}
 
 	static edit(
@@ -350,6 +391,54 @@ export class WarRoomChatService {
 	): Promise<RequestResponse<{ message_id: number; removed: boolean }>> {
 		return ApiService.delete<{ message_id: number; removed: boolean }>(
 			`/war-rooms/${warRoomId}/chat/${rootMessageId}/follow`,
+			options
+		);
+	}
+
+	// ---- Topics ---------------------------------------------------
+
+	static listTopics(
+		warRoomId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<ChatTopic[]>> {
+		return ApiService.get<ChatTopic[]>(
+			`/war-rooms/${warRoomId}/chat/topics`,
+			options
+		);
+	}
+
+	static createTopic(
+		warRoomId: number,
+		name: string,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<ChatTopic>> {
+		return ApiService.post<ChatTopic>(
+			`/war-rooms/${warRoomId}/chat/topics`,
+			{ name },
+			options
+		);
+	}
+
+	static archiveTopic(
+		warRoomId: number,
+		topicId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<ChatTopic>> {
+		return ApiService.post<ChatTopic>(
+			`/war-rooms/${warRoomId}/chat/topics/${topicId}/archive`,
+			{},
+			options
+		);
+	}
+
+	static unarchiveTopic(
+		warRoomId: number,
+		topicId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<ChatTopic>> {
+		return ApiService.post<ChatTopic>(
+			`/war-rooms/${warRoomId}/chat/topics/${topicId}/unarchive`,
+			{},
 			options
 		);
 	}

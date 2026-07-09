@@ -86,7 +86,12 @@
 		{
 			cmd: '/thread',
 			usage: '/thread <title>',
-			desc: 'Open a named topic that operators can follow + reply to'
+			desc: 'Open a named thread that operators can follow + reply to'
+		},
+		{
+			cmd: '/topic',
+			usage: '/topic <name>',
+			desc: 'Create a top-level topic (Slack-channel style) and switch the view to it'
 		},
 		{ cmd: '/help', usage: '/help', desc: 'List all available slash commands' }
 	];

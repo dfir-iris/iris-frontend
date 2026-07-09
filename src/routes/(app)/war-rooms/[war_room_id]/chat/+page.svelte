@@ -12,6 +12,8 @@
 	import {
 		AlertCircle,
 		AlertOctagon,
+		Archive,
+		ArchiveRestore,
 		BarChart3,
 		Bell,
 		ChevronDown,
@@ -20,12 +22,14 @@
 		FileText,
 		Filter,
 		Gavel,
+		Hash,
 		Loader2,
 		MessageSquare,
 		Paperclip,
 		Pin,
 		PinOff,
 		ListChecks,
+		Plus,
 		Search,
 		Send,
 		Slash,
@@ -60,7 +64,8 @@
 		type ChatMessage,
 		type ChatMessageKind,
 		type ChatPoll,
-		type ChatThreadRoot
+		type ChatThreadRoot,
+		type ChatTopic
 	} from '$lib/services/war-room-chat.service';
 	import {
 		WarRoomsService,
@@ -83,6 +88,64 @@
 	let sending = $state(false);
 	let composerEl: HTMLTextAreaElement | null = $state(null);
 	let listEl: HTMLDivElement | null = $state(null);
+
+	// --- Topics ----------------------------------------------------------
+	//
+	// Topics are top-level partitions of the chat stream. Every war room
+	// has a non-archivable Main topic (materialised on first read by the
+	// backend); operators create extras via the sidebar `+` button or the
+	// `/topic <name>` slash command.
+	//
+	// `selectedTopicIds` is a multi-select — the stream renders messages
+	// from any selected topic and tags each message with its topic name
+	// when more than one is selected. `composerTopicId` picks which topic
+	// a new message lands on when the selection is multi (defaults to
+	// Main, or the last-clicked live topic). Archived topics can be
+	// selected for reading but never for posting.
+	//
+	// `topicUnread` is a purely client-side counter that ticks up when a
+	// poll returns a message on a topic not in `selectedTopicIds`; it
+	// clears the moment the topic is selected.
+	let topics = $state<ChatTopic[]>([]);
+	let selectedTopicIds = $state<Set<number>>(new Set());
+	let composerTopicId = $state<number | null>(null);
+	let topicUnread = $state<Record<number, number>>({});
+	let showArchivedTopics = $state(false);
+	let newTopicOpen = $state(false);
+	let newTopicName = $state('');
+	let creatingTopic = $state(false);
+
+	const mainTopic = $derived(topics.find((t) => t.is_main) ?? null);
+	const liveTopics = $derived(topics.filter((t) => !t.archived_at));
+	const archivedTopics = $derived(topics.filter((t) => t.archived_at));
+	const topicById = $derived(new Map(topics.map((t) => [t.topic_id, t] as const)));
+
+	// The effective topic to post into. `composerTopicId` wins when it
+	// still resolves to a live topic; otherwise fall back to Main. An
+	// archived topic in `composerTopicId` (e.g. because it was archived
+	// while selected) is treated as "no valid composer topic" — the
+	// composer button below is disabled in that case.
+	const effectiveComposerTopic = $derived.by((): ChatTopic | null => {
+		if (composerTopicId != null) {
+			const c = topicById.get(composerTopicId);
+			if (c && !c.archived_at) return c;
+		}
+		return mainTopic;
+	});
+	const composerLocked = $derived(effectiveComposerTopic == null);
+
+	// True when the stream is showing more than one topic — that's when
+	// each message needs an inline topic chip so the operator can tell
+	// them apart. Single-topic views suppress the chip to keep bubbles
+	// visually calm.
+	const showTopicChips = $derived(selectedTopicIds.size > 1);
+
+	const topicChipName = (m: ChatMessage): string | null => {
+		if (m.message_id < 0) return null; // user-activity row — no topic
+		const id = m.topic_id ?? mainTopic?.topic_id ?? null;
+		if (id == null) return null;
+		return topicById.get(id)?.name ?? null;
+	};
 
 	// --- Stream filter model ---------------------------------------------
 	//
@@ -446,10 +509,23 @@
 	// a poll tick fires.
 	let appliedSearch = $state('');
 
+	// Snapshot of the topic filter to hand the server on each list call.
+	// `undefined` means "no filter" (backend returns everything, which
+	// is what we want when topics aren't supported / not yet loaded).
+	const currentTopicIdsFilter = $derived.by((): number[] | undefined => {
+		if (topics.length === 0) return undefined;
+		if (selectedTopicIds.size === 0) return undefined;
+		return Array.from(selectedTopicIds);
+	});
+
 	const load = async () => {
 		loading = true;
 		const search = appliedSearch || undefined;
-		const res = await WarRoomChatService.list(warRoomId, { limit: 80, search });
+		const res = await WarRoomChatService.list(warRoomId, {
+			limit: 80,
+			search,
+			topicIds: currentTopicIdsFilter
+		});
 		if (res.ok && Array.isArray(res.data)) {
 			messages = [...res.data].reverse();
 			if (res.data.length < 80) exhausted = true;
@@ -467,7 +543,8 @@
 		const res = await WarRoomChatService.list(warRoomId, {
 			before,
 			limit: 80,
-			search
+			search,
+			topicIds: currentTopicIdsFilter
 		});
 		loadingMore = false;
 		if (res.ok && Array.isArray(res.data)) {
@@ -499,10 +576,39 @@
 		if (messages.length === 0) return load();
 		const seen = new Set(messages.map(messageKey));
 		const search = appliedSearch || undefined;
+		// Poll UNFILTERED (no topic filter) so we can (a) show only the
+		// selected topics in the stream and (b) bump unread counters on
+		// the ones the operator isn't currently viewing.
 		const res = await WarRoomChatService.list(warRoomId, { limit: 50, search });
 		if (!res.ok || !Array.isArray(res.data)) return;
 		const incoming = res.data as ChatMessage[];
-		const fresh = incoming.filter((m) => !seen.has(messageKey(m)));
+		// Bump unread counters for any brand-new message on a topic
+		// that isn't in the current selection. Runs BEFORE we filter
+		// down to `matchesTopicFilter` so muted topics still notify.
+		if (topics.length > 0 && selectedTopicIds.size > 0) {
+			const mainId = mainTopic?.topic_id ?? null;
+			for (const m of incoming) {
+				if (seen.has(messageKey(m))) continue;
+				// NULL topic_id on a chat row means Main; skip
+				// user-activity rows (message_id < 0) — those come
+				// from case activity, not a topic.
+				if (m.message_id < 0) continue;
+				const topicId = m.topic_id ?? mainId;
+				if (topicId != null && !selectedTopicIds.has(topicId)) {
+					bumpTopicUnread(topicId);
+				}
+			}
+		}
+		const matchesTopicFilter = (m: ChatMessage) => {
+			if (topics.length === 0 || selectedTopicIds.size === 0) return true;
+			if (m.message_id < 0) return true; // user-activity rows have no topic
+			const mainId = mainTopic?.topic_id ?? null;
+			const topicId = m.topic_id ?? mainId;
+			return topicId != null && selectedTopicIds.has(topicId);
+		};
+		const fresh = incoming
+			.filter((m) => !seen.has(messageKey(m)))
+			.filter(matchesTopicFilter);
 
 		// Merge server state for live-changing fields on rows we
 		// already have. Reactions and polls both mutate after their
@@ -580,6 +686,7 @@
 		// helpers below don't depend on prefs, they'll rerender when
 		// the filters settle.
 		void loadFilterPrefs();
+		void loadTopics();
 		void load();
 		void loadAttachedCases();
 		void loadThreads();
@@ -588,6 +695,7 @@
 			void pollNewer();
 			void loadThreads();
 			void loadTraceLog();
+			void loadTopics();
 		}, 4000);
 	});
 
@@ -916,11 +1024,37 @@
 	const send = async () => {
 		const text = body.trim();
 		if (!text) return;
+		// Refuse to post when the composer target has been archived out
+		// from under the operator. Should be rare — the button/textarea
+		// are already disabled in that case — but guard anyway.
+		if (composerLocked) {
+			toast({
+				title: 'This topic is archived',
+				description: 'Pick a live topic before posting.',
+				variant: 'destructive'
+			});
+			return;
+		}
+		const postingTopicId = effectiveComposerTopic?.topic_id ?? null;
 		sending = true;
-		const res = await WarRoomChatService.post(warRoomId, text);
+		const res = await WarRoomChatService.post(warRoomId, text, postingTopicId);
 		sending = false;
 		if (res.ok) {
 			body = '';
+			// `/topic <name>` returns the newly-created topic — merge it
+			// into `topics` and switch the view straight away so the
+			// operator lands on the new lane.
+			const created =
+				res.data && typeof res.data !== 'string'
+					? (res.data as { topic?: ChatTopic }).topic
+					: undefined;
+			if (created) {
+				const idx = topics.findIndex((t) => t.topic_id === created.topic_id);
+				topics = idx >= 0
+					? topics.map((t) => (t.topic_id === created.topic_id ? created : t))
+					: [...topics, created];
+				selectOnlyTopic(created);
+			}
 			await pollNewer();
 			void loadThreads();
 			void loadTraceLog();
@@ -998,7 +1132,8 @@
 		{ cmd: '/summary', desc: 'Auto-fill SitRep from snapshot' },
 		{ cmd: '/state <…>', desc: 'Flip war-room state' },
 		{ cmd: '/priority <…>', desc: 'Stamp a priority banner' },
-		{ cmd: '/thread <title>', desc: 'Open a named topic' }
+		{ cmd: '/thread <title>', desc: 'Open a named thread' },
+		{ cmd: '/topic <name>', desc: 'Create + switch to a topic' }
 	];
 
 	// --- Threads ---------------------------------------------------------
@@ -1076,6 +1211,168 @@
 
 	const closeThread = () => {
 		openThread = null;
+	};
+
+	// --- Topics loader / actions ---------------------------------------
+	//
+	// Loaded once on mount and refreshed on the same 4s poll as threads
+	// / trace-log. Backends predating the topics migration return an
+	// empty list — in that case the sidebar section stays hidden and
+	// the composer/filter fall through to "no topic selection".
+	const loadTopics = async () => {
+		const res = await WarRoomChatService.listTopics(warRoomId);
+		if (!res.ok || !Array.isArray(res.data)) return;
+		const next = res.data as ChatTopic[];
+		topics = next;
+		// Seed selection to Main on the very first fetch — subsequent
+		// polls leave the operator's picks alone.
+		if (selectedTopicIds.size === 0) {
+			const main = next.find((t) => t.is_main);
+			if (main) {
+				selectedTopicIds = new Set([main.topic_id]);
+				composerTopicId = main.topic_id;
+			}
+		}
+		// Any topic that vanished server-side (rare — no hard delete)
+		// gets dropped from the selection so the filter isn't a no-op.
+		const knownIds = new Set(next.map((t) => t.topic_id));
+		const filtered = new Set<number>();
+		let selectionChanged = false;
+		for (const id of selectedTopicIds) {
+			if (knownIds.has(id)) filtered.add(id);
+			else selectionChanged = true;
+		}
+		if (selectionChanged) selectedTopicIds = filtered;
+	};
+
+	const toggleTopicSelection = (topic: ChatTopic) => {
+		const next = new Set(selectedTopicIds);
+		if (next.has(topic.topic_id)) {
+			// Never let the operator deselect their last topic — the
+			// stream would go blank. Force Main back on instead.
+			if (next.size === 1) {
+				if (mainTopic && topic.topic_id !== mainTopic.topic_id) {
+					next.clear();
+					next.add(mainTopic.topic_id);
+				} else {
+					return;
+				}
+			} else {
+				next.delete(topic.topic_id);
+			}
+		} else {
+			next.add(topic.topic_id);
+			// Clear the unread counter — the operator is now looking at
+			// this topic, so the badge should disappear immediately.
+			if (topicUnread[topic.topic_id]) {
+				const { [topic.topic_id]: _, ...rest } = topicUnread;
+				topicUnread = rest;
+			}
+			// Newly-selected live topic becomes the composer target so
+			// "click topic → type → send" lands on it without extra UI.
+			if (!topic.archived_at) composerTopicId = topic.topic_id;
+		}
+		selectedTopicIds = next;
+		exhausted = false;
+		messages = [];
+		void load();
+	};
+
+	const selectOnlyTopic = (topic: ChatTopic) => {
+		selectedTopicIds = new Set([topic.topic_id]);
+		if (!topic.archived_at) composerTopicId = topic.topic_id;
+		if (topicUnread[topic.topic_id]) {
+			const { [topic.topic_id]: _, ...rest } = topicUnread;
+			topicUnread = rest;
+		}
+		exhausted = false;
+		messages = [];
+		void load();
+	};
+
+	const submitNewTopic = async () => {
+		const name = newTopicName.trim();
+		if (!name || creatingTopic) return;
+		creatingTopic = true;
+		const res = await WarRoomChatService.createTopic(warRoomId, name);
+		creatingTopic = false;
+		if (!res.ok || !res.data || typeof res.data === 'string') {
+			toast({
+				title: 'Could not create topic',
+				description:
+					typeof res.data === 'string'
+						? res.data
+						: ((res.data as { message?: string } | null)?.message ??
+							res.error?.message ??
+							'Unknown error'),
+				variant: 'destructive'
+			});
+			return;
+		}
+		const created = res.data as ChatTopic;
+		// Replace-or-append: create is idempotent server-side, so we
+		// tolerate the row already being in `topics` from a race with
+		// the poll.
+		const idx = topics.findIndex((t) => t.topic_id === created.topic_id);
+		topics = idx >= 0
+			? topics.map((t) => (t.topic_id === created.topic_id ? created : t))
+			: [...topics, created];
+		newTopicName = '';
+		newTopicOpen = false;
+		selectOnlyTopic(created);
+	};
+
+	const doArchiveTopic = async (topic: ChatTopic) => {
+		if (topic.is_main) return;
+		const res = await WarRoomChatService.archiveTopic(warRoomId, topic.topic_id);
+		if (!res.ok || !res.data || typeof res.data === 'string') {
+			toast({
+				title: 'Could not archive topic',
+				description:
+					typeof res.data === 'string'
+						? res.data
+						: ((res.data as { message?: string } | null)?.message ??
+							res.error?.message ??
+							'Unknown error'),
+				variant: 'destructive'
+			});
+			return;
+		}
+		const updated = res.data as ChatTopic;
+		topics = topics.map((t) => (t.topic_id === updated.topic_id ? updated : t));
+		// If it was the composer target, fall back to Main.
+		if (composerTopicId === topic.topic_id) {
+			composerTopicId = mainTopic?.topic_id ?? null;
+		}
+	};
+
+	const doUnarchiveTopic = async (topic: ChatTopic) => {
+		const res = await WarRoomChatService.unarchiveTopic(warRoomId, topic.topic_id);
+		if (!res.ok || !res.data || typeof res.data === 'string') {
+			toast({
+				title: 'Could not unarchive topic',
+				description:
+					typeof res.data === 'string'
+						? res.data
+						: ((res.data as { message?: string } | null)?.message ??
+							res.error?.message ??
+							'Unknown error'),
+				variant: 'destructive'
+			});
+			return;
+		}
+		const updated = res.data as ChatTopic;
+		topics = topics.map((t) => (t.topic_id === updated.topic_id ? updated : t));
+	};
+
+	// Poll-tick unread bump. Called from `pollNewer` whenever a fresh
+	// message lands on a topic that isn't currently selected.
+	const bumpTopicUnread = (topicId: number) => {
+		if (selectedTopicIds.has(topicId)) return;
+		topicUnread = {
+			...topicUnread,
+			[topicId]: (topicUnread[topicId] ?? 0) + 1
+		};
 	};
 
 	// --- Decisions & Pins sidebar index --------------------------------
@@ -1471,6 +1768,201 @@
 		     hover-to-reveal style used in notes / tasks so the sidebar
 		     bar isn't a fat default UA bar. -->
 		<div class="stream-thin-scroll min-h-0 flex-1 overflow-y-auto">
+			<!-- Topics section — top-level partitions of the stream. Sits
+			     above Threads because it's the coarsest lens the operator
+			     uses on the stream. Hidden entirely on backends where the
+			     topics migration hasn't run (empty list). -->
+			{#if topics.length > 0}
+				<section class="border-b px-2 py-2">
+					<div class="flex items-center justify-between px-2 pb-1 pt-1">
+						<p class="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+							<Hash class="h-3 w-3" />
+							Topics ({liveTopics.length})
+						</p>
+						<button
+							type="button"
+							class="rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+							onclick={() => {
+								newTopicOpen = !newTopicOpen;
+								if (newTopicOpen) {
+									// Focus the input on next tick.
+									void tick().then(() => {
+										const el = document.getElementById(
+											'war-room-new-topic-input'
+										) as HTMLInputElement | null;
+										el?.focus();
+									});
+								}
+							}}
+							aria-label="New topic"
+							title="New topic"
+						>
+							<Plus class="h-3.5 w-3.5" />
+						</button>
+					</div>
+
+					{#if newTopicOpen}
+						<div class="flex items-center gap-1 px-1 pb-1.5">
+							<Input
+								id="war-room-new-topic-input"
+								value={newTopicName}
+								oninput={(e) =>
+									(newTopicName = (e.target as HTMLInputElement).value)}
+								onkeydown={(e) => {
+									if (e.key === 'Enter') {
+										e.preventDefault();
+										void submitNewTopic();
+									} else if (e.key === 'Escape') {
+										e.preventDefault();
+										newTopicOpen = false;
+										newTopicName = '';
+									}
+								}}
+								placeholder="Topic name…"
+								maxlength={80}
+								class="h-7 text-2xs"
+								aria-label="New topic name"
+							/>
+							<Button
+								size="sm"
+								class="h-7 px-2 text-2xs"
+								disabled={creatingTopic || !newTopicName.trim()}
+								onclick={submitNewTopic}
+							>
+								Add
+							</Button>
+						</div>
+					{/if}
+
+					<ul class="stream-thin-scroll flex max-h-72 flex-col overflow-y-auto">
+						{#each liveTopics as t (t.topic_id)}
+							{@const selected = selectedTopicIds.has(t.topic_id)}
+							{@const isComposer =
+								effectiveComposerTopic?.topic_id === t.topic_id}
+							{@const unread = topicUnread[t.topic_id] ?? 0}
+							<li
+								class="group/topic flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors hover:bg-muted/60"
+							>
+								<Checkbox
+									checked={selected}
+									onCheckedChange={() => toggleTopicSelection(t)}
+									aria-label={`Toggle ${t.name}`}
+									class="ml-1"
+								/>
+								<button
+									type="button"
+									class="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-left"
+									onclick={() => selectOnlyTopic(t)}
+									title={
+										t.is_main
+											? 'Main topic (cannot be archived)'
+											: 'Show only this topic'
+									}
+								>
+									<Hash
+										class={`h-3 w-3 shrink-0 ${selected ? 'text-foreground' : 'text-muted-foreground'}`}
+									/>
+									<span
+										class={[
+											'min-w-0 flex-1 truncate text-xs',
+											selected ? 'font-medium' : ''
+										]}
+									>
+										{t.name}
+									</span>
+									{#if isComposer && liveTopics.length > 1}
+										<span
+											class="shrink-0 rounded bg-primary/15 px-1 text-[10px] font-medium text-primary"
+											title="Composer target"
+										>
+											post
+										</span>
+									{/if}
+									{#if unread > 0}
+										<span
+											class="ml-auto shrink-0 rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground"
+										>
+											{unread > 99 ? '99+' : unread}
+										</span>
+									{/if}
+								</button>
+								{#if !t.is_main}
+									<button
+										type="button"
+										class="invisible shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground group-hover/topic:visible focus:visible"
+										onclick={() => doArchiveTopic(t)}
+										aria-label={`Archive ${t.name}`}
+										title="Archive topic"
+									>
+										<Archive class="h-3 w-3" />
+									</button>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+
+					{#if archivedTopics.length > 0}
+						<div class="mt-2 border-t px-1 pt-1.5">
+							<button
+								type="button"
+								class="flex w-full items-center gap-1 rounded px-1 py-0.5 text-2xs uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+								onclick={() => (showArchivedTopics = !showArchivedTopics)}
+							>
+								{#if showArchivedTopics}
+									<ChevronDown class="h-3 w-3" />
+								{:else}
+									<ChevronRight class="h-3 w-3" />
+								{/if}
+								<span>Archived ({archivedTopics.length})</span>
+							</button>
+							{#if showArchivedTopics}
+								<ul
+									class="stream-thin-scroll mt-1 flex max-h-48 flex-col overflow-y-auto"
+								>
+									{#each archivedTopics as t (t.topic_id)}
+										{@const selected = selectedTopicIds.has(t.topic_id)}
+										<li
+											class="group/atopic flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors hover:bg-muted/60"
+										>
+											<Checkbox
+												checked={selected}
+												onCheckedChange={() => toggleTopicSelection(t)}
+												aria-label={`Toggle archived ${t.name}`}
+												class="ml-1"
+											/>
+											<button
+												type="button"
+												class="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-left"
+												onclick={() => selectOnlyTopic(t)}
+												title="Show only this archived topic (read-only)"
+											>
+												<Hash
+													class="h-3 w-3 shrink-0 text-muted-foreground"
+												/>
+												<span
+													class="min-w-0 flex-1 truncate text-xs italic text-muted-foreground"
+												>
+													{t.name}
+												</span>
+											</button>
+											<button
+												type="button"
+												class="invisible shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground group-hover/atopic:visible focus:visible"
+												onclick={() => doUnarchiveTopic(t)}
+												aria-label={`Unarchive ${t.name}`}
+												title="Restore topic"
+											>
+												<ArchiveRestore class="h-3 w-3" />
+											</button>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</div>
+					{/if}
+				</section>
+			{/if}
+
 			<!-- Threads at the top of the sidebar so the operator's active
 			     conversations are the first thing they see when the pane
 			     opens. Decisions & Pins follow below, then the Stream
@@ -2015,6 +2507,18 @@
 													<span class="text-2xs italic text-muted-foreground">
 														posted a poll
 													</span>
+													{#if showTopicChips}
+														{@const chip = topicChipName(m)}
+														{#if chip}
+															<span
+																class="inline-flex items-center gap-0.5 rounded bg-muted px-1 py-0.5 text-2xs text-muted-foreground"
+																title={`Topic: ${chip}`}
+															>
+																<Hash class="h-2.5 w-2.5" />
+																{chip}
+															</span>
+														{/if}
+													{/if}
 													{#if m.is_pinned}
 														<span
 															class="inline-flex items-center gap-0.5 rounded bg-primary/10 px-1 py-0.5 text-2xs text-primary"
@@ -2102,6 +2606,18 @@
 												refCaseId={m.ref_case_id}
 												{attachedCases}
 											/>
+											{#if showTopicChips}
+												{@const chip = topicChipName(m)}
+												{#if chip}
+													<span
+														class="inline-flex shrink-0 items-center gap-0.5 rounded bg-muted px-1 py-0.5 text-2xs text-muted-foreground"
+														title={`Topic: ${chip}`}
+													>
+														<Hash class="h-2.5 w-2.5" />
+														{chip}
+													</span>
+												{/if}
+											{/if}
 											<span class="shrink-0 text-2xs text-muted-foreground">
 												{fmtTime(m.created_at)}
 											</span>
@@ -2255,6 +2771,18 @@
 															(edited)
 														</span>
 													{/if}
+													{#if showTopicChips}
+														{@const chip = topicChipName(m)}
+														{#if chip}
+															<span
+																class="inline-flex items-center gap-0.5 rounded bg-muted px-1 py-0.5 text-2xs text-muted-foreground"
+																title={`Topic: ${chip}`}
+															>
+																<Hash class="h-2.5 w-2.5" />
+																{chip}
+															</span>
+														{/if}
+													{/if}
 													{#if m.is_pinned}
 														<span
 															class="inline-flex items-center gap-0.5 rounded bg-primary/10 px-1 py-0.5 text-2xs text-primary"
@@ -2367,6 +2895,77 @@
 				void send();
 			}}
 		>
+			<!-- Topic chip — shows the operator which topic the composer will
+			     post into. Clickable to open a topic-picker popover; hidden
+			     entirely on backends without topics support. -->
+			{#if topics.length > 0}
+				<div class="mb-1.5 flex items-center gap-2 px-1 text-2xs">
+					<span class="text-muted-foreground">Posting to</span>
+					<Popover.Root>
+						<Popover.Trigger
+							class={[
+								'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors',
+								composerLocked
+									? 'border-destructive/40 text-destructive'
+									: 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
+							]}
+							disabled={liveTopics.length <= 1}
+							title={
+								composerLocked
+									? 'The selected topic is archived — pick a live one.'
+									: liveTopics.length <= 1
+										? undefined
+										: 'Change target topic'
+							}
+						>
+							<Hash class="h-3 w-3" />
+							<span class="font-medium">
+								{effectiveComposerTopic?.name ?? 'No topic'}
+							</span>
+							{#if liveTopics.length > 1}
+								<ChevronDown class="h-3 w-3 opacity-70" />
+							{/if}
+						</Popover.Trigger>
+						{#if liveTopics.length > 1}
+							<Popover.Content side="top" align="start" class="w-56 p-1">
+								<ul class="flex flex-col">
+									{#each liveTopics as t (t.topic_id)}
+										{@const active =
+											effectiveComposerTopic?.topic_id === t.topic_id}
+										<li>
+											<button
+												type="button"
+												class={[
+													'flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-xs transition-colors',
+													active ? 'bg-muted font-medium' : 'hover:bg-muted/60'
+												]}
+												onclick={() => {
+													composerTopicId = t.topic_id;
+													// Also ensure the topic is selected in the
+													// stream view so the operator sees the
+													// message they're about to send.
+													if (!selectedTopicIds.has(t.topic_id)) {
+														toggleTopicSelection(t);
+													}
+												}}
+											>
+												<Hash class="h-3 w-3 text-muted-foreground" />
+												<span class="min-w-0 flex-1 truncate">{t.name}</span>
+												{#if t.is_main}
+													<span class="shrink-0 text-2xs text-muted-foreground">
+														main
+													</span>
+												{/if}
+											</button>
+										</li>
+									{/each}
+								</ul>
+							</Popover.Content>
+						{/if}
+					</Popover.Root>
+				</div>
+			{/if}
+
 			<div class="flex items-end gap-2 rounded-xl border bg-card px-3 py-2 focus-within:ring-1 focus-within:ring-ring">
 				<button
 					type="button"
@@ -2495,7 +3094,7 @@
 					type="submit"
 					size="sm"
 					class="h-8 gap-1.5"
-					disabled={sending || !body.trim()}
+					disabled={sending || !body.trim() || composerLocked}
 				>
 					{#if sending}
 						<Loader2 class="h-3.5 w-3.5 animate-spin" />
