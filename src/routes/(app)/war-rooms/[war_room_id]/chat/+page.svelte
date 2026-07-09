@@ -1808,7 +1808,7 @@
 					<div class="flex items-center justify-between px-2 pb-1 pt-1">
 						<p class="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
 							<Hash class="h-3 w-3" />
-							Topics ({liveTopics.length})
+							Topics
 						</p>
 						<button
 							type="button"
