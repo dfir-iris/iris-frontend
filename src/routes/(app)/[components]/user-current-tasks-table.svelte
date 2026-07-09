@@ -21,13 +21,15 @@
 			filter: true,
 			cellRenderer: (params: any) => {
 				return cellRendererFactory((target, p) => {
-					p.data.redirUrl = `/case/tasks?cid=${p.data?.case_id || 0}`;
+					const caseId = p.data?.case_id || 0;
+					const taskId = p.data?.task_id || 0;
+					p.data.redirUrl = `/case/${caseId}/tasks`;
 					mount(CellTitle, {
 						target,
 						props: {
 							params: {
 								title: p.data?.task_title,
-								redirUrl: `/case/tasks?cid=${p.data?.task_id}&shared=${p.data?.task_id || 0}`
+								redirUrl: `/case/${caseId}/tasks/${taskId}`
 							}
 						}
 					});
@@ -54,13 +56,14 @@
 			filter: true,
 			cellRenderer: (params: any) => {
 				return cellRendererFactory((target, p) => {
-					p.data.redirUrl = `/case?cid=${p.data?.case_id || 0}`;
+					const caseId = p.data?.case_id || 0;
+					p.data.redirUrl = `/case/${caseId}`;
 					mount(CellTitle, {
 						target,
 						props: {
 							params: {
 								title: p.data?.case?.case_name,
-								redirUrl: `/case?cid=${p.data?.case_id || 0}`
+								redirUrl: `/case/${caseId}`
 							}
 						}
 					});
