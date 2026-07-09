@@ -2971,13 +2971,11 @@
 													active ? 'bg-muted font-medium' : 'hover:bg-muted/60'
 												]}
 												onclick={() => {
-													composerTopicId = t.topic_id;
-													// Also ensure the topic is selected in the
-													// stream view so the operator sees the
-													// message they're about to send.
-													if (!selectedTopicIds.has(t.topic_id)) {
-														toggleTopicSelection(t);
-													}
+													// Switch the stream view to just this topic —
+													// picking a "Posting to" target implies the
+													// operator wants to focus that lane, not merge
+													// it into whatever multi-select they had.
+													selectOnlyTopic(t);
 												}}
 											>
 												<Hash class="h-3 w-3 text-muted-foreground" />
