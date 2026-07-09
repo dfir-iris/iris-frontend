@@ -1415,6 +1415,37 @@
 			await openThreadFor(m.parent_message_id);
 			return;
 		}
+		// If the entry lives on a topic we're not currently viewing,
+		// switch the selection to that topic first so the target row is
+		// actually in the stream. Without this, the DOM lookup below
+		// would fail and the operator would get a spurious "Message not
+		// loaded" toast even though the message is right there in the
+		// backend.
+		if (topics.length > 0 && m.message_id > 0) {
+			const targetTopicId = m.topic_id ?? mainTopic?.topic_id ?? null;
+			if (
+				targetTopicId != null &&
+				!selectedTopicIds.has(targetTopicId)
+			) {
+				const targetTopic = topicById.get(targetTopicId);
+				if (targetTopic) {
+					selectedTopicIds = new Set([targetTopicId]);
+					if (!targetTopic.archived_at) {
+						composerTopicId = targetTopicId;
+					}
+					if (topicUnread[targetTopicId]) {
+						const { [targetTopicId]: _, ...rest } = topicUnread;
+						topicUnread = rest;
+					}
+					exhausted = false;
+					messages = [];
+					// Reload synchronously so the target row is in the DOM
+					// before we try to scroll it into view.
+					await load();
+					await tick();
+				}
+			}
+		}
 		const target = listEl?.querySelector(
 			`[data-message-id="${m.message_id}"]`
 		) as HTMLElement | null;
