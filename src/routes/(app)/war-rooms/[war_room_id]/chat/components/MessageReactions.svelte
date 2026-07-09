@@ -60,6 +60,7 @@
 			onOpenChange={(v) => (pickerOpen = v)}
 			onPick={onToggle}
 			anchor={pickerAnchor}
+			align="left"
 		/>
 	</div>
 </div>

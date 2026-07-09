@@ -22,9 +22,20 @@
 		 * onclick doesn't fight this component's dismiss logic.
 		 */
 		anchor?: HTMLElement | null;
+		/**
+		 * Which horizontal edge of the trigger the picker grows from.
+		 * `right` — picker's right edge aligns with the trigger's right
+		 * edge, so the 320px panel spreads leftward. Use when the
+		 * trigger sits near the viewport's right edge (e.g. the
+		 * action-strip React button).
+		 * `left` — picker's left edge aligns with the trigger's left
+		 * edge, so it spreads rightward. Use when the trigger sits on
+		 * the left (e.g. the pill-row "+" button under a message).
+		 */
+		align?: 'left' | 'right';
 	};
 
-	let { open, onOpenChange, onPick, anchor }: Props = $props();
+	let { open, onOpenChange, onPick, anchor, align = 'right' }: Props = $props();
 
 	let pickerLoaded = $state(false);
 
@@ -86,7 +97,9 @@
 	  fetches from same-origin. The library caches it in IndexedDB
 	  on first load — subsequent opens are effectively free.
 	-->
-	<div class="absolute bottom-full right-0 z-50 mb-2 shadow-lg">
+	<div
+		class="absolute bottom-full z-50 mb-2 shadow-lg {align === 'left' ? 'left-0' : 'right-0'}"
+	>
 		<emoji-picker bind:this={pickerEl} data-source="/emoji/data.json"></emoji-picker>
 	</div>
 {/if}
