@@ -1995,7 +1995,7 @@
 										<li
 											data-message-id={m.message_id}
 											class={[
-												'group/msg flex gap-3 pt-2 transition-colors',
+												'group/msg relative flex gap-3 pt-2 transition-colors',
 												highlightMessageId === m.message_id && 'rounded-md ring-2 ring-primary/60'
 											]}
 										>
@@ -2034,7 +2034,7 @@
 														onClose={() => closePoll(m.message_id)}
 													/>
 												</div>
-												<div class="mt-1 hidden h-6 items-center gap-1 group-hover/msg:flex focus-within:flex">
+												<div class="absolute right-1 -top-3 z-10 hidden h-7 items-center gap-0.5 rounded-md border bg-card px-1 shadow-sm group-hover/msg:flex focus-within:flex">
 													<button
 														type="button"
 														class="inline-flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-muted {m.is_pinned
@@ -2111,7 +2111,7 @@
 										<li
 											data-message-id={m.message_id}
 											class={[
-												'group/msg flex gap-3 pl-11 transition-colors',
+												'group/msg relative flex gap-3 pl-11 transition-colors',
 												highlightMessageId === m.message_id && 'rounded-md ring-2 ring-primary/60'
 											]}
 										>
@@ -2167,7 +2167,7 @@
 												  instead of `hidden`) so layout doesn't jump and the
 												  popover anchors keep working.
 												-->
-												<div class="mt-1 hidden h-6 items-center gap-1 group-hover/msg:flex focus-within:flex">
+												<div class="absolute right-1 -top-3 z-10 hidden h-7 items-center gap-0.5 rounded-md border bg-card px-1 shadow-sm group-hover/msg:flex focus-within:flex">
 													<button
 														type="button"
 														class="inline-flex h-6 items-center rounded px-1.5 text-2xs text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
@@ -2233,7 +2233,7 @@
 										<li
 											data-message-id={m.message_id}
 											class={[
-												'group/msg flex gap-3 pt-2 transition-colors',
+												'group/msg relative flex gap-3 pt-2 transition-colors',
 												highlightMessageId === m.message_id && 'rounded-md ring-2 ring-primary/60'
 											]}
 										>
@@ -2289,7 +2289,7 @@
 														{/if}
 													</button>
 												{/if}
-												<div class="mt-1 hidden h-6 items-center gap-1 group-hover/msg:flex focus-within:flex">
+												<div class="absolute right-1 -top-3 z-10 hidden h-7 items-center gap-0.5 rounded-md border bg-card px-1 shadow-sm group-hover/msg:flex focus-within:flex">
 													<button
 														type="button"
 														class="inline-flex h-6 items-center rounded px-1.5 text-2xs text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
