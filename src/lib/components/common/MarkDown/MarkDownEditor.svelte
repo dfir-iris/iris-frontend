@@ -240,7 +240,7 @@
 		if (!docName) {
 			hasHydrated = true;
 			const md = value ?? '';
-			viewHtml = DOMPurify.sanitize(converter.makeHtml(md));
+			viewHtml = DOMPurify.sanitize(converter.makeHtml(normalizeLegacyContent(md)));
 			viewIsEmpty = md.trim().length === 0;
 		}
 	});
@@ -253,7 +253,7 @@
 	$effect(() => {
 		if (docName) return;
 		const md = value ?? '';
-		viewHtml = DOMPurify.sanitize(converter.makeHtml(md));
+		viewHtml = DOMPurify.sanitize(converter.makeHtml(normalizeLegacyContent(md)));
 		viewIsEmpty = md.trim().length === 0;
 	});
 

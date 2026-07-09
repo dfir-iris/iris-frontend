@@ -2,10 +2,13 @@
 	import DOMPurify from 'dompurify';
 	import { converter } from './converter';
 	import { authenticateDatastoreImages } from './authenticate-datastore-images';
+	import { normalizeLegacyContent } from './legacy-content';
 
 	let { markdown = '' }: { markdown?: string } = $props();
 
-	const safeHtml = $derived(DOMPurify.sanitize(converter.makeHtml(markdown ?? '')));
+	const safeHtml = $derived(
+		DOMPurify.sanitize(converter.makeHtml(normalizeLegacyContent(markdown ?? '')))
+	);
 
 	let containerEl = $state<HTMLDivElement | null>(null);
 

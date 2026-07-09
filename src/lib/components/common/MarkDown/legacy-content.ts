@@ -2,7 +2,7 @@
  * Normalizes legacy note/summary content so it renders correctly under the
  * new v2 API and the new icon system.
  *
- * Two classes of legacy artifacts exist in stored content:
+ * Three classes of legacy artifacts exist in stored content:
  *
  * 1. Datastore file URLs — previously written as
  *      /datastore/file/view/{id}?cid={X}
@@ -21,6 +21,12 @@
  *    status in the future, we'll re-emit a clean marker (e.g. a badge) at
  *    that point; for now stripping them yields a much cleaner link that
  *    still reads: "[DS] file.zip".
+ *
+ * 3. Case-scoped IRIS v2.4.29 URLs — previously written as
+ *      /case/iocs?cid={X}&ioc_id={Y}  (and the same shape for
+ *      assets/tasks/notes/timeline plus the bare `/case?cid={X}` summary).
+ *    The SvelteKit v2 router is fully path-based (`/case/{X}/iocs/{Y}`);
+ *    without this rewrite, legacy links land on 404s or the wrong route.
  */
 
 /**
@@ -39,6 +45,59 @@ const rewriteDatastoreUrls = (text: string): string => {
 			return `/api/v2/cases/${cidMatch[1]}/datastore/files/${fileId}`;
 		}
 	);
+};
+
+/**
+ * IRIS v2.4.29 emitted case-scoped links with a flat query-string:
+ *   /case/iocs?cid=X&ioc_id=Y
+ *   /case/assets?cid=X&asset_id=Y
+ *   /case/tasks?cid=X&id=Y            (tasks used `id=`, not `task_id=`)
+ *   /case/notes?cid=X&note_id=Y
+ *   /case/timeline?cid=X
+ *   /case?cid=X                       (case summary)
+ * The new SvelteKit tree is fully path-based:
+ *   /case/X/iocs/Y, /case/X/assets/Y, /case/X/tasks/Y, /case/X/notes/Y,
+ *   /case/X/timeline, /case/X
+ * We rewrite every stored occurrence — markdown `](…)` targets AND raw
+ * HTML `href=`/`src=` — so opening an old note routes correctly and any
+ * subsequent save round-trips the new URL back into the source column.
+ *
+ * Order matters: subpath variants (`/case/iocs`) MUST be matched before
+ * the bare `/case?cid=` fallback, otherwise the latter would swallow the
+ * `/case/…` prefix.
+ */
+const CASE_SUBPATH_ID_PARAM: Record<string, string> = {
+	iocs: 'ioc_id',
+	assets: 'asset_id',
+	tasks: 'id',
+	notes: 'note_id',
+	evidences: 'evidence_id'
+};
+
+const rewriteLegacyCaseUrls = (text: string): string => {
+	// /case/{section}?...cid=X&{section_id}=Y...  (params may appear in either order)
+	let out = text.replace(
+		/\/case\/(iocs|assets|tasks|notes|evidences|timeline)(\?[^)\s"'<>]*)/g,
+		(match, section, query) => {
+			const cidMatch = query.match(/[?&]cid=(\d+)/);
+			if (!cidMatch) return match;
+			const cid = cidMatch[1];
+			if (section === 'timeline') return `/case/${cid}/timeline`;
+			const idParam = CASE_SUBPATH_ID_PARAM[section as string];
+			if (!idParam) return match;
+			const idRe = new RegExp(`[?&]${idParam}=(\\d+)`);
+			const idMatch = query.match(idRe);
+			if (!idMatch) return `/case/${cid}/${section}`;
+			return `/case/${cid}/${section}/${idMatch[1]}`;
+		}
+	);
+	// Bare `/case?cid=X` — case summary. Run this AFTER the subpath pass.
+	out = out.replace(/\/case(\?[^)\s"'<>]*)/g, (match, query) => {
+		const cidMatch = query.match(/[?&]cid=(\d+)/);
+		if (!cidMatch) return match;
+		return `/case/${cidMatch[1]}`;
+	});
+	return out;
 };
 
 /**
@@ -86,5 +145,7 @@ const unescapeLegacyMarkdownLinks = (text: string): string => {
 
 export const normalizeLegacyContent = (text: string): string => {
 	if (!text) return text;
-	return stripFontAwesomeTags(rewriteDatastoreUrls(unescapeLegacyMarkdownLinks(text)));
+	return stripFontAwesomeTags(
+		rewriteLegacyCaseUrls(rewriteDatastoreUrls(unescapeLegacyMarkdownLinks(text)))
+	);
 };
