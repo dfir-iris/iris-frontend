@@ -1995,7 +1995,7 @@
 										<li
 											data-message-id={m.message_id}
 											class={[
-												'group/msg relative flex gap-3 pt-2 transition-colors',
+												'group/msg relative flex gap-3 rounded-md px-2 -mx-2 pt-2 transition-colors hover:bg-muted/40',
 												highlightMessageId === m.message_id && 'rounded-md ring-2 ring-primary/60'
 											]}
 										>
@@ -2111,7 +2111,7 @@
 										<li
 											data-message-id={m.message_id}
 											class={[
-												'group/msg relative flex gap-3 pl-11 transition-colors',
+												'group/msg relative flex gap-3 rounded-md pl-11 pr-2 -mx-2 transition-colors hover:bg-muted/40',
 												highlightMessageId === m.message_id && 'rounded-md ring-2 ring-primary/60'
 											]}
 										>
@@ -2233,7 +2233,7 @@
 										<li
 											data-message-id={m.message_id}
 											class={[
-												'group/msg relative flex gap-3 pt-2 transition-colors',
+												'group/msg relative flex gap-3 rounded-md px-2 -mx-2 pt-2 transition-colors hover:bg-muted/40',
 												highlightMessageId === m.message_id && 'rounded-md ring-2 ring-primary/60'
 											]}
 										>
