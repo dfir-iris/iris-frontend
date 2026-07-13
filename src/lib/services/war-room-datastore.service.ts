@@ -94,6 +94,43 @@ export class WarRoomDatastoreService {
 		return `/api/v2/war-rooms/${warRoomId}/datastore/${fileId}/content`;
 	}
 
+	/**
+	 * Fetch a file's bytes with the current bearer token and return an
+	 * object URL suitable for `<img src>` or `<a href download>`. The
+	 * caller is responsible for `URL.revokeObjectURL(...)` when the
+	 * element goes away — otherwise the blob leaks.
+	 */
+	static async fetchFileBlobUrl(
+		warRoomId: number,
+		fileId: number
+	): Promise<string | null> {
+		const { auth } = await import('$lib/stores/auth.store');
+		const { AuthService } = await import('./auth.service');
+		const { browser } = await import('$app/environment');
+		const { env } = await import('$env/dynamic/public');
+		const { API_BASE_URL } = await import('$lib/config/api.config');
+
+		if (auth.isTokenExpired() && !auth.isRefreshTokenExpired()) {
+			await AuthService.refreshToken();
+		}
+
+		const baseUrl = browser
+			? (env.PUBLIC_EXTERNAL_API_URL ?? '').replace(/\/$/, '')
+			: API_BASE_URL.replace(/\/$/, '');
+		const fullUrl = `${baseUrl}/api/v2/war-rooms/${warRoomId}/datastore/${fileId}/content`;
+		const headers: Record<string, string> = {};
+		const token = auth.getAccessToken();
+		if (token) headers.Authorization = `Bearer ${token}`;
+		try {
+			const resp = await (browser ? window.fetch : global.fetch)(fullUrl, { headers });
+			if (!resp.ok) return null;
+			const blob = await resp.blob();
+			return URL.createObjectURL(blob);
+		} catch {
+			return null;
+		}
+	}
+
 	static remove(
 		warRoomId: number,
 		fileId: number,

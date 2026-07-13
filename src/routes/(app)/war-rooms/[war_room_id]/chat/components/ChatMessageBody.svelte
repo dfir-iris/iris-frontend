@@ -18,11 +18,16 @@
 		AlertCircleIcon,
 		AtSignIcon,
 		ClockIcon,
+		DownloadIcon,
 		ExternalLink,
+		FileIcon,
 		ListChecksIcon,
 		MonitorIcon
 	} from 'lucide-svelte';
 	import { current_user } from '$lib/stores/auth.store';
+	import { WarRoomDatastoreService } from '$lib/services/war-room-datastore.service';
+	import type { ChatAttachment } from '$lib/services/war-room-chat.service';
+	import ChatImageAttachment from './ChatImageAttachment.svelte';
 
 	type Props = {
 		body: string;
@@ -34,8 +39,22 @@
 			label: string;
 			href: string;
 		}) => void;
+		// Optional file attachments (inline uploads) — rendered below the
+		// text. Images render inline, everything else as a download link.
+		attachments?: ChatAttachment[] | null;
+		warRoomId?: number;
 	};
-	let { body, onAttachmentClick }: Props = $props();
+	let { body, onAttachmentClick, attachments, warRoomId }: Props = $props();
+
+	const humanBytes = (n: number): string => {
+		if (n < 1024) return `${n} B`;
+		if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+		if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+		return `${(n / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+	};
+
+	const isImage = (mime: string | null | undefined): boolean =>
+		typeof mime === 'string' && mime.toLowerCase().startsWith('image/');
 
 	type Segment =
 		| { kind: 'text'; text: string }
@@ -214,3 +233,34 @@
 			>{/if}
 	{/each}
 </span>
+
+{#if attachments && attachments.length > 0 && warRoomId != null}
+	<div class="mt-1.5 flex flex-col gap-1.5">
+		{#each attachments as att (att.file_id)}
+			{#if isImage(att.mime_type)}
+				<ChatImageAttachment
+					warRoomId={warRoomId}
+					fileId={att.file_id}
+					filename={att.filename}
+				/>
+			{:else}
+				<a
+					href={WarRoomDatastoreService.downloadUrl(warRoomId, att.file_id)}
+					target="_blank"
+					rel="noopener noreferrer"
+					class="inline-flex max-w-[24rem] items-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5 text-xs no-underline hover:bg-muted"
+				>
+					<FileIcon class="h-4 w-4 shrink-0 text-muted-foreground" />
+					<span class="flex min-w-0 flex-col">
+						<span class="truncate font-medium">{att.filename}</span>
+						<span class="text-2xs text-muted-foreground">
+							{humanBytes(att.size_bytes)}
+							{att.mime_type ? ` · ${att.mime_type}` : ''}
+						</span>
+					</span>
+					<DownloadIcon class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+				</a>
+			{/if}
+		{/each}
+	</div>
+{/if}

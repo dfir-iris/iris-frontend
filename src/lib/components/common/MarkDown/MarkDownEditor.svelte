@@ -599,18 +599,67 @@
 	const fuzzy = (haystack: string, needle: string) =>
 		haystack.toLowerCase().includes(needle.toLowerCase());
 
+	// War-room teams are cached alongside users so the @-popover can list
+	// both. Only populated when `warRoomId` is set on the editor.
+	let teamCache: Array<{ team_id: number; name: string; description: string | null }> | null =
+		null;
+	let teamPromise: Promise<
+		Array<{ team_id: number; name: string; description: string | null }>
+	> | null = null;
+
+	const loadTeams = async () => {
+		if (!warRoomId) return [];
+		if (teamCache) return teamCache;
+		if (!teamPromise) {
+			teamPromise = (async () => {
+				try {
+					const { WarRoomTeamsService } = await import(
+						'$lib/services/war-room-teams.service'
+					);
+					const res = await WarRoomTeamsService.list(Number(warRoomId));
+					if (res.ok && Array.isArray(res.data)) {
+						teamCache = res.data;
+						return res.data;
+					}
+				} catch {
+					// Teams are additive — a failure to fetch them shouldn't
+					// break the @-user popover.
+				}
+				teamCache = [];
+				return [];
+			})();
+		}
+		return teamPromise;
+	};
+
 	const fetchUserItems = async (query: string): Promise<MentionItem[]> => {
-		const users = await loadUsers();
 		const q = query.trim();
-		const filtered = q
+		const [users, teams] = await Promise.all([loadUsers(), loadTeams()]);
+
+		// Teams surface at the top of the popover — quicker to reach when
+		// the operator wants to page a whole group, and keeps the mental
+		// model "@-team pages a bunch of people" front and center.
+		const filteredTeams = q
+			? teams.filter((t) => fuzzy(t.name, q))
+			: teams;
+		const teamItems: MentionItem[] = filteredTeams.slice(0, 4).map((t) => ({
+			id: t.team_id,
+			label: t.name,
+			sublabel: t.description ?? 'Team',
+			kind: 'team' as const
+		}));
+
+		const filteredUsers = q
 			? users.filter((u) => fuzzy(u.user_name, q) || fuzzy(u.user_login, q))
 			: users;
-		return filtered.slice(0, 8).map((u) => ({
+		const userItems: MentionItem[] = filteredUsers.slice(0, 8 - teamItems.length).map((u) => ({
 			id: u.user_id,
 			label: u.user_name,
 			sublabel: u.user_login,
 			kind: 'user' as const
 		}));
+
+		return [...teamItems, ...userItems];
 	};
 
 	// Generic lazy-loader factory. Mention chips are usable from anywhere in
@@ -1165,12 +1214,14 @@
 					transformPastedText: true,
 					transformCopiedText: true
 				}),
-				// @ users — kept separate from case objects since the user list
-				// is workspace-wide rather than case-scoped.
+				// @ users AND war-room teams — same trigger, same node, kind
+				// discriminator on the chip (`user` vs `team`) drives styling
+				// and notification fan-out on the backend.
 				createMentionNode(
 					'userMention',
 					'user',
-					buildSuggestion('@', { nodeName: 'userMention', fetchItems: fetchUserItems })
+					buildSuggestion('@', { nodeName: 'userMention', fetchItems: fetchUserItems }),
+					['user', 'team']
 				),
 				// # case objects (assets / iocs / notes / tasks) all share one
 				// trigger. The suggestion item's `kind` drives chip rendering

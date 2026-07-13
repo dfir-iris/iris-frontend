@@ -5,10 +5,18 @@
 		ShieldAlertIcon,
 		FileTextIcon,
 		ClipboardListIcon,
-		DatabaseIcon
+		DatabaseIcon,
+		UsersIcon
 	} from 'lucide-svelte';
 
-	export type MentionKind = 'user' | 'asset' | 'ioc' | 'note' | 'task' | 'datastore';
+	export type MentionKind =
+		| 'user'
+		| 'team'
+		| 'asset'
+		| 'ioc'
+		| 'note'
+		| 'task'
+		| 'datastore';
 
 	export type MentionItem = {
 		id: number | string;
@@ -18,6 +26,7 @@
 	};
 
 	const iconFor = (kind: MentionKind) => {
+		if (kind === 'team') return UsersIcon;
 		if (kind === 'asset') return BoxIcon;
 		if (kind === 'ioc') return ShieldAlertIcon;
 		if (kind === 'note') return FileTextIcon;

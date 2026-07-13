@@ -28,6 +28,11 @@ const KIND_STYLE: Record<MentionKind, StyleSpec> = {
 		colorClass: 'bg-blue-500/15 text-blue-700 dark:text-blue-300',
 		iconPath: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'
 	},
+	team: {
+		colorClass: 'bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300',
+		iconPath:
+			'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75'
+	},
 	asset: {
 		colorClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
 		iconPath:

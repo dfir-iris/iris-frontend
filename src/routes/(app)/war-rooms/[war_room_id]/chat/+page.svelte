@@ -89,6 +89,71 @@
 	let composerEl: HTMLTextAreaElement | null = $state(null);
 	let listEl: HTMLDivElement | null = $state(null);
 
+	// --- Composer file attachments (drag-and-drop) ---
+	// Files dropped on the composer are queued as `PendingAttachment`
+	// entries and uploaded to the war-room datastore only when the
+	// operator hits Send. This avoids orphan files if they abandon
+	// the draft (per the "no orphans" UX decision).
+	type PendingAttachment = {
+		id: string;
+		file: File;
+	};
+	let pendingAttachments = $state<PendingAttachment[]>([]);
+	let isDropTarget = $state(false);
+
+	const humanBytes = (n: number): string => {
+		if (n < 1024) return `${n} B`;
+		if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+		if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+		return `${(n / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+	};
+
+	const queueFiles = (files: FileList | File[] | null) => {
+		if (!files) return;
+		const list = Array.from(files as ArrayLike<File>);
+		const additions: PendingAttachment[] = [];
+		for (const f of list) {
+			// Simple id — good enough for a client-side keyed list.
+			additions.push({
+				id: `${f.name}-${f.size}-${f.lastModified ?? 0}-${additions.length}`,
+				file: f
+			});
+		}
+		if (additions.length) {
+			pendingAttachments = [...pendingAttachments, ...additions];
+		}
+	};
+
+	const removePendingAttachment = (id: string) => {
+		pendingAttachments = pendingAttachments.filter((p) => p.id !== id);
+	};
+
+	const onComposerDragOver = (e: DragEvent) => {
+		if (!e.dataTransfer) return;
+		const types = e.dataTransfer.types;
+		if (!types || !Array.from(types).includes('Files')) return;
+		e.preventDefault();
+		isDropTarget = true;
+		e.dataTransfer.dropEffect = 'copy';
+	};
+
+	const onComposerDragLeave = (e: DragEvent) => {
+		// A `dragleave` fires when the pointer crosses a child boundary;
+		// guard by checking the related target is outside the form.
+		if (!e.currentTarget || !(e.currentTarget instanceof HTMLElement)) return;
+		if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget as Node)) return;
+		isDropTarget = false;
+	};
+
+	const onComposerDrop = (e: DragEvent) => {
+		if (!e.dataTransfer) return;
+		e.preventDefault();
+		isDropTarget = false;
+		if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+			queueFiles(e.dataTransfer.files);
+		}
+	};
+
 	// --- Topics ----------------------------------------------------------
 	//
 	// Topics are top-level partitions of the chat stream. Every war room
@@ -1023,7 +1088,10 @@
 
 	const send = async () => {
 		const text = body.trim();
-		if (!text) return;
+		const hasAttachments = pendingAttachments.length > 0;
+		// Allow attachment-only posts. Body must still be non-empty OR
+		// there must be at least one queued file.
+		if (!text && !hasAttachments) return;
 		// Refuse to post when the composer target has been archived out
 		// from under the operator. Should be rare — the button/textarea
 		// are already disabled in that case — but guard anyway.
@@ -1037,10 +1105,47 @@
 		}
 		const postingTopicId = effectiveComposerTopic?.topic_id ?? null;
 		sending = true;
-		const res = await WarRoomChatService.post(warRoomId, text, postingTopicId);
+
+		// Upload queued files in sequence — sequential rather than
+		// parallel so a per-file failure clearly identifies the
+		// culprit and we can abort without leaving half the batch
+		// half-uploaded.
+		const uploadedIds: number[] = [];
+		if (hasAttachments) {
+			const { WarRoomDatastoreService } = await import(
+				'$lib/services/war-room-datastore.service'
+			);
+			for (const item of pendingAttachments) {
+				const up = await WarRoomDatastoreService.upload(warRoomId, item.file);
+				if (
+					up.ok &&
+					up.data &&
+					typeof up.data !== 'string' &&
+					typeof (up.data as { file_id?: number }).file_id === 'number'
+				) {
+					uploadedIds.push((up.data as { file_id: number }).file_id);
+				} else {
+					sending = false;
+					toast({
+						title: 'Attachment upload failed',
+						description: `Could not upload "${item.file.name}".`,
+						variant: 'destructive'
+					});
+					return;
+				}
+			}
+		}
+
+		const res = await WarRoomChatService.post(
+			warRoomId,
+			text,
+			postingTopicId,
+			uploadedIds
+		);
 		sending = false;
 		if (res.ok) {
 			body = '';
+			pendingAttachments = [];
 			// `/topic <name>` returns the newly-created topic — merge it
 			// into `topics` and switch the view straight away so the
 			// operator lands on the new lane.
@@ -2622,7 +2727,12 @@
 														{actor}
 													</span>
 												{/if}
-												<ChatMessageBody body={m.body ?? ''} onAttachmentClick={openPreview} />
+												<ChatMessageBody
+													body={m.body ?? ''}
+													attachments={m.attachments}
+													{warRoomId}
+													onAttachmentClick={openPreview}
+												/>
 											</span>
 											<!--
 											  Reference card: a clickable chip pointing at the
@@ -2664,7 +2774,12 @@
 										>
 											<div class="min-w-0 flex-1">
 												<p class="break-words text-sm">
-													<ChatMessageBody body={m.body ?? ''} onAttachmentClick={openPreview} />
+													<ChatMessageBody
+													body={m.body ?? ''}
+													attachments={m.attachments}
+													{warRoomId}
+													onAttachmentClick={openPreview}
+												/>
 													{#if m.is_pinned}
 														<!--
 														  Pin badge next to body content. On continuation
@@ -2825,7 +2940,12 @@
 													{/if}
 												</div>
 												<p class="mt-0.5 break-words text-sm">
-													<ChatMessageBody body={m.body ?? ''} onAttachmentClick={openPreview} />
+													<ChatMessageBody
+													body={m.body ?? ''}
+													attachments={m.attachments}
+													{warRoomId}
+													onAttachmentClick={openPreview}
+												/>
 												</p>
 												{#if (m.reactions ?? []).length > 0}
 													<MessageReactions
@@ -2920,12 +3040,49 @@
 
 		<!-- Composer -->
 		<form
-			class="border-t bg-background/80 px-4 py-3"
+			class={[
+				'relative border-t bg-background/80 px-4 py-3 transition-colors',
+				isDropTarget && 'bg-primary/5'
+			]}
+			ondragover={onComposerDragOver}
+			ondragleave={onComposerDragLeave}
+			ondrop={onComposerDrop}
 			onsubmit={(e) => {
 				e.preventDefault();
 				void send();
 			}}
 		>
+			{#if isDropTarget}
+				<div
+					class="pointer-events-none absolute inset-2 flex items-center justify-center rounded-md border-2 border-dashed border-primary/60 bg-primary/5 text-xs font-medium text-primary"
+				>
+					Drop files to attach
+				</div>
+			{/if}
+
+			{#if pendingAttachments.length > 0}
+				<div class="mb-2 flex flex-wrap gap-1.5 px-1">
+					{#each pendingAttachments as p (p.id)}
+						<div
+							class="flex items-center gap-1.5 rounded border bg-muted/50 px-2 py-1 text-2xs"
+						>
+							<Paperclip class="h-3 w-3 text-muted-foreground" />
+							<span class="max-w-[16rem] truncate">{p.file.name}</span>
+							<span class="text-muted-foreground">
+								{humanBytes(p.file.size)}
+							</span>
+							<button
+								type="button"
+								class="text-muted-foreground hover:text-destructive"
+								onclick={() => removePendingAttachment(p.id)}
+								aria-label="Remove attachment"
+							>
+								<X class="h-3 w-3" />
+							</button>
+						</div>
+					{/each}
+				</div>
+			{/if}
 			<!-- Topic chip — shows the operator which topic the composer will
 			     post into. Clickable to open a topic-picker popover; hidden
 			     entirely on backends without topics support. -->
@@ -3116,6 +3273,7 @@
 					textarea={composerEl}
 					{body}
 					{attachedCases}
+					{warRoomId}
 					onChangeBody={(v) => (body = v)}
 				/>
 
@@ -3123,7 +3281,9 @@
 					type="submit"
 					size="sm"
 					class="h-8 gap-1.5"
-					disabled={sending || !body.trim() || composerLocked}
+					disabled={sending ||
+						(!body.trim() && pendingAttachments.length === 0) ||
+						composerLocked}
 				>
 					{#if sending}
 						<Loader2 class="h-3.5 w-3.5 animate-spin" />

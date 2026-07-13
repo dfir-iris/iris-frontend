@@ -61,6 +61,13 @@ export interface ChatPoll {
 	options: ChatPollOption[];
 }
 
+export interface ChatAttachment {
+	file_id: number;
+	filename: string;
+	mime_type: string | null;
+	size_bytes: number;
+}
+
 export interface ChatMessage {
 	message_id: number;
 	war_room_id: number;
@@ -106,6 +113,13 @@ export interface ChatMessage {
 	edited_at: string | null;
 	deleted_at: string | null;
 	reactions: ChatReaction[];
+	/**
+	 * Inline file attachments — files uploaded via the composer drop
+	 * zone and stored in the war-room datastore. Always populated as a
+	 * list (empty when the message has none) so callers can iterate
+	 * unconditionally.
+	 */
+	attachments: ChatAttachment[];
 	/**
 	 * Inlined poll state on `kind==='poll'` messages so the stream
 	 * loads without a second RPC per poll. Null for every other kind.
@@ -189,6 +203,7 @@ export class WarRoomChatService {
 		warRoomId: number,
 		body: string,
 		topicId: number | null = null,
+		fileIds: number[] = [],
 		options: ApiOptions = {}
 	): Promise<
 		RequestResponse<{
@@ -199,8 +214,9 @@ export class WarRoomChatService {
 			topic?: ChatTopic;
 		}>
 	> {
-		const payload: { body: string; topic_id?: number } = { body };
+		const payload: { body: string; topic_id?: number; file_ids?: number[] } = { body };
 		if (topicId != null) payload.topic_id = topicId;
+		if (fileIds.length) payload.file_ids = fileIds;
 		return ApiService.post(`/war-rooms/${warRoomId}/chat`, payload, options);
 	}
 

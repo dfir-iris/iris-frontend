@@ -23,15 +23,20 @@
 	import { CaseAssetsService } from '$lib/services/case-assets.service';
 	import { CaseTimelineService } from '$lib/services/case-timeline.service';
 	import { CaseTasksService } from '$lib/services/case-tasks.service';
+	import {
+		WarRoomTeamsService,
+		type WarRoomTeam
+	} from '$lib/services/war-room-teams.service';
 	import type { WarRoomCaseAttachment } from '$lib/services/war-rooms.service';
 
 	type Props = {
 		textarea: HTMLTextAreaElement | null;
 		body: string;
 		attachedCases: WarRoomCaseAttachment[];
+		warRoomId: number;
 		onChangeBody: (next: string) => void;
 	};
-	let { textarea, body, attachedCases, onChangeBody }: Props = $props();
+	let { textarea, body, attachedCases, warRoomId, onChangeBody }: Props = $props();
 
 	type Trigger = 'user' | 'resource' | 'slash';
 
@@ -109,6 +114,24 @@
 	// popup doesn't show empty / loading state when the user hits `#`.
 	let userCache: User[] | null = null;
 	let userCachePromise: Promise<User[]> | null = null;
+	let teamCache: WarRoomTeam[] | null = null;
+	let teamCachePromise: Promise<WarRoomTeam[]> | null = null;
+
+	const loadTeams = async (): Promise<WarRoomTeam[]> => {
+		if (teamCache) return teamCache;
+		if (!teamCachePromise) {
+			teamCachePromise = (async () => {
+				const res = await WarRoomTeamsService.list(warRoomId);
+				if (res.ok && Array.isArray(res.data)) {
+					teamCache = res.data;
+					return res.data;
+				}
+				teamCache = [];
+				return [];
+			})();
+		}
+		return teamCachePromise;
+	};
 
 	const loadUsers = async (): Promise<User[]> => {
 		if (userCache) return userCache;
@@ -345,19 +368,29 @@
 				kind: 'task'
 			}));
 		} else if (t.trigger === 'user') {
-			const users = await loadUsers();
+			const [users, teams] = await Promise.all([loadUsers(), loadTeams()]);
 			const q = t.query.trim();
-			const filtered = q
+			const filteredTeams = q ? teams.filter((tm) => fuzzy(tm.name, q)) : teams;
+			const teamItems: MentionItem[] = filteredTeams.slice(0, 4).map((tm) => ({
+				id: tm.team_id,
+				label: tm.name,
+				sublabel: tm.description ?? 'Team',
+				kind: 'team' as const
+			}));
+			const filteredUsers = q
 				? users.filter(
 						(u) => fuzzy(u.user_name, q) || fuzzy(u.user_login, q)
 					)
 				: users;
-			items = filtered.slice(0, 8).map((u) => ({
-				id: u.user_id,
-				label: u.user_name,
-				sublabel: `@${u.user_login}`,
-				kind: 'user'
-			}));
+			const userItems: MentionItem[] = filteredUsers
+				.slice(0, 8 - teamItems.length)
+				.map((u) => ({
+					id: u.user_id,
+					label: u.user_name,
+					sublabel: `@${u.user_login}`,
+					kind: 'user' as const
+				}));
+			items = [...teamItems, ...userItems];
 		} else {
 			const all = await loadResources();
 			const q = t.query.trim();
@@ -396,7 +429,14 @@
 			// caret right where the argument starts.
 			insertion = `${item.id} `;
 		} else if (trigger === 'user') {
-			insertion = `@${item.sublabel?.replace(/^@/, '') ?? item.label}`;
+			if (item.kind === 'team') {
+				// Team mention: insert `@team-name`. Backend resolves the
+				// name against `WarRoomTeam.name` for this war room and
+				// fans out notifications to team members.
+				insertion = `@${item.label}`;
+			} else {
+				insertion = `@${item.sublabel?.replace(/^@/, '') ?? item.label}`;
+			}
 		} else {
 			const r = item as ResourceItem;
 			const typeWord =

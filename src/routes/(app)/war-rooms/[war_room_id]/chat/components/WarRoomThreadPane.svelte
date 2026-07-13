@@ -582,7 +582,12 @@
 									{/if}
 								</div>
 								<div class="mt-1 break-words text-xs">
-									<ChatMessageBody body={r.body ?? ''} onAttachmentClick={onAttachmentClick} />
+									<ChatMessageBody
+										body={r.body ?? ''}
+										attachments={r.attachments}
+										{warRoomId}
+										onAttachmentClick={onAttachmentClick}
+									/>
 								</div>
 							</div>
 						</li>
@@ -614,7 +619,12 @@
 								{/if}
 							</div>
 							<div class="mt-0.5 break-words text-xs">
-								<ChatMessageBody body={r.body ?? ''} onAttachmentClick={onAttachmentClick} />
+								<ChatMessageBody
+										body={r.body ?? ''}
+										attachments={r.attachments}
+										{warRoomId}
+										onAttachmentClick={onAttachmentClick}
+									/>
 							</div>
 						</div>
 					</li>

@@ -12,6 +12,7 @@
 		HardDriveUploadIcon,
 		ListChecksIcon,
 		MessageSquareIcon,
+		UserPlusIcon,
 		UsersIcon,
 		WaypointsIcon
 	} from 'lucide-svelte';
@@ -30,7 +31,8 @@
 		{ label: 'Notes', path: 'notes', icon: FileTextIcon },
 		{ label: 'SitReps', path: 'sitreps', icon: FilesIcon },
 		{ label: 'Cases', path: 'cases', icon: WaypointsIcon },
-		{ label: 'Members', path: 'members', icon: UsersIcon }
+		{ label: 'Members', path: 'members', icon: UsersIcon },
+		{ label: 'Teams', path: 'teams', icon: UserPlusIcon }
 	];
 
 	const warRoomId = $derived(Number(page.params.war_room_id));
