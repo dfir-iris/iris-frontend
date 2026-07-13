@@ -38,14 +38,15 @@ export async function adminApi(): Promise<APIRequestContext> {
 	});
 }
 
-// Small helpers to unwrap the response_api_* envelope. Every v2 endpoint
-// responds with `{status, message, data}` on success.
+// Small helpers to unwrap the response envelope. Some v2 endpoints wrap
+// the payload in `{status, message, data}`, others return the entity
+// directly. Accept both.
 export async function apiJson<T = unknown>(res: { json: () => Promise<unknown> }): Promise<T> {
-	const body = (await res.json()) as { data?: T; status?: string; message?: string };
-	if (body.data === undefined) {
-		throw new Error(`API response missing 'data' field: ${JSON.stringify(body)}`);
+	const body = (await res.json()) as Record<string, unknown> & { data?: T };
+	if (body.data !== undefined && typeof body.data === 'object' && body.data !== null) {
+		return body.data as T;
 	}
-	return body.data as T;
+	return body as unknown as T;
 }
 
 // A small pool of factories. Every one returns the created object's id so
