@@ -24,6 +24,7 @@
 
 	const tabs: Tab[] = [
 		{ label: 'Stream', path: 'chat', icon: MessageSquareIcon },
+		{ label: 'Summary', path: 'summary', icon: FileTextIcon },
 		{ label: 'Timelines', path: 'timelines', icon: ClockIcon },
 		{ label: 'Tasks', path: 'tasks', icon: ListChecksIcon },
 		{ label: 'Notes', path: 'notes', icon: FileTextIcon },

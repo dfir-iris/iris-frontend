@@ -85,6 +85,7 @@
 		caseId,
 		noteId,
 		warRoomNoteId,
+		warRoomId,
 		sitrepId,
 		collabMode,
 		savedAt: _savedAt,
@@ -99,8 +100,9 @@
 		caseId?: number | string | null;
 		noteId?: number | string | null;
 		warRoomNoteId?: number | string | null;
+		warRoomId?: number | string | null;
 		sitrepId?: number | string | null;
-		collabMode?: 'case' | 'note' | 'war-room-note' | 'sitrep';
+		collabMode?: 'case' | 'note' | 'war-room-note' | 'war-room-summary' | 'sitrep';
 		savedAt?: number;
 		onRemoteSave?: (content: string) => void;
 		onRemoteChange?: (user: string) => void;
@@ -204,15 +206,22 @@
 	// transport shim.
 
 	// Collaboration mode drives the doc-name we open on the server:
-	//   * 'note'           → `note:<noteId>`
-	//   * 'case' (summary) → `case-summary:<caseId>`
-	//   * 'war-room-note'  → `war-room-note:<warRoomNoteId>`
-	//   * 'sitrep'         → `sitrep:<sitrepId>`
+	//   * 'note'             → `note:<noteId>`
+	//   * 'case' (summary)   → `case-summary:<caseId>`
+	//   * 'war-room-note'    → `war-room-note:<warRoomNoteId>`
+	//   * 'war-room-summary' → `war-room-summary:<warRoomId>`
+	//   * 'sitrep'           → `sitrep:<sitrepId>`
 	// The mode inference falls back to case-summary when nothing more
 	// specific is supplied — the same behaviour as before phase 2.
 	const mode = $derived(
 		collabMode ??
-			(warRoomNoteId ? 'war-room-note' : sitrepId ? 'sitrep' : noteId ? 'note' : 'case')
+			(warRoomNoteId
+				? 'war-room-note'
+				: sitrepId
+					? 'sitrep'
+					: noteId
+						? 'note'
+						: 'case')
 	);
 	const docName = $derived(
 		mode === 'note'
@@ -223,13 +232,17 @@
 				? warRoomNoteId
 					? `war-room-note:${warRoomNoteId}`
 					: null
-				: mode === 'sitrep'
-					? sitrepId
-						? `sitrep:${sitrepId}`
+				: mode === 'war-room-summary'
+					? warRoomId
+						? `war-room-summary:${warRoomId}`
 						: null
-					: caseId
-						? `case-summary:${caseId}`
-						: null
+					: mode === 'sitrep'
+						? sitrepId
+							? `sitrep:${sitrepId}`
+							: null
+						: caseId
+							? `case-summary:${caseId}`
+							: null
 	);
 
 	// Non-collab callers (no docName): hydrate immediately and drive the
