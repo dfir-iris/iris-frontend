@@ -55,7 +55,7 @@ describe('AlertService', () => {
 		} satisfies Record<string, unknown>;
 
 		const builtPath =
-			'/alerts/filter?page=2&per_page=50&alert_ids=10,20,30&alert_tags=tag1,tag2&alert_assets=asset-a,asset-b&alert_iocs=ioc1,ioc2&sort=desc';
+			'/api/v2/alerts?page=2&per_page=50&alert_ids=10,20,30&alert_tags=tag1,tag2&alert_assets=asset-a,asset-b&alert_iocs=ioc1,ioc2&sort=desc';
 
 		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(builtPath);
 
@@ -80,7 +80,7 @@ describe('AlertService', () => {
 		const res = await AlertService.list(params, options);
 
 		expect(ApiService.withQuery).toHaveBeenCalledTimes(1);
-		expect(ApiService.withQuery).toHaveBeenCalledWith('/alerts/filter', expectedQuery);
+		expect(ApiService.withQuery).toHaveBeenCalledWith('/api/v2/alerts', expectedQuery);
 
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
 		expect(ApiService.get).toHaveBeenCalledWith(builtPath, options);
@@ -208,7 +208,7 @@ describe('AlertService', () => {
 		expect(res).toEqual(mockResponse);
 	});
 
-	it('merge() should call ApiService.post with /alerts/merge/{id}, body, options', async () => {
+	it('merge() should call ApiService.post with /api/v2/alerts/merge/{id}, body, options', async () => {
 		const body: MergeAlertBody = {
 			target_case_id: 123,
 			iocs_import_list: ['ioc-1', 'ioc-2'],
@@ -236,11 +236,11 @@ describe('AlertService', () => {
 		const res = await AlertService.merge(10, body, options);
 
 		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith('/alerts/merge/10', body, options);
+		expect(ApiService.post).toHaveBeenCalledWith('/api/v2/alerts/merge/10', body, options);
 		expect(res).toBe(mockResponse);
 	});
 
-	it('unmerge() should call ApiService.post with /alerts/unmerge/{id}, empty body, options', async () => {
+	it('unmerge() should call ApiService.post with /api/v2/alerts/unmerge/{id}, empty body, options', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const mockResponse = {
@@ -254,11 +254,11 @@ describe('AlertService', () => {
 		const res = await AlertService.unmerge(10, options);
 
 		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith('/alerts/unmerge/10', {}, options);
+		expect(ApiService.post).toHaveBeenCalledWith('/api/v2/alerts/unmerge/10', {}, options);
 		expect(res).toBe(mockResponse);
 	});
 
-	it('escalate() should call ApiService.post with /alerts/escalate/{id}, body, options', async () => {
+	it('escalate() should call ApiService.post with /api/v2/alerts/escalate/{id}, body, options', async () => {
 		const body: EscalateAlertBody = {
 			iocs_import_list: ['ioc-1'],
 			assets_import_list: ['asset-1'],
@@ -288,7 +288,7 @@ describe('AlertService', () => {
 		const res = await AlertService.escalate(10, body, options);
 
 		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith('/alerts/escalate/10', body, options);
+		expect(ApiService.post).toHaveBeenCalledWith('/api/v2/alerts/escalate/10', body, options);
 		expect(res).toBe(mockResponse);
 	});
 });

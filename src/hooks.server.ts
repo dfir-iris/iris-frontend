@@ -216,22 +216,17 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 		const { pathname } = event.url;
 
-		const isAlertsRoute =
-			pathname === '/api/v2/alerts/filter' ||
-			pathname.startsWith('/api/v2/alerts/merge') ||
-			pathname.startsWith('/api/v2/alerts/escalate');
-
 		const isDimHooksRoute = pathname.startsWith('/api/v2/dim/hooks');
 
-		// `/api/v2/manage/*` now goes straight to v2 — every legacy
-		// frontend service has been migrated. Other historical
-		// exceptions (alerts/filter, dim/hooks, case/timeline) still
-		// need the v2-prefix-stripped path because their backends
-		// live outside the v2 namespace.
+		// `/api/v2/manage/*` and `/api/v2/alerts/*` now go straight to v2 —
+		// every alerts endpoint (list, escalate, merge, unmerge, filters,
+		// batch) has a v2 route on the backend. Historical exceptions
+		// (dim/hooks, case/timeline) still need the v2-prefix stripped
+		// because their backends live outside the v2 namespace.
 		const isTimelineRoute = pathname.startsWith('/api/v2/case/timeline');
 
 		const upstreamPath =
-			isAlertsRoute || isDimHooksRoute || isTimelineRoute
+			isDimHooksRoute || isTimelineRoute
 				? pathname.replace(/^\/api\/v2/, '')
 				: pathname;
 

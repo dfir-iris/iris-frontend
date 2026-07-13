@@ -25,18 +25,12 @@ export const ALERTS_CTX = Symbol('alerts');
 
 type Status = 'idle' | 'loading' | 'error';
 
+// The v2 paginated body is flat — `response_api_paginated` serializes
+// `{total, data: [...], current_page, last_page, next_page}` directly,
+// without wrapping in a `{status, message, data}` envelope.
 type FilterEnvelope = {
-	status?: string;
-	message?: string;
-	data?: {
-		total: number;
-		alerts: Alert[];
-		current_page?: number;
-		last_page?: number;
-		next_page?: number | null;
-	};
-	total?: number;
-	alerts?: Alert[];
+	total: number;
+	data: Alert[];
 	current_page?: number;
 	last_page?: number;
 	next_page?: number | null;
@@ -45,50 +39,30 @@ type FilterEnvelope = {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	!!value && typeof value === 'object';
 
-const hasTopLevelAlerts = (
-	value: unknown
-): value is Required<Pick<FilterEnvelope, 'total' | 'alerts'>> =>
-	isRecord(value) &&
-	typeof value.total === 'number' &&
-	Array.isArray((value as Record<string, unknown>).alerts);
-
-const hasNestedAlerts = (value: unknown): value is Required<Pick<FilterEnvelope, 'data'>> => {
-	if (!isRecord(value)) return false;
-
-	const nested = (value as Record<string, unknown>).data;
-	if (!isRecord(nested)) return false;
-
-	return typeof nested.total === 'number' && Array.isArray(nested.alerts);
-};
-
 const extractFilterEnvelope = (raw: unknown): FilterEnvelope | null => {
-	if (hasTopLevelAlerts(raw)) return raw as FilterEnvelope;
-	if (hasNestedAlerts(raw)) return raw as FilterEnvelope;
-
-	if (isRecord(raw) && isRecord(raw.data)) {
-		const inner = raw.data;
-		if (hasTopLevelAlerts(inner)) return inner as FilterEnvelope;
-	}
-
-	return null;
+	if (!isRecord(raw)) return null;
+	if (!Array.isArray(raw.data)) return null;
+	return {
+		data: raw.data as Alert[],
+		total: typeof raw.total === 'number' ? raw.total : 0,
+		current_page: typeof raw.current_page === 'number' ? raw.current_page : undefined,
+		last_page: typeof raw.last_page === 'number' ? raw.last_page : undefined,
+		next_page:
+			typeof raw.next_page === 'number' || raw.next_page === null
+				? (raw.next_page as number | null)
+				: undefined
+	};
 };
 
 const toPaginatedAlerts = (envelope: FilterEnvelope | null, params: Record<string, unknown>) => {
 	const per_page = Number(params.per_page);
 
-	const alerts = envelope?.alerts ?? envelope?.data?.alerts ?? [];
-	const total = envelope?.total ?? envelope?.data?.total ?? 0;
-
-	const current_page = envelope?.current_page ?? envelope?.data?.current_page ?? 1;
-	const last_page = envelope?.last_page ?? envelope?.data?.last_page ?? 1;
-	const next_page = envelope?.next_page ?? envelope?.data?.next_page ?? null;
-
 	return {
-		data: alerts,
-		total,
-		current_page,
-		last_page,
-		next_page,
+		data: envelope?.data ?? [],
+		total: envelope?.total ?? 0,
+		current_page: envelope?.current_page ?? 1,
+		last_page: envelope?.last_page ?? 1,
+		next_page: envelope?.next_page ?? null,
 		per_page
 	} as Paginated<Alert>;
 };

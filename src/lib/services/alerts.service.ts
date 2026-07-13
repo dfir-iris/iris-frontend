@@ -218,7 +218,7 @@ export class AlertService {
 			alert_ids: toCommaSeparated(params.alert_ids)
 		};
 
-		const path = ApiService.withQuery('/alerts/filter', query);
+		const path = ApiService.withQuery('/api/v2/alerts', query);
 		return ApiService.get<FilterAlertsMessage>(path, options);
 	}
 
@@ -279,7 +279,7 @@ export class AlertService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<MergeAlertResponse>> {
 		return ApiService.post<MergeAlertResponse, MergeAlertBody>(
-			`/alerts/merge/${alertId}`,
+			`/api/v2/alerts/merge/${alertId}`,
 			body,
 			options
 		);
@@ -289,7 +289,11 @@ export class AlertService {
 		alertId: AlertIdentifier,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<Alert>> {
-		return ApiService.post<Alert, Record<string, never>>(`/alerts/unmerge/${alertId}`, {}, options);
+		return ApiService.post<Alert, Record<string, never>>(
+			`/api/v2/alerts/unmerge/${alertId}`,
+			{},
+			options
+		);
 	}
 
 	static async escalate(
@@ -298,7 +302,7 @@ export class AlertService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<EscalateAlertResponse>> {
 		return ApiService.post<EscalateAlertResponse, EscalateAlertBody>(
-			`/alerts/escalate/${alertId}`,
+			`/api/v2/alerts/escalate/${alertId}`,
 			body,
 			options
 		);

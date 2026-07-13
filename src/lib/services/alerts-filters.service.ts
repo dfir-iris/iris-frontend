@@ -36,7 +36,7 @@ export class AlertsFiltersService {
 			include_public: params.include_public ?? 1
 		};
 
-		const path = ApiService.withQuery('/api/v2/alerts-filters', query);
+		const path = ApiService.withQuery('/api/v2/alerts/filters', query);
 		return ApiService.get<SavedFilter[]>(path, options);
 	}
 
@@ -44,7 +44,7 @@ export class AlertsFiltersService {
 		id: SavedFilterIdentifier,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<SavedFilter>> {
-		return ApiService.get<SavedFilter>(`/api/v2/alerts-filters/${id}`, options);
+		return ApiService.get<SavedFilter>(`/api/v2/alerts/filters/${id}`, options);
 	}
 
 	static async create(
@@ -52,7 +52,7 @@ export class AlertsFiltersService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<SavedFilter>> {
 		return ApiService.post<SavedFilter, CreateSavedFilterBody>(
-			`/api/v2/alerts-filters`,
+			`/api/v2/alerts/filters`,
 			body,
 			options
 		);
@@ -64,7 +64,7 @@ export class AlertsFiltersService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<SavedFilter>> {
 		return ApiService.put<SavedFilter, Partial<CreateSavedFilterBody>>(
-			`/api/v2/alerts-filters/${id}`,
+			`/api/v2/alerts/filters/${id}`,
 			body,
 			options
 		);
@@ -74,6 +74,6 @@ export class AlertsFiltersService {
 		id: SavedFilterIdentifier,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
-		return ApiService.delete<null>(`/api/v2/alerts-filters/${id}`, options);
+		return ApiService.delete<null>(`/api/v2/alerts/filters/${id}`, options);
 	}
 }
