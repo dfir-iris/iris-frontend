@@ -1,25 +1,15 @@
 import { test, expect } from '@playwright/test';
+import { login } from './helpers/auth';
 
-test('test dashboard populates', async ({ page }) => {
-  await page.goto('');
-  await expect(page.getByRole('banner')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+test.describe('Dashboard', () => {
+	test.beforeEach(async ({ page }) => {
+		await login(page);
+	});
 
-  // default to seeing owned cases
-  await expect(page.getByRole('heading', { name: 'Owned Cases' })).toBeVisible();
-  await expect(page).toHaveURL(/#cases/);
-  await expect(page.locator('.p-6 > .flex').first()).toBeVisible();
-  await expect(page.locator('div').filter({ hasText: 'Owned Cases' }).nth(4)).toBeVisible();
-
-  // hide the owned cases by clicking
-  await page.getByText('2 Click to hide').click();
-  await expect(page).toHaveURL(/#/);
-  await expect(page.locator('div').filter({ hasText: 'Owned Cases' }).nth(4)).not.toBeVisible();
-
-  // show owned cases by clicking again
-  await page.locator('.p-6').first().click();
-  await expect(page).toHaveURL(/#cases/);
-  await expect(page.getByRole('heading', { name: 'Owned Cases' })).toBeVisible();
-  await expect(page.getByRole('link', { name: '#1 - Initial Demo' })).toBeVisible();
-  await expect(page.getByRole('link', { name: '#2 - Initial Demo' })).toBeVisible();
+	test('renders the dashboard header + owned-cases panel', async ({ page }) => {
+		await page.goto('/');
+		await expect(page.getByRole('banner')).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Owned Cases' })).toBeVisible();
+	});
 });

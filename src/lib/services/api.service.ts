@@ -1,6 +1,5 @@
 import { env } from '$env/dynamic/public';
 import { browser } from '$app/environment';
-import { randomDelay } from '$lib/utils/mock';
 import { auth } from '$lib/stores/auth.store';
 import { AuthService } from './auth.service';
 import { API_BASE_URL } from '$lib/config/api.config';
@@ -21,10 +20,6 @@ export interface RequestResponse<T> {
 	data: ResponseData<T>;
 	error?: ResponseError;
 	ok?: boolean;
-}
-
-export interface MockRequestResponse<T> extends RequestResponse<T> {
-	url: string;
 }
 
 export interface Paginated<T> {
@@ -363,24 +358,5 @@ export class ApiService {
 		}
 
 		return `${baseUrl}${normalizedPath}`;
-	}
-
-	static async mockRequest<T>(endpoint: string): Promise<MockRequestResponse<T> | undefined> {
-		try {
-			endpoint = endpoint.replaceAll('/', '_');
-			endpoint = endpoint.split('?', 1)[0];
-			console.info(`Mocking ${endpoint}...`);
-			const module = await import(`./mocks/${endpoint}.json`);
-			await randomDelay(); // simulates loading latency
-			return {
-				headers: new Headers(),
-				data: module.default as T,
-				status: 200,
-				url: `mock${endpoint}`
-			};
-		} catch (e) {
-			console.error('Mock request failed:', e);
-			return undefined;
-		}
 	}
 }

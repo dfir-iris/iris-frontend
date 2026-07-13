@@ -1,25 +1,15 @@
 import { vi } from 'vitest';
 
 vi.mock('$env/dynamic/public', () => {
-	console.log('Attempting to mock $env/dynamic/public'); // Diagnostic log
-	const mockEnv = {
-		PUBLIC_IRIS_API_URL: 'http://localhost:5000/api/v1', // Ensure this is what api.config.ts expects
-		PUBLIC_USE_MOCK_API_DATA: 'false',
-		// Add any other PUBLIC_ dynamic env variables your app or api.config.ts might use here
-		// For example:
-		// PUBLIC_ANOTHER_VAR: 'some_value',
-	};
-	console.log('$env/dynamic/public mock created with env:', mockEnv); // Diagnostic log
 	return {
-		env: mockEnv
+		env: {
+			PUBLIC_IRIS_API_URL: 'http://localhost:5000/api/v1',
+		},
 	};
 });
 
 vi.mock('$env/static/public', () => {
-	return {
-		PUBLIC_USE_MOCK_API_DATA: 'false', // Or true, depending on your testing needs
-		// Add other public static env variables your app uses
-	};
+	return {};
 });
 
 // If you use $app/stores or other SvelteKit modules that need mocking for tests:
