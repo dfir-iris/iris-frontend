@@ -24,7 +24,7 @@ export default defineConfig({
 	// the backend on the /login load, and running with the OS-default worker
 	// count (~10 on modern laptops) causes intermittent "fetch failed" SSR
 	// errors on the login route.
-	workers: process.env.CI ? 2 : 4,
+	workers: process.env.CI ? 2 : 2,
 	// One retry on failure — swallows the SvelteKit SSR fetch-flakes that
 	// happen under load, without hiding real regressions (which fail twice).
 	retries: 1,

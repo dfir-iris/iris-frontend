@@ -134,14 +134,33 @@ export const seed = {
 		return data.ioc_id;
 	},
 
+	async noteDirectory(
+		api: APIRequestContext,
+		caseId: number,
+		name: string = rand('dir')
+	): Promise<number> {
+		const res = await api.post(`/api/v2/cases/${caseId}/notes-directories`, {
+			data: { name, parent_id: null }
+		});
+		if (!res.ok())
+			throw new Error(`seed.noteDirectory failed: ${res.status()} ${await res.text()}`);
+		const data = await apiJson<{ id: number }>(res);
+		return data.id;
+	},
+
 	async note(
 		api: APIRequestContext,
 		caseId: number,
-		overrides: Partial<{ note_title: string; note_content: string }> = {}
+		overrides: Partial<{ note_title: string; note_content: string; directory_id: number }> = {}
 	): Promise<number> {
+		// Notes require a directory_id (v1.5.0+). If the caller didn't
+		// supply one, create a fresh directory for the note.
+		const directory_id =
+			overrides.directory_id ?? (await this.noteDirectory(api, caseId, rand('notes-dir')));
 		const payload = {
 			note_title: overrides.note_title ?? rand('note'),
-			note_content: overrides.note_content ?? '# heading\n\ntest'
+			note_content: overrides.note_content ?? '# heading\n\ntest',
+			directory_id
 		};
 		const res = await api.post(`/api/v2/cases/${caseId}/notes`, { data: payload });
 		if (!res.ok()) throw new Error(`seed.note failed: ${res.status()} ${await res.text()}`);
@@ -152,11 +171,20 @@ export const seed = {
 	async task(
 		api: APIRequestContext,
 		caseId: number,
-		overrides: Partial<{ task_title: string; task_status_id: number }> = {}
+		overrides: Partial<{
+			task_title: string;
+			task_status_id: number;
+			task_assignees_id: number[];
+		}> = {}
 	): Promise<number> {
+		// The v1.5.0+ task API requires task_assignees_id (list), not the
+		// legacy task_assignee_id (single). Default to the admin user (id 89
+		// on a fresh DFIR install, but let the caller override for other
+		// setups).
 		const payload = {
 			task_title: overrides.task_title ?? rand('task'),
-			task_status_id: overrides.task_status_id ?? 1
+			task_status_id: overrides.task_status_id ?? 1,
+			task_assignees_id: overrides.task_assignees_id ?? [1]
 		};
 		const res = await api.post(`/api/v2/cases/${caseId}/tasks`, { data: payload });
 		if (!res.ok()) throw new Error(`seed.task failed: ${res.status()} ${await res.text()}`);
