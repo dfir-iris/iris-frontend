@@ -29,6 +29,7 @@
   and are disabled.
 -->
 <script lang="ts">
+	import DOMPurify from 'dompurify';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { Label } from '$lib/components/ui/label';
@@ -193,14 +194,15 @@
 									<p class="text-xs text-muted-foreground">{fieldName}</p>
 								{:else if field.type === 'html'}
 									<!--
-									  The HTML type is stored server-side after
-									  sanitisation (see manage_attribute_db.py's
-									  merge/render path). We render as trusted
-									  HTML here, mirroring the legacy Jinja
-									  `sanitize_attribute_html` filter contract.
+									  Defense-in-depth: the backend also sanitises
+									  before storing (manage_attribute_db.py's
+									  merge/render path), but we scrub again on
+									  render so a bad payload landed via a rogue
+									  code path can't execute in the analyst's
+									  browser.
 									-->
 									<div class="prose prose-xs max-w-none text-xs">
-										{@html stringValue(field)}
+										{@html DOMPurify.sanitize(stringValue(field), { USE_PROFILES: { html: true } })}
 									</div>
 								{:else}
 									<p class="text-2xs text-destructive">
