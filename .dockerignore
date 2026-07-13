@@ -3,4 +3,6 @@ build
 .vscode
 e2e
 node_modules
+playwright-report
+test-results
 src/lib/services/mocks
