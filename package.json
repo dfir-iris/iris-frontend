@@ -12,7 +12,8 @@
 		"lint": "prettier --check . && eslint .",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run",
-		"test:e2e": "PLAYWRIGHT_JUNIT_OUTPUT_NAME=playwright-junit.xml playwright test"
+		"test:e2e": "PLAYWRIGHT_JUNIT_OUTPUT_NAME=playwright-junit.xml playwright test",
+		"test:e2e:local": "NO_PROXY=localhost,127.0.0.1 PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL:-https://localhost} IRIS_E2E_USERNAME=${IRIS_E2E_USERNAME:-administrator} IRIS_E2E_PASSWORD=${IRIS_E2E_PASSWORD:-MySuperAdminPassword!} playwright test"
 	},
 	"devDependencies": {
 		"@internationalized/date": "^3.7.0",
