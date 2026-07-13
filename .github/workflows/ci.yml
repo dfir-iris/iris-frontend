@@ -1,0 +1,33 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [develop, master, main]
+  pull_request:
+    branches: [develop, master, main]
+
+jobs:
+  lint-and-test:
+    name: Lint, type-check, unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out iris-frontend
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Prettier + ESLint
+        run: npm run lint
+
+      - name: svelte-check
+        run: npm run check
+
+      - name: Vitest
+        run: npm run test:unit -- --run

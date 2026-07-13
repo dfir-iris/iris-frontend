@@ -1,0 +1,74 @@
+name: Build and push frontend image
+
+on:
+  push:
+    branches: [develop, master, main]
+    tags: ['v*.*.*']
+  pull_request:
+    branches: [develop, master, main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: dfir-iris/iris-frontend
+
+jobs:
+  build-frontend:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: 'arm64,amd64'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Check if beta tag
+        id: check_beta
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          if [[ "$REF" == *"beta"* ]]; then
+            echo "is_beta=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_beta=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Log into registry ${{ env.REGISTRY }}
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=${{ github.ref == 'refs/tags/v*' && steps.check_beta.outputs.is_beta != 'true' }}
+          tags: |
+            type=semver,pattern=v{{version}}
+            type=ref,event=branch
+            type=raw,value=beta,enable=${{ steps.check_beta.outputs.is_beta == 'true' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
