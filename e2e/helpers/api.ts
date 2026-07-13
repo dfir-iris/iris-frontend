@@ -221,8 +221,8 @@ export const seed = {
 		const res = await api.post('/api/v2/war-rooms', { data: payload });
 		if (!res.ok())
 			throw new Error(`seed.warRoom failed: ${res.status()} ${await res.text()}`);
-		const data = await apiJson<{ id: number }>(res);
-		return data.id;
+		const data = await apiJson<{ war_room_id: number }>(res);
+		return data.war_room_id;
 	}
 };
 
@@ -236,5 +236,9 @@ export const cleanup = {
 	},
 	async warRoom(api: APIRequestContext, id: number): Promise<void> {
 		await api.delete(`/api/v2/war-rooms/${id}`).catch(() => {});
+	},
+
+	async task(api: APIRequestContext, caseId: number, taskId: number): Promise<void> {
+		await api.delete(`/api/v2/cases/${caseId}/tasks/${taskId}`).catch(() => {});
 	}
 };
