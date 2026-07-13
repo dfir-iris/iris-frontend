@@ -7,7 +7,19 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import { fade } from 'svelte/transition';
-	import { AlertTriangleIcon, InfoIcon, MessagesSquareIcon, SearchIcon } from 'lucide-svelte';
+	import {
+		AlertTriangleIcon,
+		InfoIcon,
+		MessagesSquareIcon,
+		SearchIcon,
+		WaypointsIcon
+	} from 'lucide-svelte';
+	import CustomAttributesTabWrapper from '$lib/components/common/CustomAttributes/CustomAttributesTab.svelte';
+	import {
+		ensureHasCustomAttributes,
+		hasCustomAttributes
+	} from '$lib/stores/custom-attributes.store.svelte';
+	import { onMount } from 'svelte';
 	import { type Evidence } from '$lib/types/resources/evidence';
 	import { toast } from '$lib/stores/toast.store';
 	import type { UpdateCaseEvidenceBody } from '$lib/services/case-evidences.service';
@@ -199,6 +211,10 @@
 		void evidenceId;
 		loadEvidence();
 	});
+
+	onMount(() => {
+		void ensureHasCustomAttributes('evidence');
+	});
 </script>
 
 {#if isLoading && !evidence}
@@ -258,6 +274,16 @@
 									</span>
 								{/if}
 							</TabsTrigger>
+
+							{#if hasCustomAttributes.evidence === true}
+								<TabsTrigger
+									value="custom_attributes"
+									class="flex items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+								>
+									<WaypointsIcon class="mr-1 h-4 w-4" />
+									<span>Custom attributes</span>
+								</TabsTrigger>
+							{/if}
 						</TabsList>
 					</div>
 
@@ -282,6 +308,24 @@
 						<TabsContent value="comments">
 							<CommentsTab {evidence} onRefresh={() => loadComments()} />
 						</TabsContent>
+
+						{#if hasCustomAttributes.evidence === true}
+							<TabsContent value="custom_attributes">
+								<CustomAttributesTabWrapper
+									objectType="evidence"
+									existing={(evidence.custom_attributes ?? null) as Record<string, Record<string, unknown>> | null}
+									{canEdit}
+									onSave={async (values) => {
+										const updated = await caseEvidences.patchEvidence(
+											evidenceId,
+											{ custom_attributes: values },
+											{ fetch }
+										);
+										if (!updated) throw new Error('Failed to update evidence');
+									}}
+								/>
+							</TabsContent>
+						{/if}
 					</div>
 				</Tabs>
 			</div>

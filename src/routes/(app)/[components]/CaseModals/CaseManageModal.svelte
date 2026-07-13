@@ -12,6 +12,12 @@
 	import CaseModificationHistory from './CaseModificationHistory.svelte';
 	import CaseAccess from './CaseAccess.svelte';
 	import CaseEditor from './CaseEditor.svelte';
+	import CaseCustomAttributes from './CaseCustomAttributes.svelte';
+	import {
+		ensureHasCustomAttributes,
+		hasCustomAttributes
+	} from '$lib/stores/custom-attributes.store.svelte';
+	import { onMount } from 'svelte';
 
 	type CaseManageModalProps = {
 		open: boolean;
@@ -28,6 +34,13 @@
 	let showConfirmClose = $state(false);
 	let activeTab = $state('info');
 	let editing = $state(false);
+
+	// Prime the schema presence map for `case`. The store dedupes
+	// concurrent calls so this is safe even if other views also
+	// prime it during the session.
+	onMount(() => {
+		void ensureHasCustomAttributes('case');
+	});
 
 	const saveCase = async (body: UpdateCaseBody) => {
 		if (!currentCase) return;
@@ -64,6 +77,15 @@
 					>
 						User access
 					</TabsTrigger>
+
+					{#if hasCustomAttributes.case === true}
+						<TabsTrigger
+							value="custom_attributes"
+							class="flex items-center gap-2 rounded-none px-4 py-2 text-xs font-medium transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background"
+						>
+							Custom attributes
+						</TabsTrigger>
+					{/if}
 				</TabsList>
 			</div>
 
@@ -94,6 +116,12 @@
 				<TabsContent value="user_access" class="m-0 p-5">
 					<CaseAccess />
 				</TabsContent>
+
+				{#if hasCustomAttributes.case === true}
+					<TabsContent value="custom_attributes" class="m-0 p-5">
+						<CaseCustomAttributes />
+					</TabsContent>
+				{/if}
 			</div>
 		</Tabs>
 

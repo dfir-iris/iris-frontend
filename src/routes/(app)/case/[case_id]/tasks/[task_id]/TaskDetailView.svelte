@@ -7,7 +7,19 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import { fade } from 'svelte/transition';
-	import { AlertTriangleIcon, InfoIcon, MessagesSquareIcon, SearchIcon } from 'lucide-svelte';
+	import {
+		AlertTriangleIcon,
+		InfoIcon,
+		MessagesSquareIcon,
+		SearchIcon,
+		WaypointsIcon
+	} from 'lucide-svelte';
+	import CustomAttributesTabWrapper from '$lib/components/common/CustomAttributes/CustomAttributesTab.svelte';
+	import {
+		ensureHasCustomAttributes,
+		hasCustomAttributes
+	} from '$lib/stores/custom-attributes.store.svelte';
+	import { onMount } from 'svelte';
 	import { type Task } from '$lib/types/resources/task';
 	import type { Tag } from '$lib/types/resources/tag';
 	import { normalizeTags, tagsToString } from '$lib/utils/tags';
@@ -203,6 +215,10 @@
 		void taskId;
 		loadTask();
 	});
+
+	onMount(() => {
+		void ensureHasCustomAttributes('task');
+	});
 </script>
 
 {#if isLoading && !task}
@@ -262,6 +278,16 @@
 									</span>
 								{/if}
 							</TabsTrigger>
+
+							{#if hasCustomAttributes.task === true}
+								<TabsTrigger
+									value="custom_attributes"
+									class="flex items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+								>
+									<WaypointsIcon class="mr-1 h-4 w-4" />
+									<span>Custom attributes</span>
+								</TabsTrigger>
+							{/if}
 						</TabsList>
 					</div>
 
@@ -286,6 +312,24 @@
 						<TabsContent value="comments">
 							<CommentsTab {task} onRefresh={() => loadComments()} />
 						</TabsContent>
+
+						{#if hasCustomAttributes.task === true}
+							<TabsContent value="custom_attributes">
+								<CustomAttributesTabWrapper
+									objectType="task"
+									existing={(task.custom_attributes ?? null) as Record<string, Record<string, unknown>> | null}
+									{canEdit}
+									onSave={async (values) => {
+										const updated = await caseTasks.patchTask(
+											taskId,
+											{ custom_attributes: values },
+											{ fetch }
+										);
+										if (!updated) throw new Error('Failed to update task');
+									}}
+								/>
+							</TabsContent>
+						{/if}
 					</div>
 				</Tabs>
 			</div>

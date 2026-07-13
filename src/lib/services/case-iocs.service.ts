@@ -20,6 +20,7 @@ export interface CreateCaseIocBody {
 	ioc_description: string;
 	ioc_misp?: string | null;
 	ioc_tags: string;
+	custom_attributes?: Record<string, Record<string, unknown>>;
 }
 
 export interface UpdateCaseIocBody {
@@ -29,6 +30,7 @@ export interface UpdateCaseIocBody {
 	ioc_description?: string;
 	ioc_misp?: string | null;
 	ioc_tags?: string;
+	custom_attributes?: Record<string, Record<string, unknown>>;
 }
 
 export class CaseIocsService {

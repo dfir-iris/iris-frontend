@@ -42,6 +42,11 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { toast } from '$lib/components/ui/toast';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
+	import CustomAttributesSection from '$lib/components/common/CustomAttributes/CustomAttributesSection.svelte';
+	import {
+		ensureHasCustomAttributes,
+		hasCustomAttributes
+	} from '$lib/stores/custom-attributes.store.svelte';
 	import {
 		CustomersService,
 		type Customer,
@@ -109,6 +114,10 @@
 	let editBusy = $state(false);
 	let editError = $state<string | null>(null);
 	let editForm = $state<CustomerBody>({});
+	// Bound in place by CustomAttributesSection. We keep it as a
+	// separate state instead of nesting inside `editForm` so the
+	// section's proxy mutations stay stable across `openEdit` calls.
+	let editCustomAttributes = $state<Record<string, Record<string, unknown>>>({});
 
 	// Contact modal (add + edit share one) -----------------------------
 	let contactOpen = $state(false);
@@ -212,6 +221,9 @@
 	};
 
 	onMount(loadCustomers);
+	onMount(() => {
+		void ensureHasCustomAttributes('client');
+	});
 
 	let customersSentinel = $state<HTMLDivElement | null>(null);
 	$effect(() => {
@@ -318,6 +330,9 @@
 			customer_description: selectedCustomer.customer_description ?? '',
 			customer_sla: selectedCustomer.customer_sla ?? ''
 		};
+		// Reset in place so the section's bound reference stays stable.
+		// The section will re-seed from `existing` on its own onMount.
+		for (const key of Object.keys(editCustomAttributes)) delete editCustomAttributes[key];
 		editError = null;
 		editOpen = true;
 	};
@@ -335,7 +350,8 @@
 			const res = await CustomersService.update(selectedCustomer.customer_id, {
 				customer_name: name,
 				customer_description: editForm.customer_description?.trim() || undefined,
-				customer_sla: editForm.customer_sla?.trim() || undefined
+				customer_sla: editForm.customer_sla?.trim() || undefined,
+				custom_attributes: editCustomAttributes as Record<string, unknown>
 			});
 			if (res.ok && res.data && typeof res.data !== 'string') {
 				const updated = res.data as Customer;
@@ -887,7 +903,11 @@
 
 <!-- Edit customer modal -->
 <Dialog.Root bind:open={editOpen}>
-	<Dialog.Content class="sm:max-w-md">
+	<Dialog.Content
+		class={hasCustomAttributes.client === true
+			? 'flex max-h-[85vh] flex-col sm:max-w-2xl'
+			: 'sm:max-w-md'}
+	>
 		<Dialog.Header>
 			<Dialog.Title>Edit customer</Dialog.Title>
 			<Dialog.Description>
@@ -924,6 +944,23 @@
 					disabled={editBusy}
 				/>
 			</div>
+
+			<!--
+			  Custom-attributes section. Only mounts when the presence
+			  map says `client` has a configured schema, so on installs
+			  without one the dialog looks identical to before — no
+			  section, no header, no wrapper. Re-mounted per `editOpen`
+			  cycle so `existing` is captured fresh each time.
+			-->
+			{#if editOpen && hasCustomAttributes.client === true}
+				<CustomAttributesSection
+					objectType="client"
+					existing={(selectedCustomer?.custom_attributes ?? null) as Record<string, Record<string, unknown>> | null}
+					bind:values={editCustomAttributes}
+					title="Custom attributes"
+				/>
+			{/if}
+
 			{#if editError}
 				<p class="text-2xs text-destructive">{editError}</p>
 			{/if}

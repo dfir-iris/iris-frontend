@@ -104,7 +104,8 @@
 		event_in_graph: true,
 		event_sync_iocs_assets: true,
 		event_color: null,
-		timeline_ids: []
+		timeline_ids: [],
+		custom_attributes: {}
 	});
 
 	const reset = () => {
@@ -151,7 +152,14 @@
 			event_in_graph: event?.event_in_graph ?? true,
 			event_sync_iocs_assets: false,
 			event_color: event?.event_color ?? null,
-			timeline_ids: resolveTimelineIds()
+			timeline_ids: resolveTimelineIds(),
+			// CustomAttributesSection seeds from `existing` and merges
+			// defaults in place; passing the row's persisted values as
+			// the initial state keeps analyst edits round-tripping.
+			custom_attributes: (event?.custom_attributes ?? {}) as Record<
+				string,
+				Record<string, unknown>
+			>
 		};
 
 		isSaving = false;
@@ -199,7 +207,8 @@
 				event_tags: form.event_tags,
 				event_content: form.event_content,
 				parent_event_id: form.parent_event_id,
-				timeline_ids: form.timeline_ids
+				timeline_ids: form.timeline_ids,
+				custom_attributes: form.custom_attributes
 			};
 
 			const saved = event

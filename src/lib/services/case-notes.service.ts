@@ -9,12 +9,14 @@ export interface CreateCaseNoteBody {
 	note_title?: string;
 	note_content?: string;
 	directory_id: number;
+	custom_attributes?: Record<string, Record<string, unknown>>;
 }
 
 export interface UpdateCaseNoteBody {
 	note_title?: string;
 	note_content?: string;
 	directory_id?: number;
+	custom_attributes?: Record<string, Record<string, unknown>>;
 }
 
 export interface CreateNoteDirectoryBody {

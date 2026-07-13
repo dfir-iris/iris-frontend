@@ -6,7 +6,8 @@ export interface Note {
 	note_uuid?: string;
 	note_content?: string;
 	directory_id?: number;
-    modification_history?: HistoryData;
+	custom_attributes?: Record<string, Record<string, unknown>> | null;
+	modification_history?: HistoryData;
 }
 
 export interface NoteFolder {

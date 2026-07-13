@@ -16,8 +16,15 @@
 		HistoryIcon,
 		InfoIcon,
 		MessagesSquareIcon,
-		SearchIcon
+		SearchIcon,
+		WaypointsIcon
 	} from 'lucide-svelte';
+	import CustomAttributesTabWrapper from '$lib/components/common/CustomAttributes/CustomAttributesTab.svelte';
+	import {
+		ensureHasCustomAttributes,
+		hasCustomAttributes
+	} from '$lib/stores/custom-attributes.store.svelte';
+	import { onMount } from 'svelte';
 	import { CASE_IOCS_CTX, type CaseIocsContext } from '$lib/contexts/case-iocs.context.svelte';
 	import {
 		CASE_ACCESS_CTX,
@@ -223,6 +230,10 @@
 		void iocId;
 		loadIoc();
 	});
+
+	onMount(() => {
+		void ensureHasCustomAttributes('ioc');
+	});
 </script>
 
 {#if isLoading && !ioc}
@@ -290,6 +301,16 @@
 									</span>
 								{/if}
 							</TabsTrigger>
+
+							{#if hasCustomAttributes.ioc === true}
+								<TabsTrigger
+									value="custom_attributes"
+									class="flex items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+								>
+									<WaypointsIcon class="h-4 w-4" />
+									<span>Custom attributes</span>
+								</TabsTrigger>
+							{/if}
 						</TabsList>
 
 						<!--
@@ -335,6 +356,24 @@
 						<TabsContent value="comments">
 							<CommentsTab {ioc} onRefresh={() => loadComments()} />
 						</TabsContent>
+
+						{#if hasCustomAttributes.ioc === true}
+							<TabsContent value="custom_attributes">
+								<CustomAttributesTabWrapper
+									objectType="ioc"
+									existing={(ioc.custom_attributes ?? null) as Record<string, Record<string, unknown>> | null}
+									{canEdit}
+									onSave={async (values) => {
+										const updated = await caseIocs.patchIoc(
+											iocId,
+											{ custom_attributes: values },
+											{ fetch }
+										);
+										if (!updated) throw new Error('Failed to update IOC');
+									}}
+								/>
+							</TabsContent>
+						{/if}
 					</div>
 				</Tabs>
 			</div>

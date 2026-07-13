@@ -15,6 +15,12 @@
 	} from '$lib/contexts/case-access.context.svelte';
 	import MarkDownEditor from '$lib/components/common/MarkDown/MarkDownEditor.svelte';
 	import NoteHeader from './note-header.svelte';
+	import CustomAttributesTabWrapper from '$lib/components/common/CustomAttributes/CustomAttributesTab.svelte';
+	import {
+		ensureHasCustomAttributes,
+		hasCustomAttributes
+	} from '$lib/stores/custom-attributes.store.svelte';
+	import { onMount } from 'svelte';
 
 	let {
 		caseId,
@@ -25,6 +31,10 @@
 		noteId: number;
 		onAfterDelete?: () => void;
 	} = $props();
+
+	onMount(() => {
+		void ensureHasCustomAttributes('note');
+	});
 
 	const notes = getContext<CaseNotesContext>(CASE_NOTES_CTX);
 	const caseAccess = getContext<CaseAccessContext>(CASE_ACCESS_CTX);
@@ -153,6 +163,30 @@
 					onRemoteChange={handleRemoteChange}
 					readOnly={!canEdit}
 				/>
+
+				<!--
+				  Custom-attributes panel lives at the bottom of the note
+				  scroll pane rather than in a tab — the note editor
+				  itself is a single-pane markdown surface with no tab
+				  chrome. Gated on the schema presence map so the whole
+				  wrapper (border, spacing, everything) disappears when
+				  no admin schema is configured for `note`.
+				-->
+				{#if hasCustomAttributes.note === true}
+					<div class="mt-6">
+						<CustomAttributesTabWrapper
+							objectType="note"
+							existing={(note.custom_attributes ?? null) as Record<string, Record<string, unknown>> | null}
+							{canEdit}
+							onSave={async (values) => {
+								const updated = await notes.patchNote(note.note_id, {
+									custom_attributes: values
+								});
+								if (!updated) throw new Error('Failed to update note');
+							}}
+						/>
+					</div>
+				{/if}
 			{/key}
 		</div>
 	{/if}

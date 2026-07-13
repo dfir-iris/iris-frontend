@@ -12,6 +12,16 @@
 	import SearchSelect, {
 		type SelectOption
 	} from '$lib/components/common/selects/SearchSelect.svelte';
+	import CustomAttributesSection from '$lib/components/common/CustomAttributes/CustomAttributesSection.svelte';
+	import {
+		ensureHasCustomAttributes,
+		hasCustomAttributes
+	} from '$lib/stores/custom-attributes.store.svelte';
+	import { onMount } from 'svelte';
+
+	onMount(() => {
+		void ensureHasCustomAttributes('event');
+	});
 
 	export type TimelineEventFormData = {
 		event_title: string;
@@ -31,6 +41,10 @@
 		event_sync_iocs_assets: boolean;
 		event_color: string | null;
 		timeline_ids: number[];
+		// Bound in place by CustomAttributesSection — mutating keys on
+		// this object keeps the parent's ref stable while surfacing
+		// analyst edits to the dialog's save handler.
+		custom_attributes: Record<string, Record<string, unknown>>;
 	};
 
 	type FieldValue = string | number | boolean | number[] | null;
@@ -450,4 +464,18 @@
 			></textarea>
 		</details>
 	</section>
+
+	<!--
+	  Custom-attributes section. Only mounts when the presence map
+	  says `event` has a configured schema, so on installs without
+	  one the form has zero additional DOM.
+	-->
+	{#if hasCustomAttributes.event === true}
+		<CustomAttributesSection
+			objectType="event"
+			existing={data.custom_attributes}
+			bind:values={data.custom_attributes}
+			title="Custom attributes"
+		/>
+	{/if}
 </div>

@@ -17,8 +17,15 @@
 		InfoIcon,
 		MessagesSquareIcon,
 		SearchIcon,
-		ShieldAlertIcon
+		ShieldAlertIcon,
+		WaypointsIcon
 	} from 'lucide-svelte';
+	import CustomAttributesTabWrapper from '$lib/components/common/CustomAttributes/CustomAttributesTab.svelte';
+	import {
+		ensureHasCustomAttributes,
+		hasCustomAttributes
+	} from '$lib/stores/custom-attributes.store.svelte';
+	import { onMount } from 'svelte';
 	import type { Asset } from '$lib/types/resources/asset';
 	import type { Tag } from '$lib/types/resources/tag';
 	import {
@@ -260,6 +267,10 @@
 		timelineCount = null;
 		void loadTimelineCount();
 	});
+
+	onMount(() => {
+		void ensureHasCustomAttributes('asset');
+	});
 </script>
 
 {#if asset?.asset_id}
@@ -332,6 +343,16 @@
 									</span>
 								{/if}
 							</TabsTrigger>
+
+							{#if hasCustomAttributes.asset === true}
+								<TabsTrigger
+									value="custom_attributes"
+									class="flex items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+								>
+									<WaypointsIcon class="mr-1 h-4 w-4" />
+									<span>Custom attributes</span>
+								</TabsTrigger>
+							{/if}
 						</TabsList>
 
 						<!--
@@ -385,6 +406,24 @@
 						<TabsContent value="comments">
 							<CommentsTab {asset} onRefresh={() => loadComments()} />
 						</TabsContent>
+
+						{#if hasCustomAttributes.asset === true}
+							<TabsContent value="custom_attributes">
+								<CustomAttributesTabWrapper
+									objectType="asset"
+									existing={(asset.custom_attributes ?? null) as Record<string, Record<string, unknown>> | null}
+									{canEdit}
+									onSave={async (values) => {
+										const updated = await caseAssets.patchAsset(
+											assetId,
+											{ custom_attributes: values },
+											{ fetch }
+										);
+										if (!updated) throw new Error('Failed to update asset');
+									}}
+								/>
+							</TabsContent>
+						{/if}
 					</div>
 				</Tabs>
 			</div>
