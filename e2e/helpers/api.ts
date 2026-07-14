@@ -38,15 +38,121 @@ export async function adminApi(): Promise<APIRequestContext> {
 	});
 }
 
-// Small helpers to unwrap the response envelope. Some v2 endpoints wrap
-// the payload in `{status, message, data}`, others return the entity
-// directly. Accept both.
+// Unwrap the response envelope. Some v2 endpoints wrap the payload in
+// `{status, message, data}`, others return the entity directly. Accept both.
 export async function apiJson<T = unknown>(res: { json: () => Promise<unknown> }): Promise<T> {
 	const body = (await res.json()) as Record<string, unknown> & { data?: T };
 	if (body.data !== undefined && typeof body.data === 'object' && body.data !== null) {
 		return body.data as T;
 	}
 	return body as unknown as T;
+}
+
+// Discovered IDs for the current stack. Everything the seed factories need
+// that's server-side taxonomy is discovered at first use, so specs work
+// against any DB (fresh post_init seed, upgraded prod, or a demo dump)
+// regardless of what row IDs happen to be assigned.
+export interface DiscoveredIds {
+	currentUserId: number;
+	customerId: number;
+	classificationId: number;
+	alertSeverityId: number;
+	alertStatusId: number;
+	assetTypeId: number;
+	iocTypeId: number;
+	iocTlpId: number;
+	taskStatusId: number;
+}
+
+// Cache the discovery across a spec — per APIRequestContext.
+const discoveryCache = new WeakMap<APIRequestContext, DiscoveredIds>();
+
+async function firstFromList(
+	api: APIRequestContext,
+	url: string,
+	idKey: string
+): Promise<number> {
+	const res = await api.get(url);
+	if (!res.ok()) {
+		throw new Error(`discover ${url} failed: ${res.status()} ${await res.text()}`);
+	}
+	const body = (await res.json()) as unknown;
+	// Accept: [{...}], {data: [{...}]}, {data: {data: [{...}]}}, {responseData: {...}}
+	const rows = extractRows(body);
+	if (!rows || rows.length === 0) {
+		throw new Error(`discover ${url} returned no rows (body: ${JSON.stringify(body).slice(0, 200)})`);
+	}
+	const id = (rows[0] as Record<string, unknown>)[idKey];
+	if (typeof id !== 'number') {
+		throw new Error(
+			`discover ${url} first row missing numeric ${idKey}: ${JSON.stringify(rows[0]).slice(0, 200)}`
+		);
+	}
+	return id;
+}
+
+function extractRows(body: unknown): unknown[] | null {
+	if (Array.isArray(body)) return body;
+	if (body && typeof body === 'object') {
+		const d = (body as Record<string, unknown>).data;
+		if (Array.isArray(d)) return d;
+		if (d && typeof d === 'object') {
+			const dd = (d as Record<string, unknown>).data;
+			if (Array.isArray(dd)) return dd;
+		}
+	}
+	return null;
+}
+
+export async function discover(api: APIRequestContext): Promise<DiscoveredIds> {
+	const cached = discoveryCache.get(api);
+	if (cached) return cached;
+
+	// Current user id — needed for task_assignees_id.
+	const whoRes = await api.get('/api/v2/auth/whoami');
+	if (!whoRes.ok()) throw new Error(`whoami failed: ${whoRes.status()}`);
+	const whoBody = (await whoRes.json()) as {
+		responseData?: { id?: number };
+		id?: number;
+	};
+	const currentUserId = whoBody.responseData?.id ?? whoBody.id;
+	if (typeof currentUserId !== 'number') {
+		throw new Error(`whoami returned no user id: ${JSON.stringify(whoBody).slice(0, 200)}`);
+	}
+
+	const [
+		customerId,
+		classificationId,
+		alertSeverityId,
+		alertStatusId,
+		assetTypeId,
+		iocTypeId,
+		iocTlpId,
+		taskStatusId
+	] = await Promise.all([
+		firstFromList(api, '/api/v2/manage/customers?per_page=1', 'customer_id'),
+		firstFromList(api, '/api/v2/manage/case-objects/case-classifications?per_page=1', 'id'),
+		firstFromList(api, '/api/v2/manage/severities?per_page=1', 'severity_id'),
+		firstFromList(api, '/api/v2/manage/alert-statuses?per_page=1', 'status_id'),
+		firstFromList(api, '/api/v2/manage/case-objects/asset-types?per_page=1', 'asset_id'),
+		firstFromList(api, '/api/v2/manage/case-objects/ioc-types?per_page=1', 'type_id'),
+		firstFromList(api, '/api/v2/manage/tlp?per_page=1', 'tlp_id'),
+		firstFromList(api, '/api/v2/manage/task-statuses?per_page=1', 'id')
+	]);
+
+	const ids: DiscoveredIds = {
+		currentUserId,
+		customerId,
+		classificationId,
+		alertSeverityId,
+		alertStatusId,
+		assetTypeId,
+		iocTypeId,
+		iocTlpId,
+		taskStatusId
+	};
+	discoveryCache.set(api, ids);
+	return ids;
 }
 
 // A small pool of factories. Every one returns the created object's id so
@@ -65,12 +171,13 @@ export const seed = {
 			case_classification_id: number;
 		}> = {}
 	): Promise<number> {
+		const ids = await discover(api);
 		const payload = {
 			case_name: overrides.case_name ?? rand('e2e case'),
 			case_description: overrides.case_description ?? 'created by e2e',
 			case_soc_id: overrides.case_soc_id ?? rand('SOC'),
-			case_customer_id: overrides.case_customer_id ?? 1,
-			case_classification_id: overrides.case_classification_id ?? 1
+			case_customer_id: overrides.case_customer_id ?? ids.customerId,
+			case_classification_id: overrides.case_classification_id ?? ids.classificationId
 		};
 		const res = await api.post('/api/v2/cases', { data: payload });
 		if (!res.ok()) throw new Error(`seed.case failed: ${res.status()} ${await res.text()}`);
@@ -89,13 +196,14 @@ export const seed = {
 			alert_customer_id: number;
 		}> = {}
 	): Promise<number> {
+		const ids = await discover(api);
 		const payload = {
 			alert_title: overrides.alert_title ?? rand('e2e alert'),
 			alert_description: overrides.alert_description ?? 'created by e2e',
 			alert_source: overrides.alert_source ?? 'e2e',
-			alert_severity_id: overrides.alert_severity_id ?? 4,
-			alert_status_id: overrides.alert_status_id ?? 2,
-			alert_customer_id: overrides.alert_customer_id ?? 1
+			alert_severity_id: overrides.alert_severity_id ?? ids.alertSeverityId,
+			alert_status_id: overrides.alert_status_id ?? ids.alertStatusId,
+			alert_customer_id: overrides.alert_customer_id ?? ids.customerId
 		};
 		const res = await api.post('/api/v2/alerts', { data: payload });
 		if (!res.ok()) throw new Error(`seed.alert failed: ${res.status()} ${await res.text()}`);
@@ -108,9 +216,10 @@ export const seed = {
 		caseId: number,
 		overrides: Partial<{ asset_name: string; asset_type_id: number }> = {}
 	): Promise<number> {
+		const ids = await discover(api);
 		const payload = {
 			asset_name: overrides.asset_name ?? rand('asset'),
-			asset_type_id: overrides.asset_type_id ?? 9 // Windows Computer
+			asset_type_id: overrides.asset_type_id ?? ids.assetTypeId
 		};
 		const res = await api.post(`/api/v2/cases/${caseId}/assets`, { data: payload });
 		if (!res.ok()) throw new Error(`seed.asset failed: ${res.status()} ${await res.text()}`);
@@ -123,10 +232,11 @@ export const seed = {
 		caseId: number,
 		overrides: Partial<{ ioc_value: string; ioc_type_id: number; ioc_tlp_id: number }> = {}
 	): Promise<number> {
+		const ids = await discover(api);
 		const payload = {
 			ioc_value: overrides.ioc_value ?? rand('ioc'),
-			ioc_type_id: overrides.ioc_type_id ?? 1,
-			ioc_tlp_id: overrides.ioc_tlp_id ?? 2
+			ioc_type_id: overrides.ioc_type_id ?? ids.iocTypeId,
+			ioc_tlp_id: overrides.ioc_tlp_id ?? ids.iocTlpId
 		};
 		const res = await api.post(`/api/v2/cases/${caseId}/iocs`, { data: payload });
 		if (!res.ok()) throw new Error(`seed.ioc failed: ${res.status()} ${await res.text()}`);
@@ -177,14 +287,11 @@ export const seed = {
 			task_assignees_id: number[];
 		}> = {}
 	): Promise<number> {
-		// The v1.5.0+ task API requires task_assignees_id (list), not the
-		// legacy task_assignee_id (single). Default to the admin user (id 89
-		// on a fresh DFIR install, but let the caller override for other
-		// setups).
+		const ids = await discover(api);
 		const payload = {
 			task_title: overrides.task_title ?? rand('task'),
-			task_status_id: overrides.task_status_id ?? 1,
-			task_assignees_id: overrides.task_assignees_id ?? [1]
+			task_status_id: overrides.task_status_id ?? ids.taskStatusId,
+			task_assignees_id: overrides.task_assignees_id ?? [ids.currentUserId]
 		};
 		const res = await api.post(`/api/v2/cases/${caseId}/tasks`, { data: payload });
 		if (!res.ok()) throw new Error(`seed.task failed: ${res.status()} ${await res.text()}`);
