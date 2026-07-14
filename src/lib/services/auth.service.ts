@@ -58,6 +58,7 @@ export interface MfaVerifyResponse {
 export interface AuthSettings {
 	oidc_enabled: boolean;
 	mfa_enabled: boolean;
+	local_fallback_enabled: boolean;
 }
 
 class AuthenticationService {

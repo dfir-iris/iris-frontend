@@ -26,7 +26,11 @@
 	// loader regression could deliver `null`; treating that as
 	// "local auth only" is the right fail-safe so the login form
 	// still renders.
-	const SAFE_AUTH_SETTINGS: AuthSettings = { oidc_enabled: false, mfa_enabled: false };
+	const SAFE_AUTH_SETTINGS: AuthSettings = {
+		oidc_enabled: false,
+		mfa_enabled: false,
+		local_fallback_enabled: true
+	};
 
 	let { serverStatus, serverCheckMessage } = data;
 	let authSettings: AuthSettings = data.authSettings ?? SAFE_AUTH_SETTINGS;
@@ -129,12 +133,22 @@
 		{/if}
 
 		{#if authSettings.oidc_enabled}
-			<a href="/oidc-login">
+			<a href="/oidc-login" class="w-full">
 				<button class="w-full rounded-md bg-primary p-2 text-primary-foreground"
 					>OIDC Sign In
 				</button></a
 			>
-		{:else}
+		{/if}
+
+		{#if authSettings.oidc_enabled && authSettings.local_fallback_enabled}
+			<div class="flex w-full items-center gap-3 text-xs uppercase text-muted-foreground">
+				<div class="h-px flex-1 bg-border"></div>
+				<span>or</span>
+				<div class="h-px flex-1 bg-border"></div>
+			</div>
+		{/if}
+
+		{#if !authSettings.oidc_enabled || authSettings.local_fallback_enabled}
 			<form
 				class="flex w-full flex-col gap-y-4"
 				method="post"

@@ -13,7 +13,8 @@ import { AuthService, type AuthSettings } from '$lib/services/auth.service';
 // classic username/password form still renders.
 const DEFAULT_AUTH_SETTINGS: AuthSettings = {
 	oidc_enabled: false,
-	mfa_enabled: false
+	mfa_enabled: false,
+	local_fallback_enabled: true
 };
 
 export const load: PageServerLoad = async () => {
@@ -25,7 +26,11 @@ export const load: PageServerLoad = async () => {
 		if (fetched && typeof fetched === 'object') {
 			authSettings = {
 				oidc_enabled: Boolean(fetched.oidc_enabled),
-				mfa_enabled: Boolean(fetched.mfa_enabled)
+				mfa_enabled: Boolean(fetched.mfa_enabled),
+				local_fallback_enabled:
+					fetched.local_fallback_enabled === undefined
+						? true
+						: Boolean(fetched.local_fallback_enabled)
 			};
 		} else {
 			console.warn(
