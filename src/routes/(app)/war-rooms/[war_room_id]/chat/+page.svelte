@@ -34,6 +34,7 @@
 		Send,
 		Slash,
 		SmilePlus,
+		StickyNote,
 		Trash2,
 		Waypoints,
 		WaypointsIcon,
@@ -1226,7 +1227,7 @@
 	};
 
 	const SLASH_COMMANDS = [
-		{ cmd: '/note', desc: 'Pin a quick note' },
+		{ cmd: '/note', desc: 'Create a war-room note' },
 		{ cmd: '/pin', desc: 'Highlight a message' },
 		{ cmd: '/decision', desc: 'Log a command decision' },
 		{ cmd: '/attach <case_id>', desc: 'Attach a case' },
@@ -1584,7 +1585,7 @@
 			return { Icon: Pin, color: 'text-violet-600 dark:text-violet-400', label: 'Pin' };
 		if (t.is_pinned)
 			return { Icon: Pin, color: 'text-primary', label: 'Pinned' };
-		return { Icon: Pin, color: 'text-violet-500 dark:text-violet-300', label: 'Note' };
+		return { Icon: StickyNote, color: 'text-amber-600 dark:text-amber-400', label: 'Note' };
 	};
 
 	const stripMarkdown = (s: string) =>
@@ -1752,6 +1753,7 @@
 			case 'sitrep_published':
 				return FileText;
 			case 'note':
+				return StickyNote;
 			case 'pin':
 				return Pin;
 			case 'decision':
@@ -1777,6 +1779,7 @@
 			case 'sitrep_published':
 				return 'text-amber-600 dark:text-amber-400';
 			case 'note':
+				return 'text-amber-600 dark:text-amber-400';
 			case 'pin':
 				return 'text-violet-600 dark:text-violet-400';
 			case 'decision':

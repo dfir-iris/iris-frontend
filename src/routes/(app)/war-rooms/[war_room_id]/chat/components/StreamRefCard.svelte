@@ -80,7 +80,7 @@
 		}
 		if (refType === 'war_room_note' && refId != null) {
 			return {
-				href: `/war-rooms/${warRoomId}/notes#${refId}`,
+				href: `/war-rooms/${warRoomId}/notes/${refId}`,
 				label: `Note #${refId}`,
 				Icon: FileTextIcon,
 				cls: 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:border-sky-400/40 dark:bg-sky-500/15 dark:text-sky-200'
