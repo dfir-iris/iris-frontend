@@ -32,7 +32,9 @@
 		}`}
 	>
 		{#if !isCollapsed()}
-			<img src="/img/logo/logo-white.png" alt="IRIS Logo" class="mx-3 h-6" />
+			<a href="/" aria-label="Go to dashboard" class="mx-3 flex items-center">
+				<img src="/img/logo/logo-white.png" alt="IRIS Logo" class="h-6" />
+			</a>
 		{/if}
 
 		<div
