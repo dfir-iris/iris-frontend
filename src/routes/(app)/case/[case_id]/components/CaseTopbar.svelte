@@ -559,8 +559,17 @@
 	Light + dark variants pick complementary tints so it reads well in both
 	themes without overpowering the foreground content.
 -->
+<!--
+  `min-w-0` on this outer row + on the right-hand cluster is what
+  actually enables the title column's `flex-1 min-w-0` (line 578) to
+  shrink. Without it, the row's default `min-width: auto` lets the
+  intrinsic content width push past the viewport; nothing further down
+  the tree gets a chance to truncate. `overflow-hidden` catches any
+  residual bleed (long unbreakable tag chips, mostly) so the header
+  never draws past the border.
+-->
 <div
-	class="relative flex items-center gap-2 border-b px-3 py-2 sm:gap-4 sm:px-5 sm:py-2.5 {isClosed
+	class="relative flex min-w-0 flex-wrap items-center gap-2 overflow-hidden border-b px-3 py-2 sm:flex-nowrap sm:gap-4 sm:px-5 sm:py-2.5 {isClosed
 		? 'border-b-red-500/40 bg-gradient-to-r from-red-100 via-rose-50 to-red-50/40 dark:border-b-red-500/50 dark:from-red-950/60 dark:via-rose-950/40 dark:to-red-950/20'
 		: 'bg-card'}"
 >
@@ -669,7 +678,7 @@
 					class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors hover:bg-muted"
 				>
 					<FileDigit size={11} class="opacity-70" />
-					<span>SOC #{caseData.case_soc_id}</span>
+					<span class="max-w-[12rem] truncate">SOC #{caseData.case_soc_id}</span>
 				</span>
 			{/if}
 
@@ -747,7 +756,17 @@
 		dropdown is now folded into the "…" overflow since the
 		section-aware quick-add already covers the primary create flow.
 	-->
-	<div class="flex shrink-0 items-center gap-1.5">
+	<!--
+	  Right cluster: status/severity pills + linked-alerts, followers,
+	  war-rooms and the action buttons. `flex-wrap` + `justify-end` lets
+	  the trailing chips (alerts, war-rooms, source cluster, …) fall onto
+	  a second row on narrow viewports instead of pushing the title off-
+	  screen. `shrink` (not `shrink-0`) so the cluster gives ground to
+	  the title column when both compete for the same axis, and
+	  `min-w-0` so its own long labels (source-cluster title, follower
+	  names) can truncate against the caps they already declare.
+	-->
+	<div class="ml-auto flex min-w-0 shrink flex-wrap items-center justify-end gap-1.5">
 		{#if reviewMeta.variant}
 			{@const isComplete = reviewMeta.variant === 'complete'}
 			{@const chipClass = isComplete
