@@ -566,34 +566,43 @@
 	const caseTasks = getContext<CaseTasksContext | undefined>(CASE_TASKS_CTX);
 	const caseDatastore = getContext<CaseDatastoreContext | undefined>(CASE_DATASTORE_CTX);
 
-	let usersCache: MentionableUser[] | null = null;
-	let usersPromise: Promise<MentionableUser[]> | null = null;
+	// Per-query cache keyed by the trimmed lowercased `q` so re-opening
+	// the popover with the same prefix reuses the previous response.
+	// The backend caps each response at `_MENTION_LIMIT` (see
+	// `blueprints/rest/v2/avatars.py`); caching client-side used to
+	// mean anyone past that cap was unreachable — see the bug reported
+	// 2026-07-17. Keying the cache on `q` fixes that: each keystroke
+	// hits the server and gets the server-side prefix match.
+	const usersByQuery = new Map<string, MentionableUser[]>();
+	const inflightUsers = new Map<string, Promise<MentionableUser[]>>();
 
-	const loadUsers = async (): Promise<MentionableUser[]> => {
-		if (usersCache) return usersCache;
-		if (!usersPromise) {
-			usersPromise = (async () => {
-				// `/api/v2/users/mentionable` is auth-gated but not admin-
-				// gated, so analysts (who can't call `/manage/users`) can
-				// still list colleagues to mention. Payload is deliberately
-				// minimal (id, login, name) — the popup does its own fuzzy
-				// filter locally on top of this cache.
-				const res = await UsersService.listMentionable();
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				const inner = (res?.data as any)?.data;
-				if (Array.isArray(inner)) {
-					usersCache = inner as MentionableUser[];
-					return usersCache;
-				}
-				if (Array.isArray(res?.data)) {
-					usersCache = res.data as MentionableUser[];
-					return usersCache;
-				}
-				usersCache = [];
-				return [];
-			})();
-		}
-		return usersPromise;
+	const loadUsers = async (q: string = ''): Promise<MentionableUser[]> => {
+		const key = q.trim().toLowerCase();
+		const cached = usersByQuery.get(key);
+		if (cached) return cached;
+		const inflight = inflightUsers.get(key);
+		if (inflight) return inflight;
+
+		const p = (async () => {
+			// `/api/v2/users/mentionable` is auth-gated but not admin-
+			// gated, so analysts (who can't call `/manage/users`) can
+			// still list colleagues to mention. Payload is deliberately
+			// minimal (id, login, name).
+			const res = await UsersService.listMentionable(key);
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const inner = (res?.data as any)?.data;
+			let list: MentionableUser[] = [];
+			if (Array.isArray(inner)) {
+				list = inner as MentionableUser[];
+			} else if (Array.isArray(res?.data)) {
+				list = res.data as MentionableUser[];
+			}
+			usersByQuery.set(key, list);
+			inflightUsers.delete(key);
+			return list;
+		})();
+		inflightUsers.set(key, p);
+		return p;
 	};
 
 	const fuzzy = (haystack: string, needle: string) =>
@@ -634,7 +643,13 @@
 
 	const fetchUserItems = async (query: string): Promise<MentionItem[]> => {
 		const q = query.trim();
-		const [users, teams] = await Promise.all([loadUsers(), loadTeams()]);
+
+		// Users are filtered *server-side* — passing `q` to loadUsers
+		// scopes the response to matches for that prefix/substring so
+		// large tenants (>_MENTION_LIMIT users) still surface the
+		// intended target when their name is typed. Teams are small
+		// enough to keep filtering client-side.
+		const [users, teams] = await Promise.all([loadUsers(q), loadTeams()]);
 
 		// Teams surface at the top of the popover — quicker to reach when
 		// the operator wants to page a whole group, and keeps the mental
@@ -649,10 +664,7 @@
 			kind: 'team' as const
 		}));
 
-		const filteredUsers = q
-			? users.filter((u) => fuzzy(u.user_name, q) || fuzzy(u.user_login, q))
-			: users;
-		const userItems: MentionItem[] = filteredUsers.slice(0, 8 - teamItems.length).map((u) => ({
+		const userItems: MentionItem[] = users.slice(0, 8 - teamItems.length).map((u) => ({
 			id: u.user_id,
 			label: u.user_name,
 			sublabel: u.user_login,
