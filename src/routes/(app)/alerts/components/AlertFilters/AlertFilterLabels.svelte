@@ -23,6 +23,31 @@
 		value: string;
 	};
 
+	// Count the leaves in a custom_conditions payload so we can render
+	// a "custom conditions (N)" chip instead of dumping the whole JSON
+	// tree into the label bar. Handles both group-rooted objects and
+	// bare leaf arrays; anything unparseable renders as "custom".
+	const countLeaves = (raw: string): number | null => {
+		try {
+			const parsed = JSON.parse(raw);
+			let count = 0;
+			const walk = (node: unknown): void => {
+				if (!node || typeof node !== 'object') return;
+				const g = node as { conditions?: unknown };
+				if (Array.isArray(g.conditions)) {
+					g.conditions.forEach(walk);
+					return;
+				}
+				count += 1;
+			};
+			if (Array.isArray(parsed)) parsed.forEach(walk);
+			else walk(parsed);
+			return count;
+		} catch {
+			return null;
+		}
+	};
+
 	const items = $derived.by<Item[]>(() => {
 		const result: Item[] = [];
 
@@ -51,6 +76,11 @@
 			if (key === 'alert_severity_id' && typeof raw === 'number') {
 				resolved =
 					severities.find((severity) => severity.severity_id === raw)?.severity_name ?? raw;
+			}
+
+			if (key === 'custom_conditions' && typeof raw === 'string') {
+				const n = countLeaves(raw);
+				resolved = n == null ? 'custom conditions' : `custom conditions (${n})`;
 			}
 
 			const text = String(resolved).trim();

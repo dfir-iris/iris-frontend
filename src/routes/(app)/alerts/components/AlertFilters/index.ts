@@ -4,6 +4,7 @@ export { uiFiltersToSavedFilterData, savedFilterToUiFilters } from './saved-filt
 export { default as AlertFilters } from './AlertFilters.svelte';
 export { default as AlertFilterLabels } from './AlertFilterLabels.svelte';
 export { default as SaveAlertFiltersModal } from './SaveAlertFiltersModal.svelte';
+export { default as CustomConditionsPanel } from './CustomConditionsPanel.svelte';
 
 export type Filters = Pick<
 	FilterAlertsParams,
@@ -27,6 +28,7 @@ export type Filters = Pick<
 	| 'cluster_id'
 	| 'alert_owner_id'
 	| 'resolution_status_id'
+	| 'custom_conditions'
 	| 'sort'
 >;
 

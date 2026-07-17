@@ -99,6 +99,7 @@
 		'cluster_id',
 		'alert_owner_id',
 		'resolution_status_id',
+		'custom_conditions',
 		'sort'
 	];
 

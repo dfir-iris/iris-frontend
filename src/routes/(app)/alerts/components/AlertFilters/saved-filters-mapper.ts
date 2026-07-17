@@ -14,6 +14,7 @@ type SavedAlertFilterData = {
 	source_end_date?: string;
 	case_id?: number;
 	alert_owner_id?: number;
+	custom_conditions?: string;
 	sort?: Filters['sort'];
 };
 
@@ -48,6 +49,7 @@ export const uiFiltersToSavedFilterData = (filters: Filters): SavedAlertFilterDa
 	source_end_date: filters.alert_end_date,
 	case_id: filters.case_id,
 	alert_owner_id: filters.alert_owner_id,
+	custom_conditions: filters.custom_conditions,
 	sort: filters.sort
 });
 
@@ -70,6 +72,7 @@ export const savedFilterToUiFilters = (savedFilter: SavedFilter, filters: Filter
 
 		case_id: savedFilterData.case_id,
 		alert_owner_id: savedFilterData.alert_owner_id,
+		custom_conditions: savedFilterData.custom_conditions,
 		sort: savedFilterData.sort ?? filters.sort
 	};
 };

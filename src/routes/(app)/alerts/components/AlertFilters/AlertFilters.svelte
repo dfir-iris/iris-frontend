@@ -9,6 +9,7 @@
 		type SelectOption
 	} from '$lib/components/common/selects/SearchSelect.svelte';
 	import { SaveAlertFiltersModal, defaultFilters, type Filters } from '.';
+	import CustomConditionsPanel from './CustomConditionsPanel.svelte';
 
 	type Preset = {
 		filter_id: number;
@@ -374,6 +375,11 @@
 				/>
 			</div>
 		</div>
+
+		<CustomConditionsPanel
+			value={value.custom_conditions ?? undefined}
+			onChange={(next) => onChange({ ...value, custom_conditions: next })}
+		/>
 	</div>
 
 	<div class="mt-4 flex items-center justify-between border-t border-border/50 pt-4">
