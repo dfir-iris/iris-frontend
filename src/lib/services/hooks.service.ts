@@ -17,14 +17,7 @@ export interface HookOption {
 	module_name: string;
 }
 
-export interface ListHooksResponse {
-	data: HookOption[];
-	message: string;
-	status: string;
-}
-
-export interface CallHookBody {
-    cid: number;
+export interface InvokeHookBody {
 	hook_name: string;
 	module_name: string;
 	hook_ui_name: string;
@@ -32,15 +25,31 @@ export interface CallHookBody {
 	targets: number[];
 }
 
+export interface InvokeHookResult {
+	queued: number;
+	logs?: string[];
+}
+
 export class HooksService {
 	static async list(
 		objectType: HookObjectType,
 		options: ApiOptions = {}
-	): Promise<RequestResponse<ListHooksResponse>> {
-		return ApiService.get<ListHooksResponse>(`/dim/hooks/options/${objectType}/list`, options);
+	): Promise<RequestResponse<HookOption[]>> {
+		return ApiService.get<HookOption[]>(
+			`/dim-hooks?target=${encodeURIComponent(objectType)}`,
+			options
+		);
 	}
 
-	static async call(body: CallHookBody, options: ApiOptions = {}): Promise<RequestResponse<null>> {
-		return ApiService.post<null>('/dim/hooks/call', body, options);
+	static async invoke(
+		caseId: number,
+		body: InvokeHookBody,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<InvokeHookResult>> {
+		return ApiService.post<InvokeHookResult>(
+			`/cases/${caseId}/dim-hooks/invoke`,
+			body,
+			options
+		);
 	}
 }

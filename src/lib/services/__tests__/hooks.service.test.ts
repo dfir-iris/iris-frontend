@@ -14,7 +14,7 @@ import { HooksService } from '../hooks.service';
 import { ApiService } from '../api.service';
 
 import type { ApiOptions } from '../api.service';
-import type { CallHookBody, HookOption, ListHooksResponse } from '../hooks.service';
+import type { HookOption, InvokeHookBody } from '../hooks.service';
 
 describe('HooksService', () => {
 	beforeEach(() => {
@@ -25,23 +25,19 @@ describe('HooksService', () => {
 		vi.restoreAllMocks();
 	});
 
-	it('list() should call ApiService.get with /dim/hooks/options/{objectType}/list + options', async () => {
+	it('list() calls ApiService.get with /dim-hooks?target=<type> and forwards options', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const mockResponse = {
 			ok: true,
 			status: 200,
-			data: {
-				status: 'success',
-				message: '',
-				data: [
-					{
-						hook_name: 'test_hook',
-						manual_hook_ui_name: 'Test Hook',
-						module_name: 'test_module'
-					} as HookOption
-				]
-			} satisfies ListHooksResponse
+			data: [
+				{
+					hook_name: 'on_manual_trigger_case',
+					manual_hook_ui_name: 'Test Hook',
+					module_name: 'test_module'
+				} as HookOption
+			]
 		};
 
 		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
@@ -49,13 +45,25 @@ describe('HooksService', () => {
 		const res = await HooksService.list('case', options);
 
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
-		expect(ApiService.get).toHaveBeenCalledWith('/dim/hooks/options/case/list', options);
+		expect(ApiService.get).toHaveBeenCalledWith('/dim-hooks?target=case', options);
 		expect(res).toBe(mockResponse);
 	});
 
-	it('call() should call ApiService.post with /dim/hooks/call, body, options', async () => {
-		const body: CallHookBody = {
-			hook_name: 'test_hook',
+	it('list() URL-encodes the target query parameter', async () => {
+		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+			ok: true,
+			status: 200,
+			data: []
+		});
+
+		await HooksService.list('global_task');
+
+		expect(ApiService.get).toHaveBeenCalledWith('/dim-hooks?target=global_task', {});
+	});
+
+	it('invoke() calls ApiService.post with /cases/{caseId}/dim-hooks/invoke, body, options', async () => {
+		const body: InvokeHookBody = {
+			hook_name: 'on_manual_trigger_case',
 			module_name: 'test_module',
 			hook_ui_name: 'Test Hook',
 			type: 'case',
@@ -67,15 +75,15 @@ describe('HooksService', () => {
 		const mockResponse = {
 			ok: true,
 			status: 200,
-			data: null
+			data: { queued: 2 }
 		};
 
 		(ApiService.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
-		const res = await HooksService.call(body, options);
+		const res = await HooksService.invoke(42, body, options);
 
 		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith('/dim/hooks/call', body, options);
+		expect(ApiService.post).toHaveBeenCalledWith('/cases/42/dim-hooks/invoke', body, options);
 		expect(res).toBe(mockResponse);
 	});
 });

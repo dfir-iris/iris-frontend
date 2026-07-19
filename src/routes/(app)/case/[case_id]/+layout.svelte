@@ -177,10 +177,8 @@
 	});
 
 	onMount(async () => {
-		const hooksResponse = (await HooksService.list('case')).data as unknown as RequestResponse<
-			HookOption[]
-		>;
-		hookOptions = hooksResponse.data as HookOption[];
+		const hooksResponse = await HooksService.list('case');
+		hookOptions = (hooksResponse.data as HookOption[]) ?? [];
 	});
 
 	// Workspace-wide comments side panel. When the URL's entity segment
