@@ -11,6 +11,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { WarRoomDatastoreService } from '$lib/services/war-room-datastore.service';
+	import ChatImageLightbox from './ChatImageLightbox.svelte';
 
 	type Props = {
 		warRoomId: number;
@@ -21,6 +22,7 @@
 
 	let blobUrl = $state<string | null>(null);
 	let failed = $state(false);
+	let lightboxOpen = $state(false);
 
 	// Reactively (re)load whenever the (warRoomId, fileId) pair changes.
 	// The teardown from the previous load runs first so we don't leak
@@ -56,28 +58,35 @@
 </script>
 
 {#if blobUrl}
-	<a
-		href={WarRoomDatastoreService.downloadUrl(warRoomId, fileId)}
-		target="_blank"
-		rel="noopener noreferrer"
-		class="block max-w-sm"
-		title={`${filename} — open in a new tab`}
+	<!--
+	  Thumbnail opens a full-viewport lightbox rather than navigating to
+	  the raw datastore URL. That URL is bearer-authenticated, so a
+	  browser-level navigation drops the token and 403s. The lightbox
+	  reuses the same authenticated blob URL we already have here.
+	-->
+	<button
+		type="button"
+		class="block max-w-sm cursor-zoom-in"
+		title={`${filename} — click to expand`}
+		onclick={() => (lightboxOpen = true)}
 	>
 		<img
 			src={blobUrl}
 			alt={filename}
 			class="max-h-64 max-w-full rounded-md border object-contain"
 		/>
-	</a>
-{:else if failed}
-	<a
-		href={WarRoomDatastoreService.downloadUrl(warRoomId, fileId)}
-		target="_blank"
-		rel="noopener noreferrer"
-		class="text-xs text-muted-foreground underline underline-offset-2"
-	>
+	</button>
+	<ChatImageLightbox
+		open={lightboxOpen}
+		{warRoomId}
+		{fileId}
 		{filename}
-	</a>
+		onOpenChange={(v) => (lightboxOpen = v)}
+	/>
+{:else if failed}
+	<span class="text-xs text-muted-foreground">
+		{filename} (could not load)
+	</span>
 {:else}
 	<div
 		class="h-32 w-48 animate-pulse rounded-md border bg-muted/60"
