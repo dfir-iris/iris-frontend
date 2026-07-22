@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { writable, derived } from 'svelte/store';
+	import { writable } from 'svelte/store';
 	import type { PageLoad } from './$types';
 	import { Input } from '$lib/components/ui/input';
 	import * as Command from '$lib/components/ui/command';
-	import { ApiService } from '$lib/services/api.service';
+	import { CaseService } from '$lib/services/case.service';
+	import type { Case } from '$lib/types/resources/case';
 	import * as Popover from '$lib/components/ui/popover';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
@@ -11,11 +12,10 @@
 	import { ChevronsDownUpIcon } from 'lucide-svelte';
 
 	type CaseContext = {
-		case_id: string;
+		case_id: number;
 		name: string;
 		customer_name: string;
 		close_date: string | null;
-		access: string;
 	};
 
 	let searchQuery = writable('');
@@ -23,24 +23,44 @@
 	let open = false;
 	let cases = writable<CaseContext[]>([]);
 
-	export const load: PageLoad = async ({ fetch }) => {
-		const casesData = await ApiService.get('/context/search-cases', {}, fetch);
+	const toCaseContext = (c: Case): CaseContext => ({
+		case_id: c.case_id,
+		name: c.case_name,
+		customer_name: c.case_customer?.customer_name ?? '',
+		close_date: c.close_date
+	});
+
+	// `RequestResponse.data` is `T | string | null` — narrow to the
+	// paginated envelope before touching its `.data` array.
+	const extractCases = (data: unknown): Case[] => {
+		if (data && typeof data === 'object' && 'data' in data && Array.isArray((data as { data: unknown }).data)) {
+			return (data as { data: Case[] }).data;
+		}
+		return [];
+	};
+
+	export const load: PageLoad = async () => {
+		const response = await CaseService.list();
+		const casesData = extractCases(response.data).map(toCaseContext);
 		cases.set(casesData);
 		return { cases: casesData };
 	};
 
 	async function fetchCases(query = '') {
-		try {
-			const response = await ApiService.get(`/context/search-cases?q=${query}`);
-			cases.set(response.data);
-		} catch (error) {
-			console.error('Error fetching cases:', error);
+		const trimmed = query.trim();
+		const response = await CaseService.list(
+			trimmed === '' ? {} : { quick_search: trimmed }
+		);
+		if (!response.ok) {
+			console.error('Error fetching cases:', response.error?.message);
+			return;
 		}
+		cases.set(extractCases(response.data).map(toCaseContext));
 	}
 
 	$: $searchQuery, fetchCases($searchQuery);
 
-	function redirectToCase(caseId: string) {
+	function redirectToCase(caseId: number) {
 		goto(`/case/${caseId}/overview`);
 	}
 

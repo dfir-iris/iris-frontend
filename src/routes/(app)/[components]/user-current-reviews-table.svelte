@@ -4,7 +4,7 @@
 	import { RefreshCw } from 'lucide-svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import DataTable from '$lib/components/ui/data-table/data-table.svelte';
-	import { ApiService } from '$lib/services/api.service';
+	import { DashboardService } from '$lib/services/dashboard.service';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { reviewsStore, isLoadingReviewsStore } from '$lib/stores/reviews.store';
 	import { cellRendererFactory } from '$lib/components/ui/data-table/cell-renderer-factory';
@@ -51,8 +51,10 @@
 		isLoadingReviewsStore.set(true);
 
 		try {
-			const reviewsResponse = await ApiService.get('/user/reviews/list');
-			reviewsStore.set(reviewsResponse);
+			const reviewsResponse = await DashboardService.listReviews();
+			if (reviewsResponse.ok && Array.isArray(reviewsResponse.data)) {
+				reviewsStore.set(reviewsResponse.data);
+			}
 		} catch (error) {
 			console.error('Error loading initial data:', error);
 		} finally {

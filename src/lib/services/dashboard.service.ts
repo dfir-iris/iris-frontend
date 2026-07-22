@@ -23,8 +23,21 @@ export interface DashboardKpis {
 	cases_closed_last_30d: number;
 }
 
+export interface DashboardReviewRow {
+	case_id: number;
+	case_name: string;
+	status_id: number;
+	review_status?: { status_name?: string } | null;
+}
+
 export class DashboardService {
 	static get(options?: ApiOptions): Promise<RequestResponse<DashboardKpis>> {
 		return ApiService.get<DashboardKpis>('/dashboard/kpis', options);
+	}
+
+	static listReviews(
+		options?: ApiOptions
+	): Promise<RequestResponse<DashboardReviewRow[]>> {
+		return ApiService.get<DashboardReviewRow[]>('/dashboard/reviews/list', options);
 	}
 }

@@ -68,14 +68,11 @@ export const ENDPOINTS = {
         list: '/tags'
     },
     manage: {
-        asset_types: {
-            list: '/manage/asset-types/list'
-        },
         ioc_types: {
-            list: '/manage/ioc-types/list',
+            list: '/manage/case-objects/ioc-types',
         },
         tlp: {
-            list: '/manage/tlp/list',
+            list: '/manage/tlp',
         }
     }
 };
