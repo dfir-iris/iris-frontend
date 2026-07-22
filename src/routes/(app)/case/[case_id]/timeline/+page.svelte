@@ -277,9 +277,9 @@
 		if (filters.asset.trim()) query.asset = [filters.asset.trim()];
 		if (filters.ioc.trim()) query.ioc = [filters.ioc.trim()];
 		if (filters.category.trim()) query.category = [filters.category.trim()];
-		if (filters.startDate) query.startDate = [filters.startDate];
-		if (filters.endDate) query.endDate = [filters.endDate];
-		if (filters.flag) query.flag = [filters.flag];
+		if (filters.startDate) query.start_date = filters.startDate;
+		if (filters.endDate) query.end_date = filters.endDate;
+		if (filters.flag) query.flag = filters.flag.toLowerCase() === 'true';
 
 		return query;
 	};

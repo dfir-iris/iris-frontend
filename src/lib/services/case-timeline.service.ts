@@ -35,10 +35,10 @@ export type CaseTimelineFilterQuery = {
 	raw?: string[];
 	category?: string[];
 	source?: string[];
-	startDate?: string[];
-	endDate?: string[];
+	start_date?: string;
+	end_date?: string;
 	event_id?: number[];
-	flag?: string[];
+	flag?: boolean;
 };
 
 export type CaseTimelineApiResponse<T> = {
@@ -143,30 +143,39 @@ export class CaseTimelineService {
 		options: ApiOptions = {},
 		paging: { page?: number; per_page?: number } = {}
 	): Promise<RequestResponse<CaseTimelineListResponse>> {
-		const params: Record<string, string | number> = {
-			cid: caseId,
-			q: JSON.stringify(query)
+		const params: Record<string, unknown> = {
+			asset: query.asset,
+			asset_id: query.asset_id,
+			ioc: query.ioc,
+			ioc_id: query.ioc_id,
+			tag: query.tag,
+			title: query.title,
+			description: query.description,
+			raw: query.raw,
+			category: query.category,
+			source: query.source,
+			event_id: query.event_id,
+			start_date: query.start_date,
+			end_date: query.end_date,
+			flag: query.flag !== undefined ? String(query.flag) : undefined,
+			page: paging.page,
+			per_page: paging.per_page
 		};
 
-		if (paging.page !== undefined) params.page = paging.page;
-		if (paging.per_page !== undefined) params.per_page = paging.per_page;
+		const path = ApiService.withQuery(`/api/v2/cases/${caseId}/events`, params);
 
-		const path = ApiService.withQuery('/case/timeline/advanced-filter', params);
-
-		const res = await ApiService.get<
-			CaseTimelineListResponse | CaseTimelineApiResponse<CaseTimelineListResponse>
-		>(path, options);
+		const res = await ApiService.get<CaseTimelineListResponse>(path, options);
 
 		if (!res.ok || res.error || res.data === null || typeof res.data === 'string') {
 			return res as RequestResponse<CaseTimelineListResponse>;
 		}
 
-		const data = 'data' in res.data ? res.data.data : res.data;
+		const data = res.data;
 
 		return {
 			...res,
 			data: {
-				timeline: data.timeline ?? data.tim ?? [],
+				timeline: data.tim ?? data.timeline ?? [],
 				tim: data.tim,
 				comments_map: data.comments_map,
 				state: data.state,

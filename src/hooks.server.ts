@@ -216,15 +216,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 		const { pathname } = event.url;
 
-		// `/api/v2/case/timeline` still lives outside the v2 namespace on
-		// the backend, so strip the /api/v2 prefix for it.
-		const isTimelineRoute = pathname.startsWith('/api/v2/case/timeline');
-
-		const upstreamPath = isTimelineRoute
-			? pathname.replace(/^\/api\/v2/, '')
-			: pathname;
-
-		const apiUrl = `${base.replace(/\/$/, '')}${upstreamPath}${event.url.search}`;
+		const apiUrl = `${base.replace(/\/$/, '')}${pathname}${event.url.search}`;
 
 		try {
 			// Public (browser-facing) origin (same logic as OIDC passthrough)
