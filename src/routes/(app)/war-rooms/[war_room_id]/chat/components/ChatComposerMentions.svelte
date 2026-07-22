@@ -27,6 +27,7 @@
 		WarRoomTeamsService,
 		type WarRoomTeam
 	} from '$lib/services/war-room-teams.service';
+	import { WarRoomDatastoreService } from '$lib/services/war-room-datastore.service';
 	import type { WarRoomCaseAttachment } from '$lib/services/war-rooms.service';
 
 	type Props = {
@@ -156,8 +157,14 @@
 	};
 
 	type ResourceItem = MentionItem & {
-		resourceKind: 'event' | 'ioc' | 'asset' | 'task' | 'note';
+		resourceKind: 'event' | 'ioc' | 'asset' | 'task' | 'note' | 'datastore';
+		// `caseId` scopes case-attached resources; datastore files live on
+		// the war room, not a case, so this is 0 for them.
 		caseId: number;
+		// Datastore-only: enough context to emit an inline `[Image "..."]`
+		// vs `[File "..."]` stub without a follow-up round-trip.
+		fileId?: number;
+		mimeType?: string | null;
 	};
 	let resourceCache: ResourceItem[] | null = null;
 	let resourcePromise: Promise<ResourceItem[]> | null = null;
@@ -170,6 +177,36 @@
 				// Fan-out, modest per-kind cap so a huge case doesn't crowd
 				// out the others in the dropdown.
 				const PER_KIND = 12;
+
+				// War-room datastore files. Datastore lives on the war room
+				// (not a case) so it's fetched once regardless of how many
+				// cases are attached — putting it before the case loop
+				// means these show up even when no cases are attached yet.
+				try {
+					const dsRes = await WarRoomDatastoreService.list(warRoomId);
+					if (dsRes.ok && dsRes.data && typeof dsRes.data !== 'string') {
+						const files = (dsRes.data as { files?: Array<{
+							file_id: number;
+							filename: string;
+							mime_type: string | null;
+						}> }).files ?? [];
+						for (const f of files) {
+							out.push({
+								id: `datastore-${f.file_id}`,
+								label: f.filename,
+								sublabel: f.mime_type ?? 'Datastore file',
+								kind: 'datastore',
+								resourceKind: 'datastore',
+								caseId: 0,
+								fileId: f.file_id,
+								mimeType: f.mime_type
+							} satisfies ResourceItem);
+						}
+					}
+				} catch {
+					// Datastore fetch failure shouldn't block case-attached resources.
+				}
+
 				for (const att of attachedCases) {
 					const caseId = att.case_id;
 					try {
@@ -439,23 +476,37 @@
 			}
 		} else {
 			const r = item as ResourceItem;
-			const typeWord =
-				r.resourceKind === 'event'
-					? 'Event'
-					: r.resourceKind === 'ioc'
-						? 'IOC'
-						: r.resourceKind === 'asset'
-							? 'Asset'
-							: 'Task';
-			const subRoute =
-				r.resourceKind === 'event'
-					? 'timeline'
-					: r.resourceKind === 'ioc'
-						? 'iocs'
-						: r.resourceKind === 'asset'
-							? 'assets'
-							: 'tasks';
-			insertion = `[${typeWord} "${item.label}"](/case/${r.caseId}/${subRoute})`;
+			if (r.resourceKind === 'datastore' && r.fileId != null) {
+				// Datastore file: emit `[Image "…"]` when the mime type
+				// starts with `image/` (so ChatMessageBody renders it
+				// inline), otherwise `[File "…"]` (which renders as a
+				// download chip). Both point at the authenticated content
+				// endpoint — the renderer swaps to an object URL via the
+				// bearer token, same as drag-and-drop attachments.
+				const isImage =
+					typeof r.mimeType === 'string' &&
+					r.mimeType.toLowerCase().startsWith('image/');
+				const typeWord = isImage ? 'Image' : 'File';
+				insertion = `[${typeWord} "${item.label}"](/api/v2/war-rooms/${warRoomId}/datastore/${r.fileId}/content)`;
+			} else {
+				const typeWord =
+					r.resourceKind === 'event'
+						? 'Event'
+						: r.resourceKind === 'ioc'
+							? 'IOC'
+							: r.resourceKind === 'asset'
+								? 'Asset'
+								: 'Task';
+				const subRoute =
+					r.resourceKind === 'event'
+						? 'timeline'
+						: r.resourceKind === 'ioc'
+							? 'iocs'
+							: r.resourceKind === 'asset'
+								? 'assets'
+								: 'tasks';
+				insertion = `[${typeWord} "${item.label}"](/case/${r.caseId}/${subRoute})`;
+			}
 		}
 
 		// Slash completions REPLACE the leading `/` token entirely; @ and

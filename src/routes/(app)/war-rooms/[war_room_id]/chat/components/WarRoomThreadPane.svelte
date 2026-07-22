@@ -751,6 +751,7 @@
 				textarea={composerEl}
 				{body}
 				{attachedCases}
+				{warRoomId}
 				onChangeBody={(v) => (body = v)}
 			/>
 

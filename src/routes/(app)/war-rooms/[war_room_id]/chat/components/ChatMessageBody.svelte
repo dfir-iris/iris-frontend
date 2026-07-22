@@ -64,6 +64,17 @@
 				label: string;
 				href: string;
 		  }
+		| {
+				kind: 'datastore';
+				// `image` → inline `<img>` via bearer-authenticated blob URL;
+				// `file` → a download chip. The composer picks the type from
+				// the file's mime_type so the renderer doesn't need a second
+				// round-trip.
+				isImage: boolean;
+				label: string;
+				warRoomId: number;
+				fileId: number;
+		  }
 		| { kind: 'link'; label: string; href: string }
 		| { kind: 'mention'; handle: string };
 
@@ -71,6 +82,11 @@
 	// Capture: type word, the quoted label, and the href.
 	const ATTACH_RE =
 		/\[(Event|IOC|Asset|Task) "([^"]+)"\]\((\/[^)\s]+)\)/g;
+	// Datastore in-body reference emitted when the operator picks a file
+	// via `#`. `warRoomId` and `fileId` are both extracted from the href
+	// so the renderer can call the authenticated content endpoint.
+	const DATASTORE_RE =
+		/\[(Image|File) "([^"]+)"\]\((\/api\/v2\/war-rooms\/(\d+)\/datastore\/(\d+)\/content)\)/g;
 	// Fallback for plain markdown links.
 	const PLAIN_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^)\s]+|\/[^)\s]+)\)/g;
 	// `@handle` at a word boundary. The negative lookbehind stops us
@@ -109,6 +125,23 @@
 					type: typeWord,
 					label: m[2],
 					href: m[3]
+				}
+			});
+		}
+		DATASTORE_RE.lastIndex = 0;
+		while ((m = DATASTORE_RE.exec(text)) !== null) {
+			const start = m.index;
+			const end = start + m[0].length;
+			if (matches.some((x) => start < x.end && end > x.start)) continue;
+			matches.push({
+				start,
+				end,
+				seg: {
+					kind: 'datastore',
+					isImage: m[1] === 'Image',
+					label: m[2],
+					warRoomId: Number(m[4]),
+					fileId: Number(m[5])
 				}
 			});
 		}
@@ -224,7 +257,23 @@
 				title={self ? `${seg.handle} — that's you` : `Mention: ${seg.handle}`}
 			>
 				<AtSignIcon class="h-2.5 w-2.5 shrink-0 self-center opacity-80" />{seg.handle}</span
+			>{:else if seg.kind === 'datastore'}{#if seg.isImage}<span class="my-1 block"
+				><ChatImageAttachment
+					warRoomId={seg.warRoomId}
+					fileId={seg.fileId}
+					filename={seg.label}
+				/></span
 			>{:else}<a
+				href={WarRoomDatastoreService.downloadUrl(seg.warRoomId, seg.fileId)}
+				target="_blank"
+				rel="noopener noreferrer"
+				class="mx-0.5 inline-flex max-w-[24rem] items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 align-middle text-2xs font-medium text-amber-700 no-underline transition-colors hover:brightness-110 dark:border-amber-400/40 dark:bg-amber-500/15 dark:text-amber-200"
+				title={`Datastore file: ${seg.label}`}
+			>
+				<FileIcon class="h-3 w-3 shrink-0" />
+				<span class="truncate">{seg.label}</span>
+				<DownloadIcon class="h-2.5 w-2.5 shrink-0 opacity-60" />
+			</a>{/if}{:else}<a
 				href={seg.href}
 				class="text-primary underline-offset-2 hover:underline"
 				target={seg.href.startsWith('http') ? '_blank' : undefined}
