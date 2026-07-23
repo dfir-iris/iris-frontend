@@ -7,6 +7,7 @@
 	import IocDataTable from '$lib/components/common/ioc/IocDataTable.svelte';
 	import AssetDataTable from '$lib/components/common/assets/AssetDataTable.svelte';
 	import { AlertRelatedGraph } from '../AlertRelatedGraph';
+	import { MarkDownPreview } from '$lib/components/common/MarkDown';
 
 	let {
 		alert
@@ -63,7 +64,15 @@
 			{#if alert.alert_note}
 				<div class="rounded-lg border border-border/50 bg-muted/30 p-4">
 					<h4 class="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Alert Note</h4>
-					<pre class="w-full overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed">{alert.alert_note}</pre>
+					<!--
+					  Note is rendered as sanitized markdown (same
+					  Showdown+DOMPurify pipeline as case notes). Analysts
+					  commonly paste triage steps with headings/lists/code
+					  fences; plain text still renders as plain text.
+					-->
+					<div class="text-xs leading-relaxed">
+						<MarkDownPreview markdown={alert.alert_note} />
+					</div>
 				</div>
 			{/if}
 

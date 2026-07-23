@@ -20,6 +20,7 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Card from '$lib/components/ui/card';
 	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
+	import { MarkDownPreview } from '$lib/components/common/MarkDown';
 	import {
 		DropdownMenu,
 		DropdownMenuContent,
@@ -355,7 +356,16 @@
 		</Card.Header>
 
 		<Card.Content class="min-w-0 !px-4 !py-3">
-			<p class="text-sm text-muted-foreground">{alert.alert_description}</p>
+			<!--
+			  Description is rendered as sanitized markdown so operators
+			  who paste findings from a report (headings, lists, links,
+			  code) get formatting. MarkDownPreview runs Showdown output
+			  through DOMPurify, so untrusted alert content is safe.
+			  Plain text still renders as plain text.
+			-->
+			<div class="text-sm text-muted-foreground">
+				<MarkDownPreview markdown={alert.alert_description ?? ''} />
+			</div>
 
 			<Collapsible.Content
 				class="overflow-hidden pt-4 data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down"
