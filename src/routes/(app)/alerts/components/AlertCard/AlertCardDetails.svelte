@@ -16,9 +16,11 @@
 
 	let showRawAlert = $state(false);
 
-	const contextEntries: { key: string; value: string }[] = $derived(
-		Object.keys(alert.alert_context).map((k) => ({ key: k, value: String(alert.alert_context[k]) }))
-	);
+	const contextEntries: { key: string; value: string }[] = $derived.by(() => {
+		const ctx = alert.alert_context;
+		if (!ctx) return [];
+		return Object.keys(ctx).map((k) => ({ key: k, value: String(ctx[k]) }));
+	});
 </script>
 
 <div class="flex min-w-0 flex-col gap-4 pt-2">
@@ -65,7 +67,7 @@
 				</div>
 			{/if}
 
-			{#if Object.keys(alert.alert_context).length}
+			{#if contextEntries.length}
 				<div class="rounded-lg border border-border/50 bg-muted/30 p-4">
 					<h4 class="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Context</h4>
 					<div class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-xs">

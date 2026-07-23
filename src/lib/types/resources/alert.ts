@@ -40,7 +40,7 @@ export interface Alert {
 	alert_investigation_flow_id: number | null;
 	investigation_flow: { flow_id: number; flow_name: string } | null;
 
-	alert_context: Record<string, string>;
+	alert_context: Record<string, string> | null;
 
 	alert_source: string;
 	alert_source_ref: string;
