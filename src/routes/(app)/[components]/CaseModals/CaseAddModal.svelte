@@ -7,9 +7,9 @@
 	import SearchSelect, {
 		type SelectOption
 	} from '$lib/components/common/selects/SearchSelect.svelte';
+	import CustomerPicker from '$lib/components/common/selects/CustomerPicker.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { CustomersService, type Customer } from '$lib/services/customers.service';
 	import {
 		CaseClassificationsService,
 		type CaseClassification
@@ -25,7 +25,6 @@
 
 	const cases = getContext<CasesContext>(CASES_CTX);
 
-	let customers = $state<Customer[]>([]);
 	let classifications = $state<CaseClassification[]>([]);
 
 	let customerId = $state('');
@@ -38,10 +37,6 @@
 	let submitting = $state(false);
 	let error = $state<string | null>(null);
 
-	const customerOptions = $derived.by<SelectOption[]>(() =>
-		customers.map((c) => ({ value: String(c.customer_id), label: c.customer_name }))
-	);
-
 	const classificationOptions = $derived.by<SelectOption[]>(() =>
 		classifications.map((c) => ({ value: String(c.id), label: c.name_expanded }))
 	);
@@ -49,12 +44,6 @@
 	const templateOptions = $derived.by<SelectOption[]>(() => []);
 
 	onMount(async () => {
-		const customersResponse = (await CustomersService.list()).data as unknown as RequestResponse<
-			Customer[]
-		>;
-
-		customers = (customersResponse.data ?? []) as Customer[];
-
 		const classificationsResponse = (await CaseClassificationsService.list())
 			.data as unknown as RequestResponse<CaseClassification[]>;
 
@@ -176,12 +165,9 @@
 
 				<div class="flex flex-col gap-2">
 					<div class="text-sm font-medium">Customer *</div>
-					<SearchSelect
+					<CustomerPicker
 						value={customerId}
-						options={customerOptions}
-						placeholder="Select customer"
-						searchPlaceholder="Search customer..."
-						onChange={(value) => (customerId = value as string)}
+						onChange={(value) => (customerId = value)}
 					/>
 				</div>
 
