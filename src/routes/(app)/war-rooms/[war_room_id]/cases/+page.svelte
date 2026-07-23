@@ -459,8 +459,22 @@
 						</span>
 					</button>
 
+					<!--
+					  target="_blank" matches the aria-label. Without it,
+					  left-click did a full-document navigation to /case/<id>
+					  in-place, which re-ran +layout.svelte's loadAuth
+					  (whoami); any transient failure there calls
+					  auth.clearAuth() → localStorage.removeItem fires a
+					  `storage` event in every other tab and logs the user
+					  out session-wide. Opening in a new tab keeps the
+					  war-room tab (and its in-memory auth) intact.
+					  rel="noopener noreferrer" is the standard hardening
+					  for user-controlled `_blank` targets.
+					-->
 					<a
 						href={`/case/${a.case_id}`}
+						target="_blank"
+						rel="noopener noreferrer"
 						class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
 						aria-label="Open case in a new tab"
 						onclick={(e) => e.stopPropagation()}
