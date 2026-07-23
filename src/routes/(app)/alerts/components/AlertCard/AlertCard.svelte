@@ -19,6 +19,7 @@
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Card from '$lib/components/ui/card';
+	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
 	import {
 		DropdownMenu,
 		DropdownMenuContent,
@@ -147,14 +148,31 @@
 					</button>
 				</div>
 
-				<Collapsible.Trigger
-					class={`min-w-0 flex-1 text-left transition-colors ${alwaysExpanded ? '' : 'cursor-pointer hover:text-primary'}`}
-				>
-					<h3 class="text-sm font-semibold sm:truncate">{alert.alert_title}</h3>
-					<p class="truncate text-xs text-muted-foreground">
-						#{alert.alert_id} - {alert.alert_uuid}
-					</p>
-				</Collapsible.Trigger>
+				<!--
+				  Title block is a flex row of (trigger, copy icon). The
+				  trigger stays a native <button> so keyboard/toggle
+				  behaviour is unchanged; the ClipboardCopy sits beside
+				  it as a sibling (nested <button>s would be invalid HTML
+				  and would also make the copy click toggle the card).
+				  Reveal-on-hover for the copy icon rides on the outer
+				  <Card.Root class="group ..."> ancestor (line 116).
+				-->
+				<div class="flex min-w-0 flex-1 items-start gap-1">
+					<Collapsible.Trigger
+						class={`min-w-0 flex-1 text-left transition-colors ${alwaysExpanded ? '' : 'cursor-pointer hover:text-primary'}`}
+					>
+						<h3 class="text-sm font-semibold sm:truncate">{alert.alert_title}</h3>
+						<p class="truncate text-xs text-muted-foreground">
+							#{alert.alert_id} - {alert.alert_uuid}
+						</p>
+					</Collapsible.Trigger>
+					<ClipboardCopy
+						value={alert.alert_title}
+						tooltipText="Copy title"
+						size={12}
+						className="mt-0.5"
+					/>
+				</div>
 			</div>
 
 			<div class="flex min-w-0 flex-wrap items-center gap-3 sm:gap-6">
