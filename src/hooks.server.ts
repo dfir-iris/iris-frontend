@@ -1,7 +1,45 @@
-import type { Handle } from '@sveltejs/kit';
+import type { Handle, RequestEvent } from '@sveltejs/kit';
 import { API_BASE_URL } from '$lib/config/api.config';
 import { env } from '$env/dynamic/public';
 import sharp from 'sharp';
+
+/**
+ * Resolve the browser-visible origin (protocol + host + port) for this
+ * request.
+ *
+ * Historically this file always read PUBLIC_EXTERNAL_API_URL from the
+ * env at module load. That breaks any deployment where the same
+ * container serves more than one hostname — e.g. a tenant with both a
+ * slug URL (foo.example.com) AND a custom domain (iris.acme.corp).
+ * The env var is a single value, so requests coming in on the "wrong"
+ * host got redirect_uris + Host headers pointing at the other one,
+ * cookies never stuck, and CSRF/OIDC broke.
+ *
+ * event.url is the URL SvelteKit built from the incoming request. When
+ * HOST_HEADER=x-forwarded-host + PROTOCOL_HEADER=x-forwarded-proto are
+ * set (both are in every reasonable reverse-proxy deployment), it
+ * reflects exactly what the browser sees. That's the correct source
+ * of truth. Fall back to PUBLIC_EXTERNAL_API_URL only when the env is
+ * set AND event.url wouldn't help — kept for backward compatibility
+ * with existing single-host deployments that rely on the env var to
+ * override, and for the tiny window during boot when event.url isn't
+ * available (build-time, tests).
+ */
+function publicOrigin(event: Pick<RequestEvent, 'url'>): URL {
+	if (event.url) {
+		return new URL(`${event.url.protocol}//${event.url.host}`);
+	}
+	const fallback = env.PUBLIC_EXTERNAL_API_URL;
+	if (!fallback) {
+		// Both sources absent — no way to build a public origin. Callers
+		// pass the returned URL as `host` + `X-Forwarded-*` for the
+		// upstream Flask app; a bogus URL there is safer than a crash
+		// at import/first-request. Return the resolvable loopback so
+		// upstream logs make the misconfiguration obvious.
+		return new URL('http://localhost');
+	}
+	return new URL(fallback);
+}
 
 /**
  * Process headers to ensure they're valid for proxying
@@ -42,10 +80,11 @@ function copySetCookie(from: Headers, to: Headers) {
 }
 
 /**
- * Rewrite provider Location redirect so redirect_uri points to PUBLIC_EXTERNAL_API_URL.
+ * Rewrite provider Location redirect so redirect_uri points at the
+ * browser-visible origin (see publicOrigin).
  * Identification is done ONLY by pathname suffix (/oidc-authorize).
  */
-function rewriteOidcLocation(location: string): string {
+function rewriteOidcLocation(location: string, pub: URL): string {
 	let loc: URL;
 	try {
 		loc = new URL(location);
@@ -65,7 +104,6 @@ function rewriteOidcLocation(location: string): string {
 
 	if (!ru.pathname.endsWith('/oidc-authorize')) return location;
 
-	const pub = new URL(env.PUBLIC_EXTERNAL_API_URL);
 	ru.protocol = pub.protocol;
 	ru.hostname = pub.hostname;
 	ru.port = pub.port;
@@ -143,8 +181,10 @@ async function proxyOidc(event: Parameters<Handle>[0]['event']): Promise<Respons
 	const backendUrl = new URL(event.url.pathname, backendBase);
 	backendUrl.search = event.url.search;
 
-	// Public (browser-facing) origin from SvelteKit public env
-	const pub = new URL(env.PUBLIC_EXTERNAL_API_URL);
+	// Public (browser-facing) origin — derived from the incoming
+	// request so multi-hostname deployments (slug + custom domain)
+	// get correct Host + X-Forwarded-* headers passed to the backend.
+	const pub = publicOrigin(event);
 
 	// Sanitize incoming headers, then inject proxy/public-origin headers
 	const headers = sanitizeHeaders(event.request.headers);
@@ -182,7 +222,7 @@ async function proxyOidc(event: Parameters<Handle>[0]['event']): Promise<Respons
 	if (location) {
 		out.set(
 			'location',
-			event.url.pathname === '/oidc-login' ? rewriteOidcLocation(location) : location
+			event.url.pathname === '/oidc-login' ? rewriteOidcLocation(location, pub) : location
 		);
 	}
 
@@ -219,8 +259,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 		const apiUrl = `${base.replace(/\/$/, '')}${pathname}${event.url.search}`;
 
 		try {
-			// Public (browser-facing) origin (same logic as OIDC passthrough)
-			const pub = new URL(env.PUBLIC_EXTERNAL_API_URL);
+			// Public (browser-facing) origin — see publicOrigin(). Using
+			// event.url instead of the env var lets a single container
+			// serve both the tenant slug URL and a custom domain
+			// correctly: cookies stick to the domain the browser is on,
+			// and CSRF/Origin checks upstream in Flask see the actual
+			// host rather than a fixed configured one.
+			const pub = publicOrigin(event);
 
 			// Sanitize incoming headers
 			const headers = sanitizeHeaders(event.request.headers);
