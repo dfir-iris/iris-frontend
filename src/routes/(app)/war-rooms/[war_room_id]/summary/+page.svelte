@@ -212,14 +212,23 @@
 			{/if}
 
 			<div class="max-h-[calc(100vh-14rem)] min-h-[20rem] overflow-y-auto p-5">
-				<MarkDownEditor
-					value={description}
-					onChange={(v) => (description = v)}
-					onSave={() => save()}
-					collabMode="war-room-summary"
-					{warRoomId}
-					{savedAt}
-				/>
+				<!--
+				  Keyed on `warRoomId` for the same reason as the case-summary
+				  editor: SvelteKit reuses this page component across a room
+				  switch (topbar picker jumps between rooms) and the editor's
+				  Yjs binding is captured at construction, so a bare mount
+				  would keep showing the previous room's document.
+				-->
+				{#key warRoomId}
+					<MarkDownEditor
+						value={description}
+						onChange={(v) => (description = v)}
+						onSave={() => save()}
+						collabMode="war-room-summary"
+						{warRoomId}
+						{savedAt}
+					/>
+				{/key}
 			</div>
 		</section>
 	{:else}

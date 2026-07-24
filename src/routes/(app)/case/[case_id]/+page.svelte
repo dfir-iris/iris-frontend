@@ -578,15 +578,26 @@
 				  so behaviour is consistent across the app.
 				-->
 				<div class="max-h-[calc(100vh-18rem)] min-h-[20rem] overflow-y-auto p-5">
-					<MarkDownEditor
-						value={caseDescription}
-						onChange={(v) => (caseDescription = v)}
-						onSave={() => save()}
-						caseId={case_id}
-						{savedAt}
-						onRemoteSave={handleRemoteSave}
-						readOnly={!canEdit}
-					/>
+					<!--
+					  SvelteKit reuses this page component when navigating between
+					  two `[case_id]` routes, so the MarkDownEditor's Yjs binding
+					  (captured with `untrack()` at construction) would stay wired
+					  to the previous case-summary doc — the operator would see
+					  the last case's description on the new case. Keying on
+					  `case_id` forces a full remount, which tears down the old
+					  provider and joins the new `case-summary:<id>` room.
+					-->
+					{#key case_id}
+						<MarkDownEditor
+							value={caseDescription}
+							onChange={(v) => (caseDescription = v)}
+							onSave={() => save()}
+							caseId={case_id}
+							{savedAt}
+							onRemoteSave={handleRemoteSave}
+							readOnly={!canEdit}
+						/>
+					{/key}
 				</div>
 			</section>
 		</div>
