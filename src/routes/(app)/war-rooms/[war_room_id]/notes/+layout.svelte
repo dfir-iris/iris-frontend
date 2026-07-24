@@ -118,6 +118,12 @@
 		// we don't want to wipe and refetch on every hop.
 		if (warRoomId === loadedWarRoomId) return;
 
+		// Reset the tree synchronously on a room switch so the sidebar
+		// doesn't flash the previous room's notes while `loadTree()` is
+		// in flight. Skip on the initial run — the tree is already empty.
+		if (loadedWarRoomId !== null) {
+			notes.reset();
+		}
 		loadedWarRoomId = warRoomId;
 		notes.loadTree();
 	});

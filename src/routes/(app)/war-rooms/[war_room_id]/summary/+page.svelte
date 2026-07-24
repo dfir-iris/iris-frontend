@@ -43,6 +43,21 @@
 
 	const dirty = $derived(description !== baseDescription);
 
+	// Blank the editor state synchronously on room switch so the
+	// {#key warRoomId} remount below doesn't briefly seed the new
+	// editor with the previous room's description before the context
+	// updates. Without this, `room` still points at the previous room
+	// for the first tick after the URL changes, so the seed effect
+	// below would flash the wrong content.
+	let lastLoadedWarRoomId = -1;
+	$effect(() => {
+		const id = warRoomId;
+		if (!Number.isFinite(id) || id === lastLoadedWarRoomId) return;
+		lastLoadedWarRoomId = id;
+		description = '';
+		baseDescription = '';
+	});
+
 	// Seed the editor from the war room the layout already loaded.
 	// The MarkDownEditor's collab layer will replace this with the
 	// authoritative y_state as soon as it joins the doc; keeping a

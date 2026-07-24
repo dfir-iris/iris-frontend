@@ -110,6 +110,13 @@
 		// re-runs this effect — we don't want to wipe and refetch the tree then.
 		if (caseId === loadedCaseId) return;
 
+		// Reset the tree synchronously on a case switch so the sidebar
+		// doesn't flash the previous case's notes while `loadTree()` is
+		// in flight. `loadedCaseId === -1` on the very first run — no
+		// need to reset then (the tree is already empty).
+		if (loadedCaseId !== null) {
+			notes.reset();
+		}
 		loadedCaseId = caseId;
 		notes.loadTree();
 	});

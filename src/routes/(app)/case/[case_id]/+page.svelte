@@ -317,7 +317,11 @@
 	// fires once on mount and again on every case switch (which reuses
 	// this page component instead of remounting it). We zero the local
 	// caches synchronously so the chips can't flash the previous case's
-	// numbers before the new fetches resolve.
+	// numbers before the new fetches resolve — same reason we blank
+	// the description here: `currentCase` doesn't update until
+	// `cases.load(...)` resolves, and the {#key case_id} remount below
+	// would otherwise seed the new editor with the previous case's
+	// summary until Yjs sync-init overwrites it.
 	let lastLoadedCaseId = -1;
 	$effect(() => {
 		const id = case_id;
@@ -328,6 +332,8 @@
 		countsLoaded = false;
 		myTasks = [];
 		contributors = [];
+		caseDescription = '';
+		baseDescription = '';
 
 		void Promise.all([loadCounts(), loadMyTasks(), loadContributors()]);
 	});
