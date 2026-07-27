@@ -574,12 +574,17 @@
 									</td>
 									<td class="px-3 py-2 text-xs">
 										{#if row.case_id !== null && row.case_name}
+											<!--
+											  `Cases.name` is stored with `#<case_id> - ` baked
+											  in server-side (see case_db.py), so we render it
+											  as-is rather than prefixing the id again here.
+											-->
 											<a
 												href={`/case/${row.case_id}`}
 												class="truncate text-primary hover:underline"
 												title={row.case_name}
 											>
-												#{row.case_id} · {row.case_name}
+												{row.case_name}
 											</a>
 										{:else if row.case_id !== null}
 											<a
