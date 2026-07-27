@@ -2,12 +2,14 @@
 	import { page } from '$app/state';
 	import { getContext, onMount } from 'svelte';
 	import {
+		BugIcon,
 		ChevronDownIcon,
 		LeafIcon,
 		PlusIcon,
 		RefreshCwIcon,
 		SquareCheckBigIcon
 	} from 'lucide-svelte';
+	import BugReportDialog from '$lib/components/observability/BugReportDialog.svelte';
 	import {
 		Tooltip,
 		TooltipContent,
@@ -34,6 +36,7 @@
 
 	let showGoToCase = $state(false);
 	let showSwitchContext = $state(false);
+	let showBugReport = $state(false);
 
 	let caseNumber = $state<number | null>(null);
 
@@ -77,7 +80,8 @@
 	const topBarButtons = [
 		{ icon: RefreshCwIcon, tooltip: 'Switch Context (Ctrl + K)', action: () => (showSwitchContext = true) },
 		{ icon: SquareCheckBigIcon, tooltip: 'Add Task Log', action: addTaskLog },
-		{ icon: PlusIcon, tooltip: 'Create Case', action: createCase }
+		{ icon: PlusIcon, tooltip: 'Create Case', action: createCase },
+		{ icon: BugIcon, tooltip: 'Report an issue', action: () => (showBugReport = true) }
 	];
 
 	const caseButtons = [
@@ -261,4 +265,9 @@
 	open={showSwitchContext}
 	onConfirm={switchContext}
 	onOpenChange={(openState) => (showSwitchContext = openState)}
+/>
+
+<BugReportDialog
+	open={showBugReport}
+	onOpenChange={(v) => (showBugReport = v)}
 />
