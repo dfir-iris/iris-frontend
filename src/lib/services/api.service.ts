@@ -4,6 +4,7 @@ import { auth } from '$lib/stores/auth.store';
 import { AuthService } from './auth.service';
 import { API_BASE_URL } from '$lib/config/api.config';
 import { ApiLogger } from '$lib/utils/api-logger';
+import { setLastRequestId } from '$lib/observability/request-id-store';
 import { toast } from '$lib/stores/toast.store';
 
 export type ResponseData<T> = T | string | null;
@@ -188,6 +189,11 @@ export class ApiService {
 
 				// Get response headers as object
 				const responseHeaders = Object.fromEntries([...response.headers.entries()]);
+
+				// Track the server-issued request id so error reports
+				// and manual bug submissions can be paired with the
+				// server's crash event / log line.
+				setLastRequestId(response.headers.get('X-Request-Id'));
 
 				// Clone the response to read the body without consuming it
 				const clonedResponse = response.clone();

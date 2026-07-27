@@ -19,6 +19,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import {
+		BugIcon,
 		DatabaseIcon,
 		InboxIcon,
 		KeyRoundIcon,
@@ -823,6 +824,136 @@
 							Rules that decide what each inbound message becomes live on the
 							<a class="underline hover:text-foreground" href="/settings/mail">Mail rules</a> page.
 						</p>
+					</div>
+				</section>
+
+				<!-- Error reporting -->
+				<section class="rounded-md border">
+					<header class="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
+						<div class="flex items-center gap-2">
+							<BugIcon size={14} class="text-muted-foreground" />
+							<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+								Error reporting
+							</h2>
+						</div>
+					</header>
+					<div class="grid grid-cols-1 gap-3 p-4 text-xs sm:grid-cols-2">
+						<label class="flex items-start gap-2 sm:col-span-2">
+							<Switch
+								checked={!!form.error_reporting_enabled}
+								onCheckedChange={(v: boolean) => (form.error_reporting_enabled = v)}
+								disabled={saving}
+							/>
+							<div>
+								<div class="font-medium">Enable error reporting</div>
+								<p class="text-2xs text-muted-foreground">
+									When on, unhandled exceptions on the server and in the browser are
+									forwarded to a Sentry-compatible collector (Sentry, GlitchTip, or
+									compatible). Payloads are redacted server-side before send — case
+									content, credentials, and sensitive headers never leave the box.
+								</p>
+							</div>
+						</label>
+						<div class="flex flex-col gap-1 sm:col-span-2">
+							<label
+								for="srv-err-backend-dsn"
+								class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+							>
+								Backend DSN
+							</label>
+							<Input
+								id="srv-err-backend-dsn"
+								type="password"
+								autocomplete="off"
+								class="h-7 text-xs"
+								placeholder={form.error_reporting_backend_dsn_set ? '•••••• (unchanged — leave blank to keep)' : 'https://<key>@collector.example/1'}
+								value={String(form.error_reporting_backend_dsn ?? '')}
+								disabled={saving}
+								oninput={(e) =>
+									(form.error_reporting_backend_dsn =
+										(e.currentTarget as HTMLInputElement).value || null)}
+							/>
+							<p class="text-2xs text-muted-foreground">
+								Stored encrypted at rest. Leave blank to keep the current value; type a
+								new DSN to replace it. Server exception captures use this DSN only.
+							</p>
+						</div>
+						<div class="flex flex-col gap-1 sm:col-span-2">
+							<label
+								for="srv-err-frontend-dsn"
+								class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+							>
+								Frontend DSN
+							</label>
+							<Input
+								id="srv-err-frontend-dsn"
+								class="h-7 text-xs"
+								placeholder="https://<key>@collector.example/2"
+								value={String(form.error_reporting_frontend_dsn ?? '')}
+								disabled={saving}
+								oninput={(e) =>
+									(form.error_reporting_frontend_dsn =
+										(e.currentTarget as HTMLInputElement).value || null)}
+							/>
+							<p class="text-2xs text-muted-foreground">
+								Handed to the browser at boot via <code>/api/v2/runtime-config</code>.
+								Reload the page after changing so the browser SDK picks up the new value.
+							</p>
+						</div>
+						<div class="flex flex-col gap-1">
+							<label
+								for="srv-err-env"
+								class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+							>
+								Environment tag
+							</label>
+							<Input
+								id="srv-err-env"
+								class="h-7 text-xs"
+								placeholder="prod / staging / dev-local"
+								value={String(form.error_reporting_environment ?? '')}
+								disabled={saving}
+								oninput={(e) =>
+									(form.error_reporting_environment =
+										(e.currentTarget as HTMLInputElement).value || null)}
+							/>
+						</div>
+						<div class="flex flex-col gap-1">
+							<label
+								for="srv-err-sample"
+								class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+							>
+								Sample rate (0.0 – 1.0)
+							</label>
+							<Input
+								id="srv-err-sample"
+								type="number"
+								min={0}
+								max={1}
+								step={0.05}
+								class="h-7 text-xs"
+								value={String(form.error_reporting_sample_rate ?? '')}
+								disabled={saving}
+								oninput={(e) => {
+									const raw = (e.currentTarget as HTMLInputElement).value.trim();
+									form.error_reporting_sample_rate = raw === '' ? null : Number(raw);
+								}}
+							/>
+						</div>
+						<label class="flex items-start gap-2 sm:col-span-2">
+							<Switch
+								checked={!!form.error_reporting_include_user}
+								onCheckedChange={(v: boolean) => (form.error_reporting_include_user = v)}
+								disabled={saving}
+							/>
+							<div>
+								<div class="font-medium">Attach user identity to events</div>
+								<p class="text-2xs text-muted-foreground">
+									Off by default. When on, the acting user's id and username are attached
+									to each captured event. No email or PII beyond the username is sent.
+								</p>
+							</div>
+						</label>
 					</div>
 				</section>
 

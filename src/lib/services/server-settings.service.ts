@@ -59,6 +59,20 @@ export interface ServerSettings {
 	mail_imap_mailbox: string | null;
 	mail_imap_poll_interval_sec: number | null;
 	mail_imap_max_attachment_mb: number | null;
+
+	// ---- Error reporting (Sentry-compatible ingest) ------------------
+	// Off by default. Backend DSN is Fernet-encrypted at rest and is
+	// load-only on the schema — the SPA sees only the derived
+	// `error_reporting_backend_dsn_set` boolean. The frontend DSN is
+	// round-trippable because the browser needs to read it at boot to
+	// init the Sentry SDK (see /api/v2/runtime-config).
+	error_reporting_enabled: boolean | null;
+	error_reporting_backend_dsn?: string | null;
+	error_reporting_backend_dsn_set?: boolean;
+	error_reporting_frontend_dsn: string | null;
+	error_reporting_environment: string | null;
+	error_reporting_sample_rate: number | null;
+	error_reporting_include_user: boolean | null;
 }
 
 export interface TestMailBody {

@@ -1,7 +1,24 @@
-import type { Handle, RequestEvent } from '@sveltejs/kit';
+import type { Handle, HandleServerError, RequestEvent } from '@sveltejs/kit';
+import { sequence } from '@sveltejs/kit/hooks';
+import { handleErrorWithSentry, sentryHandle } from '@sentry/sveltekit';
 import { API_BASE_URL } from '$lib/config/api.config';
 import { env } from '$env/dynamic/public';
+import { env as privateEnv } from '$env/dynamic/private';
 import sharp from 'sharp';
+import { initSentry } from '$lib/observability/init';
+
+// Server-side Sentry init reads its DSN from IRIS_UI_SENTRY_DSN in
+// the process env. Set it in the deployment env for the Node adapter
+// to phone home on `handle` / `handleError`. Client-side init still
+// reads from the backend runtime-config so the browser DSN is
+// dynamic; this env var is only for the SvelteKit server layer.
+initSentry({
+	enabled: Boolean(privateEnv.IRIS_UI_SENTRY_DSN),
+	dsn: privateEnv.IRIS_UI_SENTRY_DSN ?? null,
+	environment: privateEnv.IRIS_UI_SENTRY_ENVIRONMENT ?? null,
+	sample_rate: Number(privateEnv.IRIS_UI_SENTRY_SAMPLE_RATE ?? 1),
+	release: `iris-ui@${privateEnv.IRIS_UI_VERSION ?? 'unknown'}`
+});
 
 /**
  * Resolve the browser-visible origin (protocol + host + port) for this
@@ -235,7 +252,7 @@ async function proxyOidc(event: Parameters<Handle>[0]['event']): Promise<Respons
 /**
  * Fetches current auth state, returning it as a events.local
  */
-export const handle: Handle = async ({ event, resolve }) => {
+const irisHandle: Handle = async ({ event, resolve }) => {
 	if (
 		(event.url.pathname === '/oidc-login' || event.url.pathname === '/oidc-authorize') &&
 		(event.request.method === 'GET' || event.request.method === 'POST')
@@ -325,3 +342,17 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// Continue normal request handling for non-proxy paths
 	return resolve(event);
 };
+
+// Sentry's server handler wraps everything with an active span so
+// `handleError` events land with the request context attached.
+export const handle: Handle = sequence(sentryHandle(), irisHandle);
+
+const fallbackHandleError: HandleServerError = ({ error, event }) => {
+	const message = error instanceof Error ? error.message : 'Server error';
+	return {
+		message,
+		route: event.route?.id ?? undefined
+	};
+};
+
+export const handleError = handleErrorWithSentry(fallbackHandleError);
