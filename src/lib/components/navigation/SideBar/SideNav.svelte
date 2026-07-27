@@ -2,6 +2,7 @@
 	import { getContext } from 'svelte';
 	import {
 		BellIcon,
+		BookOpenIcon,
 		DoorOpenIcon,
 		FileStackIcon,
 		FileTextIcon,
@@ -217,6 +218,14 @@
 		label="Help"
 		icon={InfoIcon}
 		href="https://docs.dfir-iris.org/"
+		target="_blank"
+		active={false}
+	/>
+	<MenuItem
+		{collapsed}
+		label="API Docs"
+		icon={BookOpenIcon}
+		href="/api/v2/docs"
 		target="_blank"
 		active={false}
 	/>
