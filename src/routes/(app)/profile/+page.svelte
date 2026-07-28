@@ -37,6 +37,7 @@
 	import { AvatarsService } from '$lib/services/avatars.service';
 	import { avatarStore } from '$lib/services/avatar-cache';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
+	import ApiKeysCard from './components/ApiKeysCard.svelte';
 	import ChangePasswordDialog from './components/ChangePasswordDialog.svelte';
 
 	let profile = $state<Profile | null>(null);
@@ -353,9 +354,17 @@
 							{renewing ? 'Renewing…' : 'Renew'}
 						</Button>
 					</div>
+					<p class="mt-2 text-2xs text-muted-foreground">
+						This is the legacy account-wide key. For MCP clients and CI
+						scripts prefer a named, scope-restricted key from the
+						<span class="font-medium">Named API keys</span> section below —
+						it can be revoked without rotating this one.
+					</p>
 				</div>
 			</Card.Content>
 		</Card.Root>
+
+		<ApiKeysCard />
 
 		<Card.Root>
 			<Card.Header>

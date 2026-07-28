@@ -37,6 +37,38 @@ export interface ProfileUpdateBody {
 	has_deletion_confirmation?: boolean;
 }
 
+// Named per-user API key (UserApiKey). Multi-key + revocable + optional
+// scope_mask. Plaintext `api_key` is only present on the create-response
+// body — never on subsequent list / get. See UserApiKeySchema on the
+// backend.
+export interface UserApiKey {
+	id: number;
+	user_id: number;
+	name: string;
+	scope_mask: number | null;
+	created_at: string;
+	last_used_at: string | null;
+	revoked_at: string | null;
+}
+
+export interface UserApiKeyList {
+	api_keys: UserApiKey[];
+}
+
+// Response for `POST /api/v2/me/api-keys`. Adds the plaintext `api_key`
+// once — after this it disappears from the metadata endpoints.
+export interface UserApiKeyCreated extends UserApiKey {
+	api_key: string;
+}
+
+export interface UserApiKeyCreateBody {
+	name: string;
+	// Integer bitmask of Permissions values to AND with the user's
+	// effective mask on every request authenticated with this key.
+	// Omit or null for a full-permissions key.
+	scope_mask?: number | null;
+}
+
 export class ProfileService {
 	static async get(options: ApiOptions = {}): Promise<RequestResponse<Profile>> {
 		return ApiService.get<Profile>(`/me`, options);
@@ -55,5 +87,27 @@ export class ProfileService {
 
 	static async refreshPermissions(options: ApiOptions = {}): Promise<RequestResponse<Profile>> {
 		return ApiService.post<Profile>(`/me/permissions/refresh`, {}, options);
+	}
+
+	// ---- Named per-user API keys (UserApiKey) --------------------------
+
+	static async listApiKeys(
+		options: ApiOptions = {}
+	): Promise<RequestResponse<UserApiKeyList>> {
+		return ApiService.get<UserApiKeyList>(`/me/api-keys`, options);
+	}
+
+	static async createApiKey(
+		body: UserApiKeyCreateBody,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<UserApiKeyCreated>> {
+		return ApiService.post<UserApiKeyCreated>(`/me/api-keys`, body, options);
+	}
+
+	static async revokeApiKey(
+		keyId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<UserApiKey>> {
+		return ApiService.delete<UserApiKey>(`/me/api-keys/${keyId}`, options);
 	}
 }
