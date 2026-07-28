@@ -225,7 +225,7 @@
 		{collapsed}
 		label="API Docs"
 		icon={BookOpenIcon}
-		href="/api/v2/docs"
+		href="/api-docs"
 		target="_blank"
 		active={false}
 	/>

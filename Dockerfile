@@ -19,7 +19,7 @@ WORKDIR /app
 # so the install layer caches independently of source edits.
 COPY package.json package-lock.json ./
 
-RUN npm ci --no-audit --no-fund
+RUN npm ci
 
 # Now bring in the rest of the source and produce the production build.
 # SvelteKit's adapter-node writes the runnable server bundle to /app/build.
