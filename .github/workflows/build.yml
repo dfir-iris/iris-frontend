@@ -13,34 +13,28 @@ env:
   IMAGE_NAME: dfir-iris/iris-frontend
 
 jobs:
-  build-frontend:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: ${{ matrix.runner }}
     permissions:
       packages: write
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+            arch: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            arch: arm64
 
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: 'arm64,amd64'
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Check if beta tag
-        id: check_beta
-        env:
-          REF: ${{ github.ref }}
-        run: |
-          if [[ "$REF" == *"beta"* ]]; then
-            echo "is_beta=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "is_beta=false" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Log into registry ${{ env.REGISTRY }}
         if: github.event_name != 'pull_request'
@@ -55,6 +49,76 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache-${{ matrix.arch }}
+          cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,ref={0}/{1}:buildcache-{2},mode=max', env.REGISTRY, env.IMAGE_NAME, matrix.arch) || '' }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=${{ github.event_name != 'pull_request' }}
+
+      - name: Export digest
+        if: github.event_name != 'pull_request'
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    needs: build
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log into registry ${{ env.REGISTRY }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if beta tag
+        id: check_beta
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          if [[ "$REF" == *"beta"* ]]; then
+            echo "is_beta=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_beta=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           flavor: |
             latest=${{ github.ref == 'refs/tags/v*' && steps.check_beta.outputs.is_beta != 'true' }}
           tags: |
@@ -62,13 +126,12 @@ jobs:
             type=ref,event=branch
             type=raw,value=beta,enable=${{ steps.check_beta.outputs.is_beta == 'true' }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
