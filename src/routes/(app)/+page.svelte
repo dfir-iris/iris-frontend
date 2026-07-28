@@ -185,9 +185,10 @@
 	// `close_date IS NULL`, which can miss cases where the state was
 	// flipped to Closed without setting close_date (we hit this earlier
 	// when adding the state picker). To get a stable "open" view we pull
-	// the state list, learn the Closed state id, and ask the backend to
-	// exclude it. We over-fetch a bit to handle the edge case where a
-	// Closed-but-no-close_date case sneaks in via `is_open=true`.
+	// the state list, learn the Closed state id, and post-filter
+	// client-side. The count reported to the hero band comes from the
+	// filtered list so a page of "backend-open-but-state=Closed" cases
+	// doesn't inflate the chip.
 	const SAMPLE_SIZE = 50;
 	const loadOpenCases = async () => {
 		if (!cases) {
@@ -212,12 +213,18 @@
 					? items.filter((c) => c.state?.state_id !== closedStateId)
 					: items;
 
-			// The backend `total` is the unfiltered count; once we've
-			// excluded Closed-with-no-close_date entries client-side the
-			// real total is at best an approximation. Use the smaller of
-			// the two as a more honest signal.
+			// If we didn't post-filter (no Closed state id), the backend's
+			// total is authoritative. Otherwise the count is `openItems.length`
+			// — capped at the backend total (a page of SAMPLE_SIZE can't
+			// legitimately claim more open cases than the backend saw). We
+			// must NOT fall back to `total` when `openItems.length === 0`:
+			// that's the exact "all fetched cases were Closed" case the
+			// filter is here to catch, and it should read as 0.
+			const filteredTotal =
+				closedStateId == null ? total : Math.min(total, openItems.length);
+
 			openCasesState = {
-				total: Math.min(total, openItems.length || total),
+				total: filteredTotal,
 				items: openItems.slice(0, PREVIEW_LIMIT),
 				loading: false,
 				error: null
