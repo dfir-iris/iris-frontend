@@ -154,11 +154,15 @@ export class ApiService {
 
 			// Add authentication token if available
 			if (!headers['Authorization'] && !skipTokenRefresh) {
-				console.log(auth.isTokenExpired(), auth.isRefreshTokenExpired());
-				// Check if token refresh is needed
+				// Pre-flight refresh: if the access token is (nearly)
+				// expired but the refresh token is still valid, refresh
+				// before firing the request. `AuthService.refreshToken`
+				// dedups concurrent callers, so the N-parallel-requests
+				// case on a browser reload results in exactly one
+				// /refresh-token POST and every request reads the freshly
+				// stored access token below.
 				if (auth.isTokenExpired() && !auth.isRefreshTokenExpired()) {
 					await AuthService.refreshToken();
-					console.log(`Token refreshed successfully.`);
 				}
 
 				const accessToken = auth.getAccessToken();
@@ -241,10 +245,16 @@ export class ApiService {
 
 				// Check for unauthorized access (401)
 				if (response.status === 401 && !skipAuthRedirect && !skipTokenRefresh) {
-					// Try to refresh the token
-					const refreshSuccessful = await AuthService.refreshToken();
+					// Try to refresh the token. `refreshToken()` returns
+					// the response object on success and `null` on any
+					// failure (network hiccup, expired refresh, backend
+					// blip) — it no longer throws / logs the user out on
+					// its own. The 401 retry path here is the single
+					// place that decides "session is really dead" and
+					// fires `session-expired`.
+					const refresh = await AuthService.refreshToken();
 
-					if (refreshSuccessful) {
+					if (refresh?.tokens) {
 						// Retry the original request with the new token
 						return ApiService.request(method, url, data, {
 							headers,

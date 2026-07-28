@@ -62,6 +62,18 @@ export interface AuthSettings {
 }
 
 class AuthenticationService {
+	// Dedup guard for `refreshToken`. On a browser refresh the SPA fires
+	// ~10 concurrent API calls (whoami, runtime-config, permissions, cases,
+	// alerts, notifications, ...). If the access token is expired, each
+	// request's pre-flight check in `ApiService.request` calls
+	// `refreshToken()` independently. Without dedup, all N fire at the
+	// same time; they race on `auth.updateTokens(...)` and any transient
+	// failure on the slower ones used to trigger `auth.clearAuth() +
+	// goto('/login')`, logging the user out mid-page-load — most visible
+	// on SSO installs where the access token is short-lived and the
+	// browser-refresh path is the only place N-way parallelism happens.
+	private refreshInflight: Promise<RefreshTokensResponse | null> | null = null;
+
 	async getAuthSettings(): Promise<AuthSettings> {
 		const response = await ApiService.get<AuthSettings>(
 			'/api/v2/manage/server/authentication-settings',
@@ -156,46 +168,60 @@ class AuthenticationService {
 		}
 	}
 
-	async refreshToken() {
-		try {
-			console.log('Refreshing token...');
+	async refreshToken(): Promise<RefreshTokensResponse | null> {
+		// Concurrent callers share the same in-flight promise: exactly one
+		// POST /api/v2/auth/refresh-token, and all callers see the same
+		// success/failure outcome. Returns null on failure so the caller
+		// can react (the ApiService 401 retry path fires the
+		// `session-expired` event) — we do NOT call `auth.clearAuth()` or
+		// `goto('/login')` here; that used to log users out on any
+		// transient refresh hiccup during a page reload.
+		if (this.refreshInflight) return this.refreshInflight;
 
-			const response = await ApiService.post<RefreshTokensResponse>(
-				'/api/v2/auth/refresh-token',
-				{
-					refresh_token: auth.getRefreshToken()
-				},
-				{
-					skipAuthRedirect: true,
-					skipTokenRefresh: true
+		this.refreshInflight = (async () => {
+			try {
+				console.log('Refreshing token...');
+
+				const response = await ApiService.post<RefreshTokensResponse>(
+					'/api/v2/auth/refresh-token',
+					{
+						refresh_token: auth.getRefreshToken()
+					},
+					{
+						skipAuthRedirect: true,
+						skipTokenRefresh: true
+					}
+				);
+
+				if (!response.ok) {
+					console.error(
+						'Token refresh failed:',
+						response.error ? response.error.message : 'Unknown'
+					);
+					return null;
 				}
-			);
 
-			if (!response.ok) {
-				console.error('Token refresh failed:', response.error ? response.error.message : 'Unknown');
+				const refreshData = response.data as RefreshTokensResponse;
 
-				throw new Error('Failed to refresh token');
+				if (refreshData?.tokens) {
+					auth.updateTokens({
+						accessToken: refreshData.tokens.access_token,
+						refreshToken: refreshData.tokens.refresh_token,
+						accessTokenExpiresAt: refreshData.tokens.access_token_expires_at,
+						refreshTokenExpiresAt: refreshData.tokens.refresh_token_expires_at
+					});
+				}
+
+				return refreshData;
+			} catch (error: unknown) {
+				console.error('Token refresh error:', error);
+				return null;
+			} finally {
+				this.refreshInflight = null;
 			}
+		})();
 
-			const refreshData = response.data as RefreshTokensResponse;
-
-			// Update tokens in auth store
-			if (refreshData.tokens) {
-				auth.updateTokens({
-					accessToken: refreshData.tokens.access_token,
-					refreshToken: refreshData.tokens.refresh_token,
-					accessTokenExpiresAt: refreshData.tokens.access_token_expires_at,
-					refreshTokenExpiresAt: refreshData.tokens.refresh_token_expires_at
-				});
-			}
-
-			return refreshData;
-		} catch (error: unknown) {
-			console.error('Token refresh error:', error);
-			auth.clearAuth();
-			goto('/login');
-			throw error;
-		}
+		return this.refreshInflight;
 	}
 
 	async whoami() {

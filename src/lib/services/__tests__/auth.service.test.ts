@@ -162,14 +162,47 @@ describe('AuthService', () => {
 		});
 	});
 
-	it('should clear auth and throw if refresh token fails', async () => {
+	it('should resolve to null if refresh token fails, without clearing auth', async () => {
+		// Refresh no longer unilaterally logs the user out on failure —
+		// the ApiService 401 retry path decides "session is really dead"
+		// via the `session-expired` window event. This prevents a
+		// transient refresh hiccup during a page reload from wiping
+		// tokens the concurrent siblings would otherwise be able to use.
 		(ApiService.post as unknown as vi.Mock).mockResolvedValueOnce({
 			ok: false,
 			error: { message: 'Invalid refresh token' }
 		});
 
-		await expect(AuthService.refreshToken()).rejects.toThrow('Failed to refresh token');
-		expect(auth.clearAuth).toHaveBeenCalled();
+		await expect(AuthService.refreshToken()).resolves.toBeNull();
+		expect(auth.clearAuth).not.toHaveBeenCalled();
+	});
+
+	it('should dedup concurrent refresh calls into a single request', async () => {
+		let resolvePost: ((v: unknown) => void) | undefined;
+		(ApiService.post as unknown as vi.Mock).mockImplementationOnce(
+			() => new Promise((r) => (resolvePost = r))
+		);
+
+		const p1 = AuthService.refreshToken();
+		const p2 = AuthService.refreshToken();
+		const p3 = AuthService.refreshToken();
+
+		resolvePost!({
+			ok: true,
+			data: {
+				tokens: {
+					access_token: 'new-access',
+					refresh_token: 'new-refresh',
+					access_token_expires_at: 1800000000,
+					refresh_token_expires_at: 1800003600
+				}
+			}
+		});
+
+		await Promise.all([p1, p2, p3]);
+
+		expect(ApiService.post).toHaveBeenCalledTimes(1);
+		expect(auth.updateTokens).toHaveBeenCalledTimes(1);
 	});
 
 	it('should call whoami', async () => {

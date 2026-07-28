@@ -22,9 +22,12 @@ vi.mock('$lib/stores/auth.store', () => ({
 
 vi.mock('../auth.service', () => ({
 	AuthService: {
-		refreshToken: vi.fn(async () => {
-			throw new Error('Failed to refresh token');
-		})
+		// New behaviour: `refreshToken()` resolves to `null` on failure
+		// instead of throwing, so the ApiService 401 retry path can fall
+		// through to its `session-expired` dispatch. Previously the
+		// throw here masked that path entirely and clobbered the
+		// user's session on every refresh miss.
+		refreshToken: vi.fn(async () => null)
 	}
 }));
 
@@ -89,10 +92,14 @@ describe('ApiService', () => {
 
 		const result = await ApiService.get('/test-endpoint');
 
+		// `refreshToken()` resolved to null → 401 retry path throws
+		// "Unauthorized: Session expired", which the outer catch turns
+		// into a network_error response. The `session-expired` window
+		// event is fired for the root layout to catch.
 		expect(result.ok).toBe(false);
 		expect(result.status).toBe(0);
 		expect(result.error?.type).toBe('network_error');
-		expect(result.error?.message).toContain('Failed to refresh token');
+		expect(result.error?.message).toContain('Unauthorized: Session expired');
 		expect(goto).not.toHaveBeenCalled();
 	});
 
