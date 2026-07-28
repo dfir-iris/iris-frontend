@@ -2,6 +2,7 @@
 	import { setContext, type Snippet } from 'svelte';
 	import { SideBar } from '$lib/components/navigation/SideBar';
 	import TopBar from '$lib/components/navigation/TopBar/TopBar.svelte';
+	import ChatBotPanel from '$lib/components/common/ChatBot/ChatBotPanel.svelte';
 	import { CaseAddModal } from './[components]/CaseModals';
 	import { APP_CTX, createAppContext, type AppContext } from '$lib/contexts/app.context.svelte';
 	import {
@@ -14,6 +15,12 @@
 		createAlertsContext,
 		type AlertsContext
 	} from '$lib/contexts/alerts.context.svelte';
+	import {
+		CHAT_PANEL_CTX,
+		createChatPanelContext,
+		type ChatPanelContext
+	} from '$lib/contexts/chat-panel.context.svelte';
+	import { runtimeConfig } from '$lib/stores/runtime-config.store.svelte';
 	import {
 		USER_CTX,
 		createUserContext,
@@ -33,6 +40,11 @@
 
 	const userCtx: UserCtx = createUserContext();
 	setContext(USER_CTX, userCtx);
+
+	const chatPanel: ChatPanelContext = createChatPanelContext();
+	setContext(CHAT_PANEL_CTX, chatPanel);
+
+	const chatbotEnabled = $derived<boolean>(runtimeConfig.chatbot.enabled);
 
 	const showCaseAdd = $derived<boolean>(cases.ui.showAddModal);
 
@@ -87,3 +99,15 @@
 	open={showCaseAdd}
 	onOpenChange={(openState) => (cases.ui.showAddModal = openState)}
 />
+
+<!--
+  Global chatbot panel. Mounted here (not in the case layout) so
+  open/closed state and the current conversation survive navigation
+  between cases, alerts, war rooms, and the dashboard. Hidden entirely
+  when the backend chatbot isn't enabled — the panel component itself
+  is inert without a mounted context, but skipping the render saves the
+  Sheet's overlay wiring on every route.
+-->
+{#if chatbotEnabled}
+	<ChatBotPanel />
+{/if}

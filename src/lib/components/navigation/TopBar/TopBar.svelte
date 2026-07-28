@@ -5,10 +5,16 @@
 		BugIcon,
 		ChevronDownIcon,
 		LeafIcon,
+		MessageSquareIcon,
 		PlusIcon,
 		RefreshCwIcon,
 		SquareCheckBigIcon
 	} from 'lucide-svelte';
+	import { runtimeConfig } from '$lib/stores/runtime-config.store.svelte';
+	import {
+		CHAT_PANEL_CTX,
+		type ChatPanelContext
+	} from '$lib/contexts/chat-panel.context.svelte';
 	import BugReportDialog from '$lib/components/observability/BugReportDialog.svelte';
 	import {
 		Tooltip,
@@ -27,6 +33,12 @@
 	import TopBarSearch from './TopBarSearch.svelte';
 
 	const cases = getContext<CasesContext>(CASES_CTX);
+	// May be `undefined` on routes that don't mount the (app) layout
+	// (unlikely — the topbar itself is only rendered under (app) — but
+	// getContext returns undefined rather than throwing when the key
+	// isn't set, so guard defensively).
+	const chatPanel = getContext<ChatPanelContext | undefined>(CHAT_PANEL_CTX);
+	const chatbotEnabled = $derived<boolean>(runtimeConfig.chatbot.enabled);
 
 	const case_id = $derived<number>(cases.currentCaseId());
 	const currentCase = $derived<Case>(cases.currentCase());
@@ -250,6 +262,14 @@
 		<div class="mx-1 hidden h-5 w-px bg-white/15 sm:block" aria-hidden="true"></div>
 
 		<NotificationBell />
+
+		{#if chatbotEnabled && chatPanel}
+			<ActionButton
+				icon={MessageSquareIcon}
+				tooltip="IRIS Assistant"
+				action={() => chatPanel.toggle()}
+			/>
+		{/if}
 
 		{#each topBarButtons as topBarButton}
 			<ActionButton
