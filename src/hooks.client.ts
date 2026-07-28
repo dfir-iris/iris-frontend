@@ -15,9 +15,14 @@ import { handleErrorWithSentry } from '@sentry/sveltekit';
 import type { HandleClientError } from '@sveltejs/kit';
 import { initSentry } from '$lib/observability/init';
 import { fetchRuntimeConfig } from '$lib/observability/runtime-config';
+import { runtimeConfig } from '$lib/stores/runtime-config.store.svelte';
 
 const config = await fetchRuntimeConfig();
 initSentry(config.error_reporting);
+// Populate the module-scoped rune store so components that gate on
+// `runtimeConfig.chatbot.enabled` (topbar FAB) or `runtimeConfig.mcp`
+// can `$derived` off it without a per-component fetch.
+runtimeConfig.set(config);
 
 const fallbackHandleError: HandleClientError = ({ error, event }) => {
 	const message = error instanceof Error ? error.message : 'Client error';

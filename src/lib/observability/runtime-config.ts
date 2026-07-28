@@ -15,8 +15,21 @@ export interface RuntimeErrorReporting {
 	release: string;
 }
 
+export interface RuntimeMcp {
+	enabled: boolean;
+	endpoint: string;
+}
+
+export interface RuntimeChatbot {
+	enabled: boolean;
+	provider_available: boolean;
+	model: string;
+}
+
 export interface RuntimeConfig {
 	error_reporting: RuntimeErrorReporting;
+	mcp: RuntimeMcp;
+	chatbot: RuntimeChatbot;
 }
 
 const DISABLED: RuntimeConfig = {
@@ -26,7 +39,9 @@ const DISABLED: RuntimeConfig = {
 		environment: null,
 		sample_rate: 1.0,
 		release: 'iris@unknown'
-	}
+	},
+	mcp: { enabled: false, endpoint: '/api/v2/mcp' },
+	chatbot: { enabled: false, provider_available: false, model: '' }
 };
 
 // The backend wraps the payload in the standard `response_api_*`
@@ -55,7 +70,9 @@ export async function fetchRuntimeConfig(
 			error_reporting: {
 				...DISABLED.error_reporting,
 				...data.error_reporting
-			}
+			},
+			mcp: { ...DISABLED.mcp, ...(data.mcp ?? {}) },
+			chatbot: { ...DISABLED.chatbot, ...(data.chatbot ?? {}) }
 		};
 	} catch {
 		// Unauth (401) / network error — reporting stays off for this
