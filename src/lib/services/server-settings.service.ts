@@ -84,6 +84,30 @@ export interface ServerSettings {
 	mcp_expose_admin_tools: boolean;
 	mcp_tool_allowlist: string;
 	mcp_tool_denylist: string;
+
+	// ---- Chatbot (LLM assistant driven by MCP tools) ----------------
+	// Off by default. When on, the SPA's floating chat panel proxies
+	// user turns through the configured LLM provider (Anthropic /
+	// OpenAI / Ollama). See the Settings → Server page for the admin
+	// paradigm.
+	// `chatbot_api_key` is write-only (mirrors the mail passwords +
+	// error-reporting backend DSN treatment); the read path returns
+	// only the `_set` companion boolean so the SPA can render a
+	// masked "•••••" placeholder for a set field.
+	chatbot_enabled: boolean;
+	chatbot_provider: string | null;
+	chatbot_api_key?: string | null;
+	chatbot_api_key_set?: boolean;
+	chatbot_model: string | null;
+	chatbot_base_url: string | null;
+	chatbot_max_turns_per_conversation: number;
+	chatbot_max_tool_calls_per_turn: number;
+	chatbot_auto_execute_read_tools: boolean;
+	chatbot_daily_token_budget_per_user: number;
+	chatbot_daily_token_budget_org: number;
+	chatbot_redact_ips: boolean;
+	chatbot_redact_emails: boolean;
+	chatbot_redact_hashes: boolean;
 }
 
 export interface TestMailBody {
