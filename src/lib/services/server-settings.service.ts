@@ -73,6 +73,17 @@ export interface ServerSettings {
 	error_reporting_environment: string | null;
 	error_reporting_sample_rate: number | null;
 	error_reporting_include_user: boolean | null;
+
+	// ---- MCP (Model Context Protocol) endpoint ----------------------
+	// Off by default. When on, `/api/v2/mcp` accepts JSON-RPC 2.0
+	// requests from MCP clients (Claude Desktop, Claude Code, ...)
+	// authenticated with an IRIS API key. See the Settings → MCP Server
+	// page for the paradigm.
+	mcp_enabled: boolean;
+	mcp_max_calls_per_minute_per_worker: number;
+	mcp_expose_admin_tools: boolean;
+	mcp_tool_allowlist: string;
+	mcp_tool_denylist: string;
 }
 
 export interface TestMailBody {

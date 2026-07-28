@@ -12,6 +12,7 @@
 		LockKeyholeIcon,
 		MailIcon,
 		NewspaperIcon,
+		PlugIcon,
 		ServerIcon,
 		SettingsIcon,
 		WaypointsIcon
@@ -34,6 +35,7 @@
 		{ icon: MailIcon, label: 'Mail rules', href: '/mail' },
 		{ icon: FilterIcon, label: 'Clustering Rules', href: '/cluster-rules' },
 		{ icon: CheckSquareIcon, label: 'Investigation flows', href: '/investigation-flows' },
+		{ icon: PlugIcon, label: 'MCP Server', href: '/mcp' },
 		{ icon: SettingsIcon, label: 'Server Settings', href: '/server' }
 	];
 
