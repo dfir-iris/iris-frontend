@@ -48,6 +48,19 @@ export interface StreamingAssistant {
 	}[];
 }
 
+/**
+ * Extra context focus that lives ALONGSIDE the conversation's scope
+ * column. Alerts don't get their own scope FK on `case_chat_conversation`
+ * (would be a schema change), so we thread the alert focus through the
+ * client and inject a one-line note into the first user message when
+ * the analyst starts a chat scoped to an alert. The LLM sees that note
+ * as user context and reads/acts on the alert via the existing
+ * `iris_alerts_*` tools.
+ */
+export interface ChatFocusHint {
+	alertId?: number;
+}
+
 export const createChatPanelContext = () => {
 	const state = $state<{
 		open: boolean;
@@ -58,6 +71,12 @@ export const createChatPanelContext = () => {
 		streamingAssistant: StreamingAssistant | null;
 		error: string | null;
 		loading: boolean;
+		/**
+		 * Pending focus hint applied to the NEXT user turn's text.
+		 * Cleared after the first send() consumes it. Null when the
+		 * conversation has no extra focus.
+		 */
+		focusHint: ChatFocusHint | null;
 	}>({
 		open: false,
 		streamingConversationId: null,
@@ -66,7 +85,8 @@ export const createChatPanelContext = () => {
 		pendingToolCalls: [],
 		streamingAssistant: null,
 		error: null,
-		loading: false
+		loading: false,
+		focusHint: null
 	});
 
 	let socket: ChatSocketClient | null = null;
@@ -344,6 +364,38 @@ export const createChatPanelContext = () => {
 		}
 	};
 
+	const startWarRoomConversation = async (warRoomId: number, title = '') => {
+		state.loading = true;
+		state.error = null;
+		state.streamingConversationId = null;
+		state.streamingAssistant = null;
+		try {
+			const res = await ChatService.createWarRoomConversation(warRoomId, { title });
+			if (res.ok && res.data && typeof res.data !== 'string') {
+				const conv = res.data as ChatConversation;
+				state.currentConversation = conv;
+				state.messages = [];
+				state.pendingToolCalls = [];
+				_ensureSocket().joinConversation(conv.id);
+				return conv.id;
+			}
+			state.error =
+				(res.error?.message as string) || 'Could not create conversation';
+			return null;
+		} finally {
+			state.loading = false;
+		}
+	};
+
+	const listWarRoomConversations = async (warRoomId: number): Promise<ChatConversation[]> => {
+		const res = await ChatService.listWarRoomConversations(warRoomId);
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			const body = res.data as { conversations?: ChatConversation[] };
+			return body.conversations ?? [];
+		}
+		return [];
+	};
+
 	const startGlobalConversation = async (title = '') => {
 		state.loading = true;
 		state.error = null;
@@ -372,7 +424,102 @@ export const createChatPanelContext = () => {
 		state.error = null;
 		state.streamingAssistant = { text: '', pending: '', toolUses: [] };
 		state.streamingConversationId = state.currentConversation.id;
-		_ensureSocket().send(state.currentConversation.id, text);
+		// Prepend a one-line focus hint on the FIRST send of a
+		// conversation that was started with e.g. an alert focus. The
+		// LLM receives it as part of the user turn and treats the id
+		// as authoritative context — the existing alert MCP tools
+		// (iris_alerts_get, iris_alerts_related_get) take an
+		// alert_identifier they can pull from the hint.
+		let outbound = text;
+		if (state.focusHint?.alertId != null) {
+			outbound = `[context: focused on alert #${state.focusHint.alertId}]\n\n${text}`;
+			state.focusHint = null;
+		}
+		_ensureSocket().send(state.currentConversation.id, outbound);
+	};
+
+	/**
+	 * "Type and go" — the analyst types their first message before
+	 * clicking any "New chat" button. Auto-create a conversation
+	 * scoped appropriately, then send the message. Returns true on
+	 * success so the caller (composer) can clear its input.
+	 */
+	const sendOrStart = async (
+		text: string,
+		scope: {
+			caseId?: number | null;
+			warRoomId?: number | null;
+			alertId?: number | null;
+		} = {}
+	): Promise<boolean> => {
+		if (!text.trim()) return false;
+		if (!state.currentConversation) {
+			let convId: number | null = null;
+			if (scope.warRoomId != null) {
+				convId = await startWarRoomConversation(scope.warRoomId);
+			} else if (scope.caseId != null) {
+				convId = await startCaseConversation(scope.caseId);
+			} else {
+				convId = await startGlobalConversation();
+			}
+			if (convId == null || !state.currentConversation) return false;
+			if (scope.alertId != null) {
+				state.focusHint = { alertId: scope.alertId };
+			}
+		}
+		send(text);
+		return true;
+	};
+
+	/**
+	 * Explicit scope-picker entrypoint. Analyst chose a scope in the
+	 * WelcomeFrame / header chip; start a fresh conversation and set
+	 * any focus hint. Returns the new conversation id.
+	 */
+	const startWithScope = async (choice: {
+		kind:
+			| 'global'
+			| 'currentCase'
+			| 'currentWarRoom'
+			| 'currentAlert'
+			| 'pickCase'
+			| 'pickWarRoom';
+		caseId?: number;
+		warRoomId?: number;
+		alertId?: number;
+	}): Promise<number | null> => {
+		let convId: number | null = null;
+		switch (choice.kind) {
+			case 'currentCase':
+			case 'pickCase': {
+				const id = choice.caseId;
+				if (id == null) return null;
+				convId = await startCaseConversation(id);
+				break;
+			}
+			case 'currentWarRoom':
+			case 'pickWarRoom': {
+				const id = choice.warRoomId;
+				if (id == null) return null;
+				convId = await startWarRoomConversation(id);
+				break;
+			}
+			case 'currentAlert': {
+				// Alerts don't have their own conversation scope column
+				// — start a global conversation and set a focus hint so
+				// the first send() prepends the alert id as user context.
+				convId = await startGlobalConversation();
+				if (convId != null && choice.alertId != null) {
+					state.focusHint = { alertId: choice.alertId };
+				}
+				break;
+			}
+			case 'global':
+			default:
+				convId = await startGlobalConversation();
+				break;
+		}
+		return convId;
 	};
 
 	const approveTool = (pendingToolCallId: number) => {
@@ -411,12 +558,16 @@ export const createChatPanelContext = () => {
 		toggle,
 		openConversation,
 		startCaseConversation,
+		startWarRoomConversation,
 		startGlobalConversation,
 		listCaseConversations,
+		listWarRoomConversations,
 		listGlobalConversations,
 		renameConversation,
 		archiveConversation,
 		send,
+		sendOrStart,
+		startWithScope,
 		approveTool,
 		denyTool,
 		denyAllPending,

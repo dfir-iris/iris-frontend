@@ -21,14 +21,17 @@
 	let {
 		chat,
 		currentCaseId,
+		currentWarRoomId = null,
 		onClose
 	}: {
 		chat: ChatPanelContext;
 		currentCaseId: number | null;
+		currentWarRoomId?: number | null;
 		onClose: () => void;
 	} = $props();
 
 	let caseConvs = $state<ChatConversation[]>([]);
+	let warRoomConvs = $state<ChatConversation[]>([]);
 	let globalConvs = $state<ChatConversation[]>([]);
 	let loading = $state(true);
 	let editingId = $state<number | null>(null);
@@ -37,13 +40,17 @@
 	async function load() {
 		loading = true;
 		try {
-			const [caseList, globalList] = await Promise.all([
+			const [caseList, warRoomList, globalList] = await Promise.all([
 				currentCaseId != null
 					? chat.listCaseConversations(currentCaseId)
+					: Promise.resolve<ChatConversation[]>([]),
+				currentWarRoomId != null
+					? chat.listWarRoomConversations(currentWarRoomId)
 					: Promise.resolve<ChatConversation[]>([]),
 				chat.listGlobalConversations()
 			]);
 			caseConvs = caseList;
+			warRoomConvs = warRoomList;
 			globalConvs = globalList;
 		} finally {
 			loading = false;
@@ -140,6 +147,23 @@
 	{#if loading}
 		<p class="text-2xs text-muted-foreground">Loading…</p>
 	{:else}
+		{#if currentWarRoomId != null}
+			<div class="mb-2">
+				<div class="text-2xs font-medium text-muted-foreground">
+					In war-room #{currentWarRoomId}
+				</div>
+				{#if warRoomConvs.length === 0}
+					<p class="text-2xs text-muted-foreground">No prior chats in this war-room.</p>
+				{:else}
+					<ul class="mt-1 flex flex-col gap-0.5">
+						{#each warRoomConvs as conv (conv.id)}
+							{@render row(conv)}
+						{/each}
+					</ul>
+				{/if}
+			</div>
+		{/if}
+
 		{#if currentCaseId != null}
 			<div class="mb-2">
 				<div class="text-2xs font-medium text-muted-foreground">

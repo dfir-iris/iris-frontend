@@ -13,21 +13,37 @@
 
 	let {
 		disabled,
-		placeholder = 'Ask about this case, extract IOCs, draft a note…',
+		placeholder = 'Ask Yuki anything — summarise, extract, draft…',
 		onSend
 	}: {
 		disabled: boolean;
 		placeholder?: string;
-		onSend: (text: string) => void;
+		// May return a promise resolving to `false` if the send failed —
+		// in that case we keep the input's text so the analyst can
+		// retry without retyping. Sync `void` returns are treated as
+		// success (preserves the existing fire-and-forget path).
+		onSend: (text: string) => void | Promise<boolean | void>;
 	} = $props();
 
 	let text = $state('');
 
-	function submit() {
+	async function submit() {
 		const trimmed = text.trim();
 		if (!trimmed || disabled) return;
-		onSend(trimmed);
+		// Clear optimistically — restore only if the caller explicitly
+		// signals failure with `false`. Snappier UX for the 99% happy
+		// path, no lost input on the 1% auto-create-failed path.
+		const stash = text;
 		text = '';
+		try {
+			const result = onSend(trimmed);
+			if (result && typeof (result as Promise<boolean>).then === 'function') {
+				const ok = await (result as Promise<boolean | void>);
+				if (ok === false) text = stash;
+			}
+		} catch {
+			text = stash;
+		}
 	}
 
 	function onKeyDown(e: KeyboardEvent) {

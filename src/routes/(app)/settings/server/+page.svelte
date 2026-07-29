@@ -1072,18 +1072,30 @@
 								for="chatbot-base-url"
 								class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
 							>
-								Base URL (Ollama / self-hosted proxy)
+								Base URL (optional)
 							</label>
 							<Input
 								id="chatbot-base-url"
 								class="h-7 text-xs"
-								placeholder="http://ollama.internal:11434"
+								placeholder="e.g. https://<resource>.openai.azure.com/anthropic  or  http://ollama.internal:11434"
 								value={String(form.chatbot_base_url ?? '')}
 								disabled={saving}
 								oninput={(e) =>
 									(form.chatbot_base_url =
 										(e.currentTarget as HTMLInputElement).value || null)}
 							/>
+							<p class="text-2xs text-muted-foreground">
+								Overrides the provider's default endpoint. Useful for
+								Ollama, self-hosted proxies, and Azure Foundry's
+								Anthropic passthrough (set provider = Anthropic, base URL
+								to <code class="rounded bg-muted px-1 py-0.5 font-mono text-2xs"
+									>https://&lt;resource&gt;.openai.azure.com/anthropic</code
+								>). The provider's standard path is appended
+								automatically (e.g. <code
+									class="rounded bg-muted px-1 py-0.5 font-mono text-2xs"
+									>/v1/messages</code
+								> for Anthropic).
+							</p>
 						</div>
 
 						<div class="flex flex-col gap-1">

@@ -68,6 +68,19 @@
 				return `Escalate alert #${a.alert_identifier} into a new case.`;
 			case 'iris_alerts_merge':
 				return `Merge alert #${a.alert_identifier} into case #${a.target_case_id}.`;
+			case 'iris_alerts_update': {
+				const p = (a.payload as Record<string, unknown>) ?? {};
+				const changed = Object.keys(p);
+				if (changed.length === 0) {
+					return `Update alert #${a.alert_identifier}.`;
+				}
+				const preview = changed
+					.slice(0, 4)
+					.map((k) => `${k}=${JSON.stringify(p[k])}`)
+					.join(', ');
+				const extra = changed.length > 4 ? ` (+${changed.length - 4} more)` : '';
+				return `Update alert #${a.alert_identifier}: ${preview}${extra}.`;
+			}
 			default:
 				return null;
 		}

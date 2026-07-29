@@ -51,6 +51,7 @@ export interface ChatMessage {
 export interface ChatConversation {
 	id: number;
 	case_id: number | null;
+	war_room_id: number | null;
 	user_id: number;
 	model: string;
 	title: string;
@@ -116,6 +117,25 @@ export class ChatService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<{ conversations: ChatConversation[] }>> {
 		return ApiService.get('/case-chat/global/conversations', options);
+	}
+
+	static async listWarRoomConversations(
+		warRoomId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<{ conversations: ChatConversation[] }>> {
+		return ApiService.get(`/case-chat/war-rooms/${warRoomId}/conversations`, options);
+	}
+
+	static async createWarRoomConversation(
+		warRoomId: number,
+		body: { title?: string } = {},
+		options: ApiOptions = {}
+	): Promise<RequestResponse<ChatConversation>> {
+		return ApiService.post<ChatConversation>(
+			`/case-chat/war-rooms/${warRoomId}/conversations`,
+			body,
+			options
+		);
 	}
 
 	static async createGlobalConversation(

@@ -31,6 +31,10 @@
 	import PendingToolApproval from './components/PendingToolApproval.svelte';
 	import ToolCallCard from './components/ToolCallCard.svelte';
 	import ConversationHistory from './components/ConversationHistory.svelte';
+	import ThinkingShimmer from './components/ThinkingShimmer.svelte';
+	import WelcomeFrame from './components/WelcomeFrame.svelte';
+	import ScopePicker from './components/ScopePicker.svelte';
+	import type { ChatScopeChoice } from './components/scope-picker-types';
 
 	const chat = getContext<ChatPanelContext>(CHAT_PANEL_CTX);
 
@@ -41,17 +45,83 @@
 		return Number.isFinite(n) ? n : null;
 	});
 
+	const currentWarRoomId = $derived.by<number | null>(() => {
+		const raw = page.params?.war_room_id ?? null;
+		if (!raw) return null;
+		const n = Number(raw);
+		return Number.isFinite(n) ? n : null;
+	});
+
+	// Alert scope. Alerts don't have their own conversation FK — they
+	// piggyback on global conversations via a `focusHint` prepended to
+	// the first user message. See chat-panel.context for the hint.
+	const currentAlertId = $derived.by<number | null>(() => {
+		const raw = page.params?.alert_id ?? null;
+		if (!raw) return null;
+		const n = Number(raw);
+		return Number.isFinite(n) ? n : null;
+	});
+
 	const streaming = $derived(chat.state.streamingConversationId != null);
 	const disabled = $derived(streaming || chat.state.pendingToolCalls.length > 0);
 
+	// True in the initial-latency window: the user just sent and the
+	// stream is running but no text has arrived yet. Also true between
+	// a tool_result and the next TextDelta (model reasoning on the
+	// tool output). Drives the shimmer bar.
+	const thinking = $derived(
+		streaming && (!chat.state.streamingAssistant || chat.state.streamingAssistant.text.length === 0)
+	);
+
 	async function newHere() {
 		showHistory = false;
-		if (currentCaseId != null) {
+		showHeaderScopePicker = false;
+		if (currentWarRoomId != null) {
+			await chat.startWarRoomConversation(currentWarRoomId);
+		} else if (currentCaseId != null) {
 			await chat.startCaseConversation(currentCaseId);
+		} else if (currentAlertId != null) {
+			// Alerts: global conversation + focus hint set via
+			// startWithScope so the first send prepends the alert id.
+			await chat.startWithScope({ kind: 'currentAlert', alertId: currentAlertId });
 		} else {
 			await chat.startGlobalConversation();
 		}
 	}
+
+	// Header-chip scope picker: opens inline in the header to fork a
+	// NEW chat with a different scope than the currently active one.
+	let showHeaderScopePicker = $state(false);
+
+	async function onScopePicked(choice: ChatScopeChoice) {
+		showHistory = false;
+		showHeaderScopePicker = false;
+		const materialized: Parameters<typeof chat.startWithScope>[0] = { kind: choice.kind };
+		if (choice.kind === 'currentCase' && currentCaseId != null) {
+			materialized.caseId = currentCaseId;
+		} else if (choice.kind === 'currentWarRoom' && currentWarRoomId != null) {
+			materialized.warRoomId = currentWarRoomId;
+		} else if (choice.kind === 'currentAlert' && currentAlertId != null) {
+			materialized.alertId = currentAlertId;
+		} else if (choice.kind === 'pickCase') {
+			materialized.caseId = choice.caseId;
+		} else if (choice.kind === 'pickWarRoom') {
+			materialized.warRoomId = choice.warRoomId;
+		}
+		await chat.startWithScope(materialized);
+	}
+
+	// Label for the header chip that describes the CURRENT conversation's
+	// scope (case #N / war-room #N / global). Read-only — analyst clicks
+	// the chip to fork a NEW chat at a different scope; the existing
+	// conversation's scope is immutable.
+	const currentConversationScope = $derived.by<string>(() => {
+		const conv = chat.state.currentConversation;
+		if (!conv) return '';
+		if (conv.war_room_id != null) return `war-room #${conv.war_room_id}`;
+		if (conv.case_id != null) return `case #${conv.case_id}`;
+		return 'global';
+	});
 
 	let showHistory = $state(false);
 
@@ -352,16 +422,48 @@
 				</div>
 			</div>
 
-			<!-- Toolbar: new-chat button + scope hint. -->
-			<div class="flex shrink-0 items-center gap-2 border-b px-3 py-2">
-				<Button size="sm" variant="outline" class="h-7" onclick={newHere}>
-					<PlusIcon size={12} class="mr-1" />
-					New chat {currentCaseId != null ? `on case #${currentCaseId}` : ''}
-				</Button>
-				{#if currentCaseId != null}
-					<span class="ml-auto text-2xs text-muted-foreground">
-						Scoped to case #{currentCaseId}
-					</span>
+			<!-- Toolbar: new-chat button + scope chip. -->
+			<div class="flex shrink-0 flex-col gap-2 border-b px-3 py-2">
+				<div class="flex items-center gap-2">
+					<Button size="sm" variant="outline" class="h-7" onclick={newHere}>
+						<PlusIcon size={12} class="mr-1" />
+						New chat {currentWarRoomId != null
+							? `in war-room #${currentWarRoomId}`
+							: currentCaseId != null
+								? `on case #${currentCaseId}`
+								: currentAlertId != null
+									? `on alert #${currentAlertId}`
+									: ''}
+					</Button>
+					<!-- Scope chip: shows the current conversation's scope
+					     (case/war-room/global) OR the route's scope if no
+					     conversation yet. Clicking opens an inline scope
+					     picker that starts a NEW chat at the chosen scope
+					     — the existing conversation is immutable. -->
+					<button
+						type="button"
+						class="ml-auto flex items-center gap-1 rounded border bg-background px-2 py-0.5 text-2xs text-muted-foreground hover:bg-muted hover:text-foreground"
+						title="Change scope for next new chat"
+						onclick={() => (showHeaderScopePicker = !showHeaderScopePicker)}
+					>
+						Scope: {chat.state.currentConversation
+							? currentConversationScope
+							: currentWarRoomId != null
+								? `war-room #${currentWarRoomId}`
+								: currentCaseId != null
+									? `case #${currentCaseId}`
+									: currentAlertId != null
+										? `alert #${currentAlertId}`
+										: 'global'}
+					</button>
+				</div>
+				{#if showHeaderScopePicker}
+					<ScopePicker
+						{currentCaseId}
+						{currentWarRoomId}
+						{currentAlertId}
+						onPick={onScopePicked}
+					/>
 				{/if}
 			</div>
 
@@ -374,6 +476,7 @@
 					<ConversationHistory
 						{chat}
 						{currentCaseId}
+						{currentWarRoomId}
 						onClose={() => (showHistory = false)}
 					/>
 				{/if}
@@ -381,17 +484,22 @@
 					<Skeleton class="h-12 w-full" />
 					<Skeleton class="h-16 w-full" />
 				{:else if !chat.state.currentConversation}
-					<p class="text-xs text-muted-foreground">
-						Hi, I'm Yuki. Start a new chat above and I'll help you triage
-						this case — reading IOCs, assets, notes and tasks on my own,
-						and asking for your approval before I change anything.
-					</p>
+					<WelcomeFrame
+						{chat}
+						{currentCaseId}
+						{currentWarRoomId}
+						{currentAlertId}
+						onStart={newHere}
+						onPickScope={onScopePicked}
+					/>
 				{:else}
 					{#each chat.state.messages as message (message.id)}
 						<ChatMessage {message} />
 					{/each}
 
-					{#if chat.state.streamingAssistant}
+					{#if chat.state.streamingAssistant && (chat.state.streamingAssistant.text.length > 0 || chat.state.streamingAssistant.toolUses.length > 0)}
+						<!-- Real content has started arriving — show the
+						     bubble with the dripped text + any tool cards. -->
 						<div class="flex gap-2 text-xs">
 							<div
 								class="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary"
@@ -423,6 +531,12 @@
 								{/if}
 							</div>
 						</div>
+					{:else if thinking}
+						<!-- Latency window: stream started but nothing has
+						     arrived yet, or model reasoning after a
+						     tool_result. Show the shimmer instead of an
+						     empty bubble. -->
+						<ThinkingShimmer />
 					{/if}
 
 					{#if chat.state.pendingToolCalls.length > 1}
@@ -458,7 +572,12 @@
 
 			<ChatComposer
 				{disabled}
-				onSend={(text) => chat.send(text)}
+				onSend={(text) =>
+					chat.sendOrStart(text, {
+						caseId: currentCaseId,
+						warRoomId: currentWarRoomId,
+						alertId: currentAlertId
+					})}
 			/>
 
 			<!--
