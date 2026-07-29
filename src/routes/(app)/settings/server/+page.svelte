@@ -108,23 +108,32 @@
 		return (original ?? null) !== (current ?? null);
 	};
 
+	// Union of server-echoed keys AND locally-typed keys. Load-only
+	// secrets (mail_smtp_password, mail_imap_password,
+	// error_reporting_backend_dsn, chatbot_api_key) are omitted from
+	// the GET response, so iterating `payload.settings` alone would
+	// silently drop any newly-typed value in those fields — you'd hit
+	// "Save" and the PUT would omit the field, leaving the ciphertext
+	// unchanged.
+	const changedKeys = (): Array<keyof ServerSettings> => {
+		if (payload == null) return [];
+		const settings = payload.settings as ServerSettings;
+		const keys = new Set<keyof ServerSettings>();
+		for (const k of Object.keys(settings) as Array<keyof ServerSettings>) keys.add(k);
+		for (const k of Object.keys(form) as Array<keyof ServerSettings>) keys.add(k);
+		return [...keys];
+	};
+
 	const isDirty = $derived.by<boolean>(() => {
 		if (payload == null) return false;
-		const settings = payload.settings as ServerSettings;
-		return (Object.keys(settings) as Array<keyof ServerSettings>).some((k) =>
-			fieldChanged(k)
-		);
+		return changedKeys().some((k) => fieldChanged(k));
 	});
 
 	const buildPatch = (): ServerSettingsUpdateBody => {
 		if (payload == null) return {};
 		const patch: ServerSettingsUpdateBody = {};
-		const settings = payload.settings as ServerSettings;
-		for (const key of Object.keys(settings) as Array<keyof ServerSettings>) {
+		for (const key of changedKeys()) {
 			if (fieldChanged(key)) {
-				// Cast through `any` — TS can't track the per-key
-				// shape across the Object.keys() loop, but we know
-				// each key matches its slot on both sides of the assign.
 				(patch as Record<string, unknown>)[key] = (form as Record<string, unknown>)[key];
 			}
 		}

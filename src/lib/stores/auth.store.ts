@@ -180,11 +180,17 @@ const createAuthStore = () => {
 
 			loadAuthInflight = (async () => {
 				try {
+					// No hand-set Authorization header — let ApiService's
+					// pre-flight refresh + header injection run. Setting it
+					// here bypasses the pre-flight and races the parallel
+					// refresh-token rotation kicked off by other reload-time
+					// callers (cases.load, userCtx.load, runtime-config,
+					// notifications, ...), so whoami would fire with a stale
+					// access token, its own retry path would race the same
+					// refresh, and on the losing side loadAuth would redirect
+					// to /login.
 					const response = await ApiService.get<LoginResponse>('/api/v2/auth/whoami', {
-						fetch: fetchFn,
-						headers: {
-							Authorization: `Bearer ${current.tokens!.accessToken}`
-						}
+						fetch: fetchFn
 					});
 
 					const fresh = normalizeUser(response.data as LoginResponse);

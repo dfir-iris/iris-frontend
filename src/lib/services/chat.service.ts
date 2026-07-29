@@ -148,6 +148,18 @@ export class ChatService {
 			options
 		);
 	}
+
+	static async renameConversation(
+		conversationId: number,
+		title: string,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<ChatConversation>> {
+		return ApiService.patch<ChatConversation>(
+			`/case-chat/conversations/${conversationId}`,
+			{ title },
+			options
+		);
+	}
 }
 
 // ---------------------------------------------------------------------

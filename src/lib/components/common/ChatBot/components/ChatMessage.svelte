@@ -7,7 +7,7 @@
   shown inside the associated assistant bubble's tool cards.
 -->
 <script lang="ts">
-	import { BotIcon, UserIcon } from 'lucide-svelte';
+	import { SparklesIcon, UserIcon } from 'lucide-svelte';
 	import MarkDownPreview from '$lib/components/common/MarkDown/MarkDownPreview.svelte';
 	import type { ChatMessage, ChatContentBlock } from '$lib/services/chat.service';
 	import ToolCallCard from './ToolCallCard.svelte';
@@ -37,7 +37,7 @@
 			<div
 				class="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary"
 			>
-				<BotIcon size={12} />
+				<SparklesIcon size={12} />
 			</div>
 		{/if}
 		<div

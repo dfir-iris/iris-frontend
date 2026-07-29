@@ -5,7 +5,7 @@
 		BugIcon,
 		ChevronDownIcon,
 		LeafIcon,
-		MessageSquareIcon,
+		SparklesIcon,
 		PlusIcon,
 		RefreshCwIcon,
 		SquareCheckBigIcon
@@ -265,8 +265,8 @@
 
 		{#if chatbotEnabled && chatPanel}
 			<ActionButton
-				icon={MessageSquareIcon}
-				tooltip="IRIS Assistant"
+				icon={SparklesIcon}
+				tooltip="Yuki"
 				action={() => chatPanel.toggle()}
 			/>
 		{/if}

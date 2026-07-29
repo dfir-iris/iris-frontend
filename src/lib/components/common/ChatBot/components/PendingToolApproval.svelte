@@ -84,7 +84,7 @@
 		/>
 		<div class="flex flex-col gap-2">
 			<div class="font-medium">
-				The assistant proposes to run
+				Yuki proposes to run
 				<code class="rounded bg-muted px-1 py-0.5 font-mono text-2xs">
 					{pending.tool_name}
 				</code>

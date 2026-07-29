@@ -29,7 +29,13 @@ export const CHAT_PANEL_CTX = Symbol('chat-panel');
  * `error`.
  */
 export interface StreamingAssistant {
+	/** Characters revealed to the reader — what the panel actually paints. */
 	text: string;
+	/** Buffered characters that arrived from the socket but haven't been
+	 *  revealed yet. Drained by the drip timer (see `_ensureSocket`).
+	 *  Kept separate from `text` so the drip effect works even when SSE
+	 *  chunks arrive in bursts of 30-60 chars at a time. */
+	pending: string;
 	toolUses: {
 		tool_use_id: string;
 		tool_name: string;
@@ -65,21 +71,87 @@ export const createChatPanelContext = () => {
 
 	let socket: ChatSocketClient | null = null;
 
+	// ---- Character-drip typing effect ----
+	// The socket delivers full-token SSE chunks (5-60 chars each). Painting
+	// them raw feels jerky — the assistant "types" in staccato bursts.
+	// Instead we buffer incoming text into `streamingAssistant.pending`
+	// and drain it into `.text` one character at a time at
+	// TYPING_CHARS_PER_SEC. Feels like a person typing without exceeding
+	// the actual streaming throughput (once pending is empty the drip
+	// sleeps until the next chunk lands).
+	const TYPING_CHARS_PER_SEC = 90;
+	const TYPING_TICK_MS = 20;
+	// Chars-per-tick derived so slower connections don't fall behind:
+	// at 90 char/s with 20ms ticks we emit ~2 chars per tick. When
+	// pending grows large (model bursts a paragraph in one SSE frame),
+	// the drainer scales up so we never trail more than 200 chars —
+	// beyond that the illusion breaks and it's better to catch up.
+	const TYPING_MAX_LAG_CHARS = 200;
+	let typingTimer: ReturnType<typeof setInterval> | null = null;
+
+	const _startTypingTimer = () => {
+		if (typingTimer != null) return;
+		typingTimer = setInterval(() => {
+			const sa = state.streamingAssistant;
+			if (!sa || sa.pending.length === 0) {
+				// Nothing to drip — stop the timer to avoid spinning
+				// the JS thread while we wait for the next SSE chunk.
+				if (typingTimer != null) {
+					clearInterval(typingTimer);
+					typingTimer = null;
+				}
+				return;
+			}
+			const baseChunk = Math.max(
+				1,
+				Math.floor((TYPING_CHARS_PER_SEC * TYPING_TICK_MS) / 1000)
+			);
+			// Catch-up multiplier: if pending is growing past the lag
+			// threshold, drain faster so we don't fall behind.
+			const chunk = Math.min(
+				sa.pending.length,
+				sa.pending.length > TYPING_MAX_LAG_CHARS
+					? baseChunk * 3
+					: baseChunk
+			);
+			state.streamingAssistant = {
+				...sa,
+				text: sa.text + sa.pending.slice(0, chunk),
+				pending: sa.pending.slice(chunk)
+			};
+		}, TYPING_TICK_MS);
+	};
+
+	const _flushTyping = () => {
+		if (typingTimer != null) {
+			clearInterval(typingTimer);
+			typingTimer = null;
+		}
+		if (state.streamingAssistant && state.streamingAssistant.pending) {
+			state.streamingAssistant = {
+				...state.streamingAssistant,
+				text: state.streamingAssistant.text + state.streamingAssistant.pending,
+				pending: ''
+			};
+		}
+	};
+
 	const _ensureSocket = () => {
 		if (socket) return socket;
 		socket = new ChatSocketClient({
 			onAssistantDelta: (payload) => {
 				if (!state.streamingAssistant) {
-					state.streamingAssistant = { text: '', toolUses: [] };
+					state.streamingAssistant = { text: '', pending: '', toolUses: [] };
 				}
 				state.streamingAssistant = {
 					...state.streamingAssistant,
-					text: state.streamingAssistant.text + (payload.text ?? '')
+					pending: state.streamingAssistant.pending + (payload.text ?? '')
 				};
+				_startTypingTimer();
 			},
 			onAssistantToolStart: (payload) => {
 				if (!state.streamingAssistant) {
-					state.streamingAssistant = { text: '', toolUses: [] };
+					state.streamingAssistant = { text: '', pending: '', toolUses: [] };
 				}
 				const nextToolUses = [
 					...state.streamingAssistant.toolUses,
@@ -115,6 +187,10 @@ export const createChatPanelContext = () => {
 				};
 			},
 			onAssistantEnd: () => {
+				// Flush any un-dripped characters so the final rendered
+				// message matches what the model actually sent (no lost
+				// tail if the socket closed while pending had data).
+				_flushTyping();
 				// The backend already persisted the assistant message;
 				// re-fetch the conversation so `messages` reflects the
 				// canonical rows. Cheaper than deriving the shape here.
@@ -131,6 +207,7 @@ export const createChatPanelContext = () => {
 				}
 			},
 			onError: (payload) => {
+				_flushTyping();
 				state.error = payload.message || 'Chatbot error';
 				state.streamingAssistant = null;
 				state.streamingConversationId = null;
@@ -139,6 +216,11 @@ export const createChatPanelContext = () => {
 			onConnectFailure: () => {
 				state.error =
 					'Could not connect to the chatbot socket. Reload the page to retry.';
+				// Unlock the composer so the user can at least see the
+				// error and try a fresh conversation instead of typing
+				// into a paralysed textarea.
+				state.streamingConversationId = null;
+				state.streamingAssistant = null;
 			}
 		});
 		socket.connect();
@@ -179,6 +261,11 @@ export const createChatPanelContext = () => {
 	const openConversation = async (conversationId: number) => {
 		state.loading = true;
 		state.error = null;
+		// Opening a previously-persisted conversation is also a reset
+		// moment for streaming state — if the tab was closed mid-turn
+		// the flag could still be set from the last session.
+		state.streamingConversationId = null;
+		state.streamingAssistant = null;
 		try {
 			await refresh(conversationId);
 			_ensureSocket().joinConversation(conversationId);
@@ -187,9 +274,58 @@ export const createChatPanelContext = () => {
 		}
 	};
 
+	const listCaseConversations = async (caseId: number): Promise<ChatConversation[]> => {
+		const res = await ChatService.listCaseConversations(caseId);
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			const body = res.data as { conversations?: ChatConversation[] };
+			return body.conversations ?? [];
+		}
+		return [];
+	};
+
+	const listGlobalConversations = async (): Promise<ChatConversation[]> => {
+		const res = await ChatService.listGlobalConversations();
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			const body = res.data as { conversations?: ChatConversation[] };
+			return body.conversations ?? [];
+		}
+		return [];
+	};
+
+	const renameConversation = async (
+		conversationId: number,
+		title: string
+	): Promise<boolean> => {
+		const res = await ChatService.renameConversation(conversationId, title);
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			const updated = res.data as ChatConversation;
+			if (state.currentConversation?.id === updated.id) {
+				state.currentConversation = updated;
+			}
+			return true;
+		}
+		return false;
+	};
+
+	const archiveConversation = async (conversationId: number): Promise<boolean> => {
+		const res = await ChatService.archiveConversation(conversationId);
+		if (!res.ok) return false;
+		if (state.currentConversation?.id === conversationId) {
+			state.currentConversation = null;
+			state.messages = [];
+			state.pendingToolCalls = [];
+		}
+		return true;
+	};
+
 	const startCaseConversation = async (caseId: number, title = '') => {
 		state.loading = true;
 		state.error = null;
+		// A previous conversation may have left the composer locked
+		// (stuck streamingConversationId if a socket dropped mid-turn).
+		// Starting a fresh chat is an explicit reset moment.
+		state.streamingConversationId = null;
+		state.streamingAssistant = null;
 		try {
 			const res = await ChatService.createCaseConversation(caseId, { title });
 			if (res.ok && res.data && typeof res.data !== 'string') {
@@ -211,6 +347,8 @@ export const createChatPanelContext = () => {
 	const startGlobalConversation = async (title = '') => {
 		state.loading = true;
 		state.error = null;
+		state.streamingConversationId = null;
+		state.streamingAssistant = null;
 		try {
 			const res = await ChatService.createGlobalConversation({ title });
 			if (res.ok && res.data && typeof res.data !== 'string') {
@@ -232,23 +370,36 @@ export const createChatPanelContext = () => {
 	const send = (text: string) => {
 		if (!state.currentConversation) return;
 		state.error = null;
-		state.streamingAssistant = { text: '', toolUses: [] };
+		state.streamingAssistant = { text: '', pending: '', toolUses: [] };
 		state.streamingConversationId = state.currentConversation.id;
 		_ensureSocket().send(state.currentConversation.id, text);
 	};
 
 	const approveTool = (pendingToolCallId: number) => {
 		if (!state.currentConversation) return;
-		state.streamingAssistant = { text: '', toolUses: [] };
+		state.streamingAssistant = { text: '', pending: '', toolUses: [] };
 		state.streamingConversationId = state.currentConversation.id;
 		_ensureSocket().approveTool(pendingToolCallId, state.currentConversation.id);
 	};
 
 	const denyTool = (pendingToolCallId: number) => {
 		if (!state.currentConversation) return;
-		state.streamingAssistant = { text: '', toolUses: [] };
+		state.streamingAssistant = { text: '', pending: '', toolUses: [] };
 		state.streamingConversationId = state.currentConversation.id;
 		_ensureSocket().denyTool(pendingToolCallId, state.currentConversation.id);
+	};
+
+	/** Deny every currently-pending tool call in one click. Useful when
+	 *  the model gets stuck in a retry loop after a validation error and
+	 *  the analyst wants to bail out without approving nothing individually.
+	 *  Emits one deny per pending row; the loop re-runs after each, but
+	 *  since every row denies, the model will eventually stop retrying. */
+	const denyAllPending = () => {
+		if (!state.currentConversation) return;
+		const snapshot = [...state.pendingToolCalls];
+		for (const pending of snapshot) {
+			_ensureSocket().denyTool(pending.id, state.currentConversation.id);
+		}
 	};
 
 	return {
@@ -261,9 +412,14 @@ export const createChatPanelContext = () => {
 		openConversation,
 		startCaseConversation,
 		startGlobalConversation,
+		listCaseConversations,
+		listGlobalConversations,
+		renameConversation,
+		archiveConversation,
 		send,
 		approveTool,
 		denyTool,
+		denyAllPending,
 		refresh,
 		// Escape hatch for tests: drop the socket so a follow-up connect()
 		// picks up a fresh token.
