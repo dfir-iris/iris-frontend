@@ -7,14 +7,20 @@
   directly in a new tab therefore lands on a bare 401 ("Authentication
   Error"). This page fetches the spec through `ApiService` (which
   attaches the Bearer header + refreshes if needed), parses the YAML
-  into a JS object, and hands it to Redoc via `element.spec = obj`.
+  into a JS object, and hands it to `Redoc.init()`.
 
-  Historically this page passed a `blob:` URL to Redoc's `spec-url`
-  attribute. That triggered a Redoc 2.5.3 bug: when the served spec
-  had any `$ref` (even `#/components/...`), its resolver walked a
-  code path that ended in `fs.lstatSync` — Node-only, throws
-  `n.lstatSync is not a function` in the browser. Handing Redoc the
-  parsed object short-circuits the URL resolver entirely.
+  Two Redoc traps we sidestep here:
+  1. Historic bug: `spec-url` pointing at a `blob:` URL made the
+     resolver walk into `fs.lstatSync` (Node-only, throws in the
+     browser) as soon as the spec had a `$ref`. Parsing YAML client-
+     side and passing the object short-circuits that entire code path.
+  2. `<redoc>` is NOT a real custom element — Redoc's bundle mounts
+     React inside a plain tag but never calls `customElements.define`.
+     So `customElements.whenDefined('redoc')` throws
+     `'redoc' is not a valid custom element name` (spec requires a
+     hyphen). Use `Redoc.init(spec, options, element)` instead — the
+     documented programmatic entry point that doesn't rely on custom
+     elements at all.
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
@@ -27,7 +33,7 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let specObject = $state<unknown>(null);
-	let redocEl: HTMLElement | null = $state(null);
+	let mountEl: HTMLDivElement | null = $state(null);
 
 	const loadSpec = async () => {
 		loading = true;
@@ -52,18 +58,24 @@
 		}
 	};
 
-	// Wait for the Redoc CDN script to define the <redoc> custom
-	// element (or return immediately if it already did). Resolves so
-	// the caller can safely set `.spec` on the element.
-	const waitForRedoc = (): Promise<void> =>
-		new Promise((resolve) => {
-			if (customElements.get('redoc')) return resolve();
-			void customElements.whenDefined('redoc').then(() => resolve());
+	// Wait until the CDN script has attached `window.Redoc.init`.
+	// Polling because the script `load` event fires before the global
+	// is fully populated in some browsers.
+	const waitForRedocGlobal = (): Promise<{ init: (spec: unknown, options: unknown, element: HTMLElement) => void }> =>
+		new Promise((resolve, reject) => {
+			const start = performance.now();
+			const tick = () => {
+				const g = (window as unknown as { Redoc?: { init?: (s: unknown, o: unknown, e: HTMLElement) => void } }).Redoc;
+				if (g && typeof g.init === 'function') return resolve(g as { init: (s: unknown, o: unknown, e: HTMLElement) => void });
+				if (performance.now() - start > 15000) return reject(new Error('Redoc failed to load within 15s.'));
+				setTimeout(tick, 60);
+			};
+			tick();
 		});
 
 	onMount(async () => {
 		await loadSpec();
-		if (specObject == null) return;
+		if (specObject == null || !mountEl) return;
 
 		if (!document.querySelector('script[data-redoc-cdn="1"]')) {
 			const s = document.createElement('script');
@@ -72,11 +84,11 @@
 			s.dataset.redocCdn = '1';
 			document.head.appendChild(s);
 		}
-		await waitForRedoc();
-		if (redocEl) {
-			// Redoc reads `element.spec` (a JS object) when `spec-url`
-			// is absent. Setting the property triggers initial render.
-			(redocEl as unknown as { spec: unknown }).spec = specObject;
+		try {
+			const Redoc = await waitForRedocGlobal();
+			Redoc.init(specObject, {}, mountEl);
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
 		}
 	});
 </script>
@@ -99,6 +111,6 @@
 			<p class="mt-2 text-sm">{error}</p>
 		</div>
 	{:else if specObject}
-		<redoc bind:this={redocEl}></redoc>
+		<div bind:this={mountEl}></div>
 	{/if}
 </div>
