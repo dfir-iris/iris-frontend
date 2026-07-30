@@ -12,6 +12,8 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { Chart, WidgetTable } from '$lib/components/ui/chart';
+	import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '$lib/components/ui/tooltip';
+	import { HelpCircleIcon } from 'lucide-svelte';
 	import {
 		CustomDashboardsService,
 		safeCssColor,
@@ -27,8 +29,24 @@
 	let loading = $state(true);
 	let error: string | null = $state(null);
 
-	let filterStart = $state('');
-	let filterEnd = $state('');
+	// Default to a 30-day rolling window on first paint. Without a
+	// default, aggregates like MTTD/MTTR span all history — a small tail
+	// of very-old resolved alerts drags the mean into "23 days" territory
+	// and the KPI is meaningless on first glance. 30 days is the SOC-
+	// standard "recent" window and matches how analysts read these tiles.
+	// The analyst can widen with the preset chips or clear via Reset.
+	function _initialWindow(): { start: string; end: string } {
+		const now = new Date();
+		const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+		const pad = (n: number) => String(n).padStart(2, '0');
+		const fmt = (d: Date) =>
+			`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+			`T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+		return { start: fmt(thirtyDaysAgo), end: fmt(now) };
+	}
+	const _defaultWindow = _initialWindow();
+	let filterStart = $state(_defaultWindow.start);
+	let filterEnd = $state(_defaultWindow.end);
 
 	const uuid = $derived(page.params.uuid);
 
@@ -147,6 +165,15 @@
 		return base;
 	}
 
+	// Widget-authored help text surfaces as a ? tooltip next to the KPI
+	// title. Keeps definitions colocated with the widget definition itself
+	// (in options.help) rather than baked into the frontend, so a cloned
+	// dashboard carries its own explanations.
+	function widgetHelp(widget: RenderedWidget): string | null {
+		const h = (widget.options as Record<string, unknown> | undefined)?.help;
+		return typeof h === 'string' && h.trim() ? h : null;
+	}
+
 	function formatValue(widget: RenderedWidget): string {
 		if (widget.formatted_value) return widget.formatted_value;
 		const v = widget.value;
@@ -163,13 +190,14 @@
 	<title>{dashboard?.name ?? 'Dashboard'}</title>
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-6">
+<TooltipProvider>
+<div class="mx-auto flex w-full max-w-[1920px] flex-col gap-6 px-6 py-6 xl:px-10 2xl:px-14">
 	<header class="flex items-end justify-between">
 		<div class="flex flex-col gap-1">
 			<a href="/dashboards" class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
 				<ArrowLeftIcon class="size-3" /> All dashboards
 			</a>
-			<h1 class="text-2xl font-semibold">{dashboard?.name ?? '…'}</h1>
+			<h1 class="text-3xl font-semibold tracking-tight">{dashboard?.name ?? '…'}</h1>
 			{#if dashboard?.description}
 				<p class="text-sm text-muted-foreground">{dashboard.description}</p>
 			{/if}
@@ -182,8 +210,8 @@
 		{/if}
 	</header>
 
-	<Card>
-		<CardHeader>
+	<Card class="border-border/50 bg-gradient-to-br from-card to-muted/30">
+		<CardHeader class="pb-3">
 			<CardTitle class="text-sm">Filters</CardTitle>
 		</CardHeader>
 		<CardContent class="flex flex-col gap-3">
@@ -199,7 +227,7 @@
 				<Button onclick={render}>Apply</Button>
 				<Button variant="outline" onclick={resetFilters}>Reset</Button>
 			</div>
-			<div class="flex flex-col gap-1">
+			<div class="flex flex-col gap-1.5">
 				<span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
 					Preset ranges
 				</span>
@@ -207,7 +235,7 @@
 					{#each TIME_PRESETS as preset (preset.label)}
 						<button
 							type="button"
-							class="rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs text-primary transition hover:bg-primary/10"
+							class="rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs text-primary transition hover:bg-primary/10 hover:shadow-sm"
 							onclick={() => applyPreset(preset.minutes)}
 						>
 							{preset.label}
@@ -224,33 +252,60 @@
 		</div>
 	{/if}
 
+	{#snippet helpBubble(text: string)}
+		<Tooltip>
+			<TooltipTrigger>
+				<span class="inline-flex size-4 items-center justify-center rounded-full text-muted-foreground/70 transition hover:bg-muted hover:text-foreground" aria-label="Definition">
+					<HelpCircleIcon class="size-3.5" />
+				</span>
+			</TooltipTrigger>
+			<TooltipContent class="max-w-xs text-xs leading-relaxed">
+				{text}
+			</TooltipContent>
+		</Tooltip>
+	{/snippet}
+
 	{#snippet widgetCard(widget: RenderedWidget)}
+		{@const help = widgetHelp(widget)}
 		{#if widget.chart_type === 'number' || widget.chart_type === 'percentage'}
-			{@const kpiColor = resolveKpiColor(widget)}
-			<Card class={sizeClass(widget)}>
-				<CardHeader class="pb-1">
-					<CardTitle class="text-sm font-medium text-muted-foreground">
-						{widget.name}
+			{@const kpiColor = resolveKpiColor(widget) ?? 'hsl(var(--primary))'}
+			<Card
+				class="{sizeClass(widget)} group relative overflow-hidden border-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-elevation-4"
+			>
+				<div
+					class="pointer-events-none absolute inset-x-0 top-0 h-1 opacity-70"
+					style="background-color: {kpiColor};"
+				></div>
+				<CardHeader class="pb-1 pt-4">
+					<CardTitle class="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+						<span>{widget.name}</span>
+						{#if help}{@render helpBubble(help)}{/if}
 					</CardTitle>
 				</CardHeader>
 				<CardContent
-					class="text-2xl font-semibold"
-					style={kpiColor ? `color: ${kpiColor};` : ''}
+					class="pb-5 text-3xl font-bold tabular-nums tracking-tight"
+					style="color: {kpiColor};"
 				>
 					{widget.error ? '—' : formatValue(widget)}
 				</CardContent>
 			</Card>
 		{:else if widget.error}
-			<Card class={sizeClass(widget)}>
+			<Card class={`${sizeClass(widget)} border-destructive/30 transition-shadow hover:shadow-elevation-3`}>
 				<CardHeader>
-					<CardTitle>{widget.name}</CardTitle>
+					<CardTitle class="flex items-center gap-1.5">
+						<span>{widget.name}</span>
+						{#if help}{@render helpBubble(help)}{/if}
+					</CardTitle>
 				</CardHeader>
 				<CardContent class="text-sm text-destructive">{widget.error}</CardContent>
 			</Card>
 		{:else if widget.chart_type === 'table'}
-			<Card class={sizeClass(widget)}>
+			<Card class="{sizeClass(widget)} transition-shadow duration-200 hover:shadow-elevation-4">
 				<CardHeader>
-					<CardTitle>{widget.name}</CardTitle>
+					<CardTitle class="flex items-center gap-1.5">
+						<span>{widget.name}</span>
+						{#if help}{@render helpBubble(help)}{/if}
+					</CardTitle>
 				</CardHeader>
 				<CardContent class="max-h-[480px] overflow-auto">
 					<WidgetTable
@@ -266,9 +321,12 @@
 				</CardContent>
 			</Card>
 		{:else}
-			<Card class={sizeClass(widget)}>
+			<Card class="{sizeClass(widget)} transition-shadow duration-200 hover:shadow-elevation-4">
 				<CardHeader>
-					<CardTitle>{widget.name}</CardTitle>
+					<CardTitle class="flex items-center gap-1.5">
+						<span>{widget.name}</span>
+						{#if help}{@render helpBubble(help)}{/if}
+					</CardTitle>
 				</CardHeader>
 				<CardContent>
 					<Chart
@@ -300,7 +358,7 @@
 				{:else if section.show_divider && sIdx > 0}
 					<hr class="border-t" />
 				{/if}
-				<div class="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12">
+				<div class="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12 xl:gap-5">
 					{#each section.widgets as widget, wIdx (wIdx)}
 						{@render widgetCard(widget)}
 					{/each}
@@ -308,10 +366,11 @@
 			</section>
 		{/each}
 	{:else}
-		<div class="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12">
+		<div class="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12 xl:gap-5">
 			{#each widgets as widget, idx (idx)}
 				{@render widgetCard(widget)}
 			{/each}
 		</div>
 	{/if}
 </div>
+</TooltipProvider>
