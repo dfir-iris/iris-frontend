@@ -11,6 +11,7 @@
 		LayersIcon,
 		LockKeyholeIcon,
 		MailIcon,
+		MegaphoneIcon,
 		NewspaperIcon,
 		PlugIcon,
 		ServerIcon,
@@ -36,6 +37,7 @@
 		{ icon: FilterIcon, label: 'Clustering Rules', href: '/cluster-rules' },
 		{ icon: CheckSquareIcon, label: 'Investigation flows', href: '/investigation-flows' },
 		{ icon: PlugIcon, label: 'MCP Server', href: '/mcp' },
+		{ icon: MegaphoneIcon, label: 'Banners', href: '/banners' },
 		{ icon: SettingsIcon, label: 'Server Settings', href: '/server' }
 	];
 

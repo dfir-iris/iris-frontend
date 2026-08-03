@@ -3,6 +3,8 @@
 	import { SideBar } from '$lib/components/navigation/SideBar';
 	import TopBar from '$lib/components/navigation/TopBar/TopBar.svelte';
 	import ChatBotPanel from '$lib/components/common/ChatBot/ChatBotPanel.svelte';
+	import TopBanners from '$lib/components/common/TopBanners/TopBanners.svelte';
+	import { dismissedBanners } from '$lib/stores/dismissed-banners.store.svelte';
 	import { CaseAddModal } from './[components]/CaseModals';
 	import { APP_CTX, createAppContext, type AppContext } from '$lib/contexts/app.context.svelte';
 	import {
@@ -50,6 +52,7 @@
 
 	$effect.pre(() => {
 		app.init();
+		dismissedBanners.hydrate();
 
 		cases.load({ case_ids: [cases.currentCaseId()] });
 		void userCtx.load();
@@ -70,6 +73,16 @@
 		-->
 		<div class="z-30 shrink-0">
 			<TopBar />
+		</div>
+
+		<!--
+		  Admin-managed top banners. Sits between the TopBar and the
+		  page scroll viewport, so it's visible on every authenticated
+		  route and never scrolls away with page content. Renders
+		  nothing when no banner is active.
+		-->
+		<div class="z-20 shrink-0">
+			<TopBanners />
 		</div>
 
 		<!--
