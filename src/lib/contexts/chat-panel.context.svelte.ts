@@ -524,6 +524,15 @@ export const createChatPanelContext = () => {
 
 	const approveTool = (pendingToolCallId: number) => {
 		if (!state.currentConversation) return;
+		// Optimistically drop the row so the Approve card disappears the
+		// instant the analyst clicks. The backend will emit
+		// `assistant_tool_start` (pending: false) + `assistant_tool_result`
+		// under the running tool card, then `assistant_end` refreshes the
+		// canonical pending list. If dispatch errors, the refresh
+		// re-hydrates the row from the DB so nothing is silently lost.
+		state.pendingToolCalls = state.pendingToolCalls.filter(
+			(p) => p.id !== pendingToolCallId
+		);
 		state.streamingAssistant = { text: '', pending: '', toolUses: [] };
 		state.streamingConversationId = state.currentConversation.id;
 		_ensureSocket().approveTool(pendingToolCallId, state.currentConversation.id);
@@ -531,6 +540,9 @@ export const createChatPanelContext = () => {
 
 	const denyTool = (pendingToolCallId: number) => {
 		if (!state.currentConversation) return;
+		state.pendingToolCalls = state.pendingToolCalls.filter(
+			(p) => p.id !== pendingToolCallId
+		);
 		state.streamingAssistant = { text: '', pending: '', toolUses: [] };
 		state.streamingConversationId = state.currentConversation.id;
 		_ensureSocket().denyTool(pendingToolCallId, state.currentConversation.id);
@@ -544,6 +556,7 @@ export const createChatPanelContext = () => {
 	const denyAllPending = () => {
 		if (!state.currentConversation) return;
 		const snapshot = [...state.pendingToolCalls];
+		state.pendingToolCalls = [];
 		for (const pending of snapshot) {
 			_ensureSocket().denyTool(pending.id, state.currentConversation.id);
 		}

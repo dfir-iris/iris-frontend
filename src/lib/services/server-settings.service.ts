@@ -103,6 +103,7 @@ export interface ServerSettings {
 	chatbot_max_turns_per_conversation: number;
 	chatbot_max_tool_calls_per_turn: number;
 	chatbot_auto_execute_read_tools: boolean;
+	chatbot_auto_approve_write_tools: boolean;
 	chatbot_daily_token_budget_per_user: number;
 	chatbot_daily_token_budget_org: number;
 	chatbot_redact_ips: boolean;

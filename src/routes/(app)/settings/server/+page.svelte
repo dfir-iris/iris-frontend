@@ -1198,8 +1198,27 @@
 								<p class="text-2xs text-muted-foreground">
 									On (default): the assistant can run read tools (list IOCs,
 									fetch case, search) without asking. Off: every tool call,
-									even reads, shows an Approve/Deny card. Writes always
-									require approval regardless of this setting.
+									even reads, shows an Approve/Deny card.
+								</p>
+							</div>
+						</label>
+
+						<label class="flex items-start gap-2 sm:col-span-2">
+							<Switch
+								checked={!!form.chatbot_auto_approve_write_tools}
+								onCheckedChange={(v: boolean) =>
+									(form.chatbot_auto_approve_write_tools = v)}
+								disabled={saving}
+							/>
+							<div>
+								<div class="font-medium">Auto-approve write tools</div>
+								<p class="text-2xs text-muted-foreground">
+									Off (default): the assistant asks before every write —
+									creating IOCs, updating assets, closing cases, etc. On:
+									writes run without confirmation. Only enable once you
+									trust the assistant's behaviour on this install; deletes
+									and status changes are irreversible from the analyst's
+									side.
 								</p>
 							</div>
 						</label>
