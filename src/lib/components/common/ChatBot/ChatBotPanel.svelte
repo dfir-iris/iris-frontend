@@ -28,6 +28,7 @@
 	} from '$lib/contexts/chat-panel.context.svelte';
 	import ChatMessage from './components/ChatMessage.svelte';
 	import ChatComposer from './components/ChatComposer.svelte';
+	import ChatUsageBar from './components/ChatUsageBar.svelte';
 	import PendingToolApproval from './components/PendingToolApproval.svelte';
 	import ToolCallCard from './components/ToolCallCard.svelte';
 	import ConversationHistory from './components/ConversationHistory.svelte';
@@ -579,6 +580,11 @@
 						alertId: currentAlertId
 					})}
 			/>
+
+			<!-- Slim token/context indicator strip. Self-hides when the
+			     conversation has no egress rows yet (turn_count === 0)
+			     so the empty welcome state stays uncluttered. -->
+			<ChatUsageBar usage={chat.state.usage} />
 
 			<!--
 			  Corner resize grip. 14×14 tab in the bottom-right that owns

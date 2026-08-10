@@ -14,8 +14,14 @@ let didInit = false;
 export function initSentry(config: RuntimeErrorReporting): boolean {
 	if (didInit) return true;
 	if (!config.enabled || !config.dsn) return false;
+	// Route the browser SDK through a same-origin SvelteKit endpoint
+	// so cross-origin GlitchTip deployments don't hit the browser's
+	// SOP/CORS block on the ingest URL. Server-side init keeps the
+	// direct DSN — Node fetch isn't subject to CORS.
+	const tunnel = typeof window === 'undefined' ? undefined : '/monitoring/envelope';
 	Sentry.init({
 		dsn: config.dsn,
+		tunnel,
 		environment: config.environment ?? undefined,
 		release: config.release,
 		sampleRate: config.sample_rate,

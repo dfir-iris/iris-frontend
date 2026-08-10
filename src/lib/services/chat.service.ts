@@ -71,9 +71,41 @@ export interface PendingToolCall {
 	created_at: string;
 }
 
+/**
+ * Aggregate token/context stats for a conversation, emitted by the
+ * backend on every `assistant_end` and included on the conversation GET.
+ *
+ * `avg_context_size` is the mean of `prompt_tokens` across all egress
+ * rows for the conversation — i.e. the average size of the payload
+ * shipped to the provider per turn. Grows monotonically as history
+ * accumulates, so it's a useful "am I about to hit the limit?" signal
+ * beside the token-total counter.
+ *
+ * `daily` is present only when the backend resolved it against the
+ * caller's user id (own-conversation GET + assistant_end for the owning
+ * user). Absent for cross-user admin views.
+ */
+export interface ChatUsage {
+	prompt_tokens_total: number;
+	completion_tokens_total: number;
+	cache_read_tokens_total: number;
+	cache_creation_tokens_total: number;
+	total_tokens: number;
+	avg_context_size: number;
+	last_context_size: number;
+	turn_count: number;
+	daily?: {
+		user_used: number;
+		org_used: number;
+		user_budget: number;
+		org_budget: number;
+	};
+}
+
 export interface ChatConversationDetail extends ChatConversation {
 	messages: ChatMessage[];
 	pending_tool_calls: PendingToolCall[];
+	usage?: ChatUsage;
 }
 
 export interface ChatHealth {
@@ -213,6 +245,7 @@ export type ChatSocketHandlers = {
 		conversation_id: number;
 		message_id?: number;
 		stop_reason?: string;
+		usage?: ChatUsage;
 	}) => void;
 	onUserMessagePersisted?: (payload: { conversation_id: number }) => void;
 	onError?: (payload: { message: string }) => void;

@@ -16,6 +16,7 @@
 		PlugIcon,
 		ServerIcon,
 		SettingsIcon,
+		SparklesIcon,
 		WaypointsIcon
 	} from 'lucide-svelte';
 	import { page } from '$app/state';
@@ -37,6 +38,7 @@
 		{ icon: FilterIcon, label: 'Clustering Rules', href: '/cluster-rules' },
 		{ icon: CheckSquareIcon, label: 'Investigation flows', href: '/investigation-flows' },
 		{ icon: PlugIcon, label: 'MCP Server', href: '/mcp' },
+		{ icon: SparklesIcon, label: 'Chatbot', href: '/chatbot' },
 		{ icon: MegaphoneIcon, label: 'Banners', href: '/banners' },
 		{ icon: SettingsIcon, label: 'Server Settings', href: '/server' }
 	];

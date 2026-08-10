@@ -15,6 +15,7 @@ import type {
 	ChatContentBlock,
 	ChatConversation,
 	ChatMessage,
+	ChatUsage,
 	PendingToolCall
 } from '$lib/services/chat.service';
 import { ChatService, ChatSocketClient } from '$lib/services/chat.service';
@@ -77,6 +78,13 @@ export const createChatPanelContext = () => {
 		 * conversation has no extra focus.
 		 */
 		focusHint: ChatFocusHint | null;
+		/**
+		 * Latest token/context aggregate for the active conversation.
+		 * Populated on `refresh()` (from the conversation GET) and
+		 * overwritten on every `assistant_end` socket frame. Null while
+		 * no conversation is open.
+		 */
+		usage: ChatUsage | null;
 	}>({
 		open: false,
 		streamingConversationId: null,
@@ -86,7 +94,8 @@ export const createChatPanelContext = () => {
 		streamingAssistant: null,
 		error: null,
 		loading: false,
-		focusHint: null
+		focusHint: null,
+		usage: null
 	});
 
 	let socket: ChatSocketClient | null = null;
@@ -206,11 +215,17 @@ export const createChatPanelContext = () => {
 					)
 				};
 			},
-			onAssistantEnd: () => {
+			onAssistantEnd: (payload) => {
 				// Flush any un-dripped characters so the final rendered
 				// message matches what the model actually sent (no lost
 				// tail if the socket closed while pending had data).
 				_flushTyping();
+				// Apply the live usage frame BEFORE the async refresh so
+				// the footer updates instantly on turn end (the GET race
+				// would otherwise blank the counter for ~200ms).
+				if (payload.usage) {
+					state.usage = payload.usage;
+				}
 				// The backend already persisted the assistant message;
 				// re-fetch the conversation so `messages` reflects the
 				// canonical rows. Cheaper than deriving the shape here.
@@ -256,10 +271,17 @@ export const createChatPanelContext = () => {
 				id: number;
 				messages: ChatMessage[];
 				pending_tool_calls: PendingToolCall[];
+				usage?: ChatUsage;
 			} & ChatConversation;
 			state.currentConversation = conv;
 			state.messages = conv.messages ?? [];
 			state.pendingToolCalls = conv.pending_tool_calls ?? [];
+			// `usage` is absent on very old conversations that were
+			// persisted before the aggregate was added — keep the last
+			// known value in that case rather than blanking the footer.
+			if (conv.usage) {
+				state.usage = conv.usage;
+			}
 		}
 	};
 
@@ -286,6 +308,7 @@ export const createChatPanelContext = () => {
 		// the flag could still be set from the last session.
 		state.streamingConversationId = null;
 		state.streamingAssistant = null;
+		state.usage = null;
 		try {
 			await refresh(conversationId);
 			_ensureSocket().joinConversation(conversationId);
@@ -334,6 +357,7 @@ export const createChatPanelContext = () => {
 			state.currentConversation = null;
 			state.messages = [];
 			state.pendingToolCalls = [];
+			state.usage = null;
 		}
 		return true;
 	};
@@ -346,6 +370,7 @@ export const createChatPanelContext = () => {
 		// Starting a fresh chat is an explicit reset moment.
 		state.streamingConversationId = null;
 		state.streamingAssistant = null;
+		state.usage = null;
 		try {
 			const res = await ChatService.createCaseConversation(caseId, { title });
 			if (res.ok && res.data && typeof res.data !== 'string') {
@@ -369,6 +394,7 @@ export const createChatPanelContext = () => {
 		state.error = null;
 		state.streamingConversationId = null;
 		state.streamingAssistant = null;
+		state.usage = null;
 		try {
 			const res = await ChatService.createWarRoomConversation(warRoomId, { title });
 			if (res.ok && res.data && typeof res.data !== 'string') {
@@ -401,6 +427,7 @@ export const createChatPanelContext = () => {
 		state.error = null;
 		state.streamingConversationId = null;
 		state.streamingAssistant = null;
+		state.usage = null;
 		try {
 			const res = await ChatService.createGlobalConversation({ title });
 			if (res.ok && res.data && typeof res.data !== 'string') {
