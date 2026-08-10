@@ -70,6 +70,39 @@ export interface AdminSessionDetail extends AdminSession {
 	usage?: ChatUsage;
 }
 
+/** One tool descriptor exactly as it was serialised to the provider. */
+export interface AdminSnapshotTool {
+	name: string;
+	description: string;
+	input_schema: Record<string, unknown>;
+}
+
+/** What left the box on a single LLM turn — conversation history
+ * stripped, so only the system prompt, the tools the model was given,
+ * and the triggering user message remain. Populated from
+ * `case_chat_egress_audit.request_snapshot`; NULL on rows written
+ * before the snapshot migration landed. */
+export interface AdminRequestSnapshot {
+	system: string;
+	tools: AdminSnapshotTool[];
+	user_message: ChatMessage['content'] | null;
+}
+
+export interface AdminSessionTurn {
+	id: number;
+	conversation_id: number;
+	user_id: number;
+	provider: string;
+	model: string;
+	request_bytes: number;
+	response_bytes: number;
+	prompt_tokens: number | null;
+	completion_tokens: number | null;
+	redacted: boolean;
+	request_snapshot: AdminRequestSnapshot | null;
+	created_at: string;
+}
+
 export class ChatbotAdminService {
 	static async listPolicies(
 		options: ApiOptions = {}
@@ -147,6 +180,19 @@ export class ChatbotAdminService {
 	): Promise<RequestResponse<AdminSessionDetail>> {
 		return ApiService.get<AdminSessionDetail>(
 			`/manage/case-chat/sessions/${conversationId}`,
+			options
+		);
+	}
+
+	/** Per-turn egress rows with the request snapshot attached — used by
+	 * the session viewer's "Sent to model" pane to show exactly which
+	 * tools each turn carried. */
+	static async readSessionTurns(
+		conversationId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<{ conversation_id: number; turns: AdminSessionTurn[] }>> {
+		return ApiService.get(
+			`/manage/case-chat/sessions/${conversationId}/turns`,
 			options
 		);
 	}

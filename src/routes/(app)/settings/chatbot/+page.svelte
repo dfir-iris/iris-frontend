@@ -37,7 +37,8 @@
 		type ChatbotPolicy,
 		type ChatbotPolicyBody,
 		type AdminSession,
-		type AdminSessionDetail
+		type AdminSessionDetail,
+		type AdminSessionTurn
 	} from '$lib/services/chatbot-admin.service';
 	import {
 		ServerSettingsService,
@@ -306,18 +307,49 @@
 	let sessionViewOpen = $state(false);
 	let sessionDetail = $state<AdminSessionDetail | null>(null);
 	let sessionLoading = $state(false);
+	// Per-turn egress snapshots — what was actually sent to the provider
+	// on each turn. Fetched alongside the transcript so the "Sent to
+	// model" pane is ready when the admin switches to it.
+	let sessionTurns = $state<AdminSessionTurn[]>([]);
+	let sessionPane = $state<'transcript' | 'sent'>('transcript');
+	// Which turn's tool list is expanded, keyed by egress-row id. Tool
+	// lists run to ~50 entries, so they stay collapsed by default.
+	let expandedTurnTools = $state<Record<number, boolean>>({});
+
 	async function viewSession(id: number) {
 		sessionLoading = true;
 		sessionViewOpen = true;
 		sessionDetail = null;
+		sessionTurns = [];
+		sessionPane = 'transcript';
+		expandedTurnTools = {};
 		try {
-			const res = await ChatbotAdminService.readSession(id);
-			if (res.ok && res.data && typeof res.data !== 'string') {
-				sessionDetail = res.data as AdminSessionDetail;
+			const [detailRes, turnsRes] = await Promise.all([
+				ChatbotAdminService.readSession(id),
+				ChatbotAdminService.readSessionTurns(id)
+			]);
+			if (detailRes.ok && detailRes.data && typeof detailRes.data !== 'string') {
+				sessionDetail = detailRes.data as AdminSessionDetail;
+			}
+			if (turnsRes.ok && turnsRes.data && typeof turnsRes.data !== 'string') {
+				const body = turnsRes.data as { turns?: AdminSessionTurn[] };
+				sessionTurns = body.turns ?? [];
 			}
 		} finally {
 			sessionLoading = false;
 		}
+	}
+
+	/** Flatten a snapshot's user_message content blocks to plain text.
+	 * Non-text blocks are unusual on a user turn but rendered as a type
+	 * marker rather than dropped, so nothing is silently hidden. */
+	function snapshotUserText(snap: AdminSessionTurn['request_snapshot']): string {
+		if (!snap?.user_message) return '';
+		return snap.user_message
+			.map((b) =>
+				b.type === 'text' && typeof b.text === 'string' ? b.text : `[${b.type}]`
+			)
+			.join('');
 	}
 
 	function scopeLabel(s: AdminSession): string {
@@ -1158,36 +1190,153 @@
 						</span>
 					{/if}
 				</div>
-				<div class="flex flex-col gap-2">
-					{#each sessionDetail.messages as m (m.id)}
-						<div class="rounded border bg-muted/20 p-2">
-							<div class="mb-1 text-2xs font-medium text-muted-foreground">
-								{m.role}
-							</div>
-							<div class="whitespace-pre-wrap break-words">
-								{#each m.content as block, i (i)}
-									{#if block.type === 'text' && typeof block.text === 'string'}
-										{block.text}
-									{:else if block.type === 'tool_use'}
-										<span class="text-blue-600">
-											[tool_use {block.name}({JSON.stringify(block.input)})]
-										</span>
-									{:else if block.type === 'tool_result'}
-										<span class="text-green-700">
-											[tool_result {typeof block.content === 'string'
-												? block.content
-												: JSON.stringify(block.content)}]
-										</span>
-									{:else}
-										<span class="text-muted-foreground">
-											[{block.type}]
-										</span>
-									{/if}
+				<Tabs.Root bind:value={sessionPane}>
+					<Tabs.List class="mb-3 w-fit">
+						<Tabs.Trigger value="transcript">Transcript</Tabs.Trigger>
+						<Tabs.Trigger value="sent">
+							Sent to model{sessionTurns.length ? ` (${sessionTurns.length})` : ''}
+						</Tabs.Trigger>
+					</Tabs.List>
+
+					<Tabs.Content value="transcript">
+						<div class="flex flex-col gap-2">
+							{#each sessionDetail.messages as m (m.id)}
+								<div class="rounded border bg-muted/20 p-2">
+									<div class="mb-1 text-2xs font-medium text-muted-foreground">
+										{m.role}
+									</div>
+									<div class="whitespace-pre-wrap break-words">
+										{#each m.content as block, i (i)}
+											{#if block.type === 'text' && typeof block.text === 'string'}
+												{block.text}
+											{:else if block.type === 'tool_use'}
+												<span class="text-blue-600">
+													[tool_use {block.name}({JSON.stringify(block.input)})]
+												</span>
+											{:else if block.type === 'tool_result'}
+												<span class="text-green-700">
+													[tool_result {typeof block.content === 'string'
+														? block.content
+														: JSON.stringify(block.content)}]
+												</span>
+											{:else}
+												<span class="text-muted-foreground">
+													[{block.type}]
+												</span>
+											{/if}
+										{/each}
+									</div>
+								</div>
+							{/each}
+						</div>
+					</Tabs.Content>
+
+					<Tabs.Content value="sent">
+						{#if sessionTurns.length === 0}
+							<p class="text-muted-foreground">
+								No egress rows recorded for this conversation.
+							</p>
+						{:else}
+							<div class="flex flex-col gap-3">
+								{#each sessionTurns as turn, idx (turn.id)}
+									<div class="rounded border bg-muted/20 p-2">
+										<div
+											class="mb-2 flex flex-wrap items-center gap-2 text-2xs text-muted-foreground"
+										>
+											<span class="font-medium text-foreground">Turn {idx + 1}</span>
+											<span>·</span>
+											<span>{turn.provider}/{turn.model}</span>
+											<span>·</span>
+											<span>{new Date(turn.created_at).toLocaleString()}</span>
+											{#if turn.prompt_tokens != null}
+												<span>·</span>
+												<span>{turn.prompt_tokens.toLocaleString()} prompt tok</span>
+											{/if}
+											{#if turn.redacted}
+												<span>·</span>
+												<span class="text-amber-600">redacted</span>
+											{/if}
+										</div>
+
+										{#if !turn.request_snapshot}
+											<p class="text-muted-foreground">
+												No snapshot — this turn predates the snapshot migration.
+											</p>
+										{:else}
+											{@const snap = turn.request_snapshot}
+											{@const userText = snapshotUserText(snap)}
+
+											{#if userText}
+												<div class="mb-2">
+													<div class="mb-1 text-2xs font-medium text-muted-foreground">
+														User prompt
+													</div>
+													<div
+														class="whitespace-pre-wrap break-words rounded bg-background p-2"
+													>
+														{userText}
+													</div>
+												</div>
+											{/if}
+
+											<div class="mb-2">
+												<button
+													type="button"
+													class="text-2xs font-medium text-muted-foreground hover:text-foreground"
+													onclick={() =>
+														(expandedTurnTools = {
+															...expandedTurnTools,
+															[turn.id]: !expandedTurnTools[turn.id]
+														})}
+												>
+													{expandedTurnTools[turn.id] ? '▾' : '▸'}
+													{snap.tools.length} tool{snap.tools.length === 1 ? '' : 's'} sent
+												</button>
+												{#if expandedTurnTools[turn.id]}
+													<div class="mt-1 flex flex-col gap-1">
+														{#each snap.tools as tool (tool.name)}
+															<div class="rounded bg-background p-2">
+																<div class="font-mono text-blue-600">{tool.name}</div>
+																{#if tool.description}
+																	<div class="text-2xs text-muted-foreground">
+																		{tool.description}
+																	</div>
+																{/if}
+																<pre
+																	class="mt-1 overflow-x-auto text-2xs text-muted-foreground">{JSON.stringify(
+																		tool.input_schema,
+																		null,
+																		2
+																	)}</pre>
+															</div>
+														{/each}
+													</div>
+												{:else}
+													<div class="mt-1 font-mono text-2xs text-muted-foreground">
+														{snap.tools.map((t) => t.name).join(', ')}
+													</div>
+												{/if}
+											</div>
+
+											<details>
+												<summary
+													class="cursor-pointer text-2xs font-medium text-muted-foreground hover:text-foreground"
+												>
+													System prompt ({snap.system.length} chars)
+												</summary>
+												<div
+													class="mt-1 whitespace-pre-wrap break-words rounded bg-background p-2"
+												>
+													{snap.system}
+												</div>
+											</details>
+										{/if}
+									</div>
 								{/each}
 							</div>
-						</div>
-					{/each}
-				</div>
+						{/if}
+					</Tabs.Content>
+				</Tabs.Root>
 			{/if}
 		</div>
 		<Dialog.Footer>
