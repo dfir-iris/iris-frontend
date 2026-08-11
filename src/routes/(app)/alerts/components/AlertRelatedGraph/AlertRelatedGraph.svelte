@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import { mode } from 'mode-watcher';
+	import DOMPurify from 'dompurify';
 	import type { IdType, Options } from 'vis-network';
 	import { EyeIcon } from 'lucide-svelte';
 	import alertSvg from 'lucide-static/icons/bell.svg?raw';
@@ -33,7 +34,10 @@ const createTooltip = (html: string) => {
 		const el = document.createElement('div');
 
 		el.className = 'related-alert-tooltip';
-		el.innerHTML = html;
+		el.innerHTML = DOMPurify.sanitize(html, {
+			ALLOWED_TAGS: ['b', 'br', 'i', 'em', 'strong', 'span'],
+			ALLOWED_ATTR: []
+		});
 
 		return el;
 	};
