@@ -35,6 +35,11 @@ export interface ChatbotPolicy {
 	 * server-side to the list response (not to the schema).
 	 */
 	customer_count?: number;
+	/** The customers pinned to this policy, name-ordered. Same source as
+	 * `customer_count`; the binding editor needs the ids themselves to
+	 * pre-select and to diff what the admin changed. List response only.
+	 */
+	customer_ids?: number[];
 }
 
 export interface ChatbotPolicyBody {

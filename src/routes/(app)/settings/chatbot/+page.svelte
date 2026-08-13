@@ -32,6 +32,7 @@
 	import { Switch } from '$lib/components/ui/switch';
 	import { toast } from '$lib/components/ui/toast';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
+	import SearchSelect from '$lib/components/common/selects/SearchSelect.svelte';
 	import {
 		ChatbotAdminService,
 		type ChatbotPolicy,
@@ -40,6 +41,7 @@
 		type AdminSessionDetail,
 		type AdminSessionTurn
 	} from '$lib/services/chatbot-admin.service';
+	import { CustomersService, type Customer } from '$lib/services/customers.service';
 	import {
 		ServerSettingsService,
 		type ServerSettings,
@@ -282,6 +284,118 @@
 		return 'Default';
 	}
 
+	// ---------- Customer → policy binding ----------
+	//
+	// The binding is stored on the customer (`client.chatbot_policy_id`),
+	// not on the policy, so there is no policy-side write endpoint: this
+	// editor diffs the selection against the policy's current customers
+	// and PUTs one customer at a time. A customer can only carry one
+	// policy, so picking one that already belongs to another policy
+	// *moves* it — the option label says so up front rather than letting
+	// the save silently steal it.
+	let customers = $state<Customer[]>([]);
+	let customersLoading = $state(false);
+
+	async function loadCustomers() {
+		customersLoading = true;
+		try {
+			const res = await CustomersService.list();
+			customers = res.data;
+		} finally {
+			customersLoading = false;
+		}
+	}
+
+	const customerName = (id: number): string =>
+		customers.find((c) => c.customer_id === id)?.customer_name ?? `#${id}`;
+
+	/** "Acme, Globex, Initech +2" — the table cell, not the editor. */
+	function boundSummary(p: ChatbotPolicy): string {
+		const ids = p.customer_ids ?? [];
+		const shown = ids.slice(0, 3).map(customerName).join(', ');
+		return ids.length > 3 ? `${shown} +${ids.length - 3}` : shown;
+	}
+
+	/** customer id → the policy holding it right now. */
+	const policyByCustomer = $derived.by(() => {
+		const map = new Map<number, ChatbotPolicy>();
+		for (const p of policies) {
+			for (const id of p.customer_ids ?? []) map.set(id, p);
+		}
+		return map;
+	});
+
+	let bindOpen = $state(false);
+	let bindPolicy = $state<ChatbotPolicy | null>(null);
+	let bindSelection = $state<string[]>([]);
+	let bindSaving = $state(false);
+
+	function openBindings(p: ChatbotPolicy) {
+		bindPolicy = p;
+		bindSelection = (p.customer_ids ?? []).map(String);
+		bindOpen = true;
+		if (customers.length === 0 && !customersLoading) void loadCustomers();
+	}
+
+	const bindOptions = $derived.by(() =>
+		customers.map((c) => {
+			const holder = policyByCustomer.get(c.customer_id);
+			if (holder && bindPolicy && holder.id !== bindPolicy.id) {
+				return {
+					value: String(c.customer_id),
+					label: `${c.customer_name} — currently on "${holder.name}"`
+				};
+			}
+			return { value: String(c.customer_id), label: c.customer_name };
+		})
+	);
+
+	const bindDiff = $derived.by(() => {
+		const before = new Set((bindPolicy?.customer_ids ?? []).map(String));
+		const after = new Set(bindSelection);
+		return {
+			added: [...after].filter((v) => !before.has(v)).map(Number),
+			removed: [...before].filter((v) => !after.has(v)).map(Number)
+		};
+	});
+
+	async function saveBindings() {
+		if (!bindPolicy) return;
+		const { added, removed } = bindDiff;
+		if (added.length === 0 && removed.length === 0) {
+			bindOpen = false;
+			return;
+		}
+		bindSaving = true;
+		try {
+			// One PUT per changed customer, sequential: the list is short,
+			// and a partial failure should name exactly which customers
+			// stayed put instead of leaving the outcome ambiguous.
+			const failed: string[] = [];
+			for (const id of added) {
+				const res = await ChatbotAdminService.setCustomerPolicy(id, bindPolicy.id);
+				if (!res.ok) failed.push(customerName(id));
+			}
+			for (const id of removed) {
+				const res = await ChatbotAdminService.setCustomerPolicy(id, null);
+				if (!res.ok) failed.push(customerName(id));
+			}
+			if (failed.length > 0) {
+				toast({
+					title: 'Some customers could not be updated',
+					description: failed.join(', '),
+					variant: 'destructive'
+				});
+			} else {
+				toast({ title: `Customers updated for "${bindPolicy.name}"`, variant: 'success' });
+			}
+			bindOpen = false;
+			await refreshPolicies();
+		} finally {
+			bindSaving = false;
+		}
+	}
+
 	// ---------- Sessions tab ----------
 
 	let sessions = $state<AdminSession[]>([]);
@@ -442,6 +556,8 @@
 		void loadServerSettings();
 		void refreshPolicies();
 		void refreshSessions();
+		// Names, not just ids, in the policies table's Customers column.
+		void loadCustomers();
 	});
 </script>
 
@@ -811,7 +927,8 @@
 			<div class="flex items-center justify-between pb-3">
 				<p class="text-xs text-muted-foreground">
 					A policy overrides the global chatbot config for every customer bound to it.
-					For war rooms, the strictest attached customer's policy wins.
+					For war rooms, the strictest attached customer's policy wins. Use the
+					Customers column to bind customers to a policy.
 				</p>
 				<Button size="sm" onclick={beginCreate}>
 					<PlusIcon size={14} class="mr-1" /> New policy
@@ -858,7 +975,22 @@
 										{p.provider || '—'}
 										{#if p.model}<span class="text-muted-foreground"> · {p.model}</span>{/if}
 									</td>
-									<td class="px-3 py-2">{p.customer_count ?? 0}</td>
+									<td class="px-3 py-2">
+										<!-- The cell is the entry point to the binding editor —
+										     there is nowhere else in the UI to attach a customer
+										     to a policy. -->
+										<button
+											type="button"
+											class="rounded text-primary hover:underline"
+											onclick={() => openBindings(p)}
+											aria-label={`Edit customers bound to ${p.name}`}
+										>
+											{p.customer_count ?? 0} customer{(p.customer_count ?? 0) === 1 ? '' : 's'}
+										</button>
+										{#if (p.customer_ids ?? []).length > 0}
+											<div class="text-2xs text-muted-foreground">{boundSummary(p)}</div>
+										{/if}
+									</td>
 									<td class="px-3 py-2">
 										{p.retention_days > 0 ? `${p.retention_days}d` : 'off'}
 									</td>
@@ -1149,6 +1281,66 @@
 			</Button>
 			<Button onclick={submit} disabled={submitting}>
 				{submitting ? 'Saving…' : editing ? 'Save' : 'Create'}
+			</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<!-- Customer binding modal. Nothing is written until Save, so the
+     admin can shuffle customers between policies and back out. -->
+<Dialog.Root bind:open={bindOpen}>
+	<Dialog.Content class="max-w-lg">
+		<Dialog.Header>
+			<Dialog.Title>Customers on "{bindPolicy?.name ?? ''}"</Dialog.Title>
+		</Dialog.Header>
+		<div class="flex flex-col gap-3 py-2 text-xs">
+			<p class="text-muted-foreground">
+				Every selected customer uses this policy instead of the global chatbot settings. A customer
+				carries one policy at a time — selecting one that already belongs to another policy moves it
+				here.
+			</p>
+
+			{#if customersLoading && customers.length === 0}
+				<p class="text-muted-foreground">Loading customers…</p>
+			{:else if customers.length === 0}
+				<p class="text-muted-foreground">No customers defined.</p>
+			{:else}
+				<SearchSelect
+					value={bindSelection}
+					options={bindOptions}
+					multiple
+					size="sm"
+					placeholder="Select customers"
+					searchPlaceholder="Search customers…"
+					disabled={bindSaving}
+					onChange={(v) => (bindSelection = Array.isArray(v) ? v : [v])}
+				/>
+			{/if}
+
+			{#if bindDiff.added.length > 0 || bindDiff.removed.length > 0}
+				<div class="flex flex-col gap-1 rounded border bg-muted/30 p-2 text-2xs">
+					{#if bindDiff.added.length > 0}
+						<div>
+							<span class="font-medium">Bind:</span>
+							{bindDiff.added.map(customerName).join(', ')}
+						</div>
+					{/if}
+					{#if bindDiff.removed.length > 0}
+						<div>
+							<span class="font-medium">Unbind:</span>
+							{bindDiff.removed.map(customerName).join(', ')}
+							<span class="text-muted-foreground"> — reverts to the global chatbot settings </span>
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</div>
+		<Dialog.Footer>
+			<Button variant="outline" onclick={() => (bindOpen = false)} disabled={bindSaving}>
+				Cancel
+			</Button>
+			<Button onclick={saveBindings} disabled={bindSaving}>
+				{bindSaving ? 'Saving…' : 'Save'}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
