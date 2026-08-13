@@ -51,7 +51,7 @@
 	// app/models/managed_assets.py. `sortable: false` columns are
 	// derived from sightings and are deliberately not orderable.
 	const COLUMNS = [
-		{ key: 'name', label: 'Name', sortable: true, cls: '' },
+		{ key: 'name', label: 'Name', sortable: true, cls: 'w-64' },
 		{ key: 'client', label: 'Customer', sortable: false, cls: 'w-40' },
 		{ key: 'asset_type', label: 'Type', sortable: false, cls: 'w-36' },
 		{ key: 'criticality', label: 'Criticality', sortable: true, cls: 'w-28' },
@@ -59,7 +59,7 @@
 		{ key: 'owner', label: 'Owner', sortable: true, cls: 'w-32' },
 		{ key: 'sightings', label: 'Sightings', sortable: false, cls: 'w-28' },
 		{ key: 'compromise', label: 'Compromise', sortable: false, cls: 'w-40' },
-		{ key: 'updated_at', label: 'Updated', sortable: true, cls: 'w-40' }
+		{ key: 'updated_at', label: 'Updated', sortable: true, cls: 'w-44' }
 	];
 
 	const CRITICALITY_STYLE: Record<AssetCriticality, string> = {
@@ -128,30 +128,49 @@
 		<tbody>
 			{#each assets as asset (asset.managed_asset_id)}
 				<tr class="border-b transition-colors last:border-0 hover:bg-muted/30">
-					<td class="px-3 py-2 text-xs">
-						<button
-							type="button"
-							class="text-left text-primary hover:underline"
-							onclick={() => onOpen(asset)}
-							title={asset.name}
-						>
-							{asset.name}
-						</button>
-						{#if !asset.is_active}
-							<span
-								class="ml-2 rounded border border-border bg-muted px-1.5 py-0.5 text-2xs uppercase tracking-wide text-muted-foreground"
+					<td class="max-w-0 px-3 py-2 text-xs">
+						<!--
+						  `max-w-0` on the cell is load-bearing, not cosmetic. Names come
+						  from whatever the cases and alerts carried, and real ones run to
+						  hundreds of characters with no break opportunity (encoded URLs,
+						  Exchange "on behalf of" strings). The table lays out
+						  automatically, so one such row otherwise sizes the whole column:
+						  the table grows past the card and pushes every other column off
+						  screen. Capping the cell caps its min-content contribution to
+						  nothing, which leaves the column free to sit at the `w-64` the
+						  header asks for and to give ground below it on a narrow window —
+						  the name ellipsises instead of overflowing.
+						-->
+						<div class="flex items-center gap-2">
+							<button
+								type="button"
+								class="min-w-0 truncate text-left text-primary hover:underline"
+								onclick={() => onOpen(asset)}
+								title={asset.name}
 							>
-								retired
-							</span>
-						{/if}
+								{asset.name}
+							</button>
+							{#if !asset.is_active}
+								<span
+									class="shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 text-2xs uppercase tracking-wide text-muted-foreground"
+								>
+									retired
+								</span>
+							{/if}
+						</div>
 						{#if asset.ip || asset.domain}
-							<div class="text-2xs text-muted-foreground">
-								{[asset.ip, asset.domain].filter(Boolean).join(' · ')}
+							{@const network = [asset.ip, asset.domain].filter(Boolean).join(' · ')}
+							<div class="truncate text-2xs text-muted-foreground" title={network}>
+								{network}
 							</div>
 						{/if}
 					</td>
-					<td class="px-3 py-2 text-xs">{asset.client?.customer_name ?? '—'}</td>
-					<td class="px-3 py-2 text-xs">{asset.asset_type?.asset_name ?? '—'}</td>
+					<td class="px-3 py-2 text-xs">
+						<div class="max-w-[9rem]">{asset.client?.customer_name ?? '—'}</div>
+					</td>
+					<td class="px-3 py-2 text-xs">
+						<div class="max-w-[8rem]">{asset.asset_type?.asset_name ?? '—'}</div>
+					</td>
 					<td class="px-3 py-2">
 						<span
 							class="inline-flex items-center rounded-md border px-2 py-0.5 text-2xs font-medium uppercase tracking-wide {criticalityStyle(
@@ -162,7 +181,9 @@
 						</span>
 					</td>
 					<td class="px-3 py-2 text-xs capitalize">{asset.environment ?? '—'}</td>
-					<td class="px-3 py-2 text-xs">{asset.owner ?? '—'}</td>
+					<td class="px-3 py-2 text-xs">
+						<div class="max-w-[8rem]">{asset.owner ?? '—'}</div>
+					</td>
 					<td class="px-3 py-2 text-xs tabular-nums text-muted-foreground">
 						<span title="Cases you can access">{asset.case_sighting_count} case(s)</span>
 						<div class="text-2xs" title="Alerts you can access">
@@ -186,7 +207,13 @@
 							<span class="text-xs text-muted-foreground">—</span>
 						{/if}
 					</td>
-					<td class="whitespace-nowrap px-3 py-2 text-xs tabular-nums text-muted-foreground">
+					<!--
+					  Sized wide enough (w-44) that the timestamp sits on one line
+					  whenever there is room. Deliberately not `whitespace-nowrap`:
+					  that would floor the column at the full timestamp width and,
+					  on a narrow window, push the table past the card.
+					-->
+					<td class="px-3 py-2 text-xs tabular-nums text-muted-foreground">
 						{formatDate(asset.updated_at)}
 					</td>
 					<td class="px-3 py-2 text-right">
