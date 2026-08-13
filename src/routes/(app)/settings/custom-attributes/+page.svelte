@@ -51,8 +51,8 @@
 	} from '$lib/services/custom-attributes.service';
 	import { invalidateCustomAttributeSchema } from '$lib/stores/custom-attributes.store.svelte';
 
-	// The eight fixture-seeded object types — helper text mapped to the
-	// legacy `attribute_for` value on each row. Used only for a friendly
+	// The fixture-seeded object types — helper text mapped to the legacy
+	// `attribute_for` value on each row. Used only for a friendly
 	// subtitle in the list (the rows themselves come from the API).
 	const OBJECT_TYPE_LABEL: Record<string, string> = {
 		case: 'Case',
@@ -62,7 +62,10 @@
 		note: 'Note',
 		evidence: 'Evidence',
 		event: 'Timeline event',
-		client: 'Customer'
+		client: 'Customer',
+		// The registry entry behind Manage ▸ Assets, as opposed to
+		// `asset`, which is the per-case observation.
+		managed_asset: 'Managed asset'
 	};
 
 	// ────────────────────────────────────────────────────────────────

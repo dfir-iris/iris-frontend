@@ -15,9 +15,8 @@
  */
 import { writable, get } from 'svelte/store';
 import { browser } from '$app/environment';
-import { env } from '$env/dynamic/public';
 import { auth } from '$lib/stores/auth.store';
-import { API_BASE_URL } from '$lib/config/api.config';
+import { apiOrigin } from '$lib/config/api.config';
 
 type CacheEntry = {
 	status: 'loading' | 'ready' | 'missing' | 'error';
@@ -32,7 +31,7 @@ const cache = writable<CacheMap>({});
 
 const inflight = new Map<string, Promise<void>>();
 
-const apiBaseUrl = (): string => env.PUBLIC_EXTERNAL_API_URL ?? API_BASE_URL ?? '';
+const apiBaseUrl = (): string => apiOrigin();
 
 const keyOf = (userId: number, version: string | null | undefined): string =>
 	`${userId}::${version ?? ''}`;

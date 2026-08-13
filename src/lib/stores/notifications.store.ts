@@ -9,7 +9,7 @@
 
 import { writable, get } from 'svelte/store';
 import { io, type Socket } from 'socket.io-client';
-import { env } from '$env/dynamic/public';
+import { socketOrigin } from '$lib/config/api.config';
 import { auth } from './auth.store';
 import { NotificationsService, type Notification } from '../services/notifications.service';
 
@@ -136,10 +136,10 @@ function createNotificationsStore() {
 	function connectSocket() {
 		if (socket) return;
 		const token = auth.getAccessToken();
-		// PUBLIC_EXTERNAL_API_URL points at the backend origin. Empty
-		// string means same-origin, which is what socket.io-client
-		// expects for the default namespace resolution.
-		const baseUrl = env.PUBLIC_EXTERNAL_API_URL?.replace(/\/$/, '') ?? '';
+		// The origin serving this page, so the socket follows the
+		// hostname the user is actually on when a deployment answers
+		// under several of them. See `socketOrigin`.
+		const baseUrl = socketOrigin();
 
 		socket = io(`${baseUrl}/notifications`, {
 			// `auth` is delivered in socket.io's handshake payload —

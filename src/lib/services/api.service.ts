@@ -1,8 +1,7 @@
-import { env } from '$env/dynamic/public';
 import { browser } from '$app/environment';
 import { auth } from '$lib/stores/auth.store';
 import { AuthService } from './auth.service';
-import { API_BASE_URL } from '$lib/config/api.config';
+import { apiOrigin } from '$lib/config/api.config';
 import { ApiLogger } from '$lib/utils/api-logger';
 import { setLastRequestId } from '$lib/observability/request-id-store';
 import { toast } from '$lib/stores/toast.store';
@@ -55,7 +54,15 @@ export interface QueryStringOptions {
 }
 
 export class ApiService {
-	static baseUrl = env.PUBLIC_EXTERNAL_API_URL;
+	/**
+	 * Browser-side origin for API calls. A getter, not a captured
+	 * constant: it resolves to the origin the page is on, and the same
+	 * bundle is served to every hostname a deployment answers under.
+	 * See `apiOrigin` in `$lib/config/api.config`.
+	 */
+	static get baseUrl(): string {
+		return apiOrigin();
+	}
 
 	static async get<T>(url: string, options: ApiOptions = {}): Promise<RequestResponse<T>> {
 		return ApiService.request<T>('GET', url, undefined, options);
@@ -350,16 +357,10 @@ export class ApiService {
 		// Ensure path starts with a slash
 		let normalizedPath = path.startsWith('/') ? path : `/${path}`;
 
-		// Remove trailing slash from base URL if it exists
-		// If we are server side, we need to use the API_BASE_URL, otherwise use our base URL
-		let baseUrl = '';
-		if (!browser) {
-			baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
-		} else {
-			baseUrl = ApiService.baseUrl.endsWith('/')
-				? ApiService.baseUrl.slice(0, -1)
-				: ApiService.baseUrl;
-		}
+		// Server side this is the internal backend address; in the browser
+		// it is the origin the page is on, so a deployment answering on
+		// several hostnames keeps every request same-origin.
+		const baseUrl = apiOrigin();
 
 		// Check if the path is already an API or auth path
 		const isApiPath =

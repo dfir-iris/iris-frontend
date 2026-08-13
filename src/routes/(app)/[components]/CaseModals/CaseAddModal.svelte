@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getContext, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { UploadIcon } from 'lucide-svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import type { CreateCaseBody } from '$lib/services/case.service';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
@@ -63,6 +64,14 @@
 		submitting = false;
 	});
 
+	// This modal builds a case from scratch. Someone who arrived holding an
+	// archive from another instance wants the import wizard instead, and
+	// shouldn't have to back out of here and go hunting for it.
+	const openImport = async () => {
+		onOpenChange(false);
+		await goto('/cases/import');
+	};
+
 	const onSubmit = async (event: SubmitEvent) => {
 		event.preventDefault();
 		if (submitting) return;
@@ -120,7 +129,17 @@
 		</Dialog.Header>
 
 		<div class="flex w-full flex-col px-8">
-			<p class="text-sm text-muted-foreground">Fields with an asterisk are required.</p>
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<p class="text-sm text-muted-foreground">Fields with an asterisk are required.</p>
+				<button
+					type="button"
+					class="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+					onclick={openImport}
+				>
+					<UploadIcon size={14} />
+					Import from IRIS export
+				</button>
+			</div>
 			<p class="mt-2 text-sm text-muted-foreground">
 				Access to the case can be granted to other users once the case is created. Users pertaining
 				to the customer will be able to see the case by default.
@@ -165,10 +184,7 @@
 
 				<div class="flex flex-col gap-2">
 					<div class="text-sm font-medium">Customer *</div>
-					<CustomerPicker
-						value={customerId}
-						onChange={(value) => (customerId = value)}
-					/>
+					<CustomerPicker value={customerId} onChange={(value) => (customerId = value)} />
 				</div>
 
 				<div class="flex flex-col gap-2">

@@ -44,7 +44,9 @@ export const Permission = {
 	cluster_rules_read: 0x200000,
 	cluster_rules_write: 0x400000,
 	investigation_flows_read: 0x800000,
-	investigation_flows_write: 0x1000000
+	investigation_flows_write: 0x1000000,
+	asset_manager_read: 0x2000000,
+	asset_manager_write: 0x4000000
 } as const;
 
 export type PermissionName = keyof typeof Permission;

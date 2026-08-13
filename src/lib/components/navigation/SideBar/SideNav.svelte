@@ -3,6 +3,7 @@
 	import {
 		BellIcon,
 		BookOpenIcon,
+		ComputerIcon,
 		DoorOpenIcon,
 		FileStackIcon,
 		FileTextIcon,
@@ -131,8 +132,13 @@
 	const canManageCustomers = $derived(userCtx.can('customers_read'));
 	const canManageCaseTemplates = $derived(userCtx.can('case_templates_read'));
 	const canManageServer = $derived(userCtx.can('server_administrator'));
+	const canManageAssets = $derived(userCtx.can('asset_manager_read'));
 	const showManageGroup = $derived(
-		canManageCustomers || canManageCaseTemplates || canManageServer || !userCtx.ready
+		canManageCustomers ||
+			canManageCaseTemplates ||
+			canManageAssets ||
+			canManageServer ||
+			!userCtx.ready
 	);
 
 	const isItemActive = (item: { path: string; hash?: string; matchPrefix?: boolean }) => {
@@ -199,6 +205,16 @@
 				icon={FolderIcon}
 				href="/manage/cases"
 				active={pathname === '/manage/cases' || pathname.startsWith('/manage/cases/')}
+			/>
+		{/if}
+
+		{#if canManageAssets}
+			<MenuItem
+				{collapsed}
+				label="Assets"
+				icon={ComputerIcon}
+				href="/manage/assets"
+				active={pathname === '/manage/assets' || pathname.startsWith('/manage/assets/')}
 			/>
 		{/if}
 

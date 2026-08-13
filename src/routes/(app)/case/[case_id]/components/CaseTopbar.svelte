@@ -31,10 +31,7 @@
 		SeveritiesService,
 		type Severity as ApiSeverity
 	} from '$lib/services/severities.service';
-	import {
-		WarRoomsService,
-		type WarRoomCaseSummary
-	} from '$lib/services/war-rooms.service';
+	import { WarRoomsService, type WarRoomCaseSummary } from '$lib/services/war-rooms.service';
 	import { safeHexColor } from '$lib/utils/color';
 	import { current_user } from '$lib/stores/auth.store';
 	import type { Alert } from '$lib/types/resources/alert';
@@ -73,6 +70,7 @@
 		type CaseAccessContext
 	} from '$lib/contexts/case-access.context.svelte';
 	import CaseAddDropdown from './CaseAddDropdown.svelte';
+	import CaseExportDialog from './CaseExportDialog.svelte';
 	import CaseQuickAddButton from './CaseQuickAddButton.svelte';
 	import type { Snippet } from 'svelte';
 
@@ -151,9 +149,7 @@
 		const gapPx = 4;
 		const overflowChipPx = 36;
 
-		const tagChips = Array.from(
-			el.querySelectorAll<HTMLElement>('[data-tag-chip]')
-		);
+		const tagChips = Array.from(el.querySelectorAll<HTMLElement>('[data-tag-chip]'));
 
 		let used = 0;
 		let fit = 0;
@@ -370,9 +366,9 @@
 	// next to the linked-alerts chip so analysts can hop back with one
 	// click. Loaded eagerly on case switch — same lazy-avoiding pattern
 	// as the alerts chip so the label appears without a popover click.
-	let sourceAlertCluster = $state<import('$lib/services/alert-clusters.service').CaseSourceAlertCluster | null>(
-		null
-	);
+	let sourceAlertCluster = $state<
+		import('$lib/services/alert-clusters.service').CaseSourceAlertCluster | null
+	>(null);
 	let lastLoadedSourceAlertClusterCaseId = -1;
 
 	const loadSourceAlertCluster = async (id: number) => {
@@ -401,6 +397,10 @@
 	// the case (each alert flips back to Assigned). That's not something
 	// we want a mis-click to trigger.
 	let showConfirmUnlinkAlertCluster = $state(false);
+
+	// Export is a read operation, so it sits outside the `canEdit` gate — the
+	// backend only asks for read access on the case.
+	let showExportDialog = $state(false);
 
 	const unlinkSourceAlertCluster = () => {
 		if (!sourceAlertCluster) return;
@@ -573,7 +573,6 @@
 		? 'border-b-red-500/40 bg-gradient-to-r from-red-100 via-rose-50 to-red-50/40 dark:border-b-red-500/50 dark:from-red-950/60 dark:via-rose-950/40 dark:to-red-950/20'
 		: 'bg-card'}"
 >
-
 	<!-- Case icon badge -->
 	<div
 		class="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset ring-black/5 sm:flex {icon.iconBg} {icon.glow
@@ -791,9 +790,15 @@
 				<Popover.Content align="end" class="w-56 p-3">
 					<div class="flex items-start gap-2">
 						{#if isComplete}
-							<CheckCircle2Icon size={16} class="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+							<CheckCircle2Icon
+								size={16}
+								class="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+							/>
 						{:else}
-							<AlertTriangleIcon size={16} class="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+							<AlertTriangleIcon
+								size={16}
+								class="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400"
+							/>
 						{/if}
 						<div class="min-w-0 text-xs">
 							<div class="font-semibold">{reviewMeta.label}</div>
@@ -920,93 +925,93 @@
 		  trigger when there's at least one alert to expose.
 		-->
 		{#if linkedAlertsTotal > 0}
-		<Popover.Root>
-			<Popover.Trigger
-				class="inline-flex items-center gap-1 rounded-sm bg-transparent text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-				aria-label={`${linkedAlertsTotal} linked alert${linkedAlertsTotal === 1 ? '' : 's'}`}
-			>
-				<BellIcon size={14} />
-				<span class="tabular-nums">
-					{linkedAlertsTotal > 99 ? '99+' : linkedAlertsTotal}
-				</span>
-				<span class="hidden sm:inline">
-					linked alert{linkedAlertsTotal === 1 ? '' : 's'}
-				</span>
-			</Popover.Trigger>
-			<Popover.Content align="end" class="w-80 p-0">
-				<div class="border-b px-3 py-2 text-xs font-semibold">
-					{#if loadingAlerts && linkedAlerts === null}
-						Loading…
-					{:else}
-						{linkedAlertsTotal} linked alert{linkedAlertsTotal === 1 ? '' : 's'}
-					{/if}
-				</div>
-
-				<div class="max-h-72 overflow-y-auto">
-					{#if linkedAlerts === null && loadingAlerts}
-						<div class="px-3 py-4 text-center text-xs text-muted-foreground">Loading…</div>
-					{:else if (linkedAlerts?.length ?? 0) === 0}
-						<div class="px-3 py-4 text-center text-xs text-muted-foreground">
-							No alerts linked to this case.
-						</div>
-					{:else}
-						<ul class="flex flex-col py-1">
-							{#each linkedAlerts as alert (alert.alert_id)}
-								<li class="group flex items-stretch">
-									<a
-										href={`/alerts/${alert.alert_id}`}
-										class="flex min-w-0 flex-1 flex-col gap-0.5 px-3 py-2 text-xs transition-colors hover:bg-muted/60"
-									>
-										<div class="flex items-center gap-2">
-											<span class="shrink-0 font-mono text-2xs text-muted-foreground">
-												#{alert.alert_id}
-											</span>
-											<span class="min-w-0 flex-1 truncate font-medium" title={alert.alert_title}>
-												{alert.alert_title}
-											</span>
-										</div>
-										{#if alert.alert_source}
-											<div class="truncate text-2xs text-muted-foreground">
-												{alert.alert_source}
-											</div>
-										{/if}
-									</a>
-									{#if canEdit}
-										<button
-											type="button"
-											class="mr-1 my-1 rounded-sm px-2 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
-											aria-label={`Unlink alert #${alert.alert_id} from case`}
-											title="Unlink from case"
-											onclick={(e) => {
-												e.preventDefault();
-												e.stopPropagation();
-												void unlinkAlertFromCase(alert.alert_id);
-											}}
-										>
-											<Unlink2 size={13} />
-										</button>
-									{/if}
-								</li>
-							{/each}
-						</ul>
-					{/if}
-				</div>
-
-				{#if linkedAlertsTotal > 0}
-					<div class="border-t p-2">
-						<Button
-							variant="secondary"
-							size="sm"
-							class="h-7 w-full justify-between gap-1 text-xs"
-							onclick={() => goto(`/alerts?case_id=${caseData?.case_id}`)}
-						>
-							<span>View all in Alerts</span>
-							<ChevronRightIcon size={12} />
-						</Button>
+			<Popover.Root>
+				<Popover.Trigger
+					class="inline-flex items-center gap-1 rounded-sm bg-transparent text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+					aria-label={`${linkedAlertsTotal} linked alert${linkedAlertsTotal === 1 ? '' : 's'}`}
+				>
+					<BellIcon size={14} />
+					<span class="tabular-nums">
+						{linkedAlertsTotal > 99 ? '99+' : linkedAlertsTotal}
+					</span>
+					<span class="hidden sm:inline">
+						linked alert{linkedAlertsTotal === 1 ? '' : 's'}
+					</span>
+				</Popover.Trigger>
+				<Popover.Content align="end" class="w-80 p-0">
+					<div class="border-b px-3 py-2 text-xs font-semibold">
+						{#if loadingAlerts && linkedAlerts === null}
+							Loading…
+						{:else}
+							{linkedAlertsTotal} linked alert{linkedAlertsTotal === 1 ? '' : 's'}
+						{/if}
 					</div>
-				{/if}
-			</Popover.Content>
-		</Popover.Root>
+
+					<div class="max-h-72 overflow-y-auto">
+						{#if linkedAlerts === null && loadingAlerts}
+							<div class="px-3 py-4 text-center text-xs text-muted-foreground">Loading…</div>
+						{:else if (linkedAlerts?.length ?? 0) === 0}
+							<div class="px-3 py-4 text-center text-xs text-muted-foreground">
+								No alerts linked to this case.
+							</div>
+						{:else}
+							<ul class="flex flex-col py-1">
+								{#each linkedAlerts as alert (alert.alert_id)}
+									<li class="group flex items-stretch">
+										<a
+											href={`/alerts/${alert.alert_id}`}
+											class="flex min-w-0 flex-1 flex-col gap-0.5 px-3 py-2 text-xs transition-colors hover:bg-muted/60"
+										>
+											<div class="flex items-center gap-2">
+												<span class="shrink-0 font-mono text-2xs text-muted-foreground">
+													#{alert.alert_id}
+												</span>
+												<span class="min-w-0 flex-1 truncate font-medium" title={alert.alert_title}>
+													{alert.alert_title}
+												</span>
+											</div>
+											{#if alert.alert_source}
+												<div class="truncate text-2xs text-muted-foreground">
+													{alert.alert_source}
+												</div>
+											{/if}
+										</a>
+										{#if canEdit}
+											<button
+												type="button"
+												class="my-1 mr-1 rounded-sm px-2 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+												aria-label={`Unlink alert #${alert.alert_id} from case`}
+												title="Unlink from case"
+												onclick={(e) => {
+													e.preventDefault();
+													e.stopPropagation();
+													void unlinkAlertFromCase(alert.alert_id);
+												}}
+											>
+												<Unlink2 size={13} />
+											</button>
+										{/if}
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</div>
+
+					{#if linkedAlertsTotal > 0}
+						<div class="border-t p-2">
+							<Button
+								variant="secondary"
+								size="sm"
+								class="h-7 w-full justify-between gap-1 text-xs"
+								onclick={() => goto(`/alerts?case_id=${caseData?.case_id}`)}
+							>
+								<span>View all in Alerts</span>
+								<ChevronRightIcon size={12} />
+							</Button>
+						</div>
+					{/if}
+				</Popover.Content>
+			</Popover.Root>
 		{/if}
 
 		<!--
@@ -1020,7 +1025,7 @@
 			<DropdownMenu>
 				<DropdownMenuTrigger>
 					<span
-						class="inline-flex h-7 cursor-pointer items-center gap-1 rounded-sm border border-red-500/30 bg-red-500/10 px-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-2 dark:text-red-300"
+						class="inline-flex h-7 cursor-pointer items-center gap-1 rounded-sm border border-red-500/30 bg-red-500/10 px-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-red-300 sm:px-2"
 						title={`Alert Cluster #${sourceAlertCluster.cluster_id}: ${sourceAlertCluster.cluster_title}`}
 					>
 						<ShieldAlert size={13} />
@@ -1033,7 +1038,9 @@
 				<DropdownMenuContent align="end" class="min-w-[220px]">
 					<DropdownMenuLabel>Source alert cluster</DropdownMenuLabel>
 					<DropdownMenuSeparator />
-					<DropdownMenuItem onclick={() => goto(`/alert-clusters/${sourceAlertCluster?.cluster_id}`)}>
+					<DropdownMenuItem
+						onclick={() => goto(`/alert-clusters/${sourceAlertCluster?.cluster_id}`)}
+					>
 						Open alert cluster #{sourceAlertCluster.cluster_id}
 					</DropdownMenuItem>
 					{#if canEdit}
@@ -1111,7 +1118,7 @@
 		{#if warRooms.length > 0}
 			<Popover.Root>
 				<Popover.Trigger
-					class="inline-flex h-7 items-center gap-1 rounded-sm border border-red-500/30 bg-red-500/10 px-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-2 dark:text-red-300"
+					class="inline-flex h-7 items-center gap-1 rounded-sm border border-red-500/30 bg-red-500/10 px-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-red-300 sm:px-2"
 					aria-label="War rooms this case is attached to"
 				>
 					<ShieldAlert size={13} />
@@ -1203,16 +1210,11 @@
 							<span class="relative flex items-center">
 								<Activity size={16} />
 								{#if open}
-									<span
-										class="absolute -right-1 -top-1 flex h-2 w-2"
-										aria-hidden="true"
-									>
+									<span class="absolute -right-1 -top-1 flex h-2 w-2" aria-hidden="true">
 										<span
 											class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"
 										></span>
-										<span
-											class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"
-										></span>
+										<span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
 									</span>
 								{/if}
 							</span>
@@ -1248,7 +1250,7 @@
 				{/if}
 
 				<DropdownMenuSeparator />
-				<DropdownMenuItem>Export Case</DropdownMenuItem>
+				<DropdownMenuItem onclick={() => (showExportDialog = true)}>Export Case</DropdownMenuItem>
 				{#if canEdit}
 					<DropdownMenuItem>Archive Case</DropdownMenuItem>
 				{/if}
@@ -1263,3 +1265,11 @@
 	message={`Alert Cluster #${sourceAlertCluster?.cluster_id ?? ''} will go back to Investigating and every alert currently linked to this case will be detached (status reset to Assigned). The case itself remains.`}
 	onConfirm={confirmUnlinkSourceAlertCluster}
 />
+
+{#if caseData?.case_id}
+	<CaseExportDialog
+		bind:open={showExportDialog}
+		caseId={caseData.case_id}
+		onOpenChange={(open) => (showExportDialog = open)}
+	/>
+{/if}

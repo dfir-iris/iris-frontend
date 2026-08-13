@@ -110,16 +110,13 @@ async function setupBinaryRequest(): Promise<{ headers: Record<string, string>; 
 	const { auth } = await import('$lib/stores/auth.store');
 	const { AuthService } = await import('./auth.service');
 	const { browser } = await import('$app/environment');
-	const { env } = await import('$env/dynamic/public');
-	const { API_BASE_URL } = await import('$lib/config/api.config');
+	const { apiOrigin } = await import('$lib/config/api.config');
 
 	if (auth.isTokenExpired() && !auth.isRefreshTokenExpired()) {
 		await AuthService.refreshToken();
 	}
 
-	const baseUrl = browser
-		? (env.PUBLIC_EXTERNAL_API_URL ?? '').replace(/\/$/, '')
-		: API_BASE_URL.replace(/\/$/, '');
+	const baseUrl = apiOrigin();
 
 	const headers: Record<string, string> = { Accept: '*/*' };
 	const token = auth.getAccessToken();

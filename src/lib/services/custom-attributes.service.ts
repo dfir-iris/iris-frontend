@@ -32,7 +32,7 @@ export interface CustomAttributeField {
 // A single schema is a two-level dict: tab name -> field name -> field.
 export type CustomAttributeSchema = Record<string, Record<string, CustomAttributeField>>;
 
-// One row of the `custom_attribute` table. The eight object types are
+// One row of the `custom_attribute` table. The object types are
 // fixture-seeded — the SPA doesn't create or delete them, only edits.
 export type CustomAttributeObjectType =
 	| 'case'
@@ -42,7 +42,10 @@ export type CustomAttributeObjectType =
 	| 'note'
 	| 'evidence'
 	| 'event'
-	| 'client';
+	| 'client'
+	// The customer-bounded registry entry behind Manage ▸ Assets.
+	// Distinct from 'asset', which is the per-case observation.
+	| 'managed_asset';
 
 export const CUSTOM_ATTRIBUTE_OBJECT_TYPES: CustomAttributeObjectType[] = [
 	'case',
@@ -52,7 +55,8 @@ export const CUSTOM_ATTRIBUTE_OBJECT_TYPES: CustomAttributeObjectType[] = [
 	'note',
 	'evidence',
 	'event',
-	'client'
+	'client',
+	'managed_asset'
 ];
 
 export interface CustomAttribute {

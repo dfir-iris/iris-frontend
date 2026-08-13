@@ -9,7 +9,7 @@
  * service in the app (`ApiService.get/post/delete`).
  */
 import { io, type Socket } from 'socket.io-client';
-import { env } from '$env/dynamic/public';
+import { socketOrigin } from '$lib/config/api.config';
 import { auth } from '$lib/stores/auth.store';
 import { ApiService } from './api.service';
 import type { ApiOptions, RequestResponse } from './api.service';
@@ -263,7 +263,7 @@ export class ChatSocketClient {
 	connect(): void {
 		if (this.socket) return;
 		const token = auth.getAccessToken();
-		const baseUrl = env.PUBLIC_EXTERNAL_API_URL?.replace(/\/$/, '') ?? '';
+		const baseUrl = socketOrigin();
 
 		this.socket = io(`${baseUrl}/chat`, {
 			auth: token ? { token } : {},

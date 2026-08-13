@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { PlusIcon } from 'lucide-svelte';
+	import { PlusIcon, UploadIcon } from 'lucide-svelte';
 	import { getContext } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -20,7 +20,7 @@
 	} from '$lib/components/common/CaseFilters';
 	import CasesDataTable from '$lib/components/common/cases-data-table.svelte';
 	import { UsersService, type User } from '$lib/services/users.service';
-	import { CustomersService, type Customer } from '$lib/services/customers.service';
+	import { CustomersService } from '$lib/services/customers.service';
 	import { CaseStatesService, type CaseState } from '$lib/services/case-states.service';
 	import { SeveritiesService, type Severity } from '$lib/services/severities.service';
 	import { Button } from '$lib/components/ui/button';
@@ -330,7 +330,7 @@
 			SeveritiesService.list()
 		]);
 
-		// users response is a Paginated<User>, customers / states /
+		// users response is a Paginated<User>; customers / states /
 		// severities are flat arrays.
 		const usersData = usersRes.data as { data?: User[] } | User[] | null;
 		const users: User[] = Array.isArray(usersData) ? usersData : (usersData?.data ?? []);
@@ -339,8 +339,10 @@
 			label: u.user_name ? `${u.user_name} (${u.user_login})` : u.user_login
 		}));
 
-		const customers = Array.isArray(customersRes.data) ? (customersRes.data as Customer[]) : [];
-		customerOptions = customers.map((c) => ({ value: c.customer_name, label: c.customer_name }));
+		customerOptions = customersRes.data.map((c) => ({
+			value: c.customer_name,
+			label: c.customer_name
+		}));
 
 		const states = Array.isArray(statesRes.data) ? (statesRes.data as CaseState[]) : [];
 		stateOptions = states.map((s) => ({ value: s.state_name, label: s.state_name }));
@@ -401,7 +403,11 @@
 		if (selectedSavedFilterId === String(id)) selectedSavedFilterId = '';
 	};
 
-	const saveCurrentFilter = async (meta: { name: string; description: string; isPrivate: boolean }) => {
+	const saveCurrentFilter = async (meta: {
+		name: string;
+		description: string;
+		isPrivate: boolean;
+	}) => {
 		if (savingFilter) return;
 		savingFilter = true;
 
@@ -455,6 +461,11 @@
 			</Label>
 		</div>
 
+		<Button variant="outline" onclick={() => goto('/cases/import')}>
+			<UploadIcon />
+			Import Case
+		</Button>
+
 		<Button onclick={() => (cases.ui.showAddModal = true)}>
 			<PlusIcon />
 			Open Case
@@ -477,7 +488,7 @@
 			<CaseSavedFiltersBar
 				presets={cases.savedFilters.items}
 				selectedId={selectedSavedFilterId}
-				hasActiveFilter={hasActiveFilter}
+				{hasActiveFilter}
 				saving={savingFilter}
 				onSelect={(id) => applySavedFilter(id)}
 				onClear={clearActiveFilter}
@@ -539,7 +550,7 @@
 			page={currentPage}
 			pageSize={perPage}
 			onPageChange={(page) => updateUrl({ page })}
-			sort={sort}
+			{sort}
 			onSortChange={(next) => (sort = next)}
 		/>
 	{/if}

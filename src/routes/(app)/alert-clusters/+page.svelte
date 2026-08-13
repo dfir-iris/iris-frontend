@@ -160,10 +160,7 @@
 			}
 		});
 		void CustomersService.list().then((r) => {
-			if (r.data && typeof r.data === 'object') {
-				const payload = r.data as { data?: Customer[] } | Customer[];
-				customers = Array.isArray(payload) ? payload : (payload.data ?? []);
-			}
+			if (r.ok) customers = r.data;
 		});
 		await load();
 	});

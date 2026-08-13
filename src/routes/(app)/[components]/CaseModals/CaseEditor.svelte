@@ -106,11 +106,7 @@
 
 		caseStates = caseStatesResponse.data as CaseState[];
 
-		const customersResponse = (await CustomersService.list()).data as unknown as RequestResponse<
-			Customer[]
-		>;
-
-		customers = customersResponse.data as Customer[];
+		customers = (await CustomersService.list()).data;
 
 		const severitiesResponse = (await SeveritiesService.list()).data as unknown as RequestResponse<
 			Severity[]

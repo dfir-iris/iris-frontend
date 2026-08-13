@@ -42,6 +42,16 @@ export interface CustomerContactBody {
 	contact_note?: string;
 }
 
+/**
+ * A `RequestResponse` whose payload is guaranteed to be present.
+ *
+ * `RequestResponse<T>.data` is `T | string | null` because a failed
+ * request carries the raw error body instead. Services that fold those
+ * cases into a fallback value can promise the narrowed type, so callers
+ * don't have to re-prove it with `Array.isArray`.
+ */
+export type ResolvedResponse<T> = Omit<RequestResponse<T>, 'data'> & { data: T };
+
 export interface SearchCustomersParams {
 	page?: number;
 	per_page?: number;
@@ -53,13 +63,28 @@ export interface SearchCustomersParams {
 
 export class CustomersService {
 	/**
-	 * Legacy-shape list — every caller historically reaches into
-	 * `res.data.data` to unwrap the v2 paginated envelope. Kept as-is
-	 * so `CaseAddModal` / `CaseEditor` callers don't need to change;
-	 * new paginated callers should use `search()` below instead.
+	 * Flat list for lookup controls (filter selects, form dropdowns).
+	 *
+	 * Unwraps the v2 paginated envelope so callers get a plain array —
+	 * they used to each unwrap `res.data.data` themselves, and the ones
+	 * that forgot silently rendered an empty dropdown. Mirrors
+	 * `AssetTypesService.list()`.
+	 *
+	 * Callers that need the pagination envelope (totals, infinite
+	 * scroll) should use `search()` below instead.
 	 */
-	static async list(options: ApiOptions = {}): Promise<RequestResponse<Customer[]>> {
-		return ApiService.get<Customer[]>(`/manage/customers`, options);
+	static async list(options: ApiOptions = {}): Promise<ResolvedResponse<Customer[]>> {
+		// The dropdowns need every customer, but the v2 backend defaults
+		// to per_page=10 and would silently truncate the list — pass a
+		// per_page large enough to cover any realistic deployment.
+		const url = ApiService.withQuery('/manage/customers', { per_page: 10000 });
+		const res = await ApiService.get<Paginated<Customer>>(url, options);
+
+		if (res.ok && res.data !== null && typeof res.data !== 'string') {
+			return { ...res, data: res.data.data ?? [] };
+		}
+
+		return { ...res, data: [] };
 	}
 
 	/**

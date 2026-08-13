@@ -38,7 +38,7 @@
 	import { ApiService } from '$lib/services/api.service';
 	import { auth } from '$lib/stores/auth.store';
 	import { io, type Socket } from 'socket.io-client';
-	import { env } from '$env/dynamic/public';
+	import { socketOrigin } from '$lib/config/api.config';
 	import * as Y from 'yjs';
 	import { Awareness } from 'y-protocols/awareness';
 	import Collaboration from '@tiptap/extension-collaboration';
@@ -334,7 +334,7 @@
 		if (!docName || !ydoc || !awareness) return;
 
 		const token = auth.getAccessToken();
-		const baseUrl = env.PUBLIC_EXTERNAL_API_URL?.replace(/\/$/, '') ?? '';
+		const baseUrl = socketOrigin();
 
 		// WebSocket-first for low latency; polling fallback covers proxies
 		// that block WS.

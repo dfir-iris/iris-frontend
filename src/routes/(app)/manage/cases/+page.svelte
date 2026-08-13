@@ -430,8 +430,8 @@
 		// id fallbacks until the labels land, which is fine because the
 		// hydrated id is already correct.
 		void CustomersService.list().then((res) => {
-			if (res.ok && Array.isArray(res.data)) {
-				customers = (res.data as Customer[])
+			if (res.ok) {
+				customers = res.data
 					.slice()
 					.sort((a, b) => a.customer_name.localeCompare(b.customer_name));
 			}

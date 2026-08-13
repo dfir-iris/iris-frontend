@@ -13,10 +13,9 @@
  * body with an `avatar` field; the bearer token is still pulled from
  * the auth store so the request stays authenticated.
  */
-import { env } from '$env/dynamic/public';
 import { browser } from '$app/environment';
 import { auth } from '$lib/stores/auth.store';
-import { API_BASE_URL } from '$lib/config/api.config';
+import { apiOrigin } from '$lib/config/api.config';
 import { ApiService } from './api.service';
 import type { ApiOptions, RequestResponse } from './api.service';
 
@@ -26,7 +25,7 @@ export type AvatarUpdateResponse = {
 	mime: string;
 };
 
-const apiBaseUrl = (): string => env.PUBLIC_EXTERNAL_API_URL ?? API_BASE_URL ?? '';
+const apiBaseUrl = (): string => apiOrigin();
 
 /**
  * Canonical avatar URL for a user. Append `v=<updatedAt>` when the
