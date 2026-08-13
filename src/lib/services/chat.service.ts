@@ -48,6 +48,30 @@ export interface ChatMessage {
 	created_at: string;
 }
 
+/**
+ * The chatbot policy enforced on a conversation, when the case's (or
+ * war room's) customer is bound to one. Null means the thread runs on
+ * the global chatbot settings.
+ *
+ * A trimmed view of the admin `ChatbotPolicy`: no credentials, no
+ * budgets (the usage bar covers those) — just what changes for the
+ * analyst using the thread.
+ */
+export interface ChatConversationPolicy {
+	id: number;
+	name: string;
+	description: string;
+	/** Higher = stricter; ≥100 is a local-only provider. */
+	restriction_level: number;
+	provider: string;
+	model: string;
+	redact_ips: boolean;
+	redact_emails: boolean;
+	redact_hashes: boolean;
+	/** 0 = keep forever. */
+	retention_days: number;
+}
+
 export interface ChatConversation {
 	id: number;
 	case_id: number | null;
@@ -58,6 +82,7 @@ export interface ChatConversation {
 	created_at: string;
 	updated_at: string;
 	archived_at: string | null;
+	policy?: ChatConversationPolicy | null;
 }
 
 export interface PendingToolCall {

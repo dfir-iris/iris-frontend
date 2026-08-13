@@ -18,7 +18,8 @@
 		MinusIcon,
 		PlusIcon,
 		XIcon,
-		PencilIcon
+		PencilIcon,
+		ShieldCheckIcon
 	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
@@ -122,6 +123,33 @@
 		if (conv.war_room_id != null) return `war-room #${conv.war_room_id}`;
 		if (conv.case_id != null) return `case #${conv.case_id}`;
 		return 'global';
+	});
+
+	// ---------- Enforced chatbot policy ----------
+	// The backend stamps the resolved policy on the conversation at
+	// creation and returns a trimmed summary of it on every payload.
+	// Null = the thread runs on the global chatbot settings, and the
+	// banner stays hidden — no banner is the "nothing special applies"
+	// signal, so it only ever appears when something really is enforced.
+	const policy = $derived(chat.state.currentConversation?.policy ?? null);
+
+	/** The parts of the policy an analyst can act on, in plain words.
+	 *  Restriction level and provider names aren't in here: what matters
+	 *  mid-conversation is where the data goes, what gets scrubbed, and
+	 *  how long the transcript lives. */
+	const policyNotes = $derived.by<string[]>(() => {
+		if (!policy) return [];
+		const notes: string[] = [];
+		if (policy.restriction_level >= 100) notes.push('local model only');
+		else if (policy.model) notes.push(policy.model);
+		const redacted = [
+			policy.redact_ips ? 'IPs' : null,
+			policy.redact_emails ? 'emails' : null,
+			policy.redact_hashes ? 'hashes' : null
+		].filter(Boolean);
+		if (redacted.length) notes.push(`${redacted.join(', ')} redacted`);
+		if (policy.retention_days > 0) notes.push(`kept ${policy.retention_days}d`);
+		return notes;
 	});
 
 	let showHistory = $state(false);
@@ -467,6 +495,23 @@
 					/>
 				{/if}
 			</div>
+
+			<!-- Policy banner: only rendered when a chatbot policy is
+			     actually enforced on this conversation, so its presence
+			     alone is the signal. One line, no dismiss — it describes
+			     a constraint the analyst can't opt out of. -->
+			{#if policy}
+				<div
+					class="flex shrink-0 items-start gap-1.5 border-b border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-2xs text-amber-700 dark:text-amber-400"
+					title={policy.description || undefined}
+				>
+					<ShieldCheckIcon size={12} class="mt-0.5 shrink-0" />
+					<span class="min-w-0">
+						Policy <span class="font-medium">{policy.name}</span> is enforced on this conversation{#if policyNotes.length}
+							— {policyNotes.join(' · ')}{/if}
+					</span>
+				</div>
+			{/if}
 
 			<!-- Scrollable message thread. min-h-0 so flex lets it shrink
 			     below intrinsic content height and the overflow-y-auto
