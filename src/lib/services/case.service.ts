@@ -58,7 +58,7 @@ export interface UpdateCaseBody {
 	severity_id?: number;
 	status_id?: number;
 	case_customer?: number;
-	reviewer_id?: number;
+	reviewer_id?: number | null;
 	review_status_id?: number;
 	protagonists?: unknown[];
 	case_tags?: string;

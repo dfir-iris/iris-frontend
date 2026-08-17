@@ -2,12 +2,17 @@
 	import { getContext, onMount, setContext, type Snippet } from 'svelte';
 	import { page } from '$app/state';
 	import {
+		BanIcon,
 		ChartLineIcon,
 		ClipboardCheckIcon,
 		ClipboardPasteIcon,
 		HardDriveUploadIcon,
+		PlayIcon,
+		RotateCcwIcon,
+		ThumbsUpIcon,
 		ZapIcon
 	} from 'lucide-svelte';
+	import { current_user } from '$lib/stores/auth.store';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import {
 		CASE_ASSETS_CTX,
@@ -71,11 +76,13 @@
 	import { toast } from '$lib/components/ui/toast';
 	import CaseTopbar from './components/CaseTopbar.svelte';
 	import ReadOnlyBanner from './components/ReadOnlyBanner.svelte';
+	import ReviewBanner from './components/ReviewBanner.svelte';
 	import RequestReviewDialog from './components/RequestReviewDialog.svelte';
 	import { callHook } from './utils/hooks';
 	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
 	import type { Case } from '$lib/types/resources/case';
 	import type { UserInfo } from '$lib/services/auth.service';
+	import type { UpdateCaseBody } from '$lib/services/case.service';
 	import { HooksService, type HookOption } from '$lib/services/hooks.service';
 	import type { RequestResponse } from '$lib/services/api.service';
 	import { CaseManageModal } from '../../[components]/CaseModals';
@@ -135,16 +142,40 @@
 		});
 	};
 
+	// Review status IDs are seeded in a fixed order by post_init.py:
+	// 1=No review required, 2=Not reviewed, 3=Pending review,
+	// 4=Review in progress, 5=Reviewed
+	const REVIEW_STATUS = {
+		NO_REVIEW_REQUIRED: 1,
+		NOT_REVIEWED: 2,
+		PENDING_REVIEW: 3,
+		REVIEW_IN_PROGRESS: 4,
+		REVIEWED: 5
+	} as const;
+
 	const setReviewer = async (admin: UserInfo) => {
 		const id = cases.currentCaseId();
 		if (!currentCase) return;
-
 		await cases.patch(id, {
 			reviewer_id: admin.user_id,
-			// TODO: Add API to retrieve list of review statuses and find a proper one
-			review_status_id: 3
+			review_status_id: REVIEW_STATUS.PENDING_REVIEW
 		});
 	};
+
+	const setReviewStatus = async (review_status_id: number) => {
+		const id = cases.currentCaseId();
+		if (!currentCase) return;
+		const body: UpdateCaseBody = { review_status_id };
+		if (review_status_id === REVIEW_STATUS.NOT_REVIEWED) {
+			body.reviewer_id = null;
+		}
+		await cases.patch(id, body);
+	};
+
+	const myUserId = $derived($current_user?.user_id ?? $current_user?.id ?? null);
+	const reviewStatus = $derived(currentCase?.review_status?.status_name ?? null);
+	const reviewerId = $derived(currentCase?.reviewer_id ?? null);
+	const isReviewer = $derived(myUserId !== null && reviewerId !== null && myUserId === reviewerId);
 
 	let lastCaseId = $state<number | null>(null);
 
@@ -292,9 +323,35 @@
 				</DropdownMenuSubContent>
 			</DropdownMenuSub>
 		{/if}
-		{#if currentCase?.review_status === null}
-			<DropdownMenuItem onclick={() => (showRequestReview = true)}>
-				<ClipboardCheckIcon class="mr-2 size-4" /> Request review
+	{/if}
+	{#if caseAccess.canEdit() || isReviewer}
+		<DropdownMenuSeparator />
+		<DropdownMenuLabel>Review</DropdownMenuLabel>
+		{#if caseAccess.canEdit()}
+			{#if reviewStatus === null || reviewStatus === 'Not reviewed' || reviewStatus === 'No review required'}
+				<DropdownMenuItem onclick={() => (showRequestReview = true)}>
+					<ClipboardCheckIcon class="mr-2 size-4" /> Request review
+				</DropdownMenuItem>
+			{/if}
+			{#if reviewStatus !== null && reviewStatus !== 'Not reviewed' && reviewStatus !== 'No review required'}
+				<DropdownMenuItem onclick={() => setReviewStatus(REVIEW_STATUS.NOT_REVIEWED)}>
+					<RotateCcwIcon class="mr-2 size-4" /> Cancel review request
+				</DropdownMenuItem>
+			{/if}
+			{#if reviewStatus !== 'No review required'}
+				<DropdownMenuItem onclick={() => setReviewStatus(REVIEW_STATUS.NO_REVIEW_REQUIRED)}>
+					<BanIcon class="mr-2 size-4" /> No review required
+				</DropdownMenuItem>
+			{/if}
+		{/if}
+		{#if isReviewer && reviewStatus === 'Pending review'}
+			<DropdownMenuItem onclick={() => setReviewStatus(REVIEW_STATUS.REVIEW_IN_PROGRESS)}>
+				<PlayIcon class="mr-2 size-4" /> Start review
+			</DropdownMenuItem>
+		{/if}
+		{#if isReviewer && reviewStatus === 'Review in progress'}
+			<DropdownMenuItem onclick={() => setReviewStatus(REVIEW_STATUS.REVIEWED)}>
+				<ThumbsUpIcon class="mr-2 size-4" /> Confirm review
 			</DropdownMenuItem>
 		{/if}
 	{/if}
@@ -316,6 +373,18 @@
 
 		{#if caseAccess.isReadOnly()}
 			<ReadOnlyBanner />
+		{/if}
+
+		{#if isReviewer && (reviewStatus === 'Pending review' || reviewStatus === 'Review in progress')}
+			<ReviewBanner
+				statusName={reviewStatus}
+				onStartReview={reviewStatus === 'Pending review'
+					? () => setReviewStatus(REVIEW_STATUS.REVIEW_IN_PROGRESS)
+					: undefined}
+				onConfirmReview={reviewStatus === 'Review in progress'
+					? () => setReviewStatus(REVIEW_STATUS.REVIEWED)
+					: undefined}
+			/>
 		{/if}
 
 		<div class="flex grow overflow-y-auto">

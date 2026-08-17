@@ -252,6 +252,37 @@ async function proxyOidc(event: Parameters<Handle>[0]['event']): Promise<Respons
 /**
  * Fetches current auth state, returning it as a events.local
  */
+/**
+ * CSRF origin guard — replaces SvelteKit's built-in checkOrigin which
+ * can only compare against a single Host value and therefore always
+ * rejects requests coming in on a custom domain.
+ *
+ * Logic mirrors what SvelteKit does internally: for any state-mutating
+ * method (POST/PUT/PATCH/DELETE) that carries an Origin header, the
+ * origin must match the request's own origin as SvelteKit sees it via
+ * event.url (which already accounts for X-Forwarded-Host/Proto).
+ * Requests with no Origin header (same-site or server-to-server) pass.
+ */
+const csrfHandle: Handle = async ({ event, resolve }) => {
+	const method = event.request.method.toUpperCase();
+	const isMutating = method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
+
+	if (isMutating) {
+		const origin = event.request.headers.get('origin');
+		if (origin !== null) {
+			const requestOrigin = event.url.origin;
+			if (origin !== requestOrigin) {
+				return new Response(JSON.stringify({ message: 'Cross-Site POST submissions are forbidden' }), {
+					status: 403,
+					headers: { 'Content-Type': 'application/json' }
+				});
+			}
+		}
+	}
+
+	return resolve(event);
+};
+
 const irisHandle: Handle = async ({ event, resolve }) => {
 	if (
 		(event.url.pathname === '/oidc-login' || event.url.pathname === '/oidc-authorize') &&
@@ -345,7 +376,7 @@ const irisHandle: Handle = async ({ event, resolve }) => {
 
 // Sentry's server handler wraps everything with an active span so
 // `handleError` events land with the request context attached.
-export const handle: Handle = sequence(sentryHandle(), irisHandle);
+export const handle: Handle = sequence(sentryHandle(), csrfHandle, irisHandle);
 
 const fallbackHandleError: HandleServerError = ({ error, event }) => {
 	const message = error instanceof Error ? error.message : 'Server error';

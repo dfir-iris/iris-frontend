@@ -58,8 +58,8 @@ export interface Case {
 	/** Review */
 
 	reviewer: UserInfo | null;
-	reviewer_id: null;
-	review_status_id: null;
+	reviewer_id: number | null;
+	review_status_id: number | null;
 	review_status: ReviewStatus | null;
 
 	/** Status & classification */

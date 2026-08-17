@@ -106,6 +106,16 @@
 		network.on('click', handleClick);
 		network.on('oncontext', handleContext);
 
+		const handleMouseLeave = () => {
+			// Re-show the clickToUse overlay so the graph releases scroll
+			// control back to the page until the user clicks into it again.
+			if (options.clickToUse) {
+				network?.setOptions({ clickToUse: true });
+			}
+		};
+
+		container.addEventListener('mouseleave', handleMouseLeave);
+
 		onReady?.(network);
 
 		let resizeTimeout: ReturnType<typeof setTimeout>;
@@ -117,6 +127,7 @@
 		return () => {
 			clearTimeout(resizeTimeout);
 			observer.disconnect();
+			container?.removeEventListener('mouseleave', handleMouseLeave);
 			network?.off('click', handleClick);
 			network?.off('oncontext', handleContext);
 			network?.destroy();

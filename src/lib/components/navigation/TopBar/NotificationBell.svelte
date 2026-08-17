@@ -7,7 +7,7 @@
 	// fetches the initial feed.
 
 	import { onMount, onDestroy } from 'svelte';
-	import { BellIcon, CheckCheckIcon, Trash2Icon } from 'lucide-svelte';
+	import { BellIcon, CheckCheckIcon, ClipboardCheckIcon, Trash2Icon } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import * as Popover from '$lib/components/ui/popover';
 	import {
@@ -17,6 +17,7 @@
 		TooltipTrigger
 	} from '$lib/components/ui/tooltip';
 	import { notifications } from '$lib/stores/notifications.store';
+	import { reviews } from '$lib/stores/reviews.store';
 	import type { Notification } from '$lib/services/notifications.service';
 
 	let open = $state(false);
@@ -24,15 +25,18 @@
 	// Re-fetch every time the dropdown opens so we don't render stale
 	// data if the socket dropped and reconnected without us seeing it.
 	// Cheap: bounded by RECENT_LIMIT and a single query.
+	const totalBadgeCount = $derived($notifications.unreadCount + $reviews.items.length);
+
 	async function onOpenChange(next: boolean) {
 		open = next;
 		if (next) {
-			await notifications.refresh();
+			await Promise.all([notifications.refresh(), reviews.load()]);
 		}
 	}
 
 	onMount(() => {
 		notifications.initialize();
+		reviews.start();
 	});
 
 	onDestroy(() => {
@@ -86,7 +90,7 @@
 			<Tooltip>
 				<TooltipTrigger>
 					<BellIcon size="16" />
-					{#if $notifications.unreadCount > 0}
+					{#if totalBadgeCount > 0}
 						<!--
 							Badge is absolutely positioned so the button box
 							stays the same size as the other topbar action
@@ -97,7 +101,7 @@
 							class="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white shadow"
 							aria-live="polite"
 						>
-							{$notifications.unreadCount > 99 ? '99+' : $notifications.unreadCount}
+							{totalBadgeCount > 99 ? '99+' : totalBadgeCount}
 						</span>
 					{/if}
 				</TooltipTrigger>
@@ -138,15 +142,49 @@
 		</div>
 
 		<div class="min-h-0 flex-1 overflow-y-auto">
+			{#if $reviews.items.length > 0}
+				<div class="border-b">
+					<div class="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+						Pending reviews
+					</div>
+					<ul class="divide-y">
+						{#each $reviews.items as r (r.case_id)}
+							<li>
+								<button
+									onclick={() => { open = false; goto(`/case/${r.case_id}`); }}
+									class="flex w-full items-start gap-2 bg-amber-50/60 px-3 py-2 text-left transition-colors hover:bg-muted dark:bg-amber-900/10"
+								>
+									<span class="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-amber-500"></span>
+									<div class="min-w-0 flex-1">
+										<div class="flex items-center gap-1.5">
+											<ClipboardCheckIcon size={11} class="shrink-0 text-amber-600 dark:text-amber-400" />
+											<span class="truncate text-sm font-medium text-foreground">{r.case_name}</span>
+										</div>
+										{#if r.review_status?.status_name}
+											<div class="text-xs text-muted-foreground">{r.review_status.status_name}</div>
+										{/if}
+									</div>
+								</button>
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
+
 			{#if $notifications.loading && $notifications.items.length === 0}
 				<div class="px-3 py-8 text-center text-sm text-muted-foreground">
 					Loading…
 				</div>
-			{:else if $notifications.items.length === 0}
+			{:else if $notifications.items.length === 0 && $reviews.items.length === 0}
 				<div class="px-3 py-8 text-center text-sm text-muted-foreground">
 					You're all caught up.
 				</div>
-			{:else}
+			{:else if $notifications.items.length > 0}
+				{#if $reviews.items.length > 0}
+					<div class="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+						Notifications
+					</div>
+				{/if}
 				<ul class="divide-y">
 					{#each $notifications.items as n (n.id)}
 						<li>

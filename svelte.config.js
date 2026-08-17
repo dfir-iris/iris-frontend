@@ -9,8 +9,13 @@ const config = {
 		adapter: adapter({
 			precompress: true,
 		}),
+		// SvelteKit's built-in checkOrigin compares the Origin header to a single
+		// Host value. Multi-hostname deployments (default slug + custom domain)
+		// always fail that check on whichever hostname isn't the primary one.
+		// We replicate the equivalent guard in hooks.server.ts using event.url,
+		// which reflects X-Forwarded-Host and is always the actual public origin.
 		csrf: {
-			checkOrigin: process.env.NODE_ENV === 'development' ? false : true
+			checkOrigin: false
 		},
 		// Add server proxy configuration
 		alias: {
