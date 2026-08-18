@@ -49,7 +49,7 @@
 		page = $bindable(),
 		pageSize = $bindable(10),
 		totalPages: totalPagesProp,
-		pageSizeOptions = [10, 25, 50, 100],
+		pageSizeOptions = [10, 20, 25, 50, 100],
 		sort: sortProp,
 		onSortChange,
 		showColumnFilters = true

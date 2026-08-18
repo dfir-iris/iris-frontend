@@ -24,7 +24,7 @@ const normalizeListParams = (
 ): Required<Omit<ListCaseEvidencesParams, 'custom_conditions'>> &
 	Pick<ListCaseEvidencesParams, 'custom_conditions'> => ({
 	page: params.page ?? 1,
-	per_page: params.per_page ?? 10,
+	per_page: params.per_page ?? 20,
 	order_by: params.order_by ?? 'date_added',
 	sort_dir: params.sort_dir ?? 'desc',
 	custom_conditions: params.custom_conditions

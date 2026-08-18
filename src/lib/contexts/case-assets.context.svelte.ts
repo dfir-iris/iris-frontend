@@ -24,7 +24,7 @@ const normalizeListParams = (
 ): Required<Omit<ListCaseAssetsParams, 'custom_conditions'>> &
 	Pick<ListCaseAssetsParams, 'custom_conditions'> => ({
 	page: params.page ?? 1,
-	per_page: params.per_page ?? 10,
+	per_page: params.per_page ?? 20,
 	order_by: params.order_by ?? 'asset_id',
 	sort_dir: params.sort_dir ?? 'desc',
 	custom_conditions: params.custom_conditions
