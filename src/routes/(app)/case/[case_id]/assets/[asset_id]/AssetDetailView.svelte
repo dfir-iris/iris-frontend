@@ -38,6 +38,7 @@
 	} from '$lib/contexts/case-access.context.svelte';
 	import type { UpdateCaseAssetBody } from '$lib/services/case-assets.service';
 	import { CommentsService, type Comment } from '$lib/services/comments.service';
+	import { cn } from '$lib/utils';
 	import { normalizeTags, stringToTags, tagsToString } from '$lib/utils/tags';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
 	import { toast } from '$lib/components/ui/toast';
@@ -308,13 +309,20 @@
 								<ShieldAlertIcon class="mr-1 h-4 w-4" />
 								<span>IOCs</span>
 
-								{#if asset.iocs?.length}
-									<span
-										class="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors"
-									>
-										{asset.iocs.length}
-									</span>
-								{/if}
+								<!--
+								  Zero renders dimmed rather than hidden: "checked,
+								  none" and "not loaded yet" have to look different,
+								  and these counts are now the only place the link
+								  totals appear.
+								-->
+								<span
+									class={cn(
+										'ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors',
+										!asset.iocs?.length && 'opacity-40'
+									)}
+								>
+									{asset.iocs?.length ?? 0}
+								</span>
 							</TabsTrigger>
 
 							<TabsTrigger
@@ -324,9 +332,12 @@
 								<ClockIcon class="mr-1 h-4 w-4" />
 								<span>Timeline</span>
 
-								{#if timelineCount !== null && timelineCount > 0}
+								{#if timelineCount !== null}
 									<span
-										class="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors"
+										class={cn(
+											'ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors',
+											timelineCount === 0 && 'opacity-40'
+										)}
 									>
 										{timelineCount}
 									</span>
@@ -348,13 +359,14 @@
 								<MessagesSquareIcon class="mr-1 h-4 w-4" />
 								<span>Comments</span>
 
-								{#if comments?.length}
-									<span
-										class="absolute left-8 top-3 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-2xs text-white"
-									>
-										{comments.length}
-									</span>
-								{/if}
+								<span
+									class={cn(
+										'ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors',
+										!comments.length && 'opacity-40'
+									)}
+								>
+									{comments.length}
+								</span>
 							</TabsTrigger>
 
 							{#if hasCustomAttributes.asset === true}
@@ -385,8 +397,8 @@
 					</div>
 
 					<!--
-					  No padding here: the Details tab is a full-bleed grid whose
-					  property rail must reach the pane edge. Tabs that render
+					  No padding here: the Details tab opens on a full-bleed field
+					  board that must reach both pane edges. Tabs that render
 					  ordinary content bring their own padding.
 					-->
 					<div class="min-h-0 flex-1 overflow-y-auto">
@@ -397,9 +409,6 @@
 								{editData}
 								onUpdateEditData={handleUpdateEditData}
 								{currentTags}
-								iocCount={asset.iocs?.length ?? 0}
-								{timelineCount}
-								commentCount={comments.length}
 							/>
 						</TabsContent>
 

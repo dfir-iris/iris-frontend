@@ -10,7 +10,7 @@
 	import MarkDownPreview from '$lib/components/common/MarkDown/MarkDownPreview.svelte';
 	import { CompromiseStatus } from '$lib/components/common/compromise-status';
 	import { TagDisplay } from '$lib/components/common/tag';
-	import { PropertyRail, PropertyGroup, PropertyItem } from '$lib/components/common/property-rail';
+	import { FieldGrid, FieldItem } from '$lib/components/common/field-grid';
 	import AssetEditForm, { type AssetEditData } from '../components/asset-edit-form.svelte';
 
 	type Props = {
@@ -19,10 +19,6 @@
 		editData?: AssetEditData;
 		onUpdateEditData?: (field: string, value: string | number | Tag[]) => void;
 		currentTags?: Tag[];
-		/** Link counts shown in the rail; owned by the parent detail view. */
-		iocCount?: number;
-		timelineCount?: number | null;
-		commentCount?: number;
 	};
 
 	let {
@@ -30,16 +26,14 @@
 		isEditing = false,
 		editData,
 		onUpdateEditData = () => {},
-		currentTags = [],
-		iocCount = 0,
-		timelineCount = null,
-		commentCount = 0
+		currentTags = []
 	}: Props = $props();
 
 	let assetTypes = $state<AssetType[]>([]);
 	let analysisStatuses = $state<AnalysisStatusItem[]>([]);
 
 	const caseId = $derived(Number(page.params.case_id));
+	const hasTags = $derived((asset.asset_tags?.length ?? 0) > 0);
 
 	const formatDate = (value: string | null | undefined) =>
 		value ? new Date(value).toLocaleString() : null;
@@ -76,66 +70,42 @@
 	</div>
 {:else}
 	<!--
-	  Scalars live in the rail, prose keeps the width. The rail drops below
-	  the main column on narrow panes so a resized sidebar doesn't squeeze
-	  the description into a gutter.
+	  Scalars first as a fixed board, then the prose at full width. Link counts
+	  are deliberately absent — they live on the tab triggers, which is both
+	  where they'd be clicked and one line above this.
 	-->
-	<div class="grid min-h-full grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px]">
-		<div class="flex min-w-0 flex-col gap-4 p-4">
-			<section>
-				<div class="mb-1.5 flex items-center gap-2">
-					<h3 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-						Description
-					</h3>
-					<span class="h-px flex-1 bg-border"></span>
-				</div>
+	<FieldGrid>
+		<FieldItem label="Type" value={asset.asset_type?.asset_name} />
+		<FieldItem label="Analysis" value={asset.analysis_status?.name} />
 
-				{#if asset.asset_description}
-					<MarkDownPreview markdown={asset.asset_description} />
-				{:else}
-					<p class="text-sm italic text-muted-foreground">No description provided</p>
-				{/if}
-			</section>
+		<FieldItem label="Compromise">
+			<CompromiseStatus status={asset.asset_compromise_status_id || 3} />
+		</FieldItem>
 
-			<section>
-				<div class="mb-1.5 flex items-center gap-2">
-					<h3 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tags</h3>
-					<span class="h-px flex-1 bg-border"></span>
-				</div>
+		<FieldItem label="IP" value={asset.asset_ip} mono copyable />
+		<FieldItem label="Domain" value={asset.asset_domain} mono copyable />
+		<FieldItem label="ID" value={`#${asset.asset_id}`} mono />
 
-				{#if asset.asset_tags}
-					<TagDisplay tags={asset.asset_tags} size="small" />
-				{:else}
-					<p class="text-sm italic text-muted-foreground">No tags</p>
-				{/if}
-			</section>
-		</div>
+		<FieldItem label="Added" value={formatDate(asset.date_added)} />
+		<FieldItem label="Updated" value={formatDate(asset.date_update)} />
+	</FieldGrid>
 
-		<PropertyRail class="lg:w-[280px]">
-			<PropertyGroup title="Classification">
-				<PropertyItem label="Type" value={asset.asset_type?.asset_name} />
-				<PropertyItem label="Analysis" value={asset.analysis_status?.name} />
-				<PropertyItem label="Compromise">
-					<CompromiseStatus status={asset.asset_compromise_status_id || 3} />
-				</PropertyItem>
-			</PropertyGroup>
+	<div class="p-4">
+		<h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+			Description
+		</h3>
 
-			<PropertyGroup title="Network">
-				<PropertyItem label="IP" value={asset.asset_ip} mono copyable />
-				<PropertyItem label="Domain" value={asset.asset_domain} mono copyable />
-			</PropertyGroup>
+		{#if asset.asset_description}
+			<MarkDownPreview markdown={asset.asset_description} />
+		{:else}
+			<p class="text-sm italic text-muted-foreground">No description provided</p>
+		{/if}
 
-			<PropertyGroup title="Links">
-				<PropertyItem label="IOCs" value={iocCount} />
-				<PropertyItem label="Timeline" value={timelineCount ?? '—'} />
-				<PropertyItem label="Comments" value={commentCount} />
-			</PropertyGroup>
-
-			<PropertyGroup title="Record">
-				<PropertyItem label="Added" value={formatDate(asset.date_added)} />
-				<PropertyItem label="Updated" value={formatDate(asset.date_update)} />
-				<PropertyItem label="ID" value={`#${asset.asset_id}`} mono />
-			</PropertyGroup>
-		</PropertyRail>
+		<!-- No caption: a rule and a row of chips reads as tags without one. -->
+		{#if hasTags}
+			<div class="mt-4 border-t border-border/70 pt-3">
+				<TagDisplay tags={asset.asset_tags} size="small" />
+			</div>
+		{/if}
 	</div>
 {/if}
