@@ -11,7 +11,7 @@
 		className = ''
 	}: {
 		tags: TagInput;
-		size?: 'small' | 'default' | 'large';
+		size?: 'xs' | 'small' | 'default' | 'large';
 		limit?: number;
 		className?: string;
 	} = $props();
@@ -26,13 +26,16 @@
 	const moreCount = $derived(normalizedTags.length - limit);
 
 	const sizeClasses = {
+		// `xs` is the list-row size (EntityRow): tag icon dropped and the pill
+		// squeezed to 16px so a full tag set costs one line, not two.
+		xs: 'h-4 text-2xs px-1',
 		small: 'h-5 text-xs px-1.5',
 		default: 'h-6 text-xs px-2',
 		large: 'h-7 text-sm px-2.5'
 	};
 </script>
 
-<div class={cn('flex flex-wrap gap-1.5', className)}>
+<div class={cn('flex flex-wrap', size === 'xs' ? 'gap-1' : 'gap-1.5', className)}>
 	{#each displayedTags as tag (tag.tag_id)}
 		<div
 			class={cn('inline-flex items-center rounded-md bg-muted', sizeClasses[size])}
@@ -40,16 +43,21 @@
 		>
 			{#if tag.tag_color}
 				<span
-					class="mr-1.5 inline-block h-2 w-2 rounded-full"
+					class={cn('inline-block h-2 w-2 rounded-full', size === 'xs' ? 'mr-1' : 'mr-1.5')}
 					style={`background-color: ${tag.tag_color};`}
 				></span>
 			{/if}
 
 			<div
-				class="flex max-w-[150px] items-center gap-1 truncate rounded-full bg-muted py-1 text-xs"
+				class={cn(
+					'flex max-w-[150px] items-center gap-1 truncate rounded-full bg-muted',
+					size === 'xs' ? 'text-2xs' : 'py-1 text-xs'
+				)}
 			>
-				<TagIcon size={12} />
-				<span>{tag.tag_title}</span>
+				{#if size !== 'xs'}
+					<TagIcon size={12} />
+				{/if}
+				<span class="truncate">{tag.tag_title}</span>
 			</div>
 		</div>
 	{/each}

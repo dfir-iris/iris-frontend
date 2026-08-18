@@ -43,6 +43,7 @@
 	import { toast } from '$lib/components/ui/toast';
 	import { page } from '$app/state';
 	import { CaseTimelineService } from '$lib/services/case-timeline.service';
+	import AssetDetailHeader from './components/asset-detail-header.svelte';
 	import CommentsTab from './comments-tab.svelte';
 	import DetailsTab from './details-tab.svelte';
 	import HistoryTab from './history-tab.svelte';
@@ -117,8 +118,6 @@
 		asset_compromise_status_id: undefined,
 		asset_tags: ''
 	});
-
-	const formatDate = (dateString: string) => new Date(dateString).toLocaleString();
 
 	const syncTagsFromAsset = (currentAsset: Asset | undefined) => {
 		currentTags = normalizeTags(currentAsset?.asset_tags);
@@ -202,6 +201,9 @@
 		if (!asset) return;
 		syncTagsFromAsset(asset);
 		resetEditData(asset);
+		// Edit lives in the header strip now, so it can be hit from any tab —
+		// send the user to the form they just asked for.
+		activeTab = 'details';
 		isEditing = true;
 	};
 
@@ -276,6 +278,17 @@
 {#if asset?.asset_id}
 	<div in:fade={{ duration: 150 }} class="flex h-full min-h-0 flex-col">
 		<div class="flex h-full min-h-0 flex-col overflow-hidden">
+			<AssetDetailHeader
+				{asset}
+				{isEditing}
+				{isSaving}
+				{canEdit}
+				onStartEditing={startEditing}
+				onCancelEditing={cancelEditing}
+				onSaveChanges={saveChanges}
+				onDeleteAsset={handleAssetDeleted}
+			/>
+
 			<div class="flex min-h-0 flex-1 flex-col p-0">
 				<Tabs bind:value={activeTab} class="flex min-h-0 flex-1 flex-col">
 					<div class="flex shrink-0 items-center justify-between border-b bg-muted/20 pr-4">
@@ -371,47 +384,49 @@
 						/>
 					</div>
 
-					<div class="min-h-0 flex-1 overflow-y-auto p-6">
-						<TabsContent value="details">
+					<!--
+					  No padding here: the Details tab is a full-bleed grid whose
+					  property rail must reach the pane edge. Tabs that render
+					  ordinary content bring their own padding.
+					-->
+					<div class="min-h-0 flex-1 overflow-y-auto">
+						<TabsContent value="details" class="mt-0 min-h-full">
 							<DetailsTab
 								{asset}
 								{isEditing}
 								{editData}
 								onUpdateEditData={handleUpdateEditData}
 								{currentTags}
-								onStartEditing={startEditing}
-								onCancelEditing={cancelEditing}
-								onSaveChanges={saveChanges}
-								onDeleteAsset={handleAssetDeleted}
-								{isSaving}
-								{canEdit}
+								iocCount={asset.iocs?.length ?? 0}
+								{timelineCount}
+								commentCount={comments.length}
 							/>
 						</TabsContent>
 
-						<TabsContent value="ioc">
+						<TabsContent value="ioc" class="mt-0 p-4">
 							<IOCTab bind:asset={caseAssets.byId[assetId]} />
 						</TabsContent>
 
-						<TabsContent value="timeline">
-							<TimelineTab
-								{assetId}
-								onCountChange={(c) => (timelineCount = c)}
-							/>
+						<TabsContent value="timeline" class="mt-0 p-4">
+							<TimelineTab {assetId} onCountChange={(c) => (timelineCount = c)} />
 						</TabsContent>
 
-						<TabsContent value="history">
+						<TabsContent value="history" class="mt-0 p-4">
 							<HistoryTab {asset} />
 						</TabsContent>
 
-						<TabsContent value="comments">
+						<TabsContent value="comments" class="mt-0 p-4">
 							<CommentsTab {asset} onRefresh={() => loadComments()} />
 						</TabsContent>
 
 						{#if hasCustomAttributes.asset === true}
-							<TabsContent value="custom_attributes">
+							<TabsContent value="custom_attributes" class="mt-0 p-4">
 								<CustomAttributesTabWrapper
 									objectType="asset"
-									existing={(asset.custom_attributes ?? null) as Record<string, Record<string, unknown>> | null}
+									existing={(asset.custom_attributes ?? null) as Record<
+										string,
+										Record<string, unknown>
+									> | null}
 									{canEdit}
 									onSave={async (values) => {
 										const updated = await caseAssets.patchAsset(
@@ -426,29 +441,6 @@
 						{/if}
 					</div>
 				</Tabs>
-			</div>
-
-			<div class="shrink-0 border-t bg-muted/30 px-6 py-4">
-				<div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
-					<div class="flex-grow text-xs text-muted-foreground">
-						<div class="flex flex-wrap items-center gap-3">
-							<span class="flex items-center gap-1">
-								<span class="inline-block h-2 w-2 rounded-full bg-green-500 opacity-60"></span>
-								Added {formatDate(asset.date_added)}
-							</span>
-
-							<span class="flex items-center gap-1">
-								<span class="inline-block h-2 w-2 rounded-full bg-blue-500 opacity-60"></span>
-								Updated {formatDate(asset.date_update)}
-							</span>
-
-							<span class="flex items-center gap-1 font-mono">
-								<span class="inline-block h-2 w-2 rounded-full bg-purple-500 opacity-60"></span>
-								ID #{asset.asset_id}
-							</span>
-						</div>
-					</div>
-				</div>
 			</div>
 		</div>
 	</div>

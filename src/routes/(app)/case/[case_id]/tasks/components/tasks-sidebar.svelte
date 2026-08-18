@@ -99,9 +99,7 @@
 			.filter((t) => matchesTask(t, searchTerm.trim(), searchConditions))
 	);
 
-	const selectedTaskId = $derived(
-		page.params.task_id ? Number(page.params.task_id) : null
-	);
+	const selectedTaskId = $derived(page.params.task_id ? Number(page.params.task_id) : null);
 
 	const refreshTasks = async (pageNumber = 1) => {
 		if (isRefreshing) return;
@@ -206,7 +204,7 @@
 	});
 </script>
 
-<div class="flex h-full min-h-0 flex-col gap-3 p-3">
+<div class="flex h-full min-h-0 flex-col gap-2 p-2">
 	<div class="flex items-center gap-2">
 		<h2 class="text-lg font-semibold">Tasks</h2>
 
@@ -288,7 +286,7 @@
 		{:else}
 			<div
 				use:handleScrollContainerRef
-				class="flex h-full min-h-0 flex-col gap-2 overflow-y-auto pr-1"
+				class="-mx-2 flex h-full min-h-0 flex-col overflow-y-auto border-t border-border/50"
 			>
 				{#each displayTasks as task (task.id)}
 					<div

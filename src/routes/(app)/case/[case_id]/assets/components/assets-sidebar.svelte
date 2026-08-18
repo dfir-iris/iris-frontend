@@ -43,9 +43,7 @@
 		caseAssets.list.ids.map((id) => caseAssets.byId[id]).filter((a): a is Asset => !!a)
 	);
 
-	const selectedAssetId = $derived(
-		page.params.asset_id ? Number(page.params.asset_id) : null
-	);
+	const selectedAssetId = $derived(page.params.asset_id ? Number(page.params.asset_id) : null);
 
 	const filterOptions = [
 		{
@@ -271,7 +269,7 @@
 	});
 </script>
 
-<div class="flex h-full min-h-0 flex-col gap-3 p-3">
+<div class="flex h-full min-h-0 flex-col gap-2 p-2">
 	<div class="flex items-center gap-2">
 		<h2 class="text-lg font-semibold">Assets</h2>
 
@@ -359,7 +357,7 @@
 		{:else}
 			<div
 				use:handleScrollContainerRef
-				class="flex h-full min-h-0 flex-col gap-2 overflow-y-auto pr-1"
+				class="-mx-2 flex h-full min-h-0 flex-col overflow-y-auto border-t border-border/50"
 			>
 				{#each displayAssets as asset (asset.asset_id)}
 					<div

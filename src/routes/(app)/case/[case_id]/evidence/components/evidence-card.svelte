@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { FileLock2Icon } from 'lucide-svelte';
-	import { cn } from '$lib/utils';
 	import type { Evidence } from '$lib/types/resources/evidence';
+	import { Badge } from '$lib/components/ui/badge';
 	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
+	import EntityRow from '$lib/components/common/EntityRow.svelte';
+	import { toPlainSnippet } from '$lib/utils/text';
 
 	type Props = {
 		evidence: Evidence;
@@ -20,74 +22,53 @@
 	};
 
 	const size = $derived(formatSize(evidence.file_size));
+	const descriptionSnippet = $derived(toPlainSnippet(evidence.file_description ?? '', 70));
 </script>
 
-<div
+<EntityRow
 	id={`evidence-card-${evidence.id}`}
-	class={cn(
-		'group relative w-full overflow-hidden rounded-lg border p-2.5 text-sm transition-colors duration-150',
-		isSelected
-			? 'border-l-4 border-l-primary border-primary/40 bg-primary/10 text-foreground shadow-sm'
-			: 'border-border/60 bg-card hover:border-border hover:bg-muted/40'
-	)}
+	title={evidence.filename}
+	Icon={FileLock2Icon}
+	{isSelected}
 >
-	<div class="flex items-start justify-between gap-2">
-		<div class="flex min-w-0 flex-1 items-center gap-2">
-			<div
-				class={cn(
-					'flex h-7 w-7 shrink-0 items-center justify-center rounded-full',
-					isSelected ? 'bg-primary/20' : 'bg-muted'
-				)}
-			>
-				<FileLock2Icon
-					size={14}
-					class={cn(isSelected ? 'text-primary' : 'text-muted-foreground')}
-				/>
-			</div>
+	{#snippet titleSuffix()}
+		<ClipboardCopy
+			value={evidence.filename}
+			tooltipText="Copy filename"
+			className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+			size={12}
+		/>
+	{/snippet}
 
-			<div class="min-w-0 flex-1">
-				<div class="group/item flex items-center gap-1">
-					<span class="line-clamp-2 break-all text-base font-semibold">{evidence.filename}</span>
-					<ClipboardCopy
-						value={evidence.filename}
-						tooltipText="Copy filename"
-						className="ml-1 flex-shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity"
-						size={14}
-					/>
-				</div>
-
-				{#if evidence.type?.name}
-					<div class="truncate text-xs text-muted-foreground" title={evidence.type.name}>
-						{evidence.type.name}
-					</div>
-				{/if}
-			</div>
-		</div>
+	{#snippet badges()}
+		{#if evidence.type?.name}
+			<Badge variant="secondary" class="px-2 py-0 text-2xs">{evidence.type.name}</Badge>
+		{/if}
 
 		{#if size}
-			<span class="shrink-0 text-xs text-muted-foreground">{size}</span>
+			<span class="whitespace-nowrap text-2xs text-muted-foreground">{size}</span>
 		{/if}
-	</div>
+	{/snippet}
 
-	{#if evidence.date_added || evidence.file_hash}
-		<div class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-			{#if evidence.date_added}
-				<span class="text-xs text-muted-foreground">{evidence.date_added}</span>
-			{/if}
+	{#snippet meta()}
+		{#if evidence.date_added}
+			<span class="whitespace-nowrap">{evidence.date_added}</span>
+		{/if}
 
-			{#if evidence.file_hash}
-				<div class="group/hash flex min-w-0 items-center gap-1">
-					<span class="truncate font-mono text-2xs text-muted-foreground" title={evidence.file_hash}>
-						{evidence.file_hash}
-					</span>
-					<ClipboardCopy
-						value={evidence.file_hash}
-						tooltipText="Copy hash"
-						className="flex-shrink-0 opacity-0 group-hover/hash:opacity-100 transition-opacity"
-						size={12}
-					/>
-				</div>
-			{/if}
-		</div>
-	{/if}
-</div>
+		{#if evidence.file_hash}
+			<span class="group/hash inline-flex min-w-0 items-center gap-1">
+				<span class="truncate font-mono" title={evidence.file_hash}>{evidence.file_hash}</span>
+				<ClipboardCopy
+					value={evidence.file_hash}
+					tooltipText="Copy hash"
+					className="hidden shrink-0 group-hover/hash:inline-flex"
+					size={11}
+				/>
+			</span>
+		{/if}
+
+		{#if descriptionSnippet}
+			<span class="truncate">{descriptionSnippet}</span>
+		{/if}
+	{/snippet}
+</EntityRow>

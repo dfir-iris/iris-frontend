@@ -39,9 +39,7 @@
 		caseIocs.list.ids.map((id) => caseIocs.byId[id]).filter((ioc): ioc is Ioc => !!ioc)
 	);
 
-	const selectedIocId = $derived(
-		page.params.ioc_id ? Number(page.params.ioc_id) : null
-	);
+	const selectedIocId = $derived(page.params.ioc_id ? Number(page.params.ioc_id) : null);
 
 	const filterOptions = [
 		{
@@ -319,7 +317,7 @@
 	});
 </script>
 
-<div class="flex h-full min-h-0 flex-col gap-3 p-3">
+<div class="flex h-full min-h-0 flex-col gap-2 p-2">
 	<div class="flex items-center gap-2">
 		<h2 class="text-lg font-semibold">Indicators</h2>
 
@@ -416,7 +414,7 @@
 		{:else}
 			<div
 				use:handleScrollContainerRef
-				class="flex h-full min-h-0 flex-col gap-2 overflow-y-auto pr-1"
+				class="-mx-2 flex h-full min-h-0 flex-col overflow-y-auto border-t border-border/50"
 			>
 				{#each displayIocs as ioc (ioc.ioc_id)}
 					<div
