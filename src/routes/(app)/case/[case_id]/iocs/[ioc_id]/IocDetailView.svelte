@@ -1,6 +1,6 @@
 <!--
-  IOC detail panel. Renders the tabs (Details / History / Comments) plus the
-  metadata footer for one IOC. Used by:
+  IOC detail panel. Renders the identity strip plus the tabs (Details /
+  History / Comments) for one IOC. Used by:
     - the IOC route page  (/case/:case_id/iocs/:ioc_id)
     - the IocDetailDialog (modal opened from mention chips)
 
@@ -32,6 +32,7 @@
 	} from '$lib/contexts/case-access.context.svelte';
 	import type { UpdateCaseIocBody } from '$lib/services/case-iocs.service';
 	import { CommentsService, type Comment } from '$lib/services/comments.service';
+	import { cn } from '$lib/utils';
 	import { normalizeTags, stringToTags, tagsToString } from '$lib/utils/tags';
 	import type { Ioc } from '$lib/types/resources/ioc';
 	import type { Tag } from '$lib/types/resources/tag';
@@ -40,6 +41,9 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
 	import { toast } from '$lib/components/ui/toast';
+	import EntityDetailHeader from '$lib/components/common/EntityDetailHeader.svelte';
+	import { getIocTypeIcon } from '$lib/components/common/ioc/ioc-type-icon';
+	import { getIocUrl } from '../helpers';
 	import DetailsTab from './details-tab.svelte';
 	import HistoryTab from './history-tab.svelte';
 	import CommentsTab from './comments-tab.svelte';
@@ -69,6 +73,7 @@
 	const canEdit = $derived(caseAccess?.canEdit() ?? false);
 
 	const ioc = $derived(caseIocs.byId[iocId]);
+	const IocTypeIcon = $derived(getIocTypeIcon(ioc?.ioc_type?.type_name));
 
 	let activeTab = $state('details');
 	let isEditing = $state(false);
@@ -130,12 +135,6 @@
 		}
 	};
 
-	const handleIocChange = (updatedIoc: Partial<Ioc>) => {
-		const currentIoc = caseIocs.byId[iocId];
-		if (!currentIoc) return;
-		caseIocs.byId[iocId] = { ...currentIoc, ...updatedIoc };
-	};
-
 	const handleUpdateEditData = (field: string, value: string | number | Tag[]) => {
 		if (field === 'ioc_tags') {
 			if (Array.isArray(value)) {
@@ -172,6 +171,9 @@
 		if (!ioc) return;
 		syncTagsFromIoc(ioc);
 		resetEditData(ioc);
+		// Edit lives in the header strip now, so it can be hit from any tab —
+		// send the user to the form they just asked for.
+		activeTab = 'details';
 		isEditing = true;
 	};
 
@@ -266,6 +268,27 @@
 {:else if ioc?.ioc_id}
 	<div in:fade={{ duration: 150 }} class="flex h-full min-h-0 flex-col">
 		<div class="flex h-full min-h-0 flex-col overflow-hidden">
+			<EntityDetailHeader
+				Icon={IocTypeIcon}
+				title={ioc.ioc_value}
+				subtitle={`${ioc.ioc_type?.type_name ?? 'Unknown type'} · #${ioc.ioc_id}`}
+				mono
+				{isEditing}
+				{isSaving}
+				{canEdit}
+				editLabel="Edit IOC"
+				onStartEditing={startEditing}
+				onCancelEditing={cancelEditing}
+				onSaveChanges={saveChanges}
+				onDelete={handleIocDeleted}
+				deleteUrl={`/api/v2/cases/${caseId}/iocs/${ioc.ioc_id}`}
+				deletePrompt={`Are you sure you want to delete the IOC "${ioc.ioc_value}"? This action cannot be undone.`}
+				shareUrl={getIocUrl(caseId, String(ioc.ioc_id))}
+				hookType="ioc"
+				{caseId}
+				objectId={ioc.ioc_id}
+			/>
+
 			<div class="flex min-h-0 flex-1 flex-col p-0">
 				<Tabs bind:value={activeTab} class="flex min-h-0 flex-1 flex-col">
 					<div class="flex shrink-0 items-center justify-between border-b bg-muted/20 pr-4">
@@ -293,13 +316,18 @@
 								<MessagesSquareIcon class="mr-1 h-4 w-4" />
 								<span>Comments</span>
 
-								{#if comments?.length}
-									<span
-										class="absolute left-8 top-3 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-2xs text-white"
-									>
-										{comments.length}
-									</span>
-								{/if}
+								<!--
+								  Zero renders dimmed rather than hidden: "checked,
+								  none" and "not loaded yet" have to look different.
+								-->
+								<span
+									class={cn(
+										'ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors',
+										!comments.length && 'opacity-40'
+									)}
+								>
+									{comments.length}
+								</span>
 							</TabsTrigger>
 
 							{#if hasCustomAttributes.ioc === true}
@@ -330,38 +358,39 @@
 						/>
 					</div>
 
-					<div class="min-h-0 flex-1 overflow-y-auto p-6">
-						<TabsContent value="details">
+					<!--
+					  No padding here: the Details tab opens on a full-bleed field
+					  board that must reach both pane edges. Tabs that render
+					  ordinary content bring their own padding.
+					-->
+					<div class="min-h-0 flex-1 overflow-y-auto">
+						<TabsContent value="details" class="mt-0 min-h-full">
 							<DetailsTab
 								{ioc}
 								{isEditing}
 								{editData}
 								onUpdateEditData={handleUpdateEditData}
 								{currentTags}
-								onIocChange={handleIocChange}
-								onStartEditing={startEditing}
-								onCancelEditing={cancelEditing}
 								onSaveChanges={saveChanges}
-								onDeleteIoc={handleIocDeleted}
-								{isSaving}
-								deleteUrl={`/api/v2/cases/${caseId}/iocs/${ioc.ioc_id}`}
-								{canEdit}
 							/>
 						</TabsContent>
 
-						<TabsContent value="history">
+						<TabsContent value="history" class="mt-0 p-4">
 							<HistoryTab {ioc} />
 						</TabsContent>
 
-						<TabsContent value="comments">
+						<TabsContent value="comments" class="mt-0 p-4">
 							<CommentsTab {ioc} onRefresh={() => loadComments()} />
 						</TabsContent>
 
 						{#if hasCustomAttributes.ioc === true}
-							<TabsContent value="custom_attributes">
+							<TabsContent value="custom_attributes" class="mt-0 p-4">
 								<CustomAttributesTabWrapper
 									objectType="ioc"
-									existing={(ioc.custom_attributes ?? null) as Record<string, Record<string, unknown>> | null}
+									existing={(ioc.custom_attributes ?? null) as Record<
+										string,
+										Record<string, unknown>
+									> | null}
 									{canEdit}
 									onSave={async (values) => {
 										const updated = await caseIocs.patchIoc(
@@ -376,12 +405,6 @@
 						{/if}
 					</div>
 				</Tabs>
-			</div>
-
-			<div class="shrink-0 border-t bg-muted/30 px-6 py-4">
-				<div class="text-xs text-muted-foreground">
-					ID #{ioc.ioc_id || 'Unknown ID'} - UUID #{ioc.ioc_uuid || 'Unknown ID'}
-				</div>
 			</div>
 		</div>
 	</div>

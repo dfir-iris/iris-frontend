@@ -9,8 +9,7 @@
 	} from '$lib/services/analysis-status.service';
 	import MarkDownPreview from '$lib/components/common/MarkDown/MarkDownPreview.svelte';
 	import { CompromiseStatus } from '$lib/components/common/compromise-status';
-	import { TagDisplay } from '$lib/components/common/tag';
-	import { FieldGrid, FieldItem } from '$lib/components/common/field-grid';
+	import { Fact, FactBar, FactRecord, FactTags } from '$lib/components/common/fact-bar';
 	import AssetEditForm, { type AssetEditData } from '../components/asset-edit-form.svelte';
 
 	type Props = {
@@ -33,7 +32,6 @@
 	let analysisStatuses = $state<AnalysisStatusItem[]>([]);
 
 	const caseId = $derived(Number(page.params.case_id));
-	const hasTags = $derived((asset.asset_tags?.length ?? 0) > 0);
 
 	const formatDate = (value: string | null | undefined) =>
 		value ? new Date(value).toLocaleString() : null;
@@ -70,42 +68,36 @@
 	</div>
 {:else}
 	<!--
-	  Scalars first as a fixed board, then the prose at full width. Link counts
-	  are deliberately absent — they live on the tab triggers, which is both
-	  where they'd be clicked and one line above this.
+	  Triage facts on one strip, then the prose at full width. Link counts are
+	  deliberately absent — they live on the tab triggers, which is both where
+	  they'd be clicked and one line above this.
 	-->
-	<FieldGrid>
-		<FieldItem label="Type" value={asset.asset_type?.asset_name} />
-		<FieldItem label="Analysis" value={asset.analysis_status?.name} />
-
-		<FieldItem label="Compromise">
+	<FactBar>
+		<Fact>
 			<CompromiseStatus status={asset.asset_compromise_status_id || 3} />
-		</FieldItem>
+		</Fact>
 
-		<FieldItem label="IP" value={asset.asset_ip} mono copyable />
-		<FieldItem label="Domain" value={asset.asset_domain} mono copyable />
-		<FieldItem label="ID" value={`#${asset.asset_id}`} mono />
+		<Fact label="Type" value={asset.asset_type?.asset_name} />
+		<Fact label="Analysis" value={asset.analysis_status?.name} />
+		<Fact label="IP" value={asset.asset_ip} mono copyable />
+		<Fact label="Domain" value={asset.asset_domain} mono copyable />
+	</FactBar>
 
-		<FieldItem label="Added" value={formatDate(asset.date_added)} />
-		<FieldItem label="Updated" value={formatDate(asset.date_update)} />
-	</FieldGrid>
+	<FactTags tags={asset.asset_tags} />
 
 	<div class="p-4">
-		<h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-			Description
-		</h3>
-
 		{#if asset.asset_description}
 			<MarkDownPreview markdown={asset.asset_description} />
 		{:else}
 			<p class="text-sm italic text-muted-foreground">No description provided</p>
 		{/if}
 
-		<!-- No caption: a rule and a row of chips reads as tags without one. -->
-		{#if hasTags}
-			<div class="mt-4 border-t border-border/70 pt-3">
-				<TagDisplay tags={asset.asset_tags} size="small" />
-			</div>
-		{/if}
+		<FactRecord
+			items={[
+				['Added', formatDate(asset.date_added)],
+				['Updated', formatDate(asset.date_update)],
+				['ID', `#${asset.asset_id}`, true]
+			]}
+		/>
 	</div>
 {/if}

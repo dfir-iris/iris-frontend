@@ -1,6 +1,6 @@
 <!--
-  Evidence detail panel. Renders the tabs (Details / Comments) plus the metadata
-  footer for one evidence item. Used by:
+  Evidence detail panel. Renders the identity strip plus the tabs (Details /
+  Comments) for one evidence item. Used by:
     - the evidence route page  (/case/:case_id/evidence/:evidence_id)
     - the EvidenceDetailDialog (modal opened from mention chips)
 -->
@@ -9,6 +9,7 @@
 	import { fade } from 'svelte/transition';
 	import {
 		AlertTriangleIcon,
+		FileLock2Icon,
 		InfoIcon,
 		MessagesSquareIcon,
 		SearchIcon,
@@ -21,6 +22,7 @@
 	} from '$lib/stores/custom-attributes.store.svelte';
 	import { onMount } from 'svelte';
 	import { type Evidence } from '$lib/types/resources/evidence';
+	import { cn } from '$lib/utils';
 	import { toast } from '$lib/stores/toast.store';
 	import type { UpdateCaseEvidenceBody } from '$lib/services/case-evidences.service';
 	import { CommentsService, type Comment } from '$lib/services/comments.service';
@@ -28,6 +30,8 @@
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
+	import EntityDetailHeader from '$lib/components/common/EntityDetailHeader.svelte';
+	import { getEvidenceUrl } from '../helpers';
 	import DetailsTab from './details-tab.svelte';
 	import CommentsTab from './comments-tab.svelte';
 	import {
@@ -154,6 +158,9 @@
 	const startEditing = () => {
 		if (!evidence) return;
 		resetEditData(evidence);
+		// Edit lives in the header strip now, so it can be hit from any tab —
+		// send the user to the form they just asked for.
+		activeTab = 'details';
 		isEditing = true;
 	};
 
@@ -247,6 +254,28 @@
 {:else if evidence?.id}
 	<div in:fade={{ duration: 150 }} class="flex h-full min-h-0 flex-col">
 		<div class="flex h-full min-h-0 flex-col overflow-hidden">
+			<EntityDetailHeader
+				Icon={FileLock2Icon}
+				title={evidence.filename}
+				subtitle={`${evidence.type?.name ?? 'Evidence'} · #${evidence.id}`}
+				mono
+				{isEditing}
+				{isSaving}
+				{canEdit}
+				editLabel="Edit Evidence"
+				onStartEditing={startEditing}
+				onCancelEditing={cancelEditing}
+				onSaveChanges={saveChanges}
+				onDelete={handleEvidenceDeleted}
+				deleteUrl={`/api/v2/cases/${caseId}/evidences/${evidence.id}`}
+				deletePrompt={`Are you sure you want to delete the evidence "${evidence.filename}"? This action cannot be undone.`}
+				shareUrl={getEvidenceUrl(caseId, String(evidence.id))}
+				markdownIcon="fa-file-shield"
+				hookType="evidence"
+				{caseId}
+				objectId={evidence.id}
+			/>
+
 			<div class="flex min-h-0 flex-1 flex-col p-0">
 				<Tabs bind:value={activeTab} class="flex min-h-0 flex-1 flex-col">
 					<div class="shrink-0 border-b bg-muted/20">
@@ -266,13 +295,18 @@
 								<MessagesSquareIcon class="mr-1 h-4 w-4" />
 								<span>Comments</span>
 
-								{#if comments?.length}
-									<span
-										class="absolute left-8 top-3 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-2xs text-white"
-									>
-										{comments.length}
-									</span>
-								{/if}
+								<!--
+								  Zero renders dimmed rather than hidden: "checked,
+								  none" and "not loaded yet" have to look different.
+								-->
+								<span
+									class={cn(
+										'ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors',
+										!comments.length && 'opacity-40'
+									)}
+								>
+									{comments.length}
+								</span>
 							</TabsTrigger>
 
 							{#if hasCustomAttributes.evidence === true}
@@ -287,33 +321,34 @@
 						</TabsList>
 					</div>
 
-					<div class="min-h-0 flex-1 overflow-y-auto p-6">
-						<TabsContent value="details">
+					<!--
+					  No padding here: the Details tab opens on a full-bleed field
+					  board that must reach both pane edges. Tabs that render
+					  ordinary content bring their own padding.
+					-->
+					<div class="min-h-0 flex-1 overflow-y-auto">
+						<TabsContent value="details" class="mt-0 min-h-full">
 							<DetailsTab
 								{evidence}
-								{caseId}
 								{isEditing}
 								{editData}
 								onUpdateEditData={handleUpdateEditData}
-								onStartEditing={startEditing}
-								onCancelEditing={cancelEditing}
 								onSaveChanges={saveChanges}
-								onDeleteEvidence={handleEvidenceDeleted}
-								{isSaving}
-								deleteUrl={`/api/v2/cases/${caseId}/evidences/${evidence.id}`}
-								{canEdit}
 							/>
 						</TabsContent>
 
-						<TabsContent value="comments">
+						<TabsContent value="comments" class="mt-0 p-4">
 							<CommentsTab {evidence} onRefresh={() => loadComments()} />
 						</TabsContent>
 
 						{#if hasCustomAttributes.evidence === true}
-							<TabsContent value="custom_attributes">
+							<TabsContent value="custom_attributes" class="mt-0 p-4">
 								<CustomAttributesTabWrapper
 									objectType="evidence"
-									existing={(evidence.custom_attributes ?? null) as Record<string, Record<string, unknown>> | null}
+									existing={(evidence.custom_attributes ?? null) as Record<
+										string,
+										Record<string, unknown>
+									> | null}
 									{canEdit}
 									onSave={async (values) => {
 										const updated = await caseEvidences.patchEvidence(
@@ -328,12 +363,6 @@
 						{/if}
 					</div>
 				</Tabs>
-			</div>
-
-			<div class="shrink-0 border-t bg-muted/30 px-6 py-4">
-				<div class="text-xs text-muted-foreground">
-					ID #{evidence.id || 'Unknown ID'} - UUID #{evidence.file_uuid || 'Unknown ID'}
-				</div>
 			</div>
 		</div>
 	</div>

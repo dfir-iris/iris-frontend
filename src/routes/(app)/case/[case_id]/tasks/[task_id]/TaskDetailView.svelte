@@ -1,6 +1,6 @@
 <!--
-  Task detail panel. Renders the tabs (Details / Comments) plus the metadata
-  footer for one task. Used by:
+  Task detail panel. Renders the identity strip plus the tabs (Details /
+  Comments) for one task. Used by:
     - the task route page  (/case/:case_id/tasks/:task_id)
     - the TaskDetailDialog (modal opened from mention chips)
 -->
@@ -9,6 +9,7 @@
 	import { fade } from 'svelte/transition';
 	import {
 		AlertTriangleIcon,
+		ClipboardListIcon,
 		InfoIcon,
 		MessagesSquareIcon,
 		SearchIcon,
@@ -22,6 +23,7 @@
 	import { onMount } from 'svelte';
 	import { type Task } from '$lib/types/resources/task';
 	import type { Tag } from '$lib/types/resources/tag';
+	import { cn } from '$lib/utils';
 	import { normalizeTags, tagsToString } from '$lib/utils/tags';
 	import { toast } from '$lib/stores/toast.store';
 	import type { UpdateCaseTaskBody } from '$lib/services/case-tasks.service';
@@ -30,6 +32,8 @@
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
+	import EntityDetailHeader from '$lib/components/common/EntityDetailHeader.svelte';
+	import { getTaskUrl } from '../helpers';
 	import DetailsTab from './details-tab.svelte';
 	import CommentsTab from './comments-tab.svelte';
 	import { CASE_TASKS_CTX, type CaseTasksContext } from '$lib/contexts/case-tasks.context.svelte';
@@ -157,6 +161,9 @@
 		if (!task) return;
 		syncTagsFromTask(task);
 		resetEditData(task);
+		// Edit lives in the header strip now, so it can be hit from any tab —
+		// send the user to the form they just asked for.
+		activeTab = 'details';
 		isEditing = true;
 	};
 
@@ -251,6 +258,27 @@
 {:else if task?.id}
 	<div in:fade={{ duration: 150 }} class="flex h-full min-h-0 flex-col">
 		<div class="flex h-full min-h-0 flex-col overflow-hidden">
+			<EntityDetailHeader
+				Icon={ClipboardListIcon}
+				title={task.task_title}
+				subtitle={`Task · #${task.id}`}
+				{isEditing}
+				{isSaving}
+				{canEdit}
+				editLabel="Edit Task"
+				onStartEditing={startEditing}
+				onCancelEditing={cancelEditing}
+				onSaveChanges={saveChanges}
+				onDelete={handleTaskDeleted}
+				deleteUrl={`/api/v2/cases/${caseId}/tasks/${task.id}`}
+				deletePrompt={`Are you sure you want to delete the task "${task.task_title}"? This action cannot be undone.`}
+				shareUrl={getTaskUrl(caseId, String(task.id))}
+				markdownIcon="fa-list-check"
+				hookType="task"
+				{caseId}
+				objectId={task.id}
+			/>
+
 			<div class="flex min-h-0 flex-1 flex-col p-0">
 				<Tabs bind:value={activeTab} class="flex min-h-0 flex-1 flex-col">
 					<div class="shrink-0 border-b bg-muted/20">
@@ -270,13 +298,18 @@
 								<MessagesSquareIcon class="mr-1 h-4 w-4" />
 								<span>Comments</span>
 
-								{#if comments?.length}
-									<span
-										class="absolute left-8 top-3 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-2xs text-white"
-									>
-										{comments.length}
-									</span>
-								{/if}
+								<!--
+								  Zero renders dimmed rather than hidden: "checked,
+								  none" and "not loaded yet" have to look different.
+								-->
+								<span
+									class={cn(
+										'ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors',
+										!comments.length && 'opacity-40'
+									)}
+								>
+									{comments.length}
+								</span>
 							</TabsTrigger>
 
 							{#if hasCustomAttributes.task === true}
@@ -291,33 +324,35 @@
 						</TabsList>
 					</div>
 
-					<div class="min-h-0 flex-1 overflow-y-auto p-6">
-						<TabsContent value="details">
+					<!--
+					  No padding here: the Details tab opens on a full-bleed field
+					  board that must reach both pane edges. Tabs that render
+					  ordinary content bring their own padding.
+					-->
+					<div class="min-h-0 flex-1 overflow-y-auto">
+						<TabsContent value="details" class="mt-0 min-h-full">
 							<DetailsTab
 								{task}
 								{isEditing}
 								{editData}
 								onUpdateEditData={handleUpdateEditData}
 								{currentTags}
-								onStartEditing={startEditing}
-								onCancelEditing={cancelEditing}
 								onSaveChanges={saveChanges}
-								onDeleteTask={handleTaskDeleted}
-								{isSaving}
-								deleteUrl={`/api/v2/cases/${caseId}/tasks/${task.id}`}
-								{canEdit}
 							/>
 						</TabsContent>
 
-						<TabsContent value="comments">
+						<TabsContent value="comments" class="mt-0 p-4">
 							<CommentsTab {task} onRefresh={() => loadComments()} />
 						</TabsContent>
 
 						{#if hasCustomAttributes.task === true}
-							<TabsContent value="custom_attributes">
+							<TabsContent value="custom_attributes" class="mt-0 p-4">
 								<CustomAttributesTabWrapper
 									objectType="task"
-									existing={(task.custom_attributes ?? null) as Record<string, Record<string, unknown>> | null}
+									existing={(task.custom_attributes ?? null) as Record<
+										string,
+										Record<string, unknown>
+									> | null}
 									{canEdit}
 									onSave={async (values) => {
 										const updated = await caseTasks.patchTask(
@@ -332,12 +367,6 @@
 						{/if}
 					</div>
 				</Tabs>
-			</div>
-
-			<div class="shrink-0 border-t bg-muted/30 px-6 py-4">
-				<div class="text-xs text-muted-foreground">
-					ID #{task.id || 'Unknown ID'} - UUID #{task.task_uuid || 'Unknown ID'}
-				</div>
 			</div>
 		</div>
 	</div>

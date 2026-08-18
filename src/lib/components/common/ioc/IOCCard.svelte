@@ -1,17 +1,6 @@
 <script lang="ts">
-	import {
-		Link as LinkIcon, // Renamed to avoid conflict with <a>
-		ShieldIcon,
-		HashIcon,
-		AtSignIcon,
-		GlobeIcon,
-		FileIcon,
-		UserIcon,
-		ServerIcon,
-		CodeIcon,
-		DatabaseIcon
-	} from 'lucide-svelte';
 	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
+	import { getIocTypeIcon } from '$lib/components/common/ioc/ioc-type-icon';
 	import type { Ioc } from '$lib/types/resources/ioc';
 	import EntityRow from '$lib/components/common/EntityRow.svelte';
 	import TlpBadge from '$lib/components/common/tlp/TlpBadge.svelte';
@@ -32,24 +21,7 @@
 	// dashboard widgets), in which case we skip the cross-case lookup.
 	const caseId = $derived(Number(page.params.case_id));
 
-	function getIOCTypeIcon(typeName: string | undefined) {
-		const type = (typeName ?? '').toLowerCase();
-
-		if (type.includes('ip')) return GlobeIcon;
-		if (type.includes('email')) return AtSignIcon;
-		if (type.includes('domain') || type.includes('hostname')) return GlobeIcon;
-		if (type.includes('url')) return LinkIcon;
-		if (type.includes('hash') || type.includes('md5') || type.includes('sha')) return HashIcon;
-		if (type.includes('file')) return FileIcon;
-		if (type.includes('account') || type.includes('user')) return UserIcon;
-		if (type.includes('registry')) return DatabaseIcon;
-		if (type.includes('mutex')) return CodeIcon;
-		if (type.includes('server')) return ServerIcon;
-
-		return ShieldIcon;
-	}
-
-	const IocTypeIcon = $derived(getIOCTypeIcon(ioc.ioc_type?.type_name));
+	const IocTypeIcon = $derived(getIocTypeIcon(ioc.ioc_type?.type_name));
 
 	// IOC Value Formatting
 	function formatIOCValue(value: string, typeName: string | undefined) {

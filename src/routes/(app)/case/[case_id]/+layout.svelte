@@ -78,7 +78,7 @@
 	import ReadOnlyBanner from './components/ReadOnlyBanner.svelte';
 	import ReviewBanner from './components/ReviewBanner.svelte';
 	import RequestReviewDialog from './components/RequestReviewDialog.svelte';
-	import { callHook } from './utils/hooks';
+	import { callHook } from '$lib/utils/hooks';
 	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
 	import type { Case } from '$lib/types/resources/case';
 	import type { UserInfo } from '$lib/services/auth.service';
@@ -223,7 +223,11 @@
 	// context (the by-id store is the authoritative source for labels;
 	// when it's not loaded yet we fall back to a short placeholder so the
 	// panel still opens against the right ID).
-	type Resolver = () => { type: 'assets' | 'iocs' | 'tasks' | 'notes' | 'evidences'; id: number; label: string } | null;
+	type Resolver = () => {
+		type: 'assets' | 'iocs' | 'tasks' | 'notes' | 'evidences';
+		id: number;
+		label: string;
+	} | null;
 	const resolveCurrentEntity: Resolver = () => {
 		const p = page.params as Record<string, string | undefined>;
 		if (p.asset_id) {

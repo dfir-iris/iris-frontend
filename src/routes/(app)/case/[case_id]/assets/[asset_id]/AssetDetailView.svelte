@@ -44,7 +44,10 @@
 	import { toast } from '$lib/components/ui/toast';
 	import { page } from '$app/state';
 	import { CaseTimelineService } from '$lib/services/case-timeline.service';
-	import AssetDetailHeader from './components/asset-detail-header.svelte';
+	import EntityDetailHeader from '$lib/components/common/EntityDetailHeader.svelte';
+	import { Badge } from '$lib/components/ui/badge';
+	import { getAssetTypeIcon } from '$lib/components/common/assets/asset-type-icon';
+	import { getAssetUrl } from '../helpers';
 	import CommentsTab from './comments-tab.svelte';
 	import DetailsTab from './details-tab.svelte';
 	import HistoryTab from './history-tab.svelte';
@@ -77,6 +80,8 @@
 	const canEdit = $derived(caseAccess?.canEdit() ?? false);
 
 	const asset = $derived(caseAssets.byId[assetId]);
+	const AssetTypeIcon = $derived(getAssetTypeIcon(asset?.asset_type?.asset_name));
+	const isCompromised = $derived(asset?.asset_compromise_status_id === 1);
 	// Component-level caseId reactive on the route param. Used by the
 	// "seen elsewhere" badge below; we read it from URL state so the
 	// detail view works equally well when mounted as a dialog (no
@@ -279,16 +284,32 @@
 {#if asset?.asset_id}
 	<div in:fade={{ duration: 150 }} class="flex h-full min-h-0 flex-col">
 		<div class="flex h-full min-h-0 flex-col overflow-hidden">
-			<AssetDetailHeader
-				{asset}
+			<EntityDetailHeader
+				Icon={AssetTypeIcon}
+				title={asset.asset_name}
+				subtitle={`${asset.asset_type?.asset_name ?? 'Unknown type'} · #${asset.asset_id}`}
+				accent={isCompromised ? 'danger' : 'none'}
 				{isEditing}
 				{isSaving}
 				{canEdit}
+				editLabel="Edit Asset"
 				onStartEditing={startEditing}
 				onCancelEditing={cancelEditing}
 				onSaveChanges={saveChanges}
-				onDeleteAsset={handleAssetDeleted}
-			/>
+				onDelete={handleAssetDeleted}
+				deleteUrl={`/api/v2/cases/${caseId}/assets/${asset.asset_id}`}
+				deletePrompt={`Are you sure you want to delete the asset "${asset.asset_name}"? This action cannot be undone.`}
+				shareUrl={getAssetUrl(asset.case_id, String(asset.asset_id))}
+				hookType="asset"
+				{caseId}
+				objectId={asset.asset_id}
+			>
+				{#snippet badges()}
+					{#if isCompromised}
+						<Badge variant="compromised" class="px-2 py-0 text-2xs">Compromised</Badge>
+					{/if}
+				{/snippet}
+			</EntityDetailHeader>
 
 			<div class="flex min-h-0 flex-1 flex-col p-0">
 				<Tabs bind:value={activeTab} class="flex min-h-0 flex-1 flex-col">
