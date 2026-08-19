@@ -1222,9 +1222,16 @@
 				//   (so "# heading" becomes an H1 instead of a literal "# heading").
 				// transformCopiedText: copy selections back out as markdown, matching
 				//   how users expect to round-trip content.
+				// breaks: treat a single newline inside a paragraph as a line break
+				//   instead of a space. CommonMark collapses them, which mangles the
+				//   `key: value` / one-host-per-line content analysts paste in from
+				//   scanners and EDR consoles. Mirrored server-side by the softbreak →
+				//   hardBreak mapping in `iris_engine/collab/render.py` and in the
+				//   showdown preview by `simpleLineBreaks` in `./converter.ts`.
 				Markdown.configure({
 					transformPastedText: true,
-					transformCopiedText: true
+					transformCopiedText: true,
+					breaks: true
 				}),
 				// @ users AND war-room teams — same trigger, same node, kind
 				// discriminator on the chip (`user` vs `team`) drives styling
