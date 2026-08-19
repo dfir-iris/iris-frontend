@@ -12,9 +12,17 @@ export const CASE_TASKS_CTX = Symbol('case-tasks');
 
 type Status = 'idle' | 'loading' | 'error';
 
+/**
+ * `board` is a full-width view: it replaces the sidebar/detail split
+ * entirely, which is why the mode lives on the shared context rather
+ * than inside the sidebar — the tasks layout has to see it too.
+ */
+export type TaskViewMode = 'cards' | 'table' | 'board';
+
 type UIState = {
 	selectedTaskId?: number;
 	showAddModal: boolean;
+	viewMode: TaskViewMode;
 };
 
 const getTaskId = (task: Task): number => task.id;
@@ -56,7 +64,8 @@ export const createCaseTasksContext = (getCaseId: () => number | null) => {
 
 	const ui = $state<UIState>({
 		selectedTaskId: undefined,
-		showAddModal: false
+		showAddModal: false,
+		viewMode: 'cards'
 	});
 
 	const currentCaseId = $derived(() => getCaseId());
@@ -263,6 +272,7 @@ export const createCaseTasksContext = (getCaseId: () => number | null) => {
 
 		ui.selectedTaskId = undefined;
 		ui.showAddModal = false;
+		ui.viewMode = 'cards';
 	};
 
 	return {

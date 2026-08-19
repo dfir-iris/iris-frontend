@@ -15,7 +15,10 @@
 		Tag as TagIcon,
 		GripVertical,
 		Calendar as CalendarIcon,
-		ArrowUpFromLine
+		ArrowUpFromLine,
+		Columns3,
+		Rows3,
+		CornerUpRight
 	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -41,6 +44,8 @@
 	import { UsersService, type User } from '$lib/services/users.service';
 	import { TaskStatusService } from '$lib/services/task-status.service';
 	import type { TaskStatus } from '$lib/types/resources/task';
+	import TaskKanbanBoard from '$lib/components/common/tasks/TaskKanbanBoard.svelte';
+	import type { KanbanColumn } from '$lib/components/common/tasks/kanban-types';
 
 	const warRoomId = $derived(Number(page.params.war_room_id));
 
@@ -81,6 +86,14 @@
 	let dropTargetKey = $state<string | null>(null);
 	let reparenting = $state(false);
 
+	// The board is a flat, status-first view of the same filtered set, so
+	// it needs subtasks too — the list only fetches top-level rows and
+	// lazily expands. Keeping a separate array avoids bending the list's
+	// parent/child caches into a shape they were not built for.
+	let viewMode = $state<'list' | 'board'>('list');
+	let boardTasks = $state<WarRoomTask[]>([]);
+	let boardLoading = $state(false);
+
 	type FormState = {
 		title: string;
 		description: string;
@@ -112,7 +125,12 @@
 	let statusOpen = $state(false);
 	let tagInput = $state('');
 
-	function buildFilterParams() {
+	/**
+	 * `scope: 'all'` drops the top-level restriction so subtasks come back
+	 * as rows of their own — what the board wants, since on a status board
+	 * a subtask is a work item like any other.
+	 */
+	function buildFilterParams(scope: 'top' | 'all' = 'top') {
 		// Assignees: `null` means unassigned; the service accepts either
 		// numeric user ids or the string 'unassigned'.
 		const assignee_id = selectedAssignees.map((a) =>
@@ -123,7 +141,7 @@
 			status_id: selectedStatusIds.length ? selectedStatusIds : undefined,
 			tag: selectedTags.length ? selectedTags : undefined,
 			assignee_id: assignee_id.length ? assignee_id : undefined,
-			parent_task_id: 'top' as const,
+			...(scope === 'top' ? { parent_task_id: 'top' as const } : {}),
 			due_from: dueFrom || undefined,
 			due_to: dueTo || undefined,
 			include_no_due: includeNoDue,
@@ -181,6 +199,15 @@
 		}
 	}
 
+	// The board shows the whole filtered set in one shot — a kanban that
+	// silently holds back page 2 reads as "this is everything".
+	const loadBoard = async () => {
+		boardLoading = true;
+		const res = await WarRoomTasksService.list(warRoomId, buildFilterParams('all'));
+		if (res.ok && Array.isArray(res.data)) boardTasks = res.data;
+		boardLoading = false;
+	};
+
 	const loadUsers = async () => {
 		const res = await UsersService.list();
 		if (res.ok && res.data && typeof res.data !== 'string') {
@@ -223,6 +250,8 @@
 
 	// Any settled filter change → re-query from page 1. `untrack` on the
 	// call itself so it doesn't self-loop through the state it writes to.
+	// Only the visible view is refetched; switching views loads the one
+	// being switched to.
 	$effect(() => {
 		// Track dependencies:
 		void searchDebounced;
@@ -233,8 +262,10 @@
 		void dueTo;
 		void includeNoDue;
 		void warRoomId;
+		void viewMode;
 		untrack(() => {
-			void loadFirstPage();
+			if (viewMode === 'board') void loadBoard();
+			else void loadFirstPage();
 		});
 	});
 
@@ -263,6 +294,15 @@
 	};
 
 	function upsertTask(next: WarRoomTask) {
+		// The board holds a flat copy of the same rows; keep it level with
+		// the list so a create/edit/close made from either view shows up in
+		// both without a refetch.
+		const boardIdx = boardTasks.findIndex((x) => x.task_id === next.task_id);
+		boardTasks =
+			boardIdx >= 0
+				? boardTasks.map((x) => (x.task_id === next.task_id ? next : x))
+				: [next, ...boardTasks];
+
 		// Replace-or-insert the row wherever it lives in local state.
 		if (next.parent_task_id == null) {
 			const idx = parents.findIndex((x) => x.task_id === next.task_id);
@@ -280,6 +320,10 @@
 	}
 
 	function removeTaskLocally(taskId: number) {
+		// Deleting a parent cascades to its subtasks server-side, and the
+		// board lists those as cards of their own — drop them too.
+		boardTasks = boardTasks.filter((x) => x.task_id !== taskId && x.parent_task_id !== taskId);
+
 		// Remove from parents (and cascade-drop its children bucket) or
 		// from whichever child bucket it lives in.
 		const asParent = parents.some((x) => x.task_id === taskId);
@@ -360,6 +404,65 @@
 		if (!confirm(msg)) return;
 		const res = await WarRoomTasksService.remove(warRoomId, t.task_id);
 		if (res.ok) removeTaskLocally(t.task_id);
+	};
+
+	// -------- Board --------
+	// A leading "No status" column so an untriaged task is visible and can
+	// be dragged out of limbo — and back into it.
+	const boardColumns = $derived<KanbanColumn[]>([
+		{ id: null, title: 'No status', bscolor: 'muted' },
+		...statuses.map((s) => ({
+			id: s.id,
+			title: s.status_name,
+			bscolor: s.status_bscolor
+		}))
+	]);
+
+	const boardParentTitle = (parentId: number) =>
+		boardTasks.find((x) => x.task_id === parentId)?.title ?? `#${parentId}`;
+
+	/**
+	 * Replace a row in every local collection that already holds it.
+	 * Deliberately never inserts: seeding `childrenByParent[pid]` with a
+	 * lone child would make `loadChildren` treat that bucket as fully
+	 * loaded and hide the parent's other subtasks.
+	 */
+	function syncTaskInPlace(next: WarRoomTask) {
+		boardTasks = boardTasks.map((x) => (x.task_id === next.task_id ? next : x));
+		parents = parents.map((x) => (x.task_id === next.task_id ? next : x));
+		const pid = next.parent_task_id;
+		if (pid != null && childrenByParent[pid]) {
+			childrenByParent = {
+				...childrenByParent,
+				[pid]: childrenByParent[pid].map((x) => (x.task_id === next.task_id ? next : x))
+			};
+		}
+	}
+
+	const moveBoardTask = async (task: WarRoomTask, statusId: number | null) => {
+		const previous = task.status_id;
+		// Optimistic: the card lands in the new column on drop, not after
+		// the round-trip.
+		boardTasks = boardTasks.map((x) =>
+			x.task_id === task.task_id ? { ...x, status_id: statusId } : x
+		);
+
+		const res = await WarRoomTasksService.update(warRoomId, task.task_id, {
+			status_id: statusId
+		});
+
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			syncTaskInPlace(res.data as WarRoomTask);
+			return;
+		}
+
+		boardTasks = boardTasks.map((x) =>
+			x.task_id === task.task_id ? { ...x, status_id: previous } : x
+		);
+		toast({
+			title: typeof res.error === 'string' ? res.error : 'Could not move task',
+			variant: 'destructive'
+		});
 	};
 
 	// -------- Drag to reparent --------
@@ -603,9 +706,33 @@
 				War-room-level coordination tasks with subtasks, statuses, tags and search.
 			</p>
 		</div>
-		<Button onclick={() => openCreate(null)}>
-			<Plus class="mr-1 h-4 w-4" /> New task
-		</Button>
+		<div class="flex items-center gap-2">
+			<div class="flex items-center gap-0.5 rounded-md border p-0.5">
+				<Button
+					size="icon"
+					variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+					class="h-7 w-7"
+					onclick={() => (viewMode = 'list')}
+					aria-label="List view"
+					title="List view"
+				>
+					<Rows3 class="h-4 w-4" />
+				</Button>
+				<Button
+					size="icon"
+					variant={viewMode === 'board' ? 'secondary' : 'ghost'}
+					class="h-7 w-7"
+					onclick={() => (viewMode = 'board')}
+					aria-label="Board view"
+					title="Board view — drag cards to change status"
+				>
+					<Columns3 class="h-4 w-4" />
+				</Button>
+			</div>
+			<Button onclick={() => openCreate(null)}>
+				<Plus class="mr-1 h-4 w-4" /> New task
+			</Button>
+		</div>
 	</div>
 
 	<div class="flex flex-wrap items-center gap-2">
@@ -823,7 +950,31 @@
 		</div>
 	{/if}
 
-	{#if loading}
+	{#if viewMode === 'board'}
+		{#if boardLoading}
+			<div class="flex min-h-0 flex-1 gap-3">
+				{#each Array(4) as _}
+					<Skeleton class="h-full w-72 shrink-0 rounded-lg" />
+				{/each}
+			</div>
+		{:else}
+			<div class="min-h-0 flex-1">
+				<TaskKanbanBoard
+					columns={boardColumns}
+					items={boardTasks}
+					idOf={(t) => t.task_id}
+					columnIdOf={(t) => t.status_id}
+					onMove={moveBoardTask}
+					onActivate={openEdit}
+					card={boardCard}
+				/>
+			</div>
+			<p class="shrink-0 text-2xs text-muted-foreground">
+				{boardTasks.length} task{boardTasks.length === 1 ? '' : 's'}, subtasks included · Drag a
+				card to another column to change its status, or focus one and press Ctrl/⌘ + ← →.
+			</p>
+		{/if}
+	{:else if loading}
 		<div class="flex flex-col gap-2">
 			{#each Array(3) as _}
 				<Skeleton class="h-12 w-full" />
@@ -1125,6 +1276,47 @@
 			<Trash2 class="h-3.5 w-3.5" />
 		</Button>
 	</li>
+{/snippet}
+
+<!--
+  Board cards are flat: parents and subtasks sit in the same column,
+  so a subtask spells out who its parent is rather than relying on the
+  indentation the list view uses.
+-->
+{#snippet boardCard(t: WarRoomTask)}
+	<div class="flex items-start gap-1.5">
+		{#if t.closed_at}
+			<Check class="mt-0.5 h-3.5 w-3.5 shrink-0 text-green-600" />
+		{/if}
+		<p class="line-clamp-2 text-xs font-medium {t.closed_at ? 'line-through opacity-70' : ''}">
+			{t.title}
+		</p>
+	</div>
+
+	{#if t.parent_task_id != null}
+		<p class="mt-1 flex items-center gap-1 truncate text-2xs text-muted-foreground">
+			<CornerUpRight class="h-3 w-3 shrink-0" />
+			<span class="truncate">subtask of {boardParentTitle(t.parent_task_id)}</span>
+		</p>
+	{/if}
+
+	<div class="mt-1 flex flex-wrap items-center gap-1 text-2xs text-muted-foreground">
+		<span>#{t.task_id}</span>
+		{#each parseTags(t.tags) as tag}
+			<span class="rounded bg-muted px-1">#{tag}</span>
+		{/each}
+	</div>
+
+	<div class="mt-1.5 flex items-center gap-2 text-2xs text-muted-foreground">
+		{#if t.assignee_name}
+			<span class="truncate font-medium text-foreground">{t.assignee_name}</span>
+		{:else}
+			<span class="italic">Unassigned</span>
+		{/if}
+		{#if t.due_at}
+			<span class="ml-auto shrink-0">Due {new Date(t.due_at).toLocaleDateString()}</span>
+		{/if}
+	</div>
 {/snippet}
 
 <Dialog bind:open={dialogOpen}>

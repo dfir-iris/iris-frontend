@@ -56,6 +56,14 @@
 		type Filters
 	} from './components/AlertFilters';
 	import { AlertCard } from './components/AlertCard';
+	import {
+		AlertsBoard,
+		AlertsViewSwitcher,
+		isAlertBoardGroup,
+		isAlertViewMode,
+		type AlertBoardGroup,
+		type AlertViewMode
+	} from './components/AlertsBoard';
 	import AlertHistoryDialog from './components/alert-history-dialog.svelte';
 	import AlertsPagination from './components/alerts-pagination.svelte';
 	import AlertsReasignDialog from './components/alerts-reasign-dialog.svelte';
@@ -73,6 +81,10 @@
 		page: number;
 		per_page: number;
 		expanded: boolean;
+		/** `list` = the paginated alert cards, `board` = the triage kanban. */
+		view: AlertViewMode;
+		/** Which lookup the board lays its columns out by. Ignored in list view. */
+		board_group: AlertBoardGroup;
 		filters: Filters;
 	};
 
@@ -107,6 +119,8 @@
 		page: 1,
 		per_page: DEFAULT_ITEMS_PER_PAGE,
 		expanded: false,
+		view: 'list',
+		board_group: 'severity',
 		filters: defaultFilters()
 	});
 
@@ -134,6 +148,16 @@
 		last_page: 1,
 		next_page: null
 	});
+
+	// Reported by the board so the heading count stays truthful when the
+	// list view's own `alertsData.total` is stale (or never fetched).
+	let boardTotal = $state(0);
+
+	// Bumped by the shared Refresh button. The board watches it as a
+	// plain reactive dependency, which keeps the refetch trigger in the
+	// same `$effect` as the filter/grouping ones instead of needing a
+	// `bind:this` handle just for this.
+	let boardRefreshKey = $state(0);
 
 	let alertResolutions = $state<AlertResolution[]>([]);
 	let alertStatuses = $state<AlertStatus[]>([]);
@@ -192,11 +216,16 @@
 		const pageRaw = Number(url.searchParams.get('page') ?? '1');
 		const perPageRaw = Number(url.searchParams.get('per_page') ?? String(DEFAULT_ITEMS_PER_PAGE));
 
+		const viewRaw = url.searchParams.get('view');
+		const groupRaw = url.searchParams.get('board_group');
+
 		return {
 			page: Number.isFinite(pageRaw) && pageRaw >= 1 ? pageRaw : 1,
 			per_page:
 				Number.isFinite(perPageRaw) && perPageRaw >= 1 ? perPageRaw : DEFAULT_ITEMS_PER_PAGE,
 			expanded: url.searchParams.get('expanded') === '1',
+			view: isAlertViewMode(viewRaw) ? viewRaw : 'list',
+			board_group: isAlertBoardGroup(groupRaw) ? groupRaw : 'severity',
 			filters
 		};
 	};
@@ -212,6 +241,18 @@
 
 		if (queryState.expanded) url.searchParams.set('expanded', '1');
 		else url.searchParams.delete('expanded');
+
+		if (queryState.view === 'board') url.searchParams.set('view', 'board');
+		else url.searchParams.delete('view');
+
+		// Only meaningful alongside `view=board`; keeping it out of the URL
+		// otherwise stops a stale grouping from riding along on a shared
+		// list-view link.
+		if (queryState.view === 'board' && queryState.board_group !== 'severity') {
+			url.searchParams.set('board_group', queryState.board_group);
+		} else {
+			url.searchParams.delete('board_group');
+		}
 
 		for (const key of FILTER_KEYS) {
 			const raw = queryState.filters[key];
@@ -244,6 +285,14 @@
 	};
 
 	const loadAlerts = async (next: QueryState) => {
+		// The board scopes and pages its own query (unassigned-only,
+		// terminal statuses excluded, every page up front), so the list
+		// request would be dead weight while it is on screen.
+		if (next.view === 'board') {
+			status = 'ready';
+			return;
+		}
+
 		status = 'loading';
 
 		const response = await alerts.listPaginated({
@@ -285,6 +334,39 @@
 	};
 
 	const refreshAlerts = async () => loadAlerts(query);
+
+	const refreshCurrentView = () => {
+		if (query.view === 'board') {
+			boardRefreshKey += 1;
+			return;
+		}
+
+		void refreshAlerts();
+	};
+
+	const changeView = (view: AlertViewMode) => {
+		if (view === query.view) return;
+
+		// Bulk selection is a list-view affordance; carrying it into the
+		// board would leave the action bar hanging over a UI that has no
+		// checkboxes to clear it with.
+		cancelSelect();
+
+		void commitQuery({
+			...query,
+			page: 1,
+			view
+		});
+	};
+
+	const changeBoardGroup = (board_group: AlertBoardGroup) => {
+		if (board_group === query.board_group) return;
+
+		void commitQuery({
+			...query,
+			board_group
+		});
+	};
 
 	const changePage = (page: number) => {
 		if (status === 'loading') return;
@@ -387,9 +469,8 @@
 	const selectedSavedFilter = $derived(
 		selectedSavedFilterId === ''
 			? null
-			: (alerts.savedFilters.items.find(
-					(f) => String(f.filter_id) === selectedSavedFilterId
-				) ?? null)
+			: (alerts.savedFilters.items.find((f) => String(f.filter_id) === selectedSavedFilterId) ??
+					null)
 	);
 
 	// Only surface the delete button when the current user created the
@@ -691,253 +772,298 @@
 			  pinned while the alert list below scrolls.
 			-->
 			<div class="flex shrink-0 flex-col gap-5">
-			<div class="flex items-center justify-between gap-4">
-				<div class="flex items-center gap-3">
-					<h2 class="text-lg font-semibold whitespace-nowrap">
-						{getTotal({ data: alertsData } as RequestResponse<Paginated<Alert>>)} Alerts
-					</h2>
+				<div class="flex items-center justify-between gap-4">
+					<div class="flex items-center gap-3">
+						<h2 class="whitespace-nowrap text-lg font-semibold">
+							{query.view === 'board'
+								? boardTotal
+								: getTotal({ data: alertsData } as RequestResponse<Paginated<Alert>>)} Alerts
+						</h2>
 
-					<Button
-						size="xs"
-						variant={filtersOpen ? 'default' : 'outline'}
-						onclick={() => (filtersOpen = !filtersOpen)}
-					>
-						Filter
-					</Button>
+						<Button
+							size="xs"
+							variant={filtersOpen ? 'default' : 'outline'}
+							onclick={() => (filtersOpen = !filtersOpen)}
+						>
+							Filter
+						</Button>
 
-					{#if alerts.savedFilters.items.length}
-						<div class="flex items-center gap-1">
-							<div
-								class="w-48 [&_button[role=combobox]]:!h-7 [&_button[role=combobox]]:!px-2.5 [&_button[role=combobox]]:!py-0 [&_button[role=combobox]]:!text-xs [&_button[role=combobox]]:!rounded-md [&_button[role=combobox]]:!font-normal"
-							>
-								<SearchableSelect
-									value={selectedSavedFilterId}
-									placeholder="Select preset filter"
-									searchPlaceholder="Search preset filters..."
-									emptyMessage="No preset filters found."
-									items={alerts.savedFilters.items.map((filter) => ({
-										value: String(filter.filter_id),
-										label: filter.filter_name
-									}))}
-									onValueChange={(v) => {
-										if (v === '') {
-											clearSavedFilterSelection();
-											return;
-										}
+						{#if alerts.savedFilters.items.length}
+							<div class="flex items-center gap-1">
+								<div
+									class="w-48 [&_button[role=combobox]]:!h-7 [&_button[role=combobox]]:!rounded-md [&_button[role=combobox]]:!px-2.5 [&_button[role=combobox]]:!py-0 [&_button[role=combobox]]:!text-xs [&_button[role=combobox]]:!font-normal"
+								>
+									<SearchableSelect
+										value={selectedSavedFilterId}
+										placeholder="Select preset filter"
+										searchPlaceholder="Search preset filters..."
+										emptyMessage="No preset filters found."
+										items={alerts.savedFilters.items.map((filter) => ({
+											value: String(filter.filter_id),
+											label: filter.filter_name
+										}))}
+										onValueChange={(v) => {
+											if (v === '') {
+												clearSavedFilterSelection();
+												return;
+											}
 
-										selectedSavedFilterId = v;
+											selectedSavedFilterId = v;
 
-										const id = Number(v);
-										if (!Number.isFinite(id)) return;
+											const id = Number(v);
+											if (!Number.isFinite(id)) return;
 
-										applySavedFilter(id);
-									}}
-								/>
+											applySavedFilter(id);
+										}}
+									/>
+								</div>
+
+								{#if canDeleteSelectedFilter}
+									<Button
+										variant="outline"
+										size="xs"
+										title="Delete preset filter"
+										aria-label="Delete preset filter"
+										onclick={() => (showConfirmDeletePreset = true)}
+									>
+										<TrashIcon class="h-4 w-4" />
+									</Button>
+								{/if}
 							</div>
+						{/if}
+					</div>
 
-							{#if canDeleteSelectedFilter}
+					<div class="flex items-center gap-2">
+						<!--
+					  Select / expand / sort / per-page all act on the
+					  paginated card list; the board has no checkboxes,
+					  no collapsed state and pages itself, so they are
+					  list-view only.
+					-->
+						{#if query.view === 'list'}
+							{#if selecting}
+								<Button variant="outline" size="xs" onclick={cancelSelect}>Cancel</Button>
+
 								<Button
 									variant="outline"
 									size="xs"
-									title="Delete preset filter"
-									aria-label="Delete preset filter"
-									onclick={() => (showConfirmDeletePreset = true)}
+									onclick={() => {
+										selected = {};
+										selectedAll = true;
+									}}>Select All</Button
 								>
-									<TrashIcon class="h-4 w-4" />
-								</Button>
+							{:else}
+								<Button variant="outline" size="xs" onclick={() => (selecting = true)}
+									>Select</Button
+								>
 							{/if}
-						</div>
-					{/if}
-				</div>
 
-				<div class="flex items-center gap-2">
-					{#if selecting}
-						<Button variant="outline" size="xs" onclick={cancelSelect}>Cancel</Button>
+							<Button
+								variant="outline"
+								size="xs"
+								onclick={() => {
+									expanded = {};
+
+									commitQuery({
+										...query,
+										expanded: !query.expanded
+									});
+								}}
+							>
+								{query.expanded ? 'Collapse All' : 'Expand All'}
+							</Button>
+						{/if}
 
 						<Button
 							variant="outline"
 							size="xs"
-							onclick={() => {
-								selected = {};
-								selectedAll = true;
-							}}>Select All</Button
+							onclick={refreshCurrentView}
+							disabled={status === 'loading'}
 						>
-					{:else}
-						<Button variant="outline" size="xs" onclick={() => (selecting = true)}>Select</Button>
-					{/if}
+							Refresh
+						</Button>
 
-					<Button
-						variant="outline"
-						size="xs"
-						onclick={() => {
-							expanded = {};
+						{#if query.view === 'list'}
+							<Button
+								variant="outline"
+								size="xs"
+								onclick={toggleSort}
+								disabled={status === 'loading'}
+							>
+								{#if query.filters.sort === 'asc'}
+									<ArrowDownNarrowWide class="h-4 w-4" />
+								{:else}
+									<ArrowUpNarrowWide class="h-4 w-4" />
+								{/if}
+							</Button>
 
+							<Select
+								value={String(query.per_page)}
+								onValueChange={(value) => {
+									const nextPerPage = Number(value);
+
+									commitQuery({
+										...query,
+										page: 1,
+										per_page: nextPerPage
+									});
+								}}
+								type="single"
+							>
+								<SelectTrigger class="h-7 px-2.5 py-0"
+									>{query.per_page} entries per page</SelectTrigger
+								>
+
+								<SelectContent>
+									{#each perPageOptions as perPageOption}
+										<SelectItem value={perPageOption.value}>{perPageOption.label}</SelectItem>
+									{/each}
+								</SelectContent>
+							</Select>
+						{/if}
+
+						<AlertsViewSwitcher
+							view={query.view}
+							group={query.board_group}
+							onViewChange={changeView}
+							onGroupChange={changeBoardGroup}
+						/>
+					</div>
+				</div>
+
+				{#if query.view === 'list' && getPagesCount() > 1}
+					<AlertsPagination page={query.page} pages={getPagesCount()} onPageChange={changePage} />
+				{/if}
+
+				{#if filtersOpen}
+					<AlertFilters
+						value={query.filters}
+						onChange={(next) => {
+							query = {
+								...query,
+								filters: next
+							};
+						}}
+						onApply={() =>
 							commitQuery({
 								...query,
-								expanded: !query.expanded
-							});
-						}}
-					>
-						{query.expanded ? 'Collapse All' : 'Expand All'}
-					</Button>
-
-					<Button
-						variant="outline"
-						size="xs"
-						onclick={refreshAlerts}
-						disabled={status === 'loading'}
-					>
-						Refresh
-					</Button>
-
-					<Button variant="outline" size="xs" onclick={toggleSort} disabled={status === 'loading'}>
-						{#if query.filters.sort === 'asc'}
-							<ArrowDownNarrowWide class="h-4 w-4" />
-						{:else}
-							<ArrowUpNarrowWide class="h-4 w-4" />
-						{/if}
-					</Button>
-
-					<Select
-						value={String(query.per_page)}
-						onValueChange={(value) => {
-							const nextPerPage = Number(value);
+								page: 1
+							})}
+						onClear={() => {
+							clearSavedFilterSelection();
 
 							commitQuery({
 								...query,
 								page: 1,
-								per_page: nextPerPage
+								filters: defaultFilters()
 							});
 						}}
-						type="single"
-					>
-						<SelectTrigger class="h-7 px-2.5 py-0">{query.per_page} entries per page</SelectTrigger>
+						presets={alerts.savedFilters.items}
+						onSaveAsFilter={saveAsFilter}
+						saving={savingFilter}
+						{alertResolutions}
+						{alertStatuses}
+						{caseClassifications}
+						{severities}
+					/>
+				{/if}
 
-						<SelectContent>
-							{#each perPageOptions as perPageOption}
-								<SelectItem value={perPageOption.value}>{perPageOption.label}</SelectItem>
-							{/each}
-						</SelectContent>
-					</Select>
-				</div>
-			</div>
-
-			{#if getPagesCount() > 1}
-				<AlertsPagination page={query.page} pages={getPagesCount()} onPageChange={changePage} />
-			{/if}
-
-			{#if filtersOpen}
-				<AlertFilters
+				<AlertFilterLabels
 					value={query.filters}
-					onChange={(next) => {
-						query = {
-							...query,
-							filters: next
-						};
-					}}
-					onApply={() =>
-						commitQuery({
-							...query,
-							page: 1
-						})}
-					onClear={() => {
-						clearSavedFilterSelection();
-
-						commitQuery({
-							...query,
-							page: 1,
-							filters: defaultFilters()
-						});
-					}}
-					presets={alerts.savedFilters.items}
-					onSaveAsFilter={saveAsFilter}
-					saving={savingFilter}
+					onRemove={(key) => void removeFilter(key)}
 					{alertResolutions}
 					{alertStatuses}
 					{caseClassifications}
 					{severities}
 				/>
-			{/if}
 
-			<AlertFilterLabels
-				value={query.filters}
-				onRemove={(key) => void removeFilter(key)}
-				{alertResolutions}
-				{alertStatuses}
-				{caseClassifications}
-				{severities}
-			/>
+				{#if query.view === 'list' && getSelectedCount() > 0}
+					<div class="flex gap-2">
+						<Button variant="outline" size="xs" onclick={() => (showMerge = true)}>Merge</Button>
 
-			{#if getSelectedCount() > 0}
-				<div class="flex gap-2">
-					<Button variant="outline" size="xs" onclick={() => (showMerge = true)}>Merge</Button>
+						<DropdownMenu>
+							<DropdownMenuTrigger>
+								<Button variant="outline" size="xs">
+									Assign
+									<ChevronDownIcon size="14" />
+								</Button>
+							</DropdownMenuTrigger>
 
-					<DropdownMenu>
-						<DropdownMenuTrigger>
-							<Button variant="outline" size="xs">
-								Assign
-								<ChevronDownIcon size="14" />
-							</Button>
-						</DropdownMenuTrigger>
+							<DropdownMenuContent align="end">
+								<DropdownMenuItem
+									onclick={async () => {
+										const updates = await Promise.all(
+											getSelectedAlertIds()
+												.map((alertId) => getAlertFromPage(alertId))
+												.filter((alert): alert is Alert => alert !== null)
+												.map((alert) => assignToCurrentUser(alert))
+										);
 
-						<DropdownMenuContent align="end">
-							<DropdownMenuItem
-								onclick={async () => {
-									const updates = await Promise.all(
-										getSelectedAlertIds()
-											.map((alertId) => getAlertFromPage(alertId))
-											.filter((alert): alert is Alert => alert !== null)
-											.map((alert) => assignToCurrentUser(alert))
-									);
+										if (updates.length === 0) {
+											await refreshAlerts();
+										}
 
-									if (updates.length === 0) {
-										await refreshAlerts();
-									}
-
-									cancelSelect();
-								}}>Assign to me</DropdownMenuItem
-							>
-
-							<DropdownMenuItem
-								onclick={() =>
-									openReassignDialog(
-										getSelectedAlertIds().length === 1
-											? (getAlertFromPage(getSelectedAlertIds()[0]) ?? undefined)
-											: undefined
-									)}>Assign</DropdownMenuItem
-							>
-						</DropdownMenuContent>
-					</DropdownMenu>
-
-					<DropdownMenu>
-						<DropdownMenuTrigger>
-							<Button variant="outline" size="xs">
-								Set status
-								<ChevronDownIcon size="14" />
-							</Button>
-						</DropdownMenuTrigger>
-
-						<DropdownMenuContent align="end">
-							{#each alertStatuses as alertStatus}
-								<DropdownMenuItem onclick={() => setStatus(alertStatus.status_id)}>
-									{alertStatus.status_name}</DropdownMenuItem
+										cancelSelect();
+									}}>Assign to me</DropdownMenuItem
 								>
-							{/each}
-						</DropdownMenuContent>
-					</DropdownMenu>
 
-					<Button variant="destructive" size="xs" onclick={() => (showClose = true)}
-						>Close with note</Button
-					>
+								<DropdownMenuItem
+									onclick={() =>
+										openReassignDialog(
+											getSelectedAlertIds().length === 1
+												? (getAlertFromPage(getSelectedAlertIds()[0]) ?? undefined)
+												: undefined
+										)}>Assign</DropdownMenuItem
+								>
+							</DropdownMenuContent>
+						</DropdownMenu>
 
-					<Button variant="destructive" size="xs" onclick={() => (showConfirmDelete = true)}
-						><TrashIcon /> Delete</Button
-					>
-				</div>
-			{/if}
+						<DropdownMenu>
+							<DropdownMenuTrigger>
+								<Button variant="outline" size="xs">
+									Set status
+									<ChevronDownIcon size="14" />
+								</Button>
+							</DropdownMenuTrigger>
+
+							<DropdownMenuContent align="end">
+								{#each alertStatuses as alertStatus}
+									<DropdownMenuItem onclick={() => setStatus(alertStatus.status_id)}>
+										{alertStatus.status_name}</DropdownMenuItem
+									>
+								{/each}
+							</DropdownMenuContent>
+						</DropdownMenu>
+
+						<Button variant="destructive" size="xs" onclick={() => (showClose = true)}
+							>Close with note</Button
+						>
+
+						<Button variant="destructive" size="xs" onclick={() => (showConfirmDelete = true)}
+							><TrashIcon /> Delete</Button
+						>
+					</div>
+				{/if}
 			</div>
 
-			<!--
+			{#if query.view === 'board'}
+				<!--
+				  The board brings its own column scrolling, so it opts
+				  out of the fade-shrouded vertical scroller below and
+				  just fills the remaining height.
+				-->
+				<div class="flex min-h-0 min-w-0 flex-1 flex-col pb-4">
+					<AlertsBoard
+						filters={query.filters}
+						group={query.board_group}
+						{severities}
+						{alertStatuses}
+						refreshKey={boardRefreshKey}
+						onCountChange={(count) => (boardTotal = count)}
+					/>
+				</div>
+			{:else}
+				<!--
 			  Scrollable alert list wrapped in a fade-shroud. The outer
 			  `relative` div carries two `pointer-events-none`
 			  pseudo-fades top and bottom so cards melt into the page
@@ -948,84 +1074,82 @@
 			  / last card sits flush against the fade and looks half-
 			  obscured at rest).
 			-->
-			<div class="relative -mx-6 flex min-h-0 min-w-0 flex-1 flex-col">
-				<ScrollArea class="min-h-0 min-w-0 flex-1">
-				<ul
-					class="flex min-w-0 flex-col gap-4 pl-16 pr-16 pt-4 pb-6"
-				>
-				{#each alertsData.data as alert (alert.alert_id)}
-					<li class="flex min-w-0 items-center gap-4">
-						{#if selecting}
-							<Checkbox
-								checked={selected[alert.alert_id] ?? selectedAll}
-								onCheckedChange={(v) => (selected = { ...selected, [alert.alert_id]: v })}
-							/>
-						{/if}
+				<div class="relative -mx-6 flex min-h-0 min-w-0 flex-1 flex-col">
+					<ScrollArea class="min-h-0 min-w-0 flex-1">
+						<ul class="flex min-w-0 flex-col gap-4 pb-6 pl-16 pr-16 pt-4">
+							{#each alertsData.data as alert (alert.alert_id)}
+								<li class="flex min-w-0 items-center gap-4">
+									{#if selecting}
+										<Checkbox
+											checked={selected[alert.alert_id] ?? selectedAll}
+											onCheckedChange={(v) => (selected = { ...selected, [alert.alert_id]: v })}
+										/>
+									{/if}
 
-						<AlertCard
-							{alert}
-							{alertStatuses}
-							expanded={expanded[alert.alert_id] ?? query.expanded}
-							onExpandedChange={(v) => (expanded = { ...expanded, [alert.alert_id]: v })}
-							onAssign={() => assign(alert)}
-							onAssignToCurrentUser={() => assignToCurrentUser(alert)}
-							onSetStatus={(status) => {
-								selected = { ...selected, [alert.alert_id]: true };
+									<AlertCard
+										{alert}
+										{alertStatuses}
+										expanded={expanded[alert.alert_id] ?? query.expanded}
+										onExpandedChange={(v) => (expanded = { ...expanded, [alert.alert_id]: v })}
+										onAssign={() => assign(alert)}
+										onAssignToCurrentUser={() => assignToCurrentUser(alert)}
+										onSetStatus={(status) => {
+											selected = { ...selected, [alert.alert_id]: true };
 
-								setStatus(status);
-							}}
-							onShowEdit={() => {
-								selected = { ...selected, [alert.alert_id]: true };
-								showAlertEdit = true;
-							}}
-							onShowHistory={() => {
-								selected = { ...selected, [alert.alert_id]: true };
-								showAlertHistory = true;
-							}}
-							onShowComments={() => {
-								// Don't flag the alert as "bulk-selected" here — the
-								// side panel is single-alert UX and doesn't occlude the
-								// page, so toggling `selected` would surface the bulk
-								// action bar (Merge / Assign / …) underneath the panel.
-								commentsPanel.open({
-									type: 'alerts',
-									id: alert.alert_id,
-									label: alert.alert_title ?? `Alert #${alert.alert_id}`
-								});
-							}}
-							onShowInvestigationFlow={() =>
-								investigationFlowPanel.open({
-									id: alert.alert_id,
-									label: alert.alert_title ?? `Alert #${alert.alert_id}`
-								})}
-							onShowMerge={() => {
-								selected = { ...selected, [alert.alert_id]: true };
-								showMerge = true;
-							}}
-							onShowClose={(withNote: boolean) => {
-								selected = { ...selected, [alert.alert_id]: true };
+											setStatus(status);
+										}}
+										onShowEdit={() => {
+											selected = { ...selected, [alert.alert_id]: true };
+											showAlertEdit = true;
+										}}
+										onShowHistory={() => {
+											selected = { ...selected, [alert.alert_id]: true };
+											showAlertHistory = true;
+										}}
+										onShowComments={() => {
+											// Don't flag the alert as "bulk-selected" here — the
+											// side panel is single-alert UX and doesn't occlude the
+											// page, so toggling `selected` would surface the bulk
+											// action bar (Merge / Assign / …) underneath the panel.
+											commentsPanel.open({
+												type: 'alerts',
+												id: alert.alert_id,
+												label: alert.alert_title ?? `Alert #${alert.alert_id}`
+											});
+										}}
+										onShowInvestigationFlow={() =>
+											investigationFlowPanel.open({
+												id: alert.alert_id,
+												label: alert.alert_title ?? `Alert #${alert.alert_id}`
+											})}
+										onShowMerge={() => {
+											selected = { ...selected, [alert.alert_id]: true };
+											showMerge = true;
+										}}
+										onShowClose={(withNote: boolean) => {
+											selected = { ...selected, [alert.alert_id]: true };
 
-								if (withNote) {
-									showClose = true;
-								} else {
-									closeWithNote({});
-								}
-							}}
-							onUnlinkCase={(case_id: number) => {
-								selected = { ...selected, [alert.alert_id]: true };
-								unlinkCase(case_id);
-							}}
-							onDelete={() => {
-								selected = { ...selected, [alert.alert_id]: true };
-								showConfirmDelete = true;
-							}}
-						/>
-					</li>
-				{/each}
-			</ul>
-				</ScrollArea>
+											if (withNote) {
+												showClose = true;
+											} else {
+												closeWithNote({});
+											}
+										}}
+										onUnlinkCase={(case_id: number) => {
+											selected = { ...selected, [alert.alert_id]: true };
+											unlinkCase(case_id);
+										}}
+										onDelete={() => {
+											selected = { ...selected, [alert.alert_id]: true };
+											showConfirmDelete = true;
+										}}
+									/>
+								</li>
+							{/each}
+						</ul>
+					</ScrollArea>
 
-				<!--
+					<!--
 				  Frosted fade-out strips so cards melt into the page
 				  background at the top/bottom of the scroll viewport
 				  instead of getting hard-clipped at the edge.
@@ -1033,14 +1157,14 @@
 				  subtle `backdrop-blur` softens card text passing
 				  under the fade.
 				-->
-				<div
-					class="pointer-events-none absolute inset-x-0 top-0 z-10 h-6 bg-gradient-to-b from-background via-background/85 to-transparent backdrop-blur-[1px]"
-				></div>
-				<div
-					class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-8 bg-gradient-to-t from-background via-background/85 to-transparent backdrop-blur-[1px]"
-				></div>
-			</div>
-
+					<div
+						class="pointer-events-none absolute inset-x-0 top-0 z-10 h-6 bg-gradient-to-b from-background via-background/85 to-transparent backdrop-blur-[1px]"
+					></div>
+					<div
+						class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-8 bg-gradient-to-t from-background via-background/85 to-transparent backdrop-blur-[1px]"
+					></div>
+				</div>
+			{/if}
 		</div>
 	{/if}
 </div>

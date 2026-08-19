@@ -4,7 +4,11 @@
  *
  *   * `iris_version` — surfaced under the IRIS logo in the side bar.
  *   * `demo_mode`    — gates pages that only make sense on the demo
- *                      instance (e.g. the public Welcome page).
+ *                      instance (e.g. the public Welcome page), and
+ *                      hides what a demo instance locks down.
+ *   * `user_id`      — the caller's own id. Paired with `demo_mode` to
+ *                      keep the server settings reachable for the demo
+ *                      instance owner only.
  *   * `permissions`  — both the raw bitmask and the resolved enum
  *                      names so the SPA can gate menu items / routes
  *                      without re-doing the math on every check.
@@ -58,6 +62,7 @@ export interface UserPreferences {
 export interface UserContext {
 	iris_version: string;
 	demo_mode: boolean;
+	user_id: number;
 	permissions: {
 		mask: number;
 		names: PermissionName[];
@@ -86,4 +91,31 @@ export function hasPermission(ctx: UserContext | null, perm: PermissionName): bo
 
 export function hasAnyPermission(ctx: UserContext | null, perms: PermissionName[]): boolean {
 	return perms.some((p) => hasPermission(ctx, p));
+}
+
+/**
+ * The account that owns a demo instance — mirrors
+ * `DEMO_MODE_OWNER_USER_ID` in `app/iris_engine/demo_builder.py`.
+ */
+export const DEMO_MODE_OWNER_USER_ID = 1;
+
+/**
+ * True when the caller must not see the server settings surface.
+ * Mirrors `demo_mode_restricts_server_settings` on the API side — the
+ * routes return 403 regardless, this only keeps the UI honest so nobody
+ * is offered a page they'll bounce off.
+ */
+export function demoHidesServerSettings(ctx: UserContext | null): boolean {
+	return !!ctx?.demo_mode && ctx.user_id !== DEMO_MODE_OWNER_USER_ID;
+}
+
+/**
+ * True when credentials are frozen. Demo accounts are shared and their
+ * passwords are published, so nobody — not even an admin editing
+ * another account — may change a password or enrol a second factor.
+ * Mirrors `demo_mode_blocks_password_change` / `demo_mode_blocks_mfa`,
+ * which are both simply "demo mode is on".
+ */
+export function demoLocksCredentials(ctx: UserContext | null): boolean {
+	return !!ctx?.demo_mode;
 }

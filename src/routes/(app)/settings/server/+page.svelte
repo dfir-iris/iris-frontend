@@ -17,7 +17,7 @@
   Mirrors the legacy /manage/settings page 1:1.
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { getContext } from 'svelte';
 	import {
 		BugIcon,
 		DatabaseIcon,
@@ -44,6 +44,21 @@
 		type ServerSettingsResponse,
 		type ServerSettingsUpdateBody
 	} from '$lib/services/server-settings.service';
+	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
+	import {
+		demoHidesServerSettings,
+		demoLocksCredentials
+	} from '$lib/services/user-context.service';
+
+	const userCtx = getContext<UserCtx>(USER_CTX);
+	// A demo instance keeps this whole surface for its owner — the GET
+	// below 403s for anyone else, so show the reason instead of an
+	// empty page with a failure toast.
+	const restricted = $derived(demoHidesServerSettings(userCtx.ctx));
+	// MFA is off wholesale in demo mode (shared accounts, a second
+	// factor bound to one visitor locks out the rest), so the toggle
+	// would be a lie even for the owner.
+	const mfaLocked = $derived(demoLocksCredentials(userCtx.ctx));
 
 	let payload = $state<ServerSettingsResponse | null>(null);
 	let loading = $state(false);
@@ -96,7 +111,16 @@
 		}
 	};
 
-	onMount(load);
+	// Deliberately not `onMount(load)`: `restricted` only becomes
+	// meaningful once /me/context has landed, and a demo visitor who
+	// isn't the instance owner must not fire a GET that can only 403.
+	let loadRequested = false;
+	$effect(() => {
+		if (!userCtx.ready || loadRequested) return;
+		loadRequested = true;
+		if (restricted) return;
+		void load();
+	});
 
 	const fieldChanged = <K extends keyof ServerSettings>(key: K): boolean => {
 		if (payload == null) return false;
@@ -263,7 +287,7 @@
 				size="sm"
 				class="h-7"
 				onclick={load}
-				disabled={loading || saving}
+				disabled={restricted || loading || saving}
 			>
 				<RefreshCwIcon
 					size={12}
@@ -276,11 +300,11 @@
 				size="sm"
 				class="h-7"
 				onclick={discard}
-				disabled={saving || !isDirty}
+				disabled={restricted || saving || !isDirty}
 			>
 				Discard
 			</Button>
-			<Button size="sm" class="h-7" onclick={save} disabled={saving || !isDirty}>
+			<Button size="sm" class="h-7" onclick={save} disabled={restricted || saving || !isDirty}>
 				<SaveIcon size={12} class="mr-1" />
 				{saving ? 'Saving…' : 'Save changes'}
 			</Button>
@@ -288,7 +312,16 @@
 	</header>
 
 	<div class="flex-1 overflow-y-auto p-4">
-		{#if loading && payload == null}
+		{#if restricted}
+			<div class="mx-auto max-w-md px-3 py-16 text-center">
+				<ShieldAlertIcon size={22} class="mx-auto mb-3 text-muted-foreground" />
+				<p class="text-xs font-medium">Server settings are not available in demo mode</p>
+				<p class="mt-1.5 text-2xs text-muted-foreground">
+					Mail credentials, integrations and database backups stay with the account that owns
+					this demo instance. Everything else in Manage IRIS is yours to explore.
+				</p>
+			</div>
+		{:else if loading && payload == null}
 			<div class="space-y-2">
 				{#each Array(8) as _}
 					<Skeleton class="h-10 w-full" />
@@ -552,15 +585,20 @@
 					<div class="flex flex-col gap-3 p-4 text-xs">
 						<label class="flex items-start gap-2">
 							<Switch
-								checked={!!form.enforce_mfa}
+								checked={!mfaLocked && !!form.enforce_mfa}
 								onCheckedChange={(v: boolean) => (form.enforce_mfa = v)}
-								disabled={saving}
+								disabled={saving || mfaLocked}
 							/>
 							<div>
 								<div class="font-medium">Enforce MFA</div>
 								<p class="text-2xs text-muted-foreground">
-									Forces every user to register a TOTP / WebAuthn factor at next login.
-									Existing sessions stay valid until they expire.
+									{#if mfaLocked}
+										Unavailable in demo mode — accounts here are shared, so a second factor
+										bound to one visitor's authenticator would lock everyone else out.
+									{:else}
+										Forces every user to register a TOTP / WebAuthn factor at next login.
+										Existing sessions stay valid until they expire.
+									{/if}
 								</p>
 							</div>
 						</label>

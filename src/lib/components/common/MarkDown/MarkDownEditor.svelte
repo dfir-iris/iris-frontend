@@ -270,6 +270,20 @@
 		viewIsEmpty = md.trim().length === 0;
 	});
 
+	// Non-collab: sync the TipTap editor content when the parent resets
+	// `value` from outside (e.g. dialog opens a different event). We only
+	// call setContent when the incoming value wasn't emitted by us — that
+	// way normal user typing (which updates lastEmittedMarkdown) doesn't
+	// trigger a round-trip setContent that would clobber the cursor.
+	$effect(() => {
+		if (docName) return;
+		const md = value ?? '';
+		if (md === lastEmittedMarkdown) return;
+		if (!editor) return;
+		lastEmittedMarkdown = md;
+		editor.commands.setContent(normalizeLegacyContent(md));
+	});
+
 	let socket: Socket | null = null;
 	// `ydoc` and `awareness` are created EAGERLY (in the same tick as the
 	// component's `<script>` runs, before `onMount`) rather than lazily

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import { getContext, type Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 	import {
 		BellIcon,
@@ -20,12 +20,16 @@
 		WaypointsIcon
 	} from 'lucide-svelte';
 	import { page } from '$app/state';
+	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
+	import { demoHidesServerSettings } from '$lib/services/user-context.service';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
 	const pathname = $derived(page.url.pathname);
 
-	const items: { icon: typeof Icon; label: string; href: string }[] = [
+	const userCtx = getContext<UserCtx>(USER_CTX);
+
+	const allItems: { icon: typeof Icon; label: string; href: string }[] = [
 		{ icon: ServerIcon, label: 'Modules', href: '/modules' },
 		{ icon: CircleUserIcon, label: 'Customers', href: '/customers' },
 		{ icon: LayersIcon, label: 'Case Objects', href: '/case-objects' },
@@ -42,6 +46,16 @@
 		{ icon: MegaphoneIcon, label: 'Banners', href: '/banners' },
 		{ icon: SettingsIcon, label: 'Server Settings', href: '/server' }
 	];
+
+	// Server settings hold SMTP credentials, DSNs and the backup
+	// trigger. A demo instance hands every visitor an admin account, so
+	// the entry only stays for the instance owner. The API enforces the
+	// same rule — this just avoids offering a link that 403s.
+	const items = $derived(
+		demoHidesServerSettings(userCtx.ctx)
+			? allItems.filter((item) => item.href !== '/server')
+			: allItems
+	);
 
 	const isActive = (href: string) => {
 		const target = `/settings${href}`;

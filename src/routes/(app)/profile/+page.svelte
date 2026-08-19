@@ -8,7 +8,7 @@
   have their own dedicated v2 endpoints under /me.
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import {
 		EyeIcon,
 		EyeOffIcon,
@@ -39,6 +39,13 @@
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import ApiKeysCard from './components/ApiKeysCard.svelte';
 	import ChangePasswordDialog from './components/ChangePasswordDialog.svelte';
+	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
+	import { demoLocksCredentials } from '$lib/services/user-context.service';
+
+	const userCtx = getContext<UserCtx>(USER_CTX);
+	// Demo accounts are shared and their passwords are published, so a
+	// rotation here locks out the next visitor. The API refuses it too.
+	const passwordLocked = $derived(demoLocksCredentials(userCtx.ctx));
 
 	let profile = $state<Profile | null>(null);
 	let loading = $state(true);
@@ -410,7 +417,12 @@
 			<Card.Header>
 				<Card.Title>Security</Card.Title>
 				<Card.Description>
-					Refresh your access if a group / permission was just changed, or rotate your password.
+					{#if passwordLocked}
+						Refresh your access if a group / permission was just changed.
+					{:else}
+						Refresh your access if a group / permission was just changed, or rotate your
+						password.
+					{/if}
 				</Card.Description>
 			</Card.Header>
 			<Card.Content class="flex flex-wrap gap-2">
@@ -419,10 +431,17 @@
 					{refreshingPerms ? 'Refreshing…' : 'Refresh access'}
 				</Button>
 
-				<Button onclick={() => (showChangePwd = true)}>
-					<LockIcon size={14} class="mr-1.5" />
-					Change password
-				</Button>
+				{#if !passwordLocked}
+					<Button onclick={() => (showChangePwd = true)}>
+						<LockIcon size={14} class="mr-1.5" />
+						Change password
+					</Button>
+				{:else}
+					<p class="basis-full text-xs text-muted-foreground">
+						Password changes are disabled in demo mode — the credentials for this instance are
+						published and shared with every visitor.
+					</p>
+				{/if}
 			</Card.Content>
 		</Card.Root>
 	{/if}

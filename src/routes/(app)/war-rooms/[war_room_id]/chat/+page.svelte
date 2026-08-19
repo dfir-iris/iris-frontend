@@ -26,6 +26,7 @@
 		Loader2,
 		MessageSquare,
 		Paperclip,
+		Pencil,
 		Pin,
 		PinOff,
 		ListChecks,
@@ -50,6 +51,8 @@
 	import { toast } from '$lib/components/ui/toast';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import ChatMessageBody from './components/ChatMessageBody.svelte';
+	import ChatMessageEditor from './components/ChatMessageEditor.svelte';
+	import ChatMessageAttachments from './components/ChatMessageAttachments.svelte';
 	import ChatComposerMentions from './components/ChatComposerMentions.svelte';
 	import AttachmentPreviewDialog, {
 		type AttachmentTarget
@@ -677,16 +680,20 @@
 			.filter(matchesTopicFilter);
 
 		// Merge server state for live-changing fields on rows we
-		// already have. Reactions and polls both mutate after their
-		// row's `created_at`, so filtering them out as "seen" leaves
-		// the SPA showing stale tallies. Vote counts and reaction
-		// pills need to reflect other operators' actions.
+		// already have. Reactions, polls and edited bodies all mutate
+		// after their row's `created_at`, so filtering them out as
+		// "seen" leaves the SPA showing stale tallies and pre-edit
+		// text. These need to reflect other operators' actions.
 		const byId = new Map<number, ChatMessage>();
 		for (const m of incoming) byId.set(m.message_id, m);
 		let changed = false;
 		const merged = messages.map((m) => {
 			const server = byId.get(m.message_id);
 			if (!server) return m;
+			// Never clobber a row the operator is actively editing — the
+			// editor seeds its draft on mount, so swapping the body under
+			// it would silently rebase their changes.
+			if (editingMessageId === m.message_id) return m;
 			// Cheap identity check first — skip the object churn when
 			// nothing we care about moved.
 			const reactionsSame =
@@ -694,13 +701,15 @@
 			const pollSame =
 				JSON.stringify(m.poll ?? null) === JSON.stringify(server.poll ?? null);
 			const pinSame = m.is_pinned === server.is_pinned;
-			if (reactionsSame && pollSame && pinSame) return m;
+			const bodySame = m.body === server.body && m.edited_at === server.edited_at;
+			if (reactionsSame && pollSame && pinSame && bodySame) return m;
 			changed = true;
 			return {
 				...m,
 				reactions: server.reactions,
 				poll: server.poll,
 				is_pinned: server.is_pinned,
+				body: server.body,
 				edited_at: server.edited_at,
 				deleted_at: server.deleted_at
 			};
@@ -847,6 +856,63 @@
 			message: 'It will be hidden from the stream. This can\'t be undone.',
 			run: () => doRemoveMessage(m.message_id)
 		});
+	};
+
+	// --- Inline message editing -------------------------------------
+	//
+	// Only the author may edit, and only their own plain messages: the
+	// backend's PATCH handler rejects anything else (non-author, system
+	// kinds, soft-deleted rows), so this predicate exists to keep the UI
+	// honest rather than to enforce the rule. `kind === 'message'` also
+	// filters out the virtual case-activity rows, which have no
+	// editable body at all.
+	let editingMessageId = $state<number | null>(null);
+	let editSaving = $state(false);
+
+	const canEditMessage = (m: ChatMessage) =>
+		currentUserId != null &&
+		m.author_id === currentUserId &&
+		m.kind === 'message' &&
+		!m.deleted_at;
+
+	const beginEdit = (m: ChatMessage) => {
+		editingMessageId = m.message_id;
+	};
+
+	const cancelEdit = () => {
+		editingMessageId = null;
+		editSaving = false;
+	};
+
+	const saveEdit = async (messageId: number, nextBody: string) => {
+		editSaving = true;
+		const res = await WarRoomChatService.edit(warRoomId, messageId, nextBody);
+		editSaving = false;
+		if (!res.ok) {
+			toast({
+				title: 'Could not edit message',
+				description:
+					typeof res.data === 'string'
+						? res.data
+						: ((res.data as { message?: string } | null)?.message ??
+							res.error?.message ??
+							'Unknown error'),
+				variant: 'destructive'
+			});
+			return;
+		}
+		// Mirror the server's stamp locally so the "(edited)" tag and the
+		// new body show immediately instead of waiting on the next poll.
+		const stamp = new Date().toISOString();
+		messages = messages.map((x) =>
+			x.message_id === messageId ? { ...x, body: nextBody, edited_at: stamp } : x
+		);
+		// A pinned message can also be indexed in the Decisions & Pins
+		// sidebar — keep that copy in step.
+		traceLog = traceLog.map((t) =>
+			t.message_id === messageId ? { ...t, body: nextBody, edited_at: stamp } : t
+		);
+		cancelEdit();
 	};
 
 	// Sidebar delete for decisions / pins / notes. Same soft-delete on
@@ -2730,11 +2796,17 @@
 														{actor}
 													</span>
 												{/if}
+												<!--
+												  `inline` so the generated one-liner keeps
+												  flowing after the actor pill instead of
+												  dropping onto its own row.
+												-->
 												<ChatMessageBody
 													body={m.body ?? ''}
 													attachments={m.attachments}
 													{warRoomId}
 													onAttachmentClick={openPreview}
+													inline
 												/>
 											</span>
 											<!--
@@ -2776,13 +2848,42 @@
 											]}
 										>
 											<div class="min-w-0 flex-1">
-												<p class="break-words text-sm">
+												{#if editingMessageId === m.message_id}
+													<ChatMessageEditor
+														initial={m.body ?? ''}
+														saving={editSaving}
+														onSave={(next) => void saveEdit(m.message_id, next)}
+														onCancel={cancelEdit}
+													/>
+													<!--
+													  Uploads stay on screen while the text is being
+													  rewritten — the edit only ever touches the body,
+													  so hiding them would misreport the message.
+													-->
+													<ChatMessageAttachments attachments={m.attachments} {warRoomId} />
+												{:else}
+												<!--
+												  A div, not a p: the body is markdown now and
+												  renders block children (paragraphs, lists, code
+												  fences) that a <p> can't legally contain.
+												-->
+												<div class="break-words text-sm">
 													<ChatMessageBody
 													body={m.body ?? ''}
 													attachments={m.attachments}
 													{warRoomId}
 													onAttachmentClick={openPreview}
 												/>
+													{#if m.edited_at}
+														<!--
+														  Continuation rows have no timestamp header, so the
+														  edited marker rides at the end of the body — same
+														  placement rationale as the pin badge below.
+														-->
+														<span class="ml-1 align-middle text-2xs italic text-muted-foreground">
+															(edited)
+														</span>
+													{/if}
 													{#if m.is_pinned}
 														<!--
 														  Pin badge next to body content. On continuation
@@ -2797,7 +2898,8 @@
 															Pinned
 														</span>
 													{/if}
-												</p>
+												</div>
+												{/if}
 												{#if (m.reactions ?? []).length > 0}
 													<MessageReactions
 														reactions={m.reactions}
@@ -2879,6 +2981,17 @@
 															<Pin class="h-3.5 w-3.5" />
 														{/if}
 													</button>
+													{#if canEditMessage(m) && editingMessageId !== m.message_id}
+														<button
+															type="button"
+															class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+															onclick={() => beginEdit(m)}
+															aria-label="Edit message"
+															title="Edit"
+														>
+															<Pencil class="h-3.5 w-3.5" />
+														</button>
+													{/if}
 													{#if currentUserId != null && m.author_id === currentUserId}
 														<button
 															type="button"
@@ -2942,14 +3055,27 @@
 														</span>
 													{/if}
 												</div>
-												<p class="mt-0.5 break-words text-sm">
-													<ChatMessageBody
-													body={m.body ?? ''}
-													attachments={m.attachments}
-													{warRoomId}
-													onAttachmentClick={openPreview}
-												/>
-												</p>
+												{#if editingMessageId === m.message_id}
+													<ChatMessageEditor
+														initial={m.body ?? ''}
+														saving={editSaving}
+														onSave={(next) => void saveEdit(m.message_id, next)}
+														onCancel={cancelEdit}
+													/>
+													<ChatMessageAttachments attachments={m.attachments} {warRoomId} />
+												{:else}
+													<!-- See the continuation row above: markdown
+													     bodies are block content, so this can't be
+													     a <p>. -->
+													<div class="mt-0.5 break-words text-sm">
+														<ChatMessageBody
+														body={m.body ?? ''}
+														attachments={m.attachments}
+														{warRoomId}
+														onAttachmentClick={openPreview}
+													/>
+													</div>
+												{/if}
 												{#if (m.reactions ?? []).length > 0}
 													<MessageReactions
 														reactions={m.reactions}
@@ -3018,6 +3144,17 @@
 															<Pin class="h-3.5 w-3.5" />
 														{/if}
 													</button>
+													{#if canEditMessage(m) && editingMessageId !== m.message_id}
+														<button
+															type="button"
+															class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+															onclick={() => beginEdit(m)}
+															aria-label="Edit message"
+															title="Edit"
+														>
+															<Pencil class="h-3.5 w-3.5" />
+														</button>
+													{/if}
 													{#if currentUserId != null && m.author_id === currentUserId}
 														<button
 															type="button"

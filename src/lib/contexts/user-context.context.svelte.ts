@@ -76,6 +76,7 @@ export const createUserContext = (): UserCtx => {
 			ctx = {
 				iris_version: '',
 				demo_mode: false,
+				user_id: 0,
 				permissions: { mask: 0, names: [] },
 				preferences: { has_mini_sidebar: false, [key]: value } as UserPreferences
 			};

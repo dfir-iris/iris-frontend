@@ -13,7 +13,7 @@
   `open` state) so the page-level layout stays tab-agnostic.
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import {
 		FolderIcon,
 		KeyRoundIcon,
@@ -47,6 +47,8 @@
 	import UserCasesAccessDialog from './UserCasesAccessDialog.svelte';
 	import UserAuditDialog from './UserAuditDialog.svelte';
 	import UserApiKeyDialog from './UserApiKeyDialog.svelte';
+	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
+	import { demoLocksCredentials } from '$lib/services/user-context.service';
 
 	type Props = {
 		schema: AccessControlSchemaInfo;
@@ -61,6 +63,11 @@
 	};
 
 	let { schema, askConfirmation, showError, showSuccess }: Props = $props();
+
+	const userCtx = getContext<UserCtx>(USER_CTX);
+	// Demo mode switches MFA off wholesale, so there is no enrolment
+	// to reset — the API refuses this call outright.
+	const mfaLocked = $derived(demoLocksCredentials(userCtx.ctx));
 
 	const PAGE_SIZE = 25;
 
@@ -471,10 +478,12 @@
 								<KeyRoundIcon size={12} class="mr-2" />
 								Rotate API key
 							</DropdownMenu.Item>
-							<DropdownMenu.Item onclick={() => selected && resetMfa(selected)}>
-								<KeyRoundIcon size={12} class="mr-2" />
-								Reset MFA
-							</DropdownMenu.Item>
+							{#if !mfaLocked}
+								<DropdownMenu.Item onclick={() => selected && resetMfa(selected)}>
+									<KeyRoundIcon size={12} class="mr-2" />
+									Reset MFA
+								</DropdownMenu.Item>
+							{/if}
 							<DropdownMenu.Separator />
 							<DropdownMenu.Item onclick={() => selected && toggleActive(selected)}>
 								{#if selected.user_active}

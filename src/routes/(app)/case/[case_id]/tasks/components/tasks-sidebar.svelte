@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getContext, onMount, onDestroy } from 'svelte';
-	import { RefreshCwIcon, List, Grid } from 'lucide-svelte';
+	import { RefreshCwIcon } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { CASE_TASKS_CTX, type CaseTasksContext } from '$lib/contexts/case-tasks.context.svelte';
@@ -9,14 +9,12 @@
 	import TaskCard from '$lib/components/common/tasks/TaskCard.svelte';
 	import TaskDataTable from '$lib/components/common/tasks/TaskDataTable.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import {
-		AdvancedSearch,
-		type SearchField,
-		type SearchCondition
-	} from '$lib/components/ui/advanced-search';
+	import { AdvancedSearch, type SearchCondition } from '$lib/components/ui/advanced-search';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Tooltip, TooltipProvider, TooltipTrigger } from '$lib/components/ui/tooltip';
 	import TooltipContent from '$lib/components/ui/tooltip/tooltip-content.svelte';
+	import TaskViewSwitcher from './task-view-switcher.svelte';
+	import { matchesTask, taskSearchFields } from '../helpers';
 
 	const caseTasks = getContext<CaseTasksContext>(CASE_TASKS_CTX);
 
@@ -24,73 +22,12 @@
 	let isRefreshing = $state(false);
 	let searchTerm = $state('');
 	let searchConditions = $state<SearchCondition[]>([]);
-	let viewMode = $state<'cards' | 'table'>('cards');
 
 	let observer: IntersectionObserver | null = null;
 	let loadMoreTrigger: HTMLDivElement | null = null;
 	let scrollContainer: HTMLDivElement | null = null;
 
-	const searchFields: SearchField[] = [
-		{ key: 'task_title', label: 'Title', type: 'text' },
-		{ key: 'task_description', label: 'Description', type: 'text' },
-		{ key: 'task_tags', label: 'Tags', type: 'text' },
-		{ key: 'id', label: 'Task ID', type: 'number' }
-	];
-
-	const norm = (s: string | null | undefined) => (s ?? '').toLowerCase();
-
-	const conditionMatchesTask = (task: Task, c: SearchCondition): boolean => {
-		const q = c.value.toLowerCase();
-
-		if (c.field === '_raw') {
-			return (
-				norm(task.task_title).includes(q) ||
-				norm(task.task_description).includes(q) ||
-				norm(task.task_tags).includes(q)
-			);
-		}
-
-		const fieldValue = (() => {
-			switch (c.field) {
-				case 'task_title':
-					return norm(task.task_title);
-				case 'task_description':
-					return norm(task.task_description);
-				case 'task_tags':
-					return norm(task.task_tags);
-				case 'id':
-					return String(task.id);
-				default:
-					return '';
-			}
-		})();
-
-		switch (c.operator) {
-			case 'like':
-				return fieldValue.includes(q);
-			case 'eq':
-				return fieldValue === q;
-			case 'not':
-				return fieldValue !== q;
-			default:
-				return true;
-		}
-	};
-
-	const matchesTask = (task: Task, term: string, conditions: SearchCondition[]): boolean => {
-		if (!term && conditions.length === 0) return true;
-
-		if (conditions.length > 0) {
-			return conditions.every((c) => conditionMatchesTask(task, c));
-		}
-
-		const q = term.toLowerCase();
-		return (
-			norm(task.task_title).includes(q) ||
-			norm(task.task_description).includes(q) ||
-			norm(task.task_tags).includes(q)
-		);
-	};
+	const viewMode = $derived(caseTasks.ui.viewMode);
 
 	const displayTasks = $derived(
 		caseTasks.list.ids
@@ -209,44 +146,16 @@
 		<h2 class="text-lg font-semibold">Tasks</h2>
 
 		<div class="ml-auto flex items-center gap-2">
-			<TooltipProvider>
-				<Tooltip>
-					<TooltipTrigger>
-						<Button
-							size="icon"
-							variant="ghost"
-							onclick={() => {
-								viewMode = 'table';
-								// See assets-sidebar: card view accumulates pages via
-								// infinite scroll; table view expects exactly one
-								// server page at a time.
-								refreshTasks(1);
-							}}
-						>
-							<List size={16} />
-						</Button>
-					</TooltipTrigger>
-					<TooltipContent align="center" side="bottom">Table View</TooltipContent>
-				</Tooltip>
-			</TooltipProvider>
-
-			<TooltipProvider>
-				<Tooltip>
-					<TooltipTrigger>
-						<Button
-							size="icon"
-							variant="ghost"
-							onclick={() => {
-								viewMode = 'cards';
-								refreshTasks(1);
-							}}
-						>
-							<Grid size={16} />
-						</Button>
-					</TooltipTrigger>
-					<TooltipContent align="center" side="bottom">Cards View</TooltipContent>
-				</Tooltip>
-			</TooltipProvider>
+			<TaskViewSwitcher
+				value={viewMode}
+				onSelect={(mode) => {
+					caseTasks.ui.viewMode = mode;
+					// See assets-sidebar: card view accumulates pages via
+					// infinite scroll; table view expects exactly one
+					// server page at a time. The board loads its own pages.
+					if (mode !== 'board') refreshTasks(1);
+				}}
+			/>
 
 			<TooltipProvider>
 				<Tooltip>
@@ -265,7 +174,7 @@
 		placeholder="Search tasks..."
 		bind:value={searchTerm}
 		bind:conditions={searchConditions}
-		fields={searchFields}
+		fields={taskSearchFields}
 	/>
 
 	<div class="min-h-0 flex-1">

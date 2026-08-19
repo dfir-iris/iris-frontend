@@ -1,10 +1,14 @@
 <script lang="ts">
 	import DOMPurify from 'dompurify';
+	import { cn } from '$lib/utils';
 	import { converter } from './converter';
 	import { authenticateDatastoreImages } from './authenticate-datastore-images';
 	import { normalizeLegacyContent } from './legacy-content';
 
-	let { markdown = '' }: { markdown?: string } = $props();
+	// `class` tunes the prose container for a caller whose surroundings
+	// disagree with the defaults below — war-room chat, for one, is denser
+	// than a note pane and needs the inherited font size back.
+	let { markdown = '', class: className = '' }: { markdown?: string; class?: string } = $props();
 
 	const safeHtml = $derived(
 		DOMPurify.sanitize(converter.makeHtml(normalizeLegacyContent(markdown ?? '')))
@@ -37,7 +41,10 @@
 -->
 <div
 	bind:this={containerEl}
-	class="prose prose-sm dark:prose-invert max-w-none min-w-0 break-words [&_p]:my-1.5 [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:mt-3 [&_h2]:mb-1.5 [&_h3]:mt-2 [&_h3]:mb-1 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_blockquote]:my-2 [&_pre]:my-2 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_img]:max-w-full [&_img]:h-auto"
+	class={cn(
+		'prose prose-sm dark:prose-invert max-w-none min-w-0 break-words [&_p]:my-1.5 [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:mt-3 [&_h2]:mb-1.5 [&_h3]:mt-2 [&_h3]:mb-1 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_blockquote]:my-2 [&_pre]:my-2 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_img]:max-w-full [&_img]:h-auto',
+		className
+	)}
 >
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 	{@html safeHtml}

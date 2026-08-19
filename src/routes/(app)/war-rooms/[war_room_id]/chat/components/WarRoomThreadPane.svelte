@@ -48,6 +48,8 @@
 	import { CaseTimelineService } from '$lib/services/case-timeline.service';
 	import { CaseTasksService } from '$lib/services/case-tasks.service';
 	import ChatMessageBody from './ChatMessageBody.svelte';
+	import ChatMessageEditor from './ChatMessageEditor.svelte';
+	import ChatMessageAttachments from './ChatMessageAttachments.svelte';
 	import ChatComposerMentions from './ChatComposerMentions.svelte';
 
 	interface Props {
@@ -134,9 +136,13 @@
 			listEl != null &&
 			listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 80;
 		// In-place patch for rows we already have (edits/soft-deletes),
-		// then append the new tail.
+		// then append the new tail. A row the operator is actively
+		// editing is left alone — swapping the body under the open
+		// editor would silently rebase their draft.
 		const byId = new Map(incoming.map((r) => [r.message_id, r]));
-		replies = replies.map((r) => byId.get(r.message_id) ?? r).concat(fresh);
+		replies = replies
+			.map((r) => (r.message_id === editingReplyId ? r : (byId.get(r.message_id) ?? r)))
+			.concat(fresh);
 		if (fresh.length > 0 && wasAtBottom) void scrollToBottom();
 	};
 
@@ -195,6 +201,43 @@
 		} else {
 			toast({ title: 'Could not delete reply', variant: 'destructive' });
 		}
+	};
+
+	// --- Inline reply editing ---------------------------------------
+	//
+	// Mirrors the main stream: authors may revise their own plain
+	// replies, and the server's PATCH handler is the actual gate (it
+	// rejects non-authors, system kinds and soft-deleted rows). The
+	// predicate below only decides whether to render the affordance.
+	let editingReplyId = $state<number | null>(null);
+	let editSaving = $state(false);
+
+	const canEditReply = (r: ChatMessage) =>
+		currentUserId != null &&
+		r.author_id === currentUserId &&
+		r.kind === 'message' &&
+		!r.deleted_at;
+
+	const cancelEdit = () => {
+		editingReplyId = null;
+		editSaving = false;
+	};
+
+	const saveEdit = async (messageId: number, nextBody: string) => {
+		editSaving = true;
+		const res = await WarRoomChatService.edit(warRoomId, messageId, nextBody);
+		editSaving = false;
+		if (!res.ok) {
+			toast({ title: 'Could not edit reply', variant: 'destructive' });
+			return;
+		}
+		// Patch locally so the new body and the "(edited)" tag land
+		// straight away rather than on the next silent refetch.
+		const stamp = new Date().toISOString();
+		replies = replies.map((r) =>
+			r.message_id === messageId ? { ...r, body: nextBody, edited_at: stamp } : r
+		);
+		cancelEdit();
 	};
 
 	const send = async () => {
@@ -608,24 +651,59 @@
 										<span class="text-2xs italic text-muted-foreground">(edited)</span>
 									{/if}
 									{#if currentUserId != null && r.author_id === currentUserId}
-										<button
-											type="button"
-											class="invisible ml-auto inline-flex items-center gap-0.5 text-2xs text-destructive hover:text-destructive/80 group-hover/reply:visible"
-											onclick={() => requestDelete(r)}
-											aria-label="Delete reply"
-										>
-											<Trash2 class="h-3 w-3" />
-										</button>
-								{/if}
-							</div>
-							<div class="mt-0.5 break-words text-xs">
-								<ChatMessageBody
-										body={r.body ?? ''}
-										attachments={r.attachments}
-										{warRoomId}
-										onAttachmentClick={onAttachmentClick}
-									/>
-							</div>
+										<!--
+										  Own-reply actions. Grouped in one `ml-auto` box so
+										  the row stays right-aligned whether or not the edit
+										  affordance applies (system-kind replies are
+										  delete-only — the server refuses to edit them).
+										-->
+										<div class="ml-auto flex items-center gap-1.5">
+											{#if canEditReply(r) && editingReplyId !== r.message_id}
+												<button
+													type="button"
+													class="invisible inline-flex items-center gap-0.5 text-2xs text-muted-foreground hover:text-foreground group-hover/reply:visible"
+													onclick={() => (editingReplyId = r.message_id)}
+													aria-label="Edit reply"
+													title="Edit"
+												>
+													<Pencil class="h-3 w-3" />
+												</button>
+											{/if}
+											<button
+												type="button"
+												class="invisible inline-flex items-center gap-0.5 text-2xs text-destructive hover:text-destructive/80 group-hover/reply:visible"
+												onclick={() => requestDelete(r)}
+												aria-label="Delete reply"
+												title="Delete"
+											>
+												<Trash2 class="h-3 w-3" />
+											</button>
+										</div>
+									{/if}
+								</div>
+								<div class="mt-0.5 break-words text-xs">
+									{#if editingReplyId === r.message_id}
+										<ChatMessageEditor
+											initial={r.body ?? ''}
+											saving={editSaving}
+											size="xs"
+											onSave={(next) => void saveEdit(r.message_id, next)}
+											onCancel={cancelEdit}
+										/>
+										<!--
+										  Uploads stay on screen while the text is being
+										  rewritten — the edit only ever touches the body.
+										-->
+										<ChatMessageAttachments attachments={r.attachments} {warRoomId} />
+									{:else}
+										<ChatMessageBody
+											body={r.body ?? ''}
+											attachments={r.attachments}
+											{warRoomId}
+											onAttachmentClick={onAttachmentClick}
+										/>
+									{/if}
+								</div>
 						</div>
 					</li>
 					{/if}

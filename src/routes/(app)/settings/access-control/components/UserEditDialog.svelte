@@ -5,9 +5,12 @@
     • `null`            → create mode; shows password field
     • existing record   → edit mode; password field stays editable
                           (admins can reset a password here without
-                          the user needing to log in)
+                          the user needing to log in) — except in demo
+                          mode, where resetting a shared account's
+                          password would lock out the next visitor.
 -->
 <script lang="ts">
+	import { getContext } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
@@ -18,6 +21,8 @@
 		type CreateUserBody,
 		type UpdateUserBody
 	} from '$lib/services/access-control.service';
+	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
+	import { demoLocksCredentials } from '$lib/services/user-context.service';
 
 	type Props = {
 		open: boolean;
@@ -29,6 +34,12 @@
 	let { open = $bindable(), user, showError, onSaved }: Props = $props();
 
 	const isEdit = $derived(user != null);
+
+	const userCtx = getContext<UserCtx>(USER_CTX);
+	// Only the *reset* is blocked: a brand-new account still needs a
+	// password, and the create route allows one. Editing an existing
+	// account's password is what the API refuses in demo mode.
+	const passwordLocked = $derived(isEdit && demoLocksCredentials(userCtx.ctx));
 
 	let form = $state<CreateUserBody>({
 		user_name: '',
@@ -93,7 +104,7 @@
 				// Only send the password if the admin actually entered
 				// one — leaving it blank means "keep the existing
 				// password unchanged".
-				if (form.user_password && form.user_password.length > 0) {
+				if (!passwordLocked && form.user_password && form.user_password.length > 0) {
 					body.user_password = form.user_password;
 				}
 				const res = await AccessControlService.updateUser(user.user_id, body);
@@ -131,9 +142,13 @@
 		<Dialog.Header>
 			<Dialog.Title>{isEdit ? 'Edit user' : 'Add user'}</Dialog.Title>
 			<Dialog.Description>
-				{isEdit
-					? 'Update the user record. Leave password blank to keep the existing one.'
-					: 'Create a new user account.'}
+				{#if passwordLocked}
+					Update the user record. Password resets are disabled in demo mode.
+				{:else if isEdit}
+					Update the user record. Leave password blank to keep the existing one.
+				{:else}
+					Create a new user account.
+				{/if}
 			</Dialog.Description>
 		</Dialog.Header>
 
@@ -162,20 +177,24 @@
 					disabled={busy}
 				/>
 			</div>
-			<div class="flex flex-col gap-1 sm:col-span-2">
-				<label class="text-2xs uppercase tracking-wide text-muted-foreground" for="ued-pwd">
-					Password{isEdit ? '' : ' *'}
-				</label>
-				<Input
-					id="ued-pwd"
-					type="password"
-					class="h-7 text-xs"
-					placeholder={isEdit ? 'Leave blank to keep the current password' : 'min 8 characters'}
-					bind:value={form.user_password}
-					disabled={busy}
-					autocomplete="new-password"
-				/>
-			</div>
+			{#if !passwordLocked}
+				<div class="flex flex-col gap-1 sm:col-span-2">
+					<label class="text-2xs uppercase tracking-wide text-muted-foreground" for="ued-pwd">
+						Password{isEdit ? '' : ' *'}
+					</label>
+					<Input
+						id="ued-pwd"
+						type="password"
+						class="h-7 text-xs"
+						placeholder={isEdit
+							? 'Leave blank to keep the current password'
+							: 'min 8 characters'}
+						bind:value={form.user_password}
+						disabled={busy}
+						autocomplete="new-password"
+					/>
+				</div>
+			{/if}
 
 			<div class="flex items-center gap-2 sm:col-span-2">
 				<Switch
