@@ -120,7 +120,7 @@ jobs:
 
           if command -v oras >/dev/null 2>&1; then
             for ref in "${refs[@]}"; do
-              oras manifest delete "$ref"
+              oras manifest delete --force "$ref"
             done
           elif command -v crane >/dev/null 2>&1; then
             for ref in "${refs[@]}"; do
