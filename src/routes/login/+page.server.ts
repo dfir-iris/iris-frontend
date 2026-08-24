@@ -14,7 +14,9 @@ import { AuthService, type AuthSettings } from '$lib/services/auth.service';
 const DEFAULT_AUTH_SETTINGS: AuthSettings = {
 	oidc_enabled: false,
 	mfa_enabled: false,
-	local_fallback_enabled: true
+	local_fallback_enabled: true,
+	demo_mode: false,
+	demo_accounts: []
 };
 
 export const load: PageServerLoad = async () => {
@@ -30,7 +32,9 @@ export const load: PageServerLoad = async () => {
 				local_fallback_enabled:
 					fetched.local_fallback_enabled === undefined
 						? true
-						: Boolean(fetched.local_fallback_enabled)
+						: Boolean(fetched.local_fallback_enabled),
+				demo_mode: Boolean(fetched.demo_mode),
+				demo_accounts: Array.isArray(fetched.demo_accounts) ? fetched.demo_accounts : []
 			};
 		} else {
 			console.warn(

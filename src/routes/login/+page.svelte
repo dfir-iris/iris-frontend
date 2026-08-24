@@ -3,7 +3,7 @@
 	import Input from '$lib/components/ui/input/input.svelte';
 	import { EyeIcon, EyeOffIcon, UserIcon } from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import { Alert, AlertDescription } from '$lib/components/ui/alert';
+	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 	import { goto } from '$app/navigation';
 	import { auth, type TokenInfo } from '$lib/stores/auth.store';
 	import { enhance } from '$app/forms';
@@ -29,11 +29,31 @@
 	const SAFE_AUTH_SETTINGS: AuthSettings = {
 		oidc_enabled: false,
 		mfa_enabled: false,
-		local_fallback_enabled: true
+		local_fallback_enabled: true,
+		demo_mode: false,
+		demo_accounts: []
 	};
 
 	let { serverStatus, serverCheckMessage } = data;
 	let authSettings: AuthSettings = data.authSettings ?? SAFE_AUTH_SETTINGS;
+
+	let username = '';
+	let password = '';
+
+	const demoAccounts = authSettings.demo_accounts ?? [];
+	let selectedDemoAccount = demoAccounts[0]?.username ?? '';
+
+	const fillDemoAccount = (accountUsername: string) => {
+		const account = demoAccounts.find((a) => a.username === accountUsername);
+		if (!account) return;
+		username = account.username;
+		password = account.password;
+	};
+
+	// Pre-fill so a demo visitor can sign in with a single click.
+	if (authSettings.demo_mode && selectedDemoAccount) {
+		fillDemoAccount(selectedDemoAccount);
+	}
 
 	const getRedirectTo = (redirectTo?: string) =>
 		redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : '';
@@ -132,6 +152,29 @@
 			</div>
 		{/if}
 
+		{#if authSettings.demo_mode}
+			<Alert class="text-sm">
+				<AlertTitle>Demo instance</AlertTitle>
+				<AlertDescription class="flex flex-col gap-2">
+					<span>
+						This is a shared demonstration instance. Pick an account below — the credentials are
+						filled in for you.
+					</span>
+					{#if demoAccounts.length}
+						<select
+							class="w-full rounded-md border border-input bg-background p-2 text-sm"
+							bind:value={selectedDemoAccount}
+							onchange={() => fillDemoAccount(selectedDemoAccount)}
+						>
+							{#each demoAccounts as account (account.username)}
+								<option value={account.username}>{account.username} — {account.role}</option>
+							{/each}
+						</select>
+					{/if}
+				</AlertDescription>
+			</Alert>
+		{/if}
+
 		{#if authSettings.oidc_enabled}
 			<a href="/oidc-login" class="w-full">
 				<button class="w-full rounded-md bg-primary p-2 text-primary-foreground"
@@ -215,7 +258,14 @@
 				<div class="group space-y-2">
 					<Label for="username">Username</Label>
 					<div class="relative">
-						<Input id="username" type="text" name="username" required class="pr-10" />
+						<Input
+							id="username"
+							type="text"
+							name="username"
+							required
+							class="pr-10"
+							bind:value={username}
+						/>
 						<UserIcon
 							class="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground"
 						/>
@@ -232,6 +282,7 @@
 							name="password"
 							required
 							class="pr-10"
+							bind:value={password}
 						/>
 
 						<!-- Show/hide password -->

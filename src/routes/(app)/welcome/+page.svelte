@@ -6,12 +6,15 @@
 	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 	import Disclaimer from './Disclaimer.svelte';
 	import RulesOfEngagement from './RulesOfEngagement.svelte';
+	import Accounts from './Accounts.svelte';
 
-	let expandedSection = $state<'rules' | 'disclaimer' | null>(null);
+	let expandedSection = $state<'rules' | 'disclaimer' | 'accounts' | null>(null);
 
 	const toggleRules = () => (expandedSection = expandedSection === 'rules' ? null : 'rules');
 	const toggleDisclaimer = () =>
 		(expandedSection = expandedSection === 'disclaimer' ? null : 'disclaimer');
+	const toggleAccounts = () =>
+		(expandedSection = expandedSection === 'accounts' ? null : 'accounts');
 
 	// The welcome page only makes sense on the demo instance — it
 	// surfaces the public rules-of-engagement / disclaimer for shared
@@ -65,6 +68,7 @@
 			<div class="mx-auto my-6 flex gap-4">
 				<Button onclick={toggleRules}>Rules of engagement</Button>
 				<Button onclick={toggleDisclaimer}>Disclaimer</Button>
+				<Button onclick={toggleAccounts}>Accounts</Button>
 			</div>
 
 			{#if expandedSection !== null}
@@ -75,6 +79,10 @@
 
 					{#if expandedSection === 'disclaimer'}
 						<Disclaimer />
+					{/if}
+
+					{#if expandedSection === 'accounts'}
+						<Accounts />
 					{/if}
 				</div>
 			{/if}

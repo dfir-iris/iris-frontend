@@ -55,10 +55,18 @@ export interface MfaVerifyResponse {
 	tokens?: RefreshTokens;
 }
 
+export interface DemoAccount {
+	username: string;
+	password: string;
+	role: string;
+}
+
 export interface AuthSettings {
 	oidc_enabled: boolean;
 	mfa_enabled: boolean;
 	local_fallback_enabled: boolean;
+	demo_mode: boolean;
+	demo_accounts: DemoAccount[];
 }
 
 class AuthenticationService {
