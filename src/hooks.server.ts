@@ -2,6 +2,12 @@ import type { Handle, HandleServerError, RequestEvent } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import { handleErrorWithSentry, sentryHandle } from '@sentry/sveltekit';
 import { API_BASE_URL } from '$lib/config/api.config';
+import {
+	forwardedOrigin,
+	isServedOrigin,
+	normaliseOrigin,
+	parseAllowedOrigins
+} from '$lib/config/origins';
 import { env } from '$env/dynamic/public';
 import { env as privateEnv } from '$env/dynamic/private';
 import sharp from 'sharp';
@@ -21,6 +27,20 @@ initSentry({
 });
 
 /**
+ * Every hostname this deployment serves, beyond the one the request
+ * arrived on. Read from IRIS_ALLOW_ORIGIN — the same variable the
+ * backend parses in `app/cors.py`, so the two tiers cannot disagree
+ * about which domains belong to this instance. See
+ * `$lib/config/origins` for the parsing rules and why `*` is not
+ * honoured here.
+ *
+ * Read once at module load: adapter-node reads its own env at startup
+ * too, and a change to the list means the container is being recreated
+ * anyway (env_file values are baked in at create time).
+ */
+const ALLOWED_ORIGINS = parseAllowedOrigins(privateEnv.IRIS_ALLOW_ORIGIN);
+
+/**
  * Resolve the browser-visible origin (protocol + host + port) for this
  * request.
  *
@@ -35,14 +55,32 @@ initSentry({
  * event.url is the URL SvelteKit built from the incoming request. When
  * HOST_HEADER=x-forwarded-host + PROTOCOL_HEADER=x-forwarded-proto are
  * set (both are in every reasonable reverse-proxy deployment), it
- * reflects exactly what the browser sees. That's the correct source
- * of truth. Fall back to PUBLIC_EXTERNAL_API_URL only when the env is
- * set AND event.url wouldn't help — kept for backward compatibility
- * with existing single-host deployments that rely on the env var to
- * override, and for the tiny window during boot when event.url isn't
+ * reflects exactly what the browser sees.
+ *
+ * It stops reflecting that the moment adapter-node's ORIGIN is set:
+ * ORIGIN wins over HOST_HEADER (`base: origin || get_origin(...)` in
+ * handler.js), pinning event.url to one hostname for every request.
+ * Deployments provisioned before ORIGIN was dropped still carry it, and
+ * a container keeps its env until it is recreated — so we cannot rely
+ * on event.url alone. The proxy-reported hostname is checked first and
+ * wins when the operator listed it in IRIS_ALLOW_ORIGIN.
+ *
+ * Gating on the allow-list is what makes trusting the header safe:
+ * x-forwarded-host is attacker-settable on a request that doesn't pass
+ * through the proxy, and without the check a spoofed value would move
+ * the origin — and with it the Host forwarded upstream and the OIDC
+ * redirect_uri — somewhere this deployment doesn't serve.
+ *
+ * Falls back to PUBLIC_EXTERNAL_API_URL only when neither source
+ * helps — kept for the tiny window during boot when event.url isn't
  * available (build-time, tests).
  */
-function publicOrigin(event: Pick<RequestEvent, 'url'>): URL {
+function publicOrigin(event: Pick<RequestEvent, 'url' | 'request'>): URL {
+	const forwarded = forwardedOrigin(event.request.headers);
+	if (isServedOrigin(forwarded, ALLOWED_ORIGINS)) {
+		return new URL(forwarded);
+	}
+
 	if (event.url) {
 		return new URL(`${event.url.protocol}//${event.url.host}`);
 	}
@@ -253,15 +291,28 @@ async function proxyOidc(event: Parameters<Handle>[0]['event']): Promise<Respons
  * Fetches current auth state, returning it as a events.local
  */
 /**
- * CSRF origin guard — replaces SvelteKit's built-in checkOrigin which
- * can only compare against a single Host value and therefore always
- * rejects requests coming in on a custom domain.
+ * CSRF origin guard — replaces SvelteKit's built-in checkOrigin, which
+ * compares against a single Host value and therefore rejects every
+ * state-changing request that arrives on a custom domain.
  *
- * Logic mirrors what SvelteKit does internally: for any state-mutating
- * method (POST/PUT/PATCH/DELETE) that carries an Origin header, the
- * origin must match the request's own origin as SvelteKit sees it via
- * event.url (which already accounts for X-Forwarded-Host/Proto).
- * Requests with no Origin header (same-site or server-to-server) pass.
+ * Logic mirrors what SvelteKit does internally, widened by one rule:
+ * for any state-mutating method (POST/PUT/PATCH/DELETE) carrying an
+ * Origin header, the origin must be one this deployment serves —
+ * either the request's own origin as SvelteKit sees it via event.url,
+ * or one of the hostnames listed in IRIS_ALLOW_ORIGIN.
+ *
+ * The second arm is the whole point. event.url is frozen to a single
+ * hostname whenever adapter-node's ORIGIN is set (see `publicOrigin`),
+ * and it is also wrong behind a proxy that doesn't forward
+ * x-forwarded-host — in both cases a browser sitting on a perfectly
+ * legitimate hostname for this instance got a 403 on every POST, which
+ * in practice means nobody can log in there. Matching against the
+ * operator's own list of hostnames is not a weakening: an origin has
+ * to have been configured for this deployment to pass, and a
+ * cross-site attacker's origin never is.
+ *
+ * Requests with no Origin header (same-site navigations,
+ * server-to-server) pass, as they do in SvelteKit.
  */
 const csrfHandle: Handle = async ({ event, resolve }) => {
 	const method = event.request.method.toUpperCase();
@@ -270,12 +321,17 @@ const csrfHandle: Handle = async ({ event, resolve }) => {
 	if (isMutating) {
 		const origin = event.request.headers.get('origin');
 		if (origin !== null) {
-			const requestOrigin = event.url.origin;
-			if (origin !== requestOrigin) {
-				return new Response(JSON.stringify({ message: 'Cross-Site POST submissions are forbidden' }), {
-					status: 403,
-					headers: { 'Content-Type': 'application/json' }
-				});
+			const normalised = normaliseOrigin(origin);
+			const sameOrigin = normalised !== null && normalised === normaliseOrigin(event.url.origin);
+
+			if (!sameOrigin && !isServedOrigin(normalised, ALLOWED_ORIGINS)) {
+				return new Response(
+					JSON.stringify({ message: 'Cross-Site POST submissions are forbidden' }),
+					{
+						status: 403,
+						headers: { 'Content-Type': 'application/json' }
+					}
+				);
 			}
 		}
 	}
