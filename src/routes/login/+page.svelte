@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { env } from '$env/dynamic/public';
 	import Label from '$lib/components/ui/label/label.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import { EyeIcon, EyeOffIcon, UserIcon } from 'lucide-svelte';
@@ -113,6 +114,9 @@
 
 <svelte:head>
 	<title>Log In</title>
+	{#if authSettings.demo_mode && env.PUBLIC_PLAUSIBLE_DOMAIN}
+		<script defer data-domain={env.PUBLIC_PLAUSIBLE_DOMAIN} src="https://analytics.dfir-iris.org/js/plausible.js"></script>
+	{/if}
 </svelte:head>
 
 <div

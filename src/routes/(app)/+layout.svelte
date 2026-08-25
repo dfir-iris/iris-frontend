@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { setContext, type Snippet } from 'svelte';
+	import { env } from '$env/dynamic/public';
 	import { SideBar } from '$lib/components/navigation/SideBar';
 	import TopBar from '$lib/components/navigation/TopBar/TopBar.svelte';
 	import ChatBotPanel from '$lib/components/common/ChatBot/ChatBotPanel.svelte';
@@ -50,6 +51,9 @@
 
 	const showCaseAdd = $derived<boolean>(cases.ui.showAddModal);
 
+	const plausibleDomain = env.PUBLIC_PLAUSIBLE_DOMAIN ?? '';
+	const showPlausible = $derived<boolean>(!!userCtx.ctx?.demo_mode && !!plausibleDomain);
+
 	$effect.pre(() => {
 		app.init();
 		dismissedBanners.hydrate();
@@ -58,6 +62,12 @@
 		void userCtx.load();
 	});
 </script>
+
+{#if showPlausible}
+	<svelte:head>
+		<script defer data-domain={plausibleDomain} src="https://analytics.dfir-iris.org/js/plausible.js"></script>
+	</svelte:head>
+{/if}
 
 <div class="flex h-screen w-full overflow-hidden bg-background">
 	<SideBar />
