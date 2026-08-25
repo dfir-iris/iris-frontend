@@ -63,11 +63,16 @@
 	});
 </script>
 
-{#if showPlausible}
-	<svelte:head>
+<!--
+  `<svelte:head>` has to sit at the top level of the component — it cannot
+  be nested inside an element or a block — so the demo-mode condition goes
+  inside the tag rather than around it.
+-->
+<svelte:head>
+	{#if showPlausible}
 		<script defer data-domain={plausibleDomain} src="https://analytics.dfir-iris.org/js/plausible.js"></script>
-	</svelte:head>
-{/if}
+	{/if}
+</svelte:head>
 
 <div class="flex h-screen w-full overflow-hidden bg-background">
 	<SideBar />
