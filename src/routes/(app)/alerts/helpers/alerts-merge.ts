@@ -62,7 +62,7 @@ export const mergeAlerts = async (
 		if (!escalated) return null;
 
 		if (createdCaseId === null) {
-			createdCaseId = escalated.data.case_id;
+			createdCaseId = escalated.case_id;
 			continue;
 		}
 

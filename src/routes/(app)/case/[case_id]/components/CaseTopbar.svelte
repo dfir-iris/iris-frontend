@@ -329,10 +329,9 @@
 		try {
 			const res = await AlertService.list({ case_id: id, per_page: ALERTS_PER_PAGE, page: 1 });
 			if (res.ok && !res.error && res.data) {
-				const body = res.data as unknown as { data?: { alerts?: Alert[]; total?: number } };
-				const data = body?.data ?? null;
-				linkedAlerts = data?.alerts ?? [];
-				linkedAlertsTotal = data?.total ?? linkedAlerts.length;
+				const body = res.data as unknown as { data?: Alert[]; total?: number };
+				linkedAlerts = Array.isArray(body?.data) ? (body.data as Alert[]) : [];
+				linkedAlertsTotal = typeof body?.total === 'number' ? body.total : linkedAlerts.length;
 			} else {
 				linkedAlerts = [];
 				linkedAlertsTotal = 0;

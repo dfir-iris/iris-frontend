@@ -181,7 +181,7 @@ export type MergeAlertResponse = {
 	};
 };
 
-export type EscalateAlertResponse = MergeAlertResponse;
+export type EscalateAlertResponse = MergeAlertResponse['data'];
 
 const toCommaSeparated = (value?: string | string[] | number[]): string | undefined => {
 	if (value == null) return undefined;
