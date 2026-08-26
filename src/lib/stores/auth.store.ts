@@ -4,9 +4,13 @@ import { ApiService } from '$lib/services/api.service';
 import { redirect } from '@sveltejs/kit';
 import { browser } from '$app/environment';
 
-// Token storage keys
-const ACCESS_TOKEN_KEY = 'iris_access_token';
-const REFRESH_TOKEN_KEY = 'iris_refresh_token';
+// Token storage keys.
+//
+// Only expiry timestamps are persisted — they are plain integers with no
+// authentication value. The tokens themselves are never written to
+// localStorage: the refresh token lives solely in an HttpOnly cookie, and
+// the access token is held in memory for the lifetime of the page (see
+// `$lib/server/token-cookies`).
 const TOKEN_EXPIRY_KEY = 'iris_token_expiry';
 const REFRESH_EXPIRY_KEY = 'iris_refresh_expiry';
 const MFA_VERIFIED_KEY = 'iris_mfa_verified';
@@ -30,22 +34,27 @@ function loadInitialState(): AuthState {
 		return { user: null, tokens: null, mfaEnabled: false, mfaVerified: false };
 	}
 
-	// Try to load tokens from localStorage
-	const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
-	const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+	// Only the expiry timestamps survive a reload; the tokens do not.
 	const accessTokenExpiresAt = localStorage.getItem(TOKEN_EXPIRY_KEY);
 	const refreshTokenExpiresAt = localStorage.getItem(REFRESH_EXPIRY_KEY);
 	const mfaVerified = localStorage.getItem(MFA_VERIFIED_KEY) === 'true';
 
-	if (accessToken && refreshToken && accessTokenExpiresAt && refreshTokenExpiresAt) {
+	if (accessTokenExpiresAt && refreshTokenExpiresAt) {
 		return {
 			user: null, // We don't have user data yet, will be loaded later
 			mfaEnabled: false,
 			mfaVerified,
 			tokens: {
-				accessToken,
-				refreshToken,
-				accessTokenExpiresAt: Number(accessTokenExpiresAt),
+				// The page just loaded, so no access token is in memory yet.
+				// `accessTokenExpiresAt: 0` marks it expired, which makes the
+				// pre-flight check in ApiService refresh once on the first API
+				// call. That refresh returns an access token in the response
+				// body and repopulates memory before the notification/chat
+				// sockets connect (`notifications.initialize` awaits an API
+				// call before `connectSocket`).
+				accessToken: '',
+				refreshToken: '',
+				accessTokenExpiresAt: 0,
 				refreshTokenExpiresAt: Number(refreshTokenExpiresAt)
 			}
 		};
@@ -57,8 +66,6 @@ function loadInitialState(): AuthState {
 function saveTokensToStorage(tokens: TokenInfo) {
 	if (!browser) return;
 
-	localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
-	localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
 	localStorage.setItem(TOKEN_EXPIRY_KEY, tokens.accessTokenExpiresAt.toString());
 	localStorage.setItem(REFRESH_EXPIRY_KEY, tokens.refreshTokenExpiresAt.toString());
 }
@@ -66,8 +73,6 @@ function saveTokensToStorage(tokens: TokenInfo) {
 function clearTokensFromStorage() {
 	if (!browser) return;
 
-	localStorage.removeItem(ACCESS_TOKEN_KEY);
-	localStorage.removeItem(REFRESH_TOKEN_KEY);
 	localStorage.removeItem(TOKEN_EXPIRY_KEY);
 	localStorage.removeItem(REFRESH_EXPIRY_KEY);
 }

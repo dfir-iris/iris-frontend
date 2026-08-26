@@ -141,7 +141,9 @@ describe('AuthService', () => {
 
 		expect(ApiService.post).toHaveBeenCalledWith(
 			'/api/v2/auth/refresh-token',
-			{ refresh_token: 'refresh-token' },
+			// No refresh_token: the browser does not hold one. The proxy in
+			// hooks.server.ts injects it from the HttpOnly cookie.
+			{},
 			{ skipAuthRedirect: true, skipTokenRefresh: true }
 		);
 
@@ -234,7 +236,6 @@ describe('AuthService', () => {
 		expect(ApiService.post).toHaveBeenCalledWith(
 			'/api/v2/auth/mfa-setup',
 			{
-				refresh_token: 'refresh-token',
 				password: 'admin',
 				token: '123456',
 				mfa_secret: 'BASE32SECRET'
@@ -270,7 +271,6 @@ describe('AuthService', () => {
 		expect(ApiService.post).toHaveBeenCalledWith(
 			'/api/v2/auth/mfa-verify',
 			{
-				refresh_token: 'refresh-token',
 				token: '123456'
 			},
 			{ fetch: (globalThis as any).fetch }

@@ -190,11 +190,12 @@ class AuthenticationService {
 			try {
 				console.log('Refreshing token...');
 
+				// No `refresh_token` in the body: the browser does not hold it.
+				// The proxy in hooks.server.ts splices it in from the HttpOnly
+				// cookie before the request reaches the backend.
 				const response = await ApiService.post<RefreshTokensResponse>(
 					'/api/v2/auth/refresh-token',
-					{
-						refresh_token: auth.getRefreshToken()
-					},
+					{},
 					{
 						skipAuthRedirect: true,
 						skipTokenRefresh: true
@@ -246,7 +247,7 @@ class AuthenticationService {
 		const response = await ApiService.post(
 			'/api/v2/auth/mfa-setup',
 			{
-				refresh_token: auth.getRefreshToken(),
+				// `refresh_token` is injected by the proxy from the cookie.
 				password,
 				token,
 				mfa_secret: mfaSecret
@@ -266,7 +267,7 @@ class AuthenticationService {
 		const response = await ApiService.post<MfaVerifyResponse>(
 			'/api/v2/auth/mfa-verify',
 			{
-				refresh_token: auth.getRefreshToken(),
+				// `refresh_token` is injected by the proxy from the cookie.
 				token: token.replace(/\s+/g, '')
 			},
 			{ fetch }

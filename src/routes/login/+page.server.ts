@@ -3,6 +3,7 @@ import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { isServerReachable } from '$lib/utils/server-health';
 import { AuthService, type AuthSettings } from '$lib/services/auth.service';
+import { COOKIE_ACCESS_TOKEN, COOKIE_REFRESH_TOKEN } from '$lib/server/token-cookies';
 
 // Safe defaults for when `/manage/server/authentication-settings` is
 // unreachable or returns a non-JSON body. Without this, the login page
@@ -60,7 +61,7 @@ export const load: PageServerLoad = async () => {
 };
 
 export const actions = {
-	default: async ({ request, url }) => {
+	default: async ({ request, url, cookies }) => {
 		const data = await request.formData();
 		const redirectTo = url.searchParams.get('redirect') || '/';
 		const username = data.get('username') as string;
@@ -69,17 +70,47 @@ export const actions = {
 		try {
 			const responseData = await AuthService.login({ username, password });
 
+			// This action runs server-side, so `AuthService.login` talks to the
+			// backend over the internal network (`apiOrigin()` is the internal
+			// base on the server) and never passes through the proxy in
+			// hooks.server.ts. The token cookies therefore have to be set here
+			// — the proxy only sees requests the *browser* makes.
+			const t = responseData.tokens;
+			const now = Math.floor(Date.now() / 1000);
+			const secure = url.protocol === 'https:';
+
+			cookies.set(COOKIE_ACCESS_TOKEN, t.access_token, {
+				path: '/',
+				httpOnly: true,
+				sameSite: 'lax',
+				secure,
+				maxAge: Math.max(0, t.access_token_expires_at - now)
+			});
+			cookies.set(COOKIE_REFRESH_TOKEN, t.refresh_token, {
+				path: '/',
+				httpOnly: true,
+				sameSite: 'lax',
+				secure,
+				maxAge: Math.max(0, t.refresh_token_expires_at - now)
+			});
+
+			// Everything returned here is serialised into the page payload and
+			// is readable by JS, so the refresh token must not travel with it.
+			// The access token does: the Socket.IO handshake needs one in hand.
 			const tokenInfo = {
-				accessToken: responseData.tokens.access_token,
-				refreshToken: responseData.tokens.refresh_token,
-				accessTokenExpiresAt: responseData.tokens.access_token_expires_at,
-				refreshTokenExpiresAt: responseData.tokens.refresh_token_expires_at
+				accessToken: t.access_token,
+				refreshToken: '',
+				accessTokenExpiresAt: t.access_token_expires_at,
+				refreshTokenExpiresAt: t.refresh_token_expires_at
 			};
 
 			return {
 				ok: true,
 				redirectTo,
-				responseData,
+				responseData: {
+					...responseData,
+					tokens: { ...t, refresh_token: '' }
+				},
 				tokenInfo
 			};
 		} catch (error: unknown) {

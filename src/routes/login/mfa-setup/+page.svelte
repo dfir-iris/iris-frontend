@@ -121,7 +121,9 @@
 		// pull the profile via whoami before bouncing back to /login.
 		let user = get(auth).user;
 
-		if (!user && auth.getAccessToken() && !auth.isRefreshTokenExpired()) {
+		// No access token is in memory after a hard refresh of this page, so
+		// the refresh window is the only usable signal that a session exists.
+		if (!user && !auth.isRefreshTokenExpired()) {
 			try {
 				user = await auth.loadAuth(fetch);
 			} catch {

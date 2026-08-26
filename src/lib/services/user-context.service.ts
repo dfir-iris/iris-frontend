@@ -119,3 +119,14 @@ export function demoHidesServerSettings(ctx: UserContext | null): boolean {
 export function demoLocksCredentials(ctx: UserContext | null): boolean {
 	return !!ctx?.demo_mode;
 }
+
+/**
+ * Tooltips for the controls the Access Control page disables when the
+ * API flags a row as part of the demo dataset (`user_is_demo_protected`
+ * / `group_is_demo_protected`). The API refuses those writes with a 403
+ * regardless — these only explain why the button is greyed out.
+ */
+export const DEMO_PROTECTED_USER_HINT =
+	'This account is part of the demo dataset — a seeded account whose credentials the landing page publishes, or the instance administrator — so it cannot be modified.';
+export const DEMO_PROTECTED_GROUP_HINT =
+	'This group belongs to the demo dataset. It carries the permissions every demo account inherits, so it cannot be modified.';

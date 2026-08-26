@@ -16,6 +16,7 @@
 		type AccessControlGroup,
 		type AccessControlUser
 	} from '$lib/services/access-control.service';
+	import { DEMO_PROTECTED_USER_HINT as DEMO_LOCKED_HINT } from '$lib/services/user-context.service';
 
 	type Props = {
 		open: boolean;
@@ -131,12 +132,24 @@
 				{:else}
 					<ul class="divide-y">
 						{#each visible as u (u.user_id)}
+							{@const locked = !!u.user_is_demo_protected}
 							<li>
-								<label class="flex cursor-pointer items-center gap-2 px-3 py-2 text-xs hover:bg-muted/30">
+								<!--
+								  A demo account keeps whatever membership it was
+								  seeded with: ticking or unticking it would rewrite
+								  the permissions every visitor shares, and the API
+								  refuses the whole save if the diff touches one.
+								-->
+								<label
+									class="flex items-center gap-2 px-3 py-2 text-xs {locked
+										? 'cursor-not-allowed opacity-60'
+										: 'cursor-pointer hover:bg-muted/30'}"
+									title={locked ? DEMO_LOCKED_HINT : undefined}
+								>
 									<Checkbox
 										checked={selected.has(u.user_id)}
 										onCheckedChange={() => toggle(u.user_id)}
-										disabled={saving}
+										disabled={saving || locked}
 									/>
 									<div class="min-w-0 flex-1">
 										<div class="truncate">{u.user_name}</div>
@@ -144,6 +157,13 @@
 											@{u.user_login}
 										</div>
 									</div>
+									{#if locked}
+										<span
+											class="shrink-0 rounded-sm border bg-muted/40 px-1.5 py-0 text-3xs text-muted-foreground"
+										>
+											demo
+										</span>
+									{/if}
 								</label>
 							</li>
 						{/each}

@@ -67,10 +67,16 @@ describe('auth store', () => {
 			});
 		});
 
-		expect(localStorage.getItem('iris_access_token')).toBe(tokens.accessToken);
-		expect(localStorage.getItem('iris_refresh_token')).toBe(tokens.refreshToken);
+		// Expiry timestamps are plain integers and are safe to persist.
 		expect(localStorage.getItem('iris_token_expiry')).toBe(String(tokens.accessTokenExpiresAt));
 		expect(localStorage.getItem('iris_refresh_expiry')).toBe(String(tokens.refreshTokenExpiresAt));
+
+		// The tokens themselves must never reach localStorage — that is the
+		// whole point of the HttpOnly-cookie migration. Assert on the raw
+		// store contents so a renamed key can't make this pass vacuously.
+		const dumped = JSON.stringify(localStorage);
+		expect(dumped).not.toContain(tokens.accessToken);
+		expect(dumped).not.toContain(tokens.refreshToken);
 	});
 
 	it('should clear auth state', async () => {
@@ -92,8 +98,6 @@ describe('auth store', () => {
 			});
 		});
 
-		expect(localStorage.getItem('iris_access_token')).toBeNull();
-		expect(localStorage.getItem('iris_refresh_token')).toBeNull();
 		expect(localStorage.getItem('iris_token_expiry')).toBeNull();
 		expect(localStorage.getItem('iris_refresh_expiry')).toBeNull();
 	});

@@ -82,11 +82,12 @@
 
 		await auth.loadAuth(fetch, true);
 
-		const hasValidTokens =
-			!!auth.getAccessToken() &&
-			!!auth.getRefreshToken() &&
-			!auth.isTokenExpired() &&
-			!auth.isRefreshTokenExpired();
+		// The refresh token is in an HttpOnly cookie and the access token is
+		// only in memory (empty right after a reload), so neither can be
+		// probed from here. A non-expired refresh window is what says "there
+		// is still a session"; `loadAuth` above has already proven it by
+		// getting a user back from /whoami.
+		const hasValidTokens = !auth.isRefreshTokenExpired();
 
 		if (auth.getMfaEnabled() && hasValidTokens) {
 			if (!auth.getMfaSetupComplete()) {

@@ -12,6 +12,17 @@ import { env } from '$env/dynamic/public';
 import { env as privateEnv } from '$env/dynamic/private';
 import sharp from 'sharp';
 import { initSentry } from '$lib/observability/init';
+import {
+	COOKIE_ACCESS_TOKEN,
+	COOKIE_REFRESH_TOKEN,
+	LOGOUT_PATH,
+	REFRESH_BODY_PATHS,
+	TOKEN_RESPONSE_PATHS,
+	clearTokenCookies,
+	injectRefreshToken,
+	promoteTokens,
+	readCookie
+} from '$lib/server/token-cookies';
 
 // Server-side Sentry init reads its DSN from IRIS_UI_SENTRY_DSN in
 // the process env. Set it in the deployment env for the Node adapter
@@ -377,20 +388,44 @@ const irisHandle: Handle = async ({ event, resolve }) => {
 			// Preserve browser cookies so session-based auth (OIDC) works
 			const cookie = event.request.headers.get('cookie');
 
+			const accessToken = readCookie(cookie, COOKIE_ACCESS_TOKEN);
+			const refreshToken = readCookie(cookie, COOKIE_REFRESH_TOKEN);
+
 			const hasBody = event.request.method !== 'GET' && event.request.method !== 'HEAD';
+
+			// Buffer the body rather than streaming it. The endpoints below
+			// need `refresh_token` spliced in, and a ReadableStream can only
+			// be consumed once — streaming it here would make any retry or
+			// rewrite impossible.
+			let body: string | undefined;
+			if (hasBody) {
+				body = await event.request.text();
+				if (REFRESH_BODY_PATHS.has(pathname) && refreshToken) {
+					body = injectRefreshToken(body, refreshToken);
+				}
+			}
+
+			// Attach the access token from the HttpOnly cookie unless the
+			// caller supplied its own Authorization header (the in-memory
+			// token path used by direct-fetch callers still works).
+			const hasAuthHeader = Object.keys(headers).some(
+				(k) => k.toLowerCase() === 'authorization'
+			);
 
 			const response = await fetch(apiUrl, {
 				method: event.request.method,
 				headers: {
 					...headers,
 					...(cookie ? { cookie } : {}),
+					...(accessToken && !hasAuthHeader
+						? { Authorization: `Bearer ${accessToken}` }
+						: {}),
 					host: pub.host,
 					'X-Forwarded-Proto': pub.protocol.replace(':', ''),
 					'X-Forwarded-Host': pub.host,
 					'X-Forwarded-Port': pub.port || (pub.protocol === 'https:' ? '443' : '80')
 				},
-				body: hasBody ? event.request.body : undefined,
-				...(hasBody ? ({ duplex: 'half' } as RequestInit) : {})
+				body: hasBody ? body : undefined
 			});
 
 			const graphImage = await handleInvertGraphImage(event, response);
@@ -406,6 +441,32 @@ const irisHandle: Handle = async ({ event, resolve }) => {
 			}
 
 			copySetCookie(response.headers, out);
+
+			const secure = pub.protocol === 'https:';
+
+			// Move freshly minted tokens into HttpOnly cookies and strip the
+			// refresh token from the body before it reaches the browser.
+			if (TOKEN_RESPONSE_PATHS.has(pathname) && response.ok) {
+				const rawBody = await response.text();
+				const promoted = promoteTokens(rawBody, secure);
+
+				// Body is re-serialised here; the upstream encoding headers
+				// describe the original bytes and would make the browser try
+				// to gunzip plain JSON.
+				out.delete('content-encoding');
+				out.delete('content-length');
+
+				if (promoted) {
+					for (const c of promoted.cookies) out.append('set-cookie', c);
+					return new Response(promoted.body, { status: response.status, headers: out });
+				}
+
+				return new Response(rawBody, { status: response.status, headers: out });
+			}
+
+			if (pathname === LOGOUT_PATH) {
+				for (const c of clearTokenCookies(secure)) out.append('set-cookie', c);
+			}
 
 			return new Response(response.body, {
 				status: response.status,

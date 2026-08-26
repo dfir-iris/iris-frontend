@@ -48,6 +48,14 @@ export interface AccessControlUser {
 	user_cases_access?: AccessControlCaseAccessEntry[];
 	user_organisations?: unknown[];
 	user_primary_organisation_id?: number | null;
+	/**
+	 * Set by the API on a demo instance for the seeded accounts (and the
+	 * instance owner). Those accounts are shared between visitors and
+	 * their credentials are published on the landing page, so the API
+	 * refuses every write against them — mirrors `protect_demo_mode_user`
+	 * in `app/iris_engine/demo_builder.py`. Always false otherwise.
+	 */
+	user_is_demo_protected?: boolean;
 	[key: string]: unknown;
 }
 
@@ -68,6 +76,13 @@ export interface AccessControlGroup {
 	group_auto_follow?: boolean;
 	group_auto_follow_access_level?: number;
 	group_cases_access?: AccessControlCaseAccessEntry[];
+	/**
+	 * Set by the API on a demo instance for the seeded groups — they
+	 * carry the permissions every demo account inherits, so the API
+	 * refuses every write against them. Mirrors
+	 * `protect_demo_mode_group`. Always false otherwise.
+	 */
+	group_is_demo_protected?: boolean;
 }
 
 export interface SearchParams {

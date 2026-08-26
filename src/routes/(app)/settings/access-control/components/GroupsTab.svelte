@@ -13,6 +13,7 @@
 	import {
 		FolderIcon,
 		KeyRoundIcon,
+		LockIcon,
 		MoreHorizontalIcon,
 		PencilIcon,
 		PlusIcon,
@@ -35,6 +36,7 @@
 	import GroupEditDialog from './GroupEditDialog.svelte';
 	import GroupMembersDialog from './GroupMembersDialog.svelte';
 	import GroupCasesAccessDialog from './GroupCasesAccessDialog.svelte';
+	import { DEMO_PROTECTED_GROUP_HINT as DEMO_LOCKED_HINT } from '$lib/services/user-context.service';
 
 	type Props = {
 		schema: AccessControlSchemaInfo;
@@ -72,6 +74,11 @@
 	const selected = $derived<AccessControlGroup | null>(
 		selectedId == null ? null : listState.items.find((g) => g.group_id === selectedId) ?? null
 	);
+	// The demo groups carry the permissions every demo account inherits,
+	// so the API refuses every write against them
+	// (`protect_demo_mode_group`). Grey the controls out rather than let
+	// an admin walk into a 403.
+	const selectedLocked = $derived(!!selected?.group_is_demo_protected);
 
 	let searchValue = $state('');
 	let searchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -291,6 +298,14 @@
 										</div>
 									{/if}
 								</div>
+								{#if g.group_is_demo_protected}
+									<span
+										class="shrink-0 rounded-sm border bg-muted/40 px-1.5 py-0 text-3xs text-muted-foreground"
+										title={DEMO_LOCKED_HINT}
+									>
+										demo
+									</span>
+								{/if}
 								<span class="font-mono text-2xs text-muted-foreground">
 									#{g.group_id}
 								</span>
@@ -330,7 +345,14 @@
 
 			{#if selected}
 				<div class="flex items-center gap-1.5">
-					<Button variant="outline" size="sm" class="h-7" onclick={() => selected && openEdit(selected)}>
+					<Button
+						variant="outline"
+						size="sm"
+						class="h-7"
+						disabled={selectedLocked}
+						title={selectedLocked ? DEMO_LOCKED_HINT : undefined}
+						onclick={() => selected && openEdit(selected)}
+					>
 						<PencilIcon size={12} class="mr-1" />
 						Edit
 					</Button>
@@ -341,17 +363,18 @@
 							</Button>
 						</DropdownMenu.Trigger>
 						<DropdownMenu.Content align="end" class="min-w-[200px]">
-							<DropdownMenu.Item onclick={() => (membersOpen = true)}>
+							<DropdownMenu.Item disabled={selectedLocked} onclick={() => (membersOpen = true)}>
 								<UsersIcon size={12} class="mr-2" />
 								Members…
 							</DropdownMenu.Item>
-							<DropdownMenu.Item onclick={() => (casesOpen = true)}>
+							<DropdownMenu.Item disabled={selectedLocked} onclick={() => (casesOpen = true)}>
 								<FolderIcon size={12} class="mr-2" />
 								Case access…
 							</DropdownMenu.Item>
 							<DropdownMenu.Separator />
 							<DropdownMenu.Item
 								class="text-destructive focus:text-destructive"
+								disabled={selectedLocked}
 								onclick={() => selected && removeGroup(selected)}
 							>
 								<Trash2Icon size={12} class="mr-2" />
@@ -369,6 +392,14 @@
 					Select a group on the left, or click <span class="font-medium">Add group</span> to create one.
 				</p>
 			{:else}
+				{#if selectedLocked}
+					<p
+						class="flex items-start gap-2 border-b bg-muted/30 px-4 py-2 text-2xs text-muted-foreground"
+					>
+						<LockIcon size={12} class="mt-0.5 shrink-0" />
+						<span>{DEMO_LOCKED_HINT}</span>
+					</p>
+				{/if}
 				<dl class="grid grid-cols-1 gap-3 p-4 text-xs sm:grid-cols-2">
 					<div>
 						<dt class="text-2xs uppercase tracking-wide text-muted-foreground">Group ID</dt>
@@ -410,7 +441,14 @@
 						<h3 class="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
 							Members ({(selected.group_members ?? []).length})
 						</h3>
-						<Button variant="outline" size="sm" class="h-7" onclick={() => (membersOpen = true)}>
+						<Button
+							variant="outline"
+							size="sm"
+							class="h-7"
+							disabled={selectedLocked}
+							title={selectedLocked ? DEMO_LOCKED_HINT : undefined}
+							onclick={() => (membersOpen = true)}
+						>
 							<PencilIcon size={11} class="mr-1" />
 							Edit
 						</Button>
@@ -441,7 +479,14 @@
 								</span>
 							{/if}
 						</div>
-						<Button variant="outline" size="sm" class="h-7" onclick={() => (casesOpen = true)}>
+						<Button
+							variant="outline"
+							size="sm"
+							class="h-7"
+							disabled={selectedLocked}
+							title={selectedLocked ? DEMO_LOCKED_HINT : undefined}
+							onclick={() => (casesOpen = true)}
+						>
 							<PencilIcon size={11} class="mr-1" />
 							Edit
 						</Button>

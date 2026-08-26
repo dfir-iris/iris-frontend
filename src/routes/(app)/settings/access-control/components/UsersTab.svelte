@@ -17,6 +17,7 @@
 	import {
 		FolderIcon,
 		KeyRoundIcon,
+		LockIcon,
 		MoreHorizontalIcon,
 		PencilIcon,
 		PlusIcon,
@@ -48,7 +49,10 @@
 	import UserAuditDialog from './UserAuditDialog.svelte';
 	import UserApiKeyDialog from './UserApiKeyDialog.svelte';
 	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
-	import { demoLocksCredentials } from '$lib/services/user-context.service';
+	import {
+		DEMO_PROTECTED_USER_HINT as DEMO_LOCKED_HINT,
+		demoLocksCredentials
+	} from '$lib/services/user-context.service';
 
 	type Props = {
 		schema: AccessControlSchemaInfo;
@@ -91,6 +95,12 @@
 	const selected = $derived<AccessControlUser | null>(
 		selectedId == null ? null : listState.items.find((u) => u.user_id === selectedId) ?? null
 	);
+	// The seeded demo accounts are shared between visitors and their
+	// credentials are published on the landing page, so the API refuses
+	// every write against them (`protect_demo_mode_user`). Greying the
+	// controls out keeps the page honest instead of letting an admin
+	// walk into a 403. Read-only actions (audit, recompute) stay live.
+	const selectedLocked = $derived(!!selected?.user_is_demo_protected);
 
 	let searchValue = $state('');
 	let searchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -415,6 +425,14 @@
 										svc
 									</span>
 								{/if}
+								{#if u.user_is_demo_protected}
+									<span
+										class="shrink-0 rounded-sm border bg-muted/40 px-1.5 py-0 text-3xs text-muted-foreground"
+										title={DEMO_LOCKED_HINT}
+									>
+										demo
+									</span>
+								{/if}
 							</button>
 						</li>
 					{/each}
@@ -455,6 +473,8 @@
 						variant="outline"
 						size="sm"
 						class="h-7"
+						disabled={selectedLocked}
+						title={selectedLocked ? DEMO_LOCKED_HINT : undefined}
 						onclick={() => selected && openEdit(selected)}
 					>
 						<PencilIcon size={12} class="mr-1" />
@@ -474,18 +494,27 @@
 							</Button>
 						</DropdownMenu.Trigger>
 						<DropdownMenu.Content align="end" class="min-w-[200px]">
-							<DropdownMenu.Item onclick={() => selected && renewApiKey(selected)}>
+							<DropdownMenu.Item
+								disabled={selectedLocked}
+								onclick={() => selected && renewApiKey(selected)}
+							>
 								<KeyRoundIcon size={12} class="mr-2" />
 								Rotate API key
 							</DropdownMenu.Item>
 							{#if !mfaLocked}
-								<DropdownMenu.Item onclick={() => selected && resetMfa(selected)}>
+								<DropdownMenu.Item
+									disabled={selectedLocked}
+									onclick={() => selected && resetMfa(selected)}
+								>
 									<KeyRoundIcon size={12} class="mr-2" />
 									Reset MFA
 								</DropdownMenu.Item>
 							{/if}
 							<DropdownMenu.Separator />
-							<DropdownMenu.Item onclick={() => selected && toggleActive(selected)}>
+							<DropdownMenu.Item
+								disabled={selectedLocked}
+								onclick={() => selected && toggleActive(selected)}
+							>
 								{#if selected.user_active}
 									<PowerOffIcon size={12} class="mr-2" />
 									Deactivate
@@ -497,6 +526,7 @@
 							<DropdownMenu.Separator />
 							<DropdownMenu.Item
 								class="text-destructive focus:text-destructive"
+								disabled={selectedLocked}
 								onclick={() => selected && removeUser(selected)}
 							>
 								<Trash2Icon size={12} class="mr-2" />
@@ -514,6 +544,14 @@
 					Select a user on the left, or click <span class="font-medium">Add user</span> to create one.
 				</p>
 			{:else}
+				{#if selectedLocked}
+					<p
+						class="flex items-start gap-2 border-b bg-muted/30 px-4 py-2 text-2xs text-muted-foreground"
+					>
+						<LockIcon size={12} class="mt-0.5 shrink-0" />
+						<span>{DEMO_LOCKED_HINT}</span>
+					</p>
+				{/if}
 				<dl class="grid grid-cols-1 gap-3 p-4 text-xs sm:grid-cols-2">
 					<div>
 						<dt class="text-2xs uppercase tracking-wide text-muted-foreground">User ID</dt>
@@ -566,15 +604,36 @@
 				  away.
 				-->
 				<div class="flex flex-wrap gap-1.5 border-b bg-muted/10 px-4 py-3">
-					<Button variant="outline" size="sm" class="h-8" onclick={() => (groupsOpen = true)}>
+					<Button
+						variant="outline"
+						size="sm"
+						class="h-8"
+						disabled={selectedLocked}
+						title={selectedLocked ? DEMO_LOCKED_HINT : undefined}
+						onclick={() => (groupsOpen = true)}
+					>
 						<UsersIcon size={12} class="mr-1.5" />
 						Manage groups
 					</Button>
-					<Button variant="outline" size="sm" class="h-8" onclick={() => (customersOpen = true)}>
+					<Button
+						variant="outline"
+						size="sm"
+						class="h-8"
+						disabled={selectedLocked}
+						title={selectedLocked ? DEMO_LOCKED_HINT : undefined}
+						onclick={() => (customersOpen = true)}
+					>
 						<UserCogIcon size={12} class="mr-1.5" />
 						Customer access
 					</Button>
-					<Button variant="outline" size="sm" class="h-8" onclick={() => (casesOpen = true)}>
+					<Button
+						variant="outline"
+						size="sm"
+						class="h-8"
+						disabled={selectedLocked}
+						title={selectedLocked ? DEMO_LOCKED_HINT : undefined}
+						onclick={() => (casesOpen = true)}
+					>
 						<FolderIcon size={12} class="mr-1.5" />
 						Case access
 					</Button>
