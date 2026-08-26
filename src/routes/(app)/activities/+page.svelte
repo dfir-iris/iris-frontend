@@ -570,7 +570,27 @@
 										{formatDate(row.activity_date)}
 									</td>
 									<td class="whitespace-nowrap px-3 py-2 text-xs">
-										{row.user_name ?? '—'}
+										<!--
+										  `user_name` is NULL whenever the row has no
+										  authenticated actor: a rejected sign-in, a
+										  background/system action, or an account deleted
+										  after the row was written (UserActivity.user_id
+										  is nullable and the listing outer-joins on it).
+										  A bare dash read as "the User column is broken",
+										  so label it and explain it on hover. For auth
+										  failures the attempted username is preserved in
+										  the activity description.
+										-->
+										{#if row.user_name}
+											{row.user_name}
+										{:else}
+											<span
+												class="text-muted-foreground italic"
+												title="Not attributable to an account — a failed sign-in, a system action, or a since-deleted user."
+											>
+												No user
+											</span>
+										{/if}
 									</td>
 									<td class="px-3 py-2 text-xs">
 										{#if row.case_id !== null && row.case_name}

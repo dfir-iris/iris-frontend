@@ -5,6 +5,10 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import type { CreateCaseBody } from '$lib/services/case.service';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
+	import {
+		CASE_TEMPLATES_CTX,
+		type CaseTemplatesContext
+	} from '$lib/contexts/case-templates.context.svelte';
 	import SearchSelect, {
 		type SelectOption
 	} from '$lib/components/common/selects/SearchSelect.svelte';
@@ -25,6 +29,7 @@
 	let { open, onOpenChange }: CaseAddModalProps = $props();
 
 	const cases = getContext<CasesContext>(CASES_CTX);
+	const caseTemplates = getContext<CaseTemplatesContext>(CASE_TEMPLATES_CTX);
 
 	let classifications = $state<CaseClassification[]>([]);
 
@@ -42,13 +47,25 @@
 		classifications.map((c) => ({ value: String(c.id), label: c.name_expanded }))
 	);
 
-	const templateOptions = $derived.by<SelectOption[]>(() => []);
+	const templateOptions = $derived.by<SelectOption[]>(() =>
+		caseTemplates.caseTemplates.map((t) => ({ value: String(t.id), label: t.display_name || t.name }))
+	);
 
 	onMount(async () => {
 		const classificationsResponse = (await CaseClassificationsService.list())
 			.data as unknown as RequestResponse<CaseClassification[]>;
 
 		classifications = (classificationsResponse.data ?? []) as CaseClassification[];
+	});
+
+	// Templates are also created from Settings, which writes through its own
+	// service rather than this context, and the app layout only loads them
+	// once at mount. Refresh on open so anything added since is picked up
+	// without a full page reload.
+	$effect(() => {
+		if (!open) return;
+
+		void caseTemplates.refresh();
 	});
 
 	$effect(() => {

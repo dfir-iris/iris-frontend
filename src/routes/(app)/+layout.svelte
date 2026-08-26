@@ -29,6 +29,11 @@
 		createUserContext,
 		type UserCtx
 	} from '$lib/contexts/user-context.context.svelte';
+	import {
+		CASE_TEMPLATES_CTX,
+		createCaseTemplatesContext,
+		type CaseTemplatesContext
+	} from '$lib/contexts/case-templates.context.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -47,6 +52,9 @@
 	const chatPanel: ChatPanelContext = createChatPanelContext();
 	setContext(CHAT_PANEL_CTX, chatPanel);
 
+	const caseTemplates: CaseTemplatesContext = createCaseTemplatesContext((t) => t.id);
+	setContext(CASE_TEMPLATES_CTX, caseTemplates);
+
 	const chatbotEnabled = $derived<boolean>(runtimeConfig.chatbot.enabled);
 
 	const showCaseAdd = $derived<boolean>(cases.ui.showAddModal);
@@ -60,6 +68,7 @@
 
 		cases.load({ case_ids: [cases.currentCaseId()] });
 		void userCtx.load();
+		void caseTemplates.load();
 	});
 </script>
 

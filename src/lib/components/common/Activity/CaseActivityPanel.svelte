@@ -177,10 +177,23 @@
 			{:else}
 				<ol class="space-y-2">
 					{#each activities as activity (`${activity.activity_date}-${activity.name}-${activity.activity_desc}`)}
-						{@const userName = activity.name ?? activity.user_name ?? 'Unknown'}
+						<!--
+						  No name means no authenticated actor behind the row — a
+						  rejected sign-in, a system action, or a since-deleted
+						  account. Matches the "No user" wording on the Activities
+						  page so the two feeds read the same way.
+						-->
+						{@const userName = activity.name ?? activity.user_name ?? null}
+						{@const displayName = userName ?? 'No user'}
 						<li
 							class="flex items-start gap-2 rounded-md border border-border/60 bg-muted/20 px-2.5 py-2"
 						>
+							<!--
+							  Pass the raw nullable name, not `displayName`: UserAvatar
+							  already degrades to a blank tile + "Unknown user" alt on
+							  null, whereas "No user" would render as a misleading "NU"
+							  initials tile.
+							-->
 							<UserAvatar
 								userId={activity.user_id ?? null}
 								name={userName}
@@ -190,7 +203,14 @@
 
 							<div class="min-w-0 flex-1">
 								<div class="flex flex-wrap items-baseline gap-x-2">
-									<span class="text-xs font-medium">{userName}</span>
+									<span
+										class="text-xs font-medium"
+										class:italic={userName === null}
+										class:text-muted-foreground={userName === null}
+										title={userName === null
+											? 'Not attributable to an account — a failed sign-in, a system action, or a since-deleted user.'
+											: undefined}>{displayName}</span
+									>
 									<span
 										class="text-2xs text-muted-foreground"
 										title={absoluteTime(activity.activity_date)}

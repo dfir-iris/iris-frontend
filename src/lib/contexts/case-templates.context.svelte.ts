@@ -140,7 +140,15 @@ export const createCaseTemplatesContext = (getId: (t: CaseTemplate) => number) =
 	return {
 		byId,
 		list,
-		caseTemplates,
+		// Exposed as a getter rather than a plain property. A `$derived`
+		// read into an object literal is evaluated once, at creation time
+		// — when `list.ids` is still empty — so consumers would be handed
+		// a frozen `[]` that never updates once `load()` resolves. The
+		// getter re-reads the signal on each access, keeping it reactive
+		// across the context boundary.
+		get caseTemplates() {
+			return caseTemplates;
+		},
 		load,
 		refresh,
 		get,

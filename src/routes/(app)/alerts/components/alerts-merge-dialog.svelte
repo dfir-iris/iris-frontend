@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext, onMount } from 'svelte';
+	import { getContext } from 'svelte';
 	import type { MergeAlertBody } from '$lib/services/alerts.service';
 	import {
 		CASE_TEMPLATES_CTX,
@@ -175,10 +175,13 @@
 	$effect(() => {
 		if (open) {
 			resetForm();
+			// Templates are also created from Settings, which writes through
+			// its own service rather than this context, and the app layout
+			// only loads them once at mount. Refresh on open so anything
+			// added since is picked up without a full page reload.
+			void caseTemplates.refresh();
 		}
 	});
-
-	onMount(async () => {});
 </script>
 
 <Dialog.Root

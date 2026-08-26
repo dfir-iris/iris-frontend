@@ -53,8 +53,16 @@ export type CaseTemplateBody = Omit<CaseTemplate, 'id' | 'created_at' | 'updated
  */
 export class CaseTemplatesService {
 	static async list(options: ApiOptions = {}): Promise<RequestResponse<CaseTemplate[]>> {
+		// `per_page` defaults to 10 server-side, which silently truncated
+		// every template picker to the first ten rows. Templates are a
+		// small, admin-curated set, so pull them in one page and sort by
+		// name for a stable, browsable dropdown order.
 		const res = await ApiService.get<Paginated<CaseTemplate>>(
-			'/manage/case-templates',
+			ApiService.withQuery('/manage/case-templates', {
+				per_page: 200,
+				order_by: 'name',
+				sort_dir: 'asc'
+			}),
 			options
 		);
 		if (res.ok && res.data && typeof res.data !== 'string') {

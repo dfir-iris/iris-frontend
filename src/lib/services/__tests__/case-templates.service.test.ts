@@ -5,7 +5,18 @@ vi.mock('../api.service', () => ({
 		get: vi.fn(),
 		post: vi.fn(),
 		put: vi.fn(),
-		delete: vi.fn()
+		delete: vi.fn(),
+		// Mirrors the real implementation closely enough for URL assertions:
+		// the service builds its list path through `withQuery`.
+		withQuery: vi.fn((path: string, params?: Record<string, unknown>) => {
+			if (!params) return path;
+			const search = new URLSearchParams();
+			for (const [k, v] of Object.entries(params)) {
+				if (v != null) search.append(k, String(v));
+			}
+			const qs = search.toString();
+			return qs ? `${path}?${qs}` : path;
+		})
 	}
 }));
 
@@ -51,7 +62,12 @@ describe('CaseTemplatesService', () => {
 		const res = await CaseTemplatesService.list(options);
 
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
-		expect(ApiService.get).toHaveBeenCalledWith('/manage/case-templates', options);
+		// `per_page` is pinned well above the server-side default of 10 so
+		// template pickers aren't silently truncated to the first ten rows.
+		expect(ApiService.get).toHaveBeenCalledWith(
+			'/manage/case-templates?per_page=200&order_by=name&sort_dir=asc',
+			options
+		);
 		// The service flattens the paginated `data: T[]` so consumers
 		// see a plain array, matching the legacy `for (template of
 		// res.data)` loop in the context store.
