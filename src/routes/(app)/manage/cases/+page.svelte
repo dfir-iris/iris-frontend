@@ -497,7 +497,7 @@
   sits in a centred `max-w-6xl` column. The header rule spans the whole
   width; its contents align to the same column as the content below it.
 -->
-<div class="flex min-h-full w-full flex-col bg-card">
+<div class="flex grow flex-col bg-card">
 	<div class="shrink-0 border-b border-border/60 bg-muted/30 px-5 py-2">
 		<div class="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3">
 			<div class="flex min-w-0 items-baseline gap-2">

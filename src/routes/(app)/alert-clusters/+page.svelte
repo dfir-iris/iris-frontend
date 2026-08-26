@@ -200,7 +200,7 @@
   horizontal rule above the table instead of a card border plus a table
   border. Only the table region scrolls; the strip and pagination stay pinned.
 -->
-<div class="flex h-full w-full">
+<div class="flex grow flex-col">
 	<div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-card">
 		<!-- ============ Header + filters, one strip ============ -->
 		<div
