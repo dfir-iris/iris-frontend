@@ -56,7 +56,12 @@
 	} from '$lib/services/search.service';
 
 	// Catalog of selectable types. Order = display order in the chip row.
-	const TYPE_CATALOG: { value: SearchType; label: string; Icon: typeof FileTextIcon; color: string }[] = [
+	const TYPE_CATALOG: {
+		value: SearchType;
+		label: string;
+		Icon: typeof FileTextIcon;
+		color: string;
+	}[] = [
 		{ value: 'summaries', label: 'Summaries', Icon: BookOpenIcon, color: 'text-indigo-500' },
 		{ value: 'ioc', label: 'IOC', Icon: BiohazardIcon, color: 'text-amber-500' },
 		{ value: 'assets', label: 'Assets', Icon: ComputerIcon, color: 'text-sky-500' },
@@ -122,10 +127,7 @@
 		}
 	};
 
-	const onCaseScopeChange = (
-		ids: string[],
-		labels: Record<string, string>
-	) => {
+	const onCaseScopeChange = (ids: string[], labels: Record<string, string>) => {
 		selectedCaseIds = ids;
 		// Merge the picker-provided labels into our cache so the trigger
 		// summary stays accurate without round-tripping through the store.
@@ -136,13 +138,7 @@
 	// querystring so refresh and link-sharing preserve the exact query.
 	// We replaceState (not push) for in-page interactions so the browser
 	// back button doesn't accumulate a step per keystroke / page click.
-	const buildUrl = (
-		q: string,
-		types: SearchType[],
-		p: number,
-		pp: number,
-		caseIds: string[]
-	) => {
+	const buildUrl = (q: string, types: SearchType[], p: number, pp: number, caseIds: string[]) => {
 		const params = new URLSearchParams();
 		params.set('q', q);
 		if (types.length > 0) params.set('types', types.join(','));
@@ -152,13 +148,7 @@
 		return `?${params.toString()}`;
 	};
 
-	const writeUrl = (
-		q: string,
-		types: SearchType[],
-		p: number,
-		pp: number,
-		caseIds: string[]
-	) => {
+	const writeUrl = (q: string, types: SearchType[], p: number, pp: number, caseIds: string[]) => {
 		if (!browser) return;
 		void goto(buildUrl(q, types, p, pp, caseIds), {
 			replaceState: true,
@@ -205,9 +195,11 @@
 			if (res.ok && res.data && typeof res.data !== 'string') {
 				// API envelope: { data: SearchEnvelope } from response_api_success
 				const body = res.data as unknown as SearchEnvelope | { data: SearchEnvelope };
-				envelope = ('pagination' in body
-					? (body as SearchEnvelope)
-					: ((body as { data: SearchEnvelope }).data ?? null)) as SearchEnvelope | null;
+				envelope = (
+					'pagination' in body
+						? (body as SearchEnvelope)
+						: ((body as { data: SearchEnvelope }).data ?? null)
+				) as SearchEnvelope | null;
 			} else {
 				envelope = null;
 				toast({
@@ -246,13 +238,7 @@
 		const clamped = Math.min(Math.max(1, target), totalPages);
 		if (clamped === page) return;
 		page = clamped;
-		writeUrl(
-			lastQuery.value,
-			lastQuery.types,
-			clamped,
-			perPage,
-			lastQuery.case_ids.map(String)
-		);
+		writeUrl(lastQuery.value, lastQuery.types, clamped, perPage, lastQuery.case_ids.map(String));
 		await runQuery(lastQuery, clamped);
 	};
 
@@ -397,15 +383,27 @@
 	<title>Search</title>
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-8">
-	<header class="flex items-center gap-3">
-		<SearchIcon size={28} class="!stroke-2" />
-		<h1>Search across cases</h1>
-	</header>
+<!--
+  VISUAL TEST (full-bleed + centred column): the page is one `bg-card`
+  surface with no outer padding, matching the case workspace. But unlike a
+  case, this list is far narrower than a wide viewport — stretched to the
+  full width the eye has to travel across near-empty columns — so the body
+  sits in a centred `max-w-6xl` column. The header rule spans the whole
+  width; its contents align to the same column as the content below it.
+-->
+<div class="flex min-h-full w-full flex-col bg-card">
+	<div class="shrink-0 border-b border-border/60 bg-muted/30 px-5 py-2">
+		<div class="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3">
+			<div class="flex min-w-0 items-baseline gap-2">
+				<h1 class="text-sm font-semibold tracking-tight">Search across cases</h1>
+			</div>
+		</div>
+	</div>
 
-	<Card.Root>
-		<Card.Content class="flex flex-col gap-4 pt-6">
-			<!--
+	<div class="mx-auto flex w-full max-w-6xl flex-col px-5 py-4">
+		<div class="flex flex-col">
+			<div class="flex flex-col gap-4 border-b border-border/60 p-0 pb-4">
+				<!--
 			  Search row: term + scope picker + Search button on a single
 			  line at md+. Picker sits next to the input so the case
 			  scope reads as part of "what to search", not a separate
@@ -413,161 +411,161 @@
 			  trigger label ("All accessible cases" / "2 cases selected")
 			  doesn't get truncated to uselessness.
 			-->
-			<div class="flex flex-col gap-2 md:flex-row md:items-stretch">
-				<Input
-					bind:value={searchValue}
-					onkeydown={handleKey}
-					placeholder="Search term — you can use % as a wildcard. Search is context-free."
-					class="flex-1"
-					aria-label="Search term"
-				/>
-				<div class="md:w-72">
-					<CaseScopePicker
-						values={selectedCaseIds}
-						labels={caseLabelsById}
-						onChange={onCaseScopeChange}
+				<div class="flex flex-col gap-2 md:flex-row md:items-stretch">
+					<Input
+						bind:value={searchValue}
+						onkeydown={handleKey}
+						placeholder="Search term — you can use % as a wildcard. Search is context-free."
+						class="flex-1"
+						aria-label="Search term"
 					/>
+					<div class="md:w-72">
+						<CaseScopePicker
+							values={selectedCaseIds}
+							labels={caseLabelsById}
+							onChange={onCaseScopeChange}
+						/>
+					</div>
+					<Button onclick={submit} disabled={loading}>
+						<SearchIcon size={14} class="mr-1.5" />
+						{loading ? 'Searching…' : 'Search'}
+					</Button>
 				</div>
-				<Button onclick={submit} disabled={loading}>
-					<SearchIcon size={14} class="mr-1.5" />
-					{loading ? 'Searching…' : 'Search'}
-				</Button>
-			</div>
 
-			<div class="flex flex-col gap-2">
-				<div class="flex items-center justify-between gap-2">
-					<span class="text-xs text-muted-foreground">Search within</span>
-					<div class="flex items-center gap-1.5 text-2xs text-muted-foreground">
-						<button type="button" class="hover:text-foreground" onclick={selectAll}>
-							All
-						</button>
-						<span class="opacity-40">·</span>
-						<button type="button" class="hover:text-foreground" onclick={selectNone}>
-							None
-						</button>
+				<div class="flex flex-col gap-2">
+					<div class="flex items-center justify-between gap-2">
+						<span class="text-xs text-muted-foreground">Search within</span>
+						<div class="flex items-center gap-1.5 text-2xs text-muted-foreground">
+							<button type="button" class="hover:text-foreground" onclick={selectAll}> All </button>
+							<span class="opacity-40">·</span>
+							<button type="button" class="hover:text-foreground" onclick={selectNone}>
+								None
+							</button>
+						</div>
+					</div>
+
+					<div class="flex flex-wrap gap-1.5">
+						{#each TYPE_CATALOG as t}
+							{@const active = selectedTypes.includes(t.value)}
+							<button
+								type="button"
+								onclick={() => toggleType(t.value)}
+								aria-pressed={active}
+								class="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors {active
+									? 'border-primary/40 bg-primary/10 text-foreground'
+									: 'border-border bg-card text-muted-foreground hover:bg-muted/50'}"
+							>
+								<t.Icon size={12} class={active ? t.color : 'opacity-70'} />
+								{t.label}
+							</button>
+						{/each}
 					</div>
 				</div>
-
-				<div class="flex flex-wrap gap-1.5">
-					{#each TYPE_CATALOG as t}
-						{@const active = selectedTypes.includes(t.value)}
-						<button
-							type="button"
-							onclick={() => toggleType(t.value)}
-							aria-pressed={active}
-							class="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors {active
-								? 'border-primary/40 bg-primary/10 text-foreground'
-								: 'border-border bg-card text-muted-foreground hover:bg-muted/50'}"
-						>
-							<t.Icon size={12} class={active ? t.color : 'opacity-70'} />
-							{t.label}
-						</button>
-					{/each}
-				</div>
 			</div>
+		</div>
 
-		</Card.Content>
-	</Card.Root>
+		<div class="flex flex-col">
+			<div class="flex flex-row items-center justify-between gap-2 px-0 py-3">
+				<div class="flex items-center gap-2">
+					<Card.Title>Results</Card.Title>
+					{#if submitted && !loading && envelope}
+						<span class="text-xs tabular-nums text-muted-foreground">
+							{envelope.pagination.total}
+						</span>
+					{/if}
+				</div>
 
-	<Card.Root>
-		<Card.Header class="flex flex-row items-center justify-between gap-2">
-			<div class="flex items-center gap-2">
-				<Card.Title>Results</Card.Title>
-				{#if submitted && !loading && envelope}
-					<span class="text-xs text-muted-foreground tabular-nums">
-						{envelope.pagination.total}
-					</span>
+				{#if envelope && envelope.pagination.total_pages > 1}
+					<div class="flex items-center gap-2 text-xs">
+						<Button
+							variant="outline"
+							size="sm"
+							class="h-7 px-2"
+							disabled={loading || page <= 1}
+							onclick={() => goToPage(page - 1)}
+							aria-label="Previous page"
+						>
+							<ChevronLeftIcon size={14} />
+						</Button>
+						<span class="tabular-nums text-muted-foreground">
+							Page {envelope.pagination.page} / {envelope.pagination.total_pages}
+						</span>
+						<Button
+							variant="outline"
+							size="sm"
+							class="h-7 px-2"
+							disabled={loading || page >= envelope.pagination.total_pages}
+							onclick={() => goToPage(page + 1)}
+							aria-label="Next page"
+						>
+							<ChevronRightIcon size={14} />
+						</Button>
+					</div>
 				{/if}
 			</div>
 
-			{#if envelope && envelope.pagination.total_pages > 1}
-				<div class="flex items-center gap-2 text-xs">
-					<Button
-						variant="outline"
-						size="sm"
-						class="h-7 px-2"
-						disabled={loading || page <= 1}
-						onclick={() => goToPage(page - 1)}
-						aria-label="Previous page"
-					>
-						<ChevronLeftIcon size={14} />
-					</Button>
-					<span class="tabular-nums text-muted-foreground">
-						Page {envelope.pagination.page} / {envelope.pagination.total_pages}
-					</span>
-					<Button
-						variant="outline"
-						size="sm"
-						class="h-7 px-2"
-						disabled={loading || page >= envelope.pagination.total_pages}
-						onclick={() => goToPage(page + 1)}
-						aria-label="Next page"
-					>
-						<ChevronRightIcon size={14} />
-					</Button>
-				</div>
-			{/if}
-		</Card.Header>
+			<div class="px-0 pb-0">
+				{#if loading}
+					<div class="space-y-2">
+						{#each Array(5) as _}
+							<Skeleton class="h-14 w-full" />
+						{/each}
+					</div>
+				{:else if !submitted}
+					<p class="py-8 text-center text-sm text-muted-foreground">
+						Enter a term above and hit Search.
+					</p>
+				{:else if !envelope || envelope.data.length === 0}
+					<p class="py-8 text-center text-sm text-muted-foreground">No results.</p>
+				{:else}
+					<ul class="divide-y">
+						{#each envelope.data as row (`${row.type}-${row.result_id}`)}
+							{@const view = renderRow(row)}
+							{@const meta = typeMeta(row.type)}
+							<li>
+								<a
+									href={view.href}
+									class="flex flex-col gap-1 px-3 py-3 transition-colors hover:bg-muted/40"
+								>
+									<div class="flex items-start gap-2">
+										<Badge variant="outline" class="shrink-0 border-border/60 bg-background">
+											<meta.Icon size={11} class={`mr-1 ${meta.color}`} />
+											<span class="text-2xs">{meta.label}</span>
+										</Badge>
 
-		<Card.Content>
-			{#if loading}
-				<div class="space-y-2">
-					{#each Array(5) as _}
-						<Skeleton class="h-14 w-full" />
-					{/each}
-				</div>
-			{:else if !submitted}
-				<p class="py-8 text-center text-sm text-muted-foreground">
-					Enter a term above and hit Search.
-				</p>
-			{:else if !envelope || envelope.data.length === 0}
-				<p class="py-8 text-center text-sm text-muted-foreground">No results.</p>
-			{:else}
-				<ul class="divide-y">
-					{#each envelope.data as row (`${row.type}-${row.result_id}`)}
-						{@const view = renderRow(row)}
-						{@const meta = typeMeta(row.type)}
-						<li>
-							<a
-								href={view.href}
-								class="flex flex-col gap-1 px-3 py-3 transition-colors hover:bg-muted/40"
-							>
-								<div class="flex items-start gap-2">
-									<Badge
-										variant="outline"
-										class="shrink-0 border-border/60 bg-background"
-									>
-										<meta.Icon size={11} class={`mr-1 ${meta.color}`} />
-										<span class="text-2xs">{meta.label}</span>
-									</Badge>
-
-									<div class="flex min-w-0 flex-1 flex-col gap-0.5">
-										<span class="truncate text-sm font-medium" title={view.primary}>
-											{view.primary}
-										</span>
-										{#if view.secondary}
-											<span class="line-clamp-2 text-xs text-muted-foreground" title={view.secondary}>
-												{view.secondary}
+										<div class="flex min-w-0 flex-1 flex-col gap-0.5">
+											<span class="truncate text-sm font-medium" title={view.primary}>
+												{view.primary}
 											</span>
-										{/if}
-										<div class="flex flex-wrap items-center gap-1.5 text-2xs text-muted-foreground">
-											<span class="font-mono tabular-nums">#{row.case_id}</span>
-											<span class="opacity-40">·</span>
-											<span class="truncate" title={row.case_name}>{row.case_name}</span>
-											{#if row.customer_name}
-												<span class="opacity-40">·</span>
-												<span class="truncate">{row.customer_name}</span>
+											{#if view.secondary}
+												<span
+													class="line-clamp-2 text-xs text-muted-foreground"
+													title={view.secondary}
+												>
+													{view.secondary}
+												</span>
 											{/if}
-											<span class="opacity-40">·</span>
-											<span class="truncate">{view.meta}</span>
+											<div
+												class="flex flex-wrap items-center gap-1.5 text-2xs text-muted-foreground"
+											>
+												<span class="font-mono tabular-nums">#{row.case_id}</span>
+												<span class="opacity-40">·</span>
+												<span class="truncate" title={row.case_name}>{row.case_name}</span>
+												{#if row.customer_name}
+													<span class="opacity-40">·</span>
+													<span class="truncate">{row.customer_name}</span>
+												{/if}
+												<span class="opacity-40">·</span>
+												<span class="truncate">{view.meta}</span>
+											</div>
 										</div>
 									</div>
-								</div>
-							</a>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-		</Card.Content>
-	</Card.Root>
+								</a>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</div>
+		</div>
+	</div>
 </div>

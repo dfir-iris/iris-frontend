@@ -14,6 +14,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import {
+		ArrowLeftIcon,
 		ArrowUpRightIcon,
 		BookmarkIcon,
 		BuildingIcon,
@@ -76,6 +77,7 @@
 	import { mediumDateTimeFormatter } from '$lib/utils/time-formatter';
 
 	const alertClusterId = Number(page.params.cluster_id);
+	const backUrl = page.url.searchParams.get('back') ?? '/alert-clusters';
 
 	let cluster = $state<AlertCluster | null>(null);
 	let alerts = $state<Alert[]>([]);
@@ -87,7 +89,9 @@
 	let flowPanelOpen = $state(false);
 	let commentDraft = $state('');
 	let posting = $state(false);
-	let activeTab = $state<'summary' | 'alerts' | 'assets' | 'iocs' | 'graph' | 'timeline' | 'activity'>('summary');
+	let activeTab = $state<
+		'summary' | 'alerts' | 'assets' | 'iocs' | 'graph' | 'timeline' | 'activity'
+	>('summary');
 
 	// Summary editor state — mirrors the CaseSummary card pattern.
 	// `cluster_description` is loaded via load() and persisted through
@@ -170,8 +174,7 @@
 		loading = true;
 		try {
 			const res = await AlertClustersService.get(alertClusterId);
-			cluster =
-				res.data && typeof res.data === 'object' ? (res.data as AlertCluster) : null;
+			cluster = res.data && typeof res.data === 'object' ? (res.data as AlertCluster) : null;
 			if (cluster) {
 				// Seed the summary editor from the freshly loaded cluster.
 				// Preserve unsaved local edits: if the user is mid-edit and a
@@ -431,9 +434,7 @@
 		});
 		void UsersService.list().then((r) => {
 			if (r.data && typeof r.data === 'object') {
-				users = ((r.data as { data?: User[] }).data ?? []).filter(
-					(u) => u.user_active !== false
-				);
+				users = ((r.data as { data?: User[] }).data ?? []).filter((u) => u.user_active !== false);
 			}
 		});
 		// Tick a "now" state every 30s so the "Synced X ago" chip in the
@@ -450,16 +451,13 @@
 </svelte:head>
 
 <!--
-  Workspace layout — matches the case-detail chrome: an outer padded
-  wrapper on the muted app background, and the actual workspace is a
-  white `bg-card` rounded panel with a border and elevation shadow.
-  Header/tabs stay pinned inside the workspace; the tab-content region
-  owns its own scroll.
+  VISUAL TEST (full-bleed): matches the case-detail chrome — no outer
+  padding, no rounded/bordered/shadowed panel. The workspace is one
+  `bg-card` surface running to the viewport edges. Header/tabs stay pinned
+  inside it; the tab-content region owns its own scroll.
 -->
-<div class="flex h-full w-full gap-3 p-3 sm:gap-4 sm:p-4">
-	<div
-		class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elevation-2"
-	>
+<div class="flex h-full w-full">
+	<div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-card">
 		{#if loading}
 			<div class="p-6">
 				<Loading />
@@ -470,8 +468,23 @@
 			<!-- ============================================================
 				 Header strip — flat white area, no card. Title row, then a
 				 thin metadata row, then a fields row (status/severity/owner).
+
+				 VISUAL TEST (lighter chrome): no `border-b`. The tab row
+				 directly below keeps its own rule, and that one is
+				 load-bearing (it is the baseline the active-tab underline
+				 sits on), so a second line just above it was pure noise.
 				 ============================================================ -->
-			<header class="shrink-0 border-b bg-card px-6 pt-5 pb-4">
+			<header class="shrink-0 bg-card px-6 pb-4 pt-3">
+				<div class="mb-2 flex items-center">
+					<button
+						onclick={() => goto(backUrl)}
+						class="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+						aria-label="Back to alert clusters"
+					>
+						<ArrowLeftIcon class="h-3.5 w-3.5" />
+						Alert Clusters
+					</button>
+				</div>
 				<div class="flex flex-wrap items-start justify-between gap-3">
 					<div class="flex min-w-0 items-start gap-3">
 						<div class="mt-0.5 rounded-md bg-red-50 p-2 text-red-500 dark:bg-red-900/20">
@@ -511,11 +524,7 @@
 
 					<div class="flex flex-wrap items-center gap-2">
 						{#if cluster.investigation_flow}
-							<Button
-								variant="outline"
-								size="sm"
-								onclick={() => (flowPanelOpen = !flowPanelOpen)}
-							>
+							<Button variant="outline" size="sm" onclick={() => (flowPanelOpen = !flowPanelOpen)}>
 								<CheckSquareIcon class="mr-2 h-4 w-4" />
 								Flow: {cluster.investigation_flow.flow_name}
 							</Button>
@@ -532,17 +541,13 @@
 							<DropdownMenu>
 								<DropdownMenuTrigger>
 									<Button variant="outline" disabled={unlinking}>
-										{unlinking
-											? 'Unlinking…'
-											: `Linked case #${cluster.cluster_case_id}`}
+										{unlinking ? 'Unlinking…' : `Linked case #${cluster.cluster_case_id}`}
 									</Button>
 								</DropdownMenuTrigger>
 								<DropdownMenuContent align="end" class="min-w-[220px]">
 									<DropdownMenuLabel>Linked case</DropdownMenuLabel>
 									<DropdownMenuSeparator />
-									<DropdownMenuItem
-										onclick={() => goto(`/case/${cluster?.cluster_case_id}`)}
-									>
+									<DropdownMenuItem onclick={() => goto(`/case/${cluster?.cluster_case_id}`)}>
 										Open case #{cluster.cluster_case_id}
 									</DropdownMenuItem>
 									<DropdownMenuItem
@@ -655,8 +660,7 @@
 														<Command.Item
 															value={s.severity_name}
 															onSelect={() =>
-																!isCurrent &&
-																updateField({ cluster_severity_id: s.severity_id })}
+																!isCurrent && updateField({ cluster_severity_id: s.severity_id })}
 														>
 															<span class="flex w-full items-center justify-between gap-2">
 																<span class="truncate">{s.severity_name}</span>
@@ -738,7 +742,8 @@
 														>
 															<span class="flex w-full items-center justify-between gap-2">
 																<span class="min-w-0 truncate">
-																	{u.user_name} <span class="text-muted-foreground">({u.user_login})</span>
+																	{u.user_name}
+																	<span class="text-muted-foreground">({u.user_login})</span>
 																</span>
 																{#if isCurrent}
 																	<CheckCircle2Icon size={12} class="shrink-0 text-emerald-500" />
@@ -755,7 +760,6 @@
 						</div>
 					</div>
 				</div>
-
 			</header>
 
 			<!-- ============================================================
@@ -960,7 +964,9 @@
 						{:else}
 							<div class="overflow-hidden rounded-md border">
 								<table class="w-full text-sm">
-									<thead class="bg-muted/30 text-left text-2xs uppercase tracking-wide text-muted-foreground">
+									<thead
+										class="bg-muted/30 text-left text-2xs uppercase tracking-wide text-muted-foreground"
+									>
 										<tr>
 											<th class="px-3 py-2 font-medium">Alert</th>
 											<th class="px-3 py-2 font-medium">Severity</th>
@@ -974,10 +980,7 @@
 										{#each alerts as alert (alert.alert_id)}
 											<tr class="border-t hover:bg-muted/20">
 												<td class="px-3 py-2">
-													<a
-														class="font-medium hover:underline"
-														href={`/alerts/${alert.alert_id}`}
-													>
+													<a class="font-medium hover:underline" href={`/alerts/${alert.alert_id}`}>
 														#{alert.alert_id} — {alert.alert_title}
 													</a>
 													{#if alert.alert_tags}
@@ -1035,13 +1038,13 @@
 					<!-- ============ Assets ============ -->
 					<TabsContent value="assets">
 						{#if assets.length === 0}
-							<p class="text-sm text-muted-foreground">
-								No assets attached to the member alerts.
-							</p>
+							<p class="text-sm text-muted-foreground">No assets attached to the member alerts.</p>
 						{:else}
 							<div class="overflow-hidden rounded-md border">
 								<table class="w-full text-sm">
-									<thead class="bg-muted/30 text-left text-2xs uppercase tracking-wide text-muted-foreground">
+									<thead
+										class="bg-muted/30 text-left text-2xs uppercase tracking-wide text-muted-foreground"
+									>
 										<tr>
 											<th class="px-3 py-2 font-medium">Asset</th>
 											<th class="px-3 py-2 font-medium">Type</th>
@@ -1087,7 +1090,9 @@
 						{:else}
 							<div class="overflow-hidden rounded-md border">
 								<table class="w-full text-sm">
-									<thead class="bg-muted/30 text-left text-2xs uppercase tracking-wide text-muted-foreground">
+									<thead
+										class="bg-muted/30 text-left text-2xs uppercase tracking-wide text-muted-foreground"
+									>
 										<tr>
 											<th class="px-3 py-2 font-medium">Value</th>
 											<th class="px-3 py-2 font-medium">Type</th>
@@ -1112,7 +1117,7 @@
 												<td class="px-3 py-2 text-xs">{i.ioc_type?.type_name ?? '—'}</td>
 												<td class="px-3 py-2 text-xs">{i.tlp?.tlp_name ?? '—'}</td>
 												<td class="px-3 py-2 text-xs text-muted-foreground">
-													{Array.isArray(i.ioc_tags) ? i.ioc_tags.join(', ') : i.ioc_tags ?? ''}
+													{Array.isArray(i.ioc_tags) ? i.ioc_tags.join(', ') : (i.ioc_tags ?? '')}
 												</td>
 											</tr>
 										{/each}
@@ -1137,10 +1142,7 @@
 						 leaves the graph visible on top of Timeline/Activity.
 						 The state-scoped variant only applies flex when
 						 active. -->
-					<TabsContent
-						value="graph"
-						class="mt-0 h-full flex-col data-[state=active]:flex"
-					>
+					<TabsContent value="graph" class="mt-0 h-full flex-col data-[state=active]:flex">
 						<AlertClusterCorrelationGraph
 							alertClusterId={cluster.cluster_id}
 							active={activeTab === 'graph'}
@@ -1245,13 +1247,10 @@
 	-->
 	{#if flowPanelOpen && cluster}
 		<aside
-			class="my-3 mr-3 h-[calc(100%-1.5rem)] w-full max-w-md shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elevation-2 sm:my-4 sm:mr-4 sm:h-[calc(100%-2rem)]"
+			class="h-full w-full max-w-md shrink-0 overflow-hidden border-l border-border/60 bg-card"
 			aria-label="Investigation flow"
 		>
-			<AlertClusterInvestigationFlowPanel
-				cluster={cluster}
-				onClose={() => (flowPanelOpen = false)}
-			/>
+			<AlertClusterInvestigationFlowPanel {cluster} onClose={() => (flowPanelOpen = false)} />
 		</aside>
 	{/if}
 </div>

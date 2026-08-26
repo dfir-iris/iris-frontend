@@ -17,9 +17,12 @@
 </script>
 
 {#if shown.length}
-	<div
-		class="mt-4 flex flex-wrap gap-x-4 gap-y-1 border-t border-border/70 pt-2 text-2xs text-muted-foreground"
-	>
+	<!--
+	  VISUAL TEST (lighter chrome): the `border-t` is replaced by whitespace.
+	  This line is already the dimmest thing in the pane and sits at the very
+	  bottom — the extra margin separates it just as well as a rule did.
+	-->
+	<div class="mt-6 flex flex-wrap gap-x-4 gap-y-1 text-2xs text-muted-foreground">
 		{#each shown as [label, value, mono] (label)}
 			<span>
 				{label}

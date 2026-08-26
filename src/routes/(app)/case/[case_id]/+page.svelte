@@ -10,7 +10,6 @@
 		CircleDotIcon,
 		ComputerIcon,
 		FileLock2Icon,
-		FileTextIcon,
 		LoaderIcon,
 		RefreshCwIcon,
 		SaveIcon,
@@ -116,16 +115,6 @@
 		return from.toLocaleDateString();
 	};
 
-	const greeting = (date: Date): string => {
-		const h = date.getHours();
-		if (h < 5) return 'Working late';
-		if (h < 12) return 'Good morning';
-		if (h < 18) return 'Good afternoon';
-		return 'Good evening';
-	};
-
-	const firstName = $derived(($current_user?.user_name ?? '').split(/[\s,]/)[0] || 'investigator');
-
 	const lastSyncedRelative = $derived(relativeTime(loadedTime, now));
 	const lastSyncedAbsolute = $derived(loadedTime.toLocaleTimeString());
 
@@ -175,21 +164,17 @@
 		if (caseAssets.list.total > 0 && !force) next.assets = caseAssets.list.total;
 		else
 			pending.push(
-				fetchTotal(() => CaseAssetsService.list(case_id, { per_page: 1 }, { fetch })).then(
-					(t) => {
-						next.assets = t;
-					}
-				)
+				fetchTotal(() => CaseAssetsService.list(case_id, { per_page: 1 }, { fetch })).then((t) => {
+					next.assets = t;
+				})
 			);
 
 		if (caseIocs.list.total > 0 && !force) next.iocs = caseIocs.list.total;
 		else
 			pending.push(
-				fetchTotal(() => CaseIocsService.list(case_id, { per_page: 1 }, { fetch })).then(
-					(t) => {
-						next.iocs = t;
-					}
-				)
+				fetchTotal(() => CaseIocsService.list(case_id, { per_page: 1 }, { fetch })).then((t) => {
+					next.iocs = t;
+				})
 			);
 
 		if (caseEvidences.list.total > 0 && !force) next.evidence = caseEvidences.list.total;
@@ -374,129 +359,105 @@
 -->
 <CaseWorkspace bare>
 	{#if currentCase}
-		<div class="flex w-full flex-col gap-4">
-			<!--
-			  Unified summary header: greeting, the four section counts, and the
-			  two signals ("X tasks for you" + "Y people on case") all sit on a
-			  single tight row. Counts are inline chips — readable at a glance,
-			  no oversized hero numbers. Each chip is a link to its section.
-			-->
-			<section
-				class="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 shadow-elevation-1 lg:flex-row lg:items-center lg:gap-4"
-			>
-				<div class="flex min-w-0 items-baseline gap-2 lg:flex-1">
-					<h2 class="truncate text-sm font-semibold leading-none">
-						{greeting(now)}, {firstName}
-					</h2>
-					<span class="hidden truncate text-xs text-muted-foreground md:inline">
-						· Welcome back
-					</span>
-				</div>
+		<!--
+		  VISUAL TEST (full-bleed): the summary is the only surface on this
+		  page now — the greeting strip that used to sit above it is gone, and
+		  the two things worth keeping from it (section counts, who's on the
+		  case) moved into the summary header below. `grow` lets that surface
+		  fill the workspace vertically.
+		-->
+		<div class="flex w-full grow flex-col bg-card">
+			<!-- Case summary card -->
+			<section class="flex min-h-0 grow flex-col bg-card text-card-foreground">
+				<!--
+				  No title on the left: this header used to repeat the case name,
+				  which the case topbar directly above already shows. The space
+				  goes to the section counts and the people-on-case signal
+				  instead — the only parts of the old greeting strip that carried
+				  information.
+				-->
+				<header
+					class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-muted/30 px-5 py-2.5"
+				>
+					<div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+						<!-- Inline section counts — each chip links to its section -->
+						<div class="flex flex-wrap items-center gap-1.5">
+							{#each stats as stat}
+								<button
+									type="button"
+									onclick={() => goto(stat.href)}
+									class="group inline-flex items-center gap-1.5 rounded-md border border-border/40 bg-muted/40 px-2 py-1 text-xs transition-colors hover:border-border hover:bg-muted/70"
+								>
+									<stat.Icon size={12} class={stat.accent} />
+									<span class="text-muted-foreground">{stat.label}</span>
+									<span class="font-semibold tabular-nums">{stat.count}</span>
+								</button>
+							{/each}
+						</div>
 
-				<!-- Inline section counts -->
-				<div class="flex flex-wrap items-center gap-1.5">
-					{#each stats as stat}
-						<button
-							type="button"
-							onclick={() => goto(stat.href)}
-							class="group inline-flex items-center gap-1.5 rounded-md border border-border/40 bg-muted/40 px-2 py-1 text-xs transition-colors hover:border-border hover:bg-muted/70"
-						>
-							<stat.Icon size={12} class={stat.accent} />
-							<span class="text-muted-foreground">{stat.label}</span>
-							<span class="font-semibold tabular-nums">{stat.count}</span>
-						</button>
-					{/each}
-				</div>
+						<div class="hidden h-6 w-px shrink-0 bg-border/60 sm:block" aria-hidden="true"></div>
 
-				<div class="hidden h-6 w-px shrink-0 bg-border/60 lg:block" aria-hidden="true"></div>
-
-				<!-- Signals: tasks-for-you + people-on-case -->
-				<div class="flex flex-wrap items-center gap-3">
-					{#if myTasks.length > 0}
-						<button
-							type="button"
-							onclick={() => goto(`/case/${case_id}/tasks`)}
-							class="group inline-flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-muted/50"
-							title={myTasks.map((t) => t.task_title).join('\n')}
-						>
+						<div class="flex min-w-0 items-center gap-2 text-xs">
 							<div
-								class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400"
+								class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sky-500/10 text-sky-600 dark:text-sky-400"
 							>
-								<ClipboardListIcon size={12} />
+								<UsersIcon size={12} />
 							</div>
-							<div class="min-w-0">
-								<span class="font-medium">
+							<div class="flex min-w-0 items-center gap-2">
+								<span class="whitespace-nowrap font-medium">
+									{contributors.length}
+									{contributors.length === 1 ? 'person' : 'people'} on case
+								</span>
+								{#if contributors.length > 0}
+									<div class="flex -space-x-1.5">
+										{#each contributors.slice(0, 4) as contributor (contributor.name)}
+											<UserAvatar
+												userId={contributor.userId}
+												name={contributor.name}
+												size="size-5"
+												class="border border-card ring-0"
+												title={contributor.name}
+											/>
+										{/each}
+
+										{#if contributors.length > 4}
+											<span
+												class="flex h-5 w-5 items-center justify-center rounded-full border border-card bg-muted text-[9px] font-semibold text-muted-foreground"
+											>
+												+{contributors.length - 4}
+											</span>
+										{/if}
+									</div>
+								{/if}
+							</div>
+						</div>
+
+						<!--
+						  Kept from the old greeting strip, but compacted: the row is
+						  denser here, so the first task's title moved into the
+						  tooltip instead of trailing the label inline.
+						-->
+						{#if myTasks.length > 0}
+							<button
+								type="button"
+								onclick={() => goto(`/case/${case_id}/tasks`)}
+								class="group inline-flex min-w-0 items-center gap-2 rounded-md text-left text-xs transition-colors hover:bg-muted/50"
+								title={myTasks.map((t) => t.task_title).join('\n')}
+							>
+								<div
+									class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400"
+								>
+									<ClipboardListIcon size={12} />
+								</div>
+								<span class="whitespace-nowrap font-medium">
 									{myTasks.length} task{myTasks.length === 1 ? '' : 's'} for you
 								</span>
-								<span class="ml-1 truncate text-muted-foreground">
-									· {myTasks[0].task_title}{myTasks.length > 1
-										? ` +${myTasks.length - 1}`
-										: ''}
-								</span>
-							</div>
-							<ArrowRightIcon
-								size={11}
-								class="shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5"
-							/>
-						</button>
-					{/if}
-
-					<div class="flex min-w-0 items-center gap-2 px-1.5 py-1 text-xs">
-						<div
-							class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sky-500/10 text-sky-600 dark:text-sky-400"
-						>
-							<UsersIcon size={12} />
-						</div>
-						<div class="flex min-w-0 items-center gap-2">
-							<span class="font-medium whitespace-nowrap">
-								{contributors.length}
-								{contributors.length === 1 ? 'person' : 'people'} on case
-							</span>
-							{#if contributors.length > 0}
-								<div class="flex -space-x-1.5">
-									{#each contributors.slice(0, 4) as contributor (contributor.name)}
-										<UserAvatar
-											userId={contributor.userId}
-											name={contributor.name}
-											size="size-5"
-											class="border border-card ring-0"
-											title={contributor.name}
-										/>
-									{/each}
-
-									{#if contributors.length > 4}
-										<span
-											class="flex h-5 w-5 items-center justify-center rounded-full border border-card bg-muted text-[9px] font-semibold text-muted-foreground"
-										>
-											+{contributors.length - 4}
-										</span>
-									{/if}
-								</div>
-							{/if}
-						</div>
-					</div>
-				</div>
-			</section>
-
-			<!-- Case summary card -->
-			<section
-				class="overflow-hidden rounded-xl border border-border/60 bg-card text-card-foreground shadow-elevation-2 transition-shadow duration-200"
-			>
-				<header
-					class="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-muted/30 px-5 py-3"
-				>
-					<div class="flex min-w-0 items-center gap-2">
-						<div
-							class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
-						>
-							<FileTextIcon size={16} />
-						</div>
-
-						<div class="min-w-0">
-							<h2 class="truncate text-sm font-semibold leading-tight">
-								{currentCase.case_name}
-							</h2>
-						</div>
+								<ArrowRightIcon
+									size={11}
+									class="shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5"
+								/>
+							</button>
+						{/if}
 					</div>
 
 					<div class="flex flex-wrap items-center gap-2">
@@ -574,16 +535,14 @@
 				{/if}
 
 				<!--
-				  Cap the editor body height so long summaries scroll WITHIN
-				  the card rather than pushing the rest of the page off
-				  screen. `max-h-[calc(100vh-18rem)]` reserves room for the
-				  topbar (~3.5rem), the welcome strip (~3.5rem), the summary
-				  card header (~3.5rem), and surrounding gaps/padding — the
-				  remaining viewport is given to the editor scroll area.
-				  Mirrors the pattern notes use (their own scroll container)
-				  so behaviour is consistent across the app.
+				  VISUAL TEST (full-bleed): the editor body now takes whatever
+				  height is left in the workspace (`grow` + `min-h-0`) instead
+				  of a `max-h-[calc(100vh-…)]` guess, so the surface reaches the
+				  bottom of the viewport. Long summaries still scroll WITHIN
+				  this container rather than pushing the page off screen —
+				  same behaviour as notes.
 				-->
-				<div class="max-h-[calc(100vh-18rem)] min-h-[20rem] overflow-y-auto p-5">
+				<div class="min-h-0 grow overflow-y-auto p-5">
 					<!--
 					  SvelteKit reuses this page component when navigating between
 					  two `[case_id]` routes, so the MarkDownEditor's Yjs binding

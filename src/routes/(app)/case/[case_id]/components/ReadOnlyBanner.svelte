@@ -9,7 +9,7 @@
 </script>
 
 <div
-	class="flex items-center gap-2 border-b border-yellow-200 bg-yellow-50 px-4 py-2 text-sm text-yellow-800 dark:border-yellow-700/40 dark:bg-yellow-700/10 dark:text-yellow-200"
+	class="flex shrink-0 items-center gap-2 border-b border-yellow-200 bg-yellow-50 px-4 py-2 text-sm text-yellow-800 dark:border-yellow-700/40 dark:bg-yellow-700/10 dark:text-yellow-200"
 	role="status"
 >
 	<EyeIcon class="size-4 shrink-0" />

@@ -3,10 +3,10 @@
   datastore panel at the layout level so toggling it never tears
   down the active sub-page (Stream, Graph, Timelines, …).
 
-  Children render into the main column inside a rounded card surface
+  Children render into the main column, which spans the full workspace
   (matching the case workspace). When no side panel is open the main
-  column takes the full width via `flex-1`. `bare` skips the rounded
-  chrome when a child wants to own its own surface.
+  column takes the full width via `flex-1`. `bare` skips the `bg-card`
+  surface when a child wants to own its own background.
 -->
 <script lang="ts">
 	import { getContext, type Snippet } from 'svelte';
@@ -29,20 +29,22 @@
 	);
 </script>
 
-<div class="flex h-full w-full gap-3 p-3 sm:gap-4 sm:p-4">
-	<div
-		class={`flex h-full min-w-0 flex-1 overflow-hidden ${
-			bare
-				? ''
-				: 'rounded-2xl border border-border/60 bg-card shadow-elevation-2'
-		} ${className}`}
-	>
+<!--
+  VISUAL TEST (full-bleed): outer padding and the inter-column gap are
+  gone, so page content sits flush against the sidebar, the war-room tabs
+  and the viewport edges. The main column keeps `bg-card` as its surface
+  but drops the rounded/bordered/shadowed chrome; the datastore panel is
+  separated by a `border-l` hairline instead of a gap. Mirrors the same
+  change in `CaseWorkspace`.
+-->
+<div class="flex h-full w-full">
+	<div class={`flex h-full min-w-0 flex-1 overflow-hidden ${bare ? '' : 'bg-card'} ${className}`}>
 		{@render children()}
 	</div>
 
 	{#if datastorePanel?.state.open}
 		<aside
-			class="h-full w-full max-w-md shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elevation-2"
+			class="h-full w-full max-w-md shrink-0 overflow-hidden border-l border-border/60 bg-card"
 			aria-label="War room datastore"
 		>
 			<WarRoomDatastorePanel />

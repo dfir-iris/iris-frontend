@@ -15,7 +15,11 @@
 
 <div
 	class={cn(
-		'flex flex-wrap items-center gap-y-0.5 border-b border-border bg-muted/30 px-3.5 py-2',
+		// VISUAL TEST (lighter chrome): the tinted band and its bottom rule
+		// are gone. The facts are already delimited from each other by the
+		// hairlines in `Fact`, and from the description below by padding —
+		// a full-width band on top of that was a third layer of separation.
+		'flex flex-wrap items-center gap-y-0.5 px-3.5 pb-1.5 pt-2.5',
 		className
 	)}
 >

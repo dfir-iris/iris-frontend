@@ -20,12 +20,7 @@
 	import { browser } from '$app/environment';
 	import { page as pageStore } from '$app/state';
 	import { goto } from '$app/navigation';
-	import {
-		ChevronLeftIcon,
-		ChevronRightIcon,
-		FileStackIcon,
-		RefreshCwIcon
-	} from 'lucide-svelte';
+	import { ChevronLeftIcon, ChevronRightIcon, RefreshCwIcon } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
@@ -273,213 +268,230 @@
 	<title>Dim Tasks</title>
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-8">
-	<header class="flex items-center justify-between gap-3">
-		<div class="flex items-center gap-3">
-			<FileStackIcon size={28} class="!stroke-2" />
-			<div>
-				<h1 class="text-xl font-semibold">DFIR-IRIS modules tasks</h1>
-				<p class="text-xs text-muted-foreground">
+<!--
+  VISUAL TEST (full-bleed + centred column): the page is one `bg-card`
+  surface with no outer padding, matching the case workspace. But unlike a
+  case, this list is far narrower than a wide viewport — stretched to the
+  full width the eye has to travel across near-empty columns — so the body
+  sits in a centred `max-w-6xl` column. The header rule spans the whole
+  width; its contents align to the same column as the content below it.
+-->
+<div class="flex min-h-full w-full flex-col bg-card">
+	<div class="shrink-0 border-b border-border/60 bg-muted/30 px-5 py-2">
+		<div class="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3">
+			<div class="flex min-w-0 items-baseline gap-2">
+				<h1 class="text-sm font-semibold tracking-tight">DFIR-IRIS modules tasks</h1>
+				<span class="truncate text-xs text-muted-foreground">
 					Background jobs dispatched by IRIS modules — newest first.
-				</p>
+				</span>
 			</div>
+
+			<Button variant="outline" size="sm" onclick={refresh} disabled={loading}>
+				<RefreshCwIcon size={14} class={`mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+				Refresh
+			</Button>
 		</div>
+	</div>
 
-		<Button variant="outline" size="sm" onclick={refresh} disabled={loading}>
-			<RefreshCwIcon size={14} class={`mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-			Refresh
-		</Button>
-	</header>
-
-	<!--
+	<div class="mx-auto flex w-full max-w-6xl flex-col px-5 py-4">
+		<!--
 	  Sticky filter card. Same anchor + z-index strategy as the activities
 	  page so the two list views feel consistent under scroll.
 	-->
-	<!--
+		<!--
 	  Filter card scrolls naturally with the page. The sticky slot is
 	  owned by the results Card.Header below so the pager + "N-M of X"
 	  stays visible on long scrolls; two sticky tops anchored to the
 	  same scroll container fight for y=0 and visually collide.
 	-->
-	<Card.Root class="shadow-elevation-1">
-		<Card.Content class="flex flex-col gap-4 pt-6">
-			<div class="flex flex-col gap-2 lg:flex-row lg:items-stretch">
-				<Input
-					bind:value={searchValue}
-					onkeydown={handleSearchKey}
-					placeholder="Search by task name or task id…"
-					class="flex-1"
-					aria-label="Search dim tasks"
-				/>
-				<Button onclick={submit} disabled={loading}>
-					{loading ? 'Searching…' : 'Search'}
-				</Button>
-			</div>
-
-			<div class="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
-				<div class="flex flex-wrap items-center gap-1.5 text-xs">
-					<span class="text-muted-foreground">Status:</span>
-					{#each STATUS_CHOICES as choice (choice.value)}
-						{@const active = statusFilter === choice.value}
-						<button
-							type="button"
-							aria-pressed={active}
-							onclick={() => setStatus(choice.value)}
-							class="rounded-md border px-2 py-1 transition-colors {active
-								? 'border-primary/40 bg-primary/10 text-foreground'
-								: 'border-border bg-card text-muted-foreground hover:bg-muted/50'}"
-						>
-							{choice.label}
-						</button>
-					{/each}
+		<div class="flex flex-col">
+			<div class="flex flex-col gap-4 border-b border-border/60 p-0 pb-4">
+				<div class="flex flex-col gap-2 lg:flex-row lg:items-stretch">
+					<Input
+						bind:value={searchValue}
+						onkeydown={handleSearchKey}
+						placeholder="Search by task name or task id…"
+						class="flex-1"
+						aria-label="Search dim tasks"
+					/>
+					<Button onclick={submit} disabled={loading}>
+						{loading ? 'Searching…' : 'Search'}
+					</Button>
 				</div>
 
-				{#if hasActiveFilters}
-					<button
-						type="button"
-						class="ml-auto text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-						onclick={clearAllFilters}
-					>
-						Clear all filters
-					</button>
-				{/if}
-			</div>
-		</Card.Content>
-	</Card.Root>
+				<div class="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
+					<div class="flex flex-wrap items-center gap-1.5 text-xs">
+						<span class="text-muted-foreground">Status:</span>
+						{#each STATUS_CHOICES as choice (choice.value)}
+							{@const active = statusFilter === choice.value}
+							<button
+								type="button"
+								aria-pressed={active}
+								onclick={() => setStatus(choice.value)}
+								class="rounded-md border px-2 py-1 transition-colors {active
+									? 'border-primary/40 bg-primary/10 text-foreground'
+									: 'border-border bg-card text-muted-foreground hover:bg-muted/50'}"
+							>
+								{choice.label}
+							</button>
+						{/each}
+					</div>
 
-	<Card.Root>
-		<!--
+					{#if hasActiveFilters}
+						<button
+							type="button"
+							class="ml-auto text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+							onclick={clearAllFilters}
+						>
+							Clear all filters
+						</button>
+					{/if}
+				</div>
+			</div>
+		</div>
+
+		<div class="flex flex-col">
+			<!--
 		  Card.Header (title + pagination) is sticky at `top-0` of the
 		  page scroll viewport so the pager stays reachable mid-scroll.
 		  Same convention as Manage Cases / Activities. `z-20` parks it
 		  above the sticky `<thead>` (z-10) below.
 		-->
-		<Card.Header class="sticky top-0 z-20 flex flex-row items-center justify-between gap-2 rounded-t-xl bg-card">
-			<div class="flex items-center gap-2">
-				<Card.Title>Tasks</Card.Title>
-				{#if range}
-					<span class="text-xs text-muted-foreground tabular-nums">
-						{range.start}–{range.end} of {range.total}
-					</span>
-				{:else if envelope && envelope.total === 0}
-					<span class="text-xs text-muted-foreground">No results</span>
+			<div
+				class="sticky top-0 z-20 flex flex-row items-center justify-between gap-2 rounded-none bg-card px-0 py-2"
+			>
+				<div class="flex items-center gap-2">
+					<Card.Title>Tasks</Card.Title>
+					{#if range}
+						<span class="text-xs tabular-nums text-muted-foreground">
+							{range.start}–{range.end} of {range.total}
+						</span>
+					{:else if envelope && envelope.total === 0}
+						<span class="text-xs text-muted-foreground">No results</span>
+					{/if}
+				</div>
+
+				{#if envelope && (envelope.last_page ?? 0) > 1}
+					<div class="flex items-center gap-2 text-xs">
+						<Button
+							variant="outline"
+							size="sm"
+							class="h-7 px-2"
+							disabled={loading || page <= 1}
+							onclick={() => goToPage(page - 1)}
+							aria-label="Previous page"
+						>
+							<ChevronLeftIcon size={14} />
+						</Button>
+						<span class="tabular-nums text-muted-foreground">
+							Page {envelope.current_page} / {envelope.last_page}
+						</span>
+						<Button
+							variant="outline"
+							size="sm"
+							class="h-7 px-2"
+							disabled={loading || page >= (envelope.last_page ?? 1)}
+							onclick={() => goToPage(page + 1)}
+							aria-label="Next page"
+						>
+							<ChevronRightIcon size={14} />
+						</Button>
+					</div>
 				{/if}
 			</div>
 
-			{#if envelope && (envelope.last_page ?? 0) > 1}
-				<div class="flex items-center gap-2 text-xs">
-					<Button
-						variant="outline"
-						size="sm"
-						class="h-7 px-2"
-						disabled={loading || page <= 1}
-						onclick={() => goToPage(page - 1)}
-						aria-label="Previous page"
-					>
-						<ChevronLeftIcon size={14} />
-					</Button>
-					<span class="tabular-nums text-muted-foreground">
-						Page {envelope.current_page} / {envelope.last_page}
-					</span>
-					<Button
-						variant="outline"
-						size="sm"
-						class="h-7 px-2"
-						disabled={loading || page >= (envelope.last_page ?? 1)}
-						onclick={() => goToPage(page + 1)}
-						aria-label="Next page"
-					>
-						<ChevronRightIcon size={14} />
-					</Button>
-				</div>
-			{/if}
-		</Card.Header>
-
-		<Card.Content>
-			{#if loading && !envelope}
-				<div class="space-y-2">
-					{#each Array(8) as _}
-						<Skeleton class="h-10 w-full" />
-					{/each}
-				</div>
-			{:else if envelope && envelope.data.length > 0}
-				<!--
+			<div class="px-0 pb-0">
+				{#if loading && !envelope}
+					<div class="space-y-2">
+						{#each Array(8) as _}
+							<Skeleton class="h-10 w-full" />
+						{/each}
+					</div>
+				{:else if envelope && envelope.data.length > 0}
+					<!--
 				  No inner `overflow-x-auto`: that ancestor would
 				  intercept the sticky `<thead>` and anchor it to a
 				  wrapper that doesn't scroll vertically.
 				-->
-				<div class="rounded-md border">
-					<table class="w-full text-sm">
-						<!--
+					<div class="border-t border-border/60">
+						<table class="w-full text-sm">
+							<!--
 						  Sticky table header parked below the sticky
-						  Card.Header above (~60px from its `p-6`).
+						  bar above (~44px now that the card `p-6` is gone).
 						-->
-						<thead class="sticky top-[3.75rem] z-10 border-b bg-muted text-left text-xs text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-muted/90">
-							<tr>
-								<th class="w-32 px-3 py-2 font-medium">State</th>
-								<th class="w-44 px-3 py-2 font-medium">Date ended</th>
-								<th class="w-40 px-3 py-2 font-medium">Case</th>
-								<th class="px-3 py-2 font-medium">Module · hook</th>
-								<th class="w-40 px-3 py-2 font-medium">Initiated by</th>
-								<th class="w-56 px-3 py-2 font-medium">Task ID</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each envelope.data as row (row.task_id)}
-								<tr
-									class="cursor-pointer border-b transition-colors last:border-0 hover:bg-muted/30"
-									onclick={() => openDetail(row.task_id)}
-								>
-									<td class="px-3 py-2">
-										<span
-											class="inline-flex items-center rounded-md border px-2 py-0.5 text-2xs font-medium uppercase tracking-wide {stateStyle(
-												row.state
-											)}"
-										>
-											{row.state ?? '—'}
-										</span>
-									</td>
-									<td class="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground tabular-nums">
-										{formatDate(row.date_done)}
-									</td>
-									<td class="px-3 py-2 text-xs">
-										{#if row.case_id !== null}
-											<!-- Stop propagation so clicking the link
-											     opens the case, not the side panel. -->
-											<a
-												href={`/case/${row.case_id}`}
-												class="text-primary hover:underline"
-												onclick={(e) => e.stopPropagation()}
-											>
-												#{row.case_id}
-											</a>
-										{:else}
-											<span class="text-muted-foreground">—</span>
-										{/if}
-									</td>
-									<td class="px-3 py-2 text-xs">
-										<span class="line-clamp-2" title={row.module ?? ''}>
-											{row.module ?? '—'}
-										</span>
-									</td>
-									<td class="whitespace-nowrap px-3 py-2 text-xs">{row.user}</td>
-									<td class="whitespace-nowrap px-3 py-2 font-mono text-2xs text-muted-foreground">
-										{row.task_id}
-									</td>
+							<thead
+								class="sticky top-11 z-10 border-b bg-muted text-left text-xs text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-muted/90"
+							>
+								<tr>
+									<th class="w-32 px-3 py-2 font-medium">State</th>
+									<th class="w-44 px-3 py-2 font-medium">Date ended</th>
+									<th class="w-40 px-3 py-2 font-medium">Case</th>
+									<th class="px-3 py-2 font-medium">Module · hook</th>
+									<th class="w-40 px-3 py-2 font-medium">Initiated by</th>
+									<th class="w-56 px-3 py-2 font-medium">Task ID</th>
 								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{:else if envelope}
-				<p class="py-8 text-center text-sm text-muted-foreground">
-					No tasks match the current filters.
-				</p>
-			{:else}
-				<p class="py-8 text-center text-sm text-muted-foreground">Loading…</p>
-			{/if}
-		</Card.Content>
-	</Card.Root>
+							</thead>
+							<tbody>
+								{#each envelope.data as row (row.task_id)}
+									<tr
+										class="cursor-pointer border-b transition-colors last:border-0 hover:bg-muted/30"
+										onclick={() => openDetail(row.task_id)}
+									>
+										<td class="px-3 py-2">
+											<span
+												class="inline-flex items-center rounded-md border px-2 py-0.5 text-2xs font-medium uppercase tracking-wide {stateStyle(
+													row.state
+												)}"
+											>
+												{row.state ?? '—'}
+											</span>
+										</td>
+										<td
+											class="whitespace-nowrap px-3 py-2 text-xs tabular-nums text-muted-foreground"
+										>
+											{formatDate(row.date_done)}
+										</td>
+										<td class="px-3 py-2 text-xs">
+											{#if row.case_id !== null}
+												<!-- Stop propagation so clicking the link
+											     opens the case, not the side panel. -->
+												<a
+													href={`/case/${row.case_id}`}
+													class="text-primary hover:underline"
+													onclick={(e) => e.stopPropagation()}
+												>
+													#{row.case_id}
+												</a>
+											{:else}
+												<span class="text-muted-foreground">—</span>
+											{/if}
+										</td>
+										<td class="px-3 py-2 text-xs">
+											<span class="line-clamp-2" title={row.module ?? ''}>
+												{row.module ?? '—'}
+											</span>
+										</td>
+										<td class="whitespace-nowrap px-3 py-2 text-xs">{row.user}</td>
+										<td
+											class="whitespace-nowrap px-3 py-2 font-mono text-2xs text-muted-foreground"
+										>
+											{row.task_id}
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				{:else if envelope}
+					<p class="py-8 text-center text-sm text-muted-foreground">
+						No tasks match the current filters.
+					</p>
+				{:else}
+					<p class="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+				{/if}
+			</div>
+		</div>
+	</div>
 </div>
 
 <!--

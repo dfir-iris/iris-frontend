@@ -291,8 +291,8 @@
 
 			<div class="flex min-h-0 flex-1 flex-col p-0">
 				<Tabs bind:value={activeTab} class="flex min-h-0 flex-1 flex-col">
-					<div class="flex shrink-0 items-center justify-between border-b bg-muted/20 pr-4">
-						<TabsList class="h-auto rounded-none border-0 bg-transparent p-0">
+					<div class="relative flex shrink-0 items-center border-b">
+						<TabsList class="h-auto w-full rounded-none border-0 bg-transparent p-0">
 							<TabsTrigger
 								value="details"
 								class="flex items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
@@ -347,15 +347,22 @@
 						  analyst can read; the badge expands into a popover
 						  listing those cases. Empty result → nothing
 						  rendered (the helper handles the visibility).
+
+						  Absolutely positioned so it sits outside the tab row's
+						  flow: the badge appears asynchronously (and only for
+						  some IOCs), and in flow it would shift the centred
+						  TabsList sideways the moment it loaded.
 						-->
-						<SeenElsewhereBadge
-							objectLabel="IOC"
-							objectId={ioc.ioc_id}
-							load={async () => {
-								const res = await CaseIocsService.listOtherCaseLinks(caseId, ioc.ioc_id);
-								return res.ok && Array.isArray(res.data) ? res.data : null;
-							}}
-						/>
+						<div class="absolute right-4 top-1/2 -translate-y-1/2">
+							<SeenElsewhereBadge
+								objectLabel="IOC"
+								objectId={ioc.ioc_id}
+								load={async () => {
+									const res = await CaseIocsService.listOtherCaseLinks(caseId, ioc.ioc_id);
+									return res.ok && Array.isArray(res.data) ? res.data : null;
+								}}
+							/>
+						</div>
 					</div>
 
 					<!--

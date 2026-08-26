@@ -134,7 +134,18 @@
 	});
 </script>
 
-<div class="flex shrink-0 items-center gap-2.5 border-b px-4 py-2">
+<!--
+  VISUAL TEST (lighter chrome): no `border-b` here. The tab row directly
+  below keeps its own rule — that one is load-bearing (it is the baseline
+  the active-tab underline sits on), so a second line 40px above it was
+  pure noise.
+
+  Asymmetric padding is deliberate: this strip is the first thing in the
+  pane, so `pt-4` gives the title room to breathe below the case topbar,
+  while the smaller `pb-2` keeps it visually attached to the tab row it
+  labels rather than floating between the two.
+-->
+<div class="flex shrink-0 items-center gap-2.5 px-4 pb-2 pt-4">
 	<div
 		class={cn(
 			'shrink-0 rounded-md p-1.5',

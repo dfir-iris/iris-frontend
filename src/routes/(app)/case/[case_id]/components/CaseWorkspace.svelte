@@ -42,9 +42,7 @@
 	// order is by generated-CSS position, not by class-attribute order,
 	// so the "later wins" intuition doesn't hold).
 	const callerSetsOverflow = $derived(/\boverflow(?:-[xy])?-/.test(className));
-	const defaultOverflow = $derived(
-		callerSetsOverflow ? '' : bare ? '' : 'overflow-hidden'
-	);
+	const defaultOverflow = $derived(callerSetsOverflow ? '' : bare ? '' : 'overflow-hidden');
 
 	const commentsPanel = getContext<CommentsPanelContext | undefined>(COMMENTS_PANEL_CTX);
 	const activityPanel = getContext<ActivityPanelContext | undefined>(ACTIVITY_PANEL_CTX);
@@ -54,20 +52,27 @@
 <!--
   Height handling: in `bare` mode we let content size the wrapper so the
   page-level scroll container (in (app)/+layout.svelte) can scroll past
-  the viewport. In card mode we keep `h-full` so the rounded chrome
-  fills its slot. Side panels always need `h-full` themselves so they
-  don't collapse — they live as siblings below.
+  the viewport. In card mode we keep `h-full` so the main column fills
+  its slot. Side panels always need `h-full` themselves so they don't
+  collapse — they live as siblings below.
 -->
-<div class="flex {bare ? 'min-h-full' : 'h-full'} w-full gap-3 p-3 sm:gap-4 sm:p-4">
+<!--
+  VISUAL TEST (full-bleed): the outer padding and the inter-column gap are
+  gone in BOTH modes, so page content sits flush against the sidebar, the
+  case topbar and the viewport edges. The main column keeps `bg-card` as
+  its surface but drops the rounded/bordered/shadowed chrome; side panels
+  are separated by a `border-l` hairline instead of a gap.
+-->
+<div class="flex {bare ? 'min-h-full' : 'h-full'} w-full">
 	<div
-		class={`flex min-w-0 flex-1 ${bare ? '' : 'h-full'} ${defaultOverflow} ${bare ? '' : 'rounded-2xl border border-border/60 bg-card shadow-elevation-2'} ${className}`}
+		class={`flex min-w-0 flex-1 ${bare ? '' : 'h-full'} ${defaultOverflow} ${bare ? '' : 'bg-card'} ${className}`}
 	>
 		{@render children()}
 	</div>
 
 	{#if commentsPanel?.state.open}
 		<aside
-			class="h-full w-full max-w-md shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elevation-2"
+			class="h-full w-full max-w-md shrink-0 overflow-hidden border-l border-border/60 bg-card"
 			aria-label="Comments"
 		>
 			<CommentsPanel />
@@ -76,7 +81,7 @@
 
 	{#if activityPanel?.state.open}
 		<aside
-			class="h-full w-full max-w-md shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elevation-2"
+			class="h-full w-full max-w-md shrink-0 overflow-hidden border-l border-border/60 bg-card"
 			aria-label="Case activity"
 		>
 			<CaseActivityPanel />
@@ -85,7 +90,7 @@
 
 	{#if datastorePanel?.state.open}
 		<aside
-			class="h-full w-full max-w-md shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elevation-2"
+			class="h-full w-full max-w-md shrink-0 overflow-hidden border-l border-border/60 bg-card"
 			aria-label="DataStore"
 		>
 			<CaseDatastorePanel />

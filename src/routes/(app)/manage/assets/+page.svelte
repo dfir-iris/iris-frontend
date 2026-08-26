@@ -27,7 +27,6 @@
 	import {
 		ChevronLeftIcon,
 		ChevronRightIcon,
-		ComputerIcon,
 		DownloadIcon,
 		HistoryIcon,
 		PlusIcon,
@@ -593,157 +592,166 @@
 	<title>Manage assets</title>
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-8">
-	<header class="flex items-center justify-between gap-3">
-		<div class="flex items-center gap-3">
-			<ComputerIcon size={28} class="!stroke-2" />
-			<div>
-				<h1 class="text-xl font-semibold">Asset manager</h1>
-				<p class="text-xs text-muted-foreground">
+<!--
+  VISUAL TEST (full-bleed + centred column): the page is one `bg-card`
+  surface with no outer padding, matching the case workspace. But unlike a
+  case, this list is far narrower than a wide viewport — stretched to the
+  full width the eye has to travel across near-empty columns — so the body
+  sits in a centred `max-w-6xl` column. The header rule spans the whole
+  width; its contents align to the same column as the content below it.
+-->
+<div class="flex min-h-full w-full flex-col bg-card">
+	<div class="shrink-0 border-b border-border/60 bg-muted/30 px-5 py-2">
+		<div class="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3">
+			<div class="flex min-w-0 items-baseline gap-2">
+				<h1 class="text-sm font-semibold tracking-tight">Asset manager</h1>
+				<span class="truncate text-xs text-muted-foreground">
 					One entry per asset and customer, fed automatically from your cases and alerts.
-				</p>
+				</span>
 			</div>
+
+			{#if canRead}
+				<div class="flex flex-wrap items-center gap-2">
+					<Button variant="outline" size="sm" onclick={refresh} disabled={loading}>
+						<RefreshCwIcon size={14} class={`mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+						Refresh
+					</Button>
+					<Button variant="outline" size="sm" onclick={() => (auditLogOpen = true)}>
+						<HistoryIcon size={14} class="mr-1.5" /> Change log
+					</Button>
+					<Button variant="outline" size="sm" onclick={() => (exportOpen = true)}>
+						<DownloadIcon size={14} class="mr-1.5" /> Export
+					</Button>
+					{#if canWrite}
+						<Button variant="outline" size="sm" onclick={() => (importOpen = true)}>
+							<UploadIcon size={14} class="mr-1.5" /> Import
+						</Button>
+						<Button variant="outline" size="sm" onclick={reconcile}>Scan cases</Button>
+						<Button size="sm" onclick={openCreate}>
+							<PlusIcon size={14} class="mr-1.5" /> New asset
+						</Button>
+					{/if}
+				</div>
+			{/if}
 		</div>
+	</div>
 
-		{#if canRead}
-			<div class="flex items-center gap-2">
-				<Button variant="outline" size="sm" onclick={refresh} disabled={loading}>
-					<RefreshCwIcon size={14} class={`mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-					Refresh
-				</Button>
-				<Button variant="outline" size="sm" onclick={() => (auditLogOpen = true)}>
-					<HistoryIcon size={14} class="mr-1.5" /> Change log
-				</Button>
-				<Button variant="outline" size="sm" onclick={() => (exportOpen = true)}>
-					<DownloadIcon size={14} class="mr-1.5" /> Export
-				</Button>
-				{#if canWrite}
-					<Button variant="outline" size="sm" onclick={() => (importOpen = true)}>
-						<UploadIcon size={14} class="mr-1.5" /> Import
-					</Button>
-					<Button variant="outline" size="sm" onclick={reconcile}>Scan cases</Button>
-					<Button size="sm" onclick={openCreate}>
-						<PlusIcon size={14} class="mr-1.5" /> New asset
-					</Button>
-				{/if}
-			</div>
-		{/if}
-	</header>
-
-	{#if !userCtx.ready}
-		<Skeleton class="h-64 w-full" />
-	{:else if !canRead}
-		<!--
+	<div class="mx-auto flex w-full max-w-6xl flex-col px-5 py-4">
+		{#if !userCtx.ready}
+			<Skeleton class="h-64 w-full" />
+		{:else if !canRead}
+			<!--
 		  Explicit, because ApiService turns a 403 on a GET into an empty
 		  result. Without this the page would claim the registry is empty
 		  rather than that the user may not read it.
 		-->
-		<Card.Root class="shadow-elevation-1">
-			<Card.Content class="py-16 text-center">
-				<p class="text-sm font-medium">You don't have access to the asset manager.</p>
-				<p class="mt-1 text-xs text-muted-foreground">
-					Ask an administrator for the “Asset manager — read” permission.
-				</p>
-			</Card.Content>
-		</Card.Root>
-	{:else}
-		<RestrictedScopeBanner visible={envelope?.scope?.restricted ?? false} />
+			<div class="flex flex-col">
+				<div class="px-0 py-16 text-center">
+					<p class="text-sm font-medium">You don't have access to the asset manager.</p>
+					<p class="mt-1 text-xs text-muted-foreground">
+						Ask an administrator for the “Asset manager — read” permission.
+					</p>
+				</div>
+			</div>
+		{:else}
+			<RestrictedScopeBanner visible={envelope?.scope?.restricted ?? false} />
 
-		<Card.Root class="shadow-elevation-1">
-			<Card.Content class="pt-6">
-				<AssetsFilters
-					bind:search
-					bind:clientId
-					bind:assetTypeId
-					bind:criticality
-					bind:environment
-					bind:tag
-					bind:owner
-					bind:isActive
-					bind:hasSightings
-					bind:compromised
-					{customers}
-					{assetTypes}
-					{loading}
-					{hasActiveFilters}
-					onSubmit={submit}
-					onClear={clearAllFilters}
-				/>
-			</Card.Content>
-		</Card.Root>
+			<div class="flex flex-col">
+				<div class="border-b border-border/60 p-0 pb-4">
+					<AssetsFilters
+						bind:search
+						bind:clientId
+						bind:assetTypeId
+						bind:criticality
+						bind:environment
+						bind:tag
+						bind:owner
+						bind:isActive
+						bind:hasSightings
+						bind:compromised
+						{customers}
+						{assetTypes}
+						{loading}
+						{hasActiveFilters}
+						onSubmit={submit}
+						onClear={clearAllFilters}
+					/>
+				</div>
+			</div>
 
-		<Card.Root class="shadow-elevation-1">
-			<Card.Header
-				class="sticky top-0 z-20 flex flex-row items-center justify-between gap-2 rounded-t-xl bg-card"
-			>
-				<div class="flex items-center gap-2">
-					<Card.Title>Assets</Card.Title>
-					{#if range}
-						<span class="text-xs tabular-nums text-muted-foreground">
-							{range.start}–{range.end} of {range.total}
-						</span>
-					{:else if envelope && envelope.total === 0}
-						<span class="text-xs text-muted-foreground">No results</span>
+			<div class="flex flex-col">
+				<div
+					class="sticky top-0 z-20 flex flex-row items-center justify-between gap-2 rounded-none bg-card px-0 py-2"
+				>
+					<div class="flex items-center gap-2">
+						<Card.Title>Assets</Card.Title>
+						{#if range}
+							<span class="text-xs tabular-nums text-muted-foreground">
+								{range.start}–{range.end} of {range.total}
+							</span>
+						{:else if envelope && envelope.total === 0}
+							<span class="text-xs text-muted-foreground">No results</span>
+						{/if}
+					</div>
+
+					{#if envelope && (envelope.last_page ?? 0) > 1}
+						<div class="flex items-center gap-2 text-xs">
+							<Button
+								variant="outline"
+								size="sm"
+								class="h-7 px-2"
+								disabled={loading || page <= 1}
+								onclick={() => goToPage(page - 1)}
+								aria-label="Previous page"
+							>
+								<ChevronLeftIcon size={14} />
+							</Button>
+							<span class="tabular-nums text-muted-foreground">
+								Page {envelope.current_page} / {envelope.last_page}
+							</span>
+							<Button
+								variant="outline"
+								size="sm"
+								class="h-7 px-2"
+								disabled={loading || page >= (envelope.last_page ?? 1)}
+								onclick={() => goToPage(page + 1)}
+								aria-label="Next page"
+							>
+								<ChevronRightIcon size={14} />
+							</Button>
+						</div>
 					{/if}
 				</div>
 
-				{#if envelope && (envelope.last_page ?? 0) > 1}
-					<div class="flex items-center gap-2 text-xs">
-						<Button
-							variant="outline"
-							size="sm"
-							class="h-7 px-2"
-							disabled={loading || page <= 1}
-							onclick={() => goToPage(page - 1)}
-							aria-label="Previous page"
-						>
-							<ChevronLeftIcon size={14} />
-						</Button>
-						<span class="tabular-nums text-muted-foreground">
-							Page {envelope.current_page} / {envelope.last_page}
-						</span>
-						<Button
-							variant="outline"
-							size="sm"
-							class="h-7 px-2"
-							disabled={loading || page >= (envelope.last_page ?? 1)}
-							onclick={() => goToPage(page + 1)}
-							aria-label="Next page"
-						>
-							<ChevronRightIcon size={14} />
-						</Button>
-					</div>
-				{/if}
-			</Card.Header>
-
-			<Card.Content>
-				{#if loading && !envelope}
-					<div class="space-y-2">
-						{#each [1, 2, 3, 4, 5, 6, 7, 8] as n (n)}
-							<Skeleton class="h-10 w-full" />
-						{/each}
-					</div>
-				{:else if envelope && envelope.data.length > 0}
-					<AssetsTable
-						assets={envelope.data}
-						{orderBy}
-						{sortDir}
-						{canWrite}
-						onToggleSort={toggleSort}
-						onOpen={openDetail}
-						onEdit={openEdit}
-						onDelete={deleteAsset}
-					/>
-				{:else if envelope}
-					<p class="py-8 text-center text-sm text-muted-foreground">
-						No assets match the current filters.
-					</p>
-				{:else}
-					<p class="py-8 text-center text-sm text-muted-foreground">Loading…</p>
-				{/if}
-			</Card.Content>
-		</Card.Root>
-	{/if}
+				<div class="px-0 pb-0">
+					{#if loading && !envelope}
+						<div class="space-y-2">
+							{#each [1, 2, 3, 4, 5, 6, 7, 8] as n (n)}
+								<Skeleton class="h-10 w-full" />
+							{/each}
+						</div>
+					{:else if envelope && envelope.data.length > 0}
+						<AssetsTable
+							assets={envelope.data}
+							{orderBy}
+							{sortDir}
+							{canWrite}
+							onToggleSort={toggleSort}
+							onOpen={openDetail}
+							onEdit={openEdit}
+							onDelete={deleteAsset}
+						/>
+					{:else if envelope}
+						<p class="py-8 text-center text-sm text-muted-foreground">
+							No assets match the current filters.
+						</p>
+					{:else}
+						<p class="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+					{/if}
+				</div>
+			</div>
+		{/if}
+	</div>
 </div>
 
 <AssetDetailModal

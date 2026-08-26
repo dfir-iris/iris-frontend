@@ -20,10 +20,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { toast } from '$lib/components/ui/toast';
 	import { MarkDownEditor } from '$lib/components/common/MarkDown';
-	import {
-		WAR_ROOM_CTX,
-		type WarRoomContext
-	} from '$lib/contexts/war-room.context.svelte';
+	import { WAR_ROOM_CTX, type WarRoomContext } from '$lib/contexts/war-room.context.svelte';
 	import { WarRoomsService } from '$lib/services/war-rooms.service';
 
 	const ctx = getContext<WarRoomContext>(WAR_ROOM_CTX);
@@ -132,13 +129,16 @@
 	});
 </script>
 
-<div class="flex h-full min-h-0 w-full flex-col overflow-y-auto p-4">
+<!--
+  VISUAL TEST (full-bleed): no wrapper padding and no card chrome — the
+  summary is one continuous surface filling the workspace, matching the
+  case summary page.
+-->
+<div class="flex h-full min-h-0 w-full flex-col">
 	{#if room}
-		<section
-			class="overflow-hidden rounded-xl border border-border/60 bg-card text-card-foreground shadow-elevation-2 transition-shadow duration-200"
-		>
+		<section class="flex min-h-0 grow flex-col bg-card text-card-foreground">
 			<header
-				class="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-muted/30 px-5 py-3"
+				class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-muted/30 px-5 py-3"
 			>
 				<div class="flex min-w-0 items-center gap-2">
 					<div
@@ -193,13 +193,7 @@
 					</span>
 
 					<div class="flex items-center gap-1">
-						<Button
-							variant="ghost"
-							size="xs"
-							disabled={loading}
-							onclick={refresh}
-							title="Refresh"
-						>
+						<Button variant="ghost" size="xs" disabled={loading} onclick={refresh} title="Refresh">
 							<RefreshCwIcon size={12} class={loading ? 'animate-spin' : ''} />
 							<span class="ml-1 hidden sm:inline">Refresh</span>
 						</Button>
@@ -226,7 +220,13 @@
 				</div>
 			{/if}
 
-			<div class="max-h-[calc(100vh-14rem)] min-h-[20rem] overflow-y-auto p-5">
+			<!--
+			  VISUAL TEST (full-bleed): the editor body takes the remaining
+			  workspace height (`grow` + `min-h-0`) instead of the
+			  `max-h-[calc(100vh-14rem)]` guess, so the surface reaches the
+			  bottom of the viewport. Long summaries still scroll here.
+			-->
+			<div class="min-h-0 grow overflow-y-auto p-5">
 				<!--
 				  Keyed on `warRoomId` for the same reason as the case-summary
 				  editor: SvelteKit reuses this page component across a room

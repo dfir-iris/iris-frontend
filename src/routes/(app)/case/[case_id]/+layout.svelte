@@ -391,7 +391,15 @@
 			/>
 		{/if}
 
-		<div class="flex grow overflow-y-auto">
+		<!--
+		  `min-h-0` is load-bearing. Without it this div's `min-height: auto`
+		  resolves to its intrinsic content height, so a tall page (the
+		  timeline, a long note) makes it refuse to shrink — and the flex
+		  algorithm takes the missing space out of its shrinkable siblings
+		  instead, squashing the case topbar. With `min-h-0` this div absorbs
+		  the overflow and its own `overflow-y-auto` finally activates.
+		-->
+		<div class="flex min-h-0 grow overflow-y-auto">
 			{@render children()}
 		</div>
 	</div>

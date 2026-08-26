@@ -26,7 +26,6 @@
 		ChevronLeftIcon,
 		ChevronRightIcon,
 		ExternalLinkIcon,
-		FolderIcon,
 		LockIcon,
 		LockOpenIcon,
 		MoreHorizontalIcon,
@@ -431,9 +430,7 @@
 		// hydrated id is already correct.
 		void CustomersService.list().then((res) => {
 			if (res.ok) {
-				customers = res.data
-					.slice()
-					.sort((a, b) => a.customer_name.localeCompare(b.customer_name));
+				customers = res.data.slice().sort((a, b) => a.customer_name.localeCompare(b.customer_name));
 			}
 		});
 		void UsersService.list().then((res) => {
@@ -473,8 +470,7 @@
 	// action menu: closed cases can be reopened, open ones can be
 	// closed. We key off the state name rather than `close_date` because
 	// the legacy convention is that state is authoritative.
-	const isClosed = (c: Case) =>
-		(c.state?.state_name ?? '').toLowerCase() === 'closed';
+	const isClosed = (c: Case) => (c.state?.state_name ?? '').toLowerCase() === 'closed';
 
 	const stateStyle = (name: string | null | undefined) => {
 		const s = (name ?? '').toLowerCase();
@@ -493,151 +489,159 @@
 	<title>Manage cases</title>
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-8">
-	<header class="flex items-center justify-between gap-3">
-		<div class="flex items-center gap-3">
-			<FolderIcon size={28} class="!stroke-2" />
-			<div>
-				<h1 class="text-xl font-semibold">Cases management</h1>
-				<p class="text-xs text-muted-foreground">
+<!--
+  VISUAL TEST (full-bleed + centred column): the page is one `bg-card`
+  surface with no outer padding, matching the case workspace. But unlike a
+  case, this list is far narrower than a wide viewport — stretched to the
+  full width the eye has to travel across near-empty columns — so the body
+  sits in a centred `max-w-6xl` column. The header rule spans the whole
+  width; its contents align to the same column as the content below it.
+-->
+<div class="flex min-h-full w-full flex-col bg-card">
+	<div class="shrink-0 border-b border-border/60 bg-muted/30 px-5 py-2">
+		<div class="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3">
+			<div class="flex min-w-0 items-baseline gap-2">
+				<h1 class="text-sm font-semibold tracking-tight">Cases management</h1>
+				<span class="truncate text-xs text-muted-foreground">
 					Every case you have access to — close, reopen or delete from here.
-				</p>
+				</span>
 			</div>
+
+			<Button variant="outline" size="sm" onclick={refresh} disabled={loading}>
+				<RefreshCwIcon size={14} class={`mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+				Refresh
+			</Button>
 		</div>
+	</div>
 
-		<Button variant="outline" size="sm" onclick={refresh} disabled={loading}>
-			<RefreshCwIcon size={14} class={`mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-			Refresh
-		</Button>
-	</header>
-
-	<Card.Root class="shadow-elevation-1">
-		<Card.Content class="flex flex-col gap-4 pt-6">
-			<div class="flex flex-col gap-2 lg:flex-row lg:items-stretch">
-				<Input
-					bind:value={searchValue}
-					onkeydown={handleSearchKey}
-					placeholder="Search by case name…"
-					class="flex-1"
-					aria-label="Search cases"
-				/>
-				<Button onclick={submit} disabled={loading}>
-					{loading ? 'Searching…' : 'Search'}
-				</Button>
-			</div>
-
-			<div class="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
-				<div class="flex items-center gap-1.5 text-xs">
-					<span class="text-muted-foreground">State:</span>
-					{#each [{ label: 'Open', value: true }, { label: 'Closed', value: false }, { label: 'All', value: null }] as choice (String(choice.value))}
-						{@const active = openFilter === choice.value}
-						<button
-							type="button"
-							aria-pressed={active}
-							onclick={() => setOpenFilter(choice.value)}
-							class="rounded-md border px-2 py-1 transition-colors {active
-								? 'border-primary/40 bg-primary/10 text-foreground'
-								: 'border-border bg-card text-muted-foreground hover:bg-muted/50'}"
-						>
-							{choice.label}
-						</button>
-					{/each}
+	<div class="mx-auto flex w-full max-w-6xl flex-col px-5 py-4">
+		<div class="flex flex-col">
+			<div class="flex flex-col gap-4 border-b border-border/60 p-0 pb-4">
+				<div class="flex flex-col gap-2 lg:flex-row lg:items-stretch">
+					<Input
+						bind:value={searchValue}
+						onkeydown={handleSearchKey}
+						placeholder="Search by case name…"
+						class="flex-1"
+						aria-label="Search cases"
+					/>
+					<Button onclick={submit} disabled={loading}>
+						{loading ? 'Searching…' : 'Search'}
+					</Button>
 				</div>
 
-				<!--
+				<div class="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
+					<div class="flex items-center gap-1.5 text-xs">
+						<span class="text-muted-foreground">State:</span>
+						{#each [{ label: 'Open', value: true }, { label: 'Closed', value: false }, { label: 'All', value: null }] as choice (String(choice.value))}
+							{@const active = openFilter === choice.value}
+							<button
+								type="button"
+								aria-pressed={active}
+								onclick={() => setOpenFilter(choice.value)}
+								class="rounded-md border px-2 py-1 transition-colors {active
+									? 'border-primary/40 bg-primary/10 text-foreground'
+									: 'border-border bg-card text-muted-foreground hover:bg-muted/50'}"
+							>
+								{choice.label}
+							</button>
+						{/each}
+					</div>
+
+					<!--
 				  Single-value pickers for customer + owner. We stick with a
 				  native `<select>` here rather than a popover combobox: the
 				  legacy /manage/cases UI used a plain dropdown, the lookup
 				  lists are small enough to render in one go, and we get
 				  keyboard search for free.
 				-->
-				<div class="flex items-center gap-2 text-xs">
-					<label class="text-muted-foreground" for="cases-customer">Customer</label>
-					<select
-						id="cases-customer"
-						value={customerId === null ? '' : String(customerId)}
-						onchange={onCustomerChange}
-						class="h-8 max-w-[14rem] rounded-md border border-input bg-background px-2 text-xs"
-					>
-						<option value="">Any</option>
-						{#each customers as c (c.customer_id)}
-							<option value={String(c.customer_id)}>{c.customer_name}</option>
-						{/each}
-					</select>
-				</div>
+					<div class="flex items-center gap-2 text-xs">
+						<label class="text-muted-foreground" for="cases-customer">Customer</label>
+						<select
+							id="cases-customer"
+							value={customerId === null ? '' : String(customerId)}
+							onchange={onCustomerChange}
+							class="h-8 max-w-[14rem] rounded-md border border-input bg-background px-2 text-xs"
+						>
+							<option value="">Any</option>
+							{#each customers as c (c.customer_id)}
+								<option value={String(c.customer_id)}>{c.customer_name}</option>
+							{/each}
+						</select>
+					</div>
 
-				<div class="flex items-center gap-2 text-xs">
-					<label class="text-muted-foreground" for="cases-owner">Owner</label>
-					<select
-						id="cases-owner"
-						value={ownerId === null ? '' : String(ownerId)}
-						onchange={onOwnerChange}
-						class="h-8 max-w-[14rem] rounded-md border border-input bg-background px-2 text-xs"
-					>
-						<option value="">Any</option>
-						{#each users as u (u.user_id)}
-							<option value={String(u.user_id)}>{u.user_name}</option>
-						{/each}
-					</select>
-				</div>
+					<div class="flex items-center gap-2 text-xs">
+						<label class="text-muted-foreground" for="cases-owner">Owner</label>
+						<select
+							id="cases-owner"
+							value={ownerId === null ? '' : String(ownerId)}
+							onchange={onOwnerChange}
+							class="h-8 max-w-[14rem] rounded-md border border-input bg-background px-2 text-xs"
+						>
+							<option value="">Any</option>
+							{#each users as u (u.user_id)}
+								<option value={String(u.user_id)}>{u.user_name}</option>
+							{/each}
+						</select>
+					</div>
 
-				<!--
+					<!--
 				  Date ranges. Two `<input type=date>` per side; each bound
 				  is independent on the server (no need to pick both).
 				-->
-				<div class="flex items-center gap-1 text-xs">
-					<span class="text-muted-foreground">Opened</span>
-					<input
-						type="date"
-						aria-label="Opened from"
-						bind:value={openFromDate}
-						onchange={onDateChange}
-						class="h-8 rounded-md border border-input bg-background px-2 text-xs"
-					/>
-					<span class="text-muted-foreground">→</span>
-					<input
-						type="date"
-						aria-label="Opened to"
-						bind:value={openToDate}
-						onchange={onDateChange}
-						class="h-8 rounded-md border border-input bg-background px-2 text-xs"
-					/>
-				</div>
+					<div class="flex items-center gap-1 text-xs">
+						<span class="text-muted-foreground">Opened</span>
+						<input
+							type="date"
+							aria-label="Opened from"
+							bind:value={openFromDate}
+							onchange={onDateChange}
+							class="h-8 rounded-md border border-input bg-background px-2 text-xs"
+						/>
+						<span class="text-muted-foreground">→</span>
+						<input
+							type="date"
+							aria-label="Opened to"
+							bind:value={openToDate}
+							onchange={onDateChange}
+							class="h-8 rounded-md border border-input bg-background px-2 text-xs"
+						/>
+					</div>
 
-				<div class="flex items-center gap-1 text-xs">
-					<span class="text-muted-foreground">Closed</span>
-					<input
-						type="date"
-						aria-label="Closed from"
-						bind:value={closeFromDate}
-						onchange={onDateChange}
-						class="h-8 rounded-md border border-input bg-background px-2 text-xs"
-					/>
-					<span class="text-muted-foreground">→</span>
-					<input
-						type="date"
-						aria-label="Closed to"
-						bind:value={closeToDate}
-						onchange={onDateChange}
-						class="h-8 rounded-md border border-input bg-background px-2 text-xs"
-					/>
-				</div>
+					<div class="flex items-center gap-1 text-xs">
+						<span class="text-muted-foreground">Closed</span>
+						<input
+							type="date"
+							aria-label="Closed from"
+							bind:value={closeFromDate}
+							onchange={onDateChange}
+							class="h-8 rounded-md border border-input bg-background px-2 text-xs"
+						/>
+						<span class="text-muted-foreground">→</span>
+						<input
+							type="date"
+							aria-label="Closed to"
+							bind:value={closeToDate}
+							onchange={onDateChange}
+							class="h-8 rounded-md border border-input bg-background px-2 text-xs"
+						/>
+					</div>
 
-				{#if hasActiveFilters}
-					<button
-						type="button"
-						class="ml-auto text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-						onclick={clearAllFilters}
-					>
-						Clear all filters
-					</button>
-				{/if}
+					{#if hasActiveFilters}
+						<button
+							type="button"
+							class="ml-auto text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+							onclick={clearAllFilters}
+						>
+							Clear all filters
+						</button>
+					{/if}
+				</div>
 			</div>
-		</Card.Content>
-	</Card.Root>
+		</div>
 
-	<Card.Root>
-		<!--
+		<div class="flex flex-col">
+			<!--
 		  Card.Header (title + pagination) stays visible during page
 		  scroll. `top-0` anchors to the layout's page-scroll viewport
 		  the same way the sticky `<thead>` below does — keeping the
@@ -646,56 +650,58 @@
 		  so column headers slide *under* it cleanly. `bg-card` is
 		  opaque so rows don't bleed through during scroll.
 		-->
-		<Card.Header class="sticky top-0 z-20 flex flex-row items-center justify-between gap-2 rounded-t-xl bg-card">
-			<div class="flex items-center gap-2">
-				<Card.Title>Cases</Card.Title>
-				{#if range}
-					<span class="text-xs text-muted-foreground tabular-nums">
-						{range.start}–{range.end} of {range.total}
-					</span>
-				{:else if envelope && envelope.total === 0}
-					<span class="text-xs text-muted-foreground">No results</span>
+			<div
+				class="sticky top-0 z-20 flex flex-row items-center justify-between gap-2 rounded-none bg-card px-0 py-2"
+			>
+				<div class="flex items-center gap-2">
+					<Card.Title>Cases</Card.Title>
+					{#if range}
+						<span class="text-xs tabular-nums text-muted-foreground">
+							{range.start}–{range.end} of {range.total}
+						</span>
+					{:else if envelope && envelope.total === 0}
+						<span class="text-xs text-muted-foreground">No results</span>
+					{/if}
+				</div>
+
+				{#if envelope && (envelope.last_page ?? 0) > 1}
+					<div class="flex items-center gap-2 text-xs">
+						<Button
+							variant="outline"
+							size="sm"
+							class="h-7 px-2"
+							disabled={loading || page <= 1}
+							onclick={() => goToPage(page - 1)}
+							aria-label="Previous page"
+						>
+							<ChevronLeftIcon size={14} />
+						</Button>
+						<span class="tabular-nums text-muted-foreground">
+							Page {envelope.current_page} / {envelope.last_page}
+						</span>
+						<Button
+							variant="outline"
+							size="sm"
+							class="h-7 px-2"
+							disabled={loading || page >= (envelope.last_page ?? 1)}
+							onclick={() => goToPage(page + 1)}
+							aria-label="Next page"
+						>
+							<ChevronRightIcon size={14} />
+						</Button>
+					</div>
 				{/if}
 			</div>
 
-			{#if envelope && (envelope.last_page ?? 0) > 1}
-				<div class="flex items-center gap-2 text-xs">
-					<Button
-						variant="outline"
-						size="sm"
-						class="h-7 px-2"
-						disabled={loading || page <= 1}
-						onclick={() => goToPage(page - 1)}
-						aria-label="Previous page"
-					>
-						<ChevronLeftIcon size={14} />
-					</Button>
-					<span class="tabular-nums text-muted-foreground">
-						Page {envelope.current_page} / {envelope.last_page}
-					</span>
-					<Button
-						variant="outline"
-						size="sm"
-						class="h-7 px-2"
-						disabled={loading || page >= (envelope.last_page ?? 1)}
-						onclick={() => goToPage(page + 1)}
-						aria-label="Next page"
-					>
-						<ChevronRightIcon size={14} />
-					</Button>
-				</div>
-			{/if}
-		</Card.Header>
-
-		<Card.Content>
-			{#if loading && !envelope}
-				<div class="space-y-2">
-					{#each Array(8) as _}
-						<Skeleton class="h-10 w-full" />
-					{/each}
-				</div>
-			{:else if envelope && envelope.data.length > 0}
-				<!--
+			<div class="px-0 pb-0">
+				{#if loading && !envelope}
+					<div class="space-y-2">
+						{#each Array(8) as _}
+							<Skeleton class="h-10 w-full" />
+						{/each}
+					</div>
+				{:else if envelope && envelope.data.length > 0}
+					<!--
 				  Don't wrap the table in an inner `overflow-x-auto`. An
 				  intermediate overflow ancestor becomes the scroll
 				  container for any `sticky` descendant, so wrapping here
@@ -703,9 +709,9 @@
 				  doesn't actually scroll vertically — and the header
 				  wouldn't freeze when the user scrolls the page.
 				-->
-				<div class="rounded-md border">
-					<table class="w-full text-sm">
-						<!--
+					<div class="border-t border-border/60">
+						<table class="w-full text-sm">
+							<!--
 						  Sticky table header anchored to the layout's
 						  page-scroll viewport. `top-[3.75rem]` parks it
 						  below the sticky Card.Header above (which is
@@ -714,9 +720,11 @@
 						  for y=0. An opaque background keeps rows from
 						  bleeding through during scroll.
 						-->
-						<thead class="sticky top-[3.75rem] z-10 border-b bg-muted text-left text-xs text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-muted/90">
-							<tr>
-								<!--
+							<thead
+								class="sticky top-11 z-10 border-b bg-muted text-left text-xs text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-muted/90"
+							>
+								<tr>
+									<!--
 								  Sortable column headers. Each header is a button so
 								  it inherits keyboard focus + Enter/Space activation;
 								  `aria-sort` mirrors the active sort state so screen
@@ -726,144 +734,137 @@
 								  `owner` / `opened_by` / `customer_name` / `state`).
 								  Keep them in sync with that switch statement.
 								-->
-								{#each [
-									{ key: 'case_id', label: 'ID', cls: 'w-16' },
-									{ key: 'name', label: 'Name', cls: '' },
-									{ key: 'customer_name', label: 'Customer', cls: 'w-44' },
-									{ key: 'state', label: 'State', cls: 'w-28' },
-									{ key: 'open_date', label: 'Open date', cls: 'w-40' },
-									{ key: 'close_date', label: 'Close date', cls: 'w-40' },
-									{ key: 'soc_id', label: 'SOC ticket', cls: 'w-28' },
-									{ key: 'owner', label: 'Owner', cls: 'w-40' }
-								] as col (col.key)}
-									{@const SortIco = sortIcon(col.key)}
-									{@const active = orderBy === col.key}
-									<th
-										aria-sort={active
-											? sortDir === 'asc'
-												? 'ascending'
-												: 'descending'
-											: 'none'}
-										class="px-3 py-2 font-medium {col.cls}"
-									>
-										<button
-											type="button"
-											onclick={() => toggleSort(col.key)}
-											class="-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-muted {active
-												? 'text-foreground'
-												: ''}"
+									{#each [{ key: 'case_id', label: 'ID', cls: 'w-16' }, { key: 'name', label: 'Name', cls: '' }, { key: 'customer_name', label: 'Customer', cls: 'w-44' }, { key: 'state', label: 'State', cls: 'w-28' }, { key: 'open_date', label: 'Open date', cls: 'w-40' }, { key: 'close_date', label: 'Close date', cls: 'w-40' }, { key: 'soc_id', label: 'SOC ticket', cls: 'w-28' }, { key: 'owner', label: 'Owner', cls: 'w-40' }] as col (col.key)}
+										{@const SortIco = sortIcon(col.key)}
+										{@const active = orderBy === col.key}
+										<th
+											aria-sort={active ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+											class="px-3 py-2 font-medium {col.cls}"
 										>
-											<span>{col.label}</span>
-											<SortIco
-												size={12}
-												class={active ? 'opacity-100' : 'opacity-40'}
-											/>
-										</button>
-									</th>
-								{/each}
-								<th class="w-10 px-3 py-2 text-right font-medium"></th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each envelope.data as c (c.case_id)}
-								<tr class="border-b transition-colors last:border-0 hover:bg-muted/30">
-									<td class="px-3 py-2 text-xs tabular-nums text-muted-foreground">
-										#{c.case_id}
-									</td>
-									<td class="px-3 py-2 text-xs">
-										<a
-											href={`/case/${c.case_id}`}
-											class="text-primary hover:underline"
-											title={c.case_name}
+											<button
+												type="button"
+												onclick={() => toggleSort(col.key)}
+												class="-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-muted {active
+													? 'text-foreground'
+													: ''}"
+											>
+												<span>{col.label}</span>
+												<SortIco size={12} class={active ? 'opacity-100' : 'opacity-40'} />
+											</button>
+										</th>
+									{/each}
+									<th class="w-10 px-3 py-2 text-right font-medium"></th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each envelope.data as c (c.case_id)}
+									<tr class="border-b transition-colors last:border-0 hover:bg-muted/30">
+										<td class="px-3 py-2 text-xs tabular-nums text-muted-foreground">
+											#{c.case_id}
+										</td>
+										<td class="px-3 py-2 text-xs">
+											<a
+												href={`/case/${c.case_id}`}
+												class="text-primary hover:underline"
+												title={c.case_name}
+											>
+												{c.case_name}
+											</a>
+										</td>
+										<td class="px-3 py-2 text-xs">
+											<span title={c.case_customer?.customer_name ?? ''}>
+												{c.case_customer?.customer_name ?? '—'}
+											</span>
+										</td>
+										<td class="px-3 py-2">
+											<span
+												class="inline-flex items-center rounded-md border px-2 py-0.5 text-2xs font-medium uppercase tracking-wide {stateStyle(
+													c.state?.state_name
+												)}"
+											>
+												{c.state?.state_name ?? '—'}
+											</span>
+										</td>
+										<td
+											class="whitespace-nowrap px-3 py-2 text-xs tabular-nums text-muted-foreground"
 										>
-											{c.case_name}
-										</a>
-									</td>
-									<td class="px-3 py-2 text-xs">
-										<span title={c.case_customer?.customer_name ?? ''}>
-											{c.case_customer?.customer_name ?? '—'}
-										</span>
-									</td>
-									<td class="px-3 py-2">
-										<span
-											class="inline-flex items-center rounded-md border px-2 py-0.5 text-2xs font-medium uppercase tracking-wide {stateStyle(
-												c.state?.state_name
-											)}"
+											{formatDate(c.open_date)}
+										</td>
+										<td
+											class="whitespace-nowrap px-3 py-2 text-xs tabular-nums text-muted-foreground"
 										>
-											{c.state?.state_name ?? '—'}
-										</span>
-									</td>
-									<td class="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground tabular-nums">
-										{formatDate(c.open_date)}
-									</td>
-									<td class="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground tabular-nums">
-										{formatDate(c.close_date)}
-									</td>
-									<td class="px-3 py-2 text-xs">{c.case_soc_id || '—'}</td>
-									<td class="px-3 py-2 text-xs">
-										{c.owner?.user_name ?? c.owner?.user_login ?? '—'}
-									</td>
-									<td class="px-3 py-2 text-right">
-										<!--
+											{formatDate(c.close_date)}
+										</td>
+										<td class="px-3 py-2 text-xs">{c.case_soc_id || '—'}</td>
+										<td class="px-3 py-2 text-xs">
+											{c.owner?.user_name ?? c.owner?.user_login ?? '—'}
+										</td>
+										<td class="px-3 py-2 text-right">
+											<!--
 										  Per-row action menu. We deliberately keep "Open"
 										  as a separate explicit link (top item) so the
 										  most-common action is a single click; close /
 										  reopen / delete sit under it for everything that
 										  needs confirmation.
 										-->
-										<DropdownMenu.Root>
-											<DropdownMenu.Trigger>
-												<Button
-													variant="ghost"
-													size="sm"
-													class="h-7 w-7 p-0"
-													aria-label={`Actions for case #${c.case_id}`}
-												>
-													<MoreHorizontalIcon size={14} />
-												</Button>
-											</DropdownMenu.Trigger>
-											<DropdownMenu.Content align="end" class="w-48">
-												<DropdownMenu.Item>
-													{#snippet child({ props })}
-														<a {...props} href={`/case/${c.case_id}`} class="flex items-center gap-2">
-															<ExternalLinkIcon size={14} /> Open case
-														</a>
-													{/snippet}
-												</DropdownMenu.Item>
-												<DropdownMenu.Separator />
-												{#if isClosed(c)}
-													<DropdownMenu.Item onSelect={() => reopenCase(c)}>
-														<LockOpenIcon size={14} class="mr-2" /> Reopen
+											<DropdownMenu.Root>
+												<DropdownMenu.Trigger>
+													<Button
+														variant="ghost"
+														size="sm"
+														class="h-7 w-7 p-0"
+														aria-label={`Actions for case #${c.case_id}`}
+													>
+														<MoreHorizontalIcon size={14} />
+													</Button>
+												</DropdownMenu.Trigger>
+												<DropdownMenu.Content align="end" class="w-48">
+													<DropdownMenu.Item>
+														{#snippet child({ props })}
+															<a
+																{...props}
+																href={`/case/${c.case_id}`}
+																class="flex items-center gap-2"
+															>
+																<ExternalLinkIcon size={14} /> Open case
+															</a>
+														{/snippet}
 													</DropdownMenu.Item>
-												{:else}
-													<DropdownMenu.Item onSelect={() => closeCase(c)}>
-														<LockIcon size={14} class="mr-2" /> Close
+													<DropdownMenu.Separator />
+													{#if isClosed(c)}
+														<DropdownMenu.Item onSelect={() => reopenCase(c)}>
+															<LockOpenIcon size={14} class="mr-2" /> Reopen
+														</DropdownMenu.Item>
+													{:else}
+														<DropdownMenu.Item onSelect={() => closeCase(c)}>
+															<LockIcon size={14} class="mr-2" /> Close
+														</DropdownMenu.Item>
+													{/if}
+													<DropdownMenu.Separator />
+													<DropdownMenu.Item
+														onSelect={() => deleteCase(c)}
+														class="text-destructive focus:bg-destructive/10 focus:text-destructive"
+													>
+														<Trash2Icon size={14} class="mr-2" /> Delete
 													</DropdownMenu.Item>
-												{/if}
-												<DropdownMenu.Separator />
-												<DropdownMenu.Item
-													onSelect={() => deleteCase(c)}
-													class="text-destructive focus:bg-destructive/10 focus:text-destructive"
-												>
-													<Trash2Icon size={14} class="mr-2" /> Delete
-												</DropdownMenu.Item>
-											</DropdownMenu.Content>
-										</DropdownMenu.Root>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{:else if envelope}
-				<p class="py-8 text-center text-sm text-muted-foreground">
-					No cases match the current filters.
-				</p>
-			{:else}
-				<p class="py-8 text-center text-sm text-muted-foreground">Loading…</p>
-			{/if}
-		</Card.Content>
-	</Card.Root>
+												</DropdownMenu.Content>
+											</DropdownMenu.Root>
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				{:else if envelope}
+					<p class="py-8 text-center text-sm text-muted-foreground">
+						No cases match the current filters.
+					</p>
+				{:else}
+					<p class="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+				{/if}
+			</div>
+		</div>
+	</div>
 </div>
 
 <ConfirmationDialog

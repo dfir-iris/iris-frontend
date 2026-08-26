@@ -9,19 +9,18 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { ShieldAlertIcon } from 'lucide-svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { Loading } from '$lib/components/ui/loading';
 	import Searchbar from '$lib/components/ui/searchbar/searchbar.svelte';
-	import {
-		Select,
-		SelectContent,
-		SelectItem,
-		SelectTrigger
-	} from '$lib/components/ui/select';
+	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import AlertsPagination from '../alerts/components/alerts-pagination.svelte';
-	import { AlertClustersService, type PaginatedAlertClusters } from '$lib/services/alert-clusters.service';
+	import {
+		AlertClustersService,
+		type PaginatedAlertClusters
+	} from '$lib/services/alert-clusters.service';
 	import {
 		AlertClusterStatusService,
 		type AlertClusterStatus
@@ -148,7 +147,31 @@
 		!!(titleFilter || statusFilter || severityFilter || customerFilter)
 	);
 
+	// Build the URL to pass as `?back=` when opening a cluster, so the
+	// detail page can offer a back arrow that restores the current filters.
+	const clusterUrl = (id: number) => {
+		const sp = new URLSearchParams();
+		if (titleFilter) sp.set('title', titleFilter);
+		if (statusFilter) sp.set('status', statusFilter);
+		if (severityFilter) sp.set('severity', severityFilter);
+		if (customerFilter) sp.set('customer', customerFilter);
+		if (pageNum > 1) sp.set('p', String(pageNum));
+		if (perPage !== DEFAULT_ITEMS_PER_PAGE) sp.set('pp', String(perPage));
+		const back = sp.toString() ? `/alert-clusters?${sp}` : '/alert-clusters';
+		return `/alert-clusters/${id}?back=${encodeURIComponent(back)}`;
+	};
+
 	onMount(async () => {
+		// Restore filters that were encoded by clusterUrl() when the user
+		// navigated to a cluster and then pressed the back arrow.
+		const sp = page.url.searchParams;
+		if (sp.get('title')) titleFilter = sp.get('title')!;
+		if (sp.get('status')) statusFilter = sp.get('status')!;
+		if (sp.get('severity')) severityFilter = sp.get('severity')!;
+		if (sp.get('customer')) customerFilter = sp.get('customer')!;
+		if (sp.get('p')) pageNum = Number(sp.get('p'));
+		if (sp.get('pp')) perPage = Number(sp.get('pp'));
+
 		void AlertClusterStatusService.list().then((r) => {
 			if (r.data && typeof r.data === 'object') {
 				statuses = (r.data as { data?: AlertClusterStatus[] }).data ?? [];
@@ -171,271 +194,278 @@
 </svelte:head>
 
 <!--
-  Outer wrapper on the app's muted background; the actual workspace
-  is a white `bg-card` panel matching the case detail chrome. Only
-  the table region scrolls; header + filter strip + pagination stay
-  pinned.
+  VISUAL TEST (full-bleed): no outer padding and no card chrome — the
+  workspace is one `bg-card` surface running to the viewport edges, matching
+  the case workspace. Title and filters share a single strip so there's one
+  horizontal rule above the table instead of a card border plus a table
+  border. Only the table region scrolls; the strip and pagination stay pinned.
 -->
-<div class="flex h-full w-full gap-3 p-3 sm:gap-4 sm:p-4">
-	<div
-		class="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-hidden rounded-2xl border border-border/60 bg-card p-6 shadow-elevation-2"
-	>
-	<!-- ==================== Header ==================== -->
-	<div class="flex shrink-0 flex-row items-center gap-4">
-		<h1 class="text-xl font-semibold tracking-tight">Alert Clusters</h1>
-		<span class="text-xs text-muted-foreground">
-			{total} total — alert clusters awaiting triage
-		</span>
-	</div>
-
-	<!-- ==================== Filters row ==================== -->
-	<div class="flex shrink-0 flex-wrap items-center justify-between gap-2">
-		<div class="flex flex-wrap items-center gap-2">
-			<div class="flex h-10">
-				<Select
-					value={statusFilter}
-					onValueChange={(v) => {
-						statusFilter = v;
-						pageNum = 1;
-						void load();
-					}}
-					type="single"
-				>
-					<SelectTrigger>
-						{statusFilter
-							? (statuses.find((s) => String(s.status_id) === statusFilter)?.status_name ??
-								'Any status')
-							: 'Any status'}
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="">Any status</SelectItem>
-						{#each statuses as s (s.status_id)}
-							<SelectItem value={String(s.status_id)}>{s.status_name}</SelectItem>
-						{/each}
-					</SelectContent>
-				</Select>
+<div class="flex h-full w-full">
+	<div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-card">
+		<!-- ============ Header + filters, one strip ============ -->
+		<div
+			class="flex shrink-0 flex-col gap-2 border-b border-border/60 bg-muted/30 px-5 py-2 xl:flex-row xl:items-center xl:justify-between xl:gap-4"
+		>
+			<div class="flex shrink-0 items-baseline gap-2">
+				<h1 class="text-sm font-semibold tracking-tight">Alert Clusters</h1>
+				<span class="whitespace-nowrap text-xs text-muted-foreground">
+					{total} total — awaiting triage
+				</span>
 			</div>
 
-			<div class="flex h-10">
-				<Select
-					value={severityFilter}
-					onValueChange={(v) => {
-						severityFilter = v;
-						pageNum = 1;
-						void load();
-					}}
-					type="single"
-				>
-					<SelectTrigger>
-						{severityFilter
-							? (severities.find((s) => String(s.severity_id) === severityFilter)?.severity_name ??
-								'Any severity')
-							: 'Any severity'}
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="">Any severity</SelectItem>
-						{#each severities as s (s.severity_id)}
-							<SelectItem value={String(s.severity_id)}>{s.severity_name}</SelectItem>
-						{/each}
-					</SelectContent>
-				</Select>
-			</div>
+			<div class="flex flex-wrap items-center justify-end gap-2">
+				<div class="flex flex-wrap items-center gap-2">
+					<div class="flex h-10">
+						<Select
+							value={statusFilter}
+							onValueChange={(v) => {
+								statusFilter = v;
+								pageNum = 1;
+								void load();
+							}}
+							type="single"
+						>
+							<SelectTrigger>
+								{statusFilter
+									? (statuses.find((s) => String(s.status_id) === statusFilter)?.status_name ??
+										'Any status')
+									: 'Any status'}
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="">Any status</SelectItem>
+								{#each statuses as s (s.status_id)}
+									<SelectItem value={String(s.status_id)}>{s.status_name}</SelectItem>
+								{/each}
+							</SelectContent>
+						</Select>
+					</div>
 
-			<div class="flex h-10">
-				<Select
-					value={customerFilter}
-					onValueChange={(v) => {
-						customerFilter = v;
-						pageNum = 1;
-						void load();
-					}}
-					type="single"
-				>
-					<SelectTrigger>
-						{customerFilter
-							? (customers.find((c) => String(c.customer_id) === customerFilter)?.customer_name ??
-								'Any customer')
-							: 'Any customer'}
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="">Any customer</SelectItem>
-						{#each customers as c (c.customer_id)}
-							<SelectItem value={String(c.customer_id)}>{c.customer_name}</SelectItem>
-						{/each}
-					</SelectContent>
-				</Select>
-			</div>
+					<div class="flex h-10">
+						<Select
+							value={severityFilter}
+							onValueChange={(v) => {
+								severityFilter = v;
+								pageNum = 1;
+								void load();
+							}}
+							type="single"
+						>
+							<SelectTrigger>
+								{severityFilter
+									? (severities.find((s) => String(s.severity_id) === severityFilter)
+											?.severity_name ?? 'Any severity')
+									: 'Any severity'}
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="">Any severity</SelectItem>
+								{#each severities as s (s.severity_id)}
+									<SelectItem value={String(s.severity_id)}>{s.severity_name}</SelectItem>
+								{/each}
+							</SelectContent>
+						</Select>
+					</div>
 
-			{#if hasActiveFilters}
-				<Button variant="outline" size="sm" onclick={clearFilters}>Clear</Button>
-			{/if}
+					<div class="flex h-10">
+						<Select
+							value={customerFilter}
+							onValueChange={(v) => {
+								customerFilter = v;
+								pageNum = 1;
+								void load();
+							}}
+							type="single"
+						>
+							<SelectTrigger>
+								{customerFilter
+									? (customers.find((c) => String(c.customer_id) === customerFilter)
+											?.customer_name ?? 'Any customer')
+									: 'Any customer'}
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="">Any customer</SelectItem>
+								{#each customers as c (c.customer_id)}
+									<SelectItem value={String(c.customer_id)}>{c.customer_name}</SelectItem>
+								{/each}
+							</SelectContent>
+						</Select>
+					</div>
+
+					{#if hasActiveFilters}
+						<Button variant="outline" size="sm" onclick={clearFilters}>Clear</Button>
+					{/if}
+				</div>
+
+				<div class="flex items-center gap-2">
+					<div class="flex min-w-56">
+						<Searchbar placeholder="Search by title" bind:value={titleFilter} />
+					</div>
+
+					<div class="flex h-10">
+						<Select
+							value={String(perPage)}
+							onValueChange={(value) => {
+								perPage = Number(value);
+								pageNum = 1;
+								void load();
+							}}
+							type="single"
+						>
+							<SelectTrigger>{perPage} entries per page</SelectTrigger>
+							<SelectContent>
+								{#each perPageOptions as opt (opt.value)}
+									<SelectItem value={opt.value}>{opt.label}</SelectItem>
+								{/each}
+							</SelectContent>
+						</Select>
+					</div>
+				</div>
+			</div>
 		</div>
 
-		<div class="flex items-center gap-2">
-			<div class="flex min-w-56">
-				<Searchbar placeholder="Search by title" bind:value={titleFilter} />
-			</div>
-
-			<div class="flex h-10">
-				<Select
-					value={String(perPage)}
-					onValueChange={(value) => {
-						perPage = Number(value);
-						pageNum = 1;
-						void load();
-					}}
-					type="single"
-				>
-					<SelectTrigger>{perPage} entries per page</SelectTrigger>
-					<SelectContent>
-						{#each perPageOptions as opt (opt.value)}
-							<SelectItem value={opt.value}>{opt.label}</SelectItem>
-						{/each}
-					</SelectContent>
-				</Select>
-			</div>
-		</div>
-	</div>
-
-	<!-- ==================== Table ==================== -->
-	<div class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border">
-		<div class="flex-1 overflow-y-auto">
-			<table class="w-full text-sm">
-				<thead
-					class="sticky top-0 z-10 bg-muted/50 text-left text-2xs uppercase tracking-wide text-muted-foreground backdrop-blur"
-				>
-					<tr>
-						<th class="px-4 py-2.5 font-medium">Alert Cluster</th>
-						<th class="px-4 py-2.5 font-medium">Severity</th>
-						<th class="px-4 py-2.5 font-medium">Status</th>
-						<th class="px-4 py-2.5 text-center font-medium">Alerts</th>
-						<th class="px-4 py-2.5 font-medium">Customer</th>
-						<th class="px-4 py-2.5 font-medium">Owner</th>
-						<th class="px-4 py-2.5 font-medium">Source rule</th>
-						<th class="px-4 py-2.5 font-medium">Opened</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#if loading}
+		<!--
+	  ==================== Table ====================
+	  Full-bleed: the rounded border that used to box the table off is gone,
+	  so rows run edge to edge like the case list panes. The strip above and
+	  the pagination below supply the only two rules.
+	-->
+		<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+			<div class="flex-1 overflow-y-auto">
+				<table class="w-full text-sm">
+					<thead
+						class="sticky top-0 z-10 bg-muted/50 text-left text-2xs uppercase tracking-wide text-muted-foreground backdrop-blur"
+					>
 						<tr>
-							<td colspan="8" class="py-16">
-								<div class="flex justify-center"><Loading /></div>
-							</td>
+							<th class="px-4 py-2.5 font-medium">Alert Cluster</th>
+							<th class="px-4 py-2.5 font-medium">Severity</th>
+							<th class="px-4 py-2.5 font-medium">Status</th>
+							<th class="px-4 py-2.5 text-center font-medium">Alerts</th>
+							<th class="px-4 py-2.5 font-medium">Customer</th>
+							<th class="px-4 py-2.5 font-medium">Owner</th>
+							<th class="px-4 py-2.5 font-medium">Source rule</th>
+							<th class="px-4 py-2.5 font-medium">Opened</th>
 						</tr>
-					{:else if clusters.length === 0}
-						<tr>
-							<td colspan="8" class="px-4 py-16">
-								<div class="flex flex-col items-center gap-2 text-center">
-									<ShieldAlertIcon class="h-8 w-8 text-muted-foreground/50" />
-									<p class="text-sm font-medium">No alert clusters match</p>
-									<p class="text-xs text-muted-foreground">
-										{hasActiveFilters
-											? 'Try widening your filters.'
-											: 'AlertClusters will appear here as rules fire.'}
-									</p>
-								</div>
-							</td>
-						</tr>
-					{:else}
-						{#each clusters as inc (inc.cluster_id)}
-							<tr
-								class="cursor-pointer border-t transition-colors hover:bg-muted/30"
-								onclick={() => goto(`/alert-clusters/${inc.cluster_id}`)}
-							>
-								<td class="max-w-md px-4 py-3">
-									<div class="flex min-w-0 items-center gap-2">
-										<span class="truncate font-medium">
-											<span class="text-muted-foreground">#{inc.cluster_id}</span>
-											— {inc.cluster_title}
-										</span>
-										{#if inc.cluster_case_id}
-											<span
-												class="rounded-full bg-green-500/10 px-1.5 py-0.5 text-2xs font-medium text-green-700"
-												title="Escalated to case"
-											>
-												→ case #{inc.cluster_case_id}
-											</span>
-										{/if}
-									</div>
-								</td>
-
-								<td class="px-4 py-3">
-									<span
-										class="inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-medium {severityChip(
-											severityLabel(inc.cluster_severity_id)
-										)}"
-									>
-										{severityLabel(inc.cluster_severity_id)}
-									</span>
-								</td>
-
-								<td class="px-4 py-3">
-									<span
-										class="rounded-full px-2 py-0.5 text-2xs font-medium {statusChip(
-											inc.status?.status_name ?? ''
-										)}"
-									>
-										{inc.status?.status_name ?? 'Unknown'}
-									</span>
-								</td>
-
-								<td class="px-4 py-3 text-center font-medium">
-									{(inc.alert_ids ?? []).length}
-								</td>
-
-								<td class="px-4 py-3 text-xs text-muted-foreground">
-									{inc.customer?.customer_name ?? '—'}
-								</td>
-
-								<td class="px-4 py-3">
-									{#if inc.owner}
-										<div class="flex items-center gap-2">
-											<UserAvatar
-												userId={inc.owner.id}
-												name={inc.owner.user_name}
-												size="size-6"
-											/>
-											<span class="text-xs">{inc.owner.user_name}</span>
-										</div>
-									{:else}
-										<span class="text-xs italic text-muted-foreground">Unassigned</span>
-									{/if}
-								</td>
-
-								<td class="px-4 py-3 text-xs">
-									{#if inc.source_rule}
-										<span class="text-muted-foreground">{inc.source_rule.rule_name}</span>
-									{:else}
-										<span class="text-muted-foreground">—</span>
-									{/if}
-								</td>
-
-								<td class="px-4 py-3 text-xs text-muted-foreground">
-									{mediumDateTimeFormatter(new Date(inc.cluster_creation_time))}
+					</thead>
+					<tbody>
+						{#if loading}
+							<tr>
+								<td colspan="8" class="py-16">
+									<div class="flex justify-center"><Loading /></div>
 								</td>
 							</tr>
-						{/each}
-					{/if}
-				</tbody>
-			</table>
-		</div>
-	</div>
+						{:else if clusters.length === 0}
+							<tr>
+								<td colspan="8" class="px-4 py-16">
+									<div class="flex flex-col items-center gap-2 text-center">
+										<ShieldAlertIcon class="h-8 w-8 text-muted-foreground/50" />
+										<p class="text-sm font-medium">No alert clusters match</p>
+										<p class="text-xs text-muted-foreground">
+											{hasActiveFilters
+												? 'Try widening your filters.'
+												: 'AlertClusters will appear here as rules fire.'}
+										</p>
+									</div>
+								</td>
+							</tr>
+						{:else}
+							{#each clusters as inc (inc.cluster_id)}
+								<tr
+									class="cursor-pointer border-t transition-colors hover:bg-muted/30"
+									onclick={() => goto(clusterUrl(inc.cluster_id))}
+								>
+									<td class="max-w-md px-4 py-3">
+										<div class="flex min-w-0 items-center gap-2">
+											<span class="truncate font-medium">
+												<span class="text-muted-foreground">#{inc.cluster_id}</span>
+												— {inc.cluster_title}
+											</span>
+											{#if inc.cluster_case_id}
+												<span
+													class="rounded-full bg-green-500/10 px-1.5 py-0.5 text-2xs font-medium text-green-700"
+													title="Escalated to case"
+												>
+													→ case #{inc.cluster_case_id}
+												</span>
+											{/if}
+										</div>
+									</td>
 
-	<!-- ==================== Pagination ==================== -->
-	{#if total > 0 && totalPages > 1}
-		<div class="flex shrink-0 items-center justify-between">
-			<p class="text-2xs text-muted-foreground">
-				Page {pageNum} of {totalPages} — {total} alert cluster{total === 1 ? '' : 's'}
-			</p>
-			<AlertsPagination
-				page={pageNum}
-				pages={totalPages}
-				onPageChange={(p) => {
-					pageNum = p;
-					void load();
-				}}
-			/>
+									<td class="px-4 py-3">
+										<span
+											class="inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-medium {severityChip(
+												severityLabel(inc.cluster_severity_id)
+											)}"
+										>
+											{severityLabel(inc.cluster_severity_id)}
+										</span>
+									</td>
+
+									<td class="px-4 py-3">
+										<span
+											class="rounded-full px-2 py-0.5 text-2xs font-medium {statusChip(
+												inc.status?.status_name ?? ''
+											)}"
+										>
+											{inc.status?.status_name ?? 'Unknown'}
+										</span>
+									</td>
+
+									<td class="px-4 py-3 text-center font-medium">
+										{(inc.alert_ids ?? []).length}
+									</td>
+
+									<td class="px-4 py-3 text-xs text-muted-foreground">
+										{inc.customer?.customer_name ?? '—'}
+									</td>
+
+									<td class="px-4 py-3">
+										{#if inc.owner}
+											<div class="flex items-center gap-2">
+												<UserAvatar
+													userId={inc.owner.id}
+													name={inc.owner.user_name}
+													size="size-6"
+												/>
+												<span class="text-xs">{inc.owner.user_name}</span>
+											</div>
+										{:else}
+											<span class="text-xs italic text-muted-foreground">Unassigned</span>
+										{/if}
+									</td>
+
+									<td class="px-4 py-3 text-xs">
+										{#if inc.source_rule}
+											<span class="text-muted-foreground">{inc.source_rule.rule_name}</span>
+										{:else}
+											<span class="text-muted-foreground">—</span>
+										{/if}
+									</td>
+
+									<td class="px-4 py-3 text-xs text-muted-foreground">
+										{mediumDateTimeFormatter(new Date(inc.cluster_creation_time))}
+									</td>
+								</tr>
+							{/each}
+						{/if}
+					</tbody>
+				</table>
+			</div>
 		</div>
-	{/if}
+
+		<!-- ==================== Pagination ==================== -->
+		{#if total > 0 && totalPages > 1}
+			<div class="flex shrink-0 items-center justify-between border-t border-border/60 px-5 py-2">
+				<p class="text-2xs text-muted-foreground">
+					Page {pageNum} of {totalPages} — {total} alert cluster{total === 1 ? '' : 's'}
+				</p>
+				<AlertsPagination
+					page={pageNum}
+					pages={totalPages}
+					onPageChange={(p) => {
+						pageNum = p;
+						void load();
+					}}
+				/>
+			</div>
+		{/if}
 	</div>
 </div>

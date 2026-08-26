@@ -193,10 +193,7 @@
 				}}
 			/>
 		{:else}
-			<div
-				use:handleScrollContainerRef
-				class="-mx-2 flex h-full min-h-0 flex-col overflow-y-auto border-t border-border/50"
-			>
+			<div use:handleScrollContainerRef class="-mx-2 flex h-full min-h-0 flex-col overflow-y-auto">
 				{#each displayTasks as task (task.id)}
 					<div
 						role="button"

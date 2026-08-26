@@ -313,8 +313,13 @@
 
 			<div class="flex min-h-0 flex-1 flex-col p-0">
 				<Tabs bind:value={activeTab} class="flex min-h-0 flex-1 flex-col">
-					<div class="flex shrink-0 items-center justify-between border-b bg-muted/20 pr-4">
-						<TabsList class="h-auto rounded-none border-0 bg-transparent p-0">
+					<!--
+					  VISUAL TEST (lighter chrome): keeps `border-b` — the active
+					  tab's underline needs a baseline to sit on — but drops the
+					  `bg-muted/20` tint, so this is a rule instead of a band.
+					-->
+					<div class="relative flex shrink-0 items-center border-b">
+						<TabsList class="h-auto w-full rounded-none border-0 bg-transparent p-0">
 							<TabsTrigger
 								value="details"
 								class="flex items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
@@ -406,15 +411,22 @@
 						  type, same customer) has been seen on another case
 						  the analyst can read; clicking the badge opens a
 						  popover with the matching case list.
+
+						  Absolutely positioned so it sits outside the tab row's
+						  flow: the badge appears asynchronously (and only for
+						  some assets), and in flow it would shift the centred
+						  TabsList sideways the moment it loaded.
 						-->
-						<SeenElsewhereBadge
-							objectLabel="asset"
-							objectId={asset.asset_id}
-							load={async () => {
-								const res = await CaseAssetsService.listOtherCaseLinks(caseId, asset.asset_id);
-								return res.ok && Array.isArray(res.data) ? res.data : null;
-							}}
-						/>
+						<div class="absolute right-4 top-1/2 -translate-y-1/2">
+							<SeenElsewhereBadge
+								objectLabel="asset"
+								objectId={asset.asset_id}
+								load={async () => {
+									const res = await CaseAssetsService.listOtherCaseLinks(caseId, asset.asset_id);
+									return res.ok && Array.isArray(res.data) ? res.data : null;
+								}}
+							/>
+						</div>
 					</div>
 
 					<!--

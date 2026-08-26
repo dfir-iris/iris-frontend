@@ -24,7 +24,6 @@
 		CheckIcon,
 		ChevronLeftIcon,
 		ChevronRightIcon,
-		FileTextIcon,
 		RefreshCwIcon,
 		XIcon
 	} from 'lucide-svelte';
@@ -287,8 +286,14 @@
 
 		const caseIdsRaw = params.get('case_ids') ?? '';
 		const userIdsRaw = params.get('user_ids') ?? '';
-		selectedCaseIds = caseIdsRaw.split(',').map((s) => s.trim()).filter(Boolean);
-		selectedUserIds = userIdsRaw.split(',').map((s) => s.trim()).filter(Boolean);
+		selectedCaseIds = caseIdsRaw
+			.split(',')
+			.map((s) => s.trim())
+			.filter(Boolean);
+		selectedUserIds = userIdsRaw
+			.split(',')
+			.map((s) => s.trim())
+			.filter(Boolean);
 
 		// Fire-and-forget label resolution so trigger summaries stop
 		// saying "Case #42" / "User #7" the moment the lookups land.
@@ -324,165 +329,173 @@
 	<title>Activities</title>
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-8">
-	<header class="flex items-center justify-between gap-3">
-		<div class="flex items-center gap-3">
-			<FileTextIcon size={28} class="!stroke-2" />
-			<div>
-				<h1 class="text-xl font-semibold">User activities</h1>
-				<p class="text-xs text-muted-foreground">
+<!--
+  VISUAL TEST (full-bleed + centred column): the page is one `bg-card`
+  surface with no outer padding, matching the case workspace. But unlike a
+  case, this list is far narrower than a wide viewport — stretched to the
+  full width the eye has to travel across near-empty columns — so the body
+  sits in a centred `max-w-6xl` column. The header rule spans the whole
+  width; its contents align to the same column as the table below it.
+-->
+<div class="flex min-h-full w-full flex-col bg-card">
+	<div class="shrink-0 border-b border-border/60 bg-muted/30 px-5 py-2">
+		<div class="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3">
+			<div class="flex min-w-0 items-baseline gap-2">
+				<h1 class="text-sm font-semibold tracking-tight">User activities</h1>
+				<span class="truncate text-xs text-muted-foreground">
 					Recent activity across the cases you have access to.
-				</p>
+				</span>
 			</div>
+
+			<Button variant="outline" size="sm" onclick={refresh} disabled={loading}>
+				<RefreshCwIcon size={14} class={`mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+				Refresh
+			</Button>
 		</div>
+	</div>
 
-		<Button variant="outline" size="sm" onclick={refresh} disabled={loading}>
-			<RefreshCwIcon size={14} class={`mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-			Refresh
-		</Button>
-	</header>
-
-	<!--
+	<div class="mx-auto flex w-full max-w-6xl flex-col px-5 py-4">
+		<!--
 	  Filter card scrolls naturally with the page. We used to make it
 	  `sticky top-0`, but now the results Card.Header below it owns the
 	  sticky slot (so the pager + "N–M of X" stays visible during long
 	  scrolls). Two sticky tops anchored to the same scroll container
 	  fight for y=0 and visually collide — keep only one.
 	-->
-	<Card.Root class="shadow-elevation-1">
-		<Card.Content class="flex flex-col gap-4 pt-6">
-			<!--
+		<div class="flex flex-col">
+			<div class="flex flex-col gap-4 border-b border-border/60 p-0 pb-4">
+				<!--
 			  Row 1: free-text search + the two scope pickers + Search.
 			  Pickers fire their own submit() on change so the user
 			  doesn't have to re-click Search to apply a multi-select.
 			-->
-			<div class="flex flex-col gap-2 lg:flex-row lg:items-stretch">
-				<Input
-					bind:value={searchValue}
-					onkeydown={handleSearchKey}
-					placeholder="Search in activity description…"
-					class="flex-1"
-					aria-label="Search activities"
-				/>
-				<div class="lg:w-72">
-					<CaseScopePicker
-						values={selectedCaseIds}
-						labels={caseLabelsById}
-						onChange={onCaseScopeChange}
+				<div class="flex flex-col gap-2 lg:flex-row lg:items-stretch">
+					<Input
+						bind:value={searchValue}
+						onkeydown={handleSearchKey}
+						placeholder="Search in activity description…"
+						class="flex-1"
+						aria-label="Search activities"
 					/>
+					<div class="lg:w-72">
+						<CaseScopePicker
+							values={selectedCaseIds}
+							labels={caseLabelsById}
+							onChange={onCaseScopeChange}
+						/>
+					</div>
+					<div class="lg:w-64">
+						<UserPicker
+							values={selectedUserIds}
+							labels={userLabelsById}
+							onChange={onUserScopeChange}
+						/>
+					</div>
+					<Button onclick={submit} disabled={loading}>
+						{loading ? 'Searching…' : 'Search'}
+					</Button>
 				</div>
-				<div class="lg:w-64">
-					<UserPicker
-						values={selectedUserIds}
-						labels={userLabelsById}
-						onChange={onUserScopeChange}
-					/>
-				</div>
-				<Button onclick={submit} disabled={loading}>
-					{loading ? 'Searching…' : 'Search'}
-				</Button>
-			</div>
 
-			<!--
+				<!--
 			  Row 2: date window + source-of-event chip groups. Date
 			  inputs use the native picker; both ends are optional so
 			  users can give an open-ended bound (e.g. "since 2024-01").
 			-->
-			<div class="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
-				<div class="flex items-center gap-2 text-xs">
-					<label class="text-muted-foreground" for="activities-date-from">From</label>
-					<input
-						id="activities-date-from"
-						type="date"
-						bind:value={dateFrom}
-						onchange={onDateChange}
-						class="h-8 rounded-md border border-input bg-background px-2 text-xs"
-					/>
-				</div>
-				<div class="flex items-center gap-2 text-xs">
-					<label class="text-muted-foreground" for="activities-date-to">To</label>
-					<input
-						id="activities-date-to"
-						type="date"
-						bind:value={dateTo}
-						onchange={onDateChange}
-						class="h-8 rounded-md border border-input bg-background px-2 text-xs"
-					/>
-				</div>
+				<div class="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
+					<div class="flex items-center gap-2 text-xs">
+						<label class="text-muted-foreground" for="activities-date-from">From</label>
+						<input
+							id="activities-date-from"
+							type="date"
+							bind:value={dateFrom}
+							onchange={onDateChange}
+							class="h-8 rounded-md border border-input bg-background px-2 text-xs"
+						/>
+					</div>
+					<div class="flex items-center gap-2 text-xs">
+						<label class="text-muted-foreground" for="activities-date-to">To</label>
+						<input
+							id="activities-date-to"
+							type="date"
+							bind:value={dateTo}
+							onchange={onDateChange}
+							class="h-8 rounded-md border border-input bg-background px-2 text-xs"
+						/>
+					</div>
 
-				<!-- Source chips: API / Manual / Any. Each chip group is
+					<!-- Source chips: API / Manual / Any. Each chip group is
 				     tri-state; clicking the active chip clears its filter. -->
-				<div class="flex items-center gap-1.5 text-xs">
-					<span class="text-muted-foreground">Source:</span>
-					<button
-						type="button"
-						aria-pressed={apiActive}
-						onclick={() => setApiFilter(apiActive ? null : true)}
-						class="rounded-md border px-2 py-1 transition-colors {apiActive
-							? 'border-primary/40 bg-primary/10 text-foreground'
-							: 'border-border bg-card text-muted-foreground hover:bg-muted/50'}"
-					>
-						From API
-					</button>
-					<button
-						type="button"
-						aria-pressed={uiActive}
-						onclick={() => setApiFilter(uiActive ? null : false)}
-						class="rounded-md border px-2 py-1 transition-colors {uiActive
-							? 'border-primary/40 bg-primary/10 text-foreground'
-							: 'border-border bg-card text-muted-foreground hover:bg-muted/50'}"
-					>
-						From UI
-					</button>
+					<div class="flex items-center gap-1.5 text-xs">
+						<span class="text-muted-foreground">Source:</span>
+						<button
+							type="button"
+							aria-pressed={apiActive}
+							onclick={() => setApiFilter(apiActive ? null : true)}
+							class="rounded-md border px-2 py-1 transition-colors {apiActive
+								? 'border-primary/40 bg-primary/10 text-foreground'
+								: 'border-border bg-card text-muted-foreground hover:bg-muted/50'}"
+						>
+							From API
+						</button>
+						<button
+							type="button"
+							aria-pressed={uiActive}
+							onclick={() => setApiFilter(uiActive ? null : false)}
+							class="rounded-md border px-2 py-1 transition-colors {uiActive
+								? 'border-primary/40 bg-primary/10 text-foreground'
+								: 'border-border bg-card text-muted-foreground hover:bg-muted/50'}"
+						>
+							From UI
+						</button>
+					</div>
+
+					<div class="flex items-center gap-1.5 text-xs">
+						<span class="text-muted-foreground">Input:</span>
+						<button
+							type="button"
+							aria-pressed={manualActive}
+							onclick={() => setManualFilter(manualActive ? null : true)}
+							class="rounded-md border px-2 py-1 transition-colors {manualActive
+								? 'border-primary/40 bg-primary/10 text-foreground'
+								: 'border-border bg-card text-muted-foreground hover:bg-muted/50'}"
+						>
+							Manual
+						</button>
+						<button
+							type="button"
+							aria-pressed={autoActive}
+							onclick={() => setManualFilter(autoActive ? null : false)}
+							class="rounded-md border px-2 py-1 transition-colors {autoActive
+								? 'border-primary/40 bg-primary/10 text-foreground'
+								: 'border-border bg-card text-muted-foreground hover:bg-muted/50'}"
+						>
+							Automated
+						</button>
+					</div>
+
+					<label class="inline-flex items-center gap-2 text-xs text-muted-foreground">
+						<Checkbox
+							checked={includeNonCase}
+							onCheckedChange={(v) => onIncludeChange(v === true)}
+						/>
+						Include non-case-related (login, global tasks…)
+					</label>
+
+					{#if hasActiveFilters}
+						<button
+							type="button"
+							class="ml-auto text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+							onclick={clearAllFilters}
+						>
+							Clear all filters
+						</button>
+					{/if}
 				</div>
-
-				<div class="flex items-center gap-1.5 text-xs">
-					<span class="text-muted-foreground">Input:</span>
-					<button
-						type="button"
-						aria-pressed={manualActive}
-						onclick={() => setManualFilter(manualActive ? null : true)}
-						class="rounded-md border px-2 py-1 transition-colors {manualActive
-							? 'border-primary/40 bg-primary/10 text-foreground'
-							: 'border-border bg-card text-muted-foreground hover:bg-muted/50'}"
-					>
-						Manual
-					</button>
-					<button
-						type="button"
-						aria-pressed={autoActive}
-						onclick={() => setManualFilter(autoActive ? null : false)}
-						class="rounded-md border px-2 py-1 transition-colors {autoActive
-							? 'border-primary/40 bg-primary/10 text-foreground'
-							: 'border-border bg-card text-muted-foreground hover:bg-muted/50'}"
-					>
-						Automated
-					</button>
-				</div>
-
-				<label class="inline-flex items-center gap-2 text-xs text-muted-foreground">
-					<Checkbox
-						checked={includeNonCase}
-						onCheckedChange={(v) => onIncludeChange(v === true)}
-					/>
-					Include non-case-related (login, global tasks…)
-				</label>
-
-				{#if hasActiveFilters}
-					<button
-						type="button"
-						class="ml-auto text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-						onclick={clearAllFilters}
-					>
-						Clear all filters
-					</button>
-				{/if}
 			</div>
-		</Card.Content>
-	</Card.Root>
+		</div>
 
-	<Card.Root>
-		<!--
+		<div class="flex flex-col">
+			<!--
 		  Card.Header (range + pagination) stays visible during page
 		  scroll. Same convention as the Manage Cases page: the layout's
 		  page-scroll viewport is the sticky anchor, `top-0` is correct
@@ -490,87 +503,93 @@
 		  it above the sticky `<thead>` below so column headers slide
 		  under it cleanly when rows scroll.
 		-->
-		<Card.Header class="sticky top-0 z-20 flex flex-row items-center justify-between gap-2 rounded-t-xl bg-card">
-			<div class="flex items-center gap-2">
-				<Card.Title>Activity feed</Card.Title>
-				{#if range}
-					<span class="text-xs text-muted-foreground tabular-nums">
-						{range.start}–{range.end} of {range.total}
-					</span>
-				{:else if envelope && envelope.total === 0}
-					<span class="text-xs text-muted-foreground">No results</span>
+			<div
+				class="sticky top-0 z-20 flex flex-row items-center justify-between gap-2 rounded-none bg-card px-0 py-2"
+			>
+				<div class="flex items-center gap-2">
+					<Card.Title>Activity feed</Card.Title>
+					{#if range}
+						<span class="text-xs tabular-nums text-muted-foreground">
+							{range.start}–{range.end} of {range.total}
+						</span>
+					{:else if envelope && envelope.total === 0}
+						<span class="text-xs text-muted-foreground">No results</span>
+					{/if}
+				</div>
+
+				{#if envelope && (envelope.last_page ?? 0) > 1}
+					<div class="flex items-center gap-2 text-xs">
+						<Button
+							variant="outline"
+							size="sm"
+							class="h-7 px-2"
+							disabled={loading || page <= 1}
+							onclick={() => goToPage(page - 1)}
+							aria-label="Previous page"
+						>
+							<ChevronLeftIcon size={14} />
+						</Button>
+						<span class="tabular-nums text-muted-foreground">
+							Page {envelope.current_page} / {envelope.last_page}
+						</span>
+						<Button
+							variant="outline"
+							size="sm"
+							class="h-7 px-2"
+							disabled={loading || page >= (envelope.last_page ?? 1)}
+							onclick={() => goToPage(page + 1)}
+							aria-label="Next page"
+						>
+							<ChevronRightIcon size={14} />
+						</Button>
+					</div>
 				{/if}
 			</div>
 
-			{#if envelope && (envelope.last_page ?? 0) > 1}
-				<div class="flex items-center gap-2 text-xs">
-					<Button
-						variant="outline"
-						size="sm"
-						class="h-7 px-2"
-						disabled={loading || page <= 1}
-						onclick={() => goToPage(page - 1)}
-						aria-label="Previous page"
-					>
-						<ChevronLeftIcon size={14} />
-					</Button>
-					<span class="tabular-nums text-muted-foreground">
-						Page {envelope.current_page} / {envelope.last_page}
-					</span>
-					<Button
-						variant="outline"
-						size="sm"
-						class="h-7 px-2"
-						disabled={loading || page >= (envelope.last_page ?? 1)}
-						onclick={() => goToPage(page + 1)}
-						aria-label="Next page"
-					>
-						<ChevronRightIcon size={14} />
-					</Button>
-				</div>
-			{/if}
-		</Card.Header>
-
-		<Card.Content>
-			{#if loading && !envelope}
-				<div class="space-y-2">
-					{#each Array(8) as _}
-						<Skeleton class="h-10 w-full" />
-					{/each}
-				</div>
-			{:else if envelope && envelope.data.length > 0}
-				<!--
+			<div class="px-0 pb-0">
+				{#if loading && !envelope}
+					<div class="space-y-2">
+						{#each Array(8) as _}
+							<Skeleton class="h-10 w-full" />
+						{/each}
+					</div>
+				{:else if envelope && envelope.data.length > 0}
+					<!--
 				  No inner `overflow-x-auto`: that ancestor would
 				  intercept the sticky `<thead>` and anchor it to a
 				  wrapper that doesn't scroll vertically, so column
 				  headers wouldn't freeze with page scroll.
 				-->
-				<div class="rounded-md border">
-					<table class="w-full text-sm">
-						<!--
+					<div class="border-t border-border/60">
+						<table class="w-full text-sm">
+							<!--
 						  Sticky table header parked below the sticky
-						  Card.Header above (Card.Header is ~60px tall
-						  thanks to its `p-6` padding, so `top-[3.75rem]`
-						  stacks them without collision).
+						  bar above. That bar lost the card's `p-6` when the
+						  chrome was flattened, so it is ~44px now and the
+						  offset is `top-11` rather than `top-[3.75rem]`.
 						-->
-						<thead class="sticky top-[3.75rem] z-10 border-b bg-muted text-left text-xs text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-muted/90">
-							<tr>
-								<th class="w-44 px-3 py-2 font-medium">Date</th>
-								<th class="w-40 px-3 py-2 font-medium">User</th>
-								<th class="w-56 px-3 py-2 font-medium">Case</th>
-								<th class="w-20 px-3 py-2 text-center font-medium">Manual</th>
-								<th class="w-20 px-3 py-2 text-center font-medium">API</th>
-								<th class="px-3 py-2 font-medium">Activity</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each envelope.data as row (row.id)}
-								<tr class="border-b transition-colors last:border-0 hover:bg-muted/30">
-									<td class="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground tabular-nums">
-										{formatDate(row.activity_date)}
-									</td>
-									<td class="whitespace-nowrap px-3 py-2 text-xs">
-										<!--
+							<thead
+								class="sticky top-11 z-10 border-b bg-muted text-left text-xs text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-muted/90"
+							>
+								<tr>
+									<th class="w-44 px-3 py-2 font-medium">Date</th>
+									<th class="w-40 px-3 py-2 font-medium">User</th>
+									<th class="w-56 px-3 py-2 font-medium">Case</th>
+									<th class="w-20 px-3 py-2 text-center font-medium">Manual</th>
+									<th class="w-20 px-3 py-2 text-center font-medium">API</th>
+									<th class="px-3 py-2 font-medium">Activity</th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each envelope.data as row (row.id)}
+									<tr class="border-b transition-colors last:border-0 hover:bg-muted/30">
+										<td
+											class="whitespace-nowrap px-3 py-2 text-xs tabular-nums text-muted-foreground"
+										>
+											{formatDate(row.activity_date)}
+										</td>
+										<td class="whitespace-nowrap px-3 py-2 text-xs">
+											<!--
 										  `user_name` is NULL whenever the row has no
 										  authenticated actor: a rejected sign-in, a
 										  background/system action, or an account deleted
@@ -581,90 +600,88 @@
 										  failures the attempted username is preserved in
 										  the activity description.
 										-->
-										{#if row.user_name}
-											{row.user_name}
-										{:else}
-											<span
-												class="text-muted-foreground italic"
-												title="Not attributable to an account — a failed sign-in, a system action, or a since-deleted user."
-											>
-												No user
-											</span>
-										{/if}
-									</td>
-									<td class="px-3 py-2 text-xs">
-										{#if row.case_id !== null && row.case_name}
-											<!--
+											{#if row.user_name}
+												{row.user_name}
+											{:else}
+												<span
+													class="italic text-muted-foreground"
+													title="Not attributable to an account — a failed sign-in, a system action, or a since-deleted user."
+												>
+													No user
+												</span>
+											{/if}
+										</td>
+										<td class="px-3 py-2 text-xs">
+											{#if row.case_id !== null && row.case_name}
+												<!--
 											  `Cases.name` is stored with `#<case_id> - ` baked
 											  in server-side (see case_db.py), so we render it
 											  as-is rather than prefixing the id again here.
 											-->
-											<a
-												href={`/case/${row.case_id}`}
-												class="truncate text-primary hover:underline"
-												title={row.case_name}
-											>
-												{row.case_name}
-											</a>
-										{:else if row.case_id !== null}
-											<a
-												href={`/case/${row.case_id}`}
-												class="text-primary hover:underline"
-											>
-												#{row.case_id}
-											</a>
-										{:else}
-											<span class="text-muted-foreground">—</span>
-										{/if}
-									</td>
-									<td class="px-3 py-2 text-center">
-										{#if row.user_input}
-											<CheckIcon size={14} class="mx-auto text-emerald-500" />
-										{:else}
-											<XIcon size={14} class="mx-auto text-muted-foreground/60" />
-										{/if}
-									</td>
-									<td class="px-3 py-2 text-center">
-										{#if row.is_from_api}
-											<CheckIcon size={14} class="mx-auto text-emerald-500" />
-										{:else}
-											<XIcon size={14} class="mx-auto text-muted-foreground/60" />
-										{/if}
-									</td>
-									<td class="px-3 py-2 text-xs">
-										<div class="flex items-start gap-2">
-											<span class="line-clamp-2 flex-1" title={row.activity_desc ?? ''}>
-												{row.activity_desc ?? '—'}
-											</span>
-											{#if (row.occurrences ?? 1) > 1}
-												<!--
+												<a
+													href={`/case/${row.case_id}`}
+													class="truncate text-primary hover:underline"
+													title={row.case_name}
+												>
+													{row.case_name}
+												</a>
+											{:else if row.case_id !== null}
+												<a href={`/case/${row.case_id}`} class="text-primary hover:underline">
+													#{row.case_id}
+												</a>
+											{:else}
+												<span class="text-muted-foreground">—</span>
+											{/if}
+										</td>
+										<td class="px-3 py-2 text-center">
+											{#if row.user_input}
+												<CheckIcon size={14} class="mx-auto text-emerald-500" />
+											{:else}
+												<XIcon size={14} class="mx-auto text-muted-foreground/60" />
+											{/if}
+										</td>
+										<td class="px-3 py-2 text-center">
+											{#if row.is_from_api}
+												<CheckIcon size={14} class="mx-auto text-emerald-500" />
+											{:else}
+												<XIcon size={14} class="mx-auto text-muted-foreground/60" />
+											{/if}
+										</td>
+										<td class="px-3 py-2 text-xs">
+											<div class="flex items-start gap-2">
+												<span class="line-clamp-2 flex-1" title={row.activity_desc ?? ''}>
+													{row.activity_desc ?? '—'}
+												</span>
+												{#if (row.occurrences ?? 1) > 1}
+													<!--
 												  Coalesce indicator: the backend collapsed N near-
 												  duplicate rows (same user / case / description
 												  within a minute) into this one. Render as a small
 												  count chip rather than expanding inline so the
 												  feed stays scannable.
 												-->
-												<span
-													class="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-2xs font-medium tabular-nums text-muted-foreground"
-													title={`${row.occurrences} occurrences in the same minute`}
-												>
-													×{row.occurrences}
-												</span>
-											{/if}
-										</div>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{:else if envelope}
-				<p class="py-8 text-center text-sm text-muted-foreground">
-					No activity matches the current filters.
-				</p>
-			{:else}
-				<p class="py-8 text-center text-sm text-muted-foreground">Loading…</p>
-			{/if}
-		</Card.Content>
-	</Card.Root>
+													<span
+														class="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-2xs font-medium tabular-nums text-muted-foreground"
+														title={`${row.occurrences} occurrences in the same minute`}
+													>
+														×{row.occurrences}
+													</span>
+												{/if}
+											</div>
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				{:else if envelope}
+					<p class="py-8 text-center text-sm text-muted-foreground">
+						No activity matches the current filters.
+					</p>
+				{:else}
+					<p class="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+				{/if}
+			</div>
+		</div>
+	</div>
 </div>

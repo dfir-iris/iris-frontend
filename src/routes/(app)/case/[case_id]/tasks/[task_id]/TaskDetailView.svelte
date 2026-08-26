@@ -281,7 +281,7 @@
 
 			<div class="flex min-h-0 flex-1 flex-col p-0">
 				<Tabs bind:value={activeTab} class="flex min-h-0 flex-1 flex-col">
-					<div class="shrink-0 border-b bg-muted/20">
+					<div class="shrink-0 border-b">
 						<TabsList class="h-auto w-full rounded-none border-0 bg-transparent p-0">
 							<TabsTrigger
 								value="details"

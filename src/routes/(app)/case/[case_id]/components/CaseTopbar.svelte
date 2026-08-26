@@ -568,8 +568,8 @@
   never draws past the border.
 -->
 <div
-	class="relative flex min-w-0 flex-wrap items-center gap-2 overflow-hidden border-b px-3 py-2 sm:flex-nowrap sm:gap-4 sm:px-5 sm:py-2.5 {isClosed
-		? 'border-b-red-500/40 bg-gradient-to-r from-red-100 via-rose-50 to-red-50/40 dark:border-b-red-500/50 dark:from-red-950/60 dark:via-rose-950/40 dark:to-red-950/20'
+	class="relative flex min-w-0 shrink-0 flex-wrap items-center gap-2 overflow-hidden px-3 py-2 sm:flex-nowrap sm:gap-4 sm:px-5 sm:py-2.5 {isClosed
+		? 'border-b border-b-red-500/40 bg-gradient-to-r from-red-100 via-rose-50 to-red-50/40 dark:border-b-red-500/50 dark:from-red-950/60 dark:via-rose-950/40 dark:to-red-950/20'
 		: 'bg-card'}"
 >
 	<!-- Case icon badge -->
