@@ -33,6 +33,8 @@
 		type CaseClassification
 	} from '$lib/services/case-classifications.service';
 	import { SeveritiesService, type Severity } from '$lib/services/severities.service';
+	import { CustomersService, type Customer } from '$lib/services/customers.service';
+	import { UsersService, type MentionableUser } from '$lib/services/users.service';
 	import AlertFilterLabels from './components/AlertFilters/AlertFilterLabels.svelte';
 	import { current_user } from '$lib/stores/auth.store';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -163,6 +165,8 @@
 	let alertStatuses = $state<AlertStatus[]>([]);
 	let caseClassifications = $state<CaseClassification[]>([]);
 	let severities = $state<Severity[]>([]);
+	let customers = $state<Customer[]>([]);
+	let owners = $state<MentionableUser[]>([]);
 
 	let reassignOpen = $state(false);
 	let reassignAlert = $state<Alert | null>(null);
@@ -295,25 +299,27 @@
 
 		status = 'loading';
 
-		const response = await alerts.listPaginated({
-			...next.filters,
-			alert_start_date: toApiDate(next.filters.alert_start_date),
-			alert_end_date: toApiDate(next.filters.alert_end_date, true),
-			creation_start_date: toApiDate(next.filters.creation_start_date),
-			creation_end_date: toApiDate(next.filters.creation_end_date, true),
-			page: next.page,
-			per_page: next.per_page
-		});
+		try {
+			const response = await alerts.listPaginated({
+				...next.filters,
+				alert_start_date: toApiDate(next.filters.alert_start_date),
+				alert_end_date: toApiDate(next.filters.alert_end_date, true),
+				creation_start_date: toApiDate(next.filters.creation_start_date),
+				creation_end_date: toApiDate(next.filters.creation_end_date, true),
+				page: next.page,
+				per_page: next.per_page
+			});
 
-		const raw = response.data as Paginated<Alert>;
-		const list = Array.isArray(raw.data) ? raw.data : [];
+			const raw = response.data as Paginated<Alert>;
+			const list = Array.isArray(raw.data) ? raw.data : [];
 
-		alertsData = {
-			...raw,
-			data: list.map(normalizeAlert)
-		};
-
-		status = 'ready';
+			alertsData = {
+				...raw,
+				data: list.map(normalizeAlert)
+			};
+		} finally {
+			status = 'ready';
+		}
 	};
 
 	const commitQuery = async (nextQuery: QueryState) => {
@@ -694,24 +700,6 @@
 		});
 	};
 
-	const hasActiveFilters = (filters: Filters): boolean => {
-		for (const key of FILTER_KEYS) {
-			if (key === 'sort') continue;
-
-			const value = filters[key];
-
-			if (value == null) continue;
-			if (typeof value === 'number') {
-				if (Number.isFinite(value)) return true;
-				continue;
-			}
-
-			if (String(value).trim() !== '') return true;
-		}
-
-		return false;
-	};
-
 	$effect(() => {
 		const nextQuery = readQueryFromUrl(new URL(page.url));
 		query = nextQuery;
@@ -740,6 +728,19 @@
 		>;
 
 		severities = severitiesResponse.data as Severity[];
+
+		const customersResponse = await CustomersService.list();
+
+		customers = customersResponse.data;
+
+		const mentionableResponse = await UsersService.listMentionable();
+		const mentionable = (mentionableResponse?.data as { data?: MentionableUser[] })?.data;
+
+		owners = Array.isArray(mentionable)
+			? mentionable
+			: Array.isArray(mentionableResponse?.data)
+				? (mentionableResponse.data as unknown as MentionableUser[])
+				: [];
 
 		await alerts.loadSavedFilters();
 	});
@@ -965,6 +966,8 @@
 						{alertStatuses}
 						{caseClassifications}
 						{severities}
+						{customers}
+						{owners}
 					/>
 				{/if}
 
@@ -975,6 +978,8 @@
 					{alertStatuses}
 					{caseClassifications}
 					{severities}
+					{customers}
+					{owners}
 				/>
 
 				{#if query.view === 'list' && getSelectedCount() > 0}

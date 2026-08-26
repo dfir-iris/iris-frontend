@@ -4,6 +4,8 @@
 	import type { AlertStatus } from '$lib/services/alert-status.service';
 	import type { CaseClassification } from '$lib/services/case-classifications.service';
 	import type { Severity } from '$lib/services/severities.service';
+	import type { Customer } from '$lib/services/customers.service';
+	import type { MentionableUser } from '$lib/services/users.service';
 	import type { Filters } from '.';
 
 	type Props = {
@@ -13,10 +15,20 @@
 		alertStatuses: AlertStatus[];
 		caseClassifications: CaseClassification[];
 		severities: Severity[];
+		customers: Customer[];
+		owners: MentionableUser[];
 	};
 
-	let { value, onRemove, alertResolutions, alertStatuses, caseClassifications, severities }: Props =
-		$props();
+	let {
+		value,
+		onRemove,
+		alertResolutions,
+		alertStatuses,
+		caseClassifications,
+		severities,
+		customers,
+		owners
+	}: Props = $props();
 
 	type Item = {
 		key: keyof Filters;
@@ -76,6 +88,15 @@
 			if (key === 'alert_severity_id' && typeof raw === 'number') {
 				resolved =
 					severities.find((severity) => severity.severity_id === raw)?.severity_name ?? raw;
+			}
+
+			if (key === 'alert_customer_id' && typeof raw === 'number') {
+				resolved = customers.find((customer) => customer.customer_id === raw)?.customer_name ?? raw;
+			}
+
+			if (key === 'alert_owner_id' && typeof raw === 'number') {
+				const owner = owners.find((candidate) => Number(candidate.user_id) === raw);
+				resolved = owner ? owner.user_name || owner.user_login : raw;
 			}
 
 			if (key === 'custom_conditions' && typeof raw === 'string') {

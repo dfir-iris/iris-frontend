@@ -3,6 +3,8 @@
 	import { type AlertStatus } from '$lib/services/alert-status.service';
 	import { type CaseClassification } from '$lib/services/case-classifications.service';
 	import { type Severity } from '$lib/services/severities.service';
+	import { type Customer } from '$lib/services/customers.service';
+	import { type MentionableUser } from '$lib/services/users.service';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import SearchSelect, {
@@ -36,6 +38,8 @@
 		alertStatuses: AlertStatus[];
 		caseClassifications: CaseClassification[];
 		severities: Severity[];
+		customers: Customer[];
+		owners: MentionableUser[];
 	};
 
 	let {
@@ -49,7 +53,9 @@
 		alertResolutions,
 		alertStatuses,
 		caseClassifications,
-		severities
+		severities,
+		customers,
+		owners
 	}: Props = $props();
 
 	const strOrUndef = (v: string): string | undefined => {
@@ -116,6 +122,20 @@
 		}))
 	);
 
+	const customerOptions = $derived.by<SelectOption[]>(() =>
+		customers.map((customer) => ({
+			value: String(customer.customer_id),
+			label: customer.customer_name
+		}))
+	);
+
+	const ownerOptions = $derived.by<SelectOption[]>(() =>
+		owners.map((owner) => ({
+			value: String(owner.user_id),
+			label: owner.user_name || owner.user_login
+		}))
+	);
+
 	const classificationOptions = $derived.by<SelectOption[]>(() =>
 		caseClassifications.map((c) => ({ value: String(c.id), label: c.name_expanded }))
 	);
@@ -125,8 +145,11 @@
 	);
 </script>
 
-<form class="w-full rounded-xl border bg-muted/100 p-5 shadow-sm" onsubmit={submit}>
-	<div class="space-y-4">
+<form
+	class="flex max-h-[70vh] w-full flex-col rounded-xl border bg-muted/100 shadow-sm"
+	onsubmit={submit}
+>
+	<div class="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
 		<div class="grid grid-cols-2 gap-x-3 gap-y-3 md:grid-cols-4">
 			<div class="space-y-0.5">
 				<div class="text-xs text-muted-foreground">Title</div>
@@ -238,23 +261,33 @@
 
 			<div class="space-y-0.5">
 				<div class="text-xs text-muted-foreground">Customer</div>
-				<Input
-					class="h-8 text-xs"
-					inputmode="numeric"
-					placeholder="Customer ID"
+				<SearchSelect
+					size="sm"
 					value={value.alert_customer_id == null ? '' : String(value.alert_customer_id)}
-					oninput={(e) => setNum('alert_customer_id', (e.currentTarget as HTMLInputElement).value)}
+					options={customerOptions}
+					placeholder="Customer"
+					searchPlaceholder="Search customer..."
+					onChange={(next) =>
+						onChange({
+							...value,
+							alert_customer_id: next ? Number(next) : undefined
+						})}
 				/>
 			</div>
 
 			<div class="space-y-0.5">
 				<div class="text-xs text-muted-foreground">Owner</div>
-				<Input
-					class="h-8 text-xs"
-					inputmode="numeric"
-					placeholder="Owner ID"
+				<SearchSelect
+					size="sm"
 					value={value.alert_owner_id == null ? '' : String(value.alert_owner_id)}
-					oninput={(e) => setNum('alert_owner_id', (e.currentTarget as HTMLInputElement).value)}
+					options={ownerOptions}
+					placeholder="Owner"
+					searchPlaceholder="Search owner..."
+					onChange={(next) =>
+						onChange({
+							...value,
+							alert_owner_id: next ? Number(next) : undefined
+						})}
 				/>
 			</div>
 		</div>
@@ -382,7 +415,7 @@
 		/>
 	</div>
 
-	<div class="mt-4 flex items-center justify-between border-t border-border/50 pt-4">
+	<div class="flex shrink-0 items-center justify-between border-t border-border/50 px-5 py-4">
 		<div class="flex gap-2">
 			<Button type="submit" size="sm">Apply Filters</Button>
 			<Button type="button" size="sm" variant="outline" onclick={clear}>Clear</Button>
