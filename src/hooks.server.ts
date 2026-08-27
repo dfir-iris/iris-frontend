@@ -393,15 +393,37 @@ const irisHandle: Handle = async ({ event, resolve }) => {
 
 			const hasBody = event.request.method !== 'GET' && event.request.method !== 'HEAD';
 
-			// Buffer the body rather than streaming it. The endpoints below
-			// need `refresh_token` spliced in, and a ReadableStream can only
-			// be consumed once — streaming it here would make any retry or
-			// rewrite impossible.
-			let body: string | undefined;
+			// Buffer the body rather than streaming it. The endpoints in
+			// REFRESH_BODY_PATHS need `refresh_token` spliced in, and a
+			// ReadableStream can only be consumed once — streaming it here
+			// would make any retry or rewrite impossible.
+			//
+			// Only those endpoints are read as text. Everything else is
+			// forwarded as raw bytes: `.text()` decodes UTF-8 with
+			// replacement, so any byte sequence that isn't valid UTF-8
+			// becomes U+FFFD. On a multipart/form-data upload (evidence
+			// files, avatars, datastore, report templates, case transfer)
+			// that silently corrupts the file on its way to the backend.
+			//
+			// STILL OUTSTANDING — this restores byte fidelity but NOT
+			// memory: `arrayBuffer()` holds the whole body in the heap
+			// exactly as `.text()` did, so a multi-GB evidence upload
+			// still peaks at its own size here. Streaming the bodies we
+			// don't rewrite is the real fix; it needs `duplex: 'half'`
+			// on the fetch below plus chunked-transfer handling upstream
+			// (`sanitizeHeaders` drops content-length, so werkzeug would
+			// have to parse the form via `wsgi.input_terminated`). Until
+			// then, deployments that front this proxy must keep large
+			// uploads off it. The byte-fidelity fix is also only covered
+			// by unit tests — no real binary has been pushed through a
+			// running stack yet.
+			let body: string | ArrayBuffer | undefined;
 			if (hasBody) {
-				body = await event.request.text();
-				if (REFRESH_BODY_PATHS.has(pathname) && refreshToken) {
-					body = injectRefreshToken(body, refreshToken);
+				if (REFRESH_BODY_PATHS.has(pathname)) {
+					const text = await event.request.text();
+					body = refreshToken ? injectRefreshToken(text, refreshToken) : text;
+				} else {
+					body = await event.request.arrayBuffer();
 				}
 			}
 
