@@ -9,7 +9,7 @@
  *   4 = full       → everything available
  */
 import { CaseService, type CaseAccessLevel } from '$lib/services/case.service';
-import { AccessLevel } from '$lib/services/case-access.service';
+import { AccessLevel } from '$lib/services/access-control.service';
 import type { ApiOptions } from '$lib/services/api.service';
 
 export const CASE_ACCESS_CTX = Symbol('case-access');

@@ -2,7 +2,7 @@
 	import { renderComponent, type ColumnDef } from '@tanstack/svelte-table';
 	import { getContext, onMount } from 'svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
-	import { AccessLevel, CaseAccessService } from '$lib/services/case-access.service';
+	import { AccessLevel, AccessControlService } from '$lib/services/access-control.service';
 	import { CaseService, type CaseAccessUserRow } from '$lib/services/case.service';
 	import DataTable from '$lib/components/ui/data-table-tanstack/data-table.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -67,10 +67,11 @@
 		);
 
 		try {
-			const res = await CaseAccessService.setUserCasesAccess(userId, {
-				cases_list: [currentCaseId],
-				access_level: accessLevel
-			});
+			const res = await AccessControlService.setUserCasesAccess(
+				userId,
+				[currentCaseId],
+				accessLevel
+			);
 			if (res?.error) throw new Error(res.error.message);
 		} catch (error) {
 			usersAccess = previous;
@@ -119,7 +120,7 @@
 
 		const results = await Promise.allSettled(
 			groupIds.map((groupId) =>
-				CaseAccessService.setGroupCasesAccess(Number(groupId), {
+				AccessControlService.setGroupCasesAccess(Number(groupId), {
 					cases_list: [currentCaseId],
 					access_level: accessLevel
 				})
