@@ -1,4 +1,4 @@
-import { AccessLevel } from '$lib/services/case-access.service';
+import { AccessLevel } from '$lib/services/access-control.service';
 
 export const ACCESS_OPTIONS = [
 	{

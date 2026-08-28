@@ -33,6 +33,13 @@ export interface AccessControlCaseAccessEntry {
 	access_level: number;
 }
 
+/** Mirrors the backend `CaseAccessLevel` enum. */
+export enum AccessLevel {
+	DENY_ALL = 0x1,
+	READ_ONLY = 0x2,
+	FULL_ACCESS = 0x4
+}
+
 export interface AccessControlUser {
 	user_id: number;
 	user_name: string;
@@ -192,16 +199,6 @@ export interface UserAudit {
 	};
 }
 
-// ---- Helpers ---------------------------------------------------------
-
-/**
- * Pass-through. Used to set the `X-Iris-V2-Native` header for the
- * SvelteKit proxy to bypass the legacy /manage/ rewrite; now that
- * the rewrite is gone the helper just returns the input unchanged.
- * Kept so call sites don't churn — can be deleted in a follow-up.
- */
-const withV2Header = (options: ApiOptions = {}): ApiOptions => options;
-
 // ---- Service ---------------------------------------------------------
 
 export class AccessControlService {
@@ -212,7 +209,7 @@ export class AccessControlService {
 	): Promise<RequestResponse<Paginated<AccessControlUser>>> {
 		return ApiService.get<Paginated<AccessControlUser>>(
 			ApiService.withQuery('/manage/users', params as Record<string, unknown>),
-			withV2Header(options)
+			options
 		);
 	}
 
@@ -220,14 +217,14 @@ export class AccessControlService {
 		userId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<AccessControlUser>> {
-		return ApiService.get<AccessControlUser>(`/manage/users/${userId}`, withV2Header(options));
+		return ApiService.get<AccessControlUser>(`/manage/users/${userId}`, options);
 	}
 
 	static async createUser(
 		body: CreateUserBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<AccessControlUser>> {
-		return ApiService.post<AccessControlUser>('/manage/users', body, withV2Header(options));
+		return ApiService.post<AccessControlUser>('/manage/users', body, options);
 	}
 
 	static async updateUser(
@@ -235,40 +232,28 @@ export class AccessControlService {
 		body: UpdateUserBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<AccessControlUser>> {
-		return ApiService.put<AccessControlUser>(
-			`/manage/users/${userId}`,
-			body,
-			withV2Header(options)
-		);
+		return ApiService.put<AccessControlUser>(`/manage/users/${userId}`, body, options);
 	}
 
 	static async deleteUser(
 		userId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
-		return ApiService.delete<null>(`/manage/users/${userId}`, withV2Header(options));
+		return ApiService.delete<null>(`/manage/users/${userId}`, options);
 	}
 
 	static async activateUser(
 		userId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<AccessControlUser>> {
-		return ApiService.post<AccessControlUser>(
-			`/manage/users/${userId}/activate`,
-			{},
-			withV2Header(options)
-		);
+		return ApiService.post<AccessControlUser>(`/manage/users/${userId}/activate`, {}, options);
 	}
 
 	static async deactivateUser(
 		userId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<AccessControlUser>> {
-		return ApiService.post<AccessControlUser>(
-			`/manage/users/${userId}/deactivate`,
-			{},
-			withV2Header(options)
-		);
+		return ApiService.post<AccessControlUser>(`/manage/users/${userId}/deactivate`, {}, options);
 	}
 
 	/**
@@ -283,7 +268,7 @@ export class AccessControlService {
 		return ApiService.post<{ user_id: number; user: string; api_key: string }>(
 			`/manage/users/${userId}/api-key/renew`,
 			{},
-			withV2Header(options)
+			options
 		);
 	}
 
@@ -291,11 +276,7 @@ export class AccessControlService {
 		userId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<{ message: string }>> {
-		return ApiService.post<{ message: string }>(
-			`/manage/users/${userId}/mfa/reset`,
-			{},
-			withV2Header(options)
-		);
+		return ApiService.post<{ message: string }>(`/manage/users/${userId}/mfa/reset`, {}, options);
 	}
 
 	static async recomputeUserAccess(
@@ -305,7 +286,7 @@ export class AccessControlService {
 		return ApiService.post<{ message: string }>(
 			`/manage/users/${userId}/recompute-access`,
 			{},
-			withV2Header(options)
+			options
 		);
 	}
 
@@ -313,7 +294,7 @@ export class AccessControlService {
 		userId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<UserAudit>> {
-		return ApiService.get<UserAudit>(`/manage/users/${userId}/audit`, withV2Header(options));
+		return ApiService.get<UserAudit>(`/manage/users/${userId}/audit`, options);
 	}
 
 	// User → groups
@@ -323,7 +304,7 @@ export class AccessControlService {
 	): Promise<RequestResponse<{ data: AccessControlGroupRef[] }>> {
 		return ApiService.get<{ data: AccessControlGroupRef[] }>(
 			`/manage/users/${userId}/groups`,
-			withV2Header(options)
+			options
 		);
 	}
 
@@ -332,11 +313,7 @@ export class AccessControlService {
 		groups: number[],
 		options: ApiOptions = {}
 	): Promise<RequestResponse<AccessControlUser>> {
-		return ApiService.put<AccessControlUser>(
-			`/manage/users/${userId}/groups`,
-			{ groups },
-			withV2Header(options)
-		);
+		return ApiService.put<AccessControlUser>(`/manage/users/${userId}/groups`, { groups }, options);
 	}
 
 	// User → customers
@@ -348,21 +325,11 @@ export class AccessControlService {
 		return ApiService.put<AccessControlUser>(
 			`/manage/users/${userId}/customers`,
 			{ customers },
-			withV2Header(options)
+			options
 		);
 	}
 
 	// User → case access
-	static async getUserCasesAccess(
-		userId: number,
-		options: ApiOptions = {}
-	): Promise<RequestResponse<{ data: AccessControlCaseAccessEntry[] }>> {
-		return ApiService.get<{ data: AccessControlCaseAccessEntry[] }>(
-			`/manage/users/${userId}/cases-access`,
-			withV2Header(options)
-		);
-	}
-
 	static async setUserCasesAccess(
 		userId: number,
 		cases_list: number[],
@@ -372,24 +339,8 @@ export class AccessControlService {
 		return ApiService.post<AccessControlUser>(
 			`/manage/users/${userId}/cases-access`,
 			{ cases_list, access_level },
-			withV2Header(options)
+			options
 		);
-	}
-
-	static async deleteUserCasesAccess(
-		userId: number,
-		cases: number[],
-		options: ApiOptions = {}
-	): Promise<RequestResponse<AccessControlUser>> {
-		return ApiService.delete<AccessControlUser>(
-			`/manage/users/${userId}/cases-access`,
-			withV2Header({
-				...options,
-				headers: { ...options.headers, 'Content-Type': 'application/json' }
-			})
-		);
-		// NOTE: `ApiService.delete` doesn't currently forward a body.
-		// See `deleteUserCasesAccessWithBody` below for the live call.
 	}
 
 	/**
@@ -413,7 +364,7 @@ export class AccessControlService {
 	): Promise<RequestResponse<Paginated<AccessControlGroup>>> {
 		return ApiService.get<Paginated<AccessControlGroup>>(
 			ApiService.withQuery('/manage/groups', params as Record<string, unknown>),
-			withV2Header(options)
+			options
 		);
 	}
 
@@ -421,14 +372,14 @@ export class AccessControlService {
 		groupId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<AccessControlGroup>> {
-		return ApiService.get<AccessControlGroup>(`/manage/groups/${groupId}`, withV2Header(options));
+		return ApiService.get<AccessControlGroup>(`/manage/groups/${groupId}`, options);
 	}
 
 	static async createGroup(
 		body: CreateGroupBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<AccessControlGroup>> {
-		return ApiService.post<AccessControlGroup>('/manage/groups', body, withV2Header(options));
+		return ApiService.post<AccessControlGroup>('/manage/groups', body, options);
 	}
 
 	static async updateGroup(
@@ -436,18 +387,14 @@ export class AccessControlService {
 		body: UpdateGroupBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<AccessControlGroup>> {
-		return ApiService.put<AccessControlGroup>(
-			`/manage/groups/${groupId}`,
-			body,
-			withV2Header(options)
-		);
+		return ApiService.put<AccessControlGroup>(`/manage/groups/${groupId}`, body, options);
 	}
 
 	static async deleteGroup(
 		groupId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
-		return ApiService.delete<null>(`/manage/groups/${groupId}`, withV2Header(options));
+		return ApiService.delete<null>(`/manage/groups/${groupId}`, options);
 	}
 
 	// Group → members
@@ -457,7 +404,7 @@ export class AccessControlService {
 	): Promise<RequestResponse<{ data: AccessControlGroupMember[] }>> {
 		return ApiService.get<{ data: AccessControlGroupMember[] }>(
 			`/manage/groups/${groupId}/members`,
-			withV2Header(options)
+			options
 		);
 	}
 
@@ -469,7 +416,7 @@ export class AccessControlService {
 		return ApiService.put<AccessControlGroup>(
 			`/manage/groups/${groupId}/members`,
 			{ members },
-			withV2Header(options)
+			options
 		);
 	}
 
@@ -480,21 +427,11 @@ export class AccessControlService {
 	): Promise<RequestResponse<AccessControlGroup>> {
 		return ApiService.delete<AccessControlGroup>(
 			`/manage/groups/${groupId}/members/${userId}`,
-			withV2Header(options)
+			options
 		);
 	}
 
 	// Group → case access
-	static async getGroupCasesAccess(
-		groupId: number,
-		options: ApiOptions = {}
-	): Promise<RequestResponse<AccessControlGroup>> {
-		return ApiService.get<AccessControlGroup>(
-			`/manage/groups/${groupId}/cases-access`,
-			withV2Header(options)
-		);
-	}
-
 	static async setGroupCasesAccess(
 		groupId: number,
 		body:
@@ -505,7 +442,7 @@ export class AccessControlService {
 		return ApiService.post<AccessControlGroup>(
 			`/manage/groups/${groupId}/cases-access`,
 			body,
-			withV2Header(options)
+			options
 		);
 	}
 
@@ -520,10 +457,7 @@ export class AccessControlService {
 
 	// ----- Schema + lookups ------------------------------------------
 	static async schema(options: ApiOptions = {}): Promise<RequestResponse<AccessControlSchemaInfo>> {
-		return ApiService.get<AccessControlSchemaInfo>(
-			'/manage/access-control/schema',
-			withV2Header(options)
-		);
+		return ApiService.get<AccessControlSchemaInfo>('/manage/access-control/schema', options);
 	}
 
 	static async accessibleCases(
@@ -532,7 +466,7 @@ export class AccessControlService {
 	): Promise<RequestResponse<{ data: AccessibleCaseSummary[] }>> {
 		return ApiService.get<{ data: AccessibleCaseSummary[] }>(
 			ApiService.withQuery('/manage/access-control/accessible-cases', { search }),
-			withV2Header(options)
+			options
 		);
 	}
 
@@ -542,7 +476,7 @@ export class AccessControlService {
 		return ApiService.post<{ message: string }>(
 			'/manage/access-control/recompute-all',
 			{},
-			withV2Header(options)
+			options
 		);
 	}
 }
