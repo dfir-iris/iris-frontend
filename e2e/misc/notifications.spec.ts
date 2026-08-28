@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { adminApi, apiJson } from '../helpers/api';
+import { adminApi } from '../helpers/api';
 
 // Notification API: list, mark-read. No WebSocket — REST only.
 

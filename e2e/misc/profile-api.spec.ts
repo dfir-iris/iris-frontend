@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { adminApi, apiJson } from '../helpers/api';
+import { adminApi } from '../helpers/api';
 
 // Profile / me API — context, permissions, followed-cases, api-keys.
 

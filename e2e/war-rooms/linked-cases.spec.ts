@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { login } from '../helpers/auth';
-import { adminApi, seed, cleanup, apiJson } from '../helpers/api';
+import { adminApi, seed, cleanup } from '../helpers/api';
 
 // War room → linked cases sub-page, and the API for linking/unlinking cases.
 
