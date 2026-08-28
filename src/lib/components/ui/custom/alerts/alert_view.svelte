@@ -17,7 +17,6 @@
 	function setStatus(newStatus: string) {
 		_status = newStatus;
 	}
-
 </script>
 
 <div class="flex flex-col">
@@ -31,12 +30,17 @@
 							<Separator orientation="vertical" class="mx-1 h-6" />
 							<DropdownMenu.Root>
 								<DropdownMenu.Trigger>
-									<StatusBadge status={alert.status.status_name as import('$lib/components/ui/badge/types').CaseStatus} />
+									<StatusBadge
+										status={alert.status
+											.status_name as import('$lib/components/ui/badge/types').CaseStatus}
+									/>
 								</DropdownMenu.Trigger>
 								<DropdownMenu.Content>
 									{#each statuses as value}
 										<DropdownMenu.Item onclick={() => setStatus(value)}>
-											<StatusBadge status={value as import('$lib/components/ui/badge/types').CaseStatus} />
+											<StatusBadge
+												status={value as import('$lib/components/ui/badge/types').CaseStatus}
+											/>
 										</DropdownMenu.Item>
 									{/each}
 								</DropdownMenu.Content>

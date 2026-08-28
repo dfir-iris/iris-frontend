@@ -37,6 +37,7 @@ export interface ApiOptions {
 	fetch?: typeof fetch;
 	absoluteUrl?: boolean;
 	useApiPrefix?: boolean; // Whether to use the API prefix (default: true)
+	signal?: AbortSignal;
 }
 
 // Required option in newer Node.js versions when sending a body
@@ -137,7 +138,8 @@ export class ApiService {
 			skipTokenRefresh = false,
 			fetch: customFetch = browser ? window.fetch : global.fetch,
 			absoluteUrl = false,
-			useApiPrefix = true
+			useApiPrefix = true,
+			signal
 		}: ApiOptions = {}
 	): Promise<RequestResponse<T>> {
 		const startTime = Date.now();
@@ -156,7 +158,8 @@ export class ApiService {
 
 			const fetchOptions: RequestInitDuplex = {
 				method,
-				headers: fetchHeaders
+				headers: fetchHeaders,
+				...(signal ? { signal } : {})
 			};
 
 			// Add authentication token if available

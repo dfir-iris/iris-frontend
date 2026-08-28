@@ -55,7 +55,11 @@
 		</Tooltip.Root>
 	</Tooltip.Provider>
 {:else if currentStatusId === 1}
-	<Badge variant={(config as typeof compromiseStatusConfig[1]).variant} icon={config.icon} class="items-center gap-1">
+	<Badge
+		variant={(config as (typeof compromiseStatusConfig)[1]).variant}
+		icon={config.icon}
+		class="items-center gap-1"
+	>
 		{config.label}
 	</Badge>
 {:else}

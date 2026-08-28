@@ -56,7 +56,11 @@ describe('CaseObjectsService', () => {
 		});
 
 		it('appends pagination params via ApiService.withQuery', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await CaseObjectsService.search('asset-types', { page: 2, per_page: 25 });
 
@@ -66,7 +70,11 @@ describe('CaseObjectsService', () => {
 		});
 
 		it('appends search param', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await CaseObjectsService.search('ioc-types', { search: 'domain' });
 
@@ -75,7 +83,11 @@ describe('CaseObjectsService', () => {
 		});
 
 		it('appends order_by and sort_dir params', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await CaseObjectsService.search('case-states', { order_by: 'name', sort_dir: 'desc' });
 
@@ -85,7 +97,11 @@ describe('CaseObjectsService', () => {
 		});
 
 		it('forwards options to ApiService.get', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await CaseObjectsService.search('evidence-types', {}, { skipTokenRefresh: true });
 
@@ -119,19 +135,26 @@ describe('CaseObjectsService', () => {
 	// -----------------------------------------------------------------------
 
 	describe('get()', () => {
-		it.each(RESOURCES)('calls GET /manage/case-objects/%s/{id} for resource %s', async (resource) => {
-			const mock = { ok: true, status: 200, data: { id: 1 } };
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mock);
+		it.each(RESOURCES)(
+			'calls GET /manage/case-objects/%s/{id} for resource %s',
+			async (resource) => {
+				const mock = { ok: true, status: 200, data: { id: 1 } };
+				(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mock);
 
-			const res = await CaseObjectsService.get(resource, 1);
+				const res = await CaseObjectsService.get(resource, 1);
 
-			expect(ApiService.get).toHaveBeenCalledOnce();
-			expect(ApiService.get).toHaveBeenCalledWith(`/manage/case-objects/${resource}/1`, {});
-			expect(res).toBe(mock);
-		});
+				expect(ApiService.get).toHaveBeenCalledOnce();
+				expect(ApiService.get).toHaveBeenCalledWith(`/manage/case-objects/${resource}/1`, {});
+				expect(res).toBe(mock);
+			}
+		);
 
 		it('embeds the correct identifier in the path', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await CaseObjectsService.get('ioc-types', 99);
 
@@ -140,7 +163,11 @@ describe('CaseObjectsService', () => {
 		});
 
 		it('forwards options', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await CaseObjectsService.get('asset-types', 1, { skipTokenRefresh: true });
 
@@ -154,22 +181,33 @@ describe('CaseObjectsService', () => {
 	// -----------------------------------------------------------------------
 
 	describe('create()', () => {
-		it.each(RESOURCES)('calls POST /manage/case-objects/%s with body for resource %s', async (resource) => {
-			const body = { name: 'New entry', some_field: 'value' };
-			const mock = { ok: true, status: 201, data: { id: 10, ...body } };
-			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mock);
+		it.each(RESOURCES)(
+			'calls POST /manage/case-objects/%s with body for resource %s',
+			async (resource) => {
+				const body = { name: 'New entry', some_field: 'value' };
+				const mock = { ok: true, status: 201, data: { id: 10, ...body } };
+				(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mock);
 
-			const res = await CaseObjectsService.create(resource, body);
+				const res = await CaseObjectsService.create(resource, body);
 
-			expect(ApiService.post).toHaveBeenCalledOnce();
-			expect(ApiService.post).toHaveBeenCalledWith(`/manage/case-objects/${resource}`, body, {});
-			expect(res).toBe(mock);
-		});
+				expect(ApiService.post).toHaveBeenCalledOnce();
+				expect(ApiService.post).toHaveBeenCalledWith(`/manage/case-objects/${resource}`, body, {});
+				expect(res).toBe(mock);
+			}
+		);
 
 		it('forwards options', async () => {
-			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 201, data: {} });
+			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 201,
+				data: {}
+			});
 
-			await CaseObjectsService.create('case-classifications', { name: 'test' }, { skipTokenRefresh: true });
+			await CaseObjectsService.create(
+				'case-classifications',
+				{ name: 'test' },
+				{ skipTokenRefresh: true }
+			);
 
 			const [, , opts] = (ApiService.post as ReturnType<typeof vi.fn>).mock.calls[0];
 			expect(opts).toEqual({ skipTokenRefresh: true });
@@ -181,20 +219,27 @@ describe('CaseObjectsService', () => {
 	// -----------------------------------------------------------------------
 
 	describe('update()', () => {
-		it.each(RESOURCES)('calls PUT /manage/case-objects/%s/{id} with body for resource %s', async (resource) => {
-			const body = { name: 'Updated entry' };
-			const mock = { ok: true, status: 200, data: { id: 5, ...body } };
-			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mock);
+		it.each(RESOURCES)(
+			'calls PUT /manage/case-objects/%s/{id} with body for resource %s',
+			async (resource) => {
+				const body = { name: 'Updated entry' };
+				const mock = { ok: true, status: 200, data: { id: 5, ...body } };
+				(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mock);
 
-			const res = await CaseObjectsService.update(resource, 5, body);
+				const res = await CaseObjectsService.update(resource, 5, body);
 
-			expect(ApiService.put).toHaveBeenCalledOnce();
-			expect(ApiService.put).toHaveBeenCalledWith(`/manage/case-objects/${resource}/5`, body, {});
-			expect(res).toBe(mock);
-		});
+				expect(ApiService.put).toHaveBeenCalledOnce();
+				expect(ApiService.put).toHaveBeenCalledWith(`/manage/case-objects/${resource}/5`, body, {});
+				expect(res).toBe(mock);
+			}
+		);
 
 		it('embeds the correct identifier in the path', async () => {
-			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await CaseObjectsService.update('ioc-types', 77, { name: 'X' });
 
@@ -203,7 +248,11 @@ describe('CaseObjectsService', () => {
 		});
 
 		it('forwards options', async () => {
-			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await CaseObjectsService.update('evidence-types', 1, {}, { skipTokenRefresh: true });
 
@@ -217,19 +266,26 @@ describe('CaseObjectsService', () => {
 	// -----------------------------------------------------------------------
 
 	describe('remove()', () => {
-		it.each(RESOURCES)('calls DELETE /manage/case-objects/%s/{id} for resource %s', async (resource) => {
-			const mock = { ok: true, status: 204, data: null };
-			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mock);
+		it.each(RESOURCES)(
+			'calls DELETE /manage/case-objects/%s/{id} for resource %s',
+			async (resource) => {
+				const mock = { ok: true, status: 204, data: null };
+				(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mock);
 
-			const res = await CaseObjectsService.remove(resource, 5);
+				const res = await CaseObjectsService.remove(resource, 5);
 
-			expect(ApiService.delete).toHaveBeenCalledOnce();
-			expect(ApiService.delete).toHaveBeenCalledWith(`/manage/case-objects/${resource}/5`, {});
-			expect(res).toBe(mock);
-		});
+				expect(ApiService.delete).toHaveBeenCalledOnce();
+				expect(ApiService.delete).toHaveBeenCalledWith(`/manage/case-objects/${resource}/5`, {});
+				expect(res).toBe(mock);
+			}
+		);
 
 		it('embeds the correct identifier in the path', async () => {
-			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 204, data: null });
+			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 204,
+				data: null
+			});
 
 			await CaseObjectsService.remove('asset-types', 123);
 
@@ -238,7 +294,11 @@ describe('CaseObjectsService', () => {
 		});
 
 		it('forwards options', async () => {
-			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 204, data: null });
+			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 204,
+				data: null
+			});
 
 			await CaseObjectsService.remove('case-states', 1, { skipTokenRefresh: true });
 
@@ -304,9 +364,9 @@ describe('CaseObjectsService', () => {
 			await CaseObjectsService.uploadAssetTypeIcon(1, 'compromised', file);
 
 			const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-			expect((init as RequestInit & { headers: Record<string, string> }).headers['Authorization']).toBe(
-				'Bearer test-token'
-			);
+			expect(
+				(init as RequestInit & { headers: Record<string, string> }).headers['Authorization']
+			).toBe('Bearer test-token');
 		});
 
 		it('returns response data as-is on success', async () => {
@@ -368,8 +428,6 @@ describe('assetIconUrl()', () => {
 	});
 
 	it('handles filenames with subdirectory segments', () => {
-		expect(assetIconUrl('custom/my-icon.svg')).toBe(
-			'/static/assets/img/graph/custom/my-icon.svg'
-		);
+		expect(assetIconUrl('custom/my-icon.svg')).toBe('/static/assets/img/graph/custom/my-icon.svg');
 	});
 });

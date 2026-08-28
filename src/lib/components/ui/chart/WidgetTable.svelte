@@ -147,7 +147,11 @@
 </script>
 
 <div class="flex flex-col gap-2">
-	<DataTable data={sortedData} columns={columns as import('@tanstack/svelte-table').ColumnDef<unknown>[]} tableClass="w-full table-auto text-xs" />
+	<DataTable
+		data={sortedData}
+		columns={columns as import('@tanstack/svelte-table').ColumnDef<unknown>[]}
+		tableClass="w-full table-auto text-xs"
+	/>
 	{#if showTotals}
 		<div class="flex flex-wrap justify-end gap-3 border-t pt-2 text-xs">
 			<span class="font-medium text-muted-foreground">{totalLabel}</span>

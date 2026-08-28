@@ -51,7 +51,7 @@
 					onrefresh();
 				}
 			} else {
-				const errorData = response.data as { message?: string } | null || null;
+				const errorData = (response.data as { message?: string } | null) || null;
 				toast({
 					title: 'Error',
 					description: errorData?.message || 'Failed to delete item. Please try again.',

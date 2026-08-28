@@ -111,7 +111,12 @@ describe('BannersService', () => {
 		});
 
 		it('accepts a body with nullable date fields', async () => {
-			const body = { text: 'Permanent banner', purpose: 'error' as const, start_at: null, end_at: null };
+			const body = {
+				text: 'Permanent banner',
+				purpose: 'error' as const,
+				start_at: null,
+				end_at: null
+			};
 			await BannersService.create(body);
 			expect(ApiService.post).toHaveBeenCalledWith('/manage/banners', body, {});
 		});

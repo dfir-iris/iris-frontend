@@ -23,7 +23,10 @@ describe('InvestigationFlowsService', () => {
 		it('calls withQuery with no customer_id when omitted', async () => {
 			const builtPath = '/api/v2/investigation-flows';
 			(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(builtPath);
-			(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, data: [] });
+			(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				data: []
+			});
 
 			await InvestigationFlowsService.list();
 
@@ -36,7 +39,10 @@ describe('InvestigationFlowsService', () => {
 		it('passes customer_id when provided', async () => {
 			const builtPath = '/api/v2/investigation-flows?customer_id=5';
 			(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(builtPath);
-			(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, data: [] });
+			(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				data: []
+			});
 
 			await InvestigationFlowsService.list(5);
 
@@ -130,14 +136,14 @@ describe('InvestigationFlowsService', () => {
 
 	describe('deleteStep()', () => {
 		it('deletes /api/v2/investigation-flows/:flowId/steps/:stepId', async () => {
-			(ApiService.delete as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, data: null });
+			(ApiService.delete as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				data: null
+			});
 
 			await InvestigationFlowsService.deleteStep(10, 3);
 
-			expect(ApiService.delete).toHaveBeenCalledWith(
-				'/api/v2/investigation-flows/10/steps/3',
-				{}
-			);
+			expect(ApiService.delete).toHaveBeenCalledWith('/api/v2/investigation-flows/10/steps/3', {});
 		});
 	});
 
@@ -148,11 +154,7 @@ describe('InvestigationFlowsService', () => {
 
 			const result = await InvestigationFlowsService.deploy(4);
 
-			expect(ApiService.post).toHaveBeenCalledWith(
-				'/api/v2/investigation-flows/4/deploy',
-				{},
-				{}
-			);
+			expect(ApiService.post).toHaveBeenCalledWith('/api/v2/investigation-flows/4/deploy', {}, {});
 			expect(result).toBe(mock);
 		});
 	});
@@ -160,8 +162,13 @@ describe('InvestigationFlowsService', () => {
 	it('forwards ApiOptions to every method', async () => {
 		const opts: ApiOptions = { skipTokenRefresh: true };
 
-		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce('/api/v2/investigation-flows');
-		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, data: [] });
+		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+			'/api/v2/investigation-flows'
+		);
+		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+			ok: true,
+			data: []
+		});
 		await InvestigationFlowsService.list(undefined, opts);
 		expect(ApiService.get).toHaveBeenCalledWith('/api/v2/investigation-flows', opts);
 

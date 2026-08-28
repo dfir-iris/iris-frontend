@@ -20,7 +20,10 @@ describe('DimTasksService', () => {
 		it('calls withQuery then get with default empty params', async () => {
 			const builtPath = '/api/v2/dim-tasks';
 			(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(builtPath);
-			(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, data: { data: [], total: 0 } });
+			(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				data: { data: [], total: 0 }
+			});
 
 			await DimTasksService.list();
 
@@ -36,7 +39,10 @@ describe('DimTasksService', () => {
 		it('passes page, per_page, and status params', async () => {
 			const builtPath = '/api/v2/dim-tasks?page=2&per_page=25&status=FAILURE';
 			(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(builtPath);
-			(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, data: { data: [], total: 0 } });
+			(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				data: { data: [], total: 0 }
+			});
 
 			await DimTasksService.list({ page: 2, per_page: 25, status: 'FAILURE' });
 
@@ -49,8 +55,13 @@ describe('DimTasksService', () => {
 		});
 
 		it('trims whitespace-only search and omits it', async () => {
-			(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce('/api/v2/dim-tasks');
-			(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, data: { data: [], total: 0 } });
+			(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+				'/api/v2/dim-tasks'
+			);
+			(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				data: { data: [], total: 0 }
+			});
 
 			await DimTasksService.list({ search: '   ' });
 
@@ -59,8 +70,13 @@ describe('DimTasksService', () => {
 		});
 
 		it('includes a non-empty trimmed search string', async () => {
-			(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce('/api/v2/dim-tasks?search=celery');
-			(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, data: { data: [], total: 0 } });
+			(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+				'/api/v2/dim-tasks?search=celery'
+			);
+			(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				data: { data: [], total: 0 }
+			});
 
 			await DimTasksService.list({ search: '  celery  ' });
 
@@ -70,8 +86,13 @@ describe('DimTasksService', () => {
 		});
 
 		it('omits empty status', async () => {
-			(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce('/api/v2/dim-tasks');
-			(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, data: { data: [], total: 0 } });
+			(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+				'/api/v2/dim-tasks'
+			);
+			(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				data: { data: [], total: 0 }
+			});
 
 			await DimTasksService.list({ status: '' });
 
@@ -81,8 +102,13 @@ describe('DimTasksService', () => {
 
 		it('forwards API options to ApiService.get', async () => {
 			const options: ApiOptions = { skipTokenRefresh: true };
-			(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce('/api/v2/dim-tasks');
-			(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, data: { data: [], total: 0 } });
+			(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+				'/api/v2/dim-tasks'
+			);
+			(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				data: { data: [], total: 0 }
+			});
 
 			await DimTasksService.list({}, options);
 
@@ -105,19 +131,22 @@ describe('DimTasksService', () => {
 		});
 
 		it('URL-encodes special characters in taskId', async () => {
-			(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, data: {} });
+			(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				data: {}
+			});
 
 			await DimTasksService.get('celery/task@worker');
 
-			expect(ApiService.get).toHaveBeenCalledWith(
-				'/api/v2/dim-tasks/celery%2Ftask%40worker',
-				{}
-			);
+			expect(ApiService.get).toHaveBeenCalledWith('/api/v2/dim-tasks/celery%2Ftask%40worker', {});
 		});
 
 		it('forwards options', async () => {
 			const options: ApiOptions = { skipAuthRedirect: true };
-			(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, data: {} });
+			(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				data: {}
+			});
 
 			await DimTasksService.get('task-id', options);
 

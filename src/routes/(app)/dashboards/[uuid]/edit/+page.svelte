@@ -357,7 +357,8 @@
 		filtersSchema = Array.isArray(fs) ? [...fs] : [];
 
 		const schemaResp = await CustomDashboardsService.getSchema();
-		if (schemaResp.ok && schemaResp.data && typeof schemaResp.data !== 'string') schema = schemaResp.data;
+		if (schemaResp.ok && schemaResp.data && typeof schemaResp.data !== 'string')
+			schema = schemaResp.data;
 	}
 
 	function openNewWidget(sectionIdx: number) {
@@ -827,7 +828,11 @@
 			<PlusIcon class="size-4" /> Add section
 		</Button>
 
-		<LivePreview uuid={uuid!} definition={previewDefinition as never} bind:expanded={previewExpanded} />
+		<LivePreview
+			uuid={uuid!}
+			definition={previewDefinition as never}
+			bind:expanded={previewExpanded}
+		/>
 	{:else}
 		<Card class="flex grow flex-col">
 			<CardHeader class="shrink-0">

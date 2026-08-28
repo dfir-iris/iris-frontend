@@ -17,7 +17,7 @@ const TAXONOMY_ENDPOINTS = [
 	'/api/v2/manage/case-objects/ioc-types',
 	'/api/v2/manage/case-objects/case-classifications',
 	'/api/v2/manage/case-objects/case-states',
-	'/api/v2/manage/case-objects/evidence-types',
+	'/api/v2/manage/case-objects/evidence-types'
 ];
 
 test.describe('Manage · taxonomy read endpoints', () => {

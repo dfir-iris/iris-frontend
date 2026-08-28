@@ -187,20 +187,14 @@ describe('AlertClustersService', () => {
 			const response = { ok: true, data: { cluster_id: 5 } };
 			mockDelete.mockResolvedValueOnce(response);
 			const result = await AlertClustersService.removeAlert(5, 20);
-			expect(ApiService.delete).toHaveBeenCalledWith(
-				'/api/v2/alert-clusters/5/alerts/20',
-				{}
-			);
+			expect(ApiService.delete).toHaveBeenCalledWith('/api/v2/alert-clusters/5/alerts/20', {});
 			expect(result).toBe(response);
 		});
 
 		it('passes ApiOptions to delete', async () => {
 			const opts = { signal: new AbortController().signal };
 			await AlertClustersService.removeAlert(1, 2, opts);
-			expect(ApiService.delete).toHaveBeenCalledWith(
-				'/api/v2/alert-clusters/1/alerts/2',
-				opts
-			);
+			expect(ApiService.delete).toHaveBeenCalledWith('/api/v2/alert-clusters/1/alerts/2', opts);
 		});
 	});
 
@@ -210,31 +204,19 @@ describe('AlertClustersService', () => {
 			const response = { ok: true, data: { cluster_id: 6, case_id: 100 } };
 			mockPost.mockResolvedValueOnce(response);
 			const result = await AlertClustersService.escalate(6, body);
-			expect(ApiService.post).toHaveBeenCalledWith(
-				'/api/v2/alert-clusters/6/escalate',
-				body,
-				{}
-			);
+			expect(ApiService.post).toHaveBeenCalledWith('/api/v2/alert-clusters/6/escalate', body, {});
 			expect(result).toBe(response);
 		});
 
 		it('accepts an empty body', async () => {
 			await AlertClustersService.escalate(1, {});
-			expect(ApiService.post).toHaveBeenCalledWith(
-				'/api/v2/alert-clusters/1/escalate',
-				{},
-				{}
-			);
+			expect(ApiService.post).toHaveBeenCalledWith('/api/v2/alert-clusters/1/escalate', {}, {});
 		});
 
 		it('passes ApiOptions to post', async () => {
 			const opts = { signal: new AbortController().signal };
 			await AlertClustersService.escalate(1, {}, opts);
-			expect(ApiService.post).toHaveBeenCalledWith(
-				'/api/v2/alert-clusters/1/escalate',
-				{},
-				opts
-			);
+			expect(ApiService.post).toHaveBeenCalledWith('/api/v2/alert-clusters/1/escalate', {}, opts);
 		});
 	});
 
@@ -244,11 +226,7 @@ describe('AlertClustersService', () => {
 			const response = { ok: true, data: { cluster_id: 8, case_id: 55 } };
 			mockPost.mockResolvedValueOnce(response);
 			const result = await AlertClustersService.merge(8, body);
-			expect(ApiService.post).toHaveBeenCalledWith(
-				'/api/v2/alert-clusters/8/merge',
-				body,
-				{}
-			);
+			expect(ApiService.post).toHaveBeenCalledWith('/api/v2/alert-clusters/8/merge', body, {});
 			expect(result).toBe(response);
 		});
 
@@ -265,23 +243,20 @@ describe('AlertClustersService', () => {
 
 	describe('forCase', () => {
 		it('calls get with the case source-alert-cluster path', async () => {
-			const response = { ok: true, data: { cluster_id: 9, cluster_title: 'src', cluster_status: null } };
+			const response = {
+				ok: true,
+				data: { cluster_id: 9, cluster_title: 'src', cluster_status: null }
+			};
 			mockGet.mockResolvedValueOnce(response);
 			const result = await AlertClustersService.forCase(101);
-			expect(ApiService.get).toHaveBeenCalledWith(
-				'/api/v2/cases/101/source-alert-cluster',
-				{}
-			);
+			expect(ApiService.get).toHaveBeenCalledWith('/api/v2/cases/101/source-alert-cluster', {});
 			expect(result).toBe(response);
 		});
 
 		it('passes ApiOptions to get', async () => {
 			const opts = { signal: new AbortController().signal };
 			await AlertClustersService.forCase(1, opts);
-			expect(ApiService.get).toHaveBeenCalledWith(
-				'/api/v2/cases/1/source-alert-cluster',
-				opts
-			);
+			expect(ApiService.get).toHaveBeenCalledWith('/api/v2/cases/1/source-alert-cluster', opts);
 		});
 	});
 
@@ -290,20 +265,14 @@ describe('AlertClustersService', () => {
 			const response = { ok: true, data: { unlinked: true, cluster_id: 12 } };
 			mockDelete.mockResolvedValueOnce(response);
 			const result = await AlertClustersService.unlinkCase(12);
-			expect(ApiService.delete).toHaveBeenCalledWith(
-				'/api/v2/alert-clusters/12/case',
-				{}
-			);
+			expect(ApiService.delete).toHaveBeenCalledWith('/api/v2/alert-clusters/12/case', {});
 			expect(result).toBe(response);
 		});
 
 		it('passes ApiOptions to delete', async () => {
 			const opts = { signal: new AbortController().signal };
 			await AlertClustersService.unlinkCase(1, opts);
-			expect(ApiService.delete).toHaveBeenCalledWith(
-				'/api/v2/alert-clusters/1/case',
-				opts
-			);
+			expect(ApiService.delete).toHaveBeenCalledWith('/api/v2/alert-clusters/1/case', opts);
 		});
 	});
 
@@ -315,20 +284,14 @@ describe('AlertClustersService', () => {
 			};
 			mockGet.mockResolvedValueOnce(response);
 			const result = await AlertClustersService.graph(15);
-			expect(ApiService.get).toHaveBeenCalledWith(
-				'/api/v2/alert-clusters/15/graph',
-				{}
-			);
+			expect(ApiService.get).toHaveBeenCalledWith('/api/v2/alert-clusters/15/graph', {});
 			expect(result).toBe(response);
 		});
 
 		it('passes ApiOptions to get', async () => {
 			const opts = { signal: new AbortController().signal };
 			await AlertClustersService.graph(1, opts);
-			expect(ApiService.get).toHaveBeenCalledWith(
-				'/api/v2/alert-clusters/1/graph',
-				opts
-			);
+			expect(ApiService.get).toHaveBeenCalledWith('/api/v2/alert-clusters/1/graph', opts);
 		});
 	});
 });

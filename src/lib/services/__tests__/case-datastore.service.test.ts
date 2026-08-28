@@ -63,7 +63,11 @@ describe('CaseDatastoreService', () => {
 		});
 
 		it('forwards options', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await CaseDatastoreService.getTree(42, { skipTokenRefresh: true });
 
@@ -142,10 +146,7 @@ describe('CaseDatastoreService', () => {
 
 			const res = await CaseDatastoreService.deleteFolder(42, 5);
 
-			expect(ApiService.delete).toHaveBeenCalledWith(
-				'/api/v2/cases/42/datastore/folders/5',
-				{}
-			);
+			expect(ApiService.delete).toHaveBeenCalledWith('/api/v2/cases/42/datastore/folders/5', {});
 			expect(res).toBe(mock);
 		});
 	});
@@ -156,7 +157,11 @@ describe('CaseDatastoreService', () => {
 
 	describe('listFiles()', () => {
 		it('calls GET /api/v2/cases/{caseId}/datastore/files without params', async () => {
-			const mock = { ok: true, status: 200, data: { total: 0, data: [], last_page: null, current_page: 1, next_page: null } };
+			const mock = {
+				ok: true,
+				status: 200,
+				data: { total: 0, data: [], last_page: null, current_page: 1, next_page: null }
+			};
 			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mock);
 
 			const res = await CaseDatastoreService.listFiles(42);
@@ -168,7 +173,11 @@ describe('CaseDatastoreService', () => {
 		});
 
 		it('passes pagination params via ApiService.withQuery', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await CaseDatastoreService.listFiles(42, { page: 2, per_page: 50 });
 
@@ -178,7 +187,11 @@ describe('CaseDatastoreService', () => {
 		});
 
 		it('passes order_by and sort_dir params', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await CaseDatastoreService.listFiles(42, { order_by: 'file_original_name', sort_dir: 'asc' });
 
@@ -188,7 +201,11 @@ describe('CaseDatastoreService', () => {
 		});
 
 		it('forwards options to ApiService.get', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await CaseDatastoreService.listFiles(42, {}, { skipTokenRefresh: true });
 
@@ -204,10 +221,7 @@ describe('CaseDatastoreService', () => {
 
 			const res = await CaseDatastoreService.getFileInfo(42, 7);
 
-			expect(ApiService.get).toHaveBeenCalledWith(
-				'/api/v2/cases/42/datastore/files/7/info',
-				{}
-			);
+			expect(ApiService.get).toHaveBeenCalledWith('/api/v2/cases/42/datastore/files/7/info', {});
 			expect(res).toBe(mock);
 		});
 	});
@@ -236,10 +250,7 @@ describe('CaseDatastoreService', () => {
 
 			const res = await CaseDatastoreService.deleteFile(42, 7);
 
-			expect(ApiService.delete).toHaveBeenCalledWith(
-				'/api/v2/cases/42/datastore/files/7',
-				{}
-			);
+			expect(ApiService.delete).toHaveBeenCalledWith('/api/v2/cases/42/datastore/files/7', {});
 			expect(res).toBe(mock);
 		});
 	});
@@ -261,14 +272,12 @@ describe('CaseDatastoreService', () => {
 			// @ts-expect-error – patching global.window
 			global.window = {};
 
-			// @ts-expect-error – ApiService.baseUrl is readonly in production
 			(ApiService as { baseUrl: string }).baseUrl = 'https://iris.example.com';
 
 			const url = CaseDatastoreService.getViewUrl(42, 7);
 			expect(url).toBe('https://iris.example.com/api/v2/cases/42/datastore/files/7');
 
 			// Restore
-			// @ts-expect-error -- ApiService.baseUrl is readonly in type but mutable at runtime
 			(ApiService as { baseUrl: string }).baseUrl = '';
 			global.window = origWindow;
 		});
@@ -277,13 +286,11 @@ describe('CaseDatastoreService', () => {
 			const origWindow = global.window;
 			// @ts-expect-error -- assigning a partial window stub for SSR path testing
 			global.window = {};
-			// @ts-expect-error -- ApiService.baseUrl is readonly in type but mutable at runtime
 			(ApiService as { baseUrl: string }).baseUrl = 'https://iris.example.com/';
 
 			const url = CaseDatastoreService.getViewUrl(42, 7);
 			expect(url).toBe('https://iris.example.com/api/v2/cases/42/datastore/files/7');
 
-			// @ts-expect-error -- ApiService.baseUrl is readonly in type but mutable at runtime
 			(ApiService as { baseUrl: string }).baseUrl = '';
 			global.window = origWindow;
 		});

@@ -87,7 +87,10 @@
 			toast({ title: `Cloned "${displayName(source)}"`, variant: 'success' });
 			goto(`/dashboards/${response.data.dashboard_uuid}/edit`);
 		} else {
-			toast({ title: response.error?.message ?? 'Failed to clone dashboard.', variant: 'destructive' });
+			toast({
+				title: response.error?.message ?? 'Failed to clone dashboard.',
+				variant: 'destructive'
+			});
 		}
 	}
 

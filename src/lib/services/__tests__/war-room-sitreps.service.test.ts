@@ -38,7 +38,11 @@ describe('WarRoomSitRepsService', () => {
 		});
 
 		it('uses default empty options when none supplied', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: [] });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: []
+			});
 
 			await WarRoomSitRepsService.list(10);
 
@@ -76,7 +80,11 @@ describe('WarRoomSitRepsService', () => {
 		});
 
 		it('forwards options', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await WarRoomSitRepsService.get(10, 3, { skipTokenRefresh: true });
 
@@ -119,7 +127,11 @@ describe('WarRoomSitRepsService', () => {
 
 		it('sends title-only body when body_md is omitted', async () => {
 			const body = { title: 'Title only' };
-			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 201, data: {} });
+			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 201,
+				data: {}
+			});
 
 			await WarRoomSitRepsService.create(10, body);
 
@@ -145,7 +157,11 @@ describe('WarRoomSitRepsService', () => {
 		});
 
 		it('accepts partial body (title only)', async () => {
-			(ApiService.patch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.patch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await WarRoomSitRepsService.update(10, 3, { title: 'New title' }, { skipTokenRefresh: true });
 
@@ -157,7 +173,11 @@ describe('WarRoomSitRepsService', () => {
 		});
 
 		it('accepts partial body (body_md only)', async () => {
-			(ApiService.patch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.patch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await WarRoomSitRepsService.update(10, 3, { body_md: '# New content' });
 
@@ -181,16 +201,16 @@ describe('WarRoomSitRepsService', () => {
 			const res = await WarRoomSitRepsService.publish(10, 3);
 
 			expect(ApiService.post).toHaveBeenCalledOnce();
-			expect(ApiService.post).toHaveBeenCalledWith(
-				'/war-rooms/10/sitreps/3/publish',
-				{},
-				{}
-			);
+			expect(ApiService.post).toHaveBeenCalledWith('/war-rooms/10/sitreps/3/publish', {}, {});
 			expect(res).toBe(mock);
 		});
 
 		it('forwards options', async () => {
-			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await WarRoomSitRepsService.publish(10, 3, { skipTokenRefresh: true });
 
@@ -216,7 +236,11 @@ describe('WarRoomSitRepsService', () => {
 		});
 
 		it('forwards options', async () => {
-			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 204, data: null });
+			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 204,
+				data: null
+			});
 
 			await WarRoomSitRepsService.remove(10, 3, { skipTokenRefresh: true });
 

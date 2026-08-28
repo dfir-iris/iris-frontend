@@ -44,9 +44,7 @@ test.describe('Search API · cross-case', () => {
 		try {
 			await seed.ioc(api, caseId, { ioc_value: iocVal });
 
-			const res = await api.get(
-				`/api/v2/search?value=${encodeURIComponent(iocVal)}&types=ioc`
-			);
+			const res = await api.get(`/api/v2/search?value=${encodeURIComponent(iocVal)}&types=ioc`);
 			expect(res.ok(), await res.text()).toBeTruthy();
 			const body = await apiJson<unknown>(res);
 			expect(body).toBeDefined();

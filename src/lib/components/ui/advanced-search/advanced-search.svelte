@@ -431,7 +431,10 @@
 
 	// Helper to get operator display
 	function getOperatorDisplay(operator: string, fieldType: string): string {
-		const operators = (operatorsByType as Record<string, { key: string; label: string; description: string }[]>)[fieldType] || operatorsByType.text;
+		const operators =
+			(operatorsByType as Record<string, { key: string; label: string; description: string }[]>)[
+				fieldType
+			] || operatorsByType.text;
 		const op = operators.find((o: { key: string }) => o.key === operator);
 		return op?.label || operator;
 	}

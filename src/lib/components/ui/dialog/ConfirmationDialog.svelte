@@ -76,7 +76,9 @@
 		</DialogHeader>
 		<DialogFooter class="pt-4">
 			<Button variant="outline" onclick={handleCancel}>{cancelText}</Button>
-			<Button variant={confirmButtonVariant ?? undefined} onclick={handleConfirm}>{confirmText}</Button>
+			<Button variant={confirmButtonVariant ?? undefined} onclick={handleConfirm}
+				>{confirmText}</Button
+			>
 		</DialogFooter>
 	</DialogContent>
 </DialogPrimitive.Root>

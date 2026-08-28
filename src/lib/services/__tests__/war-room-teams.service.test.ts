@@ -36,7 +36,11 @@ describe('WarRoomTeamsService', () => {
 		});
 
 		it('forwards options', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: [] });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: []
+			});
 
 			await WarRoomTeamsService.list(7, { skipTokenRefresh: true });
 
@@ -75,7 +79,11 @@ describe('WarRoomTeamsService', () => {
 		});
 
 		it('forwards options', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await WarRoomTeamsService.get(7, 2, { skipTokenRefresh: true });
 
@@ -91,7 +99,18 @@ describe('WarRoomTeamsService', () => {
 	describe('create()', () => {
 		it('calls POST /war-rooms/{warRoomId}/teams with full body', async () => {
 			const body = { name: 'Blue Team', description: 'Defenders', color: '#0000ff' };
-			const mock = { ok: true, status: 201, data: { team_id: 1, war_room_id: 7, ...body, created_at: null, created_by_id: null, member_ids: null } };
+			const mock = {
+				ok: true,
+				status: 201,
+				data: {
+					team_id: 1,
+					war_room_id: 7,
+					...body,
+					created_at: null,
+					created_by_id: null,
+					member_ids: null
+				}
+			};
 			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mock);
 
 			const res = await WarRoomTeamsService.create(7, body);
@@ -103,7 +122,11 @@ describe('WarRoomTeamsService', () => {
 
 		it('sends name-only body when optional fields are omitted', async () => {
 			const body = { name: 'Minimal' };
-			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 201, data: {} });
+			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 201,
+				data: {}
+			});
 
 			await WarRoomTeamsService.create(7, body);
 
@@ -111,7 +134,11 @@ describe('WarRoomTeamsService', () => {
 		});
 
 		it('forwards options', async () => {
-			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 201, data: {} });
+			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 201,
+				data: {}
+			});
 
 			await WarRoomTeamsService.create(7, { name: 'T' }, { skipTokenRefresh: true });
 
@@ -138,7 +165,11 @@ describe('WarRoomTeamsService', () => {
 		});
 
 		it('accepts partial update (name only)', async () => {
-			(ApiService.patch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.patch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await WarRoomTeamsService.update(7, 2, { name: 'New name' }, { skipTokenRefresh: true });
 
@@ -150,7 +181,11 @@ describe('WarRoomTeamsService', () => {
 		});
 
 		it('accepts null description to clear the field', async () => {
-			(ApiService.patch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.patch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await WarRoomTeamsService.update(7, 2, { description: null });
 
@@ -176,7 +211,11 @@ describe('WarRoomTeamsService', () => {
 		});
 
 		it('forwards options', async () => {
-			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 204, data: null });
+			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 204,
+				data: null
+			});
 
 			await WarRoomTeamsService.remove(7, 2, { skipTokenRefresh: true });
 
@@ -194,9 +233,7 @@ describe('WarRoomTeamsService', () => {
 			const mock = {
 				ok: true,
 				status: 200,
-				data: [
-					{ team_id: 2, user_id: 5, added_at: null, added_by_id: null }
-				]
+				data: [{ team_id: 2, user_id: 5, added_at: null, added_by_id: null }]
 			};
 			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mock);
 
@@ -208,7 +245,11 @@ describe('WarRoomTeamsService', () => {
 		});
 
 		it('forwards options', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: [] });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: []
+			});
 
 			await WarRoomTeamsService.listMembers(7, 2, { skipTokenRefresh: true });
 
@@ -261,7 +302,11 @@ describe('WarRoomTeamsService', () => {
 		});
 
 		it('forwards options', async () => {
-			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 201, data: {} });
+			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 201,
+				data: {}
+			});
 
 			await WarRoomTeamsService.addMember(7, 2, 5, { skipTokenRefresh: true });
 
@@ -282,15 +327,16 @@ describe('WarRoomTeamsService', () => {
 			const res = await WarRoomTeamsService.removeMember(7, 2, 5);
 
 			expect(ApiService.delete).toHaveBeenCalledOnce();
-			expect(ApiService.delete).toHaveBeenCalledWith(
-				'/war-rooms/7/teams/2/members/5',
-				{}
-			);
+			expect(ApiService.delete).toHaveBeenCalledWith('/war-rooms/7/teams/2/members/5', {});
 			expect(res).toBe(mock);
 		});
 
 		it('embeds correct user ID in path', async () => {
-			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 204, data: null });
+			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 204,
+				data: null
+			});
 
 			await WarRoomTeamsService.removeMember(7, 2, 99);
 
@@ -299,7 +345,11 @@ describe('WarRoomTeamsService', () => {
 		});
 
 		it('forwards options', async () => {
-			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 204, data: null });
+			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 204,
+				data: null
+			});
 
 			await WarRoomTeamsService.removeMember(7, 2, 5, { skipTokenRefresh: true });
 

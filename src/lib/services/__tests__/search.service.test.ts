@@ -39,7 +39,11 @@ describe('SearchService', () => {
 		it('should call ApiService.withQuery with the correct base path', async () => {
 			const builtPath = '/search?value=malware&types=ioc&page=1&per_page=25';
 			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce(builtPath);
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockEnvelope() });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockEnvelope()
+			});
 
 			const params: SearchParams = { value: 'malware', types: ['ioc'] };
 			await SearchService.search(params);
@@ -56,19 +60,30 @@ describe('SearchService', () => {
 		it('should join multiple types with a comma', async () => {
 			const builtPath = '/search?value=test&types=ioc%2Cassets&page=1&per_page=25';
 			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce(builtPath);
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockEnvelope() });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockEnvelope()
+			});
 
 			const params: SearchParams = { value: 'test', types: ['ioc', 'assets'] };
 			await SearchService.search(params);
 
-			expect(ApiService.withQuery).toHaveBeenCalledWith('/search', expect.objectContaining({
-				types: 'ioc,assets'
-			}));
+			expect(ApiService.withQuery).toHaveBeenCalledWith(
+				'/search',
+				expect.objectContaining({
+					types: 'ioc,assets'
+				})
+			);
 		});
 
 		it('should join all eight search types when all are passed', async () => {
 			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce('/search?...');
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockEnvelope() });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockEnvelope()
+			});
 
 			const params: SearchParams = {
 				value: 'q',
@@ -76,52 +91,80 @@ describe('SearchService', () => {
 			};
 			await SearchService.search(params);
 
-			expect(ApiService.withQuery).toHaveBeenCalledWith('/search', expect.objectContaining({
-				types: 'ioc,notes,comments,assets,events,tasks,evidences,summaries'
-			}));
+			expect(ApiService.withQuery).toHaveBeenCalledWith(
+				'/search',
+				expect.objectContaining({
+					types: 'ioc,notes,comments,assets,events,tasks,evidences,summaries'
+				})
+			);
 		});
 
 		it('should default page to 1 and per_page to 25 when not supplied', async () => {
 			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce('/search?...');
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockEnvelope() });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockEnvelope()
+			});
 
 			const params: SearchParams = { value: 'x', types: ['events'] };
 			await SearchService.search(params);
 
-			expect(ApiService.withQuery).toHaveBeenCalledWith('/search', expect.objectContaining({
-				page: 1,
-				per_page: 25
-			}));
+			expect(ApiService.withQuery).toHaveBeenCalledWith(
+				'/search',
+				expect.objectContaining({
+					page: 1,
+					per_page: 25
+				})
+			);
 		});
 
 		it('should use explicit page and per_page values when supplied', async () => {
 			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce('/search?...');
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockEnvelope() });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockEnvelope()
+			});
 
 			const params: SearchParams = { value: 'x', types: ['tasks'], page: 3, per_page: 10 };
 			await SearchService.search(params);
 
-			expect(ApiService.withQuery).toHaveBeenCalledWith('/search', expect.objectContaining({
-				page: 3,
-				per_page: 10
-			}));
+			expect(ApiService.withQuery).toHaveBeenCalledWith(
+				'/search',
+				expect.objectContaining({
+					page: 3,
+					per_page: 10
+				})
+			);
 		});
 
 		it('should include case_id in the query when provided', async () => {
 			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce('/search?...');
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockEnvelope() });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockEnvelope()
+			});
 
 			const params: SearchParams = { value: 'x', types: ['notes'], case_id: 7 };
 			await SearchService.search(params);
 
-			expect(ApiService.withQuery).toHaveBeenCalledWith('/search', expect.objectContaining({
-				case_id: 7
-			}));
+			expect(ApiService.withQuery).toHaveBeenCalledWith(
+				'/search',
+				expect.objectContaining({
+					case_id: 7
+				})
+			);
 		});
 
 		it('should NOT include case_id when it is undefined', async () => {
 			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce('/search?...');
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockEnvelope() });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockEnvelope()
+			});
 
 			const params: SearchParams = { value: 'x', types: ['notes'] };
 			await SearchService.search(params);
@@ -132,7 +175,11 @@ describe('SearchService', () => {
 
 		it('should NOT include case_id when it is null (coerced to undefined by != null guard)', async () => {
 			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce('/search?...');
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockEnvelope() });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockEnvelope()
+			});
 
 			// Casting to any to simulate a consumer accidentally passing null at runtime
 			const params = { value: 'x', types: ['notes'], case_id: null } as unknown as SearchParams;
@@ -144,19 +191,30 @@ describe('SearchService', () => {
 
 		it('should include case_ids as a comma-joined string when the array is non-empty', async () => {
 			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce('/search?...');
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockEnvelope() });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockEnvelope()
+			});
 
 			const params: SearchParams = { value: 'x', types: ['assets'], case_ids: [1, 2, 3] };
 			await SearchService.search(params);
 
-			expect(ApiService.withQuery).toHaveBeenCalledWith('/search', expect.objectContaining({
-				case_ids: '1,2,3'
-			}));
+			expect(ApiService.withQuery).toHaveBeenCalledWith(
+				'/search',
+				expect.objectContaining({
+					case_ids: '1,2,3'
+				})
+			);
 		});
 
 		it('should NOT include case_ids when the array is empty', async () => {
 			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce('/search?...');
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockEnvelope() });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockEnvelope()
+			});
 
 			const params: SearchParams = { value: 'x', types: ['assets'], case_ids: [] };
 			await SearchService.search(params);
@@ -167,7 +225,11 @@ describe('SearchService', () => {
 
 		it('should NOT include case_ids when the field is absent', async () => {
 			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce('/search?...');
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockEnvelope() });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockEnvelope()
+			});
 
 			const params: SearchParams = { value: 'x', types: ['assets'] };
 			await SearchService.search(params);
@@ -178,15 +240,22 @@ describe('SearchService', () => {
 
 		it('should include both case_id and case_ids when both are provided', async () => {
 			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce('/search?...');
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockEnvelope() });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockEnvelope()
+			});
 
 			const params: SearchParams = { value: 'x', types: ['ioc'], case_id: 5, case_ids: [5, 6] };
 			await SearchService.search(params);
 
-			expect(ApiService.withQuery).toHaveBeenCalledWith('/search', expect.objectContaining({
-				case_id: 5,
-				case_ids: '5,6'
-			}));
+			expect(ApiService.withQuery).toHaveBeenCalledWith(
+				'/search',
+				expect.objectContaining({
+					case_id: 5,
+					case_ids: '5,6'
+				})
+			);
 		});
 	});
 
@@ -211,7 +280,11 @@ describe('SearchService', () => {
 			const options: ApiOptions = { skipTokenRefresh: true };
 			const builtPath = '/search?value=q&types=notes&page=1&per_page=25';
 			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce(builtPath);
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockEnvelope() });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockEnvelope()
+			});
 
 			await SearchService.search({ value: 'q', types: ['notes'] }, options);
 
@@ -282,9 +355,18 @@ describe('SearchService', () => {
 				pagination: { total: 100, page: 2, per_page: 10, total_pages: 10 }
 			};
 			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce('/search?...');
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: envelope });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: envelope
+			});
 
-			const res = await SearchService.search({ value: 'x', types: ['tasks'], page: 2, per_page: 10 });
+			const res = await SearchService.search({
+				value: 'x',
+				types: ['tasks'],
+				page: 2,
+				per_page: 10
+			});
 
 			expect((res as { data: SearchEnvelope }).data.pagination.total_pages).toBe(10);
 		});

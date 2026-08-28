@@ -40,7 +40,10 @@ describe('CaseActivityService', () => {
 
 	it('list() forwards API options', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
-		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, data: [] });
+		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+			ok: true,
+			data: []
+		});
 
 		await CaseActivityService.list(99, options);
 
@@ -48,7 +51,10 @@ describe('CaseActivityService', () => {
 	});
 
 	it('list() uses caseId correctly in the path', async () => {
-		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, data: [] });
+		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+			ok: true,
+			data: []
+		});
 
 		await CaseActivityService.list(1001);
 

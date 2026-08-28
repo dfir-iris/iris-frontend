@@ -67,10 +67,7 @@ describe('WarRoomTasksService', () => {
 		it('GETs /war-rooms/:warRoomId/tasks with page and per_page in the query string', async () => {
 			mock('get').mockResolvedValueOnce({ ok: true, data: { items: [], total: 0 } });
 			await WarRoomTasksService.listPaginated(7, { page: 2, per_page: 25 });
-			expect(ApiService.get).toHaveBeenCalledWith(
-				'/war-rooms/7/tasks?page=2&per_page=25',
-				{}
-			);
+			expect(ApiService.get).toHaveBeenCalledWith('/war-rooms/7/tasks?page=2&per_page=25', {});
 		});
 
 		it('includes page with no per_page when per_page is omitted', async () => {
@@ -148,10 +145,7 @@ describe('WarRoomTasksService', () => {
 		it('passes "unassigned" as a literal string for assignee_id', async () => {
 			mock('get').mockResolvedValueOnce({ ok: true, data: [] });
 			await WarRoomTasksService.list(7, { assignee_id: ['unassigned'] });
-			expect(ApiService.get).toHaveBeenCalledWith(
-				'/war-rooms/7/tasks?assignee_id=unassigned',
-				{}
-			);
+			expect(ApiService.get).toHaveBeenCalledWith('/war-rooms/7/tasks?assignee_id=unassigned', {});
 		});
 
 		it('omits assignee_id entirely when the array is empty', async () => {
@@ -164,28 +158,19 @@ describe('WarRoomTasksService', () => {
 		it('sets parent_task_id=top when parent_task_id is null', async () => {
 			mock('get').mockResolvedValueOnce({ ok: true, data: [] });
 			await WarRoomTasksService.list(7, { parent_task_id: null });
-			expect(ApiService.get).toHaveBeenCalledWith(
-				'/war-rooms/7/tasks?parent_task_id=top',
-				{}
-			);
+			expect(ApiService.get).toHaveBeenCalledWith('/war-rooms/7/tasks?parent_task_id=top', {});
 		});
 
 		it('sets parent_task_id=top when parent_task_id is "top"', async () => {
 			mock('get').mockResolvedValueOnce({ ok: true, data: [] });
 			await WarRoomTasksService.list(7, { parent_task_id: 'top' });
-			expect(ApiService.get).toHaveBeenCalledWith(
-				'/war-rooms/7/tasks?parent_task_id=top',
-				{}
-			);
+			expect(ApiService.get).toHaveBeenCalledWith('/war-rooms/7/tasks?parent_task_id=top', {});
 		});
 
 		it('sets parent_task_id=<n> when parent_task_id is a number', async () => {
 			mock('get').mockResolvedValueOnce({ ok: true, data: [] });
 			await WarRoomTasksService.list(7, { parent_task_id: 55 });
-			expect(ApiService.get).toHaveBeenCalledWith(
-				'/war-rooms/7/tasks?parent_task_id=55',
-				{}
-			);
+			expect(ApiService.get).toHaveBeenCalledWith('/war-rooms/7/tasks?parent_task_id=55', {});
 		});
 
 		it('omits parent_task_id entirely when the key is absent', async () => {
@@ -198,10 +183,7 @@ describe('WarRoomTasksService', () => {
 		it('sets include_closed=false when explicitly false', async () => {
 			mock('get').mockResolvedValueOnce({ ok: true, data: [] });
 			await WarRoomTasksService.list(7, { include_closed: false });
-			expect(ApiService.get).toHaveBeenCalledWith(
-				'/war-rooms/7/tasks?include_closed=false',
-				{}
-			);
+			expect(ApiService.get).toHaveBeenCalledWith('/war-rooms/7/tasks?include_closed=false', {});
 		});
 
 		it('omits include_closed when it is true', async () => {
@@ -236,10 +218,7 @@ describe('WarRoomTasksService', () => {
 		it('sets include_no_due=false when explicitly false', async () => {
 			mock('get').mockResolvedValueOnce({ ok: true, data: [] });
 			await WarRoomTasksService.list(7, { include_no_due: false });
-			expect(ApiService.get).toHaveBeenCalledWith(
-				'/war-rooms/7/tasks?include_no_due=false',
-				{}
-			);
+			expect(ApiService.get).toHaveBeenCalledWith('/war-rooms/7/tasks?include_no_due=false', {});
 		});
 
 		it('omits include_no_due when it is true', async () => {

@@ -38,7 +38,11 @@ describe('WarRoomTimelinesService', () => {
 		});
 
 		it('uses default empty options when none supplied', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: [] });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: []
+			});
 
 			await WarRoomTimelinesService.list(7);
 
@@ -49,7 +53,18 @@ describe('WarRoomTimelinesService', () => {
 	describe('create()', () => {
 		it('calls POST /war-rooms/{id}/timelines with body and options', async () => {
 			const body = { name: 'Alpha', description: 'first', color: '#ff0000' };
-			const mock = { ok: true, status: 201, data: { timeline_id: 1, war_room_id: 5, ...body, is_default: false, created_at: null, created_by_id: null } };
+			const mock = {
+				ok: true,
+				status: 201,
+				data: {
+					timeline_id: 1,
+					war_room_id: 5,
+					...body,
+					is_default: false,
+					created_at: null,
+					created_by_id: null
+				}
+			};
 			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mock);
 
 			const res = await WarRoomTimelinesService.create(5, body, { skipTokenRefresh: true });
@@ -63,7 +78,11 @@ describe('WarRoomTimelinesService', () => {
 
 		it('passes null description and color', async () => {
 			const body = { name: 'Beta', description: null, color: null };
-			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 201, data: {} });
+			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 201,
+				data: {}
+			});
 
 			await WarRoomTimelinesService.create(3, body);
 
@@ -116,7 +135,11 @@ describe('WarRoomTimelinesService', () => {
 		});
 
 		it('omits query string when timelineIds is explicitly []', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: [] });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: []
+			});
 
 			await WarRoomTimelinesService.listEvents(5, { timelineIds: [] });
 
@@ -125,7 +148,11 @@ describe('WarRoomTimelinesService', () => {
 		});
 
 		it('appends ?timeline_ids=<comma-joined> for a single id', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: [] });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: []
+			});
 
 			await WarRoomTimelinesService.listEvents(5, { timelineIds: [3] });
 
@@ -134,7 +161,11 @@ describe('WarRoomTimelinesService', () => {
 		});
 
 		it('joins multiple timelineIds with commas', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: [] });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: []
+			});
 
 			await WarRoomTimelinesService.listEvents(5, { timelineIds: [1, 2, 3] });
 
@@ -143,7 +174,11 @@ describe('WarRoomTimelinesService', () => {
 		});
 
 		it('forwards options to ApiService.get', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: [] });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: []
+			});
 
 			await WarRoomTimelinesService.listEvents(5, {}, { skipTokenRefresh: true });
 
@@ -164,11 +199,7 @@ describe('WarRoomTimelinesService', () => {
 
 			const res = await WarRoomTimelinesService.addEvent(5, 12, body);
 
-			expect(ApiService.post).toHaveBeenCalledWith(
-				'/war-rooms/5/timelines/12/events',
-				body,
-				{}
-			);
+			expect(ApiService.post).toHaveBeenCalledWith('/war-rooms/5/timelines/12/events', body, {});
 			expect(res).toBe(mock);
 		});
 	});
@@ -181,11 +212,7 @@ describe('WarRoomTimelinesService', () => {
 
 			const res = await WarRoomTimelinesService.updateEvent(5, 99, body);
 
-			expect(ApiService.patch).toHaveBeenCalledWith(
-				'/war-rooms/5/timelines/events/99',
-				body,
-				{}
-			);
+			expect(ApiService.patch).toHaveBeenCalledWith('/war-rooms/5/timelines/events/99', body, {});
 			expect(res).toBe(mock);
 		});
 	});
@@ -197,10 +224,7 @@ describe('WarRoomTimelinesService', () => {
 
 			const res = await WarRoomTimelinesService.removeEvent(5, 99);
 
-			expect(ApiService.delete).toHaveBeenCalledWith(
-				'/war-rooms/5/timelines/events/99',
-				{}
-			);
+			expect(ApiService.delete).toHaveBeenCalledWith('/war-rooms/5/timelines/events/99', {});
 			expect(res).toBe(mock);
 		});
 	});
@@ -217,16 +241,16 @@ describe('WarRoomTimelinesService', () => {
 			const res = await WarRoomTimelinesService.toggleEventFlag(5, 99);
 
 			expect(ApiService.post).toHaveBeenCalledOnce();
-			expect(ApiService.post).toHaveBeenCalledWith(
-				'/war-rooms/5/timelines/events/99/flag',
-				{},
-				{}
-			);
+			expect(ApiService.post).toHaveBeenCalledWith('/war-rooms/5/timelines/events/99/flag', {}, {});
 			expect(res).toBe(mock);
 		});
 
 		it('forwards options', async () => {
-			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await WarRoomTimelinesService.toggleEventFlag(5, 99, { skipTokenRefresh: true });
 
@@ -256,7 +280,11 @@ describe('WarRoomTimelinesService', () => {
 		});
 
 		it('forwards options', async () => {
-			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 201, data: {} });
+			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 201,
+				data: {}
+			});
 
 			await WarRoomTimelinesService.duplicateEvent(5, 99, { skipTokenRefresh: true });
 
@@ -286,7 +314,11 @@ describe('WarRoomTimelinesService', () => {
 		});
 
 		it('passes an empty array to detach all assets', async () => {
-			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: { asset_ids: [] } });
+			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: { asset_ids: [] }
+			});
 
 			await WarRoomTimelinesService.setEventAssets(5, 99, []);
 
@@ -298,7 +330,11 @@ describe('WarRoomTimelinesService', () => {
 		});
 
 		it('forwards options', async () => {
-			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await WarRoomTimelinesService.setEventAssets(5, 99, [7], { skipTokenRefresh: true });
 
@@ -328,7 +364,11 @@ describe('WarRoomTimelinesService', () => {
 		});
 
 		it('passes an empty array to detach all IOCs', async () => {
-			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: { ioc_ids: [] } });
+			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: { ioc_ids: [] }
+			});
 
 			await WarRoomTimelinesService.setEventIocs(5, 99, []);
 
@@ -340,7 +380,11 @@ describe('WarRoomTimelinesService', () => {
 		});
 
 		it('forwards options', async () => {
-			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: {} });
+			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
 
 			await WarRoomTimelinesService.setEventIocs(5, 99, [7], { skipTokenRefresh: true });
 
@@ -366,7 +410,11 @@ describe('WarRoomTimelinesService', () => {
 		});
 
 		it('forwards options', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: [] });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: []
+			});
 
 			await WarRoomTimelinesService.listLinkedCaseTimelines(5, { skipTokenRefresh: true });
 
@@ -381,7 +429,11 @@ describe('WarRoomTimelinesService', () => {
 
 	describe('listLinkedCaseEvents()', () => {
 		it('omits query string when caseTimelineIds is absent', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: [] });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: []
+			});
 
 			await WarRoomTimelinesService.listLinkedCaseEvents(5);
 
@@ -390,7 +442,11 @@ describe('WarRoomTimelinesService', () => {
 		});
 
 		it('omits query string when caseTimelineIds is []', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: [] });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: []
+			});
 
 			await WarRoomTimelinesService.listLinkedCaseEvents(5, { caseTimelineIds: [] });
 
@@ -399,7 +455,11 @@ describe('WarRoomTimelinesService', () => {
 		});
 
 		it('appends ?case_timeline_ids=<id> for a single id', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: [] });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: []
+			});
 
 			await WarRoomTimelinesService.listLinkedCaseEvents(5, { caseTimelineIds: [7] });
 
@@ -408,7 +468,11 @@ describe('WarRoomTimelinesService', () => {
 		});
 
 		it('joins multiple caseTimelineIds with commas', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: [] });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: []
+			});
 
 			await WarRoomTimelinesService.listLinkedCaseEvents(5, { caseTimelineIds: [7, 8, 9] });
 
@@ -417,7 +481,11 @@ describe('WarRoomTimelinesService', () => {
 		});
 
 		it('forwards options', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: [] });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: []
+			});
 
 			await WarRoomTimelinesService.listLinkedCaseEvents(5, {}, { skipTokenRefresh: true });
 

@@ -35,9 +35,7 @@ describe('toPlainSnippet', () => {
 	});
 
 	it('strips image syntax and replaces with a space', () => {
-		expect(toPlainSnippet('before ![alt](http://example.com/img.png) after')).toBe(
-			'before after'
-		);
+		expect(toPlainSnippet('before ![alt](http://example.com/img.png) after')).toBe('before after');
 	});
 
 	it('keeps link text and drops the URL', () => {

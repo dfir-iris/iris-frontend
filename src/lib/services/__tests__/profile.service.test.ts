@@ -88,7 +88,11 @@ describe('ProfileService', () => {
 	describe('update()', () => {
 		it('should call ApiService.put with /me, body, and default options', async () => {
 			const body: ProfileUpdateBody = { user_name: 'New Name', in_dark_mode: true };
-			const mockResponse = { ok: true, status: 200, data: { ...mockProfile, user_name: 'New Name' } };
+			const mockResponse = {
+				ok: true,
+				status: 200,
+				data: { ...mockProfile, user_name: 'New Name' }
+			};
 			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 			const res = await ProfileService.update(body);
@@ -109,7 +113,11 @@ describe('ProfileService', () => {
 				has_mini_sidebar: true,
 				has_deletion_confirmation: false
 			};
-			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockProfile });
+			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockProfile
+			});
 
 			await ProfileService.update(body);
 
@@ -119,7 +127,11 @@ describe('ProfileService', () => {
 		it('should forward custom ApiOptions to ApiService.put', async () => {
 			const options: ApiOptions = { skipTokenRefresh: true };
 			const body: ProfileUpdateBody = { has_mini_sidebar: true };
-			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockProfile });
+			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockProfile
+			});
 
 			await ProfileService.update(body, options);
 
@@ -131,7 +143,11 @@ describe('ProfileService', () => {
 
 	describe('renewApiKey()', () => {
 		it('should call ApiService.post with /me/api-key/renew, empty body, and default options', async () => {
-			const mockResponse = { ok: true, status: 200, data: { ...mockProfile, user_api_key: 'new-key' } };
+			const mockResponse = {
+				ok: true,
+				status: 200,
+				data: { ...mockProfile, user_api_key: 'new-key' }
+			};
 			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 			const res = await ProfileService.renewApiKey();
@@ -143,7 +159,11 @@ describe('ProfileService', () => {
 
 		it('should forward custom ApiOptions to ApiService.post', async () => {
 			const options: ApiOptions = { skipTokenRefresh: true };
-			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockProfile });
+			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockProfile
+			});
 
 			await ProfileService.renewApiKey(options);
 
@@ -167,7 +187,11 @@ describe('ProfileService', () => {
 
 		it('should forward custom ApiOptions to ApiService.post', async () => {
 			const options: ApiOptions = { skipTokenRefresh: true };
-			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockProfile });
+			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockProfile
+			});
 
 			await ProfileService.refreshPermissions(options);
 
@@ -239,7 +263,11 @@ describe('ProfileService', () => {
 		it('should forward custom ApiOptions to ApiService.post', async () => {
 			const options: ApiOptions = { skipTokenRefresh: true };
 			const body: UserApiKeyCreateBody = { name: 'Test key' };
-			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 201, data: { ...mockApiKey, api_key: 'k' } });
+			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 201,
+				data: { ...mockApiKey, api_key: 'k' }
+			});
 
 			await ProfileService.createApiKey(body, options);
 
@@ -251,7 +279,11 @@ describe('ProfileService', () => {
 
 	describe('revokeApiKey()', () => {
 		it('should call ApiService.delete with /me/api-keys/{keyId} and default options', async () => {
-			const mockResponse = { ok: true, status: 200, data: { ...mockApiKey, revoked_at: '2024-06-01T00:00:00Z' } };
+			const mockResponse = {
+				ok: true,
+				status: 200,
+				data: { ...mockApiKey, revoked_at: '2024-06-01T00:00:00Z' }
+			};
 			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 			const res = await ProfileService.revokeApiKey(42);
@@ -262,7 +294,11 @@ describe('ProfileService', () => {
 		});
 
 		it('should embed the keyId correctly in the URL for different ids', async () => {
-			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockApiKey });
+			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockApiKey
+			});
 
 			await ProfileService.revokeApiKey(999);
 
@@ -271,7 +307,11 @@ describe('ProfileService', () => {
 
 		it('should forward custom ApiOptions to ApiService.delete', async () => {
 			const options: ApiOptions = { skipTokenRefresh: true };
-			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockApiKey });
+			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockApiKey
+			});
 
 			await ProfileService.revokeApiKey(42, options);
 

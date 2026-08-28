@@ -189,7 +189,7 @@
 				<div class="flex items-start gap-2">
 					<div class="min-w-0 flex-1">
 						<!-- svelte-ignore svelte_self_deprecated -->
-				<svelte:self
+						<svelte:self
 							{defs}
 							group={item}
 							depth={depth + 1}

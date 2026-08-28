@@ -90,8 +90,14 @@ describe('CaseEvidencesService', () => {
 		});
 
 		it('should embed the caseId correctly for different cases', async () => {
-			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce('/api/v2/cases/99/evidences');
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockPaginatedEvidence });
+			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+				'/api/v2/cases/99/evidences'
+			);
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockPaginatedEvidence
+			});
 
 			await CaseEvidencesService.list(99);
 
@@ -107,8 +113,14 @@ describe('CaseEvidencesService', () => {
 				custom_conditions: 'file_size > 1000'
 			};
 
-			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce('/api/v2/cases/1/evidences?...');
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockPaginatedEvidence });
+			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+				'/api/v2/cases/1/evidences?...'
+			);
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockPaginatedEvidence
+			});
 
 			await CaseEvidencesService.list(1, params);
 
@@ -116,8 +128,14 @@ describe('CaseEvidencesService', () => {
 		});
 
 		it('should use an empty params object by default', async () => {
-			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce('/api/v2/cases/3/evidences');
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockPaginatedEvidence });
+			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+				'/api/v2/cases/3/evidences'
+			);
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockPaginatedEvidence
+			});
 
 			await CaseEvidencesService.list(3);
 
@@ -126,8 +144,14 @@ describe('CaseEvidencesService', () => {
 
 		it('should forward custom ApiOptions to ApiService.get', async () => {
 			const options: ApiOptions = { skipTokenRefresh: true };
-			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce('/api/v2/cases/1/evidences');
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockPaginatedEvidence });
+			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+				'/api/v2/cases/1/evidences'
+			);
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockPaginatedEvidence
+			});
 
 			await CaseEvidencesService.list(1, {}, options);
 
@@ -136,8 +160,14 @@ describe('CaseEvidencesService', () => {
 
 		it('should support sort_dir:asc', async () => {
 			const params: ListCaseEvidencesParams = { sort_dir: 'asc' };
-			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce('/api/v2/cases/1/evidences?sort_dir=asc');
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockPaginatedEvidence });
+			(ApiService.withQuery as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+				'/api/v2/cases/1/evidences?sort_dir=asc'
+			);
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockPaginatedEvidence
+			});
 
 			await CaseEvidencesService.list(1, params);
 
@@ -160,7 +190,11 @@ describe('CaseEvidencesService', () => {
 		});
 
 		it('should embed both caseId and evidenceId correctly in the URL', async () => {
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockEvidence });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockEvidence
+			});
 
 			await CaseEvidencesService.get(42, 99);
 
@@ -169,7 +203,11 @@ describe('CaseEvidencesService', () => {
 
 		it('should forward custom ApiOptions to ApiService.get', async () => {
 			const options: ApiOptions = { skipTokenRefresh: true };
-			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockEvidence });
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockEvidence
+			});
 
 			await CaseEvidencesService.get(5, 10, options);
 
@@ -200,7 +238,11 @@ describe('CaseEvidencesService', () => {
 
 		it('should embed the caseId correctly for different cases', async () => {
 			const body: CreateCaseEvidenceBody = { filename: 'logs.tar.gz' };
-			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 201, data: mockEvidence });
+			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 201,
+				data: mockEvidence
+			});
 
 			await CaseEvidencesService.create(77, body);
 
@@ -209,7 +251,11 @@ describe('CaseEvidencesService', () => {
 
 		it('should accept a minimal body with only the required filename field', async () => {
 			const body: CreateCaseEvidenceBody = { filename: 'minimal.bin' };
-			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 201, data: mockEvidence });
+			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 201,
+				data: mockEvidence
+			});
 
 			await CaseEvidencesService.create(1, body);
 
@@ -222,7 +268,11 @@ describe('CaseEvidencesService', () => {
 				chain_of_custody: { officer: 'Smith', badge: '1234' },
 				custom_attributes: { source: 'mobile' }
 			};
-			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 201, data: mockEvidence });
+			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 201,
+				data: mockEvidence
+			});
 
 			await CaseEvidencesService.create(3, body);
 
@@ -232,7 +282,11 @@ describe('CaseEvidencesService', () => {
 		it('should forward custom ApiOptions to ApiService.post', async () => {
 			const options: ApiOptions = { skipTokenRefresh: true };
 			const body: CreateCaseEvidenceBody = { filename: 'x.bin' };
-			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 201, data: mockEvidence });
+			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 201,
+				data: mockEvidence
+			});
 
 			await CaseEvidencesService.create(1, body, options);
 
@@ -245,7 +299,11 @@ describe('CaseEvidencesService', () => {
 	describe('update()', () => {
 		it('should call ApiService.put with /api/v2/cases/{caseId}/evidences/{evidenceId}, body, and default options', async () => {
 			const body: UpdateCaseEvidenceBody = { filename: 'renamed.dmp', file_description: 'Updated' };
-			const mockResponse = { ok: true, status: 200, data: { ...mockEvidence, filename: 'renamed.dmp' } };
+			const mockResponse = {
+				ok: true,
+				status: 200,
+				data: { ...mockEvidence, filename: 'renamed.dmp' }
+			};
 			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 			const res = await CaseEvidencesService.update(5, 10, body);
@@ -257,7 +315,11 @@ describe('CaseEvidencesService', () => {
 
 		it('should embed both caseId and evidenceId correctly in the URL', async () => {
 			const body: UpdateCaseEvidenceBody = { file_hash: 'newHash' };
-			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockEvidence });
+			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockEvidence
+			});
 
 			await CaseEvidencesService.update(20, 30, body);
 
@@ -266,7 +328,11 @@ describe('CaseEvidencesService', () => {
 
 		it('should accept a partial update body', async () => {
 			const body: UpdateCaseEvidenceBody = { file_size: 2048 };
-			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockEvidence });
+			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockEvidence
+			});
 
 			await CaseEvidencesService.update(5, 10, body);
 
@@ -279,7 +345,11 @@ describe('CaseEvidencesService', () => {
 				start_date: '2024-01-01T00:00:00Z',
 				end_date: '2024-01-31T23:59:59Z'
 			};
-			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockEvidence });
+			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockEvidence
+			});
 
 			await CaseEvidencesService.update(5, 10, body);
 
@@ -289,7 +359,11 @@ describe('CaseEvidencesService', () => {
 		it('should forward custom ApiOptions to ApiService.put', async () => {
 			const options: ApiOptions = { skipTokenRefresh: true };
 			const body: UpdateCaseEvidenceBody = { filename: 'updated.bin' };
-			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200, data: mockEvidence });
+			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: mockEvidence
+			});
 
 			await CaseEvidencesService.update(5, 10, body, options);
 
@@ -312,7 +386,11 @@ describe('CaseEvidencesService', () => {
 		});
 
 		it('should embed both caseId and evidenceId correctly in the URL', async () => {
-			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 204, data: null });
+			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 204,
+				data: null
+			});
 
 			await CaseEvidencesService.remove(100, 200);
 
@@ -321,7 +399,11 @@ describe('CaseEvidencesService', () => {
 
 		it('should forward custom ApiOptions to ApiService.delete', async () => {
 			const options: ApiOptions = { skipTokenRefresh: true };
-			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 204, data: null });
+			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 204,
+				data: null
+			});
 
 			await CaseEvidencesService.remove(5, 10, options);
 

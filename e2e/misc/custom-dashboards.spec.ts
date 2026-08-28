@@ -73,7 +73,9 @@ test.describe('Custom dashboards · API lifecycle', () => {
 				data: minimalDashboard(newName)
 			});
 			expect(upd.ok(), await upd.text()).toBeTruthy();
-			const updated = await apiJson<{ name: string }>(await api.get(`${DASH_BASE}/${dash.dashboard_uuid}`));
+			const updated = await apiJson<{ name: string }>(
+				await api.get(`${DASH_BASE}/${dash.dashboard_uuid}`)
+			);
 			expect(updated.name).toBe(newName);
 		} finally {
 			await api.delete(`${DASH_BASE}/${dash.dashboard_uuid}`).catch(() => {});

@@ -59,7 +59,12 @@ test.describe('Managed assets · API lifecycle', () => {
 		const assetName = rand('host-upd');
 
 		const createRes = await api.post(BASE, {
-			data: { name: assetName, asset_type_id: assetTypeId, client_id: ids.customerId, criticality: 'low' }
+			data: {
+				name: assetName,
+				asset_type_id: assetTypeId,
+				client_id: ids.customerId,
+				criticality: 'low'
+			}
 		});
 		expect(createRes.ok(), await createRes.text()).toBeTruthy();
 		const created = await apiJson<{ managed_asset_id: number }>(createRes);

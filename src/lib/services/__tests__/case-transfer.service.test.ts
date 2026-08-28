@@ -38,7 +38,11 @@ import { auth } from '$lib/stores/auth.store';
 import { AuthService } from '../auth.service';
 
 import type { ApiOptions } from '../api.service';
-import type { ApplyImportBody, BundleInspection, ImportedCase } from '$lib/types/resources/case-transfer';
+import type {
+	ApplyImportBody,
+	BundleInspection,
+	ImportedCase
+} from '$lib/types/resources/case-transfer';
 
 // ---- fetch mock helpers -----------------------------------------------------
 
@@ -285,7 +289,10 @@ describe('CaseTransferService', () => {
 		});
 
 		it('should return ok:true with parsed BundleInspection on success', async () => {
-			const inspection = { staging_token: 'tok-abc', cases: [{ case_name: 'Alpha' }] } as unknown as BundleInspection;
+			const inspection = {
+				staging_token: 'tok-abc',
+				cases: [{ case_name: 'Alpha' }]
+			} as unknown as BundleInspection;
 			(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
 				mockFetchResponse({ ok: true, json: inspection })
 			);
@@ -370,7 +377,11 @@ describe('CaseTransferService', () => {
 		it('should forward custom ApiOptions to ApiService.post', async () => {
 			const options: ApiOptions = { skipTokenRefresh: true };
 			const body: ApplyImportBody = { staging_token: 'tok-2' };
-			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 201, data: {} });
+			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 201,
+				data: {}
+			});
 
 			await CaseTransferService.apply(body, options);
 
@@ -393,7 +404,11 @@ describe('CaseTransferService', () => {
 		});
 
 		it('should embed the token string correctly in the URL path', async () => {
-			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 204, data: null });
+			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 204,
+				data: null
+			});
 
 			await CaseTransferService.discard('staging-token-xyz');
 
@@ -402,7 +417,11 @@ describe('CaseTransferService', () => {
 
 		it('should forward custom ApiOptions to ApiService.delete', async () => {
 			const options: ApiOptions = { skipTokenRefresh: true };
-			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 204, data: null });
+			(ApiService.delete as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 204,
+				data: null
+			});
 
 			await CaseTransferService.discard('tok', options);
 

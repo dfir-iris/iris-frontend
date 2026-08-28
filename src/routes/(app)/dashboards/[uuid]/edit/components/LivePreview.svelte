@@ -146,56 +146,53 @@
 	</CardHeader>
 	{#if expanded}
 		{#snippet widgetCard(widget: RenderedWidget)}
-				{#if widget.chart_type === 'number' || widget.chart_type === 'percentage'}
-					{@const kpiColor = resolveKpiColor(widget)}
-					<Card class={`border-muted ${sizeClass(widget)}`}>
-						<CardHeader class="pb-1">
-							<CardTitle class="text-xs font-medium text-muted-foreground">{widget.name}</CardTitle>
-						</CardHeader>
-						<CardContent
-							class="text-xl font-semibold"
-							style={kpiColor ? `color: ${kpiColor};` : ''}
-						>
-							{widget.error ? '—' : formatValue(widget)}
-						</CardContent>
-					</Card>
-				{:else if widget.error}
-					<Card class={`border-muted ${sizeClass(widget)}`}>
-						<CardHeader><CardTitle class="text-sm">{widget.name}</CardTitle></CardHeader>
-						<CardContent class="text-xs text-destructive">{widget.error}</CardContent>
-					</Card>
-				{:else if widget.chart_type === 'table'}
-					<Card class={`border-muted ${sizeClass(widget)}`}>
-						<CardHeader><CardTitle class="text-sm">{widget.name}</CardTitle></CardHeader>
-						<CardContent class="max-h-[280px] overflow-auto">
-							<WidgetTable
-								groupHeaders={widget.group_headers}
-								valueHeaders={widget.value_headers}
-								groupKeys={widget.group_keys}
-								valueKeys={widget.value_keys}
-								rows={widget.rows as never}
-								totals={widget.totals}
-								totalLabel={widget.total_label}
-								defaultSort={((widget.options ?? {}) as Record<string, unknown>)
-									.default_sort as never}
-							/>
-						</CardContent>
-					</Card>
-				{:else}
-					<Card class={`border-muted ${sizeClass(widget)}`}>
-						<CardHeader><CardTitle class="text-sm">{widget.name}</CardTitle></CardHeader>
-						<CardContent>
-							<Chart
-								type={(widget.chart_type as 'bar' | 'line' | 'pie' | 'timechart') ?? 'bar'}
-								labels={widget.labels ?? widget.display_labels ?? []}
-								datasets={widget.datasets ?? []}
-								height={220}
-								color={widgetColor(widget)}
-								palette={widgetPalette(widget)}
-							/>
-						</CardContent>
-					</Card>
-				{/if}
+			{#if widget.chart_type === 'number' || widget.chart_type === 'percentage'}
+				{@const kpiColor = resolveKpiColor(widget)}
+				<Card class={`border-muted ${sizeClass(widget)}`}>
+					<CardHeader class="pb-1">
+						<CardTitle class="text-xs font-medium text-muted-foreground">{widget.name}</CardTitle>
+					</CardHeader>
+					<CardContent class="text-xl font-semibold" style={kpiColor ? `color: ${kpiColor};` : ''}>
+						{widget.error ? '—' : formatValue(widget)}
+					</CardContent>
+				</Card>
+			{:else if widget.error}
+				<Card class={`border-muted ${sizeClass(widget)}`}>
+					<CardHeader><CardTitle class="text-sm">{widget.name}</CardTitle></CardHeader>
+					<CardContent class="text-xs text-destructive">{widget.error}</CardContent>
+				</Card>
+			{:else if widget.chart_type === 'table'}
+				<Card class={`border-muted ${sizeClass(widget)}`}>
+					<CardHeader><CardTitle class="text-sm">{widget.name}</CardTitle></CardHeader>
+					<CardContent class="max-h-[280px] overflow-auto">
+						<WidgetTable
+							groupHeaders={widget.group_headers}
+							valueHeaders={widget.value_headers}
+							groupKeys={widget.group_keys}
+							valueKeys={widget.value_keys}
+							rows={widget.rows as never}
+							totals={widget.totals}
+							totalLabel={widget.total_label}
+							defaultSort={((widget.options ?? {}) as Record<string, unknown>)
+								.default_sort as never}
+						/>
+					</CardContent>
+				</Card>
+			{:else}
+				<Card class={`border-muted ${sizeClass(widget)}`}>
+					<CardHeader><CardTitle class="text-sm">{widget.name}</CardTitle></CardHeader>
+					<CardContent>
+						<Chart
+							type={(widget.chart_type as 'bar' | 'line' | 'pie' | 'timechart') ?? 'bar'}
+							labels={widget.labels ?? widget.display_labels ?? []}
+							datasets={widget.datasets ?? []}
+							height={220}
+							color={widgetColor(widget)}
+							palette={widgetPalette(widget)}
+						/>
+					</CardContent>
+				</Card>
+			{/if}
 		{/snippet}
 		<CardContent class="flex flex-col gap-4">
 			{#if error}
