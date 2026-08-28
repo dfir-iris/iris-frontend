@@ -9,7 +9,7 @@
   underlying resource.
 -->
 <script lang="ts">
-	import { ExternalLink, Loader2 } from 'lucide-svelte';
+	import { ExternalLink } from 'lucide-svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
@@ -57,13 +57,22 @@
 			let res;
 			switch (target.kind) {
 				case 'asset':
-					res = await CaseAssetsService.get(target.caseId, Number(extractIdFromLabel(target.label) ?? 0));
+					res = await CaseAssetsService.get(
+						target.caseId,
+						Number(extractIdFromLabel(target.label) ?? 0)
+					);
 					break;
 				case 'ioc':
-					res = await CaseIocsService.get(target.caseId, Number(extractIdFromLabel(target.label) ?? 0));
+					res = await CaseIocsService.get(
+						target.caseId,
+						Number(extractIdFromLabel(target.label) ?? 0)
+					);
 					break;
 				case 'task':
-					res = await CaseTasksService.get(target.caseId, Number(extractIdFromLabel(target.label) ?? 0));
+					res = await CaseTasksService.get(
+						target.caseId,
+						Number(extractIdFromLabel(target.label) ?? 0)
+					);
 					break;
 				case 'event':
 					res = await CaseTimelineService.getEvent(
@@ -100,38 +109,26 @@
 		try {
 			let payload: Array<Record<string, unknown>> = [];
 			if (target.kind === 'event') {
-				const r = await CaseTimelineService.listEvents(
-					target.caseId,
-					{},
-					{},
-					{ per_page: 200 }
-				);
+				const r = await CaseTimelineService.listEvents(target.caseId, {}, {}, { per_page: 200 });
 				if (r.ok && r.data && typeof r.data !== 'string') {
-					payload = (r.data as { timeline?: Array<Record<string, unknown>> })
-						.timeline ?? [];
+					payload = (r.data as { timeline?: Array<Record<string, unknown>> }).timeline ?? [];
 				}
 			} else if (target.kind === 'ioc') {
 				const r = await CaseIocsService.list(target.caseId, { per_page: 200 });
 				if (r.ok && r.data && typeof r.data !== 'string') {
-					payload =
-						(r.data as unknown as { data?: Array<Record<string, unknown>> })
-							.data ?? [];
+					payload = (r.data as unknown as { data?: Array<Record<string, unknown>> }).data ?? [];
 				}
 			} else if (target.kind === 'asset') {
 				const r = await CaseAssetsService.list(target.caseId, {
 					per_page: 200
 				});
 				if (r.ok && r.data && typeof r.data !== 'string') {
-					payload =
-						(r.data as unknown as { data?: Array<Record<string, unknown>> })
-							.data ?? [];
+					payload = (r.data as unknown as { data?: Array<Record<string, unknown>> }).data ?? [];
 				}
 			} else if (target.kind === 'task') {
 				const r = await CaseTasksService.list(target.caseId, { per_page: 200 });
 				if (r.ok && r.data && typeof r.data !== 'string') {
-					payload =
-						(r.data as unknown as { data?: Array<Record<string, unknown>> })
-							.data ?? [];
+					payload = (r.data as unknown as { data?: Array<Record<string, unknown>> }).data ?? [];
 				}
 			}
 
@@ -175,7 +172,13 @@
 
 		if (target.kind === 'asset') {
 			out.push({ label: 'Name', value: str(get('asset_name')) });
-			out.push({ label: 'Type', value: str((get('asset_type') as { asset_name?: string } | undefined)?.asset_name ?? get('asset_type_name')) });
+			out.push({
+				label: 'Type',
+				value: str(
+					(get('asset_type') as { asset_name?: string } | undefined)?.asset_name ??
+						get('asset_type_name')
+				)
+			});
 			out.push({ label: 'Description', value: str(get('asset_description')) });
 			out.push({ label: 'IP', value: str(get('asset_ip')) });
 			out.push({ label: 'Tags', value: str(get('asset_tags')) });
@@ -184,8 +187,7 @@
 			out.push({
 				label: 'Type',
 				value: str(
-					(get('ioc_type') as { type_name?: string } | undefined)?.type_name ??
-						get('ioc_type_name')
+					(get('ioc_type') as { type_name?: string } | undefined)?.type_name ?? get('ioc_type_name')
 				)
 			});
 			out.push({ label: 'Description', value: str(get('ioc_description')) });
@@ -264,9 +266,7 @@
 			>
 				Open in case <ExternalLink class="h-3 w-3" />
 			</a>
-			<Button size="sm" variant="ghost" onclick={() => onOpenChange(false)}>
-				Close
-			</Button>
+			<Button size="sm" variant="ghost" onclick={() => onOpenChange(false)}>Close</Button>
 		</div>
 	</Dialog.Content>
 </Dialog.Root>

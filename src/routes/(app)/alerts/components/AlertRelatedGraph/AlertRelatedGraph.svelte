@@ -28,7 +28,7 @@
 		node?: VisNode;
 	};
 
-const createTooltip = (html: string) => {
+	const createTooltip = (html: string) => {
 		if (typeof document === 'undefined') return html;
 
 		const el = document.createElement('div');
@@ -145,8 +145,7 @@ const createTooltip = (html: string) => {
 			const title = node.title?.includes('<') ? createTooltip(node.title) : node.title;
 
 			if (node.group === 'alert') {
-				const isClosed =
-					typeof node.label === 'string' && node.label.startsWith('[Closed]');
+				const isClosed = typeof node.label === 'string' && node.label.startsWith('[Closed]');
 				return {
 					...node,
 					title,

@@ -36,20 +36,11 @@
 		 */
 		attachedCases?: WarRoomCaseAttachment[];
 	};
-	let {
-		warRoomId,
-		refType,
-		refId,
-		refCaseId,
-		attachedCases = []
-	}: Props = $props();
+	let { warRoomId, refType, refId, refCaseId, attachedCases = [] }: Props = $props();
 
 	const caseLookup = $derived.by(() => {
-		const id = refType === 'case'
-			? (refId ?? refCaseId)
-			: refType === 'user_activity'
-				? refCaseId
-				: null;
+		const id =
+			refType === 'case' ? (refId ?? refCaseId) : refType === 'user_activity' ? refCaseId : null;
 		if (id == null) return null;
 		return attachedCases.find((a) => a.case_id === id) ?? null;
 	});
@@ -147,7 +138,7 @@
 					<a
 						href={resolved.href}
 						class={[
-							'shrink-0 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-2xs font-medium transition-colors hover:brightness-110',
+							'inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-2xs font-medium transition-colors hover:brightness-110',
 							resolved.cls
 						]}
 					>
@@ -175,7 +166,7 @@
 		<a
 			href={resolved.href}
 			class={[
-				'shrink-0 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-2xs font-medium transition-colors hover:brightness-110',
+				'inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-2xs font-medium transition-colors hover:brightness-110',
 				resolved.cls
 			]}
 		>
@@ -186,7 +177,7 @@
 	{:else}
 		<span
 			class={[
-				'shrink-0 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-2xs font-medium',
+				'inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-2xs font-medium',
 				resolved.cls
 			]}
 		>

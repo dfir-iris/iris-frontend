@@ -13,12 +13,12 @@
 		collapsed?: boolean;
 		counter?: number | null;
 	}
-	let { label, href, icon: BtnIcon, collapsed = false, counter = null }: Props = $props();
+	let { label, href, icon: BtnIcon, collapsed: _collapsed = false, counter = null }: Props = $props();
 
 	// Handle if route is active
 	let active = $state(false);
 	$effect.pre(() => {
-		active = page.url.pathname.endsWith(href);
+		active = href ? page.url.pathname.endsWith(href) : false;
 	});
 </script>
 

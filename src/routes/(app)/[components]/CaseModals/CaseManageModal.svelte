@@ -95,9 +95,7 @@
 						<h3 class="text-sm font-semibold">General info</h3>
 
 						{#if !editing}
-							<Button variant="secondary" size="sm" onclick={() => (editing = true)}>
-								Edit
-							</Button>
+							<Button variant="secondary" size="sm" onclick={() => (editing = true)}>Edit</Button>
 						{/if}
 					</div>
 
@@ -134,9 +132,7 @@
 					</Button>
 
 					{#if isClosed}
-						<Button size="sm" onclick={async () => await cases.reopen(case_id)}>
-							Reopen case
-						</Button>
+						<Button size="sm" onclick={async () => await cases.reopen(case_id)}>Reopen case</Button>
 					{:else}
 						<Button variant="secondary" size="sm" onclick={() => (showConfirmClose = true)}>
 							Close case

@@ -101,9 +101,7 @@
 	const accessRows = $derived<UserAuditAccessEntry[]>(
 		audit == null
 			? []
-			: Object.values(audit.access_audit).sort(
-					(a, b) => a.case_info.case_id - b.case_info.case_id
-				)
+			: Object.values(audit.access_audit).sort((a, b) => a.case_info.case_id - b.case_info.case_id)
 	);
 
 	const visibleAccessRows = $derived.by<UserAuditAccessEntry[]>(() => {
@@ -189,7 +187,7 @@
 										<tr>
 											<td class="px-2 py-1">
 												<span class="font-medium">{row.label}</span>
-												<span class="ml-1 font-mono text-3xs text-muted-foreground">
+												<span class="text-3xs ml-1 font-mono text-muted-foreground">
 													{row.name}
 												</span>
 											</td>
@@ -247,9 +245,7 @@
 					<div class="max-h-[40vh] overflow-y-auto rounded-md border">
 						{#if visibleAccessRows.length === 0}
 							<p class="px-3 py-4 text-center text-2xs text-muted-foreground">
-								{accessRows.length === 0
-									? 'No case access.'
-									: 'No matches for the current filter.'}
+								{accessRows.length === 0 ? 'No case access.' : 'No matches for the current filter.'}
 							</p>
 						{:else}
 							<table class="w-full text-2xs">
@@ -286,7 +282,7 @@
 															</span>
 															{#if overridden}
 																<span
-																	class="rounded-sm border bg-muted/40 px-1 py-0 text-3xs text-muted-foreground"
+																	class="text-3xs rounded-sm border bg-muted/40 px-1 py-0 text-muted-foreground"
 																>
 																	{s.state}
 																</span>

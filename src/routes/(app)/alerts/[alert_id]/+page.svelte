@@ -222,7 +222,6 @@
 		}}
 		{alert}
 	/>
-
 {/if}
 
 <AlertsReasignDialog

@@ -95,7 +95,9 @@
 	// Local editable copy — parsed lazily from the incoming string and
 	// re-synced whenever the parent replaces `value` (e.g. reset,
 	// preset load, URL navigation).
+	// eslint-disable-next-line svelte/valid-compile
 	let tree = $state<GroupNode>(parseValue(value));
+	// eslint-disable-next-line svelte/valid-compile
 	let jsonText = $state<string>(value ?? '');
 	let jsonError = $state<string | null>(null);
 	let activeTab = $state<'builder' | 'json'>('builder');
@@ -117,9 +119,8 @@
 	// Seed `lastSynced` with the compact form of the parsed tree so the
 	// tree-watching effect below sees no change on mount even if the
 	// incoming string had different whitespace / key ordering.
-	let lastSynced = $state<string | undefined>(
-		hasAnyLeaf(tree) ? JSON.stringify(tree) : undefined
-	);
+	// eslint-disable-next-line svelte/valid-compile
+	let lastSynced = $state<string | undefined>(hasAnyLeaf(tree) ? JSON.stringify(tree) : undefined);
 
 	// When the caller replaces `value` from the outside (reset, preset
 	// load, URL navigation), refresh both editors. Compare normalised
@@ -209,11 +210,7 @@
 		{/if}
 	</div>
 
-	<Tabs
-		value={activeTab}
-		onValueChange={(v) => (activeTab = v as typeof activeTab)}
-		class="w-full"
-	>
+	<Tabs value={activeTab} onValueChange={(v) => (activeTab = v as typeof activeTab)} class="w-full">
 		<TabsList class="h-auto rounded-md bg-muted/50 p-0.5">
 			<TabsTrigger
 				value="builder"

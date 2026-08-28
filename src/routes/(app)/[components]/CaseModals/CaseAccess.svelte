@@ -2,10 +2,7 @@
 	import { renderComponent, type ColumnDef } from '@tanstack/svelte-table';
 	import { getContext, onMount } from 'svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
-	import {
-		AccessLevel,
-		CaseAccessService
-	} from '$lib/services/case-access.service';
+	import { AccessLevel, CaseAccessService } from '$lib/services/case-access.service';
 	import { CaseService, type CaseAccessUserRow } from '$lib/services/case.service';
 	import DataTable from '$lib/components/ui/data-table-tanstack/data-table.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -16,7 +13,6 @@
 	import type { Access } from './types';
 	import { ACCESS_OPTIONS } from './consts';
 	import CaseAccessGroup from './CaseAccessGroup.svelte';
-
 
 	const cases = getContext<CasesContext>(CASES_CTX);
 	const currentCaseId = cases.currentCaseId();
@@ -67,9 +63,7 @@
 		// fresh refresh — cheaper than tracking per-row previous values.
 		const previous = usersAccess;
 		usersAccess = usersAccess.map((row) =>
-			row.user.user_id === userId
-				? { ...row, access: accessFromLevel(accessLevel) }
-				: row
+			row.user.user_id === userId ? { ...row, access: accessFromLevel(accessLevel) } : row
 		);
 
 		try {
@@ -109,9 +103,7 @@
 			header: 'User Access',
 			cell: (cell) =>
 				renderComponent(SearchSelect, {
-					value: String(
-						(cell.row?.original as Row).access?.level ?? AccessLevel.DENY_ALL
-					),
+					value: String((cell.row?.original as Row).access?.level ?? AccessLevel.DENY_ALL),
 					options: ACCESS_OPTIONS,
 					onChange: (value) => {
 						const userId = (cell.row?.original as Row).user.user_id;

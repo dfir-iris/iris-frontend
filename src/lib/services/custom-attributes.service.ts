@@ -95,9 +95,7 @@ export class CustomAttributesService {
 		attributeFor?: CustomAttributeObjectType,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<CustomAttribute[]>> {
-		const url = attributeFor
-			? ApiService.withQuery(BASE, { attribute_for: attributeFor })
-			: BASE;
+		const url = attributeFor ? ApiService.withQuery(BASE, { attribute_for: attributeFor }) : BASE;
 		return ApiService.get<CustomAttribute[]>(url, options);
 	}
 

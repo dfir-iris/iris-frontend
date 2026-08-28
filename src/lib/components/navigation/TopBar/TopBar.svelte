@@ -11,10 +11,7 @@
 		SquareCheckBigIcon
 	} from 'lucide-svelte';
 	import { runtimeConfig } from '$lib/stores/runtime-config.store.svelte';
-	import {
-		CHAT_PANEL_CTX,
-		type ChatPanelContext
-	} from '$lib/contexts/chat-panel.context.svelte';
+	import { CHAT_PANEL_CTX, type ChatPanelContext } from '$lib/contexts/chat-panel.context.svelte';
 	import BugReportDialog from '$lib/components/observability/BugReportDialog.svelte';
 	import {
 		Tooltip,
@@ -90,7 +87,11 @@
 	};
 
 	const topBarButtons = [
-		{ icon: RefreshCwIcon, tooltip: 'Switch Context (Ctrl + K)', action: () => (showSwitchContext = true) },
+		{
+			icon: RefreshCwIcon,
+			tooltip: 'Switch Context (Ctrl + K)',
+			action: () => (showSwitchContext = true)
+		},
 		{ icon: SquareCheckBigIcon, tooltip: 'Add Task Log', action: addTaskLog },
 		{ icon: PlusIcon, tooltip: 'Create Case', action: createCase },
 		{ icon: BugIcon, tooltip: 'Report an issue', action: () => (showBugReport = true) }
@@ -110,8 +111,7 @@
 	const isCaseButtonActive = (path: string) => {
 		if (path === '') return pathname === caseBasePath || pathname === `${caseBasePath}/`;
 		return (
-			pathname.includes(`${caseBasePath}/${path}`) ||
-			pathname.includes(`${caseBasePath}/${path}/`)
+			pathname.includes(`${caseBasePath}/${path}`) || pathname.includes(`${caseBasePath}/${path}/`)
 		);
 	};
 
@@ -264,11 +264,7 @@
 		<NotificationBell />
 
 		{#if chatbotEnabled && chatPanel}
-			<ActionButton
-				icon={SparklesIcon}
-				tooltip="Yuki"
-				action={() => chatPanel.toggle()}
-			/>
+			<ActionButton icon={SparklesIcon} tooltip="Yuki" action={() => chatPanel.toggle()} />
 		{/if}
 
 		{#each topBarButtons as topBarButton}
@@ -287,7 +283,4 @@
 	onOpenChange={(openState) => (showSwitchContext = openState)}
 />
 
-<BugReportDialog
-	open={showBugReport}
-	onOpenChange={(v) => (showBugReport = v)}
-/>
+<BugReportDialog open={showBugReport} onOpenChange={(v) => (showBugReport = v)} />

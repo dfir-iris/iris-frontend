@@ -23,10 +23,7 @@ export interface WarRoomDatastoreListing {
 // FormData requests bypass ApiService (which forces JSON); we mirror the
 // pattern used by case-datastore.service.ts so the auth header, base
 // URL, and RequestResponse shape stay consistent across the SPA.
-const multipart = async <T>(
-	url: string,
-	formData: FormData
-): Promise<RequestResponse<T>> => {
+const multipart = async <T>(url: string, formData: FormData): Promise<RequestResponse<T>> => {
 	const { auth } = await import('$lib/stores/auth.store');
 	const { AuthService } = await import('./auth.service');
 	const { browser } = await import('$app/environment');
@@ -81,10 +78,7 @@ export class WarRoomDatastoreService {
 		form.append('file', file, file.name);
 		if (extras.description) form.append('description', extras.description);
 		if (extras.tags) form.append('tags', extras.tags);
-		return multipart<WarRoomDatastoreFile>(
-			`/api/v2/war-rooms/${warRoomId}/datastore`,
-			form
-		);
+		return multipart<WarRoomDatastoreFile>(`/api/v2/war-rooms/${warRoomId}/datastore`, form);
 	}
 
 	static downloadUrl(warRoomId: number, fileId: number): string {
@@ -97,10 +91,7 @@ export class WarRoomDatastoreService {
 	 * caller is responsible for `URL.revokeObjectURL(...)` when the
 	 * element goes away — otherwise the blob leaks.
 	 */
-	static async fetchFileBlobUrl(
-		warRoomId: number,
-		fileId: number
-	): Promise<string | null> {
+	static async fetchFileBlobUrl(warRoomId: number, fileId: number): Promise<string | null> {
 		const { auth } = await import('$lib/stores/auth.store');
 		const { AuthService } = await import('./auth.service');
 		const { browser } = await import('$app/environment');
@@ -130,9 +121,6 @@ export class WarRoomDatastoreService {
 		fileId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
-		return ApiService.delete<null>(
-			`/war-rooms/${warRoomId}/datastore/${fileId}`,
-			options
-		);
+		return ApiService.delete<null>(`/war-rooms/${warRoomId}/datastore/${fileId}`, options);
 	}
 }

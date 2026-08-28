@@ -153,7 +153,6 @@
 		}
 		return pathname === item.path && hash === itemHash;
 	};
-
 </script>
 
 <ul
@@ -170,7 +169,9 @@
 	{/each}
 
 	{#if showInvestigationGroup}
-		<li class="my-4 ml-4 flex w-full text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+		<li
+			class="my-4 ml-4 flex w-full text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50"
+		>
 			{#if collapsed}
 				&nbsp;
 			{:else}
@@ -190,7 +191,9 @@
 	{/if}
 
 	{#if showManageGroup}
-		<li class="my-4 ml-4 flex w-full text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+		<li
+			class="my-4 ml-4 flex w-full text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50"
+		>
 			{#if collapsed}
 				&nbsp;
 			{:else}

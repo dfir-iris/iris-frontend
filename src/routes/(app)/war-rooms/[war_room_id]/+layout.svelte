@@ -2,10 +2,7 @@
 	import { onMount, setContext, type Snippet } from 'svelte';
 	import { page } from '$app/state';
 	import { toast } from '$lib/components/ui/toast';
-	import {
-		WarRoomsService,
-		type WarRoom
-	} from '$lib/services/war-rooms.service';
+	import { WarRoomsService, type WarRoom } from '$lib/services/war-rooms.service';
 	import {
 		createWarRoomContext,
 		WAR_ROOM_CTX,
@@ -36,7 +33,7 @@
 	const datastorePanel = createWarRoomDatastorePanelContext();
 	setContext<WarRoomDatastorePanelContext>(WAR_ROOM_DATASTORE_PANEL_CTX, datastorePanel);
 
-	let loadingFirst = $state(true);
+	let _loadingFirst = $state(true);
 
 	const refresh = async () => {
 		const res = await WarRoomsService.get(warRoomId);
@@ -45,12 +42,11 @@
 		} else {
 			toast({
 				title: 'Could not load war room',
-				description:
-					typeof res.data === 'string' ? res.data : (res.error?.message ?? undefined),
+				description: typeof res.data === 'string' ? res.data : (res.error?.message ?? undefined),
 				variant: 'destructive'
 			});
 		}
-		loadingFirst = false;
+		_loadingFirst = false;
 	};
 
 	onMount(refresh);
@@ -58,7 +54,7 @@
 	// Reactive guard — if the route changes to a different war room, refetch.
 	$effect(() => {
 		if (warRoomId && ctx.room?.war_room_id !== warRoomId) {
-			loadingFirst = true;
+			_loadingFirst = true;
 			refresh();
 		}
 	});

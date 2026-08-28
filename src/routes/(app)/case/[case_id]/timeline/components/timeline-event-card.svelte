@@ -112,7 +112,7 @@
 		'#ec4899', // pink
 		'#84cc16', // lime
 		'#f97316', // orange
-		'#14b8a6'  // teal
+		'#14b8a6' // teal
 	];
 
 	const hashString = (s: string): number => {
@@ -160,8 +160,7 @@
 				const tag = parent.tagName;
 				// Skip <script>, <style>, and existing marks (shouldn't happen
 				// after the unwrap above but defensive).
-				if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'MARK')
-					return NodeFilter.FILTER_REJECT;
+				if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'MARK') return NodeFilter.FILTER_REJECT;
 				return node.nodeValue && re.test(node.nodeValue)
 					? NodeFilter.FILTER_ACCEPT
 					: NodeFilter.FILTER_REJECT;
@@ -298,7 +297,10 @@
 						</TooltipProvider>
 
 						{#if event.category_name}
-							<span class="rounded-full px-2 py-0.5 text-2xs font-medium" style="background-color: {accentColor}20; color: {accentColor}">
+							<span
+								class="rounded-full px-2 py-0.5 text-2xs font-medium"
+								style="background-color: {accentColor}20; color: {accentColor}"
+							>
 								<Highlight text={event.category_name} query={searchQuery} />
 							</span>
 						{/if}
@@ -338,7 +340,8 @@
 										</button>
 									</TooltipTrigger>
 									<TooltipContent>
-										{commentsCount} {commentsCount === 1 ? 'comment' : 'comments'}
+										{commentsCount}
+										{commentsCount === 1 ? 'comment' : 'comments'}
 									</TooltipContent>
 								</Tooltip>
 							</TooltipProvider>
@@ -363,7 +366,7 @@
 					{#if event.event_content}
 						<div
 							bind:this={contentEl}
-							class="mt-1.5 max-h-40 min-w-0 overflow-hidden text-xs text-foreground/80 dark:text-slate-300 [&_*]:max-w-full [&_code]:whitespace-pre-wrap [&_code]:break-words [&_img]:max-w-full [&_mark]:rounded-sm [&_mark]:bg-yellow-300/60 [&_mark]:px-0.5 [&_mark]:text-foreground dark:[&_mark]:bg-yellow-400/40 [&_p]:break-words [&_pre]:overflow-x-hidden [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_pre]:dark:bg-slate-800/60 [&_code]:dark:bg-slate-800/60 [&_table]:block [&_table]:overflow-x-auto"
+							class="mt-1.5 max-h-40 min-w-0 overflow-hidden text-xs text-foreground/80 dark:text-slate-300 [&_*]:max-w-full [&_code]:whitespace-pre-wrap [&_code]:break-words [&_code]:dark:bg-slate-800/60 [&_img]:max-w-full [&_mark]:rounded-sm [&_mark]:bg-yellow-300/60 [&_mark]:px-0.5 [&_mark]:text-foreground dark:[&_mark]:bg-yellow-400/40 [&_p]:break-words [&_pre]:overflow-x-hidden [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_pre]:dark:bg-slate-800/60 [&_table]:block [&_table]:overflow-x-auto"
 						>
 							<MarkDownPreview markdown={event.event_content} />
 						</div>
@@ -380,7 +383,9 @@
 										title={asset.description ?? undefined}
 									/>
 								{:else}
-									<span class="inline-flex items-center gap-0.5 rounded bg-amber-500/15 px-1 py-0 text-xs text-amber-700 dark:text-amber-300">
+									<span
+										class="inline-flex items-center gap-0.5 rounded bg-amber-500/15 px-1 py-0 text-xs text-amber-700 dark:text-amber-300"
+									>
 										{asset.name}
 									</span>
 								{/if}
@@ -395,14 +400,18 @@
 										title={ioc.description ?? undefined}
 									/>
 								{:else}
-									<span class="inline-flex items-center gap-0.5 rounded bg-red-500/15 px-1 py-0 text-xs text-red-700 dark:text-red-300">
+									<span
+										class="inline-flex items-center gap-0.5 rounded bg-red-500/15 px-1 py-0 text-xs text-red-700 dark:text-red-300"
+									>
 										{ioc.name}
 									</span>
 								{/if}
 							{/each}
 
 							{#each tags as tag}
-								<span class="inline-flex items-center rounded bg-muted px-1.5 py-0 text-2xs text-muted-foreground">
+								<span
+									class="inline-flex items-center rounded bg-muted px-1.5 py-0 text-2xs text-muted-foreground"
+								>
 									#<Highlight text={tag} query={searchQuery} />
 								</span>
 							{/each}
@@ -429,12 +438,19 @@
 					{/if}
 				</div>
 
-				<div class="absolute right-2 top-2 z-[1] flex shrink-0 items-center gap-0.5 rounded-md border border-border/40 bg-popover/95 px-1 py-0.5 opacity-0 shadow-md backdrop-blur transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 dark:border-slate-700 dark:bg-slate-800/95">
+				<div
+					class="absolute right-2 top-2 z-[1] flex shrink-0 items-center gap-0.5 rounded-md border border-border/40 bg-popover/95 px-1 py-0.5 opacity-0 shadow-md backdrop-blur transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 dark:border-slate-700 dark:bg-slate-800/95"
+				>
 					{#if canEdit}
 						<TooltipProvider>
 							<Tooltip>
 								<TooltipTrigger>
-									<Button variant="ghost" size="icon" class="size-7" onclick={() => onEdit(event.event_id)}>
+									<Button
+										variant="ghost"
+										size="icon"
+										class="size-7"
+										onclick={() => onEdit(event.event_id)}
+									>
 										<EditIcon class="size-3.5" />
 									</Button>
 								</TooltipTrigger>
@@ -445,7 +461,12 @@
 						<TooltipProvider>
 							<Tooltip>
 								<TooltipTrigger>
-									<Button variant="ghost" size="icon" class="size-7" onclick={() => onAddChild(event.event_id)}>
+									<Button
+										variant="ghost"
+										size="icon"
+										class="size-7"
+										onclick={() => onAddChild(event.event_id)}
+									>
 										<GitBranchPlusIcon class="size-3.5" />
 									</Button>
 								</TooltipTrigger>
@@ -456,8 +477,15 @@
 						<TooltipProvider>
 							<Tooltip>
 								<TooltipTrigger>
-									<Button variant="ghost" size="icon" class="size-7" onclick={() => onFlag(event.event_id)}>
-										<FlagIcon class={`size-3.5 ${event.event_is_flagged ? 'fill-red-500 text-red-500' : ''}`} />
+									<Button
+										variant="ghost"
+										size="icon"
+										class="size-7"
+										onclick={() => onFlag(event.event_id)}
+									>
+										<FlagIcon
+											class={`size-3.5 ${event.event_is_flagged ? 'fill-red-500 text-red-500' : ''}`}
+										/>
 									</Button>
 								</TooltipTrigger>
 								<TooltipContent>{event.event_is_flagged ? 'Unflag' : 'Flag'}</TooltipContent>
@@ -476,7 +504,9 @@
 								>
 									<MessageSquareIcon class="size-3.5" />
 									{#if commentsCount}
-										<span class="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-semibold text-white">
+										<span
+											class="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-semibold text-white"
+										>
 											{commentsCount}
 										</span>
 									{/if}

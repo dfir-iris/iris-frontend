@@ -189,11 +189,7 @@
 	};
 
 	const loadMoreCustomers = async () => {
-		if (
-			customersList.loading ||
-			customersList.loadingMore ||
-			customersList.nextPage == null
-		)
+		if (customersList.loading || customersList.loadingMore || customersList.nextPage == null)
 			return;
 		customersList = { ...customersList, loadingMore: true };
 		const page = customersList.nextPage as number;
@@ -477,10 +473,7 @@
 		confirmMessage = 'This deletes the contact. The action cannot be undone.';
 		confirmAction = async () => {
 			if (!selectedCustomer) return;
-			const res = await CustomersService.removeContact(
-				selectedCustomer.customer_id,
-				contact.id
-			);
+			const res = await CustomersService.removeContact(selectedCustomer.customer_id, contact.id);
 			if (res.ok) {
 				showSuccess('Contact removed');
 				await refreshContacts(selectedCustomer.customer_id);
@@ -508,9 +501,7 @@
 			<BuildingIcon size={18} class="text-muted-foreground" />
 			<div class="leading-tight">
 				<h1 class="text-sm font-semibold">Customers</h1>
-				<p class="text-2xs text-muted-foreground">
-					Manage customer records and their contacts.
-				</p>
+				<p class="text-2xs text-muted-foreground">Manage customer records and their contacts.</p>
 			</div>
 		</div>
 
@@ -522,10 +513,7 @@
 				onclick={refresh}
 				disabled={customersList.loading}
 			>
-				<RefreshCwIcon
-					size={12}
-					class={`mr-1 ${customersList.loading ? 'animate-spin' : ''}`}
-				/>
+				<RefreshCwIcon size={12} class={`mr-1 ${customersList.loading ? 'animate-spin' : ''}`} />
 				Refresh
 			</Button>
 			<Button size="sm" class="h-7" onclick={openAdd}>
@@ -548,7 +536,7 @@
 						<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 							Customers
 						</h2>
-						<span class="text-2xs text-muted-foreground tabular-nums">
+						<span class="text-2xs tabular-nums text-muted-foreground">
 							{customersList.items.length} / {customersList.total}
 						</span>
 					</div>
@@ -613,9 +601,7 @@
 								<button
 									type="button"
 									class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors
-										{active
-										? 'bg-primary/10 font-medium text-foreground'
-										: 'hover:bg-muted/40'}"
+										{active ? 'bg-primary/10 font-medium text-foreground' : 'hover:bg-muted/40'}"
 									onclick={() => selectCustomer(customer.customer_id)}
 								>
 									<CircleUserIcon size={14} class="shrink-0 text-muted-foreground" />
@@ -658,9 +644,7 @@
 
 		<!-- Detail (selected customer + contacts) -->
 		<section class="flex min-h-0 flex-1 basis-3/5 flex-col overflow-hidden rounded-md border">
-			<div
-				class="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2"
-			>
+			<div class="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
 				<div class="flex items-baseline gap-2">
 					<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 						Details
@@ -706,29 +690,21 @@
 					<!-- Metadata strip -->
 					<dl class="grid grid-cols-1 gap-3 border-b p-4 text-xs sm:grid-cols-2">
 						<div>
-							<dt class="text-2xs uppercase tracking-wide text-muted-foreground">
-								Name
-							</dt>
+							<dt class="text-2xs uppercase tracking-wide text-muted-foreground">Name</dt>
 							<dd class="font-medium">{selectedCustomer.customer_name}</dd>
 						</div>
 						<div>
-							<dt class="text-2xs uppercase tracking-wide text-muted-foreground">
-								Customer ID
-							</dt>
+							<dt class="text-2xs uppercase tracking-wide text-muted-foreground">Customer ID</dt>
 							<dd class="font-mono text-2xs">{selectedCustomer.customer_id}</dd>
 						</div>
 						<div class="sm:col-span-2">
-							<dt class="text-2xs uppercase tracking-wide text-muted-foreground">
-								Description
-							</dt>
+							<dt class="text-2xs uppercase tracking-wide text-muted-foreground">Description</dt>
 							<dd class="whitespace-pre-wrap">
 								{selectedCustomer.customer_description || '—'}
 							</dd>
 						</div>
 						<div class="sm:col-span-2">
-							<dt class="text-2xs uppercase tracking-wide text-muted-foreground">
-								SLA
-							</dt>
+							<dt class="text-2xs uppercase tracking-wide text-muted-foreground">SLA</dt>
 							<dd class="whitespace-pre-wrap">
 								{selectedCustomer.customer_sla || '—'}
 							</dd>
@@ -736,16 +712,12 @@
 					</dl>
 
 					<!-- Contacts -->
-					<div
-						class="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2"
-					>
+					<div class="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
 						<div class="flex items-baseline gap-2">
-							<h3
-								class="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-							>
+							<h3 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 								Contacts
 							</h3>
-							<span class="text-2xs text-muted-foreground tabular-nums">
+							<span class="text-2xs tabular-nums text-muted-foreground">
 								{contacts.length}
 							</span>
 						</div>
@@ -769,10 +741,7 @@
 						<ul class="divide-y">
 							{#each contacts as contact (contact.id)}
 								<li class="flex items-start gap-3 px-3 py-2.5 text-xs">
-									<CircleUserIcon
-										size={16}
-										class="mt-0.5 shrink-0 text-muted-foreground"
-									/>
+									<CircleUserIcon size={16} class="mt-0.5 shrink-0 text-muted-foreground" />
 									<div class="min-w-0 flex-1">
 										<div class="flex items-center gap-2">
 											<span class="font-medium">{contact.contact_name}</span>
@@ -784,7 +753,9 @@
 												</span>
 											{/if}
 										</div>
-										<div class="flex flex-wrap gap-x-3 gap-y-0.5 pt-1 text-2xs text-muted-foreground">
+										<div
+											class="flex flex-wrap gap-x-3 gap-y-0.5 pt-1 text-2xs text-muted-foreground"
+										>
 											{#if contact.contact_email}
 												<span class="flex items-center gap-1">
 													<MailIcon size={10} />
@@ -853,7 +824,10 @@
 
 		<div class="flex flex-col gap-3 pt-2">
 			<div class="flex flex-col gap-1">
-				<label for="add-customer-name" class="text-2xs uppercase tracking-wide text-muted-foreground">
+				<label
+					for="add-customer-name"
+					class="text-2xs uppercase tracking-wide text-muted-foreground"
+				>
 					Name
 				</label>
 				<Input
@@ -864,7 +838,10 @@
 				/>
 			</div>
 			<div class="flex flex-col gap-1">
-				<label for="add-customer-description" class="text-2xs uppercase tracking-wide text-muted-foreground">
+				<label
+					for="add-customer-description"
+					class="text-2xs uppercase tracking-wide text-muted-foreground"
+				>
 					Description
 				</label>
 				<Textarea
@@ -875,7 +852,10 @@
 				/>
 			</div>
 			<div class="flex flex-col gap-1">
-				<label for="add-customer-sla" class="text-2xs uppercase tracking-wide text-muted-foreground">
+				<label
+					for="add-customer-sla"
+					class="text-2xs uppercase tracking-wide text-muted-foreground"
+				>
 					SLA
 				</label>
 				<Textarea
@@ -891,9 +871,7 @@
 		</div>
 
 		<Dialog.Footer class="pt-3">
-			<Button variant="outline" onclick={() => (addOpen = false)} disabled={addBusy}>
-				Cancel
-			</Button>
+			<Button variant="outline" onclick={() => (addOpen = false)} disabled={addBusy}>Cancel</Button>
 			<Button onclick={submitAdd} disabled={addBusy}>
 				{addBusy ? 'Saving…' : 'Create'}
 			</Button>
@@ -910,20 +888,24 @@
 	>
 		<Dialog.Header>
 			<Dialog.Title>Edit customer</Dialog.Title>
-			<Dialog.Description>
-				Update the customer's name, description or SLA.
-			</Dialog.Description>
+			<Dialog.Description>Update the customer's name, description or SLA.</Dialog.Description>
 		</Dialog.Header>
 
 		<div class="flex flex-col gap-3 pt-2">
 			<div class="flex flex-col gap-1">
-				<label for="edit-customer-name" class="text-2xs uppercase tracking-wide text-muted-foreground">
+				<label
+					for="edit-customer-name"
+					class="text-2xs uppercase tracking-wide text-muted-foreground"
+				>
 					Name
 				</label>
 				<Input id="edit-customer-name" bind:value={editForm.customer_name} disabled={editBusy} />
 			</div>
 			<div class="flex flex-col gap-1">
-				<label for="edit-customer-description" class="text-2xs uppercase tracking-wide text-muted-foreground">
+				<label
+					for="edit-customer-description"
+					class="text-2xs uppercase tracking-wide text-muted-foreground"
+				>
 					Description
 				</label>
 				<Textarea
@@ -934,7 +916,10 @@
 				/>
 			</div>
 			<div class="flex flex-col gap-1">
-				<label for="edit-customer-sla" class="text-2xs uppercase tracking-wide text-muted-foreground">
+				<label
+					for="edit-customer-sla"
+					class="text-2xs uppercase tracking-wide text-muted-foreground"
+				>
 					SLA
 				</label>
 				<Textarea
@@ -955,7 +940,10 @@
 			{#if editOpen && hasCustomAttributes.client === true}
 				<CustomAttributesSection
 					objectType="client"
-					existing={(selectedCustomer?.custom_attributes ?? null) as Record<string, Record<string, unknown>> | null}
+					existing={(selectedCustomer?.custom_attributes ?? null) as Record<
+						string,
+						Record<string, unknown>
+					> | null}
 					bind:values={editCustomAttributes}
 					title="Custom attributes"
 				/>
@@ -1025,7 +1013,10 @@
 					/>
 				</div>
 				<div class="flex flex-col gap-1">
-					<label for="contact-work-phone" class="text-2xs uppercase tracking-wide text-muted-foreground">
+					<label
+						for="contact-work-phone"
+						class="text-2xs uppercase tracking-wide text-muted-foreground"
+					>
 						Work phone
 					</label>
 					<Input
@@ -1035,7 +1026,10 @@
 					/>
 				</div>
 				<div class="flex flex-col gap-1">
-					<label for="contact-mobile-phone" class="text-2xs uppercase tracking-wide text-muted-foreground">
+					<label
+						for="contact-mobile-phone"
+						class="text-2xs uppercase tracking-wide text-muted-foreground"
+					>
 						Mobile phone
 					</label>
 					<Input

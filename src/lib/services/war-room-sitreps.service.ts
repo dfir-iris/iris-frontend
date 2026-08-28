@@ -44,11 +44,7 @@ export class WarRoomSitRepsService {
 		body: { title?: string; body_md?: string },
 		options: ApiOptions = {}
 	): Promise<RequestResponse<WarRoomSitRep>> {
-		return ApiService.patch(
-			`/war-rooms/${warRoomId}/sitreps/${sitrepId}`,
-			body,
-			options
-		);
+		return ApiService.patch(`/war-rooms/${warRoomId}/sitreps/${sitrepId}`, body, options);
 	}
 
 	static publish(
@@ -56,11 +52,7 @@ export class WarRoomSitRepsService {
 		sitrepId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<WarRoomSitRep>> {
-		return ApiService.post(
-			`/war-rooms/${warRoomId}/sitreps/${sitrepId}/publish`,
-			{},
-			options
-		);
+		return ApiService.post(`/war-rooms/${warRoomId}/sitreps/${sitrepId}/publish`, {}, options);
 	}
 
 	static remove(
@@ -68,17 +60,10 @@ export class WarRoomSitRepsService {
 		sitrepId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
-		return ApiService.delete<null>(
-			`/war-rooms/${warRoomId}/sitreps/${sitrepId}`,
-			options
-		);
+		return ApiService.delete<null>(`/war-rooms/${warRoomId}/sitreps/${sitrepId}`, options);
 	}
 
-	static exportUrl(
-		warRoomId: number,
-		sitrepId: number,
-		format: 'md' | 'html' | 'pdf'
-	): string {
+	static exportUrl(warRoomId: number, sitrepId: number, format: 'md' | 'html' | 'pdf'): string {
 		return `/api/v2/war-rooms/${warRoomId}/sitreps/${sitrepId}/export.${format}`;
 	}
 }

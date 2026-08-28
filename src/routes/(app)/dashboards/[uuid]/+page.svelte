@@ -12,7 +12,12 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { Chart, WidgetTable } from '$lib/components/ui/chart';
-	import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '$lib/components/ui/tooltip';
+	import {
+		Tooltip,
+		TooltipContent,
+		TooltipProvider,
+		TooltipTrigger
+	} from '$lib/components/ui/tooltip';
 	import { HelpCircleIcon } from 'lucide-svelte';
 	import {
 		CustomDashboardsService,
@@ -64,7 +69,7 @@
 		{ label: 'Last 6 months', minutes: 60 * 24 * 182 },
 		{ label: 'Last 1 year', minutes: 60 * 24 * 365 },
 		{ label: 'Last 2 years', minutes: 60 * 24 * 365 * 2 },
-		{ label: 'Last 5 years', minutes: 60 * 24 * 365 * 5 },
+		{ label: 'Last 5 years', minutes: 60 * 24 * 365 * 5 }
 	] as const;
 
 	function toLocalInputString(d: Date): string {
@@ -92,8 +97,8 @@
 	async function load() {
 		loading = true;
 		error = null;
-		const detail = await CustomDashboardsService.get(uuid);
-		if (!detail.ok || !detail.data) {
+		const detail = await CustomDashboardsService.get(uuid!);
+		if (!detail.ok || !detail.data || typeof detail.data === 'string') {
 			error = detail.error?.message ?? 'Failed to load dashboard.';
 			loading = false;
 			return;
@@ -112,8 +117,8 @@
 				end: filterEnd || undefined
 			}
 		};
-		const response = await CustomDashboardsService.render(uuid, body);
-		if (response.ok && response.data) {
+		const response = await CustomDashboardsService.render(uuid!, body);
+		if (response.ok && response.data && typeof response.data !== 'string') {
 			widgets = response.data.widgets;
 			renderedSections = response.data.sections ?? [];
 		} else {
@@ -131,7 +136,8 @@
 		if (size === 'half') return 'md:col-span-3 lg:col-span-6';
 		if (size === 'third') return 'md:col-span-2 lg:col-span-4';
 		if (size === 'kpi' || size === 'quarter') return 'md:col-span-2 lg:col-span-3';
-		if (widget.chart_type === 'number' || widget.chart_type === 'percentage') return 'md:col-span-2 lg:col-span-3';
+		if (widget.chart_type === 'number' || widget.chart_type === 'percentage')
+			return 'md:col-span-2 lg:col-span-3';
 		return 'md:col-span-3 lg:col-span-6';
 	}
 
@@ -191,186 +197,203 @@
 </svelte:head>
 
 <TooltipProvider>
-<div class="mx-auto flex w-full max-w-[1920px] flex-col gap-6 px-6 py-6 xl:px-10 2xl:px-14">
-	<header class="flex items-end justify-between">
-		<div class="flex flex-col gap-1">
-			<a href="/dashboards" class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-				<ArrowLeftIcon class="size-3" /> All dashboards
-			</a>
-			<h1 class="text-3xl font-semibold tracking-tight">{dashboard?.name ?? '…'}</h1>
-			{#if dashboard?.description}
-				<p class="text-sm text-muted-foreground">{dashboard.description}</p>
-			{/if}
-		</div>
-		{#if dashboard && !dashboard.is_system}
-			<Button variant="outline" onclick={() => goto(`/dashboards/${uuid}/edit`)}>
-				<Edit2Icon class="size-4" />
-				Edit
-			</Button>
-		{/if}
-	</header>
-
-	<Card class="border-border/50 bg-gradient-to-br from-card to-muted/30">
-		<CardHeader class="pb-3">
-			<CardTitle class="text-sm">Filters</CardTitle>
-		</CardHeader>
-		<CardContent class="flex flex-col gap-3">
-			<div class="flex flex-wrap items-end gap-3">
-				<div class="flex flex-col gap-1">
-					<Label for="start">Start</Label>
-					<Input id="start" type="datetime-local" bind:value={filterStart} />
-				</div>
-				<div class="flex flex-col gap-1">
-					<Label for="end">End</Label>
-					<Input id="end" type="datetime-local" bind:value={filterEnd} />
-				</div>
-				<Button onclick={render}>Apply</Button>
-				<Button variant="outline" onclick={resetFilters}>Reset</Button>
-			</div>
-			<div class="flex flex-col gap-1.5">
-				<span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-					Preset ranges
-				</span>
-				<div class="flex flex-wrap gap-1.5">
-					{#each TIME_PRESETS as preset (preset.label)}
-						<button
-							type="button"
-							class="rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs text-primary transition hover:bg-primary/10 hover:shadow-sm"
-							onclick={() => applyPreset(preset.minutes)}
-						>
-							{preset.label}
-						</button>
-					{/each}
-				</div>
-			</div>
-		</CardContent>
-	</Card>
-
-	{#if error}
-		<div class="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-			{error}
-		</div>
-	{/if}
-
-	{#snippet helpBubble(text: string)}
-		<Tooltip>
-			<TooltipTrigger>
-				<span class="inline-flex size-4 items-center justify-center rounded-full text-muted-foreground/70 transition hover:bg-muted hover:text-foreground" aria-label="Definition">
-					<HelpCircleIcon class="size-3.5" />
-				</span>
-			</TooltipTrigger>
-			<TooltipContent class="max-w-xs text-xs leading-relaxed">
-				{text}
-			</TooltipContent>
-		</Tooltip>
-	{/snippet}
-
-	{#snippet widgetCard(widget: RenderedWidget)}
-		{@const help = widgetHelp(widget)}
-		{#if widget.chart_type === 'number' || widget.chart_type === 'percentage'}
-			{@const kpiColor = resolveKpiColor(widget) ?? 'hsl(var(--primary))'}
-			<Card
-				class="{sizeClass(widget)} group relative overflow-hidden border-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-elevation-4"
-			>
-				<div
-					class="pointer-events-none absolute inset-x-0 top-0 h-1 opacity-70"
-					style="background-color: {kpiColor};"
-				></div>
-				<CardHeader class="pb-1 pt-4">
-					<CardTitle class="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-						<span>{widget.name}</span>
-						{#if help}{@render helpBubble(help)}{/if}
-					</CardTitle>
-				</CardHeader>
-				<CardContent
-					class="pb-5 text-3xl font-bold tabular-nums tracking-tight"
-					style="color: {kpiColor};"
+	<div class="mx-auto flex w-full max-w-[1920px] flex-col gap-6 px-6 py-6 xl:px-10 2xl:px-14">
+		<header class="flex items-end justify-between">
+			<div class="flex flex-col gap-1">
+				<a
+					href="/dashboards"
+					class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
 				>
-					{widget.error ? '—' : formatValue(widget)}
-				</CardContent>
-			</Card>
-		{:else if widget.error}
-			<Card class={`${sizeClass(widget)} border-destructive/30 transition-shadow hover:shadow-elevation-3`}>
-				<CardHeader>
-					<CardTitle class="flex items-center gap-1.5">
-						<span>{widget.name}</span>
-						{#if help}{@render helpBubble(help)}{/if}
-					</CardTitle>
-				</CardHeader>
-				<CardContent class="text-sm text-destructive">{widget.error}</CardContent>
-			</Card>
-		{:else if widget.chart_type === 'table'}
-			<Card class="{sizeClass(widget)} transition-shadow duration-200 hover:shadow-elevation-4">
-				<CardHeader>
-					<CardTitle class="flex items-center gap-1.5">
-						<span>{widget.name}</span>
-						{#if help}{@render helpBubble(help)}{/if}
-					</CardTitle>
-				</CardHeader>
-				<CardContent class="max-h-[480px] overflow-auto">
-					<WidgetTable
-						groupHeaders={widget.group_headers}
-						valueHeaders={widget.value_headers}
-						groupKeys={widget.group_keys}
-						valueKeys={widget.value_keys}
-						rows={widget.rows as never}
-						totals={widget.totals}
-						totalLabel={widget.total_label}
-						defaultSort={((widget.options ?? {}) as Record<string, unknown>).default_sort as never}
-					/>
-				</CardContent>
-			</Card>
-		{:else}
-			<Card class="{sizeClass(widget)} transition-shadow duration-200 hover:shadow-elevation-4">
-				<CardHeader>
-					<CardTitle class="flex items-center gap-1.5">
-						<span>{widget.name}</span>
-						{#if help}{@render helpBubble(help)}{/if}
-					</CardTitle>
-				</CardHeader>
-				<CardContent>
-					<Chart
-						type={(widget.chart_type as 'bar' | 'line' | 'pie' | 'timechart') ?? 'bar'}
-						labels={widget.labels ?? widget.display_labels ?? []}
-						datasets={widget.datasets ?? []}
-						color={widgetColor(widget)}
-						palette={widgetPalette(widget)}
-					/>
-				</CardContent>
-			</Card>
-		{/if}
-	{/snippet}
-
-	{#if loading}
-		<p class="text-sm text-muted-foreground">Loading…</p>
-	{:else if renderedSections.length > 0}
-		{#each renderedSections as section, sIdx (section.id ?? sIdx)}
-			<section class="flex flex-col gap-3">
-				{#if section.title || section.description}
-					<header class={`flex flex-col gap-0.5 ${section.show_divider && sIdx > 0 ? 'border-t pt-4' : ''}`}>
-						{#if section.title}
-							<h2 class="text-lg font-semibold">{section.title}</h2>
-						{/if}
-						{#if section.description}
-							<p class="text-xs text-muted-foreground">{section.description}</p>
-						{/if}
-					</header>
-				{:else if section.show_divider && sIdx > 0}
-					<hr class="border-t" />
+					<ArrowLeftIcon class="size-3" /> All dashboards
+				</a>
+				<h1 class="text-3xl font-semibold tracking-tight">{dashboard?.name ?? '…'}</h1>
+				{#if dashboard?.description}
+					<p class="text-sm text-muted-foreground">{dashboard.description}</p>
 				{/if}
-				<div class="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12 xl:gap-5">
-					{#each section.widgets as widget, wIdx (wIdx)}
-						{@render widgetCard(widget)}
-					{/each}
+			</div>
+			{#if dashboard && !dashboard.is_system}
+				<Button variant="outline" onclick={() => goto(`/dashboards/${uuid}/edit`)}>
+					<Edit2Icon class="size-4" />
+					Edit
+				</Button>
+			{/if}
+		</header>
+
+		<Card class="border-border/50 bg-gradient-to-br from-card to-muted/30">
+			<CardHeader class="pb-3">
+				<CardTitle class="text-sm">Filters</CardTitle>
+			</CardHeader>
+			<CardContent class="flex flex-col gap-3">
+				<div class="flex flex-wrap items-end gap-3">
+					<div class="flex flex-col gap-1">
+						<Label for="start">Start</Label>
+						<Input id="start" type="datetime-local" bind:value={filterStart} />
+					</div>
+					<div class="flex flex-col gap-1">
+						<Label for="end">End</Label>
+						<Input id="end" type="datetime-local" bind:value={filterEnd} />
+					</div>
+					<Button onclick={render}>Apply</Button>
+					<Button variant="outline" onclick={resetFilters}>Reset</Button>
 				</div>
-			</section>
-		{/each}
-	{:else}
-		<div class="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12 xl:gap-5">
-			{#each widgets as widget, idx (idx)}
-				{@render widgetCard(widget)}
+				<div class="flex flex-col gap-1.5">
+					<span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+						Preset ranges
+					</span>
+					<div class="flex flex-wrap gap-1.5">
+						{#each TIME_PRESETS as preset (preset.label)}
+							<button
+								type="button"
+								class="rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs text-primary transition hover:bg-primary/10 hover:shadow-sm"
+								onclick={() => applyPreset(preset.minutes)}
+							>
+								{preset.label}
+							</button>
+						{/each}
+					</div>
+				</div>
+			</CardContent>
+		</Card>
+
+		{#if error}
+			<div
+				class="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+			>
+				{error}
+			</div>
+		{/if}
+
+		{#snippet helpBubble(text: string)}
+			<Tooltip>
+				<TooltipTrigger>
+					<span
+						class="inline-flex size-4 items-center justify-center rounded-full text-muted-foreground/70 transition hover:bg-muted hover:text-foreground"
+						aria-label="Definition"
+					>
+						<HelpCircleIcon class="size-3.5" />
+					</span>
+				</TooltipTrigger>
+				<TooltipContent class="max-w-xs text-xs leading-relaxed">
+					{text}
+				</TooltipContent>
+			</Tooltip>
+		{/snippet}
+
+		{#snippet widgetCard(widget: RenderedWidget)}
+			{@const help = widgetHelp(widget)}
+			{#if widget.chart_type === 'number' || widget.chart_type === 'percentage'}
+				{@const kpiColor = resolveKpiColor(widget) ?? 'hsl(var(--primary))'}
+				<Card
+					class="{sizeClass(
+						widget
+					)} hover:shadow-elevation-4 group relative overflow-hidden border-border/50 transition-all duration-200 hover:-translate-y-0.5"
+				>
+					<div
+						class="pointer-events-none absolute inset-x-0 top-0 h-1 opacity-70"
+						style="background-color: {kpiColor};"
+					></div>
+					<CardHeader class="pb-1 pt-4">
+						<CardTitle
+							class="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground"
+						>
+							<span>{widget.name}</span>
+							{#if help}{@render helpBubble(help)}{/if}
+						</CardTitle>
+					</CardHeader>
+					<CardContent
+						class="pb-5 text-3xl font-bold tabular-nums tracking-tight"
+						style="color: {kpiColor};"
+					>
+						{widget.error ? '—' : formatValue(widget)}
+					</CardContent>
+				</Card>
+			{:else if widget.error}
+				<Card
+					class={`${sizeClass(widget)} hover:shadow-elevation-3 border-destructive/30 transition-shadow`}
+				>
+					<CardHeader>
+						<CardTitle class="flex items-center gap-1.5">
+							<span>{widget.name}</span>
+							{#if help}{@render helpBubble(help)}{/if}
+						</CardTitle>
+					</CardHeader>
+					<CardContent class="text-sm text-destructive">{widget.error}</CardContent>
+				</Card>
+			{:else if widget.chart_type === 'table'}
+				<Card class="{sizeClass(widget)} hover:shadow-elevation-4 transition-shadow duration-200">
+					<CardHeader>
+						<CardTitle class="flex items-center gap-1.5">
+							<span>{widget.name}</span>
+							{#if help}{@render helpBubble(help)}{/if}
+						</CardTitle>
+					</CardHeader>
+					<CardContent class="max-h-[480px] overflow-auto">
+						<WidgetTable
+							groupHeaders={widget.group_headers}
+							valueHeaders={widget.value_headers}
+							groupKeys={widget.group_keys}
+							valueKeys={widget.value_keys}
+							rows={widget.rows as never}
+							totals={widget.totals}
+							totalLabel={widget.total_label}
+							defaultSort={((widget.options ?? {}) as Record<string, unknown>)
+								.default_sort as never}
+						/>
+					</CardContent>
+				</Card>
+			{:else}
+				<Card class="{sizeClass(widget)} hover:shadow-elevation-4 transition-shadow duration-200">
+					<CardHeader>
+						<CardTitle class="flex items-center gap-1.5">
+							<span>{widget.name}</span>
+							{#if help}{@render helpBubble(help)}{/if}
+						</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<Chart
+							type={(widget.chart_type as 'bar' | 'line' | 'pie' | 'timechart') ?? 'bar'}
+							labels={widget.labels ?? widget.display_labels ?? []}
+							datasets={widget.datasets ?? []}
+							color={widgetColor(widget)}
+							palette={widgetPalette(widget)}
+						/>
+					</CardContent>
+				</Card>
+			{/if}
+		{/snippet}
+
+		{#if loading}
+			<p class="text-sm text-muted-foreground">Loading…</p>
+		{:else if renderedSections.length > 0}
+			{#each renderedSections as section, sIdx (section.id ?? sIdx)}
+				<section class="flex flex-col gap-3">
+					{#if section.title || section.description}
+						<header
+							class={`flex flex-col gap-0.5 ${section.show_divider && sIdx > 0 ? 'border-t pt-4' : ''}`}
+						>
+							{#if section.title}
+								<h2 class="text-lg font-semibold">{section.title}</h2>
+							{/if}
+							{#if section.description}
+								<p class="text-xs text-muted-foreground">{section.description}</p>
+							{/if}
+						</header>
+					{:else if section.show_divider && sIdx > 0}
+						<hr class="border-t" />
+					{/if}
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12 xl:gap-5">
+						{#each section.widgets as widget, wIdx (wIdx)}
+							{@render widgetCard(widget)}
+						{/each}
+					</div>
+				</section>
 			{/each}
-		</div>
-	{/if}
-</div>
+		{:else}
+			<div class="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12 xl:gap-5">
+				{#each widgets as widget, idx (idx)}
+					{@render widgetCard(widget)}
+				{/each}
+			</div>
+		{/if}
+	</div>
 </TooltipProvider>

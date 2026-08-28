@@ -84,7 +84,6 @@
 	import type { UserInfo } from '$lib/services/auth.service';
 	import type { UpdateCaseBody } from '$lib/services/case.service';
 	import { HooksService, type HookOption } from '$lib/services/hooks.service';
-	import type { RequestResponse } from '$lib/services/api.service';
 	import { CaseManageModal } from '../../[components]/CaseModals';
 	import AssetAddDialog from './assets/components/asset-add-dialog.svelte';
 	import IocAddDialog from './iocs/components/ioc-add-dialog.svelte';

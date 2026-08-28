@@ -76,31 +76,20 @@
 	});
 
 	const progressByStep = $derived(() => {
-		const map = new Map<
-			number,
-			AlertInvestigationOverview['progress'][number]
-		>();
+		const map = new Map<number, AlertInvestigationOverview['progress'][number]>();
 		for (const p of overview?.progress ?? []) map.set(p.step_id, p);
 		return map;
 	});
 
-	const completedCount = $derived(
-		(overview?.progress ?? []).length
-	);
+	const completedCount = $derived((overview?.progress ?? []).length);
 	const totalSteps = $derived(overview?.steps?.length ?? 0);
-	const percent = $derived(
-		totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0
-	);
+	const percent = $derived(totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0);
 
 	const toggleStep = async (stepId: number, checked: boolean) => {
 		const entity = panel.state.entity;
 		if (!entity) return;
 		if (checked) {
-			await InvestigationFlowsService.recordAlertProgress(
-				entity.id,
-				stepId,
-				noteDrafts[stepId]
-			);
+			await InvestigationFlowsService.recordAlertProgress(entity.id, stepId, noteDrafts[stepId]);
 		} else {
 			await InvestigationFlowsService.uncheckAlertProgress(entity.id, stepId);
 			// Un-checking should not throw away the analyst's draft note —
@@ -138,7 +127,9 @@
 -->
 <div class="flex h-full w-full flex-col">
 	<!-- ————— Header ————— -->
-	<header class="flex items-center justify-between border-b border-border px-4 py-3 dark:border-slate-700">
+	<header
+		class="flex items-center justify-between border-b border-border px-4 py-3 dark:border-slate-700"
+	>
 		<div class="flex min-w-0 items-center gap-2">
 			<CheckSquareIcon class="h-4 w-4 shrink-0 text-primary" />
 			<div class="min-w-0">
@@ -151,13 +142,7 @@
 			</div>
 		</div>
 		<div class="flex shrink-0 items-center gap-1">
-			<Button
-				variant="ghost"
-				size="icon"
-				onclick={load}
-				disabled={loading}
-				aria-label="Refresh"
-			>
+			<Button variant="ghost" size="icon" onclick={load} disabled={loading} aria-label="Refresh">
 				<RefreshCwIcon class="h-4 w-4 {loading ? 'animate-spin' : ''}" />
 			</Button>
 			<Button variant="ghost" size="icon" onclick={panel.close} aria-label="Close">
@@ -197,8 +182,8 @@
 			<div class="p-6 text-center text-sm text-muted-foreground">Loading…</div>
 		{:else if !overview?.flow_id}
 			<div class="p-6 text-center text-sm text-muted-foreground">
-				No investigation flow is attached to this alert. Rules attach flows automatically
-				— author or deploy one from Settings → Investigation flows.
+				No investigation flow is attached to this alert. Rules attach flows automatically — author
+				or deploy one from Settings → Investigation flows.
 			</div>
 		{:else}
 			<ol class="space-y-3 p-4">
@@ -280,8 +265,7 @@
 										<Button
 											variant="ghost"
 											size="xs"
-											onclick={() =>
-												startEditingNote(step.step_id, progress?.note)}
+											onclick={() => startEditingNote(step.step_id, progress?.note)}
 										>
 											<PencilLineIcon class="mr-1 h-3 w-3" />
 											{progress?.note ? 'Edit note' : 'Add note'}
@@ -292,8 +276,7 @@
 								{#if editingNote}
 									<MarkDownEditor
 										value={noteDrafts[step.step_id] ?? progress?.note ?? ''}
-										onChange={(v) =>
-											(noteDrafts = { ...noteDrafts, [step.step_id]: v })}
+										onChange={(v) => (noteDrafts = { ...noteDrafts, [step.step_id]: v })}
 										onSave={() => saveNote(step.step_id)}
 										initialMode="edit"
 									/>
@@ -316,9 +299,7 @@
 										>
 											Cancel
 										</Button>
-										<Button size="sm" onclick={() => saveNote(step.step_id)}>
-											Save note
-										</Button>
+										<Button size="sm" onclick={() => saveNote(step.step_id)}>Save note</Button>
 									</div>
 								{:else if progress?.note}
 									<div class="text-xs">

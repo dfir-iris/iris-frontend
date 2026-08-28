@@ -17,7 +17,6 @@
 	import { onMount } from 'svelte';
 	import {
 		LayersIcon,
-		MoreHorizontalIcon,
 		PencilIcon,
 		PlusIcon,
 		RefreshCwIcon,
@@ -27,7 +26,6 @@
 	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Input } from '$lib/components/ui/input';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Textarea } from '$lib/components/ui/textarea';
@@ -246,7 +244,7 @@
 	let listState = $state<ListState>(emptyListState());
 	let selectedId = $state<number | null>(null);
 	const selectedRow = $derived<TaxonomyRow | null>(
-		selectedId == null ? null : listState.items.find((r) => pkOf(r) === selectedId) ?? null
+		selectedId == null ? null : (listState.items.find((r) => pkOf(r) === selectedId) ?? null)
 	);
 
 	// Search ----------------------------------------------------------
@@ -462,18 +460,12 @@
 			// though the dialog only exposes file inputs for that
 			// resource. Each upload returns the full updated row, so we
 			// keep the latest one to refresh the local selection.
-			const iconFields = activeConfig.fields.filter(
-				(f) => f.widget === 'icon' && f.iconField
-			);
+			const iconFields = activeConfig.fields.filter((f) => f.widget === 'icon' && f.iconField);
 			const failedUploads: string[] = [];
 			for (const f of iconFields) {
 				const file = editorIconFiles[f.name];
 				if (!file || !f.iconField) continue;
-				const up = await CaseObjectsService.uploadAssetTypeIcon(
-					targetId,
-					f.iconField,
-					file
-				);
+				const up = await CaseObjectsService.uploadAssetTypeIcon(targetId, f.iconField, file);
 				if (up.ok && up.data && typeof up.data !== 'string') {
 					row = up.data as TaxonomyRow;
 				} else {
@@ -553,10 +545,7 @@
 				onclick={loadList}
 				disabled={listState.loading}
 			>
-				<RefreshCwIcon
-					size={12}
-					class={`mr-1 ${listState.loading ? 'animate-spin' : ''}`}
-				/>
+				<RefreshCwIcon size={12} class={`mr-1 ${listState.loading ? 'animate-spin' : ''}`} />
 				Refresh
 			</Button>
 			<Button size="sm" class="h-7" onclick={openAdd}>
@@ -593,12 +582,10 @@
 			<div class="flex flex-col gap-2 border-b bg-muted/30 px-3 py-2">
 				<div class="flex items-center justify-between gap-2">
 					<div class="flex items-baseline gap-2">
-						<h2
-							class="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-						>
+						<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 							{activeConfig.label}
 						</h2>
-						<span class="text-2xs text-muted-foreground tabular-nums">
+						<span class="text-2xs tabular-nums text-muted-foreground">
 							{listState.items.length} / {listState.total}
 						</span>
 					</div>
@@ -656,16 +643,14 @@
 							{@const active = id === selectedId}
 							{@const iconSrc =
 								activeResource === 'asset-types'
-									? assetIconUrl(row.asset_icon_not_compromised as string | null) ??
-										assetIconUrl(row.asset_icon_compromised as string | null)
+									? (assetIconUrl(row.asset_icon_not_compromised as string | null) ??
+										assetIconUrl(row.asset_icon_compromised as string | null))
 									: null}
 							<li>
 								<button
 									type="button"
 									class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors
-										{active
-										? 'bg-primary/10 font-medium text-foreground'
-										: 'hover:bg-muted/40'}"
+										{active ? 'bg-primary/10 font-medium text-foreground' : 'hover:bg-muted/40'}"
 									onclick={() => (selectedId = id)}
 								>
 									{#if iconSrc}
@@ -707,9 +692,7 @@
 							{/if}
 						</div>
 					{:else if listState.total > PAGE_SIZE}
-						<div
-							class="border-t px-3 py-2 text-center text-2xs text-muted-foreground"
-						>
+						<div class="border-t px-3 py-2 text-center text-2xs text-muted-foreground">
 							End of list — {listState.total} entries
 						</div>
 					{/if}
@@ -719,13 +702,9 @@
 
 		<!-- Detail pane -->
 		<section class="flex min-h-0 flex-1 basis-3/5 flex-col overflow-hidden rounded-md border">
-			<div
-				class="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2"
-			>
+			<div class="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
 				<div class="flex items-baseline gap-2">
-					<h2
-						class="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-					>
+					<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 						Details
 					</h2>
 					{#if selectedRow}
@@ -812,7 +791,8 @@
 	<Dialog.Content class="sm:max-w-lg">
 		<Dialog.Header>
 			<Dialog.Title>
-				{editorRowId == null ? 'Add' : 'Edit'} {activeConfig.label.toLowerCase().replace(/s$/, '')}
+				{editorRowId == null ? 'Add' : 'Edit'}
+				{activeConfig.label.toLowerCase().replace(/s$/, '')}
 			</Dialog.Title>
 			<Dialog.Description>
 				{editorRowId == null
@@ -840,18 +820,13 @@
 						/>
 					{:else if field.widget === 'icon'}
 						{@const previewUrl =
-							editorIconPreviews[field.name] ??
-							assetIconUrl(editorForm[field.name] || null)}
+							editorIconPreviews[field.name] ?? assetIconUrl(editorForm[field.name] || null)}
 						<div class="flex items-center gap-3">
 							<div
 								class="flex h-12 w-12 shrink-0 items-center justify-center rounded-md border bg-muted/30"
 							>
 								{#if previewUrl}
-									<img
-										src={previewUrl}
-										alt=""
-										class="h-10 w-10 object-contain"
-									/>
+									<img src={previewUrl} alt="" class="h-10 w-10 object-contain" />
 								{:else}
 									<span class="text-2xs text-muted-foreground">none</span>
 								{/if}
@@ -864,8 +839,7 @@
 									class="text-2xs file:mr-2 file:rounded-md file:border file:bg-muted file:px-2 file:py-1 file:text-2xs file:font-medium hover:file:bg-muted/70"
 									disabled={editorBusy}
 									onchange={(e) => {
-										const f =
-											(e.currentTarget as HTMLInputElement).files?.[0] ?? null;
+										const f = (e.currentTarget as HTMLInputElement).files?.[0] ?? null;
 										onIconChange(field.name, f);
 									}}
 								/>
@@ -874,9 +848,7 @@
 										Upload runs after the asset type is created.
 									</p>
 								{:else if editorIconFiles[field.name]}
-									<p class="text-2xs text-muted-foreground">
-										Replaces the current icon on save.
-									</p>
+									<p class="text-2xs text-muted-foreground">Replaces the current icon on save.</p>
 								{/if}
 							</div>
 						</div>

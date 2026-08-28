@@ -122,7 +122,7 @@
 	// analyst types freely without every keystroke hitting the API.
 	let didInitSearch = false;
 	$effect(() => {
-		const s = titleFilter;
+		const _s = titleFilter;
 		if (!didInitSearch) {
 			didInitSearch = true;
 			return;

@@ -11,7 +11,15 @@
 -->
 <script lang="ts">
 	import { getContext, onMount } from 'svelte';
-	import { DatabaseIcon, FolderPlusIcon, PlusIcon, RefreshCwIcon, SearchIcon, XIcon, UploadIcon } from 'lucide-svelte';
+	import {
+		DatabaseIcon,
+		FolderPlusIcon,
+		PlusIcon,
+		RefreshCwIcon,
+		SearchIcon,
+		XIcon,
+		UploadIcon
+	} from 'lucide-svelte';
 	import { page } from '$app/state';
 	import {
 		DATASTORE_PANEL_CTX,
@@ -295,11 +303,7 @@
 		let ok = 0;
 		let failed = 0;
 		for (const file of Array.from(files)) {
-			const created = await datastore.uploadFile(
-				folderId,
-				{ file_original_name: file.name },
-				file
-			);
+			const created = await datastore.uploadFile(folderId, { file_original_name: file.name }, file);
 			if (created) ok++;
 			else failed++;
 		}
@@ -421,12 +425,11 @@
 
 		<div class="border-b border-border/60 px-3 py-2 dark:border-slate-700/60">
 			<div class="relative">
-				<SearchIcon size={12} class="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-				<Input
-					bind:value={searchTerm}
-					placeholder="Search files…"
-					class="h-7 pl-7 text-xs"
+				<SearchIcon
+					size={12}
+					class="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground"
 				/>
+				<Input bind:value={searchTerm} placeholder="Search files…" class="h-7 pl-7 text-xs" />
 			</div>
 		</div>
 
@@ -435,7 +438,7 @@
 			more specific (a folder row) catches the drop. The big overlay
 			only renders while a file is actively over the panel.
 		-->
-		<!-- svelte-ignore a11y_no_static_element_interactions a11y_interactive_supports_focus -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
 			class="relative min-h-0 flex-1 overflow-auto px-2 py-2"
 			ondragover={handleBodyDragOver}
@@ -466,8 +469,7 @@
 					onFileAction={handleFileAction}
 					onContextMenuFolder={(id, isRoot, x, y) =>
 						openContextMenu({ kind: 'folder', id, isRoot }, x, y)}
-					onContextMenuFile={(id, x, y) =>
-						openContextMenu({ kind: 'file', id }, x, y)}
+					onContextMenuFile={(id, x, y) => openContextMenu({ kind: 'file', id }, x, y)}
 					onMove={(source, targetFolderId) => moveSource(source, targetFolderId)}
 					onUploadFiles={(folderId, files) => uploadFiles(folderId, files)}
 					onDragTargetChange={(id) => (dropTargetFolderId = id)}
@@ -481,9 +483,7 @@
 				>
 					<UploadIcon class="size-8 text-primary" />
 					<p class="mt-2 text-sm font-medium text-primary">Drop to upload to root</p>
-					<p class="text-2xs text-muted-foreground">
-						Hover a folder to upload there instead
-					</p>
+					<p class="text-2xs text-muted-foreground">Hover a folder to upload there instead</p>
 				</div>
 			{/if}
 		</div>

@@ -134,7 +134,7 @@
 			shadow: false,
 			size: 22,
 			shapeProperties: { interpolation: false },
-			margin: 8,
+			margin: { top: 8, right: 8, bottom: 8, left: 8 },
 			scaling: {
 				label: { enabled: true, min: 10, max: 18, drawThreshold: 6 }
 			}
@@ -356,7 +356,9 @@
 
 	// Only render edges whose endpoints both survived the group filter.
 	// Otherwise vis-network draws dangling stubs into empty space.
-	const visibleNodeIds = $derived(new Set(graph.nodes.filter((n) => visibleGroups[n.group as Group]).map((n) => n.id)));
+	const visibleNodeIds = $derived(
+		new Set(graph.nodes.filter((n) => visibleGroups[n.group as Group]).map((n) => n.id))
+	);
 
 	const edges = $derived(
 		graph.edges
@@ -378,7 +380,9 @@
 	// Filter the visible nodes down to the group toggle. We do this AFTER
 	// building the styled node list so search dimming still lines up with
 	// the same ids; the filter here just hides whole categories.
-	const displayedNodes = $derived(nodes.filter((n) => visibleGroups[(n.group as Group) ?? 'alert']));
+	const displayedNodes = $derived(
+		nodes.filter((n) => visibleGroups[(n.group as Group) ?? 'alert'])
+	);
 
 	const nodeById = $derived.by(() => {
 		const m = new Map<string, AlertClusterGraphNode>();
@@ -551,10 +555,8 @@
 -->
 <div class="flex h-full min-h-0 w-full flex-col">
 	<!-- Toolbar over the canvas — search + refresh + zoom + fit + physics. -->
-	<div
-		class="flex flex-wrap items-center gap-2 border-b bg-muted/20 px-4 py-2"
-	>
-		<div class="relative flex-1 min-w-[16rem] max-w-md">
+	<div class="flex flex-wrap items-center gap-2 border-b bg-muted/20 px-4 py-2">
+		<div class="relative min-w-[16rem] max-w-md flex-1">
 			<SearchIcon
 				class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
 			/>
@@ -565,10 +567,10 @@
 				class="h-8 pl-8 pr-16 text-xs"
 			/>
 			{#if searchQuery.trim().length > 0}
-				<div
-					class="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-1"
-				>
-					<span class="rounded-sm bg-muted px-1.5 py-0.5 text-2xs tabular-nums text-muted-foreground">
+				<div class="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-1">
+					<span
+						class="rounded-sm bg-muted px-1.5 py-0.5 text-2xs tabular-nums text-muted-foreground"
+					>
 						{searchHitCount}
 					</span>
 					<button
@@ -732,12 +734,18 @@
 					{error}
 				</div>
 			{:else if !graph.nodes.length}
-				<div class="absolute inset-0 flex flex-col items-center justify-center gap-1 text-sm text-muted-foreground">
+				<div
+					class="absolute inset-0 flex flex-col items-center justify-center gap-1 text-sm text-muted-foreground"
+				>
 					<div>No IOCs or assets on the member alerts yet.</div>
-					<div class="text-xs">Add or import indicators on the alerts to see the graph populate.</div>
+					<div class="text-xs">
+						Add or import indicators on the alerts to see the graph populate.
+					</div>
 				</div>
 			{:else if displayedNodes.length === 0}
-				<div class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+				<div
+					class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground"
+				>
 					<div>Every node is currently filtered out.</div>
 					<Button
 						variant="outline"
@@ -825,6 +833,7 @@
 						<div
 							class="rounded-md border bg-muted/20 px-3 py-2 text-xs leading-relaxed [&_b]:font-semibold"
 						>
+							<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 							{@html DOMPurify.sanitize(selectedNode.title, {
 								ALLOWED_TAGS: ['b', 'br', 'i', 'em', 'strong', 'span'],
 								ALLOWED_ATTR: []
@@ -833,7 +842,9 @@
 					{/if}
 
 					<div>
-						<div class="mb-1.5 flex items-center justify-between text-2xs uppercase tracking-wide text-muted-foreground">
+						<div
+							class="mb-1.5 flex items-center justify-between text-2xs uppercase tracking-wide text-muted-foreground"
+						>
 							<span>
 								{selectedNode.group === 'alert' ? 'Related indicators' : 'Appears in alerts'}
 							</span>
@@ -861,9 +872,7 @@
 									</button>
 								</li>
 							{:else}
-								<li class="px-2 py-1.5 text-xs text-muted-foreground">
-									No connections.
-								</li>
+								<li class="px-2 py-1.5 text-xs text-muted-foreground">No connections.</li>
 							{/each}
 						</ul>
 					</div>

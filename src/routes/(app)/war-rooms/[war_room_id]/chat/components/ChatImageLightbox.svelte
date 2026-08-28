@@ -70,12 +70,7 @@
 
 	const clampScale = (s: number) => Math.max(1, Math.min(8, s));
 
-	const zoomAt = (
-		container: HTMLElement,
-		clientX: number,
-		clientY: number,
-		nextScale: number
-	) => {
+	const zoomAt = (container: HTMLElement, clientX: number, clientY: number, nextScale: number) => {
 		const rect = container.getBoundingClientRect();
 		// Pointer coords relative to the container centre — same origin
 		// the CSS transform is anchored at (translate then scale).
@@ -156,7 +151,7 @@
 	const downloadHref = $derived(WarRoomDatastoreService.downloadUrl(warRoomId, fileId));
 </script>
 
-<Dialog.Root {open} onOpenChange={onOpenChange}>
+<Dialog.Root {open} {onOpenChange}>
 	<Dialog.Content
 		class="fixed inset-0 left-0 top-0 z-50 flex h-screen max-h-none w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 bg-background/95 p-0 backdrop-blur-sm sm:rounded-none"
 	>
@@ -218,7 +213,7 @@
 		     transformed rather than the viewport itself so the wheel
 		     handler can compute its bounding rect once per gesture. -->
 		<div
-			class="relative flex flex-1 items-center justify-center overflow-hidden select-none"
+			class="relative flex flex-1 select-none items-center justify-center overflow-hidden"
 			onwheel={onWheel}
 			onpointerdown={onPointerDown}
 			onpointermove={onPointerMove}
@@ -238,9 +233,7 @@
 					style:transition={dragging ? 'none' : 'transform 120ms ease-out'}
 				/>
 			{:else if failed}
-				<div class="text-sm text-muted-foreground">
-					Could not load image.
-				</div>
+				<div class="text-sm text-muted-foreground">Could not load image.</div>
 			{:else}
 				<div class="text-sm text-muted-foreground">Loading…</div>
 			{/if}

@@ -216,11 +216,7 @@ export class WarRoomsService {
 		body: AttachCaseBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<WarRoomCaseAttachment>> {
-		return ApiService.post<WarRoomCaseAttachment>(
-			`/war-rooms/${id}/cases`,
-			body,
-			options
-		);
+		return ApiService.post<WarRoomCaseAttachment>(`/war-rooms/${id}/cases`, body, options);
 	}
 
 	static detachCase(

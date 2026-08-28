@@ -34,9 +34,7 @@
 	}: DownloadModalProps = $props();
 
 	let selectedDownloadType = $state<'visible' | 'all'>('visible');
-	let selectedColumnKeys = $state<Set<string>>(
-		new Set(availableColumns.filter((c) => c.defaultSelected).map((c) => c.key))
-	);
+	let selectedColumnKeys = $state<Set<string>>(new Set<string>());
 
 	function toggleExportColumn(key: string, newCheckedState: boolean) {
 		if (newCheckedState) {
@@ -69,7 +67,7 @@
 	});
 </script>
 
-<Dialog.Root bind:open={open} onOpenChange={onOpenChange}>
+<Dialog.Root bind:open {onOpenChange}>
 	<Dialog.Content class="sm:max-w-[525px]">
 		<Dialog.Header>
 			<Dialog.Title>{title}</Dialog.Title>
@@ -107,7 +105,7 @@
 					<Label class="font-semibold">Columns to Export</Label>
 					<div class="max-h-60 overflow-y-auto rounded-md border p-2">
 						{#each availableColumns as column (column.key)}
-							<div class="flex items-center space-x-2 p-1 hover:bg-muted/50 rounded">
+							<div class="flex items-center space-x-2 rounded p-1 hover:bg-muted/50">
 								<Checkbox
 									id={`col-${column.key}`}
 									checked={selectedColumnKeys.has(column.key)}
@@ -117,7 +115,7 @@
 										}
 									}}
 								/>
-								<Label for={`col-${column.key}`} class="text-sm font-normal w-full cursor-pointer">
+								<Label for={`col-${column.key}`} class="w-full cursor-pointer text-sm font-normal">
 									{column.header}
 								</Label>
 							</div>

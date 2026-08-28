@@ -80,7 +80,7 @@
 	let listState = $state<ListState>(emptyListState());
 	let selectedId = $state<number | null>(null);
 	const selected = $derived<ReportTemplate | null>(
-		selectedId == null ? null : listState.items.find((t) => t.id === selectedId) ?? null
+		selectedId == null ? null : (listState.items.find((t) => t.id === selectedId) ?? null)
 	);
 
 	// Search
@@ -396,7 +396,8 @@
 		if (!selected) return;
 		const tpl = selected;
 		confirmTitle = `Delete template "${tpl.name}"?`;
-		confirmMessage = 'This deletes the template file from disk. Cases previously rendered from it are unaffected.';
+		confirmMessage =
+			'This deletes the template file from disk. Cases previously rendered from it are unaffected.';
 		confirmConfirmText = 'Delete';
 		confirmAction = async () => {
 			const res = await ReportTemplatesService.remove(tpl.id);
@@ -490,8 +491,7 @@
 
 	// ---------- Derived ----------
 	const editableFields = $derived<ReportTemplateField[]>(schema?.fields ?? []);
-	const formatDate = (iso: string | null) =>
-		iso ? new Date(iso).toLocaleString() : '—';
+	const formatDate = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '—');
 </script>
 
 <svelte:head>
@@ -519,10 +519,7 @@
 				onclick={loadList}
 				disabled={listState.loading}
 			>
-				<RefreshCwIcon
-					size={12}
-					class={`mr-1 ${listState.loading ? 'animate-spin' : ''}`}
-				/>
+				<RefreshCwIcon size={12} class={`mr-1 ${listState.loading ? 'animate-spin' : ''}`} />
 				Refresh
 			</Button>
 			<Button size="sm" class="h-7" onclick={openAdd} disabled={schema == null}>
@@ -542,7 +539,7 @@
 						<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 							Templates
 						</h2>
-						<span class="text-2xs text-muted-foreground tabular-nums">
+						<span class="text-2xs tabular-nums text-muted-foreground">
 							{listState.items.length} / {listState.total}
 						</span>
 					</div>
@@ -601,9 +598,7 @@
 								<button
 									type="button"
 									class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors
-										{active
-										? 'bg-primary/10 font-medium text-foreground'
-										: 'hover:bg-muted/40'}"
+										{active ? 'bg-primary/10 font-medium text-foreground' : 'hover:bg-muted/40'}"
 									onclick={() => selectTemplate(tpl.id)}
 								>
 									<FileTextIcon size={14} class="shrink-0 text-muted-foreground" />
@@ -689,7 +684,8 @@
 			<div class="flex-1 overflow-y-auto">
 				{#if !selected}
 					<p class="px-3 py-10 text-center text-xs text-muted-foreground">
-						Select a template on the left, or click <span class="font-medium">Add template</span> to upload one.
+						Select a template on the left, or click <span class="font-medium">Add template</span> to
+						upload one.
 					</p>
 				{:else if schema == null}
 					{#if schemaError}
@@ -804,7 +800,7 @@
 							</div>
 						{/each}
 
-						<div class="md:col-span-2 flex items-center justify-end gap-2">
+						<div class="flex items-center justify-end gap-2 md:col-span-2">
 							{#if editError}
 								<p class="mr-auto text-2xs text-destructive">{editError}</p>
 							{/if}
@@ -829,8 +825,8 @@
 						<div class="flex flex-col gap-3 p-4">
 							<p class="text-2xs text-muted-foreground">
 								Pick a case you have access to and download the rendered
-								{selected.report_type_name ?? 'report'}. Nothing is stored — the file
-								streams straight to your browser.
+								{selected.report_type_name ?? 'report'}. Nothing is stored — the file streams
+								straight to your browser.
 							</p>
 
 							<div class="flex flex-col gap-1.5">
@@ -918,7 +914,8 @@
 				Add report template
 			</Dialog.Title>
 			<Dialog.Description>
-				Upload a {schema?.allowed_extensions.join(' / ') ?? 'docx / html / md'} file plus the metadata used by the renderer.
+				Upload a {schema?.allowed_extensions.join(' / ') ?? 'docx / html / md'} file plus the metadata
+				used by the renderer.
 			</Dialog.Description>
 		</Dialog.Header>
 
@@ -956,15 +953,13 @@
 			</div>
 
 			<div class="flex flex-col gap-1">
-				<label for="add-template-name" class="text-2xs uppercase tracking-wide text-muted-foreground">
+				<label
+					for="add-template-name"
+					class="text-2xs uppercase tracking-wide text-muted-foreground"
+				>
 					Name *
 				</label>
-				<Input
-					id="add-template-name"
-					class="h-7 text-xs"
-					bind:value={addName}
-					disabled={addBusy}
-				/>
+				<Input id="add-template-name" class="h-7 text-xs" bind:value={addName} disabled={addBusy} />
 			</div>
 
 			<div class="flex flex-col gap-1">
@@ -1046,7 +1041,8 @@
 				/>
 				<p class="text-2xs text-muted-foreground">
 					Tags: <span class="font-mono">
-						{schema?.naming_format_tags.join(', ') ?? '%date%, %customer%, %case_name%, %code_name%'}
+						{schema?.naming_format_tags.join(', ') ??
+							'%date%, %customer%, %case_name%, %code_name%'}
 					</span>
 				</p>
 			</div>
@@ -1057,13 +1053,7 @@
 		</div>
 
 		<Dialog.Footer class="pt-3">
-			<Button
-				variant="outline"
-				onclick={() => (addOpen = false)}
-				disabled={addBusy}
-			>
-				Cancel
-			</Button>
+			<Button variant="outline" onclick={() => (addOpen = false)} disabled={addBusy}>Cancel</Button>
 			<Button onclick={submitAdd} disabled={addBusy}>
 				{addBusy ? 'Uploading…' : 'Upload'}
 			</Button>

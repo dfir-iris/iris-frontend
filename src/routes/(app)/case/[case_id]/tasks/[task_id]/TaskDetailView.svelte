@@ -237,7 +237,7 @@
 			</div>
 
 			<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
-				{#each Array(9)}
+				{#each Array(9) as _}
 					<div class="space-y-2">
 						<Skeleton class="h-4 w-24"></Skeleton>
 						<Skeleton class="h-6 w-full"></Skeleton>

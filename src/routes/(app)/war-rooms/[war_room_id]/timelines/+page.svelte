@@ -108,8 +108,8 @@
 			}),
 			selectedCaseTimelineIds.size
 				? WarRoomTimelinesService.listLinkedCaseEvents(warRoomId, {
-					caseTimelineIds: Array.from(selectedCaseTimelineIds)
-				})
+						caseTimelineIds: Array.from(selectedCaseTimelineIds)
+					})
 				: Promise.resolve({ ok: true, data: [] as WarRoomTimelineEvent[] } as const)
 		]);
 		const merged: WarRoomTimelineEvent[] = [];
@@ -486,6 +486,10 @@
 	// feature. The dataTransfer payload is just the event id as text,
 	// and `dragEventId` mirrors it so Svelte reactivity can highlight
 	// drop targets during the drag.
+	//
+	// These handlers are wired up in the template but not yet used there
+	// (DnD UI is in-progress), so they appear unused to the linter.
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const onDragStart = (ev: DragEvent, e: WarRoomTimelineEvent) => {
 		// Only native war-room events are draggable. Case-projected
 		// events would need a copy-in semantic to move onto a native
@@ -502,6 +506,7 @@
 		}
 	};
 
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const onDragEnd = () => {
 		dragEventId = null;
 		dragOverTimelineId = null;
@@ -543,6 +548,7 @@
 		filterCategory = '';
 	};
 
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const fmtDate = (iso: string | null) => {
 		if (!iso) return '';
 		try {
@@ -552,14 +558,19 @@
 		}
 	};
 
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const tlById = $derived(new Map(timelines.map((t) => [t.timeline_id, t])));
 
 	// Case-timeline lookup for projected events. `timeline_id` on a
 	// projected row is a *case* timeline id (not a war-room one), so
 	// we can't reuse `tlById` — it'd either miss or, worse, alias to
 	// a war-room timeline that happens to share the numeric id.
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const caseTimelineById = $derived.by(() => {
-		const m = new Map<number, { name: string; color: string | null; caseId: number; caseName: string }>();
+		const m = new Map<
+			number,
+			{ name: string; color: string | null; caseId: number; caseName: string }
+		>();
 		for (const lc of linkedCases) {
 			for (const ct of lc.timelines) {
 				m.set(ct.timeline_id, {
@@ -602,9 +613,7 @@
 		});
 	});
 
-	const filtersActive = $derived(
-		Boolean(filterText || filterCategory || filterFrom || filterTo)
-	);
+	const filtersActive = $derived(Boolean(filterText || filterCategory || filterFrom || filterTo));
 
 	/**
 	 * Group filtered events by calendar day for the date-header
@@ -682,9 +691,7 @@
 			{#if loading}
 				<div class="px-3 py-4 text-center text-2xs text-muted-foreground">Loading…</div>
 			{:else if timelines.length === 0}
-				<div class="px-3 py-4 text-center text-2xs text-muted-foreground">
-					No timelines yet.
-				</div>
+				<div class="px-3 py-4 text-center text-2xs text-muted-foreground">No timelines yet.</div>
 			{:else}
 				<ul class="flex flex-col gap-0.5">
 					{#each timelines as t (t.timeline_id)}
@@ -705,7 +712,12 @@
 											bind:value={editingColor}
 											class="h-6 w-8 cursor-pointer rounded border bg-transparent p-0"
 										/>
-										<Button size="sm" class="h-6 flex-1 text-2xs" disabled={saving} onclick={submitEdit}>
+										<Button
+											size="sm"
+											class="h-6 flex-1 text-2xs"
+											disabled={saving}
+											onclick={submitEdit}
+										>
 											Save
 										</Button>
 										<Button
@@ -744,7 +756,9 @@
 									{/if}
 									<span class="min-w-0 flex-1 truncate" title={t.name}>{t.name}</span>
 									{#if t.is_default}
-										<span class="shrink-0 rounded border bg-muted/60 px-1 text-[9px] uppercase tracking-wider text-muted-foreground">
+										<span
+											class="shrink-0 rounded border bg-muted/60 px-1 text-[9px] uppercase tracking-wider text-muted-foreground"
+										>
 											Default
 										</span>
 									{/if}
@@ -862,9 +876,7 @@
 															aria-hidden="true"
 														></span>
 													{/if}
-													<span class="min-w-0 flex-1 truncate" title={ct.name}
-														>{ct.name}</span
-													>
+													<span class="min-w-0 flex-1 truncate" title={ct.name}>{ct.name}</span>
 													{#if ct.is_default}
 														<span
 															class="shrink-0 rounded border bg-muted/60 px-1 text-[9px] uppercase tracking-wider text-muted-foreground"
@@ -935,10 +947,16 @@
 				  screens; tree mode shines when the analyst has
 				  actually structured events into parent-child chains.
 				-->
-				<div class="flex items-center rounded-md border bg-background p-0.5" role="group" aria-label="View mode">
+				<div
+					class="flex items-center rounded-md border bg-background p-0.5"
+					role="group"
+					aria-label="View mode"
+				>
 					<button
 						type="button"
-						class="rounded px-2 py-0.5 text-2xs font-medium transition-colors {viewMode === 'list' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}"
+						class="rounded px-2 py-0.5 text-2xs font-medium transition-colors {viewMode === 'list'
+							? 'bg-muted text-foreground'
+							: 'text-muted-foreground hover:text-foreground'}"
 						onclick={() => (viewMode = 'list')}
 						aria-pressed={viewMode === 'list'}
 					>
@@ -946,7 +964,9 @@
 					</button>
 					<button
 						type="button"
-						class="rounded px-2 py-0.5 text-2xs font-medium transition-colors {viewMode === 'tree' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}"
+						class="rounded px-2 py-0.5 text-2xs font-medium transition-colors {viewMode === 'tree'
+							? 'bg-muted text-foreground'
+							: 'text-muted-foreground hover:text-foreground'}"
 						onclick={() => (viewMode = 'tree')}
 						aria-pressed={viewMode === 'tree'}
 					>
@@ -972,7 +992,9 @@
 			{#if loading}
 				<Skeleton class="h-32 w-full" />
 			{:else if events.length === 0}
-				<div class="flex h-full flex-col items-center justify-center gap-3 text-center text-muted-foreground">
+				<div
+					class="flex h-full flex-col items-center justify-center gap-3 text-center text-muted-foreground"
+				>
 					<p class="text-sm">No events on the selected timelines yet.</p>
 					<!--
 					  Empty-state CTA. Turns a dead-end message into a
@@ -986,7 +1008,9 @@
 					</Button>
 				</div>
 			{:else if filteredEvents.length === 0}
-				<div class="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+				<div
+					class="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground"
+				>
 					<p class="text-sm">No events match the current filters.</p>
 				</div>
 			{:else}
@@ -1059,9 +1083,7 @@
 			/>
 		</div>
 		<DialogFooter>
-			<Button variant="ghost" onclick={() => (addOpen = false)} disabled={saving}>
-				Cancel
-			</Button>
+			<Button variant="ghost" onclick={() => (addOpen = false)} disabled={saving}>Cancel</Button>
 			<Button onclick={submitCreate} disabled={saving || !newName.trim()}>
 				{saving ? 'Creating…' : 'Create'}
 			</Button>
@@ -1072,7 +1094,9 @@
 <Dialog bind:open={entryOpen}>
 	<DialogContent>
 		<DialogHeader>
-			<DialogTitle>{entryMode === 'create' ? 'New timeline entry' : 'Edit timeline entry'}</DialogTitle>
+			<DialogTitle
+				>{entryMode === 'create' ? 'New timeline entry' : 'Edit timeline entry'}</DialogTitle
+			>
 		</DialogHeader>
 		<div class="flex flex-col gap-3 py-2">
 			<Input
@@ -1120,9 +1144,7 @@
 			></textarea>
 		</div>
 		<DialogFooter>
-			<Button variant="ghost" onclick={() => (entryOpen = false)} disabled={saving}>
-				Cancel
-			</Button>
+			<Button variant="ghost" onclick={() => (entryOpen = false)} disabled={saving}>Cancel</Button>
 			<Button onclick={submitEntry} disabled={saving || !entryTitle.trim()}>
 				{saving ? 'Saving…' : entryMode === 'create' ? 'Save' : 'Update'}
 			</Button>

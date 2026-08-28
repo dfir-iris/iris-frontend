@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { AuthService, type LoginResponse } from '../auth.service';
 import { ApiService } from '../api.service';
 import { goto } from '$app/navigation';
@@ -69,11 +69,11 @@ describe('AuthService', () => {
 			(globalThis as any).fetch = vi.fn();
 		}
 
-		(auth.getRefreshToken as unknown as vi.Mock).mockReturnValue('refresh-token');
+		(auth.getRefreshToken as unknown as Mock).mockReturnValue('refresh-token');
 	});
 
 	it('should login and set auth', async () => {
-		(ApiService.post as unknown as vi.Mock).mockResolvedValueOnce({
+		(ApiService.post as unknown as Mock).mockResolvedValueOnce({
 			ok: true,
 			data: mockLoginData
 		});
@@ -96,7 +96,7 @@ describe('AuthService', () => {
 	});
 
 	it('should throw on login failure', async () => {
-		(ApiService.post as unknown as vi.Mock).mockResolvedValueOnce({
+		(ApiService.post as unknown as Mock).mockResolvedValueOnce({
 			ok: false,
 			error: { message: 'Invalid credentials' }
 		});
@@ -106,7 +106,7 @@ describe('AuthService', () => {
 	});
 
 	it('should logout and clear auth', async () => {
-		(ApiService.post as unknown as vi.Mock).mockResolvedValueOnce({ ok: true, data: {} });
+		(ApiService.post as unknown as Mock).mockResolvedValueOnce({ ok: true, data: {} });
 
 		await AuthService.logout();
 
@@ -116,7 +116,7 @@ describe('AuthService', () => {
 	});
 
 	it('should still clear auth + redirect even if logout API fails', async () => {
-		(ApiService.post as unknown as vi.Mock).mockRejectedValueOnce(new Error('network'));
+		(ApiService.post as unknown as Mock).mockRejectedValueOnce(new Error('network'));
 
 		await AuthService.logout();
 
@@ -125,7 +125,7 @@ describe('AuthService', () => {
 	});
 
 	it('should refresh token and update tokens', async () => {
-		(ApiService.post as unknown as vi.Mock).mockResolvedValueOnce({
+		(ApiService.post as unknown as Mock).mockResolvedValueOnce({
 			ok: true,
 			data: {
 				tokens: {
@@ -170,7 +170,7 @@ describe('AuthService', () => {
 		// via the `session-expired` window event. This prevents a
 		// transient refresh hiccup during a page reload from wiping
 		// tokens the concurrent siblings would otherwise be able to use.
-		(ApiService.post as unknown as vi.Mock).mockResolvedValueOnce({
+		(ApiService.post as unknown as Mock).mockResolvedValueOnce({
 			ok: false,
 			error: { message: 'Invalid refresh token' }
 		});
@@ -181,7 +181,7 @@ describe('AuthService', () => {
 
 	it('should dedup concurrent refresh calls into a single request', async () => {
 		let resolvePost: ((v: unknown) => void) | undefined;
-		(ApiService.post as unknown as vi.Mock).mockImplementationOnce(
+		(ApiService.post as unknown as Mock).mockImplementationOnce(
 			() => new Promise((r) => (resolvePost = r))
 		);
 
@@ -208,7 +208,7 @@ describe('AuthService', () => {
 	});
 
 	it('should call whoami', async () => {
-		(ApiService.get as unknown as vi.Mock).mockResolvedValueOnce({
+		(ApiService.get as unknown as Mock).mockResolvedValueOnce({
 			ok: true,
 			data: {
 				responseData: mockLoginData,
@@ -226,7 +226,7 @@ describe('AuthService', () => {
 	});
 
 	it('should setup MFA and update store', async () => {
-		(ApiService.post as unknown as vi.Mock).mockResolvedValueOnce({
+		(ApiService.post as unknown as Mock).mockResolvedValueOnce({
 			ok: true,
 			data: { mfa_setup_complete: true }
 		});
@@ -248,7 +248,7 @@ describe('AuthService', () => {
 	});
 
 	it('should throw on setup MFA failure', async () => {
-		(ApiService.post as unknown as vi.Mock).mockResolvedValueOnce({
+		(ApiService.post as unknown as Mock).mockResolvedValueOnce({
 			ok: false,
 			error: { message: 'Invalid token' }
 		});
@@ -261,7 +261,7 @@ describe('AuthService', () => {
 	});
 
 	it('should verify MFA and set mfaVerified=true', async () => {
-		(ApiService.post as unknown as vi.Mock).mockResolvedValueOnce({
+		(ApiService.post as unknown as Mock).mockResolvedValueOnce({
 			ok: true,
 			data: { mfa_verified: true }
 		});
@@ -280,7 +280,7 @@ describe('AuthService', () => {
 	});
 
 	it('should throw on verify MFA failure', async () => {
-		(ApiService.post as unknown as vi.Mock).mockResolvedValueOnce({
+		(ApiService.post as unknown as Mock).mockResolvedValueOnce({
 			ok: false,
 			error: { message: 'MFA verification failed' }
 		});

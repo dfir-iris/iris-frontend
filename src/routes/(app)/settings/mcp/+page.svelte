@@ -13,13 +13,7 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import {
-		CopyIcon,
-		PlugIcon,
-		RefreshCwIcon,
-		SaveIcon,
-		ShieldAlertIcon
-	} from 'lucide-svelte';
+	import { CopyIcon, PlugIcon, RefreshCwIcon, SaveIcon, ShieldAlertIcon } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Skeleton } from '$lib/components/ui/skeleton';
@@ -230,10 +224,9 @@
 						<div>
 							<div class="font-medium">Enable MCP endpoint</div>
 							<p class="text-2xs text-muted-foreground">
-								When on, <code>/api/v2/mcp</code> accepts JSON-RPC 2.0 requests from MCP
-								clients authenticated with an IRIS API key or Bearer token. Session-cookie
-								auth is rejected on this endpoint. Toggling this takes effect immediately —
-								no restart needed.
+								When on, <code>/api/v2/mcp</code> accepts JSON-RPC 2.0 requests from MCP clients authenticated
+								with an IRIS API key or Bearer token. Session-cookie auth is rejected on this endpoint.
+								Toggling this takes effect immediately — no restart needed.
 							</p>
 						</div>
 					</label>
@@ -258,9 +251,9 @@
 							}}
 						/>
 						<p class="text-2xs text-muted-foreground">
-							Applied to <code>tools/call</code> and <code>resources/read</code> only.
-							State is in-process, so the effective ceiling under a multi-worker gunicorn
-							is <em>N × this value</em>.
+							Applied to <code>tools/call</code> and <code>resources/read</code> only. State is
+							in-process, so the effective ceiling under a multi-worker gunicorn is
+							<em>N × this value</em>.
 						</p>
 					</div>
 				</div>
@@ -284,11 +277,11 @@
 						<div>
 							<div class="font-medium">Expose administrative MCP tools</div>
 							<p class="text-2xs text-muted-foreground">
-								Off by default. When on, MCP callers whose API key belongs to a server
-								administrator can drive the <code>iris_manage_*</code> tools (users,
-								customers, modules, taxonomies, server settings). Even when on, the
-								<code>mcp_*</code> settings themselves are excluded from tool-driven
-								writes so an MCP client cannot disable itself.
+								Off by default. When on, MCP callers whose API key belongs to a server administrator
+								can drive the <code>iris_manage_*</code> tools (users, customers, modules,
+								taxonomies, server settings). Even when on, the
+								<code>mcp_*</code> settings themselves are excluded from tool-driven writes so an MCP
+								client cannot disable itself.
 							</p>
 						</div>
 					</label>
@@ -336,8 +329,8 @@
 								(form.mcp_tool_allowlist = (e.currentTarget as HTMLInputElement).value)}
 						/>
 						<p class="text-2xs text-muted-foreground">
-							Extends the default MVP set. Unknown names are ignored so a stray
-							typo doesn't take the endpoint offline.
+							Extends the default MVP set. Unknown names are ignored so a stray typo doesn't take
+							the endpoint offline.
 						</p>
 					</div>
 					<div class="flex flex-col gap-1">
@@ -406,15 +399,15 @@
 						<code>/api/v2/mcp</code> — a single JSON-RPC 2.0 POST endpoint.
 					</p>
 					<p>
-						<span class="font-medium text-foreground">Auth:</span> pass your IRIS API key
-						from Profile → API Key as the <code>X-IRIS-AUTH</code> header, or a Bearer
-						JWT as <code>Authorization: Bearer &lt;token&gt;</code>. MCP calls execute
-						with the full IRIS permissions of the key's owner — treat the key like a
-						password, and prefer non-admin accounts for MCP use.
+						<span class="font-medium text-foreground">Auth:</span> pass your IRIS API key from
+						Profile → API Key as the <code>X-IRIS-AUTH</code> header, or a Bearer JWT as
+						<code>Authorization: Bearer &lt;token&gt;</code>. MCP calls execute with the full IRIS
+						permissions of the key's owner — treat the key like a password, and prefer non-admin
+						accounts for MCP use.
 					</p>
 					<p>
-						The <code>Copy example config</code> button above puts a ready-to-paste
-						snippet on your clipboard for Claude Desktop / Claude Code.
+						The <code>Copy example config</code> button above puts a ready-to-paste snippet on your clipboard
+						for Claude Desktop / Claude Code.
 					</p>
 				</div>
 			</section>

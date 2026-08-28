@@ -102,9 +102,7 @@
 	const isProjected = $derived(event.war_room_source === 'case');
 	const editable = $derived(canEdit && !isProjected);
 
-	const eventDateObj = $derived(
-		event.event_date ? new Date(event.event_date) : new Date(0)
-	);
+	const eventDateObj = $derived(event.event_date ? new Date(event.event_date) : new Date(0));
 	const timeLabel = $derived(
 		event.event_date
 			? eventDateObj.toLocaleTimeString(undefined, {
@@ -115,15 +113,11 @@
 				})
 			: '--:--:--'
 	);
-	const fullDateLabel = $derived(
-		event.event_date ? eventDateObj.toLocaleString() : 'No date'
-	);
+	const fullDateLabel = $derived(event.event_date ? eventDateObj.toLocaleString() : 'No date');
 	const hasChildren = $derived(childCount > 0);
 	// Shared-event highlighting: numeric id match. Projected events
 	// use string ids and won't collide.
-	const isShared = $derived(
-		typeof event.id === 'number' && event.id === getSharedEventId()
-	);
+	const isShared = $derived(typeof event.id === 'number' && event.id === getSharedEventId());
 
 	const tags = $derived(
 		(event.tags ?? '')
@@ -189,8 +183,7 @@
 				const parent = node.parentElement;
 				if (!parent) return NodeFilter.FILTER_REJECT;
 				const tag = parent.tagName;
-				if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'MARK')
-					return NodeFilter.FILTER_REJECT;
+				if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'MARK') return NodeFilter.FILTER_REJECT;
 				return node.nodeValue && re.test(node.nodeValue)
 					? NodeFilter.FILTER_ACCEPT
 					: NodeFilter.FILTER_REJECT;
@@ -407,7 +400,7 @@
 					{#if event.content}
 						<div
 							bind:this={contentEl}
-							class="mt-1.5 max-h-40 min-w-0 overflow-hidden text-xs text-foreground/80 dark:text-slate-300 [&_*]:max-w-full [&_code]:whitespace-pre-wrap [&_code]:break-words [&_img]:max-w-full [&_mark]:rounded-sm [&_mark]:bg-yellow-300/60 [&_mark]:px-0.5 [&_mark]:text-foreground dark:[&_mark]:bg-yellow-400/40 [&_p]:break-words [&_pre]:overflow-x-hidden [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_pre]:dark:bg-slate-800/60 [&_code]:dark:bg-slate-800/60 [&_table]:block [&_table]:overflow-x-auto"
+							class="mt-1.5 max-h-40 min-w-0 overflow-hidden text-xs text-foreground/80 dark:text-slate-300 [&_*]:max-w-full [&_code]:whitespace-pre-wrap [&_code]:break-words [&_code]:dark:bg-slate-800/60 [&_img]:max-w-full [&_mark]:rounded-sm [&_mark]:bg-yellow-300/60 [&_mark]:px-0.5 [&_mark]:text-foreground dark:[&_mark]:bg-yellow-400/40 [&_p]:break-words [&_pre]:overflow-x-hidden [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_pre]:dark:bg-slate-800/60 [&_table]:block [&_table]:overflow-x-auto"
 						>
 							<MarkDownPreview markdown={event.content} />
 						</div>
@@ -475,7 +468,7 @@
 				</div>
 
 				<div
-					class="absolute right-2 top-2 z-[1] flex shrink-0 items-center gap-0.5 rounded-md border border-border/40 bg-popover/95 px-1 py-0.5 opacity-0 shadow-md backdrop-blur transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 dark:border-slate-700 dark:bg-slate-800/95"
+					class="absolute right-2 top-2 z-[1] flex shrink-0 items-center gap-0.5 rounded-md border border-border/40 bg-popover/95 px-1 py-0.5 opacity-0 shadow-md backdrop-blur transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 dark:border-slate-700 dark:bg-slate-800/95"
 				>
 					{#if editable}
 						<TooltipProvider>
@@ -547,10 +540,7 @@
 									<CopyIcon class="mr-2 size-3.5" /> Duplicate
 								</DropdownMenuItem>
 								<Separator />
-								<DropdownMenuItem
-									class="text-red-500"
-									onclick={() => onDelete(event.id)}
-								>
+								<DropdownMenuItem class="text-red-500" onclick={() => onDelete(event.id)}>
 									<Trash2Icon class="mr-2 size-3.5" /> Delete
 								</DropdownMenuItem>
 							{/if}

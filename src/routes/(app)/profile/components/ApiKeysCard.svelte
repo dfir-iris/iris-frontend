@@ -13,13 +13,7 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import {
-		CopyIcon,
-		KeyRoundIcon,
-		PlusIcon,
-		ShieldAlertIcon,
-		Trash2Icon
-	} from 'lucide-svelte';
+	import { KeyRoundIcon, PlusIcon, ShieldAlertIcon, Trash2Icon } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
@@ -109,7 +103,10 @@
 		// Otherwise treat as comma-separated Permissions names.
 		let mask = 0;
 		let unknown: string[] = [];
-		for (const token of raw.split(',').map((t) => t.trim()).filter(Boolean)) {
+		for (const token of raw
+			.split(',')
+			.map((t) => t.trim())
+			.filter(Boolean)) {
 			const p = KNOWN_PERMISSIONS.find((k) => k.name === token);
 			if (p) mask |= p.value;
 			else unknown.push(token);
@@ -178,9 +175,7 @@
 
 	const scopeMaskToNames = (mask: number | null): string => {
 		if (mask === null) return '(full permissions)';
-		const names = KNOWN_PERMISSIONS.filter((p) => (mask & p.value) === p.value).map(
-			(p) => p.name
-		);
+		const names = KNOWN_PERMISSIONS.filter((p) => (mask & p.value) === p.value).map((p) => p.name);
 		return names.length ? names.join(', ') : `mask 0x${mask.toString(16)}`;
 	};
 
@@ -194,9 +189,7 @@
 	};
 
 	// Filter view — revoked rows are audit-only, hidden by default.
-	const visibleKeys = $derived(
-		showRevoked ? keys : keys.filter((k) => !k.revoked_at)
-	);
+	const visibleKeys = $derived(showRevoked ? keys : keys.filter((k) => !k.revoked_at));
 </script>
 
 <Card.Root>
@@ -206,10 +199,9 @@
 			Named API keys
 		</Card.Title>
 		<Card.Description>
-			Named, revocable API keys with an optional permission scope narrower
-			than your account. Ideal for MCP clients (Claude Desktop, Claude Code)
-			and CI scripts — hand out a read-only key to your assistant instead of
-			your full account key.
+			Named, revocable API keys with an optional permission scope narrower than your account. Ideal
+			for MCP clients (Claude Desktop, Claude Code) and CI scripts — hand out a read-only key to
+			your assistant instead of your full account key.
 		</Card.Description>
 	</Card.Header>
 	<Card.Content class="flex flex-col gap-4">
@@ -219,16 +211,10 @@
 					<div class="text-sm font-medium">
 						New key created — copy it now, it will not be shown again.
 					</div>
-					<Button size="sm" variant="ghost" onclick={() => (mintedKey = null)}>
-						Dismiss
-					</Button>
+					<Button size="sm" variant="ghost" onclick={() => (mintedKey = null)}>Dismiss</Button>
 				</div>
 				<div class="mt-2 flex items-stretch gap-2">
-					<Input
-						value={mintedKey.api_key}
-						readonly
-						class="flex-1 font-mono text-xs"
-					/>
+					<Input value={mintedKey.api_key} readonly class="flex-1 font-mono text-xs" />
 					<ClipboardCopy value={mintedKey.api_key} alwaysVisible />
 				</div>
 				<p class="mt-2 text-2xs text-muted-foreground">
@@ -241,11 +227,7 @@
 		<div class="flex items-center justify-between gap-2">
 			<div class="flex items-center gap-2 text-xs text-muted-foreground">
 				<label class="flex items-center gap-1">
-					<input
-						type="checkbox"
-						bind:checked={showRevoked}
-						class="h-3 w-3 accent-primary"
-					/>
+					<input type="checkbox" bind:checked={showRevoked} class="h-3 w-3 accent-primary" />
 					Show revoked
 				</label>
 			</div>
@@ -267,7 +249,7 @@
 						/>
 					</div>
 					<div class="flex flex-col gap-1">
-						<Label class="text-xs flex items-center gap-1">
+						<Label class="flex items-center gap-1 text-xs">
 							<ShieldAlertIcon size={12} />
 							Scope (optional)
 						</Label>
@@ -279,9 +261,8 @@
 					</div>
 				</div>
 				<p class="mt-2 text-2xs text-muted-foreground">
-					Scope is a comma-separated list of Permissions names, or a raw
-					integer bitmask. An issued key can never exceed your own
-					permissions — the mask is AND-ed with your effective set.
+					Scope is a comma-separated list of Permissions names, or a raw integer bitmask. An issued
+					key can never exceed your own permissions — the mask is AND-ed with your effective set.
 				</p>
 				<div class="mt-3 flex justify-end">
 					<Button size="sm" onclick={create} disabled={creating}>
@@ -295,13 +276,14 @@
 			<p class="text-xs text-muted-foreground">Loading…</p>
 		{:else if visibleKeys.length === 0}
 			<p class="text-xs text-muted-foreground">
-				No API keys yet. Create one above for your first MCP client or CI
-				script.
+				No API keys yet. Create one above for your first MCP client or CI script.
 			</p>
 		{:else}
 			<div class="rounded-md border">
 				<table class="w-full text-left text-xs">
-					<thead class="border-b bg-muted/30 text-2xs uppercase tracking-wide text-muted-foreground">
+					<thead
+						class="border-b bg-muted/30 text-2xs uppercase tracking-wide text-muted-foreground"
+					>
 						<tr>
 							<th class="px-3 py-2">Name</th>
 							<th class="px-3 py-2">Scope</th>

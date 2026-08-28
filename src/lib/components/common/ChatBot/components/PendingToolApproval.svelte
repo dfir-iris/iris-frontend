@@ -95,10 +95,7 @@
 
 <div class="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
 	<div class="flex items-start gap-2">
-		<AlertTriangleIcon
-			size={14}
-			class="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400"
-		/>
+		<AlertTriangleIcon size={14} class="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
 		<div class="flex flex-col gap-2">
 			<div class="font-medium">
 				Yuki proposes to run
@@ -110,23 +107,22 @@
 				<div class="text-xs">{description}</div>
 			{:else}
 				<pre
-					class="max-h-32 overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-2 font-mono text-2xs"
-				>{JSON.stringify(pending.arguments, null, 2)}</pre>
+					class="max-h-32 overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-2 font-mono text-2xs">{JSON.stringify(
+						pending.arguments,
+						null,
+						2
+					)}</pre>
 			{/if}
 			<p class="text-2xs text-muted-foreground">
-				This suggestion may have been influenced by content in your case
-				data. Approve only if the action matches what you intended to do.
+				This suggestion may have been influenced by content in your case data. Approve only if the
+				action matches what you intended to do.
 			</p>
 			<div class="mt-1 flex gap-2">
 				<Button size="sm" onclick={() => onApprove(pending.id)}>
 					<CheckIcon size={12} class="mr-1" />
 					Approve
 				</Button>
-				<Button
-					size="sm"
-					variant="outline"
-					onclick={() => onDeny(pending.id)}
-				>
+				<Button size="sm" variant="outline" onclick={() => onDeny(pending.id)}>
 					<XIcon size={12} class="mr-1" />
 					Deny
 				</Button>

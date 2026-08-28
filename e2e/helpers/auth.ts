@@ -21,7 +21,7 @@ export async function login(
 	await page.getByRole('textbox', { name: 'Username' }).fill(username);
 	await page.getByRole('textbox', { name: 'Password' }).fill(password);
 	await Promise.all([
-		page.waitForURL(url => !url.pathname.endsWith('/login'), { timeout: 15_000 }),
+		page.waitForURL((url) => !url.pathname.endsWith('/login'), { timeout: 15_000 }),
 		page.getByRole('button', { name: 'Log in' }).click()
 	]);
 	await expect(page).not.toHaveURL(/\/login$/);

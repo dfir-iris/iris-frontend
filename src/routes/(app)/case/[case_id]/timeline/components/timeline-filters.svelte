@@ -115,7 +115,9 @@
 
 		<div class="mt-3 flex items-center justify-between gap-2">
 			<span class="text-2xs text-muted-foreground">
-				{activeCount === 0 ? 'No filters applied' : `${activeCount} active filter${activeCount === 1 ? '' : 's'}`}
+				{activeCount === 0
+					? 'No filters applied'
+					: `${activeCount} active filter${activeCount === 1 ? '' : 's'}`}
 			</span>
 			<div class="flex items-center gap-2">
 				<Button size="sm" type="button" variant="ghost" onclick={onClear}>

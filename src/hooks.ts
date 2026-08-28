@@ -43,9 +43,7 @@ export const reroute: Reroute = ({ url }) => {
 		return `/case/${cid}`;
 	}
 
-	const subpathMatch = pathname.match(
-		/^\/case\/(iocs|assets|tasks|notes|evidences|timeline)\/?$/
-	);
+	const subpathMatch = pathname.match(/^\/case\/(iocs|assets|tasks|notes|evidences|timeline)\/?$/);
 	if (!subpathMatch) return;
 
 	const section = subpathMatch[1];

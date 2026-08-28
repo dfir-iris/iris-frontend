@@ -29,6 +29,5 @@ To test this app:
 
 1. Vitest: `npm run test`
 2. Playwright: `npm run test:e2e`
-   * You may need to run `npx playwright install-deps` before you can install browsers below. 
-   * You may need to run `npx playwright install` before to install browsers.
-
+   - You may need to run `npx playwright install-deps` before you can install browsers below.
+   - You may need to run `npx playwright install` before to install browsers.

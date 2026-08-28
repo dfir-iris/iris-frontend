@@ -95,10 +95,7 @@
 				{note.title}
 			</div>
 		{:else}
-			<div
-				title={note.title}
-				class="truncate rounded-sm px-1 text-xl font-semibold leading-tight"
-			>
+			<div title={note.title} class="truncate rounded-sm px-1 text-xl font-semibold leading-tight">
 				{note.title}
 			</div>
 		{/if}
@@ -185,7 +182,9 @@
 						size="xs"
 						onclick={() => {
 							navigator.clipboard
-								.writeText(`[${note.title || `Note #${note.note_id}`}](${getNoteUrl(note.note_id)})`)
+								.writeText(
+									`[${note.title || `Note #${note.note_id}`}](${getNoteUrl(note.note_id)})`
+								)
 								.then(() => {
 									toast({ title: 'Link copied', variant: 'success' });
 								})
@@ -211,9 +210,8 @@
 						size="xs"
 						onclick={() => {
 							const safeName =
-								(note.title || 'note')
-									.replace(/[^a-zA-Z0-9]+/g, '_')
-									.replace(/^_+|_+$/g, '') || 'note';
+								(note.title || 'note').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '') ||
+								'note';
 
 							const cleanContent = stripMentionChipsForExport(note.content ?? '');
 							const blob = new Blob([cleanContent], {

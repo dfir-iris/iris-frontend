@@ -201,7 +201,7 @@ export const createCaseTasksContext = (getCaseId: () => number | null) => {
 			const merged: Task = { ...prev, ...(body as Partial<Task>) };
 
 			if (body.task_status_id !== undefined && body.task_status_id !== prev.task_status_id) {
-				merged.status = undefined;
+				(merged as Partial<Task>).status = undefined;
 			}
 
 			byId[id] = merged;

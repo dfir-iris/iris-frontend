@@ -46,10 +46,6 @@ export class HooksService {
 		body: InvokeHookBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<InvokeHookResult>> {
-		return ApiService.post<InvokeHookResult>(
-			`/cases/${caseId}/dim-hooks/invoke`,
-			body,
-			options
-		);
+		return ApiService.post<InvokeHookResult>(`/cases/${caseId}/dim-hooks/invoke`, body, options);
 	}
 }

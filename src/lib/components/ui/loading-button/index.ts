@@ -1,1 +1,1 @@
-export { default as LoadingButton } from './loading-button.svelte'
+export { default as LoadingButton } from './loading-button.svelte';

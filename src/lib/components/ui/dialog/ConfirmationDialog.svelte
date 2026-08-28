@@ -16,7 +16,15 @@
 		cancelText = 'Cancel',
 		onConfirm = () => {},
 		onCancel = () => {},
-		confirmButtonVariant = 'destructive' as "default" | "destructive" | "outline" | "secondary" | "ghost" | "link" | null | undefined,
+		confirmButtonVariant = 'destructive' as
+			| 'default'
+			| 'destructive'
+			| 'outline'
+			| 'secondary'
+			| 'ghost'
+			| 'link'
+			| null
+			| undefined,
 		showIcon = true
 	}: {
 		open: boolean;
@@ -26,7 +34,15 @@
 		cancelText?: string;
 		onConfirm?: () => void;
 		onCancel?: () => void;
-		confirmButtonVariant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link" | null | undefined;
+		confirmButtonVariant?:
+			| 'default'
+			| 'destructive'
+			| 'outline'
+			| 'secondary'
+			| 'ghost'
+			| 'link'
+			| null
+			| undefined;
 		showIcon?: boolean;
 	} = $props();
 
@@ -50,7 +66,7 @@
 		<DialogHeader>
 			<DialogTitle class="flex items-center">
 				{#if showIcon}
-					<AlertTriangleIcon class="h-5 w-5 mr-2 text-destructive" />
+					<AlertTriangleIcon class="mr-2 h-5 w-5 text-destructive" />
 				{/if}
 				{title}
 			</DialogTitle>
@@ -60,7 +76,7 @@
 		</DialogHeader>
 		<DialogFooter class="pt-4">
 			<Button variant="outline" onclick={handleCancel}>{cancelText}</Button>
-			<Button variant={confirmButtonVariant} onclick={handleConfirm}>{confirmText}</Button>
+			<Button variant={confirmButtonVariant ?? undefined} onclick={handleConfirm}>{confirmText}</Button>
 		</DialogFooter>
 	</DialogContent>
 </DialogPrimitive.Root>

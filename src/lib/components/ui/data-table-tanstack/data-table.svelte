@@ -239,7 +239,7 @@
 	};
 </script>
 
-<div class={`flex w-full min-h-0 min-w-0 flex-col ${className}`}>
+<div class={`flex min-h-0 w-full min-w-0 flex-col ${className}`}>
 	<!--
 	  Inner scroll wrapper. `flex-1 min-h-0` lets it consume the
 	  height the caller granted us (typically via a `flex-1 min-h-0`
@@ -247,94 +247,103 @@
 	  horizontal scroll inside this box rather than on the page.
 	-->
 	<div class="min-h-0 min-w-0 flex-1 overflow-auto">
-	<table class={tableClass}>
-		<thead>
-			<tr class="border-b border-border/50">
-				{#each cols as col (col.key)}
-					{@const colMeta = (col.c as { meta?: { thClass?: string; tdClass?: string } }).meta}
-					<th class="px-3 py-2 text-left align-top font-medium text-muted-foreground {colMeta?.thClass ?? ''}">
-						<div class="flex w-full items-center justify-between gap-2">
-							<span class="min-w-0 truncate">{col.header}</span>
+		<table class={tableClass}>
+			<thead>
+				<tr class="border-b border-border/50">
+					{#each cols as col (col.key)}
+						{@const colMeta = (col.c as { meta?: { thClass?: string; tdClass?: string } }).meta}
+						<th
+							class="px-3 py-2 text-left align-top font-medium text-muted-foreground {colMeta?.thClass ??
+								''}"
+						>
+							<div class="flex w-full items-center justify-between gap-2">
+								<span class="min-w-0 truncate">{col.header}</span>
 
-							<div class="flex shrink-0 items-center gap-0.5 opacity-40 transition-opacity hover:opacity-100">
-								{#if showColumnFilters}
+								<div
+									class="flex shrink-0 items-center gap-0.5 opacity-40 transition-opacity hover:opacity-100"
+								>
+									{#if showColumnFilters}
+										<button
+											type="button"
+											class="shrink-0 rounded p-0.5 hover:bg-muted"
+											aria-label={`Filter ${col.header}`}
+											onclick={() => toggleFilter(col.key as string)}
+										>
+											<FilterIcon class="size-3" />
+										</button>
+									{/if}
+
 									<button
 										type="button"
 										class="shrink-0 rounded p-0.5 hover:bg-muted"
-										aria-label={`Filter ${col.header}`}
-										onclick={() => toggleFilter(col.key as string)}
+										aria-label={`Sort ${col.header}`}
+										onclick={() => toggleSort(col.key as string)}
 									>
-										<FilterIcon class="size-3" />
+										{#if sort?.id === col.key && sort?.dir === 'asc'}
+											<ArrowUpIcon class="size-3" />
+										{:else if sort?.id === col.key && sort?.dir === 'desc'}
+											<ArrowDownIcon class="size-3" />
+										{:else}
+											<ArrowUpDownIcon class="size-3" />
+										{/if}
 									</button>
-								{/if}
-
-								<button
-									type="button"
-									class="shrink-0 rounded p-0.5 hover:bg-muted"
-									aria-label={`Sort ${col.header}`}
-									onclick={() => toggleSort(col.key as string)}
-								>
-									{#if sort?.id === col.key && sort?.dir === 'asc'}
-										<ArrowUpIcon class="size-3" />
-									{:else if sort?.id === col.key && sort?.dir === 'desc'}
-										<ArrowDownIcon class="size-3" />
-									{:else}
-										<ArrowUpDownIcon class="size-3" />
-									{/if}
-								</button>
+								</div>
 							</div>
-						</div>
 
-						{#if showColumnFilters && filterColumn === col.key}
-							<div class="mt-1.5 flex min-w-0 items-center gap-1.5">
-								<input
-									class="h-7 w-full min-w-0 rounded-md border border-border/50 bg-background px-2 text-xs focus:border-ring focus:outline-none"
-									placeholder="Filter…"
-									value={filters[col.key] ?? ''}
-									oninput={(e) =>
-										setFilter(col.key as string, (e.currentTarget as HTMLInputElement).value)}
-								/>
+							{#if showColumnFilters && filterColumn === col.key}
+								<div class="mt-1.5 flex min-w-0 items-center gap-1.5">
+									<input
+										class="h-7 w-full min-w-0 rounded-md border border-border/50 bg-background px-2 text-xs focus:border-ring focus:outline-none"
+										placeholder="Filter…"
+										value={filters[col.key] ?? ''}
+										oninput={(e) =>
+											setFilter(col.key as string, (e.currentTarget as HTMLInputElement).value)}
+									/>
 
-								<button
-									class="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
-									aria-label={`Clear filter ${col.header}`}
-									onclick={() => clearFilter(col.key as string)}
-								>
-									<XIcon class="size-3" />
-								</button>
-							</div>
-						{/if}
-					</th>
-				{/each}
-			</tr>
-		</thead>
-
-		<tbody>
-			{#if paged.length === 0}
-				<tr>
-					<td class="px-3 py-4 text-center text-muted-foreground" colspan={cols.length}>No results</td>
+									<button
+										class="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
+										aria-label={`Clear filter ${col.header}`}
+										onclick={() => clearFilter(col.key as string)}
+									>
+										<XIcon class="size-3" />
+									</button>
+								</div>
+							{/if}
+						</th>
+					{/each}
 				</tr>
-			{:else}
-				{#each paged as row, i (i)}
-					<tr class="border-b border-border/30 transition-colors last:border-b-0 hover:bg-muted/40">
-						{#each cols as col (col.key)}
-							{@const v = columnCell(col.c, row, () => columnValue(col.c, row))}
-							{@const colMeta = (col.c as { meta?: { thClass?: string; tdClass?: string } }).meta}
+			</thead>
 
-							<td class="px-3 py-2 {colMeta?.tdClass ?? ''}">
-								{#if typeof v === 'function'}
-									{@const Comp = v as Component}
-									<Comp />
-								{:else}
-									{v}
-								{/if}
-							</td>
-						{/each}
+			<tbody>
+				{#if paged.length === 0}
+					<tr>
+						<td class="px-3 py-4 text-center text-muted-foreground" colspan={cols.length}
+							>No results</td
+						>
 					</tr>
-				{/each}
-			{/if}
-		</tbody>
-	</table>
+				{:else}
+					{#each paged as row, i (i)}
+						<tr
+							class="border-b border-border/30 transition-colors last:border-b-0 hover:bg-muted/40"
+						>
+							{#each cols as col (col.key)}
+								{@const v = columnCell(col.c, row, () => columnValue(col.c, row))}
+								{@const colMeta = (col.c as { meta?: { thClass?: string; tdClass?: string } }).meta}
+
+								<td class="px-3 py-2 {colMeta?.tdClass ?? ''}">
+									{#if typeof v === 'function'}
+										{@const Comp = v as Component}
+										<Comp />
+									{:else}
+										{v}
+									{/if}
+								</td>
+							{/each}
+						</tr>
+					{/each}
+				{/if}
+			</tbody>
+		</table>
 	</div>
 
 	<div class="mt-2 flex shrink-0 items-center justify-end gap-3 pt-1">

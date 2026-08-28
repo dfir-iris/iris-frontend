@@ -25,10 +25,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as Popover from '$lib/components/ui/popover';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
-	import {
-		WarRoomsService,
-		type WarRoomPerson
-	} from '$lib/services/war-rooms.service';
+	import { WarRoomsService, type WarRoomPerson } from '$lib/services/war-rooms.service';
 
 	const warRoomId = $derived(Number(page.params.war_room_id));
 
@@ -78,15 +75,9 @@
 	};
 
 	const memberCount = $derived(people.filter((p) => p.is_member).length);
-	const leadCount = $derived(
-		people.filter((p) => p.is_member && p.role === 'lead').length
-	);
-	const ownerCount = $derived(
-		people.filter((p) => p.is_owner && !p.is_member).length
-	);
-	const accessCount = $derived(
-		people.filter((p) => !p.is_member && !p.is_owner).length
-	);
+	const leadCount = $derived(people.filter((p) => p.is_member && p.role === 'lead').length);
+	const ownerCount = $derived(people.filter((p) => p.is_owner && !p.is_member).length);
+	const accessCount = $derived(people.filter((p) => !p.is_member && !p.is_owner).length);
 
 	const filteredPeople = $derived.by(() => {
 		const needle = listFilter.trim().toLowerCase();
@@ -144,11 +135,7 @@
 				{#each visible as p (p.user_id)}
 					{@const cls = classify(p)}
 					<div class="relative rounded-full">
-						<UserAvatar
-							userId={p.user_id}
-							name={p.name || p.login}
-							size="size-5"
-						/>
+						<UserAvatar userId={p.user_id} name={p.name || p.login} size="size-5" />
 						{#if cls === 'lead'}
 							<Crown
 								class="absolute -right-1 -top-1 h-2 w-2 fill-amber-400 text-amber-600 drop-shadow"
@@ -179,9 +166,7 @@
 				{/if}
 				{#if memberCount - leadCount > 0}
 					<span class="tabular-nums">
-						{memberCount - leadCount} member{memberCount - leadCount === 1
-							? ''
-							: 's'}
+						{memberCount - leadCount} member{memberCount - leadCount === 1 ? '' : 's'}
 					</span>
 				{/if}
 				{#if ownerCount > 0}
@@ -232,8 +217,7 @@
 				/>
 				<Input
 					value={listFilter}
-					oninput={(e) =>
-						(listFilter = (e.target as HTMLInputElement).value)}
+					oninput={(e) => (listFilter = (e.target as HTMLInputElement).value)}
 					placeholder="Search name, login, email"
 					class="h-7 pl-7 text-xs"
 				/>
@@ -241,27 +225,21 @@
 		</div>
 		<div class="max-h-80 overflow-y-auto py-1">
 			{#if groupedForPopover.length === 0}
-				<p class="px-3 py-3 text-center text-2xs text-muted-foreground">
-					No matches.
-				</p>
+				<p class="px-3 py-3 text-center text-2xs text-muted-foreground">No matches.</p>
 			{:else}
 				{#each groupedForPopover as group (group.label)}
-					<p class="mt-1 px-3 pb-0.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+					<p
+						class="mt-1 px-3 pb-0.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground"
+					>
 						{group.label}
 						<span class="ml-1 tabular-nums">({group.rows.length})</span>
 					</p>
 					<ul class="flex flex-col">
 						{#each group.rows as p (p.user_id)}
 							{@const cls = classify(p)}
-							<li
-								class="flex items-center gap-2 px-3 py-1 hover:bg-muted/40"
-							>
+							<li class="flex items-center gap-2 px-3 py-1 hover:bg-muted/40">
 								<div class="relative shrink-0">
-									<UserAvatar
-										userId={p.user_id}
-										name={p.name || p.login}
-										size="size-6"
-									/>
+									<UserAvatar userId={p.user_id} name={p.name || p.login} size="size-6" />
 									{#if cls === 'lead'}
 										<Crown
 											class="absolute -right-1 -top-1.5 h-2.5 w-2.5 fill-amber-400 text-amber-600"
@@ -275,9 +253,7 @@
 									<p class="truncate text-2xs text-muted-foreground">
 										@{p.login} ·
 										{#if p.case_ids.length > 0}
-											{p.case_ids.length} case{p.case_ids.length === 1
-												? ''
-												: 's'}
+											{p.case_ids.length} case{p.case_ids.length === 1 ? '' : 's'}
 										{:else}
 											{roleLabel(p)}
 										{/if}

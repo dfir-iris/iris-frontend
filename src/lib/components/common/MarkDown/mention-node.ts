@@ -40,8 +40,7 @@ const KIND_STYLE: Record<MentionKind, StyleSpec> = {
 	},
 	ioc: {
 		colorClass: 'bg-red-500/15 text-red-700 dark:text-red-300',
-		iconPath:
-			'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M12 9v4 M12 17h.01'
+		iconPath: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M12 9v4 M12 17h.01'
 	},
 	note: {
 		colorClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',

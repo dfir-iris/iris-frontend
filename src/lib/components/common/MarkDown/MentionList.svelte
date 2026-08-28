@@ -9,14 +9,7 @@
 		UsersIcon
 	} from 'lucide-svelte';
 
-	export type MentionKind =
-		| 'user'
-		| 'team'
-		| 'asset'
-		| 'ioc'
-		| 'note'
-		| 'task'
-		| 'datastore';
+	export type MentionKind = 'user' | 'team' | 'asset' | 'ioc' | 'note' | 'task' | 'datastore';
 
 	export type MentionItem = {
 		id: number | string;
@@ -35,11 +28,7 @@
 		return UserIcon;
 	};
 
-	let {
-		items,
-		selectedIndex,
-		onSelect
-	} = $props<{
+	let { items, selectedIndex, onSelect } = $props<{
 		items: MentionItem[];
 		selectedIndex: number;
 		onSelect: (item: MentionItem) => void;

@@ -217,8 +217,8 @@
 			<div class="leading-tight">
 				<h1 class="text-sm font-semibold">Banners</h1>
 				<p class="text-2xs text-muted-foreground">
-					Publish top-of-app messages to every authenticated user (maintenance
-					notices, outages, announcements).
+					Publish top-of-app messages to every authenticated user (maintenance notices, outages,
+					announcements).
 				</p>
 			</div>
 		</div>
@@ -242,14 +242,14 @@
 			>
 				<MegaphoneIcon size={32} class="opacity-40" />
 				<p class="text-sm">No banners yet.</p>
-				<p class="text-xs">
-					Create one to alert users about maintenance windows or announcements.
-				</p>
+				<p class="text-xs">Create one to alert users about maintenance windows or announcements.</p>
 			</div>
 		{:else}
 			<div class="overflow-hidden rounded-md border">
 				<table class="w-full text-xs">
-					<thead class="bg-muted/40 text-left text-2xs uppercase tracking-wide text-muted-foreground">
+					<thead
+						class="bg-muted/40 text-left text-2xs uppercase tracking-wide text-muted-foreground"
+					>
 						<tr>
 							<th class="w-8 px-3 py-2"></th>
 							<th class="px-3 py-2">Text</th>
@@ -345,21 +345,11 @@
 			<div class="grid grid-cols-2 gap-3">
 				<div class="flex flex-col gap-1">
 					<label class="text-xs font-medium" for="banner-start">Start (optional)</label>
-					<Input
-						id="banner-start"
-						type="datetime-local"
-						class="h-8"
-						bind:value={form.startLocal}
-					/>
+					<Input id="banner-start" type="datetime-local" class="h-8" bind:value={form.startLocal} />
 				</div>
 				<div class="flex flex-col gap-1">
 					<label class="text-xs font-medium" for="banner-end">End (optional)</label>
-					<Input
-						id="banner-end"
-						type="datetime-local"
-						class="h-8"
-						bind:value={form.endLocal}
-					/>
+					<Input id="banner-end" type="datetime-local" class="h-8" bind:value={form.endLocal} />
 				</div>
 			</div>
 

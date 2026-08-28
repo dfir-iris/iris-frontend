@@ -9,7 +9,9 @@
 	<h2>{page.error?.message}</h2>
 	<p>Our apologies.</p>
 	<!-- TODO: ADD LINK -->
-	<a href="https://github.com/dfir-iris/iris-web/issues" class="flex flex-row items-center gap-x-1 underline"
+	<a
+		href="https://github.com/dfir-iris/iris-web/issues"
+		class="flex flex-row items-center gap-x-1 underline"
 		>Report an issue on our GitHub <ExternalLinkIcon size={16} /></a
 	>
 </div>

@@ -1,5 +1,5 @@
 import { ApiService } from './api.service';
-import type { ApiOptions, RequestResponse } from './api.service';
+import type { ApiOptions } from './api.service';
 import type { ClusterRule, RuleAction, RuleConditions } from '$lib/types/resources/cluster-rule';
 
 export interface CreateClusterRuleBody {

@@ -19,7 +19,6 @@
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
-	import { getInitials } from '$lib/utils';
 
 	const panel = getContext<ActivityPanelContext>(ACTIVITY_PANEL_CTX);
 	const cases = getContext<CasesContext>(CASES_CTX);
@@ -124,9 +123,7 @@
 
 	onDestroy(stopPolling);
 
-	const lastSyncedRelative = $derived(
-		lastLoadedAt ? relativeTime(lastLoadedAt, now) : null
-	);
+	const lastSyncedRelative = $derived(lastLoadedAt ? relativeTime(lastLoadedAt, now) : null);
 </script>
 
 {#if panel.state.open}

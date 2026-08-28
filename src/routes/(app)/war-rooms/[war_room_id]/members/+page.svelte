@@ -65,8 +65,7 @@
 			.filter((u) => {
 				if (!needle) return true;
 				return (
-					u.user_login.toLowerCase().includes(needle) ||
-					u.user_name.toLowerCase().includes(needle)
+					u.user_login.toLowerCase().includes(needle) || u.user_name.toLowerCase().includes(needle)
 				);
 			})
 			.slice(0, 40);
@@ -114,8 +113,7 @@
 		<div>
 			<h2 class="text-lg font-semibold">Members</h2>
 			<p class="text-xs text-muted-foreground">
-				People with access to this war room. Leads coordinate, responders execute,
-				observers watch.
+				People with access to this war room. Leads coordinate, responders execute, observers watch.
 			</p>
 		</div>
 		<Button onclick={openAdd}>
@@ -168,9 +166,7 @@
 	<DialogContent class="sm:max-w-lg">
 		<DialogHeader>
 			<DialogTitle>Add member</DialogTitle>
-			<DialogDescription>
-				Adding a member grants them ACL access to the war room.
-			</DialogDescription>
+			<DialogDescription>Adding a member grants them ACL access to the war room.</DialogDescription>
 		</DialogHeader>
 
 		<div class="flex flex-col gap-3 py-2">
@@ -188,9 +184,7 @@
 
 			<div class="max-h-56 overflow-y-auto rounded-md border">
 				{#if candidates.length === 0}
-					<div class="p-3 text-center text-xs text-muted-foreground">
-						No matching users.
-					</div>
+					<div class="p-3 text-center text-xs text-muted-foreground">No matching users.</div>
 				{:else}
 					<ul>
 						{#each candidates as u (u.user_id)}
@@ -227,9 +221,7 @@
 					</select>
 				</div>
 				<div>
-					<label class="text-xs font-medium text-muted-foreground" for="access">
-						Access
-					</label>
+					<label class="text-xs font-medium text-muted-foreground" for="access"> Access </label>
 					<select
 						id="access"
 						bind:value={selectedAccess}
@@ -243,9 +235,7 @@
 		</div>
 
 		<DialogFooter>
-			<Button variant="ghost" onclick={() => (addOpen = false)} disabled={adding}>
-				Cancel
-			</Button>
+			<Button variant="ghost" onclick={() => (addOpen = false)} disabled={adding}>Cancel</Button>
 			<Button onclick={submitAdd} disabled={adding || selectedUserId == null}>
 				{adding ? 'Adding…' : 'Add'}
 			</Button>

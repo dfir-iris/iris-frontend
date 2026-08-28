@@ -94,7 +94,7 @@ describe('CaseService', () => {
 		const body: CreateCaseBody = {
 			case_name: 'My Case',
 			case_description: 'desc',
-			case_customer: 1,
+			case_customer_id: 1,
 			case_soc_id: 'SOC_154'
 		};
 

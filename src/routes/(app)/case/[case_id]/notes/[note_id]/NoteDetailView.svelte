@@ -176,7 +176,10 @@
 					<div class="mt-6">
 						<CustomAttributesTabWrapper
 							objectType="note"
-							existing={(note.custom_attributes ?? null) as Record<string, Record<string, unknown>> | null}
+							existing={(note.custom_attributes ?? null) as Record<
+								string,
+								Record<string, unknown>
+							> | null}
 							{canEdit}
 							onSave={async (values) => {
 								const updated = await notes.patchNote(note.note_id, {

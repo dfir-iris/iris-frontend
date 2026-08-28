@@ -24,9 +24,7 @@
 	const isUser = $derived(message.role === 'user');
 	const isAssistant = $derived(message.role === 'assistant');
 
-	const combinedText = $derived(
-		textBlocks.map((b) => b.text ?? '').join('')
-	);
+	const combinedText = $derived(textBlocks.map((b) => b.text ?? '').join(''));
 </script>
 
 {#if message.role === 'tool'}

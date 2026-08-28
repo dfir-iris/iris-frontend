@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { SquarePenIcon, Trash2Icon } from 'lucide-svelte';
+	import { SquarePenIcon, Trash2Icon } from 'lucide-svelte';
 	import type { Comment } from '$lib/services/comments.service';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import { MarkDownPreview } from '../MarkDown';
@@ -37,7 +37,10 @@
 
 					<span class="text-2xs text-muted-foreground">
 						{new Date(comment.comment_date).toLocaleDateString()}
-						{new Date(comment.comment_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+						{new Date(comment.comment_date).toLocaleTimeString([], {
+							hour: '2-digit',
+							minute: '2-digit'
+						})}
 					</span>
 				</div>
 

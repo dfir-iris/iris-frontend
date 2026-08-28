@@ -185,32 +185,21 @@
 
 			<div class="flex flex-col gap-1.5 rounded-md border bg-muted/30 p-2">
 				<label class="flex cursor-pointer items-center gap-2 text-xs">
-					<Checkbox
-						checked={isMultiSelect}
-						onCheckedChange={(v) => (isMultiSelect = v === true)}
-					/>
+					<Checkbox checked={isMultiSelect} onCheckedChange={(v) => (isMultiSelect = v === true)} />
 					<span>Allow multiple selections</span>
 				</label>
 				<label class="flex cursor-pointer items-center gap-2 text-xs">
-					<Checkbox
-						checked={isAnonymous}
-						onCheckedChange={(v) => (isAnonymous = v === true)}
-					/>
-					<span>Anonymous voting <span class="text-muted-foreground">(voter names hidden)</span></span>
+					<Checkbox checked={isAnonymous} onCheckedChange={(v) => (isAnonymous = v === true)} />
+					<span
+						>Anonymous voting <span class="text-muted-foreground">(voter names hidden)</span></span
+					>
 				</label>
 				<label class="flex cursor-pointer items-center gap-2 text-xs">
-					<Checkbox
-						checked={hasDeadline}
-						onCheckedChange={(v) => (hasDeadline = v === true)}
-					/>
+					<Checkbox checked={hasDeadline} onCheckedChange={(v) => (hasDeadline = v === true)} />
 					<span>Close automatically at…</span>
 				</label>
 				{#if hasDeadline}
-					<Input
-						type="datetime-local"
-						bind:value={deadlineLocal}
-						class="mt-1 text-xs"
-					/>
+					<Input type="datetime-local" bind:value={deadlineLocal} class="mt-1 text-xs" />
 				{/if}
 			</div>
 

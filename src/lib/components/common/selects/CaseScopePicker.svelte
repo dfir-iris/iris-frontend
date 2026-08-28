@@ -16,7 +16,7 @@
   inline (Popover, not Dialog).
 -->
 <script lang="ts">
-	import { CheckIcon, FolderIcon, SearchIcon } from 'lucide-svelte';
+	import { FolderIcon, SearchIcon } from 'lucide-svelte';
 	import * as Popover from '$lib/components/ui/popover';
 	import { Button } from '$lib/components/ui/button';
 	import Input from '$lib/components/ui/input/input.svelte';
@@ -330,8 +330,8 @@
 				{:else if values.length === 1}
 					{labels[values[0]] ?? `Case #${values[0]}`}
 				{:else if values.length === 2}
-					{(labels[values[0]] ?? `#${values[0]}`)},
-					{(labels[values[1]] ?? `#${values[1]}`)}
+					{labels[values[0]] ?? `#${values[0]}`},
+					{labels[values[1]] ?? `#${values[1]}`}
 				{:else}
 					{values.length} cases selected
 				{/if}
@@ -373,7 +373,9 @@
 			  shortcut wipes the whole scope back to "All accessible cases".
 			-->
 			{#if cases.length > 0}
-				<div class="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-1.5 text-2xs text-muted-foreground">
+				<div
+					class="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-1.5 text-2xs text-muted-foreground"
+				>
 					<span>
 						{#if mode === 'search'}
 							Matching cases ({cases.length}{hasMore ? '+' : ''})
@@ -383,29 +385,17 @@
 					</span>
 					<div class="flex items-center gap-2">
 						{#if allLoadedSelected}
-							<button
-								type="button"
-								class="hover:text-foreground"
-								onclick={deselectAllLoaded}
-							>
+							<button type="button" class="hover:text-foreground" onclick={deselectAllLoaded}>
 								Deselect all
 							</button>
 						{:else}
-							<button
-								type="button"
-								class="hover:text-foreground"
-								onclick={selectAllLoaded}
-							>
+							<button type="button" class="hover:text-foreground" onclick={selectAllLoaded}>
 								Select all
 							</button>
 						{/if}
 						{#if values.length > 0}
 							<span class="opacity-40">·</span>
-							<button
-								type="button"
-								class="hover:text-foreground"
-								onclick={clearAll}
-							>
+							<button type="button" class="hover:text-foreground" onclick={clearAll}>
 								Clear scope
 							</button>
 						{/if}
@@ -429,17 +419,16 @@
 						{#each cases as c, idx (c.case_id)}
 							{@const owned = mode === 'default' && isOwnedByCurrentUser(c)}
 							{@const isFirstNonOwner =
-								mode === 'default' &&
-								!owned &&
-								idx > 0 &&
-								isOwnedByCurrentUser(cases[idx - 1])}
+								mode === 'default' && !owned && idx > 0 && isOwnedByCurrentUser(cases[idx - 1])}
 							{#if isFirstNonOwner}
 								<li class="my-1 border-t"></li>
 							{/if}
 							<li>
 								<button
 									type="button"
-									class="flex w-full min-w-0 items-center gap-2 overflow-hidden px-3 py-2 text-left text-sm hover:bg-muted/60 {isSelected(c)
+									class="flex w-full min-w-0 items-center gap-2 overflow-hidden px-3 py-2 text-left text-sm hover:bg-muted/60 {isSelected(
+										c
+									)
 										? 'bg-muted/40'
 										: ''}"
 									onclick={() => toggle(c)}

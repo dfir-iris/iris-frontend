@@ -37,9 +37,7 @@
 		| 'delete'
 		| 'select';
 
-	export type DragSource =
-		| { kind: 'file'; id: number }
-		| { kind: 'folder'; id: number };
+	export type DragSource = { kind: 'file'; id: number } | { kind: 'folder'; id: number };
 
 	type Props = {
 		tree: DataStoreTree;
@@ -92,9 +90,7 @@
 		return false;
 	};
 
-	const entries = $derived(
-		Object.entries(tree).filter(([, node]) => matchesFilter(node, filter))
-	);
+	const entries = $derived(Object.entries(tree).filter(([, node]) => matchesFilter(node, filter)));
 
 	// Drag payload format: a JSON object on the 'application/x-iris-datastore'
 	// MIME type. We use a custom type so file-from-OS drops (which carry the
@@ -170,7 +166,7 @@
 		{@const id = Number(idStr)}
 		{#if node.type === 'directory'}
 			<li class="flex flex-col">
-				<!-- svelte-ignore a11y_no_static_element_interactions a11y_interactive_supports_focus a11y_role_has_required_aria_props -->
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div
 					class="group/item flex items-center gap-1 rounded-md px-1.5 py-1 text-sm transition-colors hover:bg-muted/60 {dropTargetFolderId ===
 					id
@@ -213,7 +209,9 @@
 						{/if}
 						<span class="truncate" title={node.name}>{node.name}</span>
 						{#if node.is_root}
-							<span class="ml-1 shrink-0 rounded bg-muted px-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+							<span
+								class="ml-1 shrink-0 rounded bg-muted px-1 text-[10px] uppercase tracking-wide text-muted-foreground"
+							>
 								root
 							</span>
 						{/if}
@@ -292,12 +290,16 @@
 								>{file.file_original_name}</span
 							>
 							{#if file.file_is_ioc}
-								<span class="shrink-0 rounded bg-red-500/15 px-1 text-[10px] uppercase tracking-wide text-red-600 dark:text-red-300">
+								<span
+									class="shrink-0 rounded bg-red-500/15 px-1 text-[10px] uppercase tracking-wide text-red-600 dark:text-red-300"
+								>
 									IOC
 								</span>
 							{/if}
 							{#if file.file_is_evidence}
-								<span class="shrink-0 rounded bg-blue-500/15 px-1 text-[10px] uppercase tracking-wide text-blue-600 dark:text-blue-300">
+								<span
+									class="shrink-0 rounded bg-blue-500/15 px-1 text-[10px] uppercase tracking-wide text-blue-600 dark:text-blue-300"
+								>
 									EV
 								</span>
 							{/if}
@@ -308,9 +310,7 @@
 						</div>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="start" class="min-w-[180px]">
-						<DropdownMenuItem onclick={() => onFileAction('preview', id)}>
-							Preview
-						</DropdownMenuItem>
+						<DropdownMenuItem onclick={() => onFileAction('preview', id)}>Preview</DropdownMenuItem>
 						<DropdownMenuItem onclick={() => onFileAction('download', id)}>
 							Download
 						</DropdownMenuItem>
@@ -323,10 +323,7 @@
 						<DropdownMenuItem onclick={() => onFileAction('edit', id)}>
 							Edit metadata
 						</DropdownMenuItem>
-						<DropdownMenuItem
-							class="text-destructive"
-							onclick={() => onFileAction('delete', id)}
-						>
+						<DropdownMenuItem class="text-destructive" onclick={() => onFileAction('delete', id)}>
 							Delete file
 						</DropdownMenuItem>
 					</DropdownMenuContent>

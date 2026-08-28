@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { writable } from 'svelte/store';
-	import type { PageLoad } from './$types';
 	import { Input } from '$lib/components/ui/input';
 	import * as Command from '$lib/components/ui/command';
 	import { CaseService } from '$lib/services/case.service';
@@ -33,13 +32,18 @@
 	// `RequestResponse.data` is `T | string | null` — narrow to the
 	// paginated envelope before touching its `.data` array.
 	const extractCases = (data: unknown): Case[] => {
-		if (data && typeof data === 'object' && 'data' in data && Array.isArray((data as { data: unknown }).data)) {
+		if (
+			data &&
+			typeof data === 'object' &&
+			'data' in data &&
+			Array.isArray((data as { data: unknown }).data)
+		) {
 			return (data as { data: Case[] }).data;
 		}
 		return [];
 	};
 
-	export const load: PageLoad = async () => {
+	export const load = async () => {
 		const response = await CaseService.list();
 		const casesData = extractCases(response.data).map(toCaseContext);
 		cases.set(casesData);
@@ -48,9 +52,7 @@
 
 	async function fetchCases(query = '') {
 		const trimmed = query.trim();
-		const response = await CaseService.list(
-			trimmed === '' ? {} : { quick_search: trimmed }
-		);
+		const response = await CaseService.list(trimmed === '' ? {} : { quick_search: trimmed });
 		if (!response.ok) {
 			console.error('Error fetching cases:', response.error?.message);
 			return;
@@ -58,7 +60,8 @@
 		cases.set(extractCases(response.data).map(toCaseContext));
 	}
 
-	$: $searchQuery, fetchCases($searchQuery);
+	// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+	$: ($searchQuery, fetchCases($searchQuery));
 
 	function redirectToCase(caseId: number) {
 		goto(`/case/${caseId}/overview`);
@@ -71,9 +74,8 @@
 
 <Dialog.Root bind:open={showTeamDialog}>
 	<Popover.Root bind:open={showTeamDialog}>
-		<Popover.Trigger asChild let:builder>
+		<Popover.Trigger>
 			<Button
-				builders={[builder]}
 				variant="outline"
 				role="combobox"
 				aria-expanded={open}
@@ -91,7 +93,7 @@
 					<Input
 						type="text"
 						placeholder="Search cases..."
-						on:input={(e) => searchQuery.set(e.target.value)}
+						oninput={(e) => searchQuery.set((e.target as HTMLInputElement).value)}
 						class="w-full"
 					/>
 				</div>

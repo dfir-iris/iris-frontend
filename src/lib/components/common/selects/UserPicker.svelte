@@ -76,9 +76,7 @@
 		const q = searchText.trim().toLowerCase();
 		if (!q) return users;
 		return users.filter(
-			(u) =>
-				u.user_name.toLowerCase().includes(q) ||
-				u.user_login.toLowerCase().includes(q)
+			(u) => u.user_name.toLowerCase().includes(q) || u.user_login.toLowerCase().includes(q)
 		);
 	});
 
@@ -119,9 +117,7 @@
 		if (values.length === 0) return 'All users';
 		if (values.length === 1) return labels[values[0]] ?? `User #${values[0]}`;
 		if (values.length === 2) {
-			return values
-				.map((id) => labels[id] ?? `#${id}`)
-				.join(', ');
+			return values.map((id) => labels[id] ?? `#${id}`).join(', ');
 		}
 		return `${values.length} users selected`;
 	});
@@ -155,7 +151,9 @@
 			/>
 		</div>
 
-		<div class="flex items-center justify-between border-b px-3 py-1.5 text-2xs text-muted-foreground">
+		<div
+			class="flex items-center justify-between border-b px-3 py-1.5 text-2xs text-muted-foreground"
+		>
 			<div class="flex items-center gap-2">
 				<button type="button" class="hover:text-foreground" onclick={selectAllVisible}>
 					Select all

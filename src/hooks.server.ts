@@ -430,18 +430,14 @@ const irisHandle: Handle = async ({ event, resolve }) => {
 			// Attach the access token from the HttpOnly cookie unless the
 			// caller supplied its own Authorization header (the in-memory
 			// token path used by direct-fetch callers still works).
-			const hasAuthHeader = Object.keys(headers).some(
-				(k) => k.toLowerCase() === 'authorization'
-			);
+			const hasAuthHeader = Object.keys(headers).some((k) => k.toLowerCase() === 'authorization');
 
 			const response = await fetch(apiUrl, {
 				method: event.request.method,
 				headers: {
 					...headers,
 					...(cookie ? { cookie } : {}),
-					...(accessToken && !hasAuthHeader
-						? { Authorization: `Bearer ${accessToken}` }
-						: {}),
+					...(accessToken && !hasAuthHeader ? { Authorization: `Bearer ${accessToken}` } : {}),
 					host: pub.host,
 					'X-Forwarded-Proto': pub.protocol.replace(':', ''),
 					'X-Forwarded-Host': pub.host,

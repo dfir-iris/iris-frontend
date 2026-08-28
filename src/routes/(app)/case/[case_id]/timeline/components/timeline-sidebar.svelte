@@ -22,10 +22,7 @@
 		onToggle: (timelineId: number) => void;
 		onSelectAll: () => void;
 		onCreate: (body: { name: string; color: string | null }) => Promise<void>;
-		onUpdate: (
-			timelineId: number,
-			body: { name?: string; color?: string | null }
-		) => Promise<void>;
+		onUpdate: (timelineId: number, body: { name?: string; color?: string | null }) => Promise<void>;
 		onRemove: (timelineId: number) => Promise<void>;
 		canEdit?: boolean;
 	};
@@ -101,17 +98,14 @@
 	};
 </script>
 
-<aside
-	class="flex w-56 shrink-0 flex-col border-r bg-card/40 text-xs"
-	aria-label="Timelines"
->
+<aside class="flex w-56 shrink-0 flex-col border-r bg-card/40 text-xs" aria-label="Timelines">
 	<header class="flex items-center justify-between gap-2 border-b px-3 py-2">
 		<div class="flex items-center gap-2">
 			<h3 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
 				Timelines
 			</h3>
 			{#if timelines.length > 0}
-				<span class="text-2xs text-muted-foreground tabular-nums">{timelines.length}</span>
+				<span class="text-2xs tabular-nums text-muted-foreground">{timelines.length}</span>
 			{/if}
 		</div>
 		{#if canEdit}
@@ -168,9 +162,7 @@
 		{#if loading}
 			<div class="px-3 py-4 text-center text-2xs text-muted-foreground">Loading…</div>
 		{:else if timelines.length === 0}
-			<div class="px-3 py-4 text-center text-2xs text-muted-foreground">
-				No timelines yet.
-			</div>
+			<div class="px-3 py-4 text-center text-2xs text-muted-foreground">No timelines yet.</div>
 		{:else}
 			<ul class="flex flex-col gap-0.5">
 				{#each timelines as t (t.timeline_id)}

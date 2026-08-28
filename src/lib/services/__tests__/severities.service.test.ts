@@ -40,9 +40,7 @@ describe('CaseSeveritiesService', () => {
 		};
 
 		const urlWithQuery = '/manage/severities?per_page=10000';
-		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-			urlWithQuery
-		);
+		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(urlWithQuery);
 		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await SeveritiesService.list(options);

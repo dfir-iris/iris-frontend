@@ -12,9 +12,11 @@ import type { ErrorEvent, EventHint, Breadcrumb, BreadcrumbHint } from '@sentry/
 
 const REDACTED = '[Filtered]';
 
-const SENSITIVE_HEADER_RE = /^(authorization|cookie|proxy-authorization|x-.*-token|x-.*-key|x-api-key)$/i;
+const SENSITIVE_HEADER_RE =
+	/^(authorization|cookie|proxy-authorization|x-.*-token|x-.*-key|x-api-key)$/i;
 
-const SENSITIVE_KEY_RE = /secret|token|password|passwd|key|credential|api[_-]?key|dsn|cookie|session/i;
+const SENSITIVE_KEY_RE =
+	/secret|token|password|passwd|key|credential|api[_-]?key|dsn|cookie|session/i;
 
 const CASE_CONTENT_KEY_RE = /ioc|evidence|malware|indicator|payload|hash|artifact/i;
 
@@ -89,10 +91,7 @@ export function beforeSend(event: ErrorEvent, _hint: EventHint): ErrorEvent | nu
 
 const DROP_BREADCRUMB_CATEGORIES = new Set(['ui.click', 'fetch']);
 
-export function beforeBreadcrumb(
-	crumb: Breadcrumb,
-	_hint?: BreadcrumbHint
-): Breadcrumb | null {
+export function beforeBreadcrumb(crumb: Breadcrumb, _hint?: BreadcrumbHint): Breadcrumb | null {
 	// `fetch` breadcrumbs include the full URL — which can carry an
 	// IOC value in a query string. Drop the auto ones; the api client
 	// leaves its own richer breadcrumb via ApiLogger.

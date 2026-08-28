@@ -7,16 +7,8 @@
 	import { XIcon } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import {
-		Select,
-		SelectContent,
-		SelectItem,
-		SelectTrigger
-	} from '$lib/components/ui/select';
-	import type {
-		DashboardFilter,
-		DashboardSchema
-	} from '$lib/services/custom-dashboards.service';
+	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
+	import type { DashboardFilter, DashboardSchema } from '$lib/services/custom-dashboards.service';
 
 	type Props = {
 		filter: DashboardFilter;
@@ -44,8 +36,12 @@
 </script>
 
 <div class="flex items-start gap-2">
-	<div class="grow grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_1fr_1.5fr]">
-		<Select value={filter.table ?? ''} onValueChange={(v) => patch({ table: v, column: '' })} type="single">
+	<div class="grid grow grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_1fr_1.5fr]">
+		<Select
+			value={filter.table ?? ''}
+			onValueChange={(v) => patch({ table: v, column: '' })}
+			type="single"
+		>
 			<SelectTrigger>{filter.table || 'Table'}</SelectTrigger>
 			<SelectContent>
 				{#each tableOptions as t (t)}
@@ -63,7 +59,11 @@
 			</SelectContent>
 		</Select>
 
-		<Select value={filter.operator ?? ''} onValueChange={(v) => patch({ operator: v })} type="single">
+		<Select
+			value={filter.operator ?? ''}
+			onValueChange={(v) => patch({ operator: v })}
+			type="single"
+		>
 			<SelectTrigger>{filter.operator || 'Operator'}</SelectTrigger>
 			<SelectContent>
 				{#each operatorOptions as o (o)}
@@ -96,8 +96,7 @@
 							.split(',')
 							.map((v) => v.trim())
 							.filter((v) => v.length > 0)
-					})
-				}
+					})}
 			/>
 		{:else}
 			<Input

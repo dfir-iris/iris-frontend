@@ -146,7 +146,9 @@
 						{#each schema.permissions as p (p.value)}
 							{@const ticked = (form.group_permissions & p.value) === p.value}
 							<li>
-								<label class="flex cursor-pointer items-start gap-2 px-3 py-2 text-2xs hover:bg-muted/30">
+								<label
+									class="flex cursor-pointer items-start gap-2 px-3 py-2 text-2xs hover:bg-muted/30"
+								>
 									<Checkbox
 										checked={ticked}
 										onCheckedChange={() => togglePerm(p.value)}
@@ -155,10 +157,10 @@
 									<div class="min-w-0 flex-1">
 										<div class="flex items-center gap-2">
 											<span class="font-medium">{p.label}</span>
-											<span class="font-mono text-3xs text-muted-foreground">
+											<span class="text-3xs font-mono text-muted-foreground">
 												{p.name}
 											</span>
-											<span class="font-mono text-3xs text-muted-foreground">
+											<span class="text-3xs font-mono text-muted-foreground">
 												0x{p.value.toString(16)}
 											</span>
 										</div>
@@ -174,7 +176,7 @@
 			</section>
 
 			{#if error}
-				<p class="text-2xs text-destructive whitespace-pre-wrap">{error}</p>
+				<p class="whitespace-pre-wrap text-2xs text-destructive">{error}</p>
 			{/if}
 		</div>
 

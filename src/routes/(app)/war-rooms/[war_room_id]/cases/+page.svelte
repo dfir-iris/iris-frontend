@@ -39,10 +39,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { toast } from '$lib/components/ui/toast';
 	import CaseDetailModal from '$lib/components/common/CaseDetailModal.svelte';
-	import {
-		WarRoomsService,
-		type WarRoomCaseAttachment
-	} from '$lib/services/war-rooms.service';
+	import { WarRoomsService, type WarRoomCaseAttachment } from '$lib/services/war-rooms.service';
 	import { CaseService } from '$lib/services/case.service';
 	import type { Case } from '$lib/types/resources/case';
 
@@ -103,9 +100,7 @@
 			if (res.ok && res.data && typeof res.data !== 'string') {
 				const payload = res.data as { data: Case[] };
 				const attached = new Set(attachments.map((a) => a.case_id));
-				candidates = (payload.data ?? []).filter(
-					(c) => !attached.has(c.case_id)
-				);
+				candidates = (payload.data ?? []).filter((c) => !attached.has(c.case_id));
 			}
 		}, 250);
 	};
@@ -160,14 +155,8 @@
 
 		if (okCount > 0) {
 			toast({
-				title:
-					okCount === 1
-						? '1 case attached'
-						: `${okCount} cases attached`,
-				description:
-					failCount > 0
-						? `${failCount} could not be attached.`
-						: undefined,
+				title: okCount === 1 ? '1 case attached' : `${okCount} cases attached`,
+				description: failCount > 0 ? `${failCount} could not be attached.` : undefined,
 				variant: failCount === 0 ? 'success' : 'destructive'
 			});
 		} else {
@@ -242,17 +231,14 @@
 			}
 			if (stateFilter === 'open' && a.close_date) return false;
 			if (stateFilter === 'closed' && !a.close_date) return false;
-			if (tasksFilter === 'with_open' && (a.task_open_count ?? 0) === 0)
-				return false;
+			if (tasksFilter === 'with_open' && (a.task_open_count ?? 0) === 0) return false;
 			if (tasksFilter === 'none' && (a.task_count ?? 0) > 0) return false;
 			return true;
 		});
 	});
 
 	const anyFilterActive = $derived(
-		listSearch.trim().length > 0 ||
-			stateFilter !== 'any' ||
-			tasksFilter !== 'any'
+		listSearch.trim().length > 0 || stateFilter !== 'any' || tasksFilter !== 'any'
 	);
 
 	const clearFilters = () => {
@@ -282,8 +268,8 @@
 		<div>
 			<h2 class="text-lg font-semibold">Attached cases</h2>
 			<p class="text-xs text-muted-foreground">
-				Cases pulled into this war room for coordinated triage. Click a row to peek at
-				the case details.
+				Cases pulled into this war room for coordinated triage. Click a row to peek at the case
+				details.
 			</p>
 		</div>
 		<Button onclick={openAttach}>
@@ -300,8 +286,7 @@
 	{:else if attachments.length === 0}
 		<div class="flex flex-1 flex-col items-center justify-center gap-2 text-center">
 			<p class="text-sm text-muted-foreground">
-				No cases attached yet. Attach cases to start coordinating them from this war
-				room.
+				No cases attached yet. Attach cases to start coordinating them from this war room.
 			</p>
 			<Button variant="outline" onclick={openAttach}>
 				<Plus class="mr-1 h-4 w-4" /> Attach cases
@@ -375,91 +360,93 @@
 				</button>
 			{/if}
 
-			<span class="shrink-0 text-2xs text-muted-foreground tabular-nums">
+			<span class="shrink-0 text-2xs tabular-nums text-muted-foreground">
 				{filteredAttachments.length} / {attachments.length}
 			</span>
 		</div>
 
 		{#if filteredAttachments.length === 0}
-			<div class="flex flex-1 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+			<div
+				class="flex flex-1 flex-col items-center justify-center gap-2 text-center text-muted-foreground"
+			>
 				<p class="text-sm">No cases match the current filters.</p>
-				<Button variant="ghost" size="sm" onclick={clearFilters}>
-					Clear filters
-				</Button>
+				<Button variant="ghost" size="sm" onclick={clearFilters}>Clear filters</Button>
 			</div>
 		{:else}
-		<ul class="flex flex-col gap-2">
-			{#each filteredAttachments as a (a.case_id)}
-				{@const chip = stateChip(a)}
-				{@const opened = fmtDate(a.open_date)}
-				<li
-					class="group flex items-start gap-3 rounded-md border bg-card/40 px-3 py-2.5 transition-colors hover:bg-card"
-				>
-					<button
-						type="button"
-						class="flex min-w-0 flex-1 items-start gap-2 text-left"
-						onclick={() => openDetail(a.case_id)}
-						aria-label={`Open details for case #${a.case_id}`}
+			<ul class="flex flex-col gap-2">
+				{#each filteredAttachments as a (a.case_id)}
+					{@const chip = stateChip(a)}
+					{@const opened = fmtDate(a.open_date)}
+					<li
+						class="group flex items-start gap-3 rounded-md border bg-card/40 px-3 py-2.5 transition-colors hover:bg-card"
 					>
-						<WaypointsIcon class="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-						<span class="min-w-0 flex-1">
-							<!-- Headline row: name + state chip + id -->
-							<span class="flex items-center gap-2">
-								<span class="truncate text-sm font-medium">{a.case_name}</span>
+						<button
+							type="button"
+							class="flex min-w-0 flex-1 items-start gap-2 text-left"
+							onclick={() => openDetail(a.case_id)}
+							aria-label={`Open details for case #${a.case_id}`}
+						>
+							<WaypointsIcon class="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+							<span class="min-w-0 flex-1">
+								<!-- Headline row: name + state chip + id -->
+								<span class="flex items-center gap-2">
+									<span class="truncate text-sm font-medium">{a.case_name}</span>
+									<span
+										class={[
+											'shrink-0 rounded-md border px-1.5 py-0.5 text-2xs font-medium',
+											chip.cls
+										]}
+									>
+										{chip.label}
+									</span>
+									<span class="font-mono text-2xs text-muted-foreground">
+										#{a.case_id}
+									</span>
+								</span>
+
+								<!-- Metadata row: customer · owner · opened · tasks -->
 								<span
-									class={[
-										'shrink-0 rounded-md border px-1.5 py-0.5 text-2xs font-medium',
-										chip.cls
-									]}
+									class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-2xs text-muted-foreground"
 								>
-									{chip.label}
-								</span>
-								<span class="font-mono text-2xs text-muted-foreground">
-									#{a.case_id}
-								</span>
-							</span>
-
-							<!-- Metadata row: customer · owner · opened · tasks -->
-							<span class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-2xs text-muted-foreground">
-								{#if a.customer_name}
-									<span class="inline-flex items-center gap-1">
-										<Building2 class="h-3 w-3 opacity-70" />
-										<span class="max-w-[14rem] truncate">{a.customer_name}</span>
-									</span>
-								{/if}
-								{#if a.owner_name || a.owner_login}
-									<span class="inline-flex items-center gap-1">
-										<UserRound class="h-3 w-3 opacity-70" />
-										<span class="max-w-[12rem] truncate">
-											{a.owner_name || a.owner_login}
+									{#if a.customer_name}
+										<span class="inline-flex items-center gap-1">
+											<Building2 class="h-3 w-3 opacity-70" />
+											<span class="max-w-[14rem] truncate">{a.customer_name}</span>
 										</span>
-									</span>
-								{/if}
-								{#if opened}
+									{/if}
+									{#if a.owner_name || a.owner_login}
+										<span class="inline-flex items-center gap-1">
+											<UserRound class="h-3 w-3 opacity-70" />
+											<span class="max-w-[12rem] truncate">
+												{a.owner_name || a.owner_login}
+											</span>
+										</span>
+									{/if}
+									{#if opened}
+										<span class="inline-flex items-center gap-1">
+											<CalendarDays class="h-3 w-3 opacity-70" />
+											<span>Opened {opened}</span>
+										</span>
+									{/if}
 									<span class="inline-flex items-center gap-1">
-										<CalendarDays class="h-3 w-3 opacity-70" />
-										<span>Opened {opened}</span>
+										<ListChecks class="h-3 w-3 opacity-70" />
+										<span class="tabular-nums">
+											{a.task_open_count}/{a.task_count}
+										</span>
+										<span class="opacity-70">open</span>
+									</span>
+								</span>
+
+								{#if a.note}
+									<span class="mt-1 line-clamp-2 block text-2xs text-muted-foreground">
+										<span class="opacity-70">Note:</span>
+										{a.note}
 									</span>
 								{/if}
-								<span class="inline-flex items-center gap-1">
-									<ListChecks class="h-3 w-3 opacity-70" />
-									<span class="tabular-nums">
-										{a.task_open_count}/{a.task_count}
-									</span>
-									<span class="opacity-70">open</span>
-								</span>
 							</span>
+						</button>
 
-							{#if a.note}
-								<span class="mt-1 line-clamp-2 block text-2xs text-muted-foreground">
-									<span class="opacity-70">Note:</span>
-									{a.note}
-								</span>
-							{/if}
-						</span>
-					</button>
-
-					<!--
+						<!--
 					  target="_blank" matches the aria-label. Without it,
 					  left-click did a full-document navigation to /case/<id>
 					  in-place, which re-ran +layout.svelte's loadAuth
@@ -471,31 +458,31 @@
 					  rel="noopener noreferrer" is the standard hardening
 					  for user-controlled `_blank` targets.
 					-->
-					<a
-						href={`/case/${a.case_id}`}
-						target="_blank"
-						rel="noopener noreferrer"
-						class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-						aria-label="Open case in a new tab"
-						onclick={(e) => e.stopPropagation()}
-					>
-						<ExternalLink class="h-4 w-4" />
-					</a>
-					<Button
-						variant="ghost"
-						size="icon"
-						class="h-7 w-7 text-destructive hover:text-destructive"
-						onclick={(e) => {
-							e.stopPropagation();
-							detach(a.case_id);
-						}}
-						aria-label="Detach"
-					>
-						<Trash2 class="h-3.5 w-3.5" />
-					</Button>
-				</li>
-			{/each}
-		</ul>
+						<a
+							href={`/case/${a.case_id}`}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+							aria-label="Open case in a new tab"
+							onclick={(e) => e.stopPropagation()}
+						>
+							<ExternalLink class="h-4 w-4" />
+						</a>
+						<Button
+							variant="ghost"
+							size="icon"
+							class="h-7 w-7 text-destructive hover:text-destructive"
+							onclick={(e) => {
+								e.stopPropagation();
+								detach(a.case_id);
+							}}
+							aria-label="Detach"
+						>
+							<Trash2 class="h-3.5 w-3.5" />
+						</Button>
+					</li>
+				{/each}
+			</ul>
 		{/if}
 	{/if}
 </div>
@@ -506,14 +493,12 @@
   case names; the candidates list owns the scroll inside that frame.
 -->
 <Dialog bind:open={attachOpen}>
-	<DialogContent
-		class="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
-	>
+	<DialogContent class="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
 		<DialogHeader class="border-b px-6 py-4">
 			<DialogTitle>Attach cases</DialogTitle>
 			<DialogDescription>
-				Pick one or more cases to pull into this war room. Only cases you have full
-				access to are listed.
+				Pick one or more cases to pull into this war room. Only cases you have full access to are
+				listed.
 			</DialogDescription>
 		</DialogHeader>
 
@@ -567,13 +552,9 @@
 
 			<div class="min-h-0 flex-1 overflow-y-auto rounded-md border">
 				{#if candidatesLoading}
-					<div class="p-3 text-center text-xs text-muted-foreground">
-						Searching…
-					</div>
+					<div class="p-3 text-center text-xs text-muted-foreground">Searching…</div>
 				{:else if candidates.length === 0}
-					<div class="p-3 text-center text-xs text-muted-foreground">
-						No matching cases.
-					</div>
+					<div class="p-3 text-center text-xs text-muted-foreground">No matching cases.</div>
 				{:else}
 					<ul class="divide-y">
 						{#each candidates as c (c.case_id)}
@@ -611,10 +592,7 @@
 			</div>
 
 			<div>
-				<label
-					class="text-xs font-medium text-muted-foreground"
-					for="attach-note"
-				>
+				<label class="text-xs font-medium text-muted-foreground" for="attach-note">
 					Note (optional, applied to every attachment)
 				</label>
 				<Input
@@ -628,18 +606,10 @@
 		</div>
 
 		<DialogFooter class="border-t px-6 py-3">
-			<Button
-				variant="ghost"
-				onclick={() => (attachOpen = false)}
-				disabled={attaching}
-			>
+			<Button variant="ghost" onclick={() => (attachOpen = false)} disabled={attaching}>
 				Cancel
 			</Button>
-			<Button
-				onclick={submitAttach}
-				disabled={attaching || selectedIds.size === 0}
-				class="gap-1.5"
-			>
+			<Button onclick={submitAttach} disabled={attaching || selectedIds.size === 0} class="gap-1.5">
 				{#if attaching}
 					<Loader2 class="h-3.5 w-3.5 animate-spin" />
 				{/if}

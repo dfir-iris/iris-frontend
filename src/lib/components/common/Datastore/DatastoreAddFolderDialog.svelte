@@ -70,12 +70,7 @@
 		<div class="space-y-3 py-2">
 			<div>
 				<label for="ds-folder-name" class="text-sm font-medium">Folder name</label>
-				<Input
-					id="ds-folder-name"
-					bind:value={folderName}
-					placeholder="New folder"
-					class="mt-1"
-				/>
+				<Input id="ds-folder-name" bind:value={folderName} placeholder="New folder" class="mt-1" />
 			</div>
 			<p class="text-xs text-muted-foreground">
 				Will be created under folder #{parentId ?? '—'}.

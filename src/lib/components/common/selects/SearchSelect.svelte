@@ -111,7 +111,14 @@
 <Popover.Root bind:open>
 	<Popover.Trigger>
 		{#snippet child({ props })}
-			<Button {...props} type="button" variant="outline" {size} class="w-full justify-between" {disabled}>
+			<Button
+				{...props}
+				type="button"
+				variant="outline"
+				{size}
+				class="w-full justify-between"
+				{disabled}
+			>
 				<span class="truncate">{selectedLabel}</span>
 				<ChevronDownIcon size="16" />
 			</Button>

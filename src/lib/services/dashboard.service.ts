@@ -35,9 +35,7 @@ export class DashboardService {
 		return ApiService.get<DashboardKpis>('/dashboard/kpis', options);
 	}
 
-	static listReviews(
-		options?: ApiOptions
-	): Promise<RequestResponse<DashboardReviewRow[]>> {
+	static listReviews(options?: ApiOptions): Promise<RequestResponse<DashboardReviewRow[]>> {
 		return ApiService.get<DashboardReviewRow[]>('/dashboard/reviews/list', options);
 	}
 }

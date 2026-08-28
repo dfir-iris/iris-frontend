@@ -208,6 +208,7 @@
 			}}
 		>
 			{#if editingId === conv.id}
+				<!-- svelte-ignore a11y_autofocus -->
 				<input
 					type="text"
 					class="flex-1 rounded border bg-background px-1 py-0.5 text-xs"

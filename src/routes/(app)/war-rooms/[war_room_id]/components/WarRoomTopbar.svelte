@@ -43,10 +43,7 @@
 		DropdownMenuTrigger
 	} from '$lib/components/ui/dropdown-menu';
 	import { toast } from '$lib/components/ui/toast';
-	import {
-		WAR_ROOM_CTX,
-		type WarRoomContext
-	} from '$lib/contexts/war-room.context.svelte';
+	import { WAR_ROOM_CTX, type WarRoomContext } from '$lib/contexts/war-room.context.svelte';
 	import {
 		WAR_ROOM_DATASTORE_PANEL_CTX,
 		type WarRoomDatastorePanelContext
@@ -61,9 +58,7 @@
 	import WarRoomPeopleBanner from './WarRoomPeopleBanner.svelte';
 
 	const ctx = getContext<WarRoomContext>(WAR_ROOM_CTX);
-	const datastorePanel = getContext<WarRoomDatastorePanelContext>(
-		WAR_ROOM_DATASTORE_PANEL_CTX
-	);
+	const datastorePanel = getContext<WarRoomDatastorePanelContext>(WAR_ROOM_DATASTORE_PANEL_CTX);
 
 	const room = $derived(ctx.room);
 	const isClosed = $derived(room?.state === 'closed');
@@ -161,8 +156,7 @@
 		} else {
 			toast({
 				title: 'Could not rename war room',
-				description:
-					typeof res.data === 'string' ? res.data : (res.error?.message ?? undefined),
+				description: typeof res.data === 'string' ? res.data : (res.error?.message ?? undefined),
 				variant: 'destructive'
 			});
 		}
@@ -199,8 +193,7 @@
 		} else {
 			toast({
 				title: 'Could not update archive state',
-				description:
-					typeof res.data === 'string' ? res.data : (res.error?.message ?? undefined),
+				description: typeof res.data === 'string' ? res.data : (res.error?.message ?? undefined),
 				variant: 'destructive'
 			});
 		}
@@ -219,8 +212,7 @@
 		} else {
 			toast({
 				title: 'Could not change state',
-				description:
-					typeof res.data === 'string' ? res.data : (res.error?.message ?? undefined),
+				description: typeof res.data === 'string' ? res.data : (res.error?.message ?? undefined),
 				variant: 'destructive'
 			});
 		}
@@ -267,9 +259,7 @@
 	// Map severity name → chip palette. The taxonomy ships with at
 	// least Low/Medium/High/Critical; deployments add custom ones, so
 	// the default branch keeps a neutral muted look.
-	const severityPalette = (
-		name: string | null | undefined
-	): { cls: string; dot: string } => {
+	const severityPalette = (name: string | null | undefined): { cls: string; dot: string } => {
 		const n = (name ?? '').trim().toLowerCase();
 		if (n.startsWith('crit'))
 			return {
@@ -297,9 +287,7 @@
 		};
 	};
 
-	const severityChip = $derived(
-		severityPalette(currentSeverity?.severity_name)
-	);
+	const severityChip = $derived(severityPalette(currentSeverity?.severity_name));
 
 	const setSeverity = async (id: number | null) => {
 		if (!room || severitySaving) return;
@@ -314,8 +302,7 @@
 		} else {
 			toast({
 				title: 'Could not change criticality',
-				description:
-					typeof res.data === 'string' ? res.data : (res.error?.message ?? undefined),
+				description: typeof res.data === 'string' ? res.data : (res.error?.message ?? undefined),
 				variant: 'destructive'
 			});
 		}
@@ -535,13 +522,9 @@
 					<DropdownMenuLabel>Change criticality</DropdownMenuLabel>
 					<DropdownMenuSeparator />
 					{#if severitiesLoading && severities.length === 0}
-						<div class="px-2 py-1.5 text-xs text-muted-foreground">
-							Loading severities…
-						</div>
+						<div class="px-2 py-1.5 text-xs text-muted-foreground">Loading severities…</div>
 					{:else if severities.length === 0}
-						<div class="px-2 py-1.5 text-xs text-muted-foreground">
-							No severities defined
-						</div>
+						<div class="px-2 py-1.5 text-xs text-muted-foreground">No severities defined</div>
 					{:else}
 						{#each severities as sev (sev.severity_id)}
 							{@const isCurrent = room?.severity_id === sev.severity_id}
@@ -552,9 +535,7 @@
 							>
 								<span class="flex w-full items-center justify-between gap-2">
 									<span class="flex items-center gap-2">
-										<span
-											class={`h-2 w-2 shrink-0 rounded-full ${palette.dot}`}
-											aria-hidden="true"
+										<span class={`h-2 w-2 shrink-0 rounded-full ${palette.dot}`} aria-hidden="true"
 										></span>
 										<span>{sev.severity_name}</span>
 									</span>
@@ -566,10 +547,7 @@
 						{/each}
 						{#if room?.severity_id != null}
 							<DropdownMenuSeparator />
-							<DropdownMenuItem
-								class="text-muted-foreground"
-								onclick={() => setSeverity(null)}
-							>
+							<DropdownMenuItem class="text-muted-foreground" onclick={() => setSeverity(null)}>
 								Clear criticality
 							</DropdownMenuItem>
 						{/if}

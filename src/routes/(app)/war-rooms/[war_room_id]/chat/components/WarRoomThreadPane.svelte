@@ -66,7 +66,11 @@
 		 * `[Event "…"](/case/…)` chip pops the same preview dialog the main
 		 * stream uses instead of hard-navigating away from the war room.
 		 */
-		onAttachmentClick: (t: { type: 'event' | 'ioc' | 'asset' | 'task'; label: string; href: string }) => void;
+		onAttachmentClick: (t: {
+			type: 'event' | 'ioc' | 'asset' | 'task';
+			label: string;
+			href: string;
+		}) => void;
 		onClose: () => void;
 		onChanged: () => void;
 	}
@@ -133,8 +137,7 @@
 		const seen = new Set(replies.map((r) => r.message_id));
 		const fresh = incoming.filter((r) => !seen.has(r.message_id));
 		const wasAtBottom =
-			listEl != null &&
-			listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 80;
+			listEl != null && listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 80;
 		// In-place patch for rows we already have (edits/soft-deletes),
 		// then append the new tail. A row the operator is actively
 		// editing is left alone — swapping the body under the open
@@ -162,7 +165,11 @@
 		// Runs on same-thread updates (reply_count, last_activity_at). The
 		// message_id check keeps this from double-firing alongside the
 		// initial load above.
+		// These bare expressions read reactive state to register $effect
+		// dependencies without using the values — the standard Svelte idiom.
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
 		root.last_activity_at;
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
 		root.reply_count;
 		if (root.message_id === lastRootId && !loading) {
 			void refetchSilently();
@@ -170,7 +177,7 @@
 	});
 
 	const currentUserId = $derived(
-		(($current_user?.user_id ?? $current_user?.id) ?? null) as number | null
+		($current_user?.user_id ?? $current_user?.id ?? null) as number | null
 	);
 
 	// Confirm dialog state (parity with the sitreps page pattern) — a
@@ -184,7 +191,7 @@
 	const requestDelete = (r: ChatMessage) => {
 		pendingDeleteId = r.message_id;
 		confirmTitle = 'Delete this reply?';
-		confirmMessage = 'It will be hidden from the thread. This can\'t be undone.';
+		confirmMessage = "It will be hidden from the thread. This can't be undone.";
 		confirmOpen = true;
 	};
 
@@ -213,10 +220,7 @@
 	let editSaving = $state(false);
 
 	const canEditReply = (r: ChatMessage) =>
-		currentUserId != null &&
-		r.author_id === currentUserId &&
-		r.kind === 'message' &&
-		!r.deleted_at;
+		currentUserId != null && r.author_id === currentUserId && r.kind === 'message' && !r.deleted_at;
 
 	const cancelEdit = () => {
 		editingReplyId = null;
@@ -373,9 +377,7 @@
 		const needle = attachSearch.trim().toLowerCase();
 		if (!needle) return pickerRows;
 		return pickerRows.filter(
-			(r) =>
-				r.label.toLowerCase().includes(needle) ||
-				(r.sub ?? '').toLowerCase().includes(needle)
+			(r) => r.label.toLowerCase().includes(needle) || (r.sub ?? '').toLowerCase().includes(needle)
 		);
 	});
 
@@ -402,11 +404,7 @@
 	const saveTitle = async () => {
 		titleSaving = true;
 		const next = titleDraft.trim() || null;
-		const res = await WarRoomChatService.setThreadTitle(
-			warRoomId,
-			root.message_id,
-			next
-		);
+		const res = await WarRoomChatService.setThreadTitle(warRoomId, root.message_id, next);
 		titleSaving = false;
 		if (res.ok) {
 			// Patch up the parent's view through onChanged — the root row
@@ -527,7 +525,8 @@
 					<Pencil class="hidden h-3 w-3 text-muted-foreground group-hover:inline" />
 				</button>
 				<p class="truncate text-2xs text-muted-foreground">
-					{root.reply_count} {root.reply_count === 1 ? 'reply' : 'replies'}
+					{root.reply_count}
+					{root.reply_count === 1 ? 'reply' : 'replies'}
 				</p>
 			{/if}
 		</div>
@@ -546,13 +545,7 @@
 				<BellOff class="h-3.5 w-3.5 text-muted-foreground" />
 			{/if}
 		</Button>
-		<Button
-			size="icon"
-			variant="ghost"
-			class="h-7 w-7"
-			onclick={onClose}
-			aria-label="Close thread"
-		>
+		<Button size="icon" variant="ghost" class="h-7 w-7" onclick={onClose} aria-label="Close thread">
 			<X class="h-3.5 w-3.5" />
 		</Button>
 	</header>
@@ -629,7 +622,7 @@
 										body={r.body ?? ''}
 										attachments={r.attachments}
 										{warRoomId}
-										onAttachmentClick={onAttachmentClick}
+										{onAttachmentClick}
 									/>
 								</div>
 							</div>
@@ -700,12 +693,12 @@
 											body={r.body ?? ''}
 											attachments={r.attachments}
 											{warRoomId}
-											onAttachmentClick={onAttachmentClick}
+											{onAttachmentClick}
 										/>
 									{/if}
 								</div>
-						</div>
-					</li>
+							</div>
+						</li>
 					{/if}
 				{/each}
 			</ul>
@@ -725,7 +718,9 @@
 			void send();
 		}}
 	>
-		<div class="flex items-end gap-2 rounded-lg border bg-card px-2 py-1.5 focus-within:ring-1 focus-within:ring-ring">
+		<div
+			class="flex items-end gap-2 rounded-lg border bg-card px-2 py-1.5 focus-within:ring-1 focus-within:ring-ring"
+		>
 			<Popover.Root bind:open={attachOpen}>
 				<Popover.Trigger
 					class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -746,7 +741,9 @@
 									type="button"
 									class={[
 										'flex-1 rounded-md px-2 py-1 text-2xs transition-colors',
-										on ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+										on
+											? 'bg-primary text-primary-foreground'
+											: 'text-muted-foreground hover:bg-muted'
 									]}
 									onclick={() => (attachKind = t.k as ResourceKind)}
 								>
@@ -756,7 +753,10 @@
 						</div>
 
 						<div class="border-b p-2">
-							<label class="block text-2xs uppercase tracking-wider text-muted-foreground" for="thread-attach-case">
+							<label
+								class="block text-2xs uppercase tracking-wider text-muted-foreground"
+								for="thread-attach-case"
+							>
 								Case
 							</label>
 							<select
@@ -772,7 +772,9 @@
 
 						<div class="border-b p-2">
 							<div class="relative">
-								<Search class="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+								<Search
+									class="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground"
+								/>
 								<Input
 									value={attachSearch}
 									oninput={(e) => (attachSearch = (e.target as HTMLInputElement).value)}
@@ -833,12 +835,7 @@
 				onChangeBody={(v) => (body = v)}
 			/>
 
-			<Button
-				type="submit"
-				size="sm"
-				class="h-7 gap-1.5"
-				disabled={sending || !body.trim()}
-			>
+			<Button type="submit" size="sm" class="h-7 gap-1.5" disabled={sending || !body.trim()}>
 				{#if sending}
 					<Loader2 class="h-3 w-3 animate-spin" />
 				{:else}
@@ -849,7 +846,8 @@
 		</div>
 		<p class="mt-1 px-1 text-2xs text-muted-foreground">
 			<kbd class="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">Enter</kbd>
-			to send · <kbd class="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">Shift+Enter</kbd>
+			to send ·
+			<kbd class="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">Shift+Enter</kbd>
 			for newline
 		</p>
 	</form>

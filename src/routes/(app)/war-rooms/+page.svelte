@@ -1,7 +1,16 @@
 <script lang="ts">
 	import { onMount, getContext } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { ChevronDown, ChevronRight, Plus, ShieldAlert, Search, Radio, Moon, Archive } from 'lucide-svelte';
+	import {
+		ChevronDown,
+		ChevronRight,
+		Plus,
+		ShieldAlert,
+		Search,
+		Radio,
+		Moon,
+		Archive
+	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import {
@@ -15,7 +24,6 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { toast } from '$lib/components/ui/toast';
 	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
-	import { safeHexColor } from '$lib/utils/color';
 	import {
 		WarRoomsService,
 		type WarRoom,
@@ -140,11 +148,7 @@
 			toast({
 				title: 'Could not create war room',
 				description:
-					typeof res.data === 'string'
-						? res.data
-						: res.error
-							? res.error.message
-							: 'Unknown error',
+					typeof res.data === 'string' ? res.data : res.error ? res.error.message : 'Unknown error',
 				variant: 'destructive'
 			});
 		}
@@ -174,9 +178,7 @@
 			<ShieldAlert class="h-7 w-7 text-red-500" />
 			<div>
 				<h1 class="text-2xl font-semibold leading-tight">War Rooms</h1>
-				<p class="text-sm text-muted-foreground">
-					Multi-case crisis-coordination workspaces.
-				</p>
+				<p class="text-sm text-muted-foreground">Multi-case crisis-coordination workspaces.</p>
 			</div>
 		</div>
 		<div class="flex items-center gap-2">
@@ -370,16 +372,14 @@
 		<DialogHeader>
 			<DialogTitle>Create a war room</DialogTitle>
 			<DialogDescription>
-				Spin up a coordination workspace for a multi-case crisis. You can attach cases and
-				invite members from inside the war room.
+				Spin up a coordination workspace for a multi-case crisis. You can attach cases and invite
+				members from inside the war room.
 			</DialogDescription>
 		</DialogHeader>
 
 		<div class="flex flex-col gap-3 py-2">
 			<div>
-				<label class="text-xs font-medium text-muted-foreground" for="war-room-name">
-					Name
-				</label>
+				<label class="text-xs font-medium text-muted-foreground" for="war-room-name"> Name </label>
 				<Input
 					id="war-room-name"
 					value={newName}

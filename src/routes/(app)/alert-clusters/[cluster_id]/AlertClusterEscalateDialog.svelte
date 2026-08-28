@@ -77,7 +77,9 @@
 	);
 
 	const getTitle = () =>
-		mode === 'existing' ? 'Merge alert cluster into an existing case' : 'Escalate alert cluster to a new case';
+		mode === 'existing'
+			? 'Merge alert cluster into an existing case'
+			: 'Escalate alert cluster to a new case';
 
 	const resetForm = () => {
 		mode = 'new';

@@ -50,6 +50,4 @@ export const createInvestigationFlowPanelContext = () => {
 	};
 };
 
-export type InvestigationFlowPanelContext = ReturnType<
-	typeof createInvestigationFlowPanelContext
->;
+export type InvestigationFlowPanelContext = ReturnType<typeof createInvestigationFlowPanelContext>;

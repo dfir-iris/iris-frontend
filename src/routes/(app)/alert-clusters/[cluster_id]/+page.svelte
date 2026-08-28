@@ -102,7 +102,7 @@
 	let baseAlertClusterSummary = $state('');
 	let summarySaving = $state(false);
 	let summaryError = $state<string | null>(null);
-	let summarySavedAt = $state(0);
+	let _summarySavedAt = $state(0);
 	let summaryLoadedAt = $state(new Date());
 	let summaryNow = $state(new Date());
 	const summaryDirty = $derived(alertClusterSummary !== baseAlertClusterSummary);
@@ -221,7 +221,7 @@
 				return;
 			}
 			baseAlertClusterSummary = alertClusterSummary;
-			summarySavedAt = Date.now();
+			_summarySavedAt = Date.now();
 			summaryLoadedAt = new Date();
 			// Reflect the new value in the in-memory alert cluster so the
 			// next background reload doesn't clobber it.
@@ -421,7 +421,7 @@
 		return out.sort((a, b) => a.ts - b.ts);
 	}
 
-	onMount(async () => {
+	onMount(() => {
 		void AlertClusterStatusService.list().then((r) => {
 			if (r.data && typeof r.data === 'object') {
 				statuses = (r.data as { data?: AlertClusterStatus[] }).data ?? [];
@@ -441,7 +441,7 @@
 		// summary header stays reasonably fresh. 30s is coarse enough not
 		// to churn the DOM; the value is only shown as a hint anyway.
 		const tick = setInterval(() => (summaryNow = new Date()), 30_000);
-		await load();
+		void load();
 		return () => clearInterval(tick);
 	});
 </script>

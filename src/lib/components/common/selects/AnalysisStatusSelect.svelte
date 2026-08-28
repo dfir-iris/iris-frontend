@@ -15,7 +15,8 @@
 		id = 'analysis-status-select',
 		'aria-label': ariaLabel = 'Select analysis status',
 		onValueChange,
-		hasError = false
+		hasError = false,
+		...restProps
 	}: {
 		value?: string;
 		caseId?: number;
@@ -29,6 +30,7 @@
 		'aria-label'?: string;
 		onValueChange?: (value: string) => void;
 		hasError?: boolean;
+		[key: string]: unknown;
 	} = $props();
 
 	let analysisStatuses = $state<{ id: number; name: string }[]>([]);

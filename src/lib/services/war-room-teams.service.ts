@@ -59,10 +59,7 @@ export class WarRoomTeamsService {
 		teamId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<WarRoomTeam>> {
-		return ApiService.get<WarRoomTeam>(
-			`/war-rooms/${warRoomId}/teams/${teamId}`,
-			options
-		);
+		return ApiService.get<WarRoomTeam>(`/war-rooms/${warRoomId}/teams/${teamId}`, options);
 	}
 
 	static create(
@@ -70,11 +67,7 @@ export class WarRoomTeamsService {
 		body: CreateTeamBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<WarRoomTeam>> {
-		return ApiService.post<WarRoomTeam>(
-			`/war-rooms/${warRoomId}/teams`,
-			body,
-			options
-		);
+		return ApiService.post<WarRoomTeam>(`/war-rooms/${warRoomId}/teams`, body, options);
 	}
 
 	static update(
@@ -83,11 +76,7 @@ export class WarRoomTeamsService {
 		body: UpdateTeamBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<WarRoomTeam>> {
-		return ApiService.patch<WarRoomTeam>(
-			`/war-rooms/${warRoomId}/teams/${teamId}`,
-			body,
-			options
-		);
+		return ApiService.patch<WarRoomTeam>(`/war-rooms/${warRoomId}/teams/${teamId}`, body, options);
 	}
 
 	static remove(
@@ -95,10 +84,7 @@ export class WarRoomTeamsService {
 		teamId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
-		return ApiService.delete<null>(
-			`/war-rooms/${warRoomId}/teams/${teamId}`,
-			options
-		);
+		return ApiService.delete<null>(`/war-rooms/${warRoomId}/teams/${teamId}`, options);
 	}
 
 	static listMembers(

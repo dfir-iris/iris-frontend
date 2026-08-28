@@ -2,11 +2,7 @@ import { browser } from '$app/environment';
 import { ApiService } from './api.service';
 import type { ApiOptions, RequestResponse } from './api.service';
 import { auth } from '$lib/stores/auth.store';
-import type {
-	DataStoreFile,
-	DataStoreFolder,
-	DataStoreTree
-} from '$lib/types/resources/datastore';
+import type { DataStoreFile, DataStoreFolder, DataStoreTree } from '$lib/types/resources/datastore';
 
 export type SortDir = 'asc' | 'desc';
 
@@ -51,7 +47,10 @@ export interface UploadFileFields extends UpdateFileMetadataFields {
 	file_original_name: string;
 }
 
-const buildFormData = (fields: Record<string, string | number | boolean | undefined>, file?: File) => {
+const buildFormData = (
+	fields: Record<string, string | number | boolean | undefined>,
+	file?: File
+) => {
 	const fd = new FormData();
 	for (const [key, value] of Object.entries(fields)) {
 		if (value === undefined) continue;
@@ -202,7 +201,7 @@ export class CaseDatastoreService {
 	}
 
 	static getMarkdownLink(caseId: number, fileId: number, label: string): string {
-		const safeLabel = label.replace(/[\[\]]/g, '');
+		const safeLabel = label.replace(/[[\]]/g, '');
 		return `[${safeLabel}](${CaseDatastoreService.getViewUrl(caseId, fileId)})`;
 	}
 
@@ -217,9 +216,7 @@ export class CaseDatastoreService {
 		fileId: number
 	): Promise<{ url: string; filename: string | null } | null> {
 		const path = `/api/v2/cases/${caseId}/datastore/files/${fileId}`;
-		const url = browser
-			? (ApiService.baseUrl ?? '').replace(/\/$/, '') + path
-			: path;
+		const url = browser ? (ApiService.baseUrl ?? '').replace(/\/$/, '') + path : path;
 
 		const headers: Record<string, string> = { Accept: '*/*' };
 		const token = auth.getAccessToken();
@@ -254,7 +251,10 @@ export class CaseDatastoreService {
 		fields: UploadFileFields,
 		file: File
 	): Promise<RequestResponse<DataStoreFile>> {
-		const fd = buildFormData(fields as unknown as Record<string, string | number | boolean | undefined>, file);
+		const fd = buildFormData(
+			fields as unknown as Record<string, string | number | boolean | undefined>,
+			file
+		);
 		return multipart<DataStoreFile>(
 			'POST',
 			`/api/v2/cases/${caseId}/datastore/folders/${folderId}/files`,
@@ -268,7 +268,10 @@ export class CaseDatastoreService {
 		fields: UpdateFileMetadataFields,
 		file?: File
 	): Promise<RequestResponse<DataStoreFile>> {
-		const fd = buildFormData(fields as unknown as Record<string, string | number | boolean | undefined>, file);
+		const fd = buildFormData(
+			fields as unknown as Record<string, string | number | boolean | undefined>,
+			file
+		);
 		return multipart<DataStoreFile>(
 			'POST',
 			`/api/v2/cases/${caseId}/datastore/files/${fileId}`,
@@ -285,9 +288,6 @@ export class CaseDatastoreService {
 	}
 
 	static async deleteFile(caseId: number, fileId: number, options: ApiOptions = {}) {
-		return ApiService.delete<null>(
-			`/api/v2/cases/${caseId}/datastore/files/${fileId}`,
-			options
-		);
+		return ApiService.delete<null>(`/api/v2/cases/${caseId}/datastore/files/${fileId}`, options);
 	}
 }

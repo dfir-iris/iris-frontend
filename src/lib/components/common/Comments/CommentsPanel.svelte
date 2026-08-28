@@ -159,7 +159,9 @@
 
 		<div bind:this={scrollEl} class="min-h-0 flex-1 overflow-auto px-4 py-3">
 			{#if !panel.state.entity}
-				<div class="flex h-full items-center justify-center text-center text-xs text-muted-foreground">
+				<div
+					class="flex h-full items-center justify-center text-center text-xs text-muted-foreground"
+				>
 					Select an item to view its comments.
 				</div>
 			{:else if loading && comments.length === 0}
@@ -167,7 +169,9 @@
 					Loading…
 				</div>
 			{:else if comments.length === 0}
-				<div class="flex h-full items-center justify-center text-center text-xs text-muted-foreground">
+				<div
+					class="flex h-full items-center justify-center text-center text-xs text-muted-foreground"
+				>
 					No comments yet. Be the first to leave one.
 				</div>
 			{:else}

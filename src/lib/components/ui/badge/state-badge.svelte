@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Badge } from '$lib/components/ui/badge';
-	import { Lock, LockOpen, HelpCircle, Circle } from 'lucide-svelte';
+	import { Lock, LockOpen, HelpCircle } from 'lucide-svelte';
 
 	export let state: 'Open' | 'Closed' | 'Unspecified';
 

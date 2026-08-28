@@ -63,20 +63,45 @@
 				onclick={onToggleSelecting}><CheckCheckIcon class="size-4" /></Button
 			>
 
-			<Button variant="ghost" size="icon" class="size-8 rounded-full bg-transparent text-muted-foreground/70 hover:bg-white/30 hover:text-foreground hover:backdrop-blur-sm dark:hover:bg-white/10" onclick={onAddEvent}>
+			<Button
+				variant="ghost"
+				size="icon"
+				class="size-8 rounded-full bg-transparent text-muted-foreground/70 hover:bg-white/30 hover:text-foreground hover:backdrop-blur-sm dark:hover:bg-white/10"
+				onclick={onAddEvent}
+			>
 				<PlusCircleIcon class="size-4" />
 			</Button>
 		{/if}
-		<Button variant="ghost" size="icon" class="size-8 rounded-full bg-transparent text-muted-foreground/70 hover:bg-white/30 hover:text-foreground hover:backdrop-blur-sm dark:hover:bg-white/10" onclick={onToggleFoldAll}>
+		<Button
+			variant="ghost"
+			size="icon"
+			class="size-8 rounded-full bg-transparent text-muted-foreground/70 hover:bg-white/30 hover:text-foreground hover:backdrop-blur-sm dark:hover:bg-white/10"
+			onclick={onToggleFoldAll}
+		>
 			<ListTreeIcon class="size-4" />
 		</Button>
-		<Button variant="ghost" size="icon" class="size-8 rounded-full bg-transparent text-muted-foreground/70 hover:bg-white/30 hover:text-foreground hover:backdrop-blur-sm dark:hover:bg-white/10" onclick={onRefresh}>
+		<Button
+			variant="ghost"
+			size="icon"
+			class="size-8 rounded-full bg-transparent text-muted-foreground/70 hover:bg-white/30 hover:text-foreground hover:backdrop-blur-sm dark:hover:bg-white/10"
+			onclick={onRefresh}
+		>
 			<RefreshCwIcon class="size-4" />
 		</Button>
-		<Button variant="ghost" size="icon" class="size-8 rounded-full bg-transparent text-muted-foreground/70 hover:bg-white/30 hover:text-foreground hover:backdrop-blur-sm dark:hover:bg-white/10" onclick={onScrollTop}>
+		<Button
+			variant="ghost"
+			size="icon"
+			class="size-8 rounded-full bg-transparent text-muted-foreground/70 hover:bg-white/30 hover:text-foreground hover:backdrop-blur-sm dark:hover:bg-white/10"
+			onclick={onScrollTop}
+		>
 			<ArrowUpIcon class="size-4" />
 		</Button>
-		<Button variant="ghost" size="icon" class="size-8 rounded-full bg-transparent text-muted-foreground/70 hover:bg-white/30 hover:text-foreground hover:backdrop-blur-sm dark:hover:bg-white/10" onclick={onScrollBottom}>
+		<Button
+			variant="ghost"
+			size="icon"
+			class="size-8 rounded-full bg-transparent text-muted-foreground/70 hover:bg-white/30 hover:text-foreground hover:backdrop-blur-sm dark:hover:bg-white/10"
+			onclick={onScrollBottom}
+		>
 			<ArrowDownIcon class="size-4" />
 		</Button>
 	</div>

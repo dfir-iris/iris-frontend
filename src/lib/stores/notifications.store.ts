@@ -37,7 +37,7 @@ const initialState: NotificationsState = {
 	items: [],
 	unreadCount: 0,
 	loading: false,
-	error: null,
+	error: null
 };
 
 function createNotificationsStore() {
@@ -53,7 +53,7 @@ function createNotificationsStore() {
 			update((s) => ({
 				...s,
 				loading: false,
-				error: res.error?.message ?? 'Failed to load notifications',
+				error: res.error?.message ?? 'Failed to load notifications'
 			}));
 			return;
 		}
@@ -63,7 +63,7 @@ function createNotificationsStore() {
 			items: payload.data,
 			unreadCount: payload.unread_count,
 			loading: false,
-			error: null,
+			error: null
 		}));
 	}
 
@@ -92,7 +92,7 @@ function createNotificationsStore() {
 			items: s.items.map((it) =>
 				ids.includes(it.id) && it.read_at == null ? { ...it, read_at: now } : it
 			),
-			unreadCount: payload.unread_count,
+			unreadCount: payload.unread_count
 		}));
 	}
 
@@ -103,10 +103,8 @@ function createNotificationsStore() {
 		const now = new Date().toISOString();
 		update((s) => ({
 			...s,
-			items: s.items.map((it) =>
-				it.read_at == null ? { ...it, read_at: now } : it
-			),
-			unreadCount: payload.unread_count,
+			items: s.items.map((it) => (it.read_at == null ? { ...it, read_at: now } : it)),
+			unreadCount: payload.unread_count
 		}));
 	}
 
@@ -118,7 +116,7 @@ function createNotificationsStore() {
 		update((s) => ({
 			...s,
 			items: s.items.filter((it) => !ids.includes(it.id)),
-			unreadCount: payload.unread_count,
+			unreadCount: payload.unread_count
 		}));
 	}
 
@@ -129,7 +127,7 @@ function createNotificationsStore() {
 		update((s) => ({
 			...s,
 			items: [],
-			unreadCount: payload.unread_count,
+			unreadCount: payload.unread_count
 		}));
 	}
 
@@ -159,7 +157,7 @@ function createNotificationsStore() {
 			// Don't queue reconnect attempts forever — the SPA will
 			// call refresh() next time the user opens the dropdown so
 			// missing a socket push is recoverable.
-			reconnectionAttempts: 5,
+			reconnectionAttempts: 5
 		});
 
 		socket.on('connect', () => {
@@ -252,7 +250,7 @@ function createNotificationsStore() {
 		// Test-only escape hatch. Exposed publicly since Svelte stores
 		// have no other convention for this; do not depend on it from
 		// production code.
-		_getSnapshot: () => get({ subscribe }),
+		_getSnapshot: () => get({ subscribe })
 	};
 }
 

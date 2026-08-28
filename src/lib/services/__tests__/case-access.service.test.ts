@@ -1,4 +1,3 @@
-
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../api.service', () => ({
@@ -31,7 +30,7 @@ describe('CaseAccessService', () => {
 		vi.restoreAllMocks();
 	});
 
-	it('setUserCasesAccess() should call ApiService.post with /manage/users/{id}/cases-access/update, body, options', async () => {
+	it('setUserCasesAccess() should POST to the v2 /manage/users/{id}/cases-access route', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const body: UserCasesAccessBody = {
@@ -51,18 +50,21 @@ describe('CaseAccessService', () => {
 
 		expect(ApiService.post).toHaveBeenCalledTimes(1);
 		expect(ApiService.post).toHaveBeenCalledWith(
-			'/manage/users/7/cases-access/update',
+			'/api/v2/manage/users/7/cases-access',
 			body,
 			options
 		);
 		expect(res).toBe(mockResponse);
 	});
 
-	it('deleteUserCasesAccess() should call ApiService.post with /manage/users/{id}/cases-access/delete, body, options', async () => {
+	// Revoke is DELETE-with-body on the v2 surface, not a POST to a
+	// `/delete` sub-path — and `ApiService.delete` takes (url, options, body),
+	// so the body is the *third* argument, not the second.
+	it('deleteUserCasesAccess() should DELETE the v2 /manage/users/{id}/cases-access route with a body', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const body: UserCasesAccessDeleteBody = {
-			cases_list: [3]
+			cases: [3]
 		};
 
 		const mockResponse = {
@@ -71,20 +73,21 @@ describe('CaseAccessService', () => {
 			data: { status: 'success' }
 		};
 
-		(ApiService.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+		(ApiService.delete as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await CaseAccessService.deleteUserCasesAccess(7, body, options);
 
-		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith(
-			'/manage/users/7/cases-access/delete',
-			body,
-			options
+		expect(ApiService.delete).toHaveBeenCalledTimes(1);
+		expect(ApiService.delete).toHaveBeenCalledWith(
+			'/api/v2/manage/users/7/cases-access',
+			options,
+			body
 		);
+		expect(ApiService.post).not.toHaveBeenCalled();
 		expect(res).toBe(mockResponse);
 	});
 
-	it('setGroupCasesAccess() should call ApiService.post with /manage/groups/{id}/cases-access/update, body, options', async () => {
+	it('setGroupCasesAccess() should POST to the v2 /manage/groups/{id}/cases-access route', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const body: GroupCasesAccessBody = {
@@ -105,18 +108,18 @@ describe('CaseAccessService', () => {
 
 		expect(ApiService.post).toHaveBeenCalledTimes(1);
 		expect(ApiService.post).toHaveBeenCalledWith(
-			'/manage/groups/2/cases-access/update',
+			'/api/v2/manage/groups/2/cases-access',
 			body,
 			options
 		);
 		expect(res).toBe(mockResponse);
 	});
 
-	it('deleteGroupCasesAccess() should call ApiService.post with /manage/groups/{id}/cases-access/delete, body, options', async () => {
+	it('deleteGroupCasesAccess() should DELETE the v2 /manage/groups/{id}/cases-access route with a body', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 
 		const body: GroupCasesAccessDeleteBody = {
-			cases_list: [1]
+			cases: [1]
 		};
 
 		const mockResponse = {
@@ -125,16 +128,17 @@ describe('CaseAccessService', () => {
 			data: { status: 'success' }
 		};
 
-		(ApiService.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+		(ApiService.delete as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await CaseAccessService.deleteGroupCasesAccess(2, body, options);
 
-		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith(
-			'/manage/groups/2/cases-access/delete',
-			body,
-			options
+		expect(ApiService.delete).toHaveBeenCalledTimes(1);
+		expect(ApiService.delete).toHaveBeenCalledWith(
+			'/api/v2/manage/groups/2/cases-access',
+			options,
+			body
 		);
+		expect(ApiService.post).not.toHaveBeenCalled();
 		expect(res).toBe(mockResponse);
 	});
 });

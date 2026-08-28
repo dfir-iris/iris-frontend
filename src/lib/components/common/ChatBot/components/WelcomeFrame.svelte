@@ -49,11 +49,12 @@
 			// Prefer the current scope's history; fall back to global so
 			// the analyst always sees SOMETHING they can resume rather
 			// than an empty "no chats yet" state.
-			const primary = currentWarRoomId != null
-				? await chat.listWarRoomConversations(currentWarRoomId)
-				: currentCaseId != null
-					? await chat.listCaseConversations(currentCaseId)
-					: [];
+			const primary =
+				currentWarRoomId != null
+					? await chat.listWarRoomConversations(currentWarRoomId)
+					: currentCaseId != null
+						? await chat.listCaseConversations(currentCaseId)
+						: [];
 			if (primary.length > 0) {
 				recent = primary.slice(0, 5);
 				return;
@@ -140,12 +141,7 @@
 
 	{#if showPicker && onPickScope}
 		<div class="mx-auto w-full max-w-xs">
-			<ScopePicker
-				{currentCaseId}
-				{currentWarRoomId}
-				{currentAlertId}
-				onPick={onPickScope}
-			/>
+			<ScopePicker {currentCaseId} {currentWarRoomId} {currentAlertId} onPick={onPickScope} />
 		</div>
 	{/if}
 
@@ -177,9 +173,7 @@
 					</li>
 				{/each}
 			</ul>
-			<p class="mt-2 text-2xs text-muted-foreground">
-				Or type below to start a new one instantly.
-			</p>
+			<p class="mt-2 text-2xs text-muted-foreground">Or type below to start a new one instantly.</p>
 		</div>
 	{:else}
 		<div class="border-t pt-3 text-center">

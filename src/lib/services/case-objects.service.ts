@@ -72,11 +72,7 @@ export class CaseObjectsService {
 		body: Record<string, unknown>,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<T>> {
-		return ApiService.put<T>(
-			`${CaseObjectsService.base(resource)}/${identifier}`,
-			body,
-			options
-		);
+		return ApiService.put<T>(`${CaseObjectsService.base(resource)}/${identifier}`, body, options);
 	}
 
 	static async remove(
@@ -84,10 +80,7 @@ export class CaseObjectsService {
 		identifier: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
-		return ApiService.delete<null>(
-			`${CaseObjectsService.base(resource)}/${identifier}`,
-			options
-		);
+		return ApiService.delete<null>(`${CaseObjectsService.base(resource)}/${identifier}`, options);
 	}
 
 	/**

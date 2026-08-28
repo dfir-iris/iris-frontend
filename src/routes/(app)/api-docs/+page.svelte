@@ -61,13 +61,21 @@
 	// Wait until the CDN script has attached `window.Redoc.init`.
 	// Polling because the script `load` event fires before the global
 	// is fully populated in some browsers.
-	const waitForRedocGlobal = (): Promise<{ init: (spec: unknown, options: unknown, element: HTMLElement) => void }> =>
+	const waitForRedocGlobal = (): Promise<{
+		init: (spec: unknown, options: unknown, element: HTMLElement) => void;
+	}> =>
 		new Promise((resolve, reject) => {
 			const start = performance.now();
 			const tick = () => {
-				const g = (window as unknown as { Redoc?: { init?: (s: unknown, o: unknown, e: HTMLElement) => void } }).Redoc;
-				if (g && typeof g.init === 'function') return resolve(g as { init: (s: unknown, o: unknown, e: HTMLElement) => void });
-				if (performance.now() - start > 15000) return reject(new Error('Redoc failed to load within 15s.'));
+				const g = (
+					window as unknown as {
+						Redoc?: { init?: (s: unknown, o: unknown, e: HTMLElement) => void };
+					}
+				).Redoc;
+				if (g && typeof g.init === 'function')
+					return resolve(g as { init: (s: unknown, o: unknown, e: HTMLElement) => void });
+				if (performance.now() - start > 15000)
+					return reject(new Error('Redoc failed to load within 15s.'));
 				setTimeout(tick, 60);
 			};
 			tick();
@@ -99,7 +107,7 @@
 
 <div class="h-full w-full overflow-auto bg-white">
 	{#if loading}
-		<div class="p-8 space-y-4">
+		<div class="space-y-4 p-8">
 			<Skeleton class="h-8 w-64" />
 			<Skeleton class="h-4 w-full" />
 			<Skeleton class="h-4 w-5/6" />

@@ -151,11 +151,6 @@
 		}
 	}
 
-	// Function to get a user's initials for the avatar
-	function getUserInitials(username: string) {
-		return username.substring(0, 2).toUpperCase();
-	}
-
 	// Update history events when modification history changes
 	$effect(() => {
 		historyEvents = processHistoryEvents();
@@ -222,11 +217,7 @@
 							<div class="flex flex-col gap-2">
 								<div class="flex items-center justify-between">
 									<div class="flex items-center gap-2">
-										<UserAvatar
-											userId={event.user_id}
-											name={event.user}
-											size="size-6"
-										/>
+										<UserAvatar userId={event.user_id} name={event.user} size="size-6" />
 										<span class="text-sm font-medium">{event.user}</span>
 										<Badge
 											variant="outline"

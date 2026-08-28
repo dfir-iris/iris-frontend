@@ -28,6 +28,4 @@ const createTogglePanel = () => {
 
 export const createWarRoomDatastorePanelContext = createTogglePanel;
 
-export type WarRoomDatastorePanelContext = ReturnType<
-	typeof createWarRoomDatastorePanelContext
->;
+export type WarRoomDatastorePanelContext = ReturnType<typeof createWarRoomDatastorePanelContext>;

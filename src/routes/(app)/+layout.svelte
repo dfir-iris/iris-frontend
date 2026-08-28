@@ -79,7 +79,11 @@
 -->
 <svelte:head>
 	{#if showPlausible}
-		<script defer data-domain={plausibleDomain} src="https://analytics.dfir-iris.org/js/plausible.js"></script>
+		<script
+			defer
+			data-domain={plausibleDomain}
+			src="https://analytics.dfir-iris.org/js/plausible.js"
+		></script>
 	{/if}
 </svelte:head>
 

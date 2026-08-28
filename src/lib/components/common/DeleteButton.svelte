@@ -13,7 +13,7 @@
 		onrefresh = () => {},
 		buttonText = 'Delete',
 		buttonVariant = 'destructive' as ButtonVariant,
-		buttonSize = 'sm' as "default" | "sm" | "lg" | "icon" | undefined, // Removed null
+		buttonSize = 'sm' as 'default' | 'sm' | 'lg' | 'icon' | undefined, // Removed null
 		buttonClass = '',
 		icon = Trash2Icon as ComponentType | undefined,
 		disabled = false,
@@ -25,7 +25,7 @@
 		onrefresh?: () => void;
 		buttonText?: string;
 		buttonVariant?: ButtonVariant;
-		buttonSize?: "default" | "sm" | "lg" | "icon" | undefined; // Removed null
+		buttonSize?: 'default' | 'sm' | 'lg' | 'icon' | undefined; // Removed null
 		buttonClass?: string;
 		icon?: ComponentType | undefined;
 		disabled?: boolean;
@@ -51,7 +51,7 @@
 					onrefresh();
 				}
 			} else {
-				const errorData = response.data || { message: 'Failed to delete item. Please try again.' };
+				const errorData = response.data as { message?: string } | null || null;
 				toast({
 					title: 'Error',
 					description: errorData?.message || 'Failed to delete item. Please try again.',
@@ -81,7 +81,7 @@
 	}
 
 	function handleConfirmDelete() {
-		performDelete(); 
+		performDelete();
 		// Dialog will close itself due to onConfirm in ConfirmationDialog setting its open state to false, which propagates via bind:open
 	}
 
@@ -99,7 +99,7 @@
 	disabled={isDeleting || disabled}
 >
 	{#if isDeleting}
-		<span class="animate-spin mr-2">⟳</span>
+		<span class="mr-2 animate-spin">⟳</span>
 		<span>Deleting...</span>
 	{:else if icon}
 		{@const IconComponent = icon}
@@ -111,11 +111,11 @@
 </Button>
 
 {#if showConfirmationDialog}
-<ConfirmationDialog
-	bind:open={showConfirmationDialog}
-	title="Confirm Deletion"
-	message={deletion_prompt_message}
-	onConfirm={handleConfirmDelete} 
-	onCancel={handleCancelDelete} 
-/>
+	<ConfirmationDialog
+		bind:open={showConfirmationDialog}
+		title="Confirm Deletion"
+		message={deletion_prompt_message}
+		onConfirm={handleConfirmDelete}
+		onCancel={handleCancelDelete}
+	/>
 {/if}

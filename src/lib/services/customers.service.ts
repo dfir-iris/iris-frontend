@@ -136,10 +136,7 @@ export class CustomersService {
 		customerId: CustomerIdentifier,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<CustomerContact[]>> {
-		return ApiService.get<CustomerContact[]>(
-			`/manage/customers/${customerId}/contacts`,
-			options
-		);
+		return ApiService.get<CustomerContact[]>(`/manage/customers/${customerId}/contacts`, options);
 	}
 
 	static async createContact(

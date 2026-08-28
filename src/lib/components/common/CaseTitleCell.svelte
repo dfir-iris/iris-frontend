@@ -30,7 +30,8 @@
 		{row.case_name}
 	</button>
 	{#if row.case_soc_id}
-		<span class="mt-0.5 text-2xs text-muted-foreground">#{row.case_id} · SOC {row.case_soc_id}</span>
+		<span class="mt-0.5 text-2xs text-muted-foreground">#{row.case_id} · SOC {row.case_soc_id}</span
+		>
 	{:else}
 		<span class="mt-0.5 text-2xs text-muted-foreground">#{row.case_id}</span>
 	{/if}

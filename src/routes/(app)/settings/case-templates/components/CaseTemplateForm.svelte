@@ -117,11 +117,7 @@
 		);
 	};
 
-	const updateItem = (
-		fieldName: string,
-		index: number,
-		patch: Record<string, unknown>
-	) => {
+	const updateItem = (fieldName: string, index: number, patch: Record<string, unknown>) => {
 		const existing = Array.isArray(value[fieldName]) ? (value[fieldName] as unknown[]) : [];
 		const next = existing.map((it, i) => (i === index ? { ...(it as object), ...patch } : it));
 		setField(fieldName, next);
@@ -151,11 +147,7 @@
 		});
 	};
 
-	const updateNote = (
-		dirIndex: number,
-		noteIndex: number,
-		patch: Record<string, unknown>
-	) => {
+	const updateNote = (dirIndex: number, noteIndex: number, patch: Record<string, unknown>) => {
 		const fieldName = 'note_directories';
 		const dirs = Array.isArray(value[fieldName])
 			? (value[fieldName] as Record<string, unknown>[])
@@ -193,11 +185,7 @@
 			  Long-form fields (textareas + tag editors) deserve full
 			  width; scalar inputs share the 2-column grid.
 			-->
-			<div
-				class={field.kind === 'text' || field.kind === 'list[string]'
-					? 'md:col-span-2'
-					: ''}
-			>
+			<div class={field.kind === 'text' || field.kind === 'list[string]' ? 'md:col-span-2' : ''}>
 				<div class="flex flex-col gap-1">
 					<div class="flex items-baseline gap-2">
 						<label
@@ -224,8 +212,7 @@
 							value={String(value[field.name] ?? '')}
 							maxlength={field.max_length ?? undefined}
 							{disabled}
-							oninput={(e) =>
-								setField(field.name, (e.currentTarget as HTMLInputElement).value)}
+							oninput={(e) => setField(field.name, (e.currentTarget as HTMLInputElement).value)}
 						/>
 						<datalist id={`${id}-options`}>
 							{#each classifications as c (c.id)}
@@ -238,8 +225,7 @@
 							value={String(value[field.name] ?? '')}
 							maxlength={field.max_length ?? undefined}
 							{disabled}
-							oninput={(e) =>
-								setField(field.name, (e.currentTarget as HTMLInputElement).value)}
+							oninput={(e) => setField(field.name, (e.currentTarget as HTMLInputElement).value)}
 						/>
 					{:else if field.kind === 'text'}
 						<Textarea
@@ -247,8 +233,7 @@
 							rows={3}
 							value={String(value[field.name] ?? '')}
 							{disabled}
-							oninput={(e) =>
-								setField(field.name, (e.currentTarget as HTMLTextAreaElement).value)}
+							oninput={(e) => setField(field.name, (e.currentTarget as HTMLTextAreaElement).value)}
 						/>
 					{:else if field.kind === 'integer'}
 						<Input
@@ -271,9 +256,7 @@
 						{@const tagList = Array.isArray(value[field.name])
 							? (value[field.name] as string[])
 							: []}
-						<div
-							class="flex flex-wrap items-center gap-1 rounded-md border bg-background p-1.5"
-						>
+						<div class="flex flex-wrap items-center gap-1 rounded-md border bg-background p-1.5">
 							{#each tagList as tag, i}
 								<span
 									class="inline-flex items-center gap-1 rounded-sm border bg-muted/40 px-1.5 py-0.5 text-2xs"
@@ -305,11 +288,7 @@
 										e.preventDefault();
 										setField(field.name, commitTags(tagList, target.value));
 										target.value = '';
-									} else if (
-										e.key === 'Backspace' &&
-										target.value === '' &&
-										tagList.length > 0
-									) {
+									} else if (e.key === 'Backspace' && target.value === '' && tagList.length > 0) {
 										setField(
 											field.name,
 											tagList.filter((_, ii) => ii !== tagList.length - 1)
@@ -352,7 +331,7 @@
 					<h3 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 						{field.label}
 					</h3>
-					<span class="text-2xs text-muted-foreground tabular-nums">{items.length}</span>
+					<span class="text-2xs tabular-nums text-muted-foreground">{items.length}</span>
 				</div>
 				<Button
 					variant="outline"
@@ -399,9 +378,7 @@
 								<Input
 									id={titleId}
 									class="h-7 flex-1 text-xs"
-									placeholder={field.name === 'tasks'
-										? 'Task title…'
-										: 'Directory name…'}
+									placeholder={field.name === 'tasks' ? 'Task title…' : 'Directory name…'}
 									value={String(item.title ?? '')}
 									{disabled}
 									oninput={(e) =>
@@ -524,14 +501,9 @@
 													: []}
 												<div class="flex flex-col gap-2">
 													{#each notes as note, ni}
-														<div
-															class="flex flex-col gap-1 rounded-md border bg-muted/10 p-2"
-														>
+														<div class="flex flex-col gap-1 rounded-md border bg-muted/10 p-2">
 															<div class="flex items-center gap-2">
-																<StickyNoteIcon
-																	size={11}
-																	class="shrink-0 text-muted-foreground"
-																/>
+																<StickyNoteIcon size={11} class="shrink-0 text-muted-foreground" />
 																<Input
 																	class="h-6 flex-1 text-xs"
 																	placeholder="Note title…"
@@ -539,8 +511,7 @@
 																	{disabled}
 																	oninput={(e) =>
 																		updateNote(idx, ni, {
-																			title: (e.currentTarget as HTMLInputElement)
-																				.value
+																			title: (e.currentTarget as HTMLInputElement).value
 																		})}
 																/>
 																<Button
@@ -562,8 +533,7 @@
 																{disabled}
 																oninput={(e) =>
 																	updateNote(idx, ni, {
-																		content: (e.currentTarget as HTMLTextAreaElement)
-																			.value
+																		content: (e.currentTarget as HTMLTextAreaElement).value
 																	})}
 															/>
 														</div>

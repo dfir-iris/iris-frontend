@@ -13,8 +13,10 @@
 	export let liClass = '';
 	export let active: boolean = false;
 
-	const baseClass = 'flex items-center py-2 px-3 rounded-lg text-[13px] font-medium transition-all duration-150';
-	const inactiveClass = 'text-sidebar-foreground hover:bg-[hsl(var(--sidebar-hover))] hover:text-foreground';
+	const baseClass =
+		'flex items-center py-2 px-3 rounded-lg text-[13px] font-medium transition-all duration-150';
+	const inactiveClass =
+		'text-sidebar-foreground hover:bg-[hsl(var(--sidebar-hover))] hover:text-foreground';
 	const activeClass = 'bg-iris-blue text-white shadow-sm';
 </script>
 

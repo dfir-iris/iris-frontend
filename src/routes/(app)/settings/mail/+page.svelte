@@ -11,13 +11,7 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import {
-		InboxIcon,
-		MailIcon,
-		PlusIcon,
-		RefreshCwIcon,
-		Trash2Icon
-	} from 'lucide-svelte';
+	import { InboxIcon, MailIcon, PlusIcon, RefreshCwIcon, Trash2Icon } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
@@ -40,7 +34,7 @@
 
 	// Edit dialog state. `editing` null → dialog closed; otherwise the
 	// rule (or a fresh blank shape) being edited.
-	let editing = $state<MailRuleBody & { id?: number } | null>(null);
+	let editing = $state<(MailRuleBody & { id?: number }) | null>(null);
 	let saving = $state(false);
 	let editError = $state<string | null>(null);
 
@@ -183,8 +177,8 @@
 			<div class="leading-tight">
 				<h1 class="text-sm font-semibold text-foreground">Mail rules</h1>
 				<p class="text-xs text-muted-foreground">
-					Ordered rules that turn incoming email into alerts or cases.
-					Configure the IMAP mailbox on the
+					Ordered rules that turn incoming email into alerts or cases. Configure the IMAP mailbox on
+					the
 					<a class="underline hover:text-foreground" href="/settings/server">Server Settings</a> page.
 				</p>
 			</div>
@@ -203,7 +197,7 @@
 
 	<div class="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
 		{#if error}
-			<ApiError error={error} showRetryButton={false} />
+			<ApiError {error} showRetryButton={false} />
 		{/if}
 
 		{#if pollResult}
@@ -214,9 +208,7 @@
 
 		<section class="rounded-md border">
 			<header class="flex items-center gap-2 border-b bg-muted/30 px-3 py-2">
-				<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-					Rules
-				</h2>
+				<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rules</h2>
 				<span class="text-2xs text-muted-foreground">
 					({rules.length} configured)
 				</span>
@@ -226,27 +218,29 @@
 					<div class="p-6 text-center text-sm text-muted-foreground">Loading…</div>
 				{:else if rules.length === 0}
 					<div class="p-6 text-center text-sm text-muted-foreground">
-						No rules configured. The default fallback is to create an alert
-						against the first customer with the lowest severity.
+						No rules configured. The default fallback is to create an alert against the first
+						customer with the lowest severity.
 					</div>
 				{:else}
 					<table class="w-full text-xs">
 						<thead>
-							<tr class="border-b bg-muted/20 text-2xs uppercase tracking-wide text-muted-foreground">
-								<th class="w-16 py-2 px-3 text-left">Priority</th>
-								<th class="py-2 px-3 text-left">Name</th>
-								<th class="py-2 px-3 text-left">Action</th>
-								<th class="py-2 px-3 text-left">Subject match</th>
-								<th class="py-2 px-3 text-left">From match</th>
-								<th class="w-20 py-2 px-3 text-left">Enabled</th>
-								<th class="w-24 py-2 px-3"></th>
+							<tr
+								class="border-b bg-muted/20 text-2xs uppercase tracking-wide text-muted-foreground"
+							>
+								<th class="w-16 px-3 py-2 text-left">Priority</th>
+								<th class="px-3 py-2 text-left">Name</th>
+								<th class="px-3 py-2 text-left">Action</th>
+								<th class="px-3 py-2 text-left">Subject match</th>
+								<th class="px-3 py-2 text-left">From match</th>
+								<th class="w-20 px-3 py-2 text-left">Enabled</th>
+								<th class="w-24 px-3 py-2"></th>
 							</tr>
 						</thead>
 						<tbody>
 							{#each rules as rule (rule.id)}
 								<tr class="border-b last:border-b-0 hover:bg-muted/20">
-									<td class="py-2 px-3">{rule.priority}</td>
-									<td class="py-2 px-3">
+									<td class="px-3 py-2">{rule.priority}</td>
+									<td class="px-3 py-2">
 										<button
 											class="text-left underline-offset-2 hover:underline"
 											onclick={() => openEdit(rule)}
@@ -254,25 +248,36 @@
 											{rule.name}
 										</button>
 									</td>
-									<td class="py-2 px-3">
+									<td class="px-3 py-2">
 										<span class="rounded bg-muted/60 px-1.5 py-0.5 text-2xs">
 											{rule.action}
 										</span>
 									</td>
-									<td class="py-2 px-3 font-mono text-2xs truncate max-w-[16ch]" title={rule.match_subject_regex ?? ''}>
+									<td
+										class="max-w-[16ch] truncate px-3 py-2 font-mono text-2xs"
+										title={rule.match_subject_regex ?? ''}
+									>
 										{rule.match_subject_regex ?? '—'}
 									</td>
-									<td class="py-2 px-3 font-mono text-2xs truncate max-w-[16ch]" title={rule.match_from_regex ?? ''}>
+									<td
+										class="max-w-[16ch] truncate px-3 py-2 font-mono text-2xs"
+										title={rule.match_from_regex ?? ''}
+									>
 										{rule.match_from_regex ?? '—'}
 									</td>
-									<td class="py-2 px-3">
+									<td class="px-3 py-2">
 										{#if rule.enabled}
-											<span class="rounded bg-emerald-500/15 px-1.5 py-0.5 text-2xs text-emerald-700">yes</span>
+											<span
+												class="rounded bg-emerald-500/15 px-1.5 py-0.5 text-2xs text-emerald-700"
+												>yes</span
+											>
 										{:else}
-											<span class="rounded bg-muted px-1.5 py-0.5 text-2xs text-muted-foreground">no</span>
+											<span class="rounded bg-muted px-1.5 py-0.5 text-2xs text-muted-foreground"
+												>no</span
+											>
 										{/if}
 									</td>
-									<td class="py-2 px-3 text-right">
+									<td class="px-3 py-2 text-right">
 										<button
 											onclick={() => remove(rule)}
 											class="rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
@@ -304,38 +309,46 @@
 				{:else}
 					<table class="w-full text-xs">
 						<thead>
-							<tr class="border-b bg-muted/20 text-2xs uppercase tracking-wide text-muted-foreground">
-								<th class="py-2 px-3 text-left">When</th>
-								<th class="py-2 px-3 text-left">Outcome</th>
-								<th class="py-2 px-3 text-left">From</th>
-								<th class="py-2 px-3 text-left">Subject</th>
-								<th class="py-2 px-3 text-left">Object</th>
+							<tr
+								class="border-b bg-muted/20 text-2xs uppercase tracking-wide text-muted-foreground"
+							>
+								<th class="px-3 py-2 text-left">When</th>
+								<th class="px-3 py-2 text-left">Outcome</th>
+								<th class="px-3 py-2 text-left">From</th>
+								<th class="px-3 py-2 text-left">Subject</th>
+								<th class="px-3 py-2 text-left">Object</th>
 							</tr>
 						</thead>
 						<tbody>
 							{#each logRows as row (row.message_id)}
 								<tr class="border-b last:border-b-0">
-									<td class="py-2 px-3 text-2xs text-muted-foreground">
+									<td class="px-3 py-2 text-2xs text-muted-foreground">
 										{row.received_at ? new Date(row.received_at).toLocaleString() : '—'}
 									</td>
-									<td class="py-2 px-3">
+									<td class="px-3 py-2">
 										<span class="rounded bg-muted/60 px-1.5 py-0.5 text-2xs">
 											{row.outcome}
 										</span>
 									</td>
-									<td class="py-2 px-3 truncate max-w-[20ch]" title={row.from_addr ?? ''}>
+									<td class="max-w-[20ch] truncate px-3 py-2" title={row.from_addr ?? ''}>
 										{row.from_addr ?? '—'}
 									</td>
-									<td class="py-2 px-3 truncate max-w-[28ch]" title={row.subject ?? ''}>
+									<td class="max-w-[28ch] truncate px-3 py-2" title={row.subject ?? ''}>
 										{row.subject ?? '—'}
 									</td>
-									<td class="py-2 px-3 text-2xs text-muted-foreground">
+									<td class="px-3 py-2 text-2xs text-muted-foreground">
 										{#if row.outcome === 'alert_created' && row.outcome_object_id}
-											<a class="underline hover:text-foreground" href={`/alerts?id=${row.outcome_object_id}`}>
+											<a
+												class="underline hover:text-foreground"
+												href={`/alerts?id=${row.outcome_object_id}`}
+											>
 												alert #{row.outcome_object_id}
 											</a>
 										{:else if row.outcome === 'case_created' && row.outcome_object_id}
-											<a class="underline hover:text-foreground" href={`/case/${row.outcome_object_id}`}>
+											<a
+												class="underline hover:text-foreground"
+												href={`/case/${row.outcome_object_id}`}
+											>
 												case #{row.outcome_object_id}
 											</a>
 										{:else if row.error}
@@ -361,15 +374,19 @@
   set means we're editing, absent means new. The regex fields are
   free-form; we let the backend validate on save.
 -->
-<Dialog.Root open={editing != null} onOpenChange={(v) => { if (!v) editing = null; }}>
+<Dialog.Root
+	open={editing != null}
+	onOpenChange={(v) => {
+		if (!v) editing = null;
+	}}
+>
 	<Dialog.Content class="max-w-lg">
 		<Dialog.Header>
 			<Dialog.Title>
 				{editing?.id ? 'Edit rule' : 'New rule'}
 			</Dialog.Title>
 			<Dialog.Description>
-				Rules are evaluated in priority order (lowest first).
-				First matching enabled rule wins.
+				Rules are evaluated in priority order (lowest first). First matching enabled rule wins.
 			</Dialog.Description>
 		</Dialog.Header>
 
@@ -377,7 +394,9 @@
 			<div class="space-y-3 py-2 text-xs">
 				<div class="flex flex-col gap-1">
 					<Label for="rule-name">Name</Label>
-					<Input id="rule-name" class="h-7 text-xs"
+					<Input
+						id="rule-name"
+						class="h-7 text-xs"
 						value={editing.name ?? ''}
 						oninput={(e) => (editing!.name = (e.currentTarget as HTMLInputElement).value)}
 					/>
@@ -386,17 +405,23 @@
 				<div class="grid grid-cols-2 gap-3">
 					<div class="flex flex-col gap-1">
 						<Label for="rule-priority">Priority</Label>
-						<Input id="rule-priority" class="h-7 text-xs" type="number"
+						<Input
+							id="rule-priority"
+							class="h-7 text-xs"
+							type="number"
 							value={String(editing.priority ?? 100)}
-							oninput={(e) => (editing!.priority = Number((e.currentTarget as HTMLInputElement).value))}
+							oninput={(e) =>
+								(editing!.priority = Number((e.currentTarget as HTMLInputElement).value))}
 						/>
 					</div>
 					<div class="flex flex-col gap-1">
 						<Label for="rule-action">Action</Label>
-						<select id="rule-action"
+						<select
+							id="rule-action"
 							class="h-7 rounded-md border bg-background px-2 text-xs"
 							value={editing.action ?? 'create_alert'}
-							onchange={(e) => (editing!.action = (e.currentTarget as HTMLSelectElement).value as MailRuleAction)}
+							onchange={(e) =>
+								(editing!.action = (e.currentTarget as HTMLSelectElement).value as MailRuleAction)}
 						>
 							{#each ACTIONS as opt}
 								<option value={opt.value}>{opt.label}</option>
@@ -407,28 +432,37 @@
 
 				<div class="flex flex-col gap-1">
 					<Label for="rule-subject">Subject regex (optional)</Label>
-					<Input id="rule-subject" class="h-7 font-mono text-xs"
+					<Input
+						id="rule-subject"
+						class="h-7 font-mono text-xs"
 						placeholder="^\\[ALERT\\]"
 						value={editing.match_subject_regex ?? ''}
-						oninput={(e) => (editing!.match_subject_regex = (e.currentTarget as HTMLInputElement).value || null)}
+						oninput={(e) =>
+							(editing!.match_subject_regex = (e.currentTarget as HTMLInputElement).value || null)}
 					/>
 				</div>
 
 				<div class="flex flex-col gap-1">
 					<Label for="rule-from">From regex (optional)</Label>
-					<Input id="rule-from" class="h-7 font-mono text-xs"
+					<Input
+						id="rule-from"
+						class="h-7 font-mono text-xs"
 						placeholder="@example\\.com$"
 						value={editing.match_from_regex ?? ''}
-						oninput={(e) => (editing!.match_from_regex = (e.currentTarget as HTMLInputElement).value || null)}
+						oninput={(e) =>
+							(editing!.match_from_regex = (e.currentTarget as HTMLInputElement).value || null)}
 					/>
 				</div>
 
 				<div class="flex flex-col gap-1">
 					<Label for="rule-to">To regex (optional)</Label>
-					<Input id="rule-to" class="h-7 font-mono text-xs"
+					<Input
+						id="rule-to"
+						class="h-7 font-mono text-xs"
 						placeholder="^abuse@"
 						value={editing.match_to_regex ?? ''}
-						oninput={(e) => (editing!.match_to_regex = (e.currentTarget as HTMLInputElement).value || null)}
+						oninput={(e) =>
+							(editing!.match_to_regex = (e.currentTarget as HTMLInputElement).value || null)}
 					/>
 				</div>
 
@@ -447,9 +481,7 @@
 		{/if}
 
 		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (editing = null)} disabled={saving}>
-				Cancel
-			</Button>
+			<Button variant="outline" onclick={() => (editing = null)} disabled={saving}>Cancel</Button>
 			<Button onclick={submitEdit} disabled={saving}>
 				{saving ? 'Saving…' : editing?.id ? 'Save' : 'Create rule'}
 			</Button>

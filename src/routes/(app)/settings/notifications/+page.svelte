@@ -66,14 +66,14 @@
 
 	<div class="min-h-0 flex-1 overflow-y-auto p-5">
 		{#if error}
-			<div class="mb-4"><ApiError error={error} showRetryButton={false} /></div>
+			<div class="mb-4"><ApiError {error} showRetryButton={false} /></div>
 		{/if}
 
 		<NotificationSettingsGrid
 			title="Notification defaults"
 			description="Toggles below apply to every user unless they override the setting from their profile."
-			payload={payload}
-			loading={loading}
+			{payload}
+			{loading}
 			onSave={save}
 		/>
 	</div>

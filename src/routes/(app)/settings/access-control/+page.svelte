@@ -18,12 +18,7 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import {
-		LockKeyholeIcon,
-		RefreshCwIcon,
-		ShieldIcon,
-		UsersIcon
-	} from 'lucide-svelte';
+	import { LockKeyholeIcon, RefreshCwIcon, ShieldIcon, UsersIcon } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { toast } from '$lib/components/ui/toast';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
@@ -105,8 +100,7 @@
 		if (res.ok && res.data && typeof res.data !== 'string') {
 			schema = res.data;
 		} else {
-			schemaError =
-				res.error?.message ?? 'Failed to load the access-control schema';
+			schemaError = res.error?.message ?? 'Failed to load the access-control schema';
 		}
 	});
 </script>
@@ -165,9 +159,7 @@
 			{:else if schemaError}
 				<p class="px-3 py-6 text-center text-2xs text-destructive">{schemaError}</p>
 			{:else}
-				<p class="px-3 py-6 text-center text-2xs text-muted-foreground">
-					Loading schema…
-				</p>
+				<p class="px-3 py-6 text-center text-2xs text-muted-foreground">Loading schema…</p>
 			{/if}
 		</div>
 		<div class={`flex-1 overflow-hidden ${activeTab === 'groups' ? '' : 'hidden'}`}>
@@ -176,9 +168,7 @@
 			{:else if schemaError}
 				<p class="px-3 py-6 text-center text-2xs text-destructive">{schemaError}</p>
 			{:else}
-				<p class="px-3 py-6 text-center text-2xs text-muted-foreground">
-					Loading schema…
-				</p>
+				<p class="px-3 py-6 text-center text-2xs text-muted-foreground">Loading schema…</p>
 			{/if}
 		</div>
 	</div>

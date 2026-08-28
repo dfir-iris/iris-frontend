@@ -289,10 +289,7 @@
 				onclick={load}
 				disabled={restricted || loading || saving}
 			>
-				<RefreshCwIcon
-					size={12}
-					class={`mr-1 ${loading ? 'animate-spin' : ''}`}
-				/>
+				<RefreshCwIcon size={12} class={`mr-1 ${loading ? 'animate-spin' : ''}`} />
 				Refresh
 			</Button>
 			<Button
@@ -317,8 +314,8 @@
 				<ShieldAlertIcon size={22} class="mx-auto mb-3 text-muted-foreground" />
 				<p class="text-xs font-medium">Server settings are not available in demo mode</p>
 				<p class="mt-1.5 text-2xs text-muted-foreground">
-					Mail credentials, integrations and database backups stay with the account that owns
-					this demo instance. Everything else in Manage IRIS is yours to explore.
+					Mail credentials, integrations and database backups stay with the account that owns this
+					demo instance. Everything else in Manage IRIS is yours to explore.
 				</p>
 			</div>
 		{:else if loading && payload == null}
@@ -364,9 +361,7 @@
 							<dd class="font-mono">{payload.versions.db_revision ?? '—'}</dd>
 						</div>
 						<div>
-							<dt class="uppercase tracking-wide text-muted-foreground">
-								Updates available
-							</dt>
+							<dt class="uppercase tracking-wide text-muted-foreground">Updates available</dt>
 							<dd>
 								{#if payload.settings.has_updates_available}
 									<span
@@ -428,8 +423,8 @@
 							/>
 						</div>
 						<p class="text-2xs text-muted-foreground sm:col-span-2">
-							Used by IRIS modules that fetch external resources. Empty leaves the system
-							default in place.
+							Used by IRIS modules that fetch external resources. Empty leaves the system default in
+							place.
 						</p>
 					</div>
 				</section>
@@ -454,8 +449,8 @@
 							<div>
 								<div class="font-medium">Prevent re-registering default modules on boot</div>
 								<p class="text-2xs text-muted-foreground">
-									Once you've customised an installed module, turn this on to stop the
-									boot routine resetting it on the next restart.
+									Once you've customised an installed module, turn this on to stop the boot routine
+									resetting it on the next restart.
 								</p>
 							</div>
 						</label>
@@ -466,12 +461,10 @@
 								disabled={saving}
 							/>
 							<div>
-								<div class="font-medium">
-									Prevent re-registering default case objects on boot
-								</div>
+								<div class="font-medium">Prevent re-registering default case objects on boot</div>
 								<p class="text-2xs text-muted-foreground">
-									Same for the seeded taxonomies (asset types, IOC types, classifications,
-									states, evidence types). Useful when you've pruned the defaults.
+									Same for the seeded taxonomies (asset types, IOC types, classifications, states,
+									evidence types). Useful when you've pruned the defaults.
 								</p>
 							</div>
 						</label>
@@ -484,8 +477,8 @@
 							<div>
 								<div class="font-medium">Enable periodic update checks</div>
 								<p class="text-2xs text-muted-foreground">
-									Runs a Celery task on a schedule that polls the IRIS update server. The
-									outcome is surfaced in the read-only "Updates available" flag above.
+									Runs a Celery task on a schedule that polls the IRIS update server. The outcome is
+									surfaced in the read-only "Updates available" flag above.
 								</p>
 							</div>
 						</label>
@@ -541,9 +534,7 @@
 									(form.password_policy_special_chars =
 										(e.currentTarget as HTMLInputElement).value || null)}
 							/>
-							<p class="text-2xs text-muted-foreground">
-								Empty = no special-char requirement.
-							</p>
+							<p class="text-2xs text-muted-foreground">Empty = no special-char requirement.</p>
 						</div>
 						<label class="flex items-start gap-2 sm:col-span-2">
 							<Switch
@@ -593,11 +584,11 @@
 								<div class="font-medium">Enforce MFA</div>
 								<p class="text-2xs text-muted-foreground">
 									{#if mfaLocked}
-										Unavailable in demo mode — accounts here are shared, so a second factor
-										bound to one visitor's authenticator would lock everyone else out.
+										Unavailable in demo mode — accounts here are shared, so a second factor bound to
+										one visitor's authenticator would lock everyone else out.
 									{:else}
-										Forces every user to register a TOTP / WebAuthn factor at next login.
-										Existing sessions stay valid until they expire.
+										Forces every user to register a TOTP / WebAuthn factor at next login. Existing
+										sessions stay valid until they expire.
 									{/if}
 								</p>
 							</div>
@@ -605,8 +596,7 @@
 						<label class="flex items-start gap-2">
 							<Switch
 								checked={!!form.force_confirmation_before_delete}
-								onCheckedChange={(v: boolean) =>
-									(form.force_confirmation_before_delete = v)}
+								onCheckedChange={(v: boolean) => (form.force_confirmation_before_delete = v)}
 								disabled={saving}
 							/>
 							<div>
@@ -646,17 +636,31 @@
 					</header>
 					<div class="grid grid-cols-1 gap-3 p-4 text-xs sm:grid-cols-2">
 						<div class="flex flex-col gap-1">
-							<label for="smtp-host" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">SMTP host</label>
-							<Input id="smtp-host" class="h-7 text-xs"
+							<label
+								for="smtp-host"
+								class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+								>SMTP host</label
+							>
+							<Input
+								id="smtp-host"
+								class="h-7 text-xs"
 								placeholder="smtp.example.com"
 								value={String(form.mail_smtp_host ?? '')}
 								disabled={saving}
-								oninput={(e) => (form.mail_smtp_host = (e.currentTarget as HTMLInputElement).value || null)}
+								oninput={(e) =>
+									(form.mail_smtp_host = (e.currentTarget as HTMLInputElement).value || null)}
 							/>
 						</div>
 						<div class="flex flex-col gap-1">
-							<label for="smtp-port" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Port</label>
-							<Input id="smtp-port" class="h-7 text-xs" type="number"
+							<label
+								for="smtp-port"
+								class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+								>Port</label
+							>
+							<Input
+								id="smtp-port"
+								class="h-7 text-xs"
+								type="number"
 								placeholder="587"
 								value={String(form.mail_smtp_port ?? '')}
 								disabled={saving}
@@ -667,25 +671,39 @@
 							/>
 						</div>
 						<div class="flex flex-col gap-1">
-							<label for="smtp-user" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Username</label>
-							<Input id="smtp-user" class="h-7 text-xs"
+							<label
+								for="smtp-user"
+								class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+								>Username</label
+							>
+							<Input
+								id="smtp-user"
+								class="h-7 text-xs"
 								value={String(form.mail_smtp_user ?? '')}
 								disabled={saving}
-								oninput={(e) => (form.mail_smtp_user = (e.currentTarget as HTMLInputElement).value || null)}
+								oninput={(e) =>
+									(form.mail_smtp_user = (e.currentTarget as HTMLInputElement).value || null)}
 							/>
 						</div>
 						<div class="flex flex-col gap-1">
-							<label for="smtp-pass" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+							<label
+								for="smtp-pass"
+								class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+							>
 								Password
 								{#if payload?.settings.mail_smtp_password_set}
 									<span class="ml-1 text-muted-foreground/70">(stored — leave blank to keep)</span>
 								{/if}
 							</label>
-							<Input id="smtp-pass" class="h-7 text-xs" type="password"
+							<Input
+								id="smtp-pass"
+								class="h-7 text-xs"
+								type="password"
 								placeholder={payload?.settings.mail_smtp_password_set ? '•••••••••' : ''}
 								value={String(form.mail_smtp_password ?? '')}
 								disabled={saving}
-								oninput={(e) => (form.mail_smtp_password = (e.currentTarget as HTMLInputElement).value || null)}
+								oninput={(e) =>
+									(form.mail_smtp_password = (e.currentTarget as HTMLInputElement).value || null)}
 							/>
 						</div>
 						<label class="flex cursor-pointer items-center gap-2 sm:col-span-1">
@@ -705,38 +723,59 @@
 							<span class="text-2xs">Implicit SSL</span>
 						</label>
 						<div class="flex flex-col gap-1">
-							<label for="smtp-from-addr" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">From address</label>
-							<Input id="smtp-from-addr" class="h-7 text-xs"
+							<label
+								for="smtp-from-addr"
+								class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+								>From address</label
+							>
+							<Input
+								id="smtp-from-addr"
+								class="h-7 text-xs"
 								placeholder="iris@example.com"
 								value={String(form.mail_from_address ?? '')}
 								disabled={saving}
-								oninput={(e) => (form.mail_from_address = (e.currentTarget as HTMLInputElement).value || null)}
+								oninput={(e) =>
+									(form.mail_from_address = (e.currentTarget as HTMLInputElement).value || null)}
 							/>
 						</div>
 						<div class="flex flex-col gap-1">
-							<label for="smtp-from-name" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">From name (optional)</label>
-							<Input id="smtp-from-name" class="h-7 text-xs"
+							<label
+								for="smtp-from-name"
+								class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+								>From name (optional)</label
+							>
+							<Input
+								id="smtp-from-name"
+								class="h-7 text-xs"
 								placeholder="IRIS Notifications"
 								value={String(form.mail_from_name ?? '')}
 								disabled={saving}
-								oninput={(e) => (form.mail_from_name = (e.currentTarget as HTMLInputElement).value || null)}
+								oninput={(e) =>
+									(form.mail_from_name = (e.currentTarget as HTMLInputElement).value || null)}
 							/>
 						</div>
 
 						<!-- Test send -->
-						<div class="sm:col-span-2 flex flex-col gap-2 rounded-md border-t pt-3">
-							<label for="smtp-test-to" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+						<div class="flex flex-col gap-2 rounded-md border-t pt-3 sm:col-span-2">
+							<label
+								for="smtp-test-to"
+								class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+							>
 								Send a test email
 							</label>
 							<div class="flex items-center gap-2">
-								<Input id="smtp-test-to" class="h-7 flex-1 text-xs"
+								<Input
+									id="smtp-test-to"
+									class="h-7 flex-1 text-xs"
 									placeholder="you@example.com"
 									type="email"
 									value={testMailRecipient}
 									disabled={testMailBusy}
 									oninput={(e) => (testMailRecipient = (e.currentTarget as HTMLInputElement).value)}
 								/>
-								<Button size="sm" class="h-7"
+								<Button
+									size="sm"
+									class="h-7"
 									onclick={sendTestMail}
 									disabled={testMailBusy || !testMailRecipient}
 								>
@@ -750,8 +789,7 @@
 								</p>
 							{/if}
 							<p class="text-2xs text-muted-foreground">
-								Sends synchronously using the SMTP config above.
-								Any unsaved edits are saved first.
+								Sends synchronously using the SMTP config above. Any unsaved edits are saved first.
 							</p>
 						</div>
 					</div>
@@ -783,17 +821,31 @@
 					</header>
 					<div class="grid grid-cols-1 gap-3 p-4 text-xs sm:grid-cols-2">
 						<div class="flex flex-col gap-1">
-							<label for="imap-host" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">IMAP host</label>
-							<Input id="imap-host" class="h-7 text-xs"
+							<label
+								for="imap-host"
+								class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+								>IMAP host</label
+							>
+							<Input
+								id="imap-host"
+								class="h-7 text-xs"
 								placeholder="imap.example.com"
 								value={String(form.mail_imap_host ?? '')}
 								disabled={saving}
-								oninput={(e) => (form.mail_imap_host = (e.currentTarget as HTMLInputElement).value || null)}
+								oninput={(e) =>
+									(form.mail_imap_host = (e.currentTarget as HTMLInputElement).value || null)}
 							/>
 						</div>
 						<div class="flex flex-col gap-1">
-							<label for="imap-port" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Port</label>
-							<Input id="imap-port" class="h-7 text-xs" type="number"
+							<label
+								for="imap-port"
+								class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+								>Port</label
+							>
+							<Input
+								id="imap-port"
+								class="h-7 text-xs"
+								type="number"
 								placeholder="993"
 								value={String(form.mail_imap_port ?? '')}
 								disabled={saving}
@@ -804,25 +856,39 @@
 							/>
 						</div>
 						<div class="flex flex-col gap-1">
-							<label for="imap-user" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Username</label>
-							<Input id="imap-user" class="h-7 text-xs"
+							<label
+								for="imap-user"
+								class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+								>Username</label
+							>
+							<Input
+								id="imap-user"
+								class="h-7 text-xs"
 								value={String(form.mail_imap_user ?? '')}
 								disabled={saving}
-								oninput={(e) => (form.mail_imap_user = (e.currentTarget as HTMLInputElement).value || null)}
+								oninput={(e) =>
+									(form.mail_imap_user = (e.currentTarget as HTMLInputElement).value || null)}
 							/>
 						</div>
 						<div class="flex flex-col gap-1">
-							<label for="imap-pass" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+							<label
+								for="imap-pass"
+								class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+							>
 								Password
 								{#if payload?.settings.mail_imap_password_set}
 									<span class="ml-1 text-muted-foreground/70">(stored — leave blank to keep)</span>
 								{/if}
 							</label>
-							<Input id="imap-pass" class="h-7 text-xs" type="password"
+							<Input
+								id="imap-pass"
+								class="h-7 text-xs"
+								type="password"
 								placeholder={payload?.settings.mail_imap_password_set ? '•••••••••' : ''}
 								value={String(form.mail_imap_password ?? '')}
 								disabled={saving}
-								oninput={(e) => (form.mail_imap_password = (e.currentTarget as HTMLInputElement).value || null)}
+								oninput={(e) =>
+									(form.mail_imap_password = (e.currentTarget as HTMLInputElement).value || null)}
 							/>
 						</div>
 						<label class="flex cursor-pointer items-center gap-2 sm:col-span-1">
@@ -834,17 +900,32 @@
 							<span class="text-2xs">Use SSL</span>
 						</label>
 						<div class="flex flex-col gap-1">
-							<label for="imap-mailbox" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Mailbox</label>
-							<Input id="imap-mailbox" class="h-7 text-xs"
+							<label
+								for="imap-mailbox"
+								class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+								>Mailbox</label
+							>
+							<Input
+								id="imap-mailbox"
+								class="h-7 text-xs"
 								placeholder="INBOX"
 								value={String(form.mail_imap_mailbox ?? '')}
 								disabled={saving}
-								oninput={(e) => (form.mail_imap_mailbox = (e.currentTarget as HTMLInputElement).value || null)}
+								oninput={(e) =>
+									(form.mail_imap_mailbox = (e.currentTarget as HTMLInputElement).value || null)}
 							/>
 						</div>
 						<div class="flex flex-col gap-1">
-							<label for="imap-poll" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Poll interval (sec)</label>
-							<Input id="imap-poll" class="h-7 text-xs" type="number" min="60"
+							<label
+								for="imap-poll"
+								class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+								>Poll interval (sec)</label
+							>
+							<Input
+								id="imap-poll"
+								class="h-7 text-xs"
+								type="number"
+								min="60"
 								placeholder="300"
 								value={String(form.mail_imap_poll_interval_sec ?? '')}
 								disabled={saving}
@@ -855,8 +936,16 @@
 							/>
 						</div>
 						<div class="flex flex-col gap-1">
-							<label for="imap-attach-mb" class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Max attachment (MB)</label>
-							<Input id="imap-attach-mb" class="h-7 text-xs" type="number" min="1"
+							<label
+								for="imap-attach-mb"
+								class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+								>Max attachment (MB)</label
+							>
+							<Input
+								id="imap-attach-mb"
+								class="h-7 text-xs"
+								type="number"
+								min="1"
 								placeholder="20"
 								value={String(form.mail_imap_max_attachment_mb ?? '')}
 								disabled={saving}
@@ -866,9 +955,9 @@
 								}}
 							/>
 						</div>
-						<p class="sm:col-span-2 text-2xs text-muted-foreground">
-							Poll cadence is capped at ≥60s server-side to avoid hammering the IMAP endpoint.
-							Rules that decide what each inbound message becomes live on the
+						<p class="text-2xs text-muted-foreground sm:col-span-2">
+							Poll cadence is capped at ≥60s server-side to avoid hammering the IMAP endpoint. Rules
+							that decide what each inbound message becomes live on the
 							<a class="underline hover:text-foreground" href="/settings/mail">Mail rules</a> page.
 						</p>
 					</div>
@@ -894,10 +983,10 @@
 							<div>
 								<div class="font-medium">Enable error reporting</div>
 								<p class="text-2xs text-muted-foreground">
-									When on, unhandled exceptions on the server and in the browser are
-									forwarded to a Sentry-compatible collector (Sentry, GlitchTip, or
-									compatible). Payloads are redacted server-side before send — case
-									content, credentials, and sensitive headers never leave the box.
+									When on, unhandled exceptions on the server and in the browser are forwarded to a
+									Sentry-compatible collector (Sentry, GlitchTip, or compatible). Payloads are
+									redacted server-side before send — case content, credentials, and sensitive
+									headers never leave the box.
 								</p>
 							</div>
 						</label>
@@ -913,7 +1002,9 @@
 								type="password"
 								autocomplete="off"
 								class="h-7 text-xs"
-								placeholder={form.error_reporting_backend_dsn_set ? '•••••• (unchanged — leave blank to keep)' : 'https://<key>@collector.example/1'}
+								placeholder={form.error_reporting_backend_dsn_set
+									? '•••••• (unchanged — leave blank to keep)'
+									: 'https://<key>@collector.example/1'}
 								value={String(form.error_reporting_backend_dsn ?? '')}
 								disabled={saving}
 								oninput={(e) =>
@@ -921,8 +1012,8 @@
 										(e.currentTarget as HTMLInputElement).value || null)}
 							/>
 							<p class="text-2xs text-muted-foreground">
-								Stored encrypted at rest. Leave blank to keep the current value; type a
-								new DSN to replace it. Server exception captures use this DSN only.
+								Stored encrypted at rest. Leave blank to keep the current value; type a new DSN to
+								replace it. Server exception captures use this DSN only.
 							</p>
 						</div>
 						<div class="flex flex-col gap-1 sm:col-span-2">
@@ -943,8 +1034,8 @@
 										(e.currentTarget as HTMLInputElement).value || null)}
 							/>
 							<p class="text-2xs text-muted-foreground">
-								Handed to the browser at boot via <code>/api/v2/runtime-config</code>.
-								Reload the page after changing so the browser SDK picks up the new value.
+								Handed to the browser at boot via <code>/api/v2/runtime-config</code>. Reload the
+								page after changing so the browser SDK picks up the new value.
 							</p>
 						</div>
 						<div class="flex flex-col gap-1">
@@ -996,8 +1087,8 @@
 							<div>
 								<div class="font-medium">Attach user identity to events</div>
 								<p class="text-2xs text-muted-foreground">
-									Off by default. When on, the acting user's id and username are attached
-									to each captured event. No email or PII beyond the username is sent.
+									Off by default. When on, the acting user's id and username are attached to each
+									captured event. No email or PII beyond the username is sent.
 								</p>
 							</div>
 						</label>
@@ -1019,24 +1110,21 @@
 								Database backup
 							</h2>
 						</div>
-						<Button
-							size="sm"
-							class="h-7"
-							onclick={runBackup}
-							disabled={backupBusy}
-						>
+						<Button size="sm" class="h-7" onclick={runBackup} disabled={backupBusy}>
 							<DatabaseIcon size={12} class="mr-1" />
 							{backupBusy ? 'Running…' : 'Run backup now'}
 						</Button>
 					</header>
 					<div class="flex flex-col gap-2 p-4 text-xs">
 						<p class="text-2xs text-muted-foreground">
-							Triggers an immediate `pg_dump` of the IRIS database to the path configured
-							in `BACKUP_PATH`. The button stays disabled while the dump runs.
+							Triggers an immediate `pg_dump` of the IRIS database to the path configured in
+							`BACKUP_PATH`. The button stays disabled while the dump runs.
 						</p>
 						{#if backupLogs && backupLogs.length > 0}
-							<pre class="max-h-64 overflow-y-auto rounded-md border bg-muted/30 p-2 font-mono text-2xs"
-							>{backupLogs.join('\n')}</pre>
+							<pre
+								class="max-h-64 overflow-y-auto rounded-md border bg-muted/30 p-2 font-mono text-2xs">{backupLogs.join(
+									'\n'
+								)}</pre>
 						{/if}
 						{#if backupError}
 							<p class="whitespace-pre-wrap text-2xs text-destructive">{backupError}</p>

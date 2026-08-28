@@ -84,10 +84,22 @@
 	} = $props();
 
 	const styleFor = (kind: MentionKind) => {
-		if (kind === 'asset') return { Icon: BoxIcon, bg: 'bg-amber-500/15', fg: 'text-amber-600 dark:text-amber-300' };
-		if (kind === 'ioc') return { Icon: ShieldAlertIcon, bg: 'bg-red-500/15', fg: 'text-red-600 dark:text-red-300' };
-		if (kind === 'note') return { Icon: FileTextIcon, bg: 'bg-emerald-500/15', fg: 'text-emerald-600 dark:text-emerald-300' };
-		if (kind === 'task') return { Icon: ClipboardListIcon, bg: 'bg-violet-500/15', fg: 'text-violet-600 dark:text-violet-300' };
+		if (kind === 'asset')
+			return { Icon: BoxIcon, bg: 'bg-amber-500/15', fg: 'text-amber-600 dark:text-amber-300' };
+		if (kind === 'ioc')
+			return { Icon: ShieldAlertIcon, bg: 'bg-red-500/15', fg: 'text-red-600 dark:text-red-300' };
+		if (kind === 'note')
+			return {
+				Icon: FileTextIcon,
+				bg: 'bg-emerald-500/15',
+				fg: 'text-emerald-600 dark:text-emerald-300'
+			};
+		if (kind === 'task')
+			return {
+				Icon: ClipboardListIcon,
+				bg: 'bg-violet-500/15',
+				fg: 'text-violet-600 dark:text-violet-300'
+			};
 		if (kind === 'datastore')
 			return { Icon: DatabaseIcon, bg: 'bg-cyan-500/15', fg: 'text-cyan-600 dark:text-cyan-300' };
 		return { Icon: UserIcon, bg: 'bg-blue-500/15', fg: 'text-blue-600 dark:text-blue-300' };

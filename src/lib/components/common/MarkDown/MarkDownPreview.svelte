@@ -42,7 +42,7 @@
 <div
 	bind:this={containerEl}
 	class={cn(
-		'prose prose-sm dark:prose-invert max-w-none min-w-0 break-words [&_p]:my-1.5 [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:mt-3 [&_h2]:mb-1.5 [&_h3]:mt-2 [&_h3]:mb-1 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_blockquote]:my-2 [&_pre]:my-2 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_img]:max-w-full [&_img]:h-auto',
+		'prose prose-sm dark:prose-invert min-w-0 max-w-none break-words [&_blockquote]:my-2 [&_h1]:mb-2 [&_h1]:mt-4 [&_h2]:mb-1.5 [&_h2]:mt-3 [&_h3]:mb-1 [&_h3]:mt-2 [&_img]:h-auto [&_img]:max-w-full [&_li]:my-0.5 [&_ol]:my-1.5 [&_p]:my-1.5 [&_pre]:my-2 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_ul]:my-1.5',
 		className
 	)}
 >

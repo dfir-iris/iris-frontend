@@ -244,8 +244,7 @@ export class ApiService {
 				) {
 					toast({
 						title: "You don't have permission to do that",
-						description:
-							'Your access level on this case does not allow this action.',
+						description: 'Your access level on this case does not allow this action.',
 						variant: 'destructive'
 					});
 				}

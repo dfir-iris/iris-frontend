@@ -50,7 +50,7 @@
 		error = null;
 		try {
 			const response = await CustomDashboardsService.render(uuid, { definition });
-			if (response.ok && response.data) {
+			if (response.ok && response.data && typeof response.data !== 'string') {
 				widgets = response.data.widgets ?? [];
 				sections = response.data.sections ?? [];
 				lastRenderedAt = new Date().toLocaleTimeString();
@@ -70,7 +70,8 @@
 		if (size === 'half') return 'md:col-span-3 lg:col-span-6';
 		if (size === 'third') return 'md:col-span-2 lg:col-span-4';
 		if (size === 'kpi' || size === 'quarter') return 'md:col-span-2 lg:col-span-3';
-		if (widget.chart_type === 'number' || widget.chart_type === 'percentage') return 'md:col-span-2 lg:col-span-3';
+		if (widget.chart_type === 'number' || widget.chart_type === 'percentage')
+			return 'md:col-span-2 lg:col-span-3';
 		return 'md:col-span-3 lg:col-span-6';
 	}
 
@@ -124,7 +125,9 @@
 		<div class="flex items-center gap-2 text-xs text-muted-foreground">
 			{#if expanded}
 				{#if loading}
-					<span class="flex items-center gap-1"><RefreshCwIcon class="size-3 animate-spin" /> rendering…</span>
+					<span class="flex items-center gap-1"
+						><RefreshCwIcon class="size-3 animate-spin" /> rendering…</span
+					>
 				{:else if lastRenderedAt}
 					<span>last rendered {lastRenderedAt}</span>
 				{/if}
@@ -142,21 +145,17 @@
 		</div>
 	</CardHeader>
 	{#if expanded}
-		<CardContent class="flex flex-col gap-4">
-			{#if error}
-				<div class="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-					{error}
-				</div>
-			{/if}
-
-			{#snippet widgetCard(widget: RenderedWidget)}
+		{#snippet widgetCard(widget: RenderedWidget)}
 				{#if widget.chart_type === 'number' || widget.chart_type === 'percentage'}
 					{@const kpiColor = resolveKpiColor(widget)}
 					<Card class={`border-muted ${sizeClass(widget)}`}>
 						<CardHeader class="pb-1">
 							<CardTitle class="text-xs font-medium text-muted-foreground">{widget.name}</CardTitle>
 						</CardHeader>
-						<CardContent class="text-xl font-semibold" style={kpiColor ? `color: ${kpiColor};` : ''}>
+						<CardContent
+							class="text-xl font-semibold"
+							style={kpiColor ? `color: ${kpiColor};` : ''}
+						>
 							{widget.error ? '—' : formatValue(widget)}
 						</CardContent>
 					</Card>
@@ -177,7 +176,8 @@
 								rows={widget.rows as never}
 								totals={widget.totals}
 								totalLabel={widget.total_label}
-								defaultSort={((widget.options ?? {}) as Record<string, unknown>).default_sort as never}
+								defaultSort={((widget.options ?? {}) as Record<string, unknown>)
+									.default_sort as never}
 							/>
 						</CardContent>
 					</Card>
@@ -196,8 +196,15 @@
 						</CardContent>
 					</Card>
 				{/if}
-			{/snippet}
-
+		{/snippet}
+		<CardContent class="flex flex-col gap-4">
+			{#if error}
+				<div
+					class="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+				>
+					{error}
+				</div>
+			{/if}
 			{#if sections.length > 0}
 				{#each sections as section, sIdx (section.id ?? sIdx)}
 					<section class="flex flex-col gap-2">

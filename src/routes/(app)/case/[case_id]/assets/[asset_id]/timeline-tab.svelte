@@ -141,7 +141,11 @@
 
 	const toggleFold = (id: number) => {
 		const next = new Set(folded);
-		next.has(id) ? next.delete(id) : next.add(id);
+		if (next.has(id)) {
+			next.delete(id);
+		} else {
+			next.add(id);
+		}
 		folded = next;
 	};
 
@@ -363,7 +367,9 @@
 			<Skeleton class="h-20 w-full" />
 		</div>
 	{:else if timeline.list.error}
-		<div class="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
+		<div
+			class="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
+		>
 			{timeline.list.error}
 		</div>
 	{:else if events.length === 0}

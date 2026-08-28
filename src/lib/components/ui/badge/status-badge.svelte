@@ -35,27 +35,33 @@
 			icon: Play
 		},
 		Open: {
-			color: 'bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-700/30 dark:text-blue-300 dark:hover:bg-blue-700/40',
+			color:
+				'bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-700/30 dark:text-blue-300 dark:hover:bg-blue-700/40',
 			icon: FolderOpenIcon
 		},
 		Containment: {
-			color: 'bg-orange-100 text-orange-800 hover:bg-orange-200 dark:bg-orange-700/30 dark:text-orange-300 dark:hover:bg-orange-700/40',
+			color:
+				'bg-orange-100 text-orange-800 hover:bg-orange-200 dark:bg-orange-700/30 dark:text-orange-300 dark:hover:bg-orange-700/40',
 			icon: ShieldIcon
 		},
 		Eradication: {
-			color: 'bg-purple-100 text-purple-800 hover:bg-purple-200 dark:bg-purple-700/30 dark:text-purple-300 dark:hover:bg-purple-700/40',
+			color:
+				'bg-purple-100 text-purple-800 hover:bg-purple-200 dark:bg-purple-700/30 dark:text-purple-300 dark:hover:bg-purple-700/40',
 			icon: BugOffIcon
 		},
 		Recovery: {
-			color: 'bg-teal-100 text-teal-800 hover:bg-teal-200 dark:bg-teal-700/30 dark:text-teal-300 dark:hover:bg-teal-700/40',
+			color:
+				'bg-teal-100 text-teal-800 hover:bg-teal-200 dark:bg-teal-700/30 dark:text-teal-300 dark:hover:bg-teal-700/40',
 			icon: ActivityIcon
 		},
 		'Post-AlertCluster': {
-			color: 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200 dark:bg-indigo-700/30 dark:text-indigo-300 dark:hover:bg-indigo-700/40',
+			color:
+				'bg-indigo-100 text-indigo-800 hover:bg-indigo-200 dark:bg-indigo-700/30 dark:text-indigo-300 dark:hover:bg-indigo-700/40',
 			icon: ArchiveIcon
 		},
 		Reporting: {
-			color: 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200 dark:bg-cyan-700/30 dark:text-cyan-300 dark:hover:bg-cyan-700/40',
+			color:
+				'bg-cyan-100 text-cyan-800 hover:bg-cyan-200 dark:bg-cyan-700/30 dark:text-cyan-300 dark:hover:bg-cyan-700/40',
 			icon: FileTextIcon
 		},
 		Completed: {
@@ -108,7 +114,7 @@
 			color:
 				'bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-700/30 dark:text-red-400 dark:hover:bg-red-700/40',
 			icon: XCircleIcon
-		},
+		}
 	};
 
 	$: config = statusConfig[status] || statusConfig.Unspecified;

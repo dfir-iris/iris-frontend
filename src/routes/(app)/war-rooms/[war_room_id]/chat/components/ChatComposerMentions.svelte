@@ -14,7 +14,6 @@
   as an inline card.
 -->
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
 	import MentionList, {
 		type MentionItem
 	} from '$lib/components/common/MarkDown/MentionList.svelte';
@@ -23,10 +22,7 @@
 	import { CaseAssetsService } from '$lib/services/case-assets.service';
 	import { CaseTimelineService } from '$lib/services/case-timeline.service';
 	import { CaseTasksService } from '$lib/services/case-tasks.service';
-	import {
-		WarRoomTeamsService,
-		type WarRoomTeam
-	} from '$lib/services/war-room-teams.service';
+	import { WarRoomTeamsService, type WarRoomTeam } from '$lib/services/war-room-teams.service';
 	import { WarRoomDatastoreService } from '$lib/services/war-room-datastore.service';
 	import type { WarRoomCaseAttachment } from '$lib/services/war-rooms.service';
 
@@ -104,7 +100,7 @@
 
 	let open = $state(false);
 	let trigger = $state<Trigger>('user');
-	let query = $state('');
+	let _query = $state('');
 	let triggerStart = $state(0); // index of the `@` or `#`
 	let items = $state<MentionItem[]>([]);
 	let selectedIndex = $state(0);
@@ -144,7 +140,7 @@
 					const arr = Array.isArray(payload)
 						? payload
 						: Array.isArray((payload as { data?: User[] }).data)
-							? ((payload as { data: User[] }).data)
+							? (payload as { data: User[] }).data
 							: [];
 					userCache = arr;
 					return arr;
@@ -185,11 +181,16 @@
 				try {
 					const dsRes = await WarRoomDatastoreService.list(warRoomId);
 					if (dsRes.ok && dsRes.data && typeof dsRes.data !== 'string') {
-						const files = (dsRes.data as { files?: Array<{
-							file_id: number;
-							filename: string;
-							mime_type: string | null;
-						}> }).files ?? [];
+						const files =
+							(
+								dsRes.data as {
+									files?: Array<{
+										file_id: number;
+										filename: string;
+										mime_type: string | null;
+									}>;
+								}
+							).files ?? [];
 						for (const f of files) {
 							out.push({
 								id: `datastore-${f.file_id}`,
@@ -211,12 +212,7 @@
 					const caseId = att.case_id;
 					try {
 						const [evRes, iocRes, assetRes, taskRes] = await Promise.all([
-							CaseTimelineService.listEvents(
-								caseId,
-								{},
-								{},
-								{ per_page: PER_KIND }
-							),
+							CaseTimelineService.listEvents(caseId, {}, {}, { per_page: PER_KIND }),
 							CaseIocsService.list(caseId, { per_page: PER_KIND }),
 							CaseAssetsService.list(caseId, { per_page: PER_KIND }),
 							CaseTasksService.list(caseId, { per_page: PER_KIND })
@@ -229,8 +225,7 @@
 							for (const e of payload.timeline ?? []) {
 								const id = Number((e as { event_id: number }).event_id);
 								const label =
-									String((e as { event_title?: string }).event_title ?? '') ||
-									`Event #${id}`;
+									String((e as { event_title?: string }).event_title ?? '') || `Event #${id}`;
 								out.push({
 									id: `${caseId}-event-${id}`,
 									label,
@@ -248,9 +243,7 @@
 							};
 							for (const i of payload.data ?? []) {
 								const id = Number((i as { ioc_id: number }).ioc_id);
-								const label =
-									String((i as { ioc_value?: string }).ioc_value ?? '') ||
-									`IOC #${id}`;
+								const label = String((i as { ioc_value?: string }).ioc_value ?? '') || `IOC #${id}`;
 								out.push({
 									id: `${caseId}-ioc-${id}`,
 									label,
@@ -269,8 +262,7 @@
 							for (const a of payload.data ?? []) {
 								const id = Number((a as { asset_id: number }).asset_id);
 								const label =
-									String((a as { asset_name?: string }).asset_name ?? '') ||
-									`Asset #${id}`;
+									String((a as { asset_name?: string }).asset_name ?? '') || `Asset #${id}`;
 								out.push({
 									id: `${caseId}-asset-${id}`,
 									label,
@@ -293,8 +285,7 @@
 										0
 								);
 								const label =
-									String((t as { task_title?: string }).task_title ?? '') ||
-									`Task #${id}`;
+									String((t as { task_title?: string }).task_title ?? '') || `Task #${id}`;
 								out.push({
 									id: `${caseId}-task-${id}`,
 									label,
@@ -334,12 +325,7 @@
 		// Slash commands only autocomplete when they're the leading
 		// token of the message — that's the same rule the backend uses
 		// to dispatch them. A `/` mid-message is just a literal slash.
-		if (
-			text.length > 0 &&
-			text[0] === '/' &&
-			!/\s/.test(text) &&
-			caret === text.length
-		) {
+		if (text.length > 0 && text[0] === '/' && !/\s/.test(text) && caret === text.length) {
 			return {
 				start: 0,
 				end: caret,
@@ -368,8 +354,7 @@
 		return null;
 	};
 
-	const fuzzy = (h: string, n: string) =>
-		h.toLowerCase().includes(n.toLowerCase());
+	const fuzzy = (h: string, n: string) => h.toLowerCase().includes(n.toLowerCase());
 
 	const refresh = async () => {
 		if (!textarea) {
@@ -382,16 +367,14 @@
 			return;
 		}
 		trigger = t.trigger;
-		query = t.query;
+		_query = t.query;
 		triggerStart = t.start;
 
 		if (t.trigger === 'slash') {
 			const q = t.query.trim().toLowerCase();
 			const matching = q
 				? SLASH_COMMANDS_LIST.filter(
-						(c) =>
-							c.cmd.slice(1).toLowerCase().startsWith(q) ||
-							c.desc.toLowerCase().includes(q)
+						(c) => c.cmd.slice(1).toLowerCase().startsWith(q) || c.desc.toLowerCase().includes(q)
 					)
 				: SLASH_COMMANDS_LIST;
 			items = matching.map((c) => ({
@@ -415,27 +398,19 @@
 				kind: 'team' as const
 			}));
 			const filteredUsers = q
-				? users.filter(
-						(u) => fuzzy(u.user_name, q) || fuzzy(u.user_login, q)
-					)
+				? users.filter((u) => fuzzy(u.user_name, q) || fuzzy(u.user_login, q))
 				: users;
-			const userItems: MentionItem[] = filteredUsers
-				.slice(0, 8 - teamItems.length)
-				.map((u) => ({
-					id: u.user_id,
-					label: u.user_name,
-					sublabel: `@${u.user_login}`,
-					kind: 'user' as const
-				}));
+			const userItems: MentionItem[] = filteredUsers.slice(0, 8 - teamItems.length).map((u) => ({
+				id: u.user_id,
+				label: u.user_name,
+				sublabel: `@${u.user_login}`,
+				kind: 'user' as const
+			}));
 			items = [...teamItems, ...userItems];
 		} else {
 			const all = await loadResources();
 			const q = t.query.trim();
-			const filtered = q
-				? all.filter(
-						(r) => fuzzy(r.label, q) || fuzzy(r.sublabel ?? '', q)
-					)
-				: all;
+			const filtered = q ? all.filter((r) => fuzzy(r.label, q) || fuzzy(r.sublabel ?? '', q)) : all;
 			items = filtered.slice(0, 10);
 		}
 
@@ -484,8 +459,7 @@
 				// endpoint — the renderer swaps to an object URL via the
 				// bearer token, same as drag-and-drop attachments.
 				const isImage =
-					typeof r.mimeType === 'string' &&
-					r.mimeType.toLowerCase().startsWith('image/');
+					typeof r.mimeType === 'string' && r.mimeType.toLowerCase().startsWith('image/');
 				const typeWord = isImage ? 'Image' : 'File';
 				insertion = `[${typeWord} "${item.label}"](/api/v2/war-rooms/${warRoomId}/datastore/${r.fileId}/content)`;
 			} else {

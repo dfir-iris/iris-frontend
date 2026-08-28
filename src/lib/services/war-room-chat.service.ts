@@ -186,16 +186,11 @@ export class WarRoomChatService {
 		if (params.before != null) qs.set('before', String(params.before));
 		if (params.limit != null) qs.set('limit', String(params.limit));
 		if (params.kinds && params.kinds.length) qs.set('kinds', params.kinds.join(','));
-		if (params.caseIds && params.caseIds.length)
-			qs.set('case_ids', params.caseIds.join(','));
-		if (params.search && params.search.trim())
-			qs.set('search', params.search.trim());
-		if (params.topicIds !== undefined)
-			qs.set('topic_ids', params.topicIds.join(','));
+		if (params.caseIds && params.caseIds.length) qs.set('case_ids', params.caseIds.join(','));
+		if (params.search && params.search.trim()) qs.set('search', params.search.trim());
+		if (params.topicIds !== undefined) qs.set('topic_ids', params.topicIds.join(','));
 		const tail = qs.toString();
-		const path = tail
-			? `/war-rooms/${warRoomId}/chat?${tail}`
-			: `/war-rooms/${warRoomId}/chat`;
+		const path = tail ? `/war-rooms/${warRoomId}/chat?${tail}` : `/war-rooms/${warRoomId}/chat`;
 		return ApiService.get<ChatMessage[]>(path, options);
 	}
 
@@ -281,11 +276,7 @@ export class WarRoomChatService {
 		},
 		options: ApiOptions = {}
 	): Promise<RequestResponse<{ message_id: number; poll_id: number }>> {
-		return ApiService.post(
-			`/war-rooms/${warRoomId}/chat/polls`,
-			body,
-			options
-		);
+		return ApiService.post(`/war-rooms/${warRoomId}/chat/polls`, body, options);
 	}
 
 	static getPoll(
@@ -293,10 +284,7 @@ export class WarRoomChatService {
 		pollId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<ChatPoll>> {
-		return ApiService.get<ChatPoll>(
-			`/war-rooms/${warRoomId}/chat/polls/${pollId}`,
-			options
-		);
+		return ApiService.get<ChatPoll>(`/war-rooms/${warRoomId}/chat/polls/${pollId}`, options);
 	}
 
 	/** Replace the caller's votes for a poll. `[]` clears them entirely. */
@@ -329,10 +317,7 @@ export class WarRoomChatService {
 		warRoomId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<ChatThreadRoot[]>> {
-		return ApiService.get<ChatThreadRoot[]>(
-			`/war-rooms/${warRoomId}/chat/threads`,
-			options
-		);
+		return ApiService.get<ChatThreadRoot[]>(`/war-rooms/${warRoomId}/chat/threads`, options);
 	}
 
 	/**
@@ -345,10 +330,7 @@ export class WarRoomChatService {
 		warRoomId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<ChatMessage[]>> {
-		return ApiService.get<ChatMessage[]>(
-			`/war-rooms/${warRoomId}/chat/trace-log`,
-			options
-		);
+		return ApiService.get<ChatMessage[]>(`/war-rooms/${warRoomId}/chat/trace-log`, options);
 	}
 
 	static listReplies(
@@ -393,11 +375,7 @@ export class WarRoomChatService {
 		rootMessageId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<{ message_id: number; added: boolean }>> {
-		return ApiService.post(
-			`/war-rooms/${warRoomId}/chat/${rootMessageId}/follow`,
-			{},
-			options
-		);
+		return ApiService.post(`/war-rooms/${warRoomId}/chat/${rootMessageId}/follow`, {}, options);
 	}
 
 	static unfollowThread(
@@ -417,10 +395,7 @@ export class WarRoomChatService {
 		warRoomId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<ChatTopic[]>> {
-		return ApiService.get<ChatTopic[]>(
-			`/war-rooms/${warRoomId}/chat/topics`,
-			options
-		);
+		return ApiService.get<ChatTopic[]>(`/war-rooms/${warRoomId}/chat/topics`, options);
 	}
 
 	static createTopic(
@@ -428,11 +403,7 @@ export class WarRoomChatService {
 		name: string,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<ChatTopic>> {
-		return ApiService.post<ChatTopic>(
-			`/war-rooms/${warRoomId}/chat/topics`,
-			{ name },
-			options
-		);
+		return ApiService.post<ChatTopic>(`/war-rooms/${warRoomId}/chat/topics`, { name }, options);
 	}
 
 	static archiveTopic(

@@ -147,12 +147,7 @@
 	};
 
 	const loadMoreModules = async () => {
-		if (
-			modulesList.loading ||
-			modulesList.loadingMore ||
-			modulesList.nextPage == null
-		)
-			return;
+		if (modulesList.loading || modulesList.loadingMore || modulesList.nextPage == null) return;
 		modulesList = { ...modulesList, loadingMore: true };
 		const page = modulesList.nextPage as number;
 		try {
@@ -496,9 +491,7 @@
 	  Page header. Tight — borrows the layout of other admin sub-pages
 	  (header bar + content below, no card around the header itself).
 	-->
-	<header
-		class="flex items-center justify-between gap-3 border-b px-5 py-3"
-	>
+	<header class="flex items-center justify-between gap-3 border-b px-5 py-3">
 		<div class="flex items-center gap-2.5">
 			<ServerIcon size={18} class="text-muted-foreground" />
 			<div class="leading-tight">
@@ -545,246 +538,241 @@
 	<div class="flex flex-1 flex-col gap-3 overflow-hidden p-4">
 		<!-- Modules -->
 		<section class="flex min-h-0 flex-1 basis-3/5 flex-col overflow-hidden rounded-md border">
-			<div
-				class="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2"
-			>
+			<div class="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
 				<div class="flex items-baseline gap-2">
 					<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 						Modules
 					</h2>
-					<span class="text-2xs text-muted-foreground tabular-nums">
+					<span class="text-2xs tabular-nums text-muted-foreground">
 						{modulesList.items.length} / {modulesList.total} installed
 					</span>
 				</div>
 			</div>
 
 			<div class="flex-1 overflow-y-auto">
-
-			{#if modulesList.loading && modulesList.items.length === 0}
-				<div class="space-y-1 p-3">
-					{#each Array(4) as _}
-						<Skeleton class="h-7 w-full" />
-					{/each}
-				</div>
-			{:else if modulesList.items.length === 0}
-				<p class="px-3 py-4 text-center text-xs text-muted-foreground">
-					No modules registered yet. Click <span class="font-medium">Add module</span> to install
-					one by its pip package name.
-				</p>
-			{:else}
-				<table class="w-full text-xs">
-					<thead
-						class="border-b bg-muted/40 text-left text-2xs uppercase tracking-wide text-muted-foreground"
-					>
-						<tr>
-							<th class="w-12 px-3 py-1.5 font-medium">ID</th>
-							<th class="px-3 py-1.5 font-medium">Module</th>
-							<th class="w-20 px-3 py-1.5 font-medium">Pipeline</th>
-							<th class="w-20 px-3 py-1.5 font-medium">Version</th>
-							<th class="w-24 px-3 py-1.5 font-medium">Interface</th>
-							<th class="w-40 px-3 py-1.5 font-medium">Date added</th>
-							<th class="w-32 px-3 py-1.5 font-medium">Added by</th>
-							<th class="w-32 px-3 py-1.5 font-medium">Status</th>
-							<th class="w-10 px-2 py-1.5 font-medium"></th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each modulesList.items as mod (mod.id)}
-							<tr class="border-b transition-colors last:border-0 hover:bg-muted/30">
-								<td class="px-3 py-1.5 font-mono text-2xs text-muted-foreground">{mod.id}</td>
-								<td class="px-3 py-1.5">
-									<button
-										type="button"
-										class="text-left font-medium text-primary hover:underline"
-										onclick={() => openConfig(mod.id)}
-									>
-										{mod.module_human_name}
-									</button>
-								</td>
-								<td class="px-3 py-1.5 text-muted-foreground">
-									{mod.has_pipeline ? 'Yes' : '—'}
-								</td>
-								<td class="px-3 py-1.5 tabular-nums text-muted-foreground">{mod.module_version}</td>
-								<td class="px-3 py-1.5 tabular-nums text-muted-foreground">{mod.interface_version}</td>
-								<td class="whitespace-nowrap px-3 py-1.5 tabular-nums text-muted-foreground">
-									{formatDate(mod.date_added)}
-								</td>
-								<td class="px-3 py-1.5 text-muted-foreground">{mod.added_by}</td>
-								<td class="px-3 py-1.5">
-									{#if !mod.configured}
-										<span
-											class="inline-flex items-center gap-1 rounded-sm border border-amber-400/40 bg-amber-400/10 px-1.5 py-0.5 text-2xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300"
-											title="Mandatory parameters missing — module auto-disabled"
-										>
-											<TriangleAlertIcon size={10} />
-											Misconfigured
-										</span>
-									{:else if mod.is_active}
-										<span
-											class="inline-flex items-center gap-1 rounded-sm border border-emerald-400/40 bg-emerald-400/10 px-1.5 py-0.5 text-2xs font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300"
-										>
-											<BadgeCheckIcon size={10} />
-											Active
-										</span>
-									{:else}
-										<span
-											class="inline-flex items-center gap-1 rounded-sm border border-border bg-muted/50 px-1.5 py-0.5 text-2xs font-medium uppercase tracking-wide text-muted-foreground"
-										>
-											<BadgeXIcon size={10} />
-											Disabled
-										</span>
-									{/if}
-								</td>
-								<td class="px-2 py-1.5 text-right">
-									<DropdownMenu.Root>
-										<DropdownMenu.Trigger>
-											<Button variant="ghost" size="sm" class="h-6 w-6 p-0">
-												<MoreHorizontalIcon size={12} />
-											</Button>
-										</DropdownMenu.Trigger>
-										<DropdownMenu.Content align="end" class="min-w-[160px]">
-											<DropdownMenu.Item onclick={() => openConfig(mod.id)}>
-												<SettingsIcon size={12} class="mr-2" />
-												Configure
-											</DropdownMenu.Item>
-											<DropdownMenu.Item
-												disabled={!mod.configured && !mod.is_active}
-												onclick={() => toggleActive(mod)}
-											>
-												{#if mod.is_active}
-													<PowerOffIcon size={12} class="mr-2" />
-													Disable
-												{:else}
-													<PowerIcon size={12} class="mr-2" />
-													Enable
-												{/if}
-											</DropdownMenu.Item>
-											<DropdownMenu.Separator />
-											<DropdownMenu.Item
-												class="text-destructive focus:text-destructive"
-												onclick={() => removeModule(mod)}
-											>
-												<Trash2Icon size={12} class="mr-2" />
-												Remove
-											</DropdownMenu.Item>
-										</DropdownMenu.Content>
-									</DropdownMenu.Root>
-								</td>
-							</tr>
+				{#if modulesList.loading && modulesList.items.length === 0}
+					<div class="space-y-1 p-3">
+						{#each Array(4) as _}
+							<Skeleton class="h-7 w-full" />
 						{/each}
-					</tbody>
-				</table>
+					</div>
+				{:else if modulesList.items.length === 0}
+					<p class="px-3 py-4 text-center text-xs text-muted-foreground">
+						No modules registered yet. Click <span class="font-medium">Add module</span> to install one
+						by its pip package name.
+					</p>
+				{:else}
+					<table class="w-full text-xs">
+						<thead
+							class="border-b bg-muted/40 text-left text-2xs uppercase tracking-wide text-muted-foreground"
+						>
+							<tr>
+								<th class="w-12 px-3 py-1.5 font-medium">ID</th>
+								<th class="px-3 py-1.5 font-medium">Module</th>
+								<th class="w-20 px-3 py-1.5 font-medium">Pipeline</th>
+								<th class="w-20 px-3 py-1.5 font-medium">Version</th>
+								<th class="w-24 px-3 py-1.5 font-medium">Interface</th>
+								<th class="w-40 px-3 py-1.5 font-medium">Date added</th>
+								<th class="w-32 px-3 py-1.5 font-medium">Added by</th>
+								<th class="w-32 px-3 py-1.5 font-medium">Status</th>
+								<th class="w-10 px-2 py-1.5 font-medium"></th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each modulesList.items as mod (mod.id)}
+								<tr class="border-b transition-colors last:border-0 hover:bg-muted/30">
+									<td class="px-3 py-1.5 font-mono text-2xs text-muted-foreground">{mod.id}</td>
+									<td class="px-3 py-1.5">
+										<button
+											type="button"
+											class="text-left font-medium text-primary hover:underline"
+											onclick={() => openConfig(mod.id)}
+										>
+											{mod.module_human_name}
+										</button>
+									</td>
+									<td class="px-3 py-1.5 text-muted-foreground">
+										{mod.has_pipeline ? 'Yes' : '—'}
+									</td>
+									<td class="px-3 py-1.5 tabular-nums text-muted-foreground"
+										>{mod.module_version}</td
+									>
+									<td class="px-3 py-1.5 tabular-nums text-muted-foreground"
+										>{mod.interface_version}</td
+									>
+									<td class="whitespace-nowrap px-3 py-1.5 tabular-nums text-muted-foreground">
+										{formatDate(mod.date_added)}
+									</td>
+									<td class="px-3 py-1.5 text-muted-foreground">{mod.added_by}</td>
+									<td class="px-3 py-1.5">
+										{#if !mod.configured}
+											<span
+												class="inline-flex items-center gap-1 rounded-sm border border-amber-400/40 bg-amber-400/10 px-1.5 py-0.5 text-2xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300"
+												title="Mandatory parameters missing — module auto-disabled"
+											>
+												<TriangleAlertIcon size={10} />
+												Misconfigured
+											</span>
+										{:else if mod.is_active}
+											<span
+												class="inline-flex items-center gap-1 rounded-sm border border-emerald-400/40 bg-emerald-400/10 px-1.5 py-0.5 text-2xs font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300"
+											>
+												<BadgeCheckIcon size={10} />
+												Active
+											</span>
+										{:else}
+											<span
+												class="inline-flex items-center gap-1 rounded-sm border border-border bg-muted/50 px-1.5 py-0.5 text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+											>
+												<BadgeXIcon size={10} />
+												Disabled
+											</span>
+										{/if}
+									</td>
+									<td class="px-2 py-1.5 text-right">
+										<DropdownMenu.Root>
+											<DropdownMenu.Trigger>
+												<Button variant="ghost" size="sm" class="h-6 w-6 p-0">
+													<MoreHorizontalIcon size={12} />
+												</Button>
+											</DropdownMenu.Trigger>
+											<DropdownMenu.Content align="end" class="min-w-[160px]">
+												<DropdownMenu.Item onclick={() => openConfig(mod.id)}>
+													<SettingsIcon size={12} class="mr-2" />
+													Configure
+												</DropdownMenu.Item>
+												<DropdownMenu.Item
+													disabled={!mod.configured && !mod.is_active}
+													onclick={() => toggleActive(mod)}
+												>
+													{#if mod.is_active}
+														<PowerOffIcon size={12} class="mr-2" />
+														Disable
+													{:else}
+														<PowerIcon size={12} class="mr-2" />
+														Enable
+													{/if}
+												</DropdownMenu.Item>
+												<DropdownMenu.Separator />
+												<DropdownMenu.Item
+													class="text-destructive focus:text-destructive"
+													onclick={() => removeModule(mod)}
+												>
+													<Trash2Icon size={12} class="mr-2" />
+													Remove
+												</DropdownMenu.Item>
+											</DropdownMenu.Content>
+										</DropdownMenu.Root>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
 
-				<!--
+					<!--
 				  Infinite-scroll sentinel for the modules table. Sits at
 				  the bottom of the list; when it scrolls into view we
 				  request the next page. Renders a tiny spinner row while
 				  loading and disappears entirely once everything is
 				  loaded so the observer stops firing.
 				-->
-				{#if modulesList.nextPage != null}
-					<div
-						bind:this={modulesSentinel}
-						class="flex items-center justify-center gap-2 border-t px-3 py-2 text-2xs text-muted-foreground"
-					>
-						{#if modulesList.loadingMore}
-							<RefreshCwIcon size={11} class="animate-spin" />
-							Loading more…
-						{:else}
-							<span class="opacity-0">Loading more…</span>
-						{/if}
-					</div>
-				{:else if modulesList.total > PAGE_SIZE}
-					<div
-						class="border-t px-3 py-2 text-center text-2xs text-muted-foreground"
-					>
-						End of list — {modulesList.total} modules
-					</div>
+					{#if modulesList.nextPage != null}
+						<div
+							bind:this={modulesSentinel}
+							class="flex items-center justify-center gap-2 border-t px-3 py-2 text-2xs text-muted-foreground"
+						>
+							{#if modulesList.loadingMore}
+								<RefreshCwIcon size={11} class="animate-spin" />
+								Loading more…
+							{:else}
+								<span class="opacity-0">Loading more…</span>
+							{/if}
+						</div>
+					{:else if modulesList.total > PAGE_SIZE}
+						<div class="border-t px-3 py-2 text-center text-2xs text-muted-foreground">
+							End of list — {modulesList.total} modules
+						</div>
+					{/if}
 				{/if}
-			{/if}
 			</div>
 		</section>
 
 		<!-- Hooks -->
 		<section class="flex min-h-0 flex-1 basis-2/5 flex-col overflow-hidden rounded-md border">
-			<div
-				class="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2"
-			>
+			<div class="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
 				<div class="flex items-baseline gap-2">
 					<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 						Registered hooks
 					</h2>
-					<span class="text-2xs text-muted-foreground tabular-nums">
+					<span class="text-2xs tabular-nums text-muted-foreground">
 						{hooksList.items.length} / {hooksList.total} bindings
 					</span>
 				</div>
 			</div>
 
 			<div class="flex-1 overflow-y-auto">
-			{#if hooksList.loading && hooksList.items.length === 0}
-				<div class="space-y-1 p-3">
-					{#each Array(3) as _}
-						<Skeleton class="h-7 w-full" />
-					{/each}
-				</div>
-			{:else if hooksList.items.length === 0}
-				<p class="px-3 py-4 text-center text-xs text-muted-foreground">
-					No hooks registered. Configure a module to populate this table.
-				</p>
-			{:else}
-				<table class="w-full text-xs">
-					<thead
-						class="border-b bg-muted/40 text-left text-2xs uppercase tracking-wide text-muted-foreground"
-					>
-						<tr>
-							<th class="w-12 px-3 py-1.5 font-medium">ID</th>
-							<th class="w-44 px-3 py-1.5 font-medium">Registrant module</th>
-							<th class="w-56 px-3 py-1.5 font-medium">Hook</th>
-							<th class="px-3 py-1.5 font-medium">Description</th>
-							<th class="w-28 px-3 py-1.5 font-medium">Manual</th>
-							<th class="w-20 px-3 py-1.5 font-medium">Active</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each hooksList.items as hook (hook.id)}
-							<tr class="border-b transition-colors last:border-0 hover:bg-muted/30">
-								<td class="px-3 py-1.5 font-mono text-2xs text-muted-foreground">{hook.id}</td>
-								<td class="px-3 py-1.5 text-muted-foreground">{hook.module_name}</td>
-								<td class="px-3 py-1.5 font-mono text-2xs">{hook.hook_name}</td>
-								<td class="px-3 py-1.5 text-muted-foreground">
-									{hook.hook_description ?? '—'}
-								</td>
-								<td class="px-3 py-1.5 text-muted-foreground">
-									{hook.is_manual_hook ? 'Yes' : 'No'}
-								</td>
-								<td class="px-3 py-1.5 text-muted-foreground">
-									{hook.is_active ? 'Yes' : 'No'}
-								</td>
-							</tr>
+				{#if hooksList.loading && hooksList.items.length === 0}
+					<div class="space-y-1 p-3">
+						{#each Array(3) as _}
+							<Skeleton class="h-7 w-full" />
 						{/each}
-					</tbody>
-				</table>
+					</div>
+				{:else if hooksList.items.length === 0}
+					<p class="px-3 py-4 text-center text-xs text-muted-foreground">
+						No hooks registered. Configure a module to populate this table.
+					</p>
+				{:else}
+					<table class="w-full text-xs">
+						<thead
+							class="border-b bg-muted/40 text-left text-2xs uppercase tracking-wide text-muted-foreground"
+						>
+							<tr>
+								<th class="w-12 px-3 py-1.5 font-medium">ID</th>
+								<th class="w-44 px-3 py-1.5 font-medium">Registrant module</th>
+								<th class="w-56 px-3 py-1.5 font-medium">Hook</th>
+								<th class="px-3 py-1.5 font-medium">Description</th>
+								<th class="w-28 px-3 py-1.5 font-medium">Manual</th>
+								<th class="w-20 px-3 py-1.5 font-medium">Active</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each hooksList.items as hook (hook.id)}
+								<tr class="border-b transition-colors last:border-0 hover:bg-muted/30">
+									<td class="px-3 py-1.5 font-mono text-2xs text-muted-foreground">{hook.id}</td>
+									<td class="px-3 py-1.5 text-muted-foreground">{hook.module_name}</td>
+									<td class="px-3 py-1.5 font-mono text-2xs">{hook.hook_name}</td>
+									<td class="px-3 py-1.5 text-muted-foreground">
+										{hook.hook_description ?? '—'}
+									</td>
+									<td class="px-3 py-1.5 text-muted-foreground">
+										{hook.is_manual_hook ? 'Yes' : 'No'}
+									</td>
+									<td class="px-3 py-1.5 text-muted-foreground">
+										{hook.is_active ? 'Yes' : 'No'}
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
 
-				{#if hooksList.nextPage != null}
-					<div
-						bind:this={hooksSentinel}
-						class="flex items-center justify-center gap-2 border-t px-3 py-2 text-2xs text-muted-foreground"
-					>
-						{#if hooksList.loadingMore}
-							<RefreshCwIcon size={11} class="animate-spin" />
-							Loading more…
-						{:else}
-							<span class="opacity-0">Loading more…</span>
-						{/if}
-					</div>
-				{:else if hooksList.total > PAGE_SIZE}
-					<div
-						class="border-t px-3 py-2 text-center text-2xs text-muted-foreground"
-					>
-						End of list — {hooksList.total} bindings
-					</div>
+					{#if hooksList.nextPage != null}
+						<div
+							bind:this={hooksSentinel}
+							class="flex items-center justify-center gap-2 border-t px-3 py-2 text-2xs text-muted-foreground"
+						>
+							{#if hooksList.loadingMore}
+								<RefreshCwIcon size={11} class="animate-spin" />
+								Loading more…
+							{:else}
+								<span class="opacity-0">Loading more…</span>
+							{/if}
+						</div>
+					{:else if hooksList.total > PAGE_SIZE}
+						<div class="border-t px-3 py-2 text-center text-2xs text-muted-foreground">
+							End of list — {hooksList.total} bindings
+						</div>
+					{/if}
 				{/if}
-			{/if}
 			</div>
 		</section>
 	</div>
@@ -853,7 +841,9 @@
 					Package <span class="ml-1 font-mono text-foreground">{configModule.module_name}</span>
 				</span>
 				<span class="text-muted-foreground">
-					Version <span class="ml-1 tabular-nums text-foreground">{configModule.module_version}</span>
+					Version <span class="ml-1 tabular-nums text-foreground"
+						>{configModule.module_version}</span
+					>
 				</span>
 				<span class="text-muted-foreground">
 					Interface
@@ -904,9 +894,7 @@
 			<div class="flex flex-col gap-3 pt-3">
 				{#each Object.entries(groupedParams) as [section, params] (section)}
 					<div>
-						<h3
-							class="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground"
-						>
+						<h3 class="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
 							{section}
 						</h3>
 						<div class="flex flex-col divide-y rounded-md border">
@@ -914,8 +902,7 @@
 								{@const isJson = param.type === 'textfield_json'}
 								{@const isTextfield = String(param.type).startsWith('textfield_')}
 								{@const jsonValid = paramJsonValid[param.param_name] ?? true}
-								{@const saveDisabled =
-									savingParam === param.param_name || (isJson && !jsonValid)}
+								{@const saveDisabled = savingParam === param.param_name || (isJson && !jsonValid)}
 								<div class="flex flex-col gap-2 p-3">
 									<div class="flex items-center gap-2">
 										<span class="text-xs font-medium">
@@ -1012,9 +999,7 @@
 												oninput={(e) =>
 													(paramDrafts = {
 														...paramDrafts,
-														[param.param_name]: (
-															e.currentTarget as HTMLTextAreaElement
-														).value
+														[param.param_name]: (e.currentTarget as HTMLTextAreaElement).value
 													})}
 											/>
 										{/if}
@@ -1037,8 +1022,7 @@
 												oninput={(e) =>
 													(paramDrafts = {
 														...paramDrafts,
-														[param.param_name]: (e.currentTarget as HTMLInputElement)
-															.value
+														[param.param_name]: (e.currentTarget as HTMLInputElement).value
 													})}
 											/>
 											<Button

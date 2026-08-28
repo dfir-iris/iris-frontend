@@ -20,7 +20,10 @@
 		emptyRootGroup,
 		type GroupNode
 	} from '$lib/components/common/ConditionsBuilder/ConditionsBuilder.svelte';
-	import { ClusterRulesService, type BackfillRuleResponse } from '$lib/services/cluster-rules.service';
+	import {
+		ClusterRulesService,
+		type BackfillRuleResponse
+	} from '$lib/services/cluster-rules.service';
 	import type { ClusterRule } from '$lib/types/resources/cluster-rule';
 
 	let rules = $state<ClusterRule[]>([]);
@@ -50,8 +53,7 @@
 			.map((s) => s.trim())
 			.filter(Boolean);
 
-	const groupByHasField = (csv: string, field: string): boolean =>
-		splitCsv(csv).includes(field);
+	const groupByHasField = (csv: string, field: string): boolean => splitCsv(csv).includes(field);
 
 	const toggleGroupByField = (csv: string, field: string): string => {
 		const list = splitCsv(csv);
@@ -192,8 +194,7 @@
 			const res = await ClusterRulesService.test(editing.rule_id, {
 				sample_days: sampleDays
 			});
-			testMatches =
-				(res.data as { matching_alert_ids?: number[] })?.matching_alert_ids ?? [];
+			testMatches = (res.data as { matching_alert_ids?: number[] })?.matching_alert_ids ?? [];
 		} catch {
 			showError('Test failed');
 		}
@@ -262,9 +263,7 @@
 				<table class="w-full text-sm">
 					<thead class="bg-muted/40">
 						<tr class="text-left">
-							<th class="px-3 py-2 text-2xs uppercase tracking-wide text-muted-foreground"
-								>Name</th
-							>
+							<th class="px-3 py-2 text-2xs uppercase tracking-wide text-muted-foreground">Name</th>
 							<th class="px-3 py-2 text-2xs uppercase tracking-wide text-muted-foreground"
 								>Priority</th
 							>
@@ -326,16 +325,13 @@
 
 				<div class="grid gap-3 sm:grid-cols-2">
 					<div class="flex flex-col gap-1">
-						<label
-							for="rule-name"
-							class="text-2xs uppercase tracking-wide text-muted-foreground">Name</label
+						<label for="rule-name" class="text-2xs uppercase tracking-wide text-muted-foreground"
+							>Name</label
 						>
 						<Input id="rule-name" bind:value={editing.rule_name} />
 					</div>
 					<div class="flex flex-col gap-1">
-						<label
-							for="rule-desc"
-							class="text-2xs uppercase tracking-wide text-muted-foreground"
+						<label for="rule-desc" class="text-2xs uppercase tracking-wide text-muted-foreground"
 							>Description</label
 						>
 						<Input id="rule-desc" bind:value={editing.rule_description as string} />
@@ -346,8 +342,7 @@
 					<div class="flex flex-col gap-1">
 						<label
 							for="rule-priority"
-							class="text-2xs uppercase tracking-wide text-muted-foreground"
-							>Priority</label
+							class="text-2xs uppercase tracking-wide text-muted-foreground">Priority</label
 						>
 						<Input id="rule-priority" type="number" bind:value={editing.rule_priority} />
 					</div>
@@ -364,13 +359,11 @@
 					</p>
 					<ConditionsBuilder bind:value={conditionsTree} target="alert" />
 					<p class="mt-2 text-2xs text-muted-foreground">
-						JSON fields work with dotted paths — e.g. <code
-							class="rounded bg-muted px-1 py-0.5"
+						JSON fields work with dotted paths — e.g. <code class="rounded bg-muted px-1 py-0.5"
 							>alert_context.severity</code
 						>
 						drills into the JSON document at query time. Relationship paths like
-						<code class="rounded bg-muted px-1 py-0.5">assets.asset_name</code> join the
-						related table.
+						<code class="rounded bg-muted px-1 py-0.5">assets.asset_name</code> join the related table.
 					</p>
 				</div>
 
@@ -388,9 +381,9 @@
 						Correlation
 					</p>
 					<p class="mb-3 text-xs text-muted-foreground">
-						Group matching alerts into <em>one alert cluster</em> when they share the same value on
-						these fields, within the stacking window below. Example: 10 failed-login alerts
-						from the same host in 5 minutes → one “Brute force on host X” cluster.
+						Group matching alerts into <em>one alert cluster</em> when they share the same value on these
+						fields, within the stacking window below. Example: 10 failed-login alerts from the same host
+						in 5 minutes → one “Brute force on host X” cluster.
 					</p>
 					<div class="mb-2 flex flex-wrap items-center gap-2">
 						{#each CORRELATION_PRESETS as preset (preset.field)}
@@ -421,10 +414,8 @@
 								bind:value={groupByCsv}
 							/>
 							<p class="text-2xs text-muted-foreground">
-								Tenant scope (<code class="rounded bg-muted px-1"
-									>alert_customer_id</code
-								>) is added automatically if you don't include it — an alert cluster never
-								mixes tenants.
+								Tenant scope (<code class="rounded bg-muted px-1">alert_customer_id</code>) is added
+								automatically if you don't include it — an alert cluster never mixes tenants.
 							</p>
 						</div>
 						<div class="flex flex-col gap-1">
@@ -441,19 +432,15 @@
 								bind:value={timeWindowSeconds}
 							/>
 							<p class="text-2xs text-muted-foreground">
-								Alerts that arrive within this window and match the correlation keys
-								above stack into the same cluster. Leave blank to stack forever (open
-								alert cluster stays open).
+								Alerts that arrive within this window and match the correlation keys above stack
+								into the same cluster. Leave blank to stack forever (open alert cluster stays open).
 							</p>
 						</div>
 					</div>
 				</div>
 
 				<div class="mt-4 flex flex-col gap-1">
-					<label
-						for="rule-title"
-						class="text-2xs uppercase tracking-wide text-muted-foreground"
-					>
+					<label for="rule-title" class="text-2xs uppercase tracking-wide text-muted-foreground">
 						AlertCluster title template ({'{alert_title}'} is substituted from the first alert)
 					</label>
 					<Input

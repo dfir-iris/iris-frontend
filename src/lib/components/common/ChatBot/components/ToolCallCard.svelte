@@ -52,15 +52,20 @@
 		<div class="border-t px-2 py-1">
 			<div class="mb-1 text-muted-foreground">args</div>
 			<pre
-				class="max-h-32 overflow-auto whitespace-pre-wrap break-all font-mono text-2xs"
-			>{JSON.stringify(argsData, null, 2)}</pre>
+				class="max-h-32 overflow-auto whitespace-pre-wrap break-all font-mono text-2xs">{JSON.stringify(
+					argsData,
+					null,
+					2
+				)}</pre>
 			{#if error}
 				<div class="mt-1 text-destructive">error: {error}</div>
 			{:else if result !== undefined}
 				<div class="mt-1 text-muted-foreground">result</div>
 				<pre
-					class="max-h-40 overflow-auto whitespace-pre-wrap break-all font-mono text-2xs"
-				>{typeof result === 'string' ? result : JSON.stringify(result, null, 2)}</pre>
+					class="max-h-40 overflow-auto whitespace-pre-wrap break-all font-mono text-2xs">{typeof result ===
+					'string'
+						? result
+						: JSON.stringify(result, null, 2)}</pre>
 			{/if}
 		</div>
 	{/if}

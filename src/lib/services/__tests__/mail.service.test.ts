@@ -31,7 +31,9 @@ describe('MailService — rules', () => {
 
 	it('listRules() calls /manage/mail/rules', async () => {
 		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-			ok: true, status: 200, data: { data: [] }
+			ok: true,
+			status: 200,
+			data: { data: [] }
 		});
 		await MailService.listRules();
 		expect(ApiService.get).toHaveBeenCalledWith('/manage/mail/rules', {});
@@ -39,10 +41,14 @@ describe('MailService — rules', () => {
 
 	it('createRule() posts the rule body', async () => {
 		(ApiService.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-			ok: true, status: 200, data: { id: 1 }
+			ok: true,
+			status: 200,
+			data: { id: 1 }
 		});
 		await MailService.createRule({
-			name: 'r', priority: 100, action: 'create_alert'
+			name: 'r',
+			priority: 100,
+			action: 'create_alert'
 		});
 		expect(ApiService.post).toHaveBeenCalledWith(
 			'/manage/mail/rules',
@@ -53,22 +59,22 @@ describe('MailService — rules', () => {
 
 	it('updateRule() puts to /manage/mail/rules/<id>', async () => {
 		(ApiService.put as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-			ok: true, status: 200, data: { id: 5 }
+			ok: true,
+			status: 200,
+			data: { id: 5 }
 		});
 		await MailService.updateRule(5, { enabled: false });
-		expect(ApiService.put).toHaveBeenCalledWith(
-			'/manage/mail/rules/5', { enabled: false }, {}
-		);
+		expect(ApiService.put).toHaveBeenCalledWith('/manage/mail/rules/5', { enabled: false }, {});
 	});
 
 	it('deleteRule() deletes /manage/mail/rules/<id>', async () => {
 		(ApiService.delete as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-			ok: true, status: 200, data: { deleted: 5 }
+			ok: true,
+			status: 200,
+			data: { deleted: 5 }
 		});
 		await MailService.deleteRule(5);
-		expect(ApiService.delete).toHaveBeenCalledWith(
-			'/manage/mail/rules/5', {}
-		);
+		expect(ApiService.delete).toHaveBeenCalledWith('/manage/mail/rules/5', {});
 	});
 });
 
@@ -78,21 +84,21 @@ describe('MailService — ingest log + poll', () => {
 
 	it('listIngestLog() calls with a limit', async () => {
 		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-			ok: true, status: 200, data: { data: [] }
+			ok: true,
+			status: 200,
+			data: { data: [] }
 		});
 		await MailService.listIngestLog(50);
-		expect(ApiService.get).toHaveBeenCalledWith(
-			'/manage/mail/ingest-log?limit=50', {}
-		);
+		expect(ApiService.get).toHaveBeenCalledWith('/manage/mail/ingest-log?limit=50', {});
 	});
 
 	it('pollNow() posts to /manage/mail/poll-now with an empty body', async () => {
 		(ApiService.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-			ok: true, status: 200, data: { skipped: false, processed: 3 }
+			ok: true,
+			status: 200,
+			data: { skipped: false, processed: 3 }
 		});
 		await MailService.pollNow();
-		expect(ApiService.post).toHaveBeenCalledWith(
-			'/manage/mail/poll-now', {}, {}
-		);
+		expect(ApiService.post).toHaveBeenCalledWith('/manage/mail/poll-now', {}, {});
 	});
 });

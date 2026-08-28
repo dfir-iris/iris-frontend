@@ -40,10 +40,7 @@
 		WarRoomDatastoreService,
 		type WarRoomDatastoreFile
 	} from '$lib/services/war-room-datastore.service';
-	import {
-		WarRoomsService,
-		type WarRoomCaseAttachment
-	} from '$lib/services/war-rooms.service';
+	import { WarRoomsService, type WarRoomCaseAttachment } from '$lib/services/war-rooms.service';
 	import { CaseDatastoreService } from '$lib/services/case-datastore.service';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { Input } from '$lib/components/ui/input';
@@ -55,9 +52,7 @@
 		DataStoreTreeNode as DataStoreTreeNodeT
 	} from '$lib/types/resources/datastore';
 
-	const panel = getContext<WarRoomDatastorePanelContext>(
-		WAR_ROOM_DATASTORE_PANEL_CTX
-	);
+	const panel = getContext<WarRoomDatastorePanelContext>(WAR_ROOM_DATASTORE_PANEL_CTX);
 
 	const warRoomId = $derived(Number(page.params.war_room_id));
 
@@ -114,13 +109,10 @@
 		const res = await CaseDatastoreService.getTree(caseId);
 		if (res.ok && res.data && typeof res.data !== 'string') {
 			// Backend wraps in { data: <tree> } same as the case context.
-			const payload = res.data as unknown as
-				| { data?: DataStoreTree }
-				| DataStoreTree;
+			const payload = res.data as unknown as { data?: DataStoreTree } | DataStoreTree;
 			const treeData =
-				'data' in (payload as { data?: unknown }) &&
-				(payload as { data?: unknown }).data
-					? ((payload as { data: DataStoreTree }).data)
+				'data' in (payload as { data?: unknown }) && (payload as { data?: unknown }).data
+					? (payload as { data: DataStoreTree }).data
 					: (payload as DataStoreTree);
 			caseTrees[caseId] = { loading: false, error: null, tree: treeData };
 			indexFiles(treeData, caseId);
@@ -189,8 +181,7 @@
 				if (!res.ok) {
 					toast({
 						title: `Could not upload ${f.name}`,
-						description:
-							typeof res.data === 'string' ? res.data : undefined,
+						description: typeof res.data === 'string' ? res.data : undefined,
 						variant: 'destructive'
 					});
 				}
@@ -228,8 +219,7 @@
 	const humanSize = (bytes: number) => {
 		if (bytes < 1024) return `${bytes} B`;
 		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-		if (bytes < 1024 * 1024 * 1024)
-			return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+		if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 		return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 	};
 
@@ -277,10 +267,7 @@
 		// in a plain `<a href>` would 401 because the browser doesn't
 		// attach the Authorization header on naked navigations.
 		if (action === 'preview' || action === 'select') {
-			const fetched = await CaseDatastoreService.fetchFileBlobUrl(
-				caseId,
-				fileId
-			);
+			const fetched = await CaseDatastoreService.fetchFileBlobUrl(caseId, fileId);
 			if (!fetched) {
 				toast({
 					title: 'Could not open file',
@@ -300,10 +287,7 @@
 		}
 
 		if (action === 'download') {
-			const fetched = await CaseDatastoreService.fetchFileBlobUrl(
-				caseId,
-				fileId
-			);
+			const fetched = await CaseDatastoreService.fetchFileBlobUrl(caseId, fileId);
 			if (!fetched) {
 				toast({
 					title: 'Could not download file',
@@ -327,9 +311,7 @@
 			void navigator.clipboard
 				.writeText(`${window.location.origin}/case/${caseId}/datastore`)
 				.then(() => toast({ title: 'Case datastore link copied' }))
-				.catch(() =>
-					toast({ title: 'Could not copy link', variant: 'destructive' })
-				);
+				.catch(() => toast({ title: 'Could not copy link', variant: 'destructive' }));
 			return;
 		}
 
@@ -339,9 +321,7 @@
 		});
 	};
 
-	const isLoadingCases = $derived(
-		Object.values(caseTrees).some((s) => s.loading)
-	);
+	const isLoadingCases = $derived(Object.values(caseTrees).some((s) => s.loading));
 </script>
 
 <div
@@ -394,9 +374,7 @@
 				disabled={isRefreshing}
 				aria-label="Refresh"
 			>
-				<RefreshCwIcon
-					class={isRefreshing ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'}
-				/>
+				<RefreshCwIcon class={isRefreshing ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
 			</Button>
 			<Button
 				variant="ghost"
@@ -420,10 +398,7 @@
 	</div>
 
 	<div
-		class={[
-			'min-h-0 flex-1 overflow-y-auto transition-colors',
-			dragOver ? 'bg-primary/10' : ''
-		]}
+		class={['min-h-0 flex-1 overflow-y-auto transition-colors', dragOver ? 'bg-primary/10' : '']}
 	>
 		<!-- War-room files -->
 		<section class="border-b">
@@ -431,7 +406,7 @@
 				<span class="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
 					War room
 				</span>
-				<span class="text-2xs text-muted-foreground tabular-nums">
+				<span class="text-2xs tabular-nums text-muted-foreground">
 					({warRoomFiles.length})
 				</span>
 			</div>
@@ -460,10 +435,7 @@
 								</p>
 							</div>
 							<a
-								href={WarRoomDatastoreService.downloadUrl(
-									warRoomId,
-									f.file_id
-								)}
+								href={WarRoomDatastoreService.downloadUrl(warRoomId, f.file_id)}
 								class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
 								title="Download"
 							>
@@ -489,7 +461,7 @@
 				<span class="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
 					Cases
 				</span>
-				<span class="text-2xs text-muted-foreground tabular-nums">
+				<span class="text-2xs tabular-nums text-muted-foreground">
 					({attachedCases.length})
 				</span>
 				{#if isLoadingCases}

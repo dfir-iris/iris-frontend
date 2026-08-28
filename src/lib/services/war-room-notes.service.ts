@@ -114,10 +114,7 @@ export class WarRoomNotesService {
 		warRoomId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<WarRoomNoteFolder[]>> {
-		return ApiService.get<WarRoomNoteFolder[]>(
-			`/war-rooms/${warRoomId}/notes-folders`,
-			options
-		);
+		return ApiService.get<WarRoomNoteFolder[]>(`/war-rooms/${warRoomId}/notes-folders`, options);
 	}
 
 	static getFolder(
@@ -161,10 +158,7 @@ export class WarRoomNotesService {
 		folderId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
-		return ApiService.delete<null>(
-			`/war-rooms/${warRoomId}/notes-folders/${folderId}`,
-			options
-		);
+		return ApiService.delete<null>(`/war-rooms/${warRoomId}/notes-folders/${folderId}`, options);
 	}
 
 	// ---- Revisions ----------------------------------------------------

@@ -1,5 +1,5 @@
 import { ApiService } from './api.service';
-import type { ApiOptions, RequestResponse } from './api.service';
+import type { ApiOptions } from './api.service';
 import type {
 	DeployFlowResult,
 	FlowConditions,

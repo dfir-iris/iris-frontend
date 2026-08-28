@@ -38,8 +38,7 @@
 		if (!needle) return allUsers;
 		return allUsers.filter(
 			(u) =>
-				u.user_login.toLowerCase().includes(needle) ||
-				u.user_name.toLowerCase().includes(needle)
+				u.user_login.toLowerCase().includes(needle) || u.user_name.toLowerCase().includes(needle)
 		);
 	});
 
@@ -91,9 +90,7 @@
 	<Dialog.Content class="sm:max-w-lg">
 		<Dialog.Header>
 			<Dialog.Title>Members — {group.group_name}</Dialog.Title>
-			<Dialog.Description>
-				Tick the users that should belong to this group.
-			</Dialog.Description>
+			<Dialog.Description>Tick the users that should belong to this group.</Dialog.Description>
 		</Dialog.Header>
 
 		<div class="flex flex-col gap-2 pt-2">
@@ -159,7 +156,7 @@
 									</div>
 									{#if locked}
 										<span
-											class="shrink-0 rounded-sm border bg-muted/40 px-1.5 py-0 text-3xs text-muted-foreground"
+											class="text-3xs shrink-0 rounded-sm border bg-muted/40 px-1.5 py-0 text-muted-foreground"
 										>
 											demo
 										</span>

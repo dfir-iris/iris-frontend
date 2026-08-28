@@ -32,17 +32,10 @@ export class FollowedCasesService {
 		caseId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<FollowCaseResponse>> {
-		return ApiService.post<FollowCaseResponse>(
-			'/me/followed-cases',
-			{ case_id: caseId },
-			options
-		);
+		return ApiService.post<FollowCaseResponse>('/me/followed-cases', { case_id: caseId }, options);
 	}
 
-	static unfollow(
-		caseId: number,
-		options: ApiOptions = {}
-	): Promise<RequestResponse<null>> {
+	static unfollow(caseId: number, options: ApiOptions = {}): Promise<RequestResponse<null>> {
 		return ApiService.delete<null>(`/me/followed-cases/${caseId}`, options);
 	}
 

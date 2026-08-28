@@ -139,7 +139,12 @@
   Tree-side child: sits on its parent's side of the spine, joined by
   L-shaped elbows so the branch structure stays legible.
 -->
-{#snippet treeChild(event: WarRoomTimelineEvent, side: 'left' | 'right', depth: number, isLastSibling: boolean)}
+{#snippet treeChild(
+	event: WarRoomTimelineEvent,
+	side: 'left' | 'right',
+	depth: number,
+	isLastSibling: boolean
+)}
 	{@const children = childrenByParent.get(event.id) ?? []}
 	{@const childrenVisible = !folded.has(event.id) && children.length > 0}
 
@@ -147,12 +152,14 @@
 		<span
 			aria-hidden="true"
 			class="absolute top-0 w-px bg-border dark:bg-slate-700"
-			style="{side === 'left' ? 'right: 12px;' : 'left: 12px;'} height: {isLastSibling ? '24px' : '100%'}"
+			style="{side === 'left' ? 'right: 12px;' : 'left: 12px;'} height: {isLastSibling
+				? '24px'
+				: '100%'}"
 		></span>
 		<span
 			aria-hidden="true"
 			class="absolute top-6 h-px w-5 bg-border dark:bg-slate-700"
-			style="{side === 'left' ? 'right: 12px;' : 'left: 12px;'}"
+			style={side === 'left' ? 'right: 12px;' : 'left: 12px;'}
 		></span>
 
 		<TimelineEventCard
@@ -192,7 +199,8 @@
 	<div class="relative grid grid-cols-2 gap-0">
 		{#if side === 'left'}
 			<div class="relative pr-6">
-				<span aria-hidden="true" class="absolute right-0 top-6 h-px w-6 bg-border dark:bg-slate-700"></span>
+				<span aria-hidden="true" class="absolute right-0 top-6 h-px w-6 bg-border dark:bg-slate-700"
+				></span>
 
 				<TimelineEventCard
 					{event}
@@ -227,7 +235,8 @@
 		{:else}
 			<div></div>
 			<div class="relative pl-6">
-				<span aria-hidden="true" class="absolute left-0 top-6 h-px w-6 bg-border dark:bg-slate-700"></span>
+				<span aria-hidden="true" class="absolute left-0 top-6 h-px w-6 bg-border dark:bg-slate-700"
+				></span>
 
 				<TimelineEventCard
 					{event}
@@ -269,7 +278,10 @@
 
 {#if mode === 'tree'}
 	<div class="relative mx-auto w-full max-w-[1400px]">
-		<span aria-hidden="true" class="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border dark:bg-slate-700"></span>
+		<span
+			aria-hidden="true"
+			class="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border dark:bg-slate-700"
+		></span>
 
 		{#each groups as group (group.date)}
 			<section class="relative">
@@ -295,7 +307,9 @@
 					class="sticky top-0 z-10 -mx-2 mb-2 flex items-center gap-2 bg-background/95 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/70"
 				>
 					<div class="h-px flex-1 bg-border dark:bg-slate-700"></div>
-					<div class="rounded-full border border-border bg-muted px-3 py-0.5 text-xs font-semibold text-foreground">
+					<div
+						class="rounded-full border border-border bg-muted px-3 py-0.5 text-xs font-semibold text-foreground"
+					>
 						{formatGroupDate(group.date)}
 					</div>
 					<div class="h-px flex-1 bg-border dark:bg-slate-700"></div>

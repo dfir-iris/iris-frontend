@@ -30,7 +30,8 @@
 <span class={className}>
 	{#each segments as seg, i (i)}
 		{#if seg.match}
-			<mark class="rounded-sm bg-yellow-300/60 px-0.5 text-foreground dark:bg-yellow-400/40 dark:text-yellow-50"
+			<mark
+				class="rounded-sm bg-yellow-300/60 px-0.5 text-foreground dark:bg-yellow-400/40 dark:text-yellow-50"
 				>{seg.text}</mark
 			>
 		{:else}

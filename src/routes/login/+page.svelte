@@ -116,7 +116,11 @@
 <svelte:head>
 	<title>Log In</title>
 	{#if authSettings.demo_mode && env.PUBLIC_PLAUSIBLE_DOMAIN}
-		<script defer data-domain={env.PUBLIC_PLAUSIBLE_DOMAIN} src="https://analytics.dfir-iris.org/js/plausible.js"></script>
+		<script
+			defer
+			data-domain={env.PUBLIC_PLAUSIBLE_DOMAIN}
+			src="https://analytics.dfir-iris.org/js/plausible.js"
+		></script>
 	{/if}
 </svelte:head>
 

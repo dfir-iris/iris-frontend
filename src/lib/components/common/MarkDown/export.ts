@@ -87,5 +87,8 @@ const readAttr = (html: string, name: string): string | null => {
 // every HTML tag inside the chip. Handles older or hand-written chips.
 const stripInnerText = (chipHtml: string): string => {
 	const inner = chipHtml.replace(/^<span\b[^>]*>/i, '').replace(/<\/span>$/i, '');
-	return inner.replace(/<[^>]+>/g, '').replace(/^[@#]/, '').trim();
+	return inner
+		.replace(/<[^>]+>/g, '')
+		.replace(/^[@#]/, '')
+		.trim();
 };

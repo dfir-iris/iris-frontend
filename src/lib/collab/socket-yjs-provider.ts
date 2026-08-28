@@ -147,9 +147,18 @@ export class SocketYjsProvider {
 		if (origin === this) return; // ignore updates we applied from the network
 		this.emitSync(update);
 	};
-	private readonly onAwarenessUpdate = ({ added, updated, removed }: {
-		added: number[]; updated: number[]; removed: number[];
-	}, origin: unknown) => {
+	private readonly onAwarenessUpdate = (
+		{
+			added,
+			updated,
+			removed
+		}: {
+			added: number[];
+			updated: number[];
+			removed: number[];
+		},
+		origin: unknown
+	) => {
 		if (origin === 'remote') return;
 		const changedClients = added.concat(updated, removed);
 		if (!changedClients.length) return;
@@ -289,9 +298,11 @@ export class SocketYjsProvider {
 		// is technically undocumented but stable across every y-protocols
 		// major we've shipped against; a version bump that changes this
 		// contract will break loudly at test time.
-		const states = (this.awareness as unknown as {
-			states: Map<number, Record<string, unknown>>;
-		}).states;
+		const states = (
+			this.awareness as unknown as {
+				states: Map<number, Record<string, unknown>>;
+			}
+		).states;
 		const targets = onlyClientId != null ? [onlyClientId] : [...states.keys()];
 		let changed = false;
 		for (const clientId of targets) {
@@ -301,10 +312,7 @@ export class SocketYjsProvider {
 			const currentUser = (state.user as Record<string, unknown>) ?? {};
 			// Only rewrite if the label diverges — spares CollaborationCursor
 			// a needless redraw when the peer already sent the right value.
-			if (
-				currentUser.name === trusted.name &&
-				currentUser.userId === trusted.userId
-			) {
+			if (currentUser.name === trusted.name && currentUser.userId === trusted.userId) {
 				continue;
 			}
 			state.user = { ...currentUser, name: trusted.name, userId: trusted.userId };
@@ -316,12 +324,11 @@ export class SocketYjsProvider {
 			// `emit` is exposed by the Observable base class; the
 			// argument shape matches what applyAwarenessUpdate would
 			// emit — no added/updated diff needed for a label rewrite.
-			(this.awareness as unknown as {
-				emit: (name: string, args: unknown[]) => void;
-			}).emit('change', [
-				{ added: [], updated: targets, removed: [] },
-				'trusted-override'
-			]);
+			(
+				this.awareness as unknown as {
+					emit: (name: string, args: unknown[]) => void;
+				}
+			).emit('change', [{ added: [], updated: targets, removed: [] }, 'trusted-override']);
 		}
 	}
 

@@ -59,10 +59,9 @@ describe('handleSessionExpiration', () => {
 		handleSessionExpiration();
 		await flush();
 
-		expect(goto).toHaveBeenCalledWith(
-			'/login?redirect=%2Factivities%3Fpage%3D2%26q%3Dlogin',
-			{ replaceState: true }
-		);
+		expect(goto).toHaveBeenCalledWith('/login?redirect=%2Factivities%3Fpage%3D2%26q%3Dlogin', {
+			replaceState: true
+		});
 	});
 
 	// The regression this module exists to prevent. The old guard compared

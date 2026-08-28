@@ -109,7 +109,7 @@
 			'alert_context.rule_name',
 			'alert_source_content.event_type'
 		],
-	alert_cluster: [
+		alert_cluster: [
 			'cluster_id',
 			'cluster_uuid',
 			'cluster_title',
@@ -134,8 +134,7 @@
 		target?: 'alert' | 'alert_cluster';
 	} = $props();
 
-	const isGroup = (n: AnyNode): n is GroupNode =>
-		(n as GroupNode).conditions !== undefined;
+	const isGroup = (n: AnyNode): n is GroupNode => (n as GroupNode).conditions !== undefined;
 
 	const emptyLeaf = (): LeafNode => ({ field: '', operator: 'eq', value: '' });
 	const emptyGroup = (): GroupNode => ({ logic: 'and', conditions: [emptyLeaf()] });
@@ -237,9 +236,7 @@
 			{/each}
 		</select>
 		<Input
-			placeholder={node.operator === 'in' || node.operator === 'not_in'
-				? 'a,b,c'
-				: 'Value'}
+			placeholder={node.operator === 'in' || node.operator === 'not_in' ? 'a,b,c' : 'Value'}
 			value={typeof node.value === 'string'
 				? node.value
 				: Array.isArray(node.value)
@@ -247,10 +244,7 @@
 					: ''}
 			oninput={(e) =>
 				patchLeaf(path, {
-					value: coerceValue(
-						(e.target as HTMLInputElement).value,
-						node.operator
-					)
+					value: coerceValue((e.target as HTMLInputElement).value, node.operator)
 				})}
 		/>
 		<Button

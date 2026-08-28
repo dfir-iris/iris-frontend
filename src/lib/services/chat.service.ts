@@ -145,9 +145,7 @@ export interface ChatHealth {
 // ---------------------------------------------------------------------
 
 export class ChatService {
-	static async health(
-		options: ApiOptions = {}
-	): Promise<RequestResponse<ChatHealth>> {
+	static async health(options: ApiOptions = {}): Promise<RequestResponse<ChatHealth>> {
 		return ApiService.get<ChatHealth>('/case-chat/health', options);
 	}
 
@@ -199,11 +197,7 @@ export class ChatService {
 		body: { title?: string } = {},
 		options: ApiOptions = {}
 	): Promise<RequestResponse<ChatConversation>> {
-		return ApiService.post<ChatConversation>(
-			'/case-chat/global/conversations',
-			body,
-			options
-		);
+		return ApiService.post<ChatConversation>('/case-chat/global/conversations', body, options);
 	}
 
 	static async getConversation(
@@ -220,10 +214,7 @@ export class ChatService {
 		conversationId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<unknown>> {
-		return ApiService.delete(
-			`/case-chat/conversations/${conversationId}`,
-			options
-		);
+		return ApiService.delete(`/case-chat/conversations/${conversationId}`, options);
 	}
 
 	static async renameConversation(
@@ -298,16 +289,10 @@ export class ChatSocketClient {
 		});
 
 		this.socket.on('assistant_delta', (p) => this.handlers.onAssistantDelta?.(p));
-		this.socket.on('assistant_tool_start', (p) =>
-			this.handlers.onAssistantToolStart?.(p)
-		);
-		this.socket.on('assistant_tool_result', (p) =>
-			this.handlers.onAssistantToolResult?.(p)
-		);
+		this.socket.on('assistant_tool_start', (p) => this.handlers.onAssistantToolStart?.(p));
+		this.socket.on('assistant_tool_result', (p) => this.handlers.onAssistantToolResult?.(p));
 		this.socket.on('assistant_end', (p) => this.handlers.onAssistantEnd?.(p));
-		this.socket.on('user_message_persisted', (p) =>
-			this.handlers.onUserMessagePersisted?.(p)
-		);
+		this.socket.on('user_message_persisted', (p) => this.handlers.onUserMessagePersisted?.(p));
 		this.socket.on('error', (p) => this.handlers.onError?.(p ?? {}));
 		this.socket.on('connect_error', () => this.handlers.onConnectFailure?.());
 	}

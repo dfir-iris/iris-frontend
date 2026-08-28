@@ -19,15 +19,7 @@
 -->
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import {
-		BarChart3,
-		Check,
-		Clock,
-		EyeOff,
-		Loader2,
-		Lock,
-		Users
-	} from 'lucide-svelte';
+	import { BarChart3, Check, Clock, EyeOff, Loader2, Lock, Users } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import type { ChatPoll } from '$lib/services/war-room-chat.service';
@@ -56,7 +48,10 @@
 	let lastPollId = $state<number | null>(null);
 	let lastVotesKey = $state<string | null>(null);
 	$effect(() => {
-		const votesKey = poll.my_votes.slice().sort((a, b) => a - b).join(',');
+		const votesKey = poll.my_votes
+			.slice()
+			.sort((a, b) => a - b)
+			.join(',');
 		if (poll.poll_id !== lastPollId || votesKey !== lastVotesKey) {
 			selection = new Set(poll.my_votes);
 			lastPollId = poll.poll_id;
@@ -108,9 +103,7 @@
 	// share. Multi-select polls count each user's selections
 	// separately (a user picking 3 options contributes 3 to the total),
 	// which is the standard convention.
-	const totalVotes = $derived(
-		poll.options.reduce((sum, o) => sum + o.vote_count, 0)
-	);
+	const totalVotes = $derived(poll.options.reduce((sum, o) => sum + o.vote_count, 0));
 
 	const pct = (count: number): number => {
 		if (totalVotes === 0) return 0;
@@ -125,19 +118,22 @@
 	const tick = setInterval(() => (now = Date.now()), 30_000);
 	onDestroy(() => clearInterval(tick));
 
-	const deadlineChip = $derived.by((): { label: string; tone: 'live' | 'warn' | 'closed' } | null => {
-		if (poll.is_closed) return { label: 'Closed', tone: 'closed' };
-		if (!poll.closes_at) return null;
-		const closesAt = new Date(poll.closes_at).getTime();
-		const diff = closesAt - now;
-		if (diff <= 0) return { label: 'Closing…', tone: 'warn' };
-		const mins = Math.floor(diff / 60_000);
-		if (mins < 60) return { label: `Closes in ${Math.max(1, mins)}m`, tone: mins < 5 ? 'warn' : 'live' };
-		const hours = Math.floor(mins / 60);
-		if (hours < 24) return { label: `Closes in ${hours}h`, tone: 'live' };
-		const days = Math.floor(hours / 24);
-		return { label: `Closes in ${days}d`, tone: 'live' };
-	});
+	const deadlineChip = $derived.by(
+		(): { label: string; tone: 'live' | 'warn' | 'closed' } | null => {
+			if (poll.is_closed) return { label: 'Closed', tone: 'closed' };
+			if (!poll.closes_at) return null;
+			const closesAt = new Date(poll.closes_at).getTime();
+			const diff = closesAt - now;
+			if (diff <= 0) return { label: 'Closing…', tone: 'warn' };
+			const mins = Math.floor(diff / 60_000);
+			if (mins < 60)
+				return { label: `Closes in ${Math.max(1, mins)}m`, tone: mins < 5 ? 'warn' : 'live' };
+			const hours = Math.floor(mins / 60);
+			if (hours < 24) return { label: `Closes in ${hours}h`, tone: 'live' };
+			const days = Math.floor(hours / 24);
+			return { label: `Closes in ${days}d`, tone: 'live' };
+		}
+	);
 </script>
 
 <div class="rounded-lg border border-border/60 bg-card/40 p-3">
@@ -185,7 +181,8 @@
 					</span>
 				{/if}
 				<span class="text-muted-foreground">
-					{totalVotes} {totalVotes === 1 ? 'vote' : 'votes'}
+					{totalVotes}
+					{totalVotes === 1 ? 'vote' : 'votes'}
 				</span>
 			</div>
 		</div>

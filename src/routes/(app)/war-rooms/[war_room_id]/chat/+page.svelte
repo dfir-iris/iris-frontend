@@ -18,7 +18,6 @@
 		Bell,
 		ChevronDown,
 		ChevronRight,
-		ClockIcon,
 		FileText,
 		Filter,
 		Gavel,
@@ -71,10 +70,7 @@
 		type ChatThreadRoot,
 		type ChatTopic
 	} from '$lib/services/war-room-chat.service';
-	import {
-		WarRoomsService,
-		type WarRoomCaseAttachment
-	} from '$lib/services/war-rooms.service';
+	import { WarRoomsService, type WarRoomCaseAttachment } from '$lib/services/war-rooms.service';
 	import { current_user } from '$lib/stores/auth.store';
 	import { UsersService } from '$lib/services/users.service';
 	import { CaseIocsService } from '$lib/services/case-iocs.service';
@@ -251,9 +247,7 @@
 		}
 	];
 
-	let globalFilters = $state<Set<string>>(
-		new Set(GLOBAL_FILTERS.map((f) => f.key))
-	);
+	let globalFilters = $state<Set<string>>(new Set(GLOBAL_FILTERS.map((f) => f.key)));
 
 	// Per-case exclusions. Empty by default — operator opts out.
 	let excludedCases = $state<Set<number>>(new Set());
@@ -339,7 +333,11 @@
 	// without losing granularity. Each group has its own checkbox: ticking
 	// it toggles every slug in the group at once; the parent shows an
 	// indeterminate state when some — but not all — child slugs are on.
-	const ACTIVITY_GROUPS: { key: string; label: string; slugs: { slug: string; label: string }[] }[] = [
+	const ACTIVITY_GROUPS: {
+		key: string;
+		label: string;
+		slugs: { slug: string; label: string }[];
+	}[] = [
 		{
 			key: 'notes',
 			label: 'Notes',
@@ -417,10 +415,9 @@
 	];
 
 	// Flat list of all known slugs — used by `selectNone`-style bulk ops
-	// and by the bookkeeping when an entire case is muted.
-	const ALL_ACTIVITY_SLUGS = ACTIVITY_GROUPS.flatMap((g) =>
-		g.slugs.map((s) => s.slug)
-	);
+	// and by the bookkeeping when an entire case is muted (not yet wired up).
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	const ALL_ACTIVITY_SLUGS = ACTIVITY_GROUPS.flatMap((g) => g.slugs.map((s) => s.slug));
 
 	const globalKeyForKind = (k: ChatMessageKind): string | null => {
 		for (const f of GLOBAL_FILTERS) {
@@ -514,8 +511,7 @@
 	// Per-(case, group) expansion. Stored under a composite key so we
 	// don't have to reset state when the operator switches cases.
 	let groupSectionsOpen = $state<Record<string, boolean>>({});
-	const groupKey = (caseId: number, groupKey: string) =>
-		`${caseId}:${groupKey}`;
+	const groupKey = (caseId: number, groupKey: string) => `${caseId}:${groupKey}`;
 	const toggleGroupSection = (caseId: number, gk: string) => {
 		const k = groupKey(caseId, gk);
 		groupSectionsOpen = { ...groupSectionsOpen, [k]: !groupSectionsOpen[k] };
@@ -534,10 +530,7 @@
 		return 'some';
 	};
 
-	const toggleGroup = (
-		caseId: number,
-		group: (typeof ACTIVITY_GROUPS)[number]
-	) => {
+	const toggleGroup = (caseId: number, group: (typeof ACTIVITY_GROUPS)[number]) => {
 		const current = excludedCaseActivities[caseId] ?? new Set<string>();
 		const next = new Set(current);
 		const state = groupState(caseId, group);
@@ -675,9 +668,7 @@
 			const topicId = m.topic_id ?? mainId;
 			return topicId != null && selectedTopicIds.has(topicId);
 		};
-		const fresh = incoming
-			.filter((m) => !seen.has(messageKey(m)))
-			.filter(matchesTopicFilter);
+		const fresh = incoming.filter((m) => !seen.has(messageKey(m))).filter(matchesTopicFilter);
 
 		// Merge server state for live-changing fields on rows we
 		// already have. Reactions, polls and edited bodies all mutate
@@ -698,8 +689,7 @@
 			// nothing we care about moved.
 			const reactionsSame =
 				JSON.stringify(m.reactions ?? []) === JSON.stringify(server.reactions ?? []);
-			const pollSame =
-				JSON.stringify(m.poll ?? null) === JSON.stringify(server.poll ?? null);
+			const pollSame = JSON.stringify(m.poll ?? null) === JSON.stringify(server.poll ?? null);
 			const pinSame = m.is_pinned === server.is_pinned;
 			const bodySame = m.body === server.body && m.edited_at === server.edited_at;
 			if (reactionsSame && pollSame && pinSame && bodySame) return m;
@@ -717,8 +707,7 @@
 
 		if (fresh.length > 0) {
 			const wasAtBottom =
-				listEl != null &&
-				listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 80;
+				listEl != null && listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 80;
 			// Newest first from the API; reverse so the resulting array
 			// stays chronologically ordered (oldest at top).
 			messages = [...merged, ...[...fresh].reverse()];
@@ -786,7 +775,7 @@
 	// `id` (session hydrate) — mirror the fallback used everywhere
 	// else in the app so we don't miss the caller's id.
 	const currentUserId = $derived(
-		(($current_user?.user_id ?? $current_user?.id) ?? null) as number | null
+		($current_user?.user_id ?? $current_user?.id ?? null) as number | null
 	);
 
 	// Shared confirmation dialog state — one modal handles every
@@ -826,9 +815,7 @@
 			// the existing `.filter((m) => m.deleted_at)` in visibleMessages
 			// drops it without waiting for the next poll.
 			messages = messages.map((x) =>
-				x.message_id === messageId
-					? { ...x, deleted_at: new Date().toISOString(), body: null }
-					: x
+				x.message_id === messageId ? { ...x, deleted_at: new Date().toISOString(), body: null } : x
 			);
 			// If the deleted row was a trace-worthy kind, drop it from the
 			// sidebar index too instead of waiting for the next poll —
@@ -853,7 +840,7 @@
 	const removeMessage = (m: ChatMessage) => {
 		askConfirm({
 			title: 'Delete this message?',
-			message: 'It will be hidden from the stream. This can\'t be undone.',
+			message: "It will be hidden from the stream. This can't be undone.",
 			run: () => doRemoveMessage(m.message_id)
 		});
 	};
@@ -870,10 +857,7 @@
 	let editSaving = $state(false);
 
 	const canEditMessage = (m: ChatMessage) =>
-		currentUserId != null &&
-		m.author_id === currentUserId &&
-		m.kind === 'message' &&
-		!m.deleted_at;
+		currentUserId != null && m.author_id === currentUserId && m.kind === 'message' && !m.deleted_at;
 
 	const beginEdit = (m: ChatMessage) => {
 		editingMessageId = m.message_id;
@@ -995,19 +979,14 @@
 				})
 				.filter((r) => r.count > 0);
 		} else if (added) {
-			nextReactions = [
-				...currentReactions,
-				{ emoji, count: 1, user_ids: [currentUserId] }
-			];
+			nextReactions = [...currentReactions, { emoji, count: 1, user_ids: [currentUserId] }];
 		} else {
 			nextReactions = currentReactions;
 		}
 		// Full array reassignment — Svelte 5 tracks the top-level
 		// binding, and reassigning to a fresh array guarantees every
 		// derived that reads from `messages` reruns.
-		messages = messages.map((m, i) =>
-			i === idx ? { ...m, reactions: nextReactions } : m
-		);
+		messages = messages.map((m, i) => (i === idx ? { ...m, reactions: nextReactions } : m));
 	};
 
 	// Which message's action-strip emoji picker is currently open, or
@@ -1078,14 +1057,10 @@
 		if (idx < 0) return;
 		const msg = messages[idx];
 		if (!msg.poll) return;
-		const res = await WarRoomChatService.voteOnPoll(
-			warRoomId, msg.poll.poll_id, optionIds
-		);
+		const res = await WarRoomChatService.voteOnPoll(warRoomId, msg.poll.poll_id, optionIds);
 		if (res.ok && res.data) {
 			const nextPoll = res.data as ChatPoll;
-			messages = messages.map((x, i) =>
-				i === idx ? { ...x, poll: nextPoll } : x
-			);
+			messages = messages.map((x, i) => (i === idx ? { ...x, poll: nextPoll } : x));
 		} else {
 			toast({
 				title: 'Could not save vote',
@@ -1108,9 +1083,7 @@
 		const res = await WarRoomChatService.closePoll(warRoomId, msg.poll.poll_id);
 		if (res.ok && res.data) {
 			const nextPoll = res.data as ChatPoll;
-			messages = messages.map((x, i) =>
-				i === idx ? { ...x, poll: nextPoll } : x
-			);
+			messages = messages.map((x, i) => (i === idx ? { ...x, poll: nextPoll } : x));
 		} else {
 			toast({
 				title: 'Could not close poll',
@@ -1147,9 +1120,7 @@
 			});
 			return;
 		}
-		messages = messages.map((x, i) =>
-			i === idx ? { ...x, is_pinned: next } : x
-		);
+		messages = messages.map((x, i) => (i === idx ? { ...x, is_pinned: next } : x));
 		void loadTraceLog();
 	};
 
@@ -1179,9 +1150,7 @@
 		// half-uploaded.
 		const uploadedIds: number[] = [];
 		if (hasAttachments) {
-			const { WarRoomDatastoreService } = await import(
-				'$lib/services/war-room-datastore.service'
-			);
+			const { WarRoomDatastoreService } = await import('$lib/services/war-room-datastore.service');
 			for (const item of pendingAttachments) {
 				const up = await WarRoomDatastoreService.upload(warRoomId, item.file);
 				if (
@@ -1203,12 +1172,7 @@
 			}
 		}
 
-		const res = await WarRoomChatService.post(
-			warRoomId,
-			text,
-			postingTopicId,
-			uploadedIds
-		);
+		const res = await WarRoomChatService.post(warRoomId, text, postingTopicId, uploadedIds);
 		sending = false;
 		if (res.ok) {
 			body = '';
@@ -1222,9 +1186,10 @@
 					: undefined;
 			if (created) {
 				const idx = topics.findIndex((t) => t.topic_id === created.topic_id);
-				topics = idx >= 0
-					? topics.map((t) => (t.topic_id === created.topic_id ? created : t))
-					: [...topics, created];
+				topics =
+					idx >= 0
+						? topics.map((t) => (t.topic_id === created.topic_id ? created : t))
+						: [...topics, created];
 				selectOnlyTopic(created);
 			}
 			await pollNewer();
@@ -1486,9 +1451,10 @@
 		// tolerate the row already being in `topics` from a race with
 		// the poll.
 		const idx = topics.findIndex((t) => t.topic_id === created.topic_id);
-		topics = idx >= 0
-			? topics.map((t) => (t.topic_id === created.topic_id ? created : t))
-			: [...topics, created];
+		topics =
+			idx >= 0
+				? topics.map((t) => (t.topic_id === created.topic_id ? created : t))
+				: [...topics, created];
 		newTopicName = '';
 		newTopicOpen = false;
 		selectOnlyTopic(created);
@@ -1595,10 +1561,7 @@
 		// backend.
 		if (topics.length > 0 && m.message_id > 0) {
 			const targetTopicId = m.topic_id ?? mainTopic?.topic_id ?? null;
-			if (
-				targetTopicId != null &&
-				!selectedTopicIds.has(targetTopicId)
-			) {
+			if (targetTopicId != null && !selectedTopicIds.has(targetTopicId)) {
 				const targetTopic = topicById.get(targetTopicId);
 				if (targetTopic) {
 					selectedTopicIds = new Set([targetTopicId]);
@@ -1649,8 +1612,7 @@
 			return { Icon: Gavel, color: 'text-indigo-600 dark:text-indigo-400', label: 'Decision' };
 		if (t.kind === 'pin')
 			return { Icon: Pin, color: 'text-violet-600 dark:text-violet-400', label: 'Pin' };
-		if (t.is_pinned)
-			return { Icon: Pin, color: 'text-primary', label: 'Pinned' };
+		if (t.is_pinned) return { Icon: Pin, color: 'text-primary', label: 'Pinned' };
 		return { Icon: StickyNote, color: 'text-amber-600 dark:text-amber-400', label: 'Note' };
 	};
 
@@ -1665,9 +1627,7 @@
 
 	// Cheap lookup so the per-message Reply chip can show "N replies"
 	// without scanning the threads list each render.
-	const replyCountByRoot = $derived(
-		new Map(threads.map((t) => [t.message_id, t.reply_count]))
-	);
+	const replyCountByRoot = $derived(new Map(threads.map((t) => [t.message_id, t.reply_count])));
 
 	// --- Attachments picker --------------------------------------------------
 	// One picker covers four resource types pulled from the attached
@@ -1726,7 +1686,9 @@
 					const payload = res.data as unknown as { data?: Array<Record<string, unknown>> };
 					pickerRows = (payload.data ?? []).map((i) => ({
 						id: Number((i as { ioc_id: number }).ioc_id),
-						label: String((i as { ioc_value?: string }).ioc_value ?? '') || `IOC #${(i as { ioc_id: number }).ioc_id}`,
+						label:
+							String((i as { ioc_value?: string }).ioc_value ?? '') ||
+							`IOC #${(i as { ioc_id: number }).ioc_id}`,
 						sub: String((i as { ioc_type?: string }).ioc_type ?? ''),
 						caseId
 					}));
@@ -1766,9 +1728,7 @@
 		const needle = attachSearch.trim().toLowerCase();
 		if (!needle) return pickerRows;
 		return pickerRows.filter(
-			(r) =>
-				r.label.toLowerCase().includes(needle) ||
-				(r.sub ?? '').toLowerCase().includes(needle)
+			(r) => r.label.toLowerCase().includes(needle) || (r.sub ?? '').toLowerCase().includes(needle)
 		);
 	});
 
@@ -1864,37 +1824,31 @@
 	const groups = $derived.by(() => {
 		type Group = { key: string; date: string; rows: ChatMessage[] };
 		const out: Group[] = [];
-		let lastAuthor: number | null = null;
-		let lastTs = 0;
+		let _lastAuthor: number | null = null;
+		let _lastTs = 0;
 		let lastDate = '';
 		for (const m of visibleMessages) {
 			const ts = m.created_at ? new Date(m.created_at).getTime() : 0;
-			const date = m.created_at
-				? new Date(m.created_at).toLocaleDateString()
-				: 'Unknown';
+			const date = m.created_at ? new Date(m.created_at).toLocaleDateString() : 'Unknown';
 			if (date !== lastDate) {
 				out.push({ key: `date-${date}-${m.message_id}`, date, rows: [] });
 				lastDate = date;
-				lastAuthor = null;
+				_lastAuthor = null;
 			}
 			const tail = out[out.length - 1];
 			tail.rows.push(m);
-			lastAuthor = m.author_id;
-			lastTs = ts;
+			_lastAuthor = m.author_id;
+			_lastTs = ts;
 		}
 		return out;
 	});
 
-	const isContinuation = (
-		m: ChatMessage,
-		prev: ChatMessage | undefined
-	): boolean => {
+	const isContinuation = (m: ChatMessage, prev: ChatMessage | undefined): boolean => {
 		if (!prev) return false;
 		if (prev.kind !== 'message' || m.kind !== 'message') return false;
 		if (prev.author_id !== m.author_id) return false;
 		if (!prev.created_at || !m.created_at) return false;
-		const dt =
-			new Date(m.created_at).getTime() - new Date(prev.created_at).getTime();
+		const dt = new Date(m.created_at).getTime() - new Date(prev.created_at).getTime();
 		return dt < 5 * 60 * 1000;
 	};
 
@@ -1943,7 +1897,9 @@
 		<!-- Header row with quick select-all / select-none. shrink-0 keeps
 		     it pinned while the inner list scrolls. -->
 		<div class="flex shrink-0 items-center justify-between border-b px-4 py-2.5">
-			<p class="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+			<p
+				class="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground"
+			>
 				<Filter class="h-3 w-3" />
 				Filters
 			</p>
@@ -1980,7 +1936,9 @@
 			{#if topics.length > 0}
 				<section class="border-b px-2 py-2">
 					<div class="flex items-center justify-between px-2 pb-1 pt-1">
-						<p class="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+						<p
+							class="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground"
+						>
 							<Hash class="h-3 w-3" />
 							Topics
 						</p>
@@ -2011,8 +1969,7 @@
 							<Input
 								id="war-room-new-topic-input"
 								value={newTopicName}
-								oninput={(e) =>
-									(newTopicName = (e.target as HTMLInputElement).value)}
+								oninput={(e) => (newTopicName = (e.target as HTMLInputElement).value)}
 								onkeydown={(e) => {
 									if (e.key === 'Enter') {
 										e.preventDefault();
@@ -2042,8 +1999,7 @@
 					<ul class="stream-thin-scroll flex max-h-72 flex-col overflow-y-auto">
 						{#each liveTopics as t (t.topic_id)}
 							{@const selected = selectedTopicIds.has(t.topic_id)}
-							{@const isComposer =
-								effectiveComposerTopic?.topic_id === t.topic_id}
+							{@const isComposer = effectiveComposerTopic?.topic_id === t.topic_id}
 							{@const unread = topicUnread[t.topic_id] ?? 0}
 							<li
 								class="group/topic flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors hover:bg-muted/60"
@@ -2058,21 +2014,12 @@
 									type="button"
 									class="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-left"
 									onclick={() => selectOnlyTopic(t)}
-									title={
-										t.is_main
-											? 'Main topic (cannot be archived)'
-											: 'Show only this topic'
-									}
+									title={t.is_main ? 'Main topic (cannot be archived)' : 'Show only this topic'}
 								>
 									<Hash
 										class={`h-3 w-3 shrink-0 ${selected ? 'text-foreground' : 'text-muted-foreground'}`}
 									/>
-									<span
-										class={[
-											'min-w-0 flex-1 truncate text-xs',
-											selected ? 'font-medium' : ''
-										]}
-									>
+									<span class={['min-w-0 flex-1 truncate text-xs', selected ? 'font-medium' : '']}>
 										{t.name}
 									</span>
 									{#if isComposer && liveTopics.length > 1}
@@ -2094,7 +2041,7 @@
 								{#if !t.is_main}
 									<button
 										type="button"
-										class="invisible shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground group-hover/topic:visible focus:visible"
+										class="invisible shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:visible group-hover/topic:visible"
 										onclick={() => doArchiveTopic(t)}
 										aria-label={`Archive ${t.name}`}
 										title="Archive topic"
@@ -2121,9 +2068,7 @@
 								<span>Archived ({archivedTopics.length})</span>
 							</button>
 							{#if showArchivedTopics}
-								<ul
-									class="stream-thin-scroll mt-1 flex max-h-48 flex-col overflow-y-auto"
-								>
+								<ul class="stream-thin-scroll mt-1 flex max-h-48 flex-col overflow-y-auto">
 									{#each archivedTopics as t (t.topic_id)}
 										{@const selected = selectedTopicIds.has(t.topic_id)}
 										<li
@@ -2141,18 +2086,14 @@
 												onclick={() => selectOnlyTopic(t)}
 												title="Show only this archived topic (read-only)"
 											>
-												<Hash
-													class="h-3 w-3 shrink-0 text-muted-foreground"
-												/>
-												<span
-													class="min-w-0 flex-1 truncate text-xs italic text-muted-foreground"
-												>
+												<Hash class="h-3 w-3 shrink-0 text-muted-foreground" />
+												<span class="min-w-0 flex-1 truncate text-xs italic text-muted-foreground">
 													{t.name}
 												</span>
 											</button>
 											<button
 												type="button"
-												class="invisible shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground group-hover/atopic:visible focus:visible"
+												class="invisible shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:visible group-hover/atopic:visible"
 												onclick={() => doUnarchiveTopic(t)}
 												aria-label={`Unarchive ${t.name}`}
 												title="Restore topic"
@@ -2173,13 +2114,17 @@
 			     opens. Decisions & Pins follow below, then the Stream
 			     lanes filters, per-case tree, and slash-command reference. -->
 			<section class="border-b px-2 py-2">
-				<p class="px-2 pb-1 pt-1 flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+				<p
+					class="flex items-center gap-1.5 px-2 pb-1 pt-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground"
+				>
 					<MessageSquare class="h-3 w-3" />
 					Threads ({threads.length})
 				</p>
 				{#if threads.length === 0}
 					<p class="px-2 py-2 text-2xs text-muted-foreground">
-						Reply to any message or use <code class="rounded bg-muted px-1 py-0.5 font-mono">/thread</code> to start one.
+						Reply to any message or use <code class="rounded bg-muted px-1 py-0.5 font-mono"
+							>/thread</code
+						> to start one.
 					</p>
 				{:else}
 					<ul class="stream-thin-scroll flex max-h-72 flex-col overflow-y-auto">
@@ -2204,7 +2149,8 @@
 									</div>
 									<div class="flex items-center gap-2 text-2xs text-muted-foreground">
 										<span>
-											{t.reply_count} {t.reply_count === 1 ? 'reply' : 'replies'}
+											{t.reply_count}
+											{t.reply_count === 1 ? 'reply' : 'replies'}
 										</span>
 										{#if t.author_name || t.author_login}
 											<span class="truncate">· {t.author_name ?? t.author_login}</span>
@@ -2226,15 +2172,17 @@
 			  the row.
 			-->
 			<section class="border-t px-2 py-2">
-				<p class="flex items-center gap-1.5 px-2 pb-1 pt-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+				<p
+					class="flex items-center gap-1.5 px-2 pb-1 pt-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground"
+				>
 					<Gavel class="h-3 w-3" />
 					Decisions & Pins ({traceLog.length})
 				</p>
 				{#if traceLog.length === 0}
 					<p class="px-2 py-2 text-2xs text-muted-foreground">
 						Use <code class="rounded bg-muted px-1 py-0.5 font-mono">/decision</code>
-						or <code class="rounded bg-muted px-1 py-0.5 font-mono">/pin</code> to record
-						something the room should remember.
+						or <code class="rounded bg-muted px-1 py-0.5 font-mono">/pin</code> to record something the
+						room should remember.
 					</p>
 				{:else}
 					<!--
@@ -2244,7 +2192,9 @@
 					  cheap, and the operator sees results immediately.
 					-->
 					<div class="relative px-1 pb-1">
-						<Search class="pointer-events-none absolute left-3 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+						<Search
+							class="pointer-events-none absolute left-3 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground"
+						/>
 						<Input
 							value={traceFilter}
 							oninput={(e) => (traceFilter = (e.target as HTMLInputElement).value)}
@@ -2271,7 +2221,9 @@
 								{@const meta = traceRowMeta(t)}
 								{@const bodyText = stripMarkdown(t.body ?? '')}
 								{@const canDelete = currentUserId != null && t.author_id === currentUserId}
-								<li class="group/trace flex items-start gap-1 rounded-md px-1 py-0.5 transition-colors hover:bg-muted/60">
+								<li
+									class="group/trace flex items-start gap-1 rounded-md px-1 py-0.5 transition-colors hover:bg-muted/60"
+								>
 									<button
 										type="button"
 										class="flex min-w-0 flex-1 items-start gap-2 rounded-md px-1 py-1 text-left"
@@ -2303,7 +2255,7 @@
 									{#if canDelete}
 										<button
 											type="button"
-											class="invisible mt-1 shrink-0 rounded p-1 text-destructive transition-colors hover:bg-destructive/10 group-hover/trace:visible focus:visible"
+											class="invisible mt-1 shrink-0 rounded p-1 text-destructive transition-colors hover:bg-destructive/10 focus:visible group-hover/trace:visible"
 											onclick={() => removeTraceEntry(t)}
 											aria-label={`Delete this ${meta.label.toLowerCase()}`}
 											title="Delete"
@@ -2323,7 +2275,9 @@
 			     spends more time reading those than tweaking which
 			     activity kinds are visible. -->
 			<section class="border-t px-2 py-2">
-				<p class="px-2 pb-1 pt-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+				<p
+					class="px-2 pb-1 pt-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground"
+				>
 					Stream lanes
 				</p>
 				<ul class="flex flex-col">
@@ -2357,7 +2311,9 @@
 			     bottom of the sidebar. -->
 			<section class="border-t px-2 py-2">
 				<div class="flex items-center justify-between px-2 pb-1 pt-1">
-					<p class="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+					<p
+						class="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground"
+					>
 						<Waypoints class="h-3 w-3" />
 						Cases ({attachedCases.length})
 					</p>
@@ -2404,16 +2360,13 @@
 								{#if caseExpanded}
 									<ul class="ml-4 flex flex-col border-l border-border/40 pl-1">
 										{#each ACTIVITY_GROUPS as g (g.key)}
-											{@const gOpen =
-												groupSectionsOpen[groupKey(att.case_id, g.key)] ?? false}
+											{@const gOpen = groupSectionsOpen[groupKey(att.case_id, g.key)] ?? false}
 											{@const gState = groupState(att.case_id, g)}
 											<li>
 												<div
 													class={[
 														'flex items-center gap-1 rounded-md px-2 py-1 transition-colors',
-														caseOn
-															? 'hover:bg-muted/50'
-															: 'opacity-60 hover:bg-muted/30'
+														caseOn ? 'hover:bg-muted/50' : 'opacity-60 hover:bg-muted/30'
 													]}
 												>
 													<button
@@ -2441,10 +2394,7 @@
 												{#if gOpen}
 													<ul class="ml-4 flex flex-col border-l border-border/30 pl-1">
 														{#each g.slugs as s (s.slug)}
-															{@const typeOn = isCaseActivityOn(
-																att.case_id,
-																s.slug
-															)}
+															{@const typeOn = isCaseActivityOn(att.case_id, s.slug)}
 															<li>
 																<label
 																	class={[
@@ -2458,8 +2408,7 @@
 																	<span class="truncate">{s.label}</span>
 																	<Checkbox
 																		checked={caseOn && typeOn}
-																		onCheckedChange={() =>
-																			toggleCaseActivity(att.case_id, s.slug)}
+																		onCheckedChange={() => toggleCaseActivity(att.case_id, s.slug)}
 																		disabled={!caseOn}
 																		aria-label={s.label}
 																	/>
@@ -2516,417 +2465,413 @@
 
 	<!-- Right side: stream column + optional thread side-pane. -->
 	<Resizable.Pane class="flex h-full min-h-0 min-w-0 flex-row">
-	<div class="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-		<!-- Compact summary visible only when sidebar is hidden. -->
-		<div class="flex items-center gap-2 overflow-x-auto border-b px-4 py-2 lg:hidden">
-			<Filter class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-			<span class="shrink-0 text-2xs text-muted-foreground">
-				{activeGlobalFilters}/{totalGlobalFilters} lanes
-				{#if excludedCases.size > 0}
-					· {excludedCases.size} case{excludedCases.size === 1 ? '' : 's'} muted
+		<div class="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+			<!-- Compact summary visible only when sidebar is hidden. -->
+			<div class="flex items-center gap-2 overflow-x-auto border-b px-4 py-2 lg:hidden">
+				<Filter class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+				<span class="shrink-0 text-2xs text-muted-foreground">
+					{activeGlobalFilters}/{totalGlobalFilters} lanes
+					{#if excludedCases.size > 0}
+						· {excludedCases.size} case{excludedCases.size === 1 ? '' : 's'} muted
+					{/if}
+				</span>
+				{#if anyExclusion}
+					<button
+						type="button"
+						class="ml-auto shrink-0 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-2xs text-primary"
+						onclick={selectAll}
+					>
+						Reset filters
+					</button>
 				{/if}
-			</span>
-			{#if anyExclusion}
-				<button
-					type="button"
-					class="ml-auto shrink-0 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-2xs text-primary"
-					onclick={selectAll}
-				>
-					Reset filters
-				</button>
-			{/if}
-		</div>
+			</div>
 
-		<!--
+			<!--
 		  Top-of-stream quick filter. Hits the server (case-insensitive
 		  ILIKE against the message body + case-activity description),
 		  so a hit from six weeks ago surfaces without the operator
 		  having to page all the way back. Enter clears the debounce so
 		  the query runs immediately; Escape clears the field.
 		-->
-		<div class="flex shrink-0 items-center gap-2 border-b bg-background/60 px-4 py-2">
-			<div class="relative flex-1">
-				<Search
-					class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
-				/>
-				<Input
-					value={streamSearch}
-					oninput={(e) => {
-						streamSearch = (e.target as HTMLInputElement).value;
-						scheduleStreamSearch();
-					}}
-					onkeydown={(e) => {
-						if (e.key === 'Enter') {
-							e.preventDefault();
-							if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
-							const next = streamSearch.trim();
-							if (next !== appliedSearch) {
-								appliedSearch = next;
-								exhausted = false;
-								messages = [];
-								void load();
+			<div class="flex shrink-0 items-center gap-2 border-b bg-background/60 px-4 py-2">
+				<div class="relative flex-1">
+					<Search
+						class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+					/>
+					<Input
+						value={streamSearch}
+						oninput={(e) => {
+							streamSearch = (e.target as HTMLInputElement).value;
+							scheduleStreamSearch();
+						}}
+						onkeydown={(e) => {
+							if (e.key === 'Enter') {
+								e.preventDefault();
+								if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+								const next = streamSearch.trim();
+								if (next !== appliedSearch) {
+									appliedSearch = next;
+									exhausted = false;
+									messages = [];
+									void load();
+								}
+							} else if (e.key === 'Escape') {
+								e.preventDefault();
+								clearStreamSearch();
 							}
-						} else if (e.key === 'Escape') {
-							e.preventDefault();
-							clearStreamSearch();
-						}
-					}}
-					placeholder="Filter the stream — messages, decisions, case activity…"
-					class="h-8 pl-8 pr-8 text-xs"
-					aria-label="Filter the stream"
-				/>
-				{#if streamSearch}
-					<button
-						type="button"
-						class="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-						onclick={clearStreamSearch}
-						aria-label="Clear filter"
-						title="Clear (Esc)"
-					>
-						<X class="h-3 w-3" />
-					</button>
+						}}
+						placeholder="Filter the stream — messages, decisions, case activity…"
+						class="h-8 pl-8 pr-8 text-xs"
+						aria-label="Filter the stream"
+					/>
+					{#if streamSearch}
+						<button
+							type="button"
+							class="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+							onclick={clearStreamSearch}
+							aria-label="Clear filter"
+							title="Clear (Esc)"
+						>
+							<X class="h-3 w-3" />
+						</button>
+					{/if}
+				</div>
+				{#if appliedSearch && !loading}
+					<span class="shrink-0 text-2xs text-muted-foreground">
+						{visibleMessages.length} match{visibleMessages.length === 1 ? '' : 'es'}
+					</span>
 				{/if}
 			</div>
-			{#if appliedSearch && !loading}
-				<span class="shrink-0 text-2xs text-muted-foreground">
-					{visibleMessages.length} match{visibleMessages.length === 1 ? '' : 'es'}
-				</span>
-			{/if}
-		</div>
 
-		<!-- Stream. min-w-0 above keeps long messages from forcing the
+			<!-- Stream. min-w-0 above keeps long messages from forcing the
 		     column wider than the grid track allows. -->
-		<div bind:this={listEl} class="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-			{#if loading}
-				<div class="flex flex-col gap-3">
-					{#each Array(4) as _}
-						<div class="flex items-start gap-3">
-							<Skeleton class="h-8 w-8 rounded-full" />
-							<div class="flex-1 space-y-1.5">
-								<Skeleton class="h-3 w-32" />
-								<Skeleton class="h-3 w-3/4" />
+			<div bind:this={listEl} class="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+				{#if loading}
+					<div class="flex flex-col gap-3">
+						{#each Array(4) as _}
+							<div class="flex items-start gap-3">
+								<Skeleton class="h-8 w-8 rounded-full" />
+								<div class="flex-1 space-y-1.5">
+									<Skeleton class="h-3 w-32" />
+									<Skeleton class="h-3 w-3/4" />
+								</div>
 							</div>
-						</div>
-					{/each}
-				</div>
-			{:else}
-				{#if !exhausted}
-					<div class="flex justify-center pb-3">
-						<Button
-							variant="ghost"
-							size="sm"
-							class="h-7 text-2xs"
-							onclick={loadOlder}
-							disabled={loadingMore}
-						>
-							{#if loadingMore}
-								<Loader2 class="mr-1 h-3 w-3 animate-spin" />
-							{/if}
-							Load earlier messages
-						</Button>
-					</div>
-				{/if}
-
-				{#if visibleMessages.length === 0}
-					<div class="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground">
-						<Send class="h-6 w-6 opacity-30" />
-						<p class="text-sm">
-							{#if appliedSearch && messages.length === 0}
-								No stream entries match “{appliedSearch}”.
-							{:else if messages.length === 0}
-								No activity yet. Drop the first message or attach a case.
-							{:else}
-								No entries match the current filters.
-							{/if}
-						</p>
-						{#if appliedSearch && messages.length === 0}
-							<Button
-								size="sm"
-								variant="ghost"
-								class="h-7 text-2xs"
-								onclick={clearStreamSearch}
-							>
-								Clear search
-							</Button>
-						{:else if anyExclusion}
-							<Button
-								size="sm"
-								variant="ghost"
-								class="h-7 text-2xs"
-								onclick={selectAll}
-							>
-								Reset filters
-							</Button>
-						{/if}
+						{/each}
 					</div>
 				{:else}
-					<div class="space-y-5">
-						{#each groups as g (g.key)}
-							<!-- Date separator -->
-							<div class="flex items-center gap-3" aria-hidden="true">
-								<div class="h-px flex-1 bg-border"></div>
-								<span class="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
-									{g.date}
-								</span>
-								<div class="h-px flex-1 bg-border"></div>
-							</div>
+					{#if !exhausted}
+						<div class="flex justify-center pb-3">
+							<Button
+								variant="ghost"
+								size="sm"
+								class="h-7 text-2xs"
+								onclick={loadOlder}
+								disabled={loadingMore}
+							>
+								{#if loadingMore}
+									<Loader2 class="mr-1 h-3 w-3 animate-spin" />
+								{/if}
+								Load earlier messages
+							</Button>
+						</div>
+					{/if}
 
-							<ul class="flex flex-col gap-1">
-								{#each g.rows as m, i (m.message_id)}
-									{@const prev = g.rows[i - 1]}
-									{@const cont = isContinuation(m, prev)}
-									{@const Icon = systemIcon(m.kind)}
+					{#if visibleMessages.length === 0}
+						<div
+							class="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground"
+						>
+							<Send class="h-6 w-6 opacity-30" />
+							<p class="text-sm">
+								{#if appliedSearch && messages.length === 0}
+									No stream entries match “{appliedSearch}”.
+								{:else if messages.length === 0}
+									No activity yet. Drop the first message or attach a case.
+								{:else}
+									No entries match the current filters.
+								{/if}
+							</p>
+							{#if appliedSearch && messages.length === 0}
+								<Button size="sm" variant="ghost" class="h-7 text-2xs" onclick={clearStreamSearch}>
+									Clear search
+								</Button>
+							{:else if anyExclusion}
+								<Button size="sm" variant="ghost" class="h-7 text-2xs" onclick={selectAll}>
+									Reset filters
+								</Button>
+							{/if}
+						</div>
+					{:else}
+						<div class="space-y-5">
+							{#each groups as g (g.key)}
+								<!-- Date separator -->
+								<div class="flex items-center gap-3" aria-hidden="true">
+									<div class="h-px flex-1 bg-border"></div>
+									<span class="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+										{g.date}
+									</span>
+									<div class="h-px flex-1 bg-border"></div>
+								</div>
 
-									{#if m.kind === 'poll' && m.poll}
-										<!--
+								<ul class="flex flex-col gap-1">
+									{#each g.rows as m, i (m.message_id)}
+										{@const prev = g.rows[i - 1]}
+										{@const cont = isContinuation(m, prev)}
+										{@const Icon = systemIcon(m.kind)}
+
+										{#if m.kind === 'poll' && m.poll}
+											<!--
 										  Poll message. Full-width card with the author's
 										  avatar + name header, then the interactive poll
 										  card. Uses the same start-of-group layout as
 										  regular messages so voter attribution reads
 										  naturally in the stream.
 										-->
-										{@const pollCanClose =
-											currentUserId != null &&
-											m.poll.author_id === currentUserId &&
-											!m.poll.is_closed}
-										<li
-											data-message-id={m.message_id}
-											class={[
-												'group/msg relative flex gap-3 rounded-md px-2 -mx-2 pt-2 transition-colors hover:bg-muted/40',
-												highlightMessageId === m.message_id && 'rounded-md ring-2 ring-primary/60'
-											]}
-										>
-											<UserAvatar
-												userId={m.author_id ?? undefined}
-												name={m.author_name ?? m.author_login ?? 'Unknown'}
-												size="size-8"
-											/>
-											<div class="min-w-0 flex-1">
-												<div class="flex items-baseline gap-2">
-													<span class="text-sm font-semibold text-foreground">
-														{m.author_name ?? m.author_login ?? 'Unknown'}
-													</span>
-													<span class="text-2xs text-muted-foreground">
-														{fmtTime(m.created_at)}
-													</span>
-													<span class="text-2xs italic text-muted-foreground">
-														posted a poll
-													</span>
-													{#if showTopicChips}
-														{@const chip = topicChipName(m)}
-														{#if chip}
+											{@const pollCanClose =
+												currentUserId != null &&
+												m.poll.author_id === currentUserId &&
+												!m.poll.is_closed}
+											<li
+												data-message-id={m.message_id}
+												class={[
+													'group/msg relative -mx-2 flex gap-3 rounded-md px-2 pt-2 transition-colors hover:bg-muted/40',
+													highlightMessageId === m.message_id && 'rounded-md ring-2 ring-primary/60'
+												]}
+											>
+												<UserAvatar
+													userId={m.author_id ?? undefined}
+													name={m.author_name ?? m.author_login ?? 'Unknown'}
+													size="size-8"
+												/>
+												<div class="min-w-0 flex-1">
+													<div class="flex items-baseline gap-2">
+														<span class="text-sm font-semibold text-foreground">
+															{m.author_name ?? m.author_login ?? 'Unknown'}
+														</span>
+														<span class="text-2xs text-muted-foreground">
+															{fmtTime(m.created_at)}
+														</span>
+														<span class="text-2xs italic text-muted-foreground">
+															posted a poll
+														</span>
+														{#if showTopicChips}
+															{@const chip = topicChipName(m)}
+															{#if chip}
+																<span
+																	class="inline-flex items-center gap-0.5 rounded bg-muted px-1 py-0.5 text-2xs text-muted-foreground"
+																	title={`Topic: ${chip}`}
+																>
+																	<Hash class="h-2.5 w-2.5" />
+																	{chip}
+																</span>
+															{/if}
+														{/if}
+														{#if m.is_pinned}
 															<span
-																class="inline-flex items-center gap-0.5 rounded bg-muted px-1 py-0.5 text-2xs text-muted-foreground"
-																title={`Topic: ${chip}`}
+																class="inline-flex items-center gap-0.5 rounded bg-primary/10 px-1 py-0.5 text-2xs text-primary"
+																title="Pinned"
 															>
-																<Hash class="h-2.5 w-2.5" />
-																{chip}
+																<Pin class="h-2.5 w-2.5" />
+																Pinned
 															</span>
 														{/if}
-													{/if}
-													{#if m.is_pinned}
-														<span
-															class="inline-flex items-center gap-0.5 rounded bg-primary/10 px-1 py-0.5 text-2xs text-primary"
-															title="Pinned"
-														>
-															<Pin class="h-2.5 w-2.5" />
-															Pinned
-														</span>
-													{/if}
-												</div>
-												<div class="mt-1">
-													<PollCard
-														poll={m.poll}
-														{currentUserId}
-														canClose={pollCanClose}
-														onVote={(optionIds) => voteOnPoll(m.message_id, optionIds)}
-														onClose={() => closePoll(m.message_id)}
-													/>
-												</div>
-												<div class="absolute right-1 -top-3 z-10 hidden h-7 items-center gap-0.5 rounded-md border bg-card px-1 shadow-sm group-hover/msg:flex focus-within:flex">
-													<button
-														type="button"
-														class="inline-flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-muted {m.is_pinned
-															? 'text-primary'
-															: 'text-muted-foreground/70 hover:text-foreground'}"
-														onclick={() => void togglePin(m)}
-														aria-label={m.is_pinned ? 'Unpin message' : 'Pin message'}
-														title={m.is_pinned ? 'Unpin' : 'Pin'}
+													</div>
+													<div class="mt-1">
+														<PollCard
+															poll={m.poll}
+															{currentUserId}
+															canClose={pollCanClose}
+															onVote={(optionIds) => voteOnPoll(m.message_id, optionIds)}
+															onClose={() => closePoll(m.message_id)}
+														/>
+													</div>
+													<div
+														class="absolute -top-3 right-1 z-10 hidden h-7 items-center gap-0.5 rounded-md border bg-card px-1 shadow-sm focus-within:flex group-hover/msg:flex"
 													>
-														{#if m.is_pinned}
-															<PinOff class="h-3.5 w-3.5" />
-														{:else}
-															<Pin class="h-3.5 w-3.5" />
-														{/if}
-													</button>
-													{#if currentUserId != null && m.author_id === currentUserId}
 														<button
 															type="button"
-															class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
-															onclick={() => removeMessage(m)}
-															aria-label="Delete poll"
-															title="Delete"
+															class="inline-flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-muted {m.is_pinned
+																? 'text-primary'
+																: 'text-muted-foreground/70 hover:text-foreground'}"
+															onclick={() => void togglePin(m)}
+															aria-label={m.is_pinned ? 'Unpin message' : 'Pin message'}
+															title={m.is_pinned ? 'Unpin' : 'Pin'}
 														>
-															<Trash2 class="h-3.5 w-3.5" />
+															{#if m.is_pinned}
+																<PinOff class="h-3.5 w-3.5" />
+															{:else}
+																<Pin class="h-3.5 w-3.5" />
+															{/if}
 														</button>
-													{/if}
+														{#if currentUserId != null && m.author_id === currentUserId}
+															<button
+																type="button"
+																class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
+																onclick={() => removeMessage(m)}
+																aria-label="Delete poll"
+																title="Delete"
+															>
+																<Trash2 class="h-3.5 w-3.5" />
+															</button>
+														{/if}
+													</div>
 												</div>
-											</div>
-										</li>
-									{:else if m.kind !== 'message'}
-										{@const actor = m.author_name ?? m.author_login}
-										<li
-											data-message-id={m.message_id}
-											class={[
-												'flex items-center gap-2 rounded-md border border-dashed border-border/60 bg-card/40 px-3 py-1.5 text-xs transition-colors',
-												highlightMessageId === m.message_id && 'ring-2 ring-primary/60'
-											]}
-										>
-											{#if Icon}
-												<Icon class={`h-3.5 w-3.5 shrink-0 ${systemColor(m.kind)}`} />
-											{/if}
-											<span class="min-w-0 flex-1 break-words text-muted-foreground">
-												{#if actor}
-													<!-- Actor first so the operator can see at a glance
+											</li>
+										{:else if m.kind !== 'message'}
+											{@const actor = m.author_name ?? m.author_login}
+											<li
+												data-message-id={m.message_id}
+												class={[
+													'flex items-center gap-2 rounded-md border border-dashed border-border/60 bg-card/40 px-3 py-1.5 text-xs transition-colors',
+													highlightMessageId === m.message_id && 'ring-2 ring-primary/60'
+												]}
+											>
+												{#if Icon}
+													<Icon class={`h-3.5 w-3.5 shrink-0 ${systemColor(m.kind)}`} />
+												{/if}
+												<span class="min-w-0 flex-1 break-words text-muted-foreground">
+													{#if actor}
+														<!-- Actor first so the operator can see at a glance
 													     who triggered the system event before reading
 													     the body. The avatar isn't here on purpose: the
 													     dashed row is intentionally compact and a tiny
 													     name pill reads better at this height. -->
-													<span class="mr-1 font-medium text-foreground">
-														{actor}
-													</span>
-												{/if}
-												<!--
+														<span class="mr-1 font-medium text-foreground">
+															{actor}
+														</span>
+													{/if}
+													<!--
 												  `inline` so the generated one-liner keeps
 												  flowing after the actor pill instead of
 												  dropping onto its own row.
 												-->
-												<ChatMessageBody
-													body={m.body ?? ''}
-													attachments={m.attachments}
-													{warRoomId}
-													onAttachmentClick={openPreview}
-													inline
-												/>
-											</span>
-											<!--
+													<ChatMessageBody
+														body={m.body ?? ''}
+														attachments={m.attachments}
+														{warRoomId}
+														onAttachmentClick={openPreview}
+														inline
+													/>
+												</span>
+												<!--
 											  Reference card: a clickable chip pointing at the
 											  ref_type / ref_id the backend stamped on this row.
 											  Falls back to a non-link badge for self-referential
 											  rows (war_room, war_room_chat).
 											-->
-											<StreamRefCard
-												{warRoomId}
-												refType={m.ref_type}
-												refId={m.ref_id}
-												refCaseId={m.ref_case_id}
-												{attachedCases}
-											/>
-											{#if showTopicChips}
-												{@const chip = topicChipName(m)}
-												{#if chip}
-													<span
-														class="inline-flex shrink-0 items-center gap-0.5 rounded bg-muted px-1 py-0.5 text-2xs text-muted-foreground"
-														title={`Topic: ${chip}`}
-													>
-														<Hash class="h-2.5 w-2.5" />
-														{chip}
-													</span>
+												<StreamRefCard
+													{warRoomId}
+													refType={m.ref_type}
+													refId={m.ref_id}
+													refCaseId={m.ref_case_id}
+													{attachedCases}
+												/>
+												{#if showTopicChips}
+													{@const chip = topicChipName(m)}
+													{#if chip}
+														<span
+															class="inline-flex shrink-0 items-center gap-0.5 rounded bg-muted px-1 py-0.5 text-2xs text-muted-foreground"
+															title={`Topic: ${chip}`}
+														>
+															<Hash class="h-2.5 w-2.5" />
+															{chip}
+														</span>
+													{/if}
 												{/if}
-											{/if}
-											<span class="shrink-0 text-2xs text-muted-foreground">
-												{fmtTime(m.created_at)}
-											</span>
-										</li>
-									{:else if cont}
-										{@const replyCount = replyCountByRoot.get(m.message_id) ?? 0}
-										<li
-											data-message-id={m.message_id}
-											class={[
-												'group/msg relative flex gap-3 rounded-md pl-11 pr-2 -mx-2 transition-colors hover:bg-muted/40',
-												highlightMessageId === m.message_id && 'rounded-md ring-2 ring-primary/60'
-											]}
-										>
-											<div class="min-w-0 flex-1">
-												{#if editingMessageId === m.message_id}
-													<ChatMessageEditor
-														initial={m.body ?? ''}
-														saving={editSaving}
-														onSave={(next) => void saveEdit(m.message_id, next)}
-														onCancel={cancelEdit}
-													/>
-													<!--
+												<span class="shrink-0 text-2xs text-muted-foreground">
+													{fmtTime(m.created_at)}
+												</span>
+											</li>
+										{:else if cont}
+											{@const replyCount = replyCountByRoot.get(m.message_id) ?? 0}
+											<li
+												data-message-id={m.message_id}
+												class={[
+													'group/msg relative -mx-2 flex gap-3 rounded-md pl-11 pr-2 transition-colors hover:bg-muted/40',
+													highlightMessageId === m.message_id && 'rounded-md ring-2 ring-primary/60'
+												]}
+											>
+												<div class="min-w-0 flex-1">
+													{#if editingMessageId === m.message_id}
+														<ChatMessageEditor
+															initial={m.body ?? ''}
+															saving={editSaving}
+															onSave={(next) => void saveEdit(m.message_id, next)}
+															onCancel={cancelEdit}
+														/>
+														<!--
 													  Uploads stay on screen while the text is being
 													  rewritten — the edit only ever touches the body,
 													  so hiding them would misreport the message.
 													-->
-													<ChatMessageAttachments attachments={m.attachments} {warRoomId} />
-												{:else}
-												<!--
+														<ChatMessageAttachments attachments={m.attachments} {warRoomId} />
+													{:else}
+														<!--
 												  A div, not a p: the body is markdown now and
 												  renders block children (paragraphs, lists, code
 												  fences) that a <p> can't legally contain.
 												-->
-												<div class="break-words text-sm">
-													<ChatMessageBody
-													body={m.body ?? ''}
-													attachments={m.attachments}
-													{warRoomId}
-													onAttachmentClick={openPreview}
-												/>
-													{#if m.edited_at}
-														<!--
+														<div class="break-words text-sm">
+															<ChatMessageBody
+																body={m.body ?? ''}
+																attachments={m.attachments}
+																{warRoomId}
+																onAttachmentClick={openPreview}
+															/>
+															{#if m.edited_at}
+																<!--
 														  Continuation rows have no timestamp header, so the
 														  edited marker rides at the end of the body — same
 														  placement rationale as the pin badge below.
 														-->
-														<span class="ml-1 align-middle text-2xs italic text-muted-foreground">
-															(edited)
-														</span>
-													{/if}
-													{#if m.is_pinned}
-														<!--
+																<span
+																	class="ml-1 align-middle text-2xs italic text-muted-foreground"
+																>
+																	(edited)
+																</span>
+															{/if}
+															{#if m.is_pinned}
+																<!--
 														  Pin badge next to body content. On continuation
 														  rows there's no timestamp header to anchor to, so
 														  we inline the badge at the end of the body.
 														-->
-														<span
-															class="ml-1 inline-flex items-center gap-0.5 rounded bg-primary/10 px-1 py-0.5 align-middle text-2xs text-primary"
-															title="Pinned"
-														>
-															<Pin class="h-2.5 w-2.5" />
-															Pinned
-														</span>
+																<span
+																	class="ml-1 inline-flex items-center gap-0.5 rounded bg-primary/10 px-1 py-0.5 align-middle text-2xs text-primary"
+																	title="Pinned"
+																>
+																	<Pin class="h-2.5 w-2.5" />
+																	Pinned
+																</span>
+															{/if}
+														</div>
 													{/if}
-												</div>
-												{/if}
-												{#if (m.reactions ?? []).length > 0}
-													<MessageReactions
-														reactions={m.reactions}
-														{currentUserId}
-														onToggle={(emoji) => void toggleReaction(m.message_id, emoji)}
-													/>
-												{/if}
-												<!--
+													{#if (m.reactions ?? []).length > 0}
+														<MessageReactions
+															reactions={m.reactions}
+															{currentUserId}
+															onToggle={(emoji) => void toggleReaction(m.message_id, emoji)}
+														/>
+													{/if}
+													<!--
 												  Thread chip lives on its own row — always visible so
 												  operators can see reply counts at rest. The action
 												  strip below is hover-only.
 												-->
-												{#if replyCount > 0 || m.thread_title}
-													<button
-														type="button"
-														class="mt-1 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-2xs text-primary hover:bg-primary/15"
-														onclick={() => openThreadFor(m.message_id)}
-													>
-														<MessageSquare class="h-3 w-3" />
-														{#if m.thread_title}
-															{m.thread_title}
-														{:else}
-															{replyCount} {replyCount === 1 ? 'reply' : 'replies'}
-														{/if}
-													</button>
-												{/if}
-												<!--
+													{#if replyCount > 0 || m.thread_title}
+														<button
+															type="button"
+															class="mt-1 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-2xs text-primary hover:bg-primary/15"
+															onclick={() => openThreadFor(m.message_id)}
+														>
+															<MessageSquare class="h-3 w-3" />
+															{#if m.thread_title}
+																{m.thread_title}
+															{:else}
+																{replyCount} {replyCount === 1 ? 'reply' : 'replies'}
+															{/if}
+														</button>
+													{/if}
+													<!--
 												  Message action strip — Reply / React / Pin / Delete.
 												  Icon-only for compactness. Revealed on hover of the
 												  parent `group/msg` container so the stream stays
@@ -2934,525 +2879,531 @@
 												  instead of `hidden`) so layout doesn't jump and the
 												  popover anchors keep working.
 												-->
-												<div class="absolute right-1 -top-3 z-10 hidden h-7 items-center gap-0.5 rounded-md border bg-card px-1 shadow-sm group-hover/msg:flex focus-within:flex">
-													<button
-														type="button"
-														class="inline-flex h-6 items-center rounded px-1.5 text-2xs text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
-														onclick={() => openThreadFor(m.message_id)}
+													<div
+														class="absolute -top-3 right-1 z-10 hidden h-7 items-center gap-0.5 rounded-md border bg-card px-1 shadow-sm focus-within:flex group-hover/msg:flex"
 													>
-														Reply in thread
-													</button>
-													{#if (m.reactions ?? []).length === 0}
-														<div class="relative">
+														<button
+															type="button"
+															class="inline-flex h-6 items-center rounded px-1.5 text-2xs text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+															onclick={() => openThreadFor(m.message_id)}
+														>
+															Reply in thread
+														</button>
+														{#if (m.reactions ?? []).length === 0}
+															<div class="relative">
+																<button
+																	type="button"
+																	class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+																	onclick={(e) => openReactPicker(m.message_id, e.currentTarget)}
+																	aria-label="Add reaction"
+																	title="Add reaction"
+																>
+																	<SmilePlus class="h-3.5 w-3.5" />
+																</button>
+																{#if reactPickerFor === m.message_id}
+																	<EmojiPickerPopover
+																		open={true}
+																		onOpenChange={(v) => {
+																			if (!v) closeReactPicker();
+																		}}
+																		onPick={(emoji) => {
+																			void toggleReaction(m.message_id, emoji);
+																			closeReactPicker();
+																		}}
+																		anchor={reactPickerAnchor}
+																	/>
+																{/if}
+															</div>
+														{/if}
+														<button
+															type="button"
+															class="inline-flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-muted {m.is_pinned
+																? 'text-primary'
+																: 'text-muted-foreground/70 hover:text-foreground'}"
+															onclick={() => void togglePin(m)}
+															aria-label={m.is_pinned ? 'Unpin message' : 'Pin message'}
+															title={m.is_pinned ? 'Unpin' : 'Pin'}
+														>
+															{#if m.is_pinned}
+																<PinOff class="h-3.5 w-3.5" />
+															{:else}
+																<Pin class="h-3.5 w-3.5" />
+															{/if}
+														</button>
+														{#if canEditMessage(m) && editingMessageId !== m.message_id}
 															<button
 																type="button"
 																class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
-																onclick={(e) => openReactPicker(m.message_id, e.currentTarget)}
-																aria-label="Add reaction"
-																title="Add reaction"
+																onclick={() => beginEdit(m)}
+																aria-label="Edit message"
+																title="Edit"
 															>
-																<SmilePlus class="h-3.5 w-3.5" />
+																<Pencil class="h-3.5 w-3.5" />
 															</button>
-															{#if reactPickerFor === m.message_id}
-																<EmojiPickerPopover
-																	open={true}
-																	onOpenChange={(v) => { if (!v) closeReactPicker(); }}
-																	onPick={(emoji) => {
-																		void toggleReaction(m.message_id, emoji);
-																		closeReactPicker();
-																	}}
-																	anchor={reactPickerAnchor}
-																/>
-															{/if}
-														</div>
-													{/if}
-													<button
-														type="button"
-														class="inline-flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-muted {m.is_pinned
-															? 'text-primary'
-															: 'text-muted-foreground/70 hover:text-foreground'}"
-														onclick={() => void togglePin(m)}
-														aria-label={m.is_pinned ? 'Unpin message' : 'Pin message'}
-														title={m.is_pinned ? 'Unpin' : 'Pin'}
-													>
-														{#if m.is_pinned}
-															<PinOff class="h-3.5 w-3.5" />
-														{:else}
-															<Pin class="h-3.5 w-3.5" />
 														{/if}
-													</button>
-													{#if canEditMessage(m) && editingMessageId !== m.message_id}
-														<button
-															type="button"
-															class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
-															onclick={() => beginEdit(m)}
-															aria-label="Edit message"
-															title="Edit"
-														>
-															<Pencil class="h-3.5 w-3.5" />
-														</button>
-													{/if}
-													{#if currentUserId != null && m.author_id === currentUserId}
-														<button
-															type="button"
-															class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
-															onclick={() => removeMessage(m)}
-															aria-label="Delete message"
-															title="Delete"
-														>
-															<Trash2 class="h-3.5 w-3.5" />
-														</button>
-													{/if}
-												</div>
-											</div>
-										</li>
-									{:else}
-										{@const replyCount = replyCountByRoot.get(m.message_id) ?? 0}
-										<li
-											data-message-id={m.message_id}
-											class={[
-												'group/msg relative flex gap-3 rounded-md px-2 -mx-2 pt-2 transition-colors hover:bg-muted/40',
-												highlightMessageId === m.message_id && 'rounded-md ring-2 ring-primary/60'
-											]}
-										>
-											<UserAvatar
-												userId={m.author_id ?? undefined}
-												name={m.author_name ?? m.author_login ?? 'Unknown'}
-												size="size-8"
-											/>
-											<div class="min-w-0 flex-1">
-												<div class="flex items-baseline gap-2">
-													<span class="text-sm font-semibold text-foreground">
-														{m.author_name ?? m.author_login ?? 'Unknown'}
-													</span>
-													<span class="text-2xs text-muted-foreground">
-														{fmtTime(m.created_at)}
-													</span>
-													{#if m.edited_at}
-														<span class="text-2xs italic text-muted-foreground">
-															(edited)
-														</span>
-													{/if}
-													{#if showTopicChips}
-														{@const chip = topicChipName(m)}
-														{#if chip}
-															<span
-																class="inline-flex items-center gap-0.5 rounded bg-muted px-1 py-0.5 text-2xs text-muted-foreground"
-																title={`Topic: ${chip}`}
+														{#if currentUserId != null && m.author_id === currentUserId}
+															<button
+																type="button"
+																class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
+																onclick={() => removeMessage(m)}
+																aria-label="Delete message"
+																title="Delete"
 															>
-																<Hash class="h-2.5 w-2.5" />
-																{chip}
+																<Trash2 class="h-3.5 w-3.5" />
+															</button>
+														{/if}
+													</div>
+												</div>
+											</li>
+										{:else}
+											{@const replyCount = replyCountByRoot.get(m.message_id) ?? 0}
+											<li
+												data-message-id={m.message_id}
+												class={[
+													'group/msg relative -mx-2 flex gap-3 rounded-md px-2 pt-2 transition-colors hover:bg-muted/40',
+													highlightMessageId === m.message_id && 'rounded-md ring-2 ring-primary/60'
+												]}
+											>
+												<UserAvatar
+													userId={m.author_id ?? undefined}
+													name={m.author_name ?? m.author_login ?? 'Unknown'}
+													size="size-8"
+												/>
+												<div class="min-w-0 flex-1">
+													<div class="flex items-baseline gap-2">
+														<span class="text-sm font-semibold text-foreground">
+															{m.author_name ?? m.author_login ?? 'Unknown'}
+														</span>
+														<span class="text-2xs text-muted-foreground">
+															{fmtTime(m.created_at)}
+														</span>
+														{#if m.edited_at}
+															<span class="text-2xs italic text-muted-foreground"> (edited) </span>
+														{/if}
+														{#if showTopicChips}
+															{@const chip = topicChipName(m)}
+															{#if chip}
+																<span
+																	class="inline-flex items-center gap-0.5 rounded bg-muted px-1 py-0.5 text-2xs text-muted-foreground"
+																	title={`Topic: ${chip}`}
+																>
+																	<Hash class="h-2.5 w-2.5" />
+																	{chip}
+																</span>
+															{/if}
+														{/if}
+														{#if m.is_pinned}
+															<span
+																class="inline-flex items-center gap-0.5 rounded bg-primary/10 px-1 py-0.5 text-2xs text-primary"
+																title="Pinned"
+															>
+																<Pin class="h-2.5 w-2.5" />
+																Pinned
 															</span>
 														{/if}
-													{/if}
-													{#if m.is_pinned}
-														<span
-															class="inline-flex items-center gap-0.5 rounded bg-primary/10 px-1 py-0.5 text-2xs text-primary"
-															title="Pinned"
-														>
-															<Pin class="h-2.5 w-2.5" />
-															Pinned
-														</span>
-													{/if}
-												</div>
-												{#if editingMessageId === m.message_id}
-													<ChatMessageEditor
-														initial={m.body ?? ''}
-														saving={editSaving}
-														onSave={(next) => void saveEdit(m.message_id, next)}
-														onCancel={cancelEdit}
-													/>
-													<ChatMessageAttachments attachments={m.attachments} {warRoomId} />
-												{:else}
-													<!-- See the continuation row above: markdown
+													</div>
+													{#if editingMessageId === m.message_id}
+														<ChatMessageEditor
+															initial={m.body ?? ''}
+															saving={editSaving}
+															onSave={(next) => void saveEdit(m.message_id, next)}
+															onCancel={cancelEdit}
+														/>
+														<ChatMessageAttachments attachments={m.attachments} {warRoomId} />
+													{:else}
+														<!-- See the continuation row above: markdown
 													     bodies are block content, so this can't be
 													     a <p>. -->
-													<div class="mt-0.5 break-words text-sm">
-														<ChatMessageBody
-														body={m.body ?? ''}
-														attachments={m.attachments}
-														{warRoomId}
-														onAttachmentClick={openPreview}
-													/>
-													</div>
-												{/if}
-												{#if (m.reactions ?? []).length > 0}
-													<MessageReactions
-														reactions={m.reactions}
-														{currentUserId}
-														onToggle={(emoji) => void toggleReaction(m.message_id, emoji)}
-													/>
-												{/if}
-												{#if replyCount > 0 || m.thread_title}
-													<button
-														type="button"
-														class="mt-1 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-2xs text-primary hover:bg-primary/15"
-														onclick={() => openThreadFor(m.message_id)}
+														<div class="mt-0.5 break-words text-sm">
+															<ChatMessageBody
+																body={m.body ?? ''}
+																attachments={m.attachments}
+																{warRoomId}
+																onAttachmentClick={openPreview}
+															/>
+														</div>
+													{/if}
+													{#if (m.reactions ?? []).length > 0}
+														<MessageReactions
+															reactions={m.reactions}
+															{currentUserId}
+															onToggle={(emoji) => void toggleReaction(m.message_id, emoji)}
+														/>
+													{/if}
+													{#if replyCount > 0 || m.thread_title}
+														<button
+															type="button"
+															class="mt-1 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-2xs text-primary hover:bg-primary/15"
+															onclick={() => openThreadFor(m.message_id)}
+														>
+															<MessageSquare class="h-3 w-3" />
+															{#if m.thread_title}
+																{m.thread_title}
+															{:else}
+																{replyCount} {replyCount === 1 ? 'reply' : 'replies'}
+															{/if}
+														</button>
+													{/if}
+													<div
+														class="absolute -top-3 right-1 z-10 hidden h-7 items-center gap-0.5 rounded-md border bg-card px-1 shadow-sm focus-within:flex group-hover/msg:flex"
 													>
-														<MessageSquare class="h-3 w-3" />
-														{#if m.thread_title}
-															{m.thread_title}
-														{:else}
-															{replyCount} {replyCount === 1 ? 'reply' : 'replies'}
+														<button
+															type="button"
+															class="inline-flex h-6 items-center rounded px-1.5 text-2xs text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+															onclick={() => openThreadFor(m.message_id)}
+														>
+															Reply in thread
+														</button>
+														{#if (m.reactions ?? []).length === 0}
+															<div class="relative">
+																<button
+																	type="button"
+																	class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+																	onclick={(e) => openReactPicker(m.message_id, e.currentTarget)}
+																	aria-label="Add reaction"
+																	title="Add reaction"
+																>
+																	<SmilePlus class="h-3.5 w-3.5" />
+																</button>
+																{#if reactPickerFor === m.message_id}
+																	<EmojiPickerPopover
+																		open={true}
+																		onOpenChange={(v) => {
+																			if (!v) closeReactPicker();
+																		}}
+																		onPick={(emoji) => {
+																			void toggleReaction(m.message_id, emoji);
+																			closeReactPicker();
+																		}}
+																		anchor={reactPickerAnchor}
+																	/>
+																{/if}
+															</div>
 														{/if}
-													</button>
-												{/if}
-												<div class="absolute right-1 -top-3 z-10 hidden h-7 items-center gap-0.5 rounded-md border bg-card px-1 shadow-sm group-hover/msg:flex focus-within:flex">
-													<button
-														type="button"
-														class="inline-flex h-6 items-center rounded px-1.5 text-2xs text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
-														onclick={() => openThreadFor(m.message_id)}
-													>
-														Reply in thread
-													</button>
-													{#if (m.reactions ?? []).length === 0}
-														<div class="relative">
+														<button
+															type="button"
+															class="inline-flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-muted {m.is_pinned
+																? 'text-primary'
+																: 'text-muted-foreground/70 hover:text-foreground'}"
+															onclick={() => void togglePin(m)}
+															aria-label={m.is_pinned ? 'Unpin message' : 'Pin message'}
+															title={m.is_pinned ? 'Unpin' : 'Pin'}
+														>
+															{#if m.is_pinned}
+																<PinOff class="h-3.5 w-3.5" />
+															{:else}
+																<Pin class="h-3.5 w-3.5" />
+															{/if}
+														</button>
+														{#if canEditMessage(m) && editingMessageId !== m.message_id}
 															<button
 																type="button"
 																class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
-																onclick={(e) => openReactPicker(m.message_id, e.currentTarget)}
-																aria-label="Add reaction"
-																title="Add reaction"
+																onclick={() => beginEdit(m)}
+																aria-label="Edit message"
+																title="Edit"
 															>
-																<SmilePlus class="h-3.5 w-3.5" />
+																<Pencil class="h-3.5 w-3.5" />
 															</button>
-															{#if reactPickerFor === m.message_id}
-																<EmojiPickerPopover
-																	open={true}
-																	onOpenChange={(v) => { if (!v) closeReactPicker(); }}
-																	onPick={(emoji) => {
-																		void toggleReaction(m.message_id, emoji);
-																		closeReactPicker();
-																	}}
-																	anchor={reactPickerAnchor}
-																/>
-															{/if}
-														</div>
-													{/if}
-													<button
-														type="button"
-														class="inline-flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-muted {m.is_pinned
-															? 'text-primary'
-															: 'text-muted-foreground/70 hover:text-foreground'}"
-														onclick={() => void togglePin(m)}
-														aria-label={m.is_pinned ? 'Unpin message' : 'Pin message'}
-														title={m.is_pinned ? 'Unpin' : 'Pin'}
-													>
-														{#if m.is_pinned}
-															<PinOff class="h-3.5 w-3.5" />
-														{:else}
-															<Pin class="h-3.5 w-3.5" />
 														{/if}
-													</button>
-													{#if canEditMessage(m) && editingMessageId !== m.message_id}
-														<button
-															type="button"
-															class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
-															onclick={() => beginEdit(m)}
-															aria-label="Edit message"
-															title="Edit"
-														>
-															<Pencil class="h-3.5 w-3.5" />
-														</button>
-													{/if}
-													{#if currentUserId != null && m.author_id === currentUserId}
-														<button
-															type="button"
-															class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
-															onclick={() => removeMessage(m)}
-															aria-label="Delete message"
-															title="Delete"
-														>
-															<Trash2 class="h-3.5 w-3.5" />
-														</button>
-													{/if}
+														{#if currentUserId != null && m.author_id === currentUserId}
+															<button
+																type="button"
+																class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
+																onclick={() => removeMessage(m)}
+																aria-label="Delete message"
+																title="Delete"
+															>
+																<Trash2 class="h-3.5 w-3.5" />
+															</button>
+														{/if}
+													</div>
 												</div>
-											</div>
-										</li>
-									{/if}
-								{/each}
-							</ul>
+											</li>
+										{/if}
+									{/each}
+								</ul>
+							{/each}
+						</div>
+					{/if}
+				{/if}
+			</div>
+
+			<!-- Composer -->
+			<form
+				class={[
+					'relative border-t bg-background/80 px-4 py-3 transition-colors',
+					isDropTarget && 'bg-primary/5'
+				]}
+				ondragover={onComposerDragOver}
+				ondragleave={onComposerDragLeave}
+				ondrop={onComposerDrop}
+				onsubmit={(e) => {
+					e.preventDefault();
+					void send();
+				}}
+			>
+				{#if isDropTarget}
+					<div
+						class="pointer-events-none absolute inset-2 flex items-center justify-center rounded-md border-2 border-dashed border-primary/60 bg-primary/5 text-xs font-medium text-primary"
+					>
+						Drop files to attach
+					</div>
+				{/if}
+
+				{#if pendingAttachments.length > 0}
+					<div class="mb-2 flex flex-wrap gap-1.5 px-1">
+						{#each pendingAttachments as p (p.id)}
+							<div class="flex items-center gap-1.5 rounded border bg-muted/50 px-2 py-1 text-2xs">
+								<Paperclip class="h-3 w-3 text-muted-foreground" />
+								<span class="max-w-[16rem] truncate">{p.file.name}</span>
+								<span class="text-muted-foreground">
+									{humanBytes(p.file.size)}
+								</span>
+								<button
+									type="button"
+									class="text-muted-foreground hover:text-destructive"
+									onclick={() => removePendingAttachment(p.id)}
+									aria-label="Remove attachment"
+								>
+									<X class="h-3 w-3" />
+								</button>
+							</div>
 						{/each}
 					</div>
 				{/if}
-			{/if}
-		</div>
-
-		<!-- Composer -->
-		<form
-			class={[
-				'relative border-t bg-background/80 px-4 py-3 transition-colors',
-				isDropTarget && 'bg-primary/5'
-			]}
-			ondragover={onComposerDragOver}
-			ondragleave={onComposerDragLeave}
-			ondrop={onComposerDrop}
-			onsubmit={(e) => {
-				e.preventDefault();
-				void send();
-			}}
-		>
-			{#if isDropTarget}
-				<div
-					class="pointer-events-none absolute inset-2 flex items-center justify-center rounded-md border-2 border-dashed border-primary/60 bg-primary/5 text-xs font-medium text-primary"
-				>
-					Drop files to attach
-				</div>
-			{/if}
-
-			{#if pendingAttachments.length > 0}
-				<div class="mb-2 flex flex-wrap gap-1.5 px-1">
-					{#each pendingAttachments as p (p.id)}
-						<div
-							class="flex items-center gap-1.5 rounded border bg-muted/50 px-2 py-1 text-2xs"
-						>
-							<Paperclip class="h-3 w-3 text-muted-foreground" />
-							<span class="max-w-[16rem] truncate">{p.file.name}</span>
-							<span class="text-muted-foreground">
-								{humanBytes(p.file.size)}
-							</span>
-							<button
-								type="button"
-								class="text-muted-foreground hover:text-destructive"
-								onclick={() => removePendingAttachment(p.id)}
-								aria-label="Remove attachment"
-							>
-								<X class="h-3 w-3" />
-							</button>
-						</div>
-					{/each}
-				</div>
-			{/if}
-			<!-- Topic chip — shows the operator which topic the composer will
+				<!-- Topic chip — shows the operator which topic the composer will
 			     post into. Clickable to open a topic-picker popover; hidden
 			     entirely on backends without topics support. -->
-			{#if topics.length > 0}
-				<div class="mb-1.5 flex items-center gap-2 px-1 text-2xs">
-					<span class="text-muted-foreground">Posting to</span>
-					<Popover.Root>
-						<Popover.Trigger
-							class={[
-								'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors',
-								composerLocked
-									? 'border-destructive/40 text-destructive'
-									: 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
-							]}
-							disabled={liveTopics.length <= 1}
-							title={
-								composerLocked
+				{#if topics.length > 0}
+					<div class="mb-1.5 flex items-center gap-2 px-1 text-2xs">
+						<span class="text-muted-foreground">Posting to</span>
+						<Popover.Root>
+							<Popover.Trigger
+								class={[
+									'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors',
+									composerLocked
+										? 'border-destructive/40 text-destructive'
+										: 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
+								]}
+								disabled={liveTopics.length <= 1}
+								title={composerLocked
 									? 'The selected topic is archived — pick a live one.'
 									: liveTopics.length <= 1
 										? undefined
-										: 'Change target topic'
-							}
-						>
-							<Hash class="h-3 w-3" />
-							<span class="font-medium">
-								{effectiveComposerTopic?.name ?? 'No topic'}
-							</span>
+										: 'Change target topic'}
+							>
+								<Hash class="h-3 w-3" />
+								<span class="font-medium">
+									{effectiveComposerTopic?.name ?? 'No topic'}
+								</span>
+								{#if liveTopics.length > 1}
+									<ChevronDown class="h-3 w-3 opacity-70" />
+								{/if}
+							</Popover.Trigger>
 							{#if liveTopics.length > 1}
-								<ChevronDown class="h-3 w-3 opacity-70" />
-							{/if}
-						</Popover.Trigger>
-						{#if liveTopics.length > 1}
-							<Popover.Content side="top" align="start" class="w-56 p-1">
-								<ul class="flex flex-col">
-									{#each liveTopics as t (t.topic_id)}
-										{@const active =
-											effectiveComposerTopic?.topic_id === t.topic_id}
-										<li>
-											<button
-												type="button"
-												class={[
-													'flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-xs transition-colors',
-													active ? 'bg-muted font-medium' : 'hover:bg-muted/60'
-												]}
-												onclick={() => {
-													// Switch the stream view to just this topic —
-													// picking a "Posting to" target implies the
-													// operator wants to focus that lane, not merge
-													// it into whatever multi-select they had.
-													selectOnlyTopic(t);
-												}}
-											>
-												<Hash class="h-3 w-3 text-muted-foreground" />
-												<span class="min-w-0 flex-1 truncate">{t.name}</span>
-												{#if t.is_main}
-													<span class="shrink-0 text-2xs text-muted-foreground">
-														main
-													</span>
-												{/if}
-											</button>
-										</li>
-									{/each}
-								</ul>
-							</Popover.Content>
-						{/if}
-					</Popover.Root>
-				</div>
-			{/if}
-
-			<div class="flex items-end gap-2 rounded-xl border bg-card px-3 py-2 focus-within:ring-1 focus-within:ring-ring">
-				<button
-					type="button"
-					class="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-					onclick={() => (pollComposerOpen = true)}
-					aria-label="Create a poll"
-					title="Create a poll"
-				>
-					<BarChart3 size={15} />
-				</button>
-				<Popover.Root bind:open={attachOpen}>
-					<Popover.Trigger
-						class="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-						aria-label="Attach a case element"
-					>
-						<Paperclip size={15} />
-					</Popover.Trigger>
-					<Popover.Content side="top" align="start" class="w-96 p-0">
-						{#if attachedCases.length === 0}
-							<div class="p-4 text-center text-xs text-muted-foreground">
-								No cases attached to this war room yet — attach one in the Cases tab.
-							</div>
-						{:else}
-							<!-- Kind chips -->
-							<div class="flex items-center gap-1 border-b p-2">
-								{#each [{ k: 'event', l: 'Events' }, { k: 'ioc', l: 'IOCs' }, { k: 'asset', l: 'Assets' }, { k: 'task', l: 'Tasks' }] as t}
-									{@const on = attachKind === (t.k as ResourceKind)}
-									<button
-										type="button"
-										class={[
-											'flex-1 rounded-md px-2 py-1 text-2xs transition-colors',
-											on ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
-										]}
-										onclick={() => (attachKind = t.k as ResourceKind)}
-									>
-										{t.l}
-									</button>
-								{/each}
-							</div>
-
-							<!-- Case selector -->
-							<div class="border-b p-2">
-								<label class="block text-2xs uppercase tracking-wider text-muted-foreground" for="attach-case">
-									Case
-								</label>
-								<select
-									id="attach-case"
-									bind:value={attachCaseId}
-									class="mt-1 h-7 w-full rounded border bg-background px-2 text-xs"
-								>
-									{#each attachedCases as c (c.case_id)}
-										<option value={c.case_id}>#{c.case_id} — {c.case_name}</option>
-									{/each}
-								</select>
-							</div>
-
-							<!-- Search -->
-							<div class="border-b p-2">
-								<div class="relative">
-									<Search class="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-									<Input
-										value={attachSearch}
-										oninput={(e) => (attachSearch = (e.target as HTMLInputElement).value)}
-										placeholder="Search…"
-										class="h-7 pl-7 text-xs"
-									/>
-								</div>
-							</div>
-
-							<!-- Results -->
-							<div class="max-h-72 overflow-y-auto">
-								{#if attachLoading}
-									<div class="p-3 text-center text-xs text-muted-foreground">
-										Loading…
-									</div>
-								{:else if filteredPickerRows.length === 0}
-									<div class="p-3 text-center text-xs text-muted-foreground">
-										Nothing here.
-									</div>
-								{:else}
-									<ul>
-										{#each filteredPickerRows as r (r.id)}
+								<Popover.Content side="top" align="start" class="w-56 p-1">
+									<ul class="flex flex-col">
+										{#each liveTopics as t (t.topic_id)}
+											{@const active = effectiveComposerTopic?.topic_id === t.topic_id}
 											<li>
 												<button
 													type="button"
-													class="flex w-full items-start gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-muted/60"
-													onclick={() => insertAttachment(r)}
+													class={[
+														'flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-xs transition-colors',
+														active ? 'bg-muted font-medium' : 'hover:bg-muted/60'
+													]}
+													onclick={() => {
+														// Switch the stream view to just this topic —
+														// picking a "Posting to" target implies the
+														// operator wants to focus that lane, not merge
+														// it into whatever multi-select they had.
+														selectOnlyTopic(t);
+													}}
 												>
-													<span class="min-w-0 flex-1">
-														<span class="block truncate font-medium">{r.label}</span>
-														{#if r.sub}
-															<span class="block truncate text-2xs text-muted-foreground">
-																{r.sub}
-															</span>
-														{/if}
-													</span>
+													<Hash class="h-3 w-3 text-muted-foreground" />
+													<span class="min-w-0 flex-1 truncate">{t.name}</span>
+													{#if t.is_main}
+														<span class="shrink-0 text-2xs text-muted-foreground"> main </span>
+													{/if}
 												</button>
 											</li>
 										{/each}
 									</ul>
-								{/if}
-							</div>
-						{/if}
-					</Popover.Content>
-				</Popover.Root>
+								</Popover.Content>
+							{/if}
+						</Popover.Root>
+					</div>
+				{/if}
 
-				<textarea
-					bind:this={composerEl}
-					value={body}
-					oninput={onInput}
-					onkeydown={onKey}
-					placeholder="Type a message, /command, @user or #resource…"
-					rows="1"
-					class="flex-1 resize-none bg-transparent text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
-				></textarea>
-
-				<ChatComposerMentions
-					bind:this={mentions}
-					textarea={composerEl}
-					{body}
-					{attachedCases}
-					{warRoomId}
-					onChangeBody={(v) => (body = v)}
-				/>
-
-				<Button
-					type="submit"
-					size="sm"
-					class="h-8 gap-1.5"
-					disabled={sending ||
-						(!body.trim() && pendingAttachments.length === 0) ||
-						composerLocked}
+				<div
+					class="flex items-end gap-2 rounded-xl border bg-card px-3 py-2 focus-within:ring-1 focus-within:ring-ring"
 				>
-					{#if sending}
-						<Loader2 class="h-3.5 w-3.5 animate-spin" />
-					{:else}
-						<Send class="h-3.5 w-3.5" />
-					{/if}
-					Send
-				</Button>
-			</div>
+					<button
+						type="button"
+						class="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+						onclick={() => (pollComposerOpen = true)}
+						aria-label="Create a poll"
+						title="Create a poll"
+					>
+						<BarChart3 size={15} />
+					</button>
+					<Popover.Root bind:open={attachOpen}>
+						<Popover.Trigger
+							class="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+							aria-label="Attach a case element"
+						>
+							<Paperclip size={15} />
+						</Popover.Trigger>
+						<Popover.Content side="top" align="start" class="w-96 p-0">
+							{#if attachedCases.length === 0}
+								<div class="p-4 text-center text-xs text-muted-foreground">
+									No cases attached to this war room yet — attach one in the Cases tab.
+								</div>
+							{:else}
+								<!-- Kind chips -->
+								<div class="flex items-center gap-1 border-b p-2">
+									{#each [{ k: 'event', l: 'Events' }, { k: 'ioc', l: 'IOCs' }, { k: 'asset', l: 'Assets' }, { k: 'task', l: 'Tasks' }] as t}
+										{@const on = attachKind === (t.k as ResourceKind)}
+										<button
+											type="button"
+											class={[
+												'flex-1 rounded-md px-2 py-1 text-2xs transition-colors',
+												on
+													? 'bg-primary text-primary-foreground'
+													: 'text-muted-foreground hover:bg-muted'
+											]}
+											onclick={() => (attachKind = t.k as ResourceKind)}
+										>
+											{t.l}
+										</button>
+									{/each}
+								</div>
 
-			<p class="mt-1.5 px-1 text-2xs text-muted-foreground">
-				<kbd class="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">Enter</kbd>
-				to send · <kbd class="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">Shift+Enter</kbd>
-				for newline · <kbd class="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">/</kbd>
-				for commands
-			</p>
-		</form>
-	</div>
+								<!-- Case selector -->
+								<div class="border-b p-2">
+									<label
+										class="block text-2xs uppercase tracking-wider text-muted-foreground"
+										for="attach-case"
+									>
+										Case
+									</label>
+									<select
+										id="attach-case"
+										bind:value={attachCaseId}
+										class="mt-1 h-7 w-full rounded border bg-background px-2 text-xs"
+									>
+										{#each attachedCases as c (c.case_id)}
+											<option value={c.case_id}>#{c.case_id} — {c.case_name}</option>
+										{/each}
+									</select>
+								</div>
 
-	{#if openThread}
-		<WarRoomThreadPane
-			warRoomId={warRoomId}
-			root={openThread}
-			{attachedCases}
-			onAttachmentClick={openPreview}
-			onClose={closeThread}
-			onChanged={loadThreads}
-		/>
-	{/if}
+								<!-- Search -->
+								<div class="border-b p-2">
+									<div class="relative">
+										<Search
+											class="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground"
+										/>
+										<Input
+											value={attachSearch}
+											oninput={(e) => (attachSearch = (e.target as HTMLInputElement).value)}
+											placeholder="Search…"
+											class="h-7 pl-7 text-xs"
+										/>
+									</div>
+								</div>
+
+								<!-- Results -->
+								<div class="max-h-72 overflow-y-auto">
+									{#if attachLoading}
+										<div class="p-3 text-center text-xs text-muted-foreground">Loading…</div>
+									{:else if filteredPickerRows.length === 0}
+										<div class="p-3 text-center text-xs text-muted-foreground">Nothing here.</div>
+									{:else}
+										<ul>
+											{#each filteredPickerRows as r (r.id)}
+												<li>
+													<button
+														type="button"
+														class="flex w-full items-start gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-muted/60"
+														onclick={() => insertAttachment(r)}
+													>
+														<span class="min-w-0 flex-1">
+															<span class="block truncate font-medium">{r.label}</span>
+															{#if r.sub}
+																<span class="block truncate text-2xs text-muted-foreground">
+																	{r.sub}
+																</span>
+															{/if}
+														</span>
+													</button>
+												</li>
+											{/each}
+										</ul>
+									{/if}
+								</div>
+							{/if}
+						</Popover.Content>
+					</Popover.Root>
+
+					<textarea
+						bind:this={composerEl}
+						value={body}
+						oninput={onInput}
+						onkeydown={onKey}
+						placeholder="Type a message, /command, @user or #resource…"
+						rows="1"
+						class="flex-1 resize-none bg-transparent text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
+					></textarea>
+
+					<ChatComposerMentions
+						bind:this={mentions}
+						textarea={composerEl}
+						{body}
+						{attachedCases}
+						{warRoomId}
+						onChangeBody={(v) => (body = v)}
+					/>
+
+					<Button
+						type="submit"
+						size="sm"
+						class="h-8 gap-1.5"
+						disabled={sending ||
+							(!body.trim() && pendingAttachments.length === 0) ||
+							composerLocked}
+					>
+						{#if sending}
+							<Loader2 class="h-3.5 w-3.5 animate-spin" />
+						{:else}
+							<Send class="h-3.5 w-3.5" />
+						{/if}
+						Send
+					</Button>
+				</div>
+
+				<p class="mt-1.5 px-1 text-2xs text-muted-foreground">
+					<kbd class="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">Enter</kbd>
+					to send ·
+					<kbd class="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">Shift+Enter</kbd>
+					for newline ·
+					<kbd class="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">/</kbd>
+					for commands
+				</p>
+			</form>
+		</div>
+
+		{#if openThread}
+			<WarRoomThreadPane
+				{warRoomId}
+				root={openThread}
+				{attachedCases}
+				onAttachmentClick={openPreview}
+				onClose={closeThread}
+				onChanged={loadThreads}
+			/>
+		{/if}
 	</Resizable.Pane>
 </Resizable.PaneGroup>
 

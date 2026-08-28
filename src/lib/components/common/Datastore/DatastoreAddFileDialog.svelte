@@ -144,12 +144,7 @@
 			<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
 				<div>
 					<label for="ds-file-tags" class="text-sm font-medium">Tags</label>
-					<Input
-						id="ds-file-tags"
-						bind:value={tags}
-						placeholder="comma,separated"
-						class="mt-1"
-					/>
+					<Input id="ds-file-tags" bind:value={tags} placeholder="comma,separated" class="mt-1" />
 				</div>
 				<div>
 					<label for="ds-file-password" class="text-sm font-medium">Encryption password</label>

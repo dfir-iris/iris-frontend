@@ -55,8 +55,7 @@ describe('CaseTasksService', () => {
 		};
 
 		const options: ApiOptions = { skipTokenRefresh: true };
-		const builtPath =
-			'/api/v2/cases/73/tasks?page=2&per_page=25&order_by=task_title&sort_dir=asc';
+		const builtPath = '/api/v2/cases/73/tasks?page=2&per_page=25&order_by=task_title&sort_dir=asc';
 
 		const mockResponse = {
 			ok: true,

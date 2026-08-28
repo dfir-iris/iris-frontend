@@ -153,7 +153,7 @@ const _NAMED_COLORS = new Set([
 	'gray',
 	'grey',
 	'black',
-	'white',
+	'white'
 ]);
 
 export function safeCssColor(value: unknown): string | undefined {

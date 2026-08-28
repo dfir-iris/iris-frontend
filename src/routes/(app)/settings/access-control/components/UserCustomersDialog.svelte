@@ -93,8 +93,8 @@
 		<Dialog.Header>
 			<Dialog.Title>Customer access — @{user.user_login}</Dialog.Title>
 			<Dialog.Description>
-				Tick the customers the user should have access to. Required for the user to see cases
-				owned by the customer (subject to per-case ACL).
+				Tick the customers the user should have access to. Required for the user to see cases owned
+				by the customer (subject to per-case ACL).
 			</Dialog.Description>
 		</Dialog.Header>
 
@@ -135,7 +135,9 @@
 					<ul class="divide-y">
 						{#each visible as c (c.customer_id)}
 							<li>
-								<label class="flex cursor-pointer items-center gap-2 px-3 py-2 text-xs hover:bg-muted/30">
+								<label
+									class="flex cursor-pointer items-center gap-2 px-3 py-2 text-xs hover:bg-muted/30"
+								>
 									<Checkbox
 										checked={selected.has(c.customer_id)}
 										onCheckedChange={() => toggle(c.customer_id)}

@@ -79,11 +79,7 @@
 	onMount(load);
 
 	const renewApiKey = async () => {
-		if (
-			!confirm(
-				'Are you sure? The current API key will be revoked and cannot be used anymore.'
-			)
-		)
+		if (!confirm('Are you sure? The current API key will be revoked and cannot be used anymore.'))
 			return;
 
 		renewing = true;
@@ -272,8 +268,8 @@
 			<Card.Header>
 				<Card.Title>Avatar</Card.Title>
 				<Card.Description>
-					Used wherever you appear in the app — comments, mentions, case
-					contributors, alert assignments, the side bar profile menu.
+					Used wherever you appear in the app — comments, mentions, case contributors, alert
+					assignments, the side bar profile menu.
 				</Card.Description>
 			</Card.Header>
 			<Card.Content class="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
@@ -286,8 +282,8 @@
 				/>
 				<div class="flex flex-col gap-2">
 					<p class="text-sm text-muted-foreground">
-						PNG, JPG, or WEBP up to 4 MB. Uploads are centre-cropped and resized
-						to 256×256 server-side, so non-square images are fine.
+						PNG, JPG, or WEBP up to 4 MB. Uploads are centre-cropped and resized to 256×256
+						server-side, so non-square images are fine.
 					</p>
 					<div class="flex flex-wrap gap-2">
 						<Button onclick={() => avatarInput?.click()} disabled={avatarBusy}>
@@ -317,8 +313,7 @@
 			<Card.Header>
 				<Card.Title>API key</Card.Title>
 				<Card.Description>
-					Use this key to authenticate API requests. Renewing immediately revokes the previous
-					key.
+					Use this key to authenticate API requests. Renewing immediately revokes the previous key.
 				</Card.Description>
 			</Card.Header>
 			<Card.Content>
@@ -362,10 +357,10 @@
 						</Button>
 					</div>
 					<p class="mt-2 text-2xs text-muted-foreground">
-						This is the legacy account-wide key. For MCP clients and CI
-						scripts prefer a named, scope-restricted key from the
-						<span class="font-medium">Named API keys</span> section below —
-						it can be revoked without rotating this one.
+						This is the legacy account-wide key. For MCP clients and CI scripts prefer a named,
+						scope-restricted key from the
+						<span class="font-medium">Named API keys</span> section below — it can be revoked without
+						rotating this one.
 					</p>
 				</div>
 			</Card.Content>
@@ -420,8 +415,7 @@
 					{#if passwordLocked}
 						Refresh your access if a group / permission was just changed.
 					{:else}
-						Refresh your access if a group / permission was just changed, or rotate your
-						password.
+						Refresh your access if a group / permission was just changed, or rotate your password.
 					{/if}
 				</Card.Description>
 			</Card.Header>

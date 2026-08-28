@@ -74,8 +74,7 @@
 		'ends_with',
 		'not_ends_with'
 	];
-	const usePickerFor = (operation: FilterOperation) =>
-		!SUBSTRING_OPS.includes(operation);
+	const usePickerFor = (operation: FilterOperation) => !SUBSTRING_OPS.includes(operation);
 
 	const setLogic = (logic: FilterLogic) => onChange({ ...group, logic });
 
@@ -114,8 +113,7 @@
 		// free-text value in that case even when the field has options.
 		const pickerActive =
 			!!def?.valueOptions && def.valueOptions.length > 0 && usePickerFor(node.operation);
-		const stillValid =
-			!pickerActive || def!.valueOptions!.some((o) => o.value === node.value);
+		const stillValid = !pickerActive || def!.valueOptions!.some((o) => o.value === node.value);
 		updateItem(idx, { ...node, fieldId, value: stillValid ? node.value : '' });
 	};
 
@@ -162,7 +160,8 @@
 				</button>
 			</div>
 			<span class="text-xs text-muted-foreground">
-				{group.items.length} {group.items.length === 1 ? 'item' : 'items'}
+				{group.items.length}
+				{group.items.length === 1 ? 'item' : 'items'}
 			</span>
 		</div>
 
@@ -189,7 +188,8 @@
 				-->
 				<div class="flex items-start gap-2">
 					<div class="min-w-0 flex-1">
-						<svelte:self
+						<!-- svelte-ignore svelte_self_deprecated -->
+				<svelte:self
 							{defs}
 							group={item}
 							depth={depth + 1}
@@ -210,7 +210,9 @@
 			{:else}
 				{@const f = item as FilterRow}
 				{@const fieldDef = defs.find((d) => d.id === f.fieldId)}
-				<div class="grid grid-cols-[minmax(140px,1fr)_minmax(180px,1fr)_minmax(200px,2fr)_auto] gap-2">
+				<div
+					class="grid grid-cols-[minmax(140px,1fr)_minmax(180px,1fr)_minmax(200px,2fr)_auto] gap-2"
+				>
 					<Select value={f.fieldId} onValueChange={(v) => setField(idx, v)} type="single">
 						<SelectTrigger>{fieldDef?.label ?? 'Field'}</SelectTrigger>
 						<SelectContent class="max-h-72 overflow-y-auto">

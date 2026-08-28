@@ -186,9 +186,7 @@
 						id="ued-pwd"
 						type="password"
 						class="h-7 text-xs"
-						placeholder={isEdit
-							? 'Leave blank to keep the current password'
-							: 'min 8 characters'}
+						placeholder={isEdit ? 'Leave blank to keep the current password' : 'min 8 characters'}
 						bind:value={form.user_password}
 						disabled={busy}
 						autocomplete="new-password"
@@ -217,7 +215,7 @@
 			</div>
 
 			{#if error}
-				<p class="sm:col-span-2 text-2xs text-destructive whitespace-pre-wrap">{error}</p>
+				<p class="whitespace-pre-wrap text-2xs text-destructive sm:col-span-2">{error}</p>
 			{/if}
 		</div>
 

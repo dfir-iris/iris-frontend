@@ -70,11 +70,7 @@ export class CaseAccessService {
 		body: UserCasesAccessBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<unknown>> {
-		return ApiService.post<unknown>(
-			`/api/v2/manage/users/${userId}/cases-access`,
-			body,
-			options
-		);
+		return ApiService.post<unknown>(`/api/v2/manage/users/${userId}/cases-access`, body, options);
 	}
 
 	static async deleteUserCasesAccess(
@@ -108,11 +104,7 @@ export class CaseAccessService {
 		body: GroupCasesAccessBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<unknown>> {
-		return ApiService.post<unknown>(
-			`/api/v2/manage/groups/${groupId}/cases-access`,
-			body,
-			options
-		);
+		return ApiService.post<unknown>(`/api/v2/manage/groups/${groupId}/cases-access`, body, options);
 	}
 
 	static async deleteGroupCasesAccess(

@@ -109,13 +109,7 @@
 		  Cancel is clicked, picking up server-side merges after Save).
 		-->
 		{#key editing}
-			<CustomAttributesSection
-				{objectType}
-				{existing}
-				bind:values
-				readonly={!editing}
-				noChrome
-			/>
+			<CustomAttributesSection {objectType} {existing} bind:values readonly={!editing} noChrome />
 		{/key}
 	</div>
 {/if}

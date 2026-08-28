@@ -46,17 +46,14 @@ describe('CaseClassificationsService', () => {
 		};
 
 		const urlWithQuery = '/manage/case-objects/case-classifications?per_page=10000';
-		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-			urlWithQuery
-		);
+		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(urlWithQuery);
 		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await CaseClassificationsService.list(options);
 
-		expect(ApiService.withQuery).toHaveBeenCalledWith(
-			'/manage/case-objects/case-classifications',
-			{ per_page: 10000 }
-		);
+		expect(ApiService.withQuery).toHaveBeenCalledWith('/manage/case-objects/case-classifications', {
+			per_page: 10000
+		});
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
 		expect(ApiService.get).toHaveBeenCalledWith(urlWithQuery, options);
 		expect(res).toBe(mockResponse);
@@ -82,7 +79,10 @@ describe('CaseClassificationsService', () => {
 		const res = await CaseClassificationsService.get(7, options);
 
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
-		expect(ApiService.get).toHaveBeenCalledWith('/manage/case-objects/case-classifications/7', options);
+		expect(ApiService.get).toHaveBeenCalledWith(
+			'/manage/case-objects/case-classifications/7',
+			options
+		);
 		expect(res).toBe(mockResponse);
 	});
 

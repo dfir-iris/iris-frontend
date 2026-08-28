@@ -145,9 +145,7 @@ export const authenticateDatastoreImages = (
 		// authored ourselves, parsed once via a DocumentFragment so it
 		// can't pick up runtime content.
 		a.replaceChildren();
-		const iconFragment = document
-			.createRange()
-			.createContextualFragment(FILE_ICON_SVG);
+		const iconFragment = document.createRange().createContextualFragment(FILE_ICON_SVG);
 		a.appendChild(iconFragment);
 		const labelSpan = document.createElement('span');
 		labelSpan.className = 'truncate max-w-[20rem]';
@@ -213,4 +211,3 @@ const openOrDownload = async (
 		console.warn('[datastore] pop-up blocked');
 	}
 };
-

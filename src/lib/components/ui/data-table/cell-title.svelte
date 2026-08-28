@@ -17,14 +17,14 @@
 		}
 	}
 
-	export function refresh(props: any): boolean {
+	export function refresh(_props: any): boolean {
 		return false;
 	}
 </script>
 
 <div class="flex items-center">
 	<Tooltip.Provider>
-		<Tooltip.Root openDelay={300}>
+		<Tooltip.Root delayDuration={300}>
 			<Tooltip.Trigger>
 				<Button variant="dotted" size="sm" onclick={handleClick}>
 					{title}

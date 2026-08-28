@@ -1,41 +1,39 @@
 {
-    // See https://go.microsoft.com/fwlink/?LinkId=733558
-    // for the documentation about the tasks.json format
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "start frontend",
-            "type": "shell",
-            "command": "npm install && npm run dev",
-            "icon": {
-                "id": "symbol-color",
-                "color": "terminal.ansiCyan"
-            },
-            "problemMatcher": [],
-            "isBackground": true
-        },
-        {
-            "label": "build frontend",
-            "type": "shell",
-            "command": "npm run build",
-            "icon": {
-                "id": "package",
-                "color": "terminal.ansiGreen"
-            },
-            "problemMatcher": [],
-        },
-        {
-            "label": "preview frontend build",
-            "type": "shell",
-            "command": "npm run preview",
-            "icon": {
-                "id": "go-to-search",
-                "color": "terminal.ansiGreen"
-            },
-            "problemMatcher": [],
-            "dependsOn": [
-                "build frontend"
-            ]
-        }
-    ]
+	// See https://go.microsoft.com/fwlink/?LinkId=733558
+	// for the documentation about the tasks.json format
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "start frontend",
+			"type": "shell",
+			"command": "npm install && npm run dev",
+			"icon": {
+				"id": "symbol-color",
+				"color": "terminal.ansiCyan"
+			},
+			"problemMatcher": [],
+			"isBackground": true
+		},
+		{
+			"label": "build frontend",
+			"type": "shell",
+			"command": "npm run build",
+			"icon": {
+				"id": "package",
+				"color": "terminal.ansiGreen"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "preview frontend build",
+			"type": "shell",
+			"command": "npm run preview",
+			"icon": {
+				"id": "go-to-search",
+				"color": "terminal.ansiGreen"
+			},
+			"problemMatcher": [],
+			"dependsOn": ["build frontend"]
+		}
+	]
 }

@@ -9,7 +9,6 @@
 		ClockIcon,
 		FileTextIcon,
 		FilesIcon,
-		HardDriveUploadIcon,
 		ListChecksIcon,
 		MessageSquareIcon,
 		UserPlusIcon,
@@ -53,9 +52,7 @@
 			href={`/war-rooms/${warRoomId}/${tab.path}`}
 			class={[
 				'group relative flex shrink-0 items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors',
-				active
-					? 'text-foreground'
-					: 'text-muted-foreground hover:text-foreground'
+				active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
 			]}
 			aria-current={active ? 'page' : undefined}
 		>

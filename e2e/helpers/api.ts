@@ -67,11 +67,7 @@ export interface DiscoveredIds {
 // Cache the discovery across a spec — per APIRequestContext.
 const discoveryCache = new WeakMap<APIRequestContext, DiscoveredIds>();
 
-async function firstFromList(
-	api: APIRequestContext,
-	url: string,
-	idKey: string
-): Promise<number> {
+async function firstFromList(api: APIRequestContext, url: string, idKey: string): Promise<number> {
 	const res = await api.get(url);
 	if (!res.ok()) {
 		throw new Error(`discover ${url} failed: ${res.status()} ${await res.text()}`);
@@ -80,7 +76,9 @@ async function firstFromList(
 	// Accept: [{...}], {data: [{...}]}, {data: {data: [{...}]}}, {responseData: {...}}
 	const rows = extractRows(body);
 	if (!rows || rows.length === 0) {
-		throw new Error(`discover ${url} returned no rows (body: ${JSON.stringify(body).slice(0, 200)})`);
+		throw new Error(
+			`discover ${url} returned no rows (body: ${JSON.stringify(body).slice(0, 200)})`
+		);
 	}
 	const id = (rows[0] as Record<string, unknown>)[idKey];
 	if (typeof id !== 'number') {
@@ -310,8 +308,7 @@ export const seed = {
 			file_size: overrides.file_size ?? 42
 		};
 		const res = await api.post(`/api/v2/cases/${caseId}/evidences`, { data: payload });
-		if (!res.ok())
-			throw new Error(`seed.evidence failed: ${res.status()} ${await res.text()}`);
+		if (!res.ok()) throw new Error(`seed.evidence failed: ${res.status()} ${await res.text()}`);
 		const data = await apiJson<{ id: number }>(res);
 		return data.id;
 	},
@@ -326,8 +323,7 @@ export const seed = {
 			case_id: overrides.case_id ?? null
 		};
 		const res = await api.post('/api/v2/war-rooms', { data: payload });
-		if (!res.ok())
-			throw new Error(`seed.warRoom failed: ${res.status()} ${await res.text()}`);
+		if (!res.ok()) throw new Error(`seed.warRoom failed: ${res.status()} ${await res.text()}`);
 		const data = await apiJson<{ war_room_id: number }>(res);
 		return data.war_room_id;
 	}

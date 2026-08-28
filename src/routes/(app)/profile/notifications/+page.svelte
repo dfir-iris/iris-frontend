@@ -44,8 +44,8 @@
 	<NotificationSettingsGrid
 		title="Notifications"
 		description="Choose how you want to be notified. In-app notifications appear in the top-bar bell. Email delivery uses the org SMTP config."
-		payload={payload}
-		loading={loading}
+		{payload}
+		{loading}
 		onSave={save}
 	/>
 </div>

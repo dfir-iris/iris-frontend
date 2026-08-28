@@ -11,10 +11,7 @@
 		EventCategoriesService,
 		type EventCategory
 	} from '$lib/services/event-categories.service';
-	import {
-		CaseTimelinesService,
-		type CaseTimeline
-	} from '$lib/services/case-timelines.service';
+	import { CaseTimelinesService, type CaseTimeline } from '$lib/services/case-timelines.service';
 	import { CaseAssetsService } from '$lib/services/case-assets.service';
 	import { CaseIocsService } from '$lib/services/case-iocs.service';
 	import type { Asset } from '$lib/types/resources/asset';
@@ -33,10 +30,7 @@
 		CASE_ASSETS_CTX,
 		type CaseAssetsContext
 	} from '$lib/contexts/case-assets.context.svelte';
-	import {
-		CASE_IOCS_CTX,
-		type CaseIocsContext
-	} from '$lib/contexts/case-iocs.context.svelte';
+	import { CASE_IOCS_CTX, type CaseIocsContext } from '$lib/contexts/case-iocs.context.svelte';
 	import {
 		COMMENTS_PANEL_CTX,
 		type CommentsPanelContext
@@ -140,9 +134,7 @@
 		const events = timeline.events();
 		if (selectedTimelineIds.size === 0) return events;
 		const selected = selectedTimelineIds;
-		return events.filter((e) =>
-			(e.timeline_ids ?? []).some((id) => selected.has(id))
-		);
+		return events.filter((e) => (e.timeline_ids ?? []).some((id) => selected.has(id)));
 	});
 
 	// Quick-search: searches across the most useful free-text fields and
@@ -827,118 +819,117 @@
 </svelte:head>
 
 <CaseWorkspace>
-<div class="flex h-full min-h-0 w-full">
-	<TimelineSidebar
-		{timelines}
-		selectedIds={selectedTimelineIds}
-		loading={timelinesLoading}
-		onToggle={toggleTimelineSelected}
-		onSelectAll={selectAllTimelines}
-		onCreate={createTimeline}
-		onUpdate={updateTimeline}
-		onRemove={removeTimeline}
-		{canEdit}
-	/>
-	<div class="flex h-full min-h-0 flex-1 flex-col">
-	<TimelineTopbar
-		{filters}
-		{eventCategories}
-		{viewMode}
-		{quickSearch}
-		{quickSearchMatchIndex}
-		quickSearchMatchCount={quickSearchMatches.length}
-		quickSearchLoading={timeline.list.status === 'loading_all' && !timeline.list.allLoaded}
-		onUpdateFilter={updateFilter}
-		onApplyFilters={applyFilters}
-		onClearFilters={clearFilters}
-		onRefresh={refreshTimeline}
-		onAddEvent={addEvent}
-		onViewModeChange={(m) => (viewMode = m)}
-		{onQuickSearchChange}
-		onQuickSearchNext={quickSearchNext}
-		onQuickSearchPrev={quickSearchPrev}
-		onDownloadCsv={() => downloadTimelineCsv(false)}
-		onDownloadCsvWithUserInfo={() => downloadTimelineCsv(true)}
-		onUploadCsv={uploadTimelineCsv}
-		{canEdit}
-	/>
-
-	<div
-		bind:this={timelineScrollContainer}
-		class="relative min-h-0 flex-1 overflow-auto bg-gradient-to-b from-muted/30 via-background to-muted/20 px-6 py-4 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900"
-	>
-		{#if timeline.list.status === 'loading' && groupedRootEvents.length === 0}
-			<div class="mx-auto max-w-[1100px] space-y-2 py-6">
-				{#each Array(4) as _, i (i)}
-					<Skeleton class="h-24 w-full rounded-lg" />
-				{/each}
-			</div>
-		{:else if timeline.list.error}
-			<div class="p-6 text-sm text-destructive">{timeline.list.error}</div>
-		{:else if groupedRootEvents.length === 0}
-			<div class="flex h-full items-center justify-center text-sm text-muted-foreground">
-				No timeline events found.
-			</div>
-		{:else}
-			<ChipHoverHost caseId={page.params.case_id}>
-				<TimelineView
-					groups={groupedRootEvents}
-					{childrenByParent}
-					{commentCounts}
-					{folded}
-					{selected}
-					{selecting}
-					mode={viewMode}
-					matchedEventIds={new Set(quickSearchMatches)}
-					currentMatchEventId={quickSearchMatches[quickSearchMatchIndex] ?? null}
-					searchQuery={quickSearch}
-					onToggleSelect={toggleSelect}
-					onToggleFold={toggleFold}
-					onEdit={editEvent}
-					onAddChild={addChildEvent}
-					onFlag={flagEvent}
-					onComments={showComments}
-					onDuplicate={duplicateEvent}
-					onDelete={deleteEvent}
-					{canEdit}
-				/>
-
-				<div
-					use:handleTriggerRef
-					class="mx-auto mt-2 flex h-16 max-w-[1100px] items-center justify-center"
-				>
-					{#if timeline.list.status === 'loading_more'}
-						<div class="flex items-center gap-2 text-xs text-muted-foreground">
-							<Skeleton class="h-3 w-3 rounded-full" />
-							Loading more events…
-						</div>
-					{:else if timeline.list.nextPage !== null}
-						<Button size="sm" variant="ghost" onclick={() => loadMore()}>
-							Load more
-						</Button>
-					{:else if timeline.list.total > 0}
-						<span class="text-2xs text-muted-foreground">
-							{timeline.list.total} {timeline.list.total === 1 ? 'event' : 'events'} · end of timeline
-						</span>
-					{/if}
-				</div>
-			</ChipHoverHost>
-		{/if}
-
-		<TimelineSideToolbar
-			{selecting}
-			onToggleSelecting={toggleSelecting}
-			onDelete={() => (showConfirmDelete = true)}
-			onAddEvent={addEvent}
-			onToggleFoldAll={toggleFoldAll}
-			onRefresh={refreshTimeline}
-			onScrollTop={scrollTop}
-			onScrollBottom={scrollBottom}
+	<div class="flex h-full min-h-0 w-full">
+		<TimelineSidebar
+			{timelines}
+			selectedIds={selectedTimelineIds}
+			loading={timelinesLoading}
+			onToggle={toggleTimelineSelected}
+			onSelectAll={selectAllTimelines}
+			onCreate={createTimeline}
+			onUpdate={updateTimeline}
+			onRemove={removeTimeline}
 			{canEdit}
 		/>
+		<div class="flex h-full min-h-0 flex-1 flex-col">
+			<TimelineTopbar
+				{filters}
+				{eventCategories}
+				{viewMode}
+				{quickSearch}
+				{quickSearchMatchIndex}
+				quickSearchMatchCount={quickSearchMatches.length}
+				quickSearchLoading={timeline.list.status === 'loading_all' && !timeline.list.allLoaded}
+				onUpdateFilter={updateFilter}
+				onApplyFilters={applyFilters}
+				onClearFilters={clearFilters}
+				onRefresh={refreshTimeline}
+				onAddEvent={addEvent}
+				onViewModeChange={(m) => (viewMode = m)}
+				{onQuickSearchChange}
+				onQuickSearchNext={quickSearchNext}
+				onQuickSearchPrev={quickSearchPrev}
+				onDownloadCsv={() => downloadTimelineCsv(false)}
+				onDownloadCsvWithUserInfo={() => downloadTimelineCsv(true)}
+				onUploadCsv={uploadTimelineCsv}
+				{canEdit}
+			/>
+
+			<div
+				bind:this={timelineScrollContainer}
+				class="relative min-h-0 flex-1 overflow-auto bg-gradient-to-b from-muted/30 via-background to-muted/20 px-6 py-4 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900"
+			>
+				{#if timeline.list.status === 'loading' && groupedRootEvents.length === 0}
+					<div class="mx-auto max-w-[1100px] space-y-2 py-6">
+						{#each Array(4) as _, i (i)}
+							<Skeleton class="h-24 w-full rounded-lg" />
+						{/each}
+					</div>
+				{:else if timeline.list.error}
+					<div class="p-6 text-sm text-destructive">{timeline.list.error}</div>
+				{:else if groupedRootEvents.length === 0}
+					<div class="flex h-full items-center justify-center text-sm text-muted-foreground">
+						No timeline events found.
+					</div>
+				{:else}
+					<ChipHoverHost caseId={page.params.case_id}>
+						<TimelineView
+							groups={groupedRootEvents}
+							{childrenByParent}
+							{commentCounts}
+							{folded}
+							{selected}
+							{selecting}
+							mode={viewMode}
+							matchedEventIds={new Set(quickSearchMatches)}
+							currentMatchEventId={quickSearchMatches[quickSearchMatchIndex] ?? null}
+							searchQuery={quickSearch}
+							onToggleSelect={toggleSelect}
+							onToggleFold={toggleFold}
+							onEdit={editEvent}
+							onAddChild={addChildEvent}
+							onFlag={flagEvent}
+							onComments={showComments}
+							onDuplicate={duplicateEvent}
+							onDelete={deleteEvent}
+							{canEdit}
+						/>
+
+						<div
+							use:handleTriggerRef
+							class="mx-auto mt-2 flex h-16 max-w-[1100px] items-center justify-center"
+						>
+							{#if timeline.list.status === 'loading_more'}
+								<div class="flex items-center gap-2 text-xs text-muted-foreground">
+									<Skeleton class="h-3 w-3 rounded-full" />
+									Loading more events…
+								</div>
+							{:else if timeline.list.nextPage !== null}
+								<Button size="sm" variant="ghost" onclick={() => loadMore()}>Load more</Button>
+							{:else if timeline.list.total > 0}
+								<span class="text-2xs text-muted-foreground">
+									{timeline.list.total}
+									{timeline.list.total === 1 ? 'event' : 'events'} · end of timeline
+								</span>
+							{/if}
+						</div>
+					</ChipHoverHost>
+				{/if}
+
+				<TimelineSideToolbar
+					{selecting}
+					onToggleSelecting={toggleSelecting}
+					onDelete={() => (showConfirmDelete = true)}
+					onAddEvent={addEvent}
+					onToggleFoldAll={toggleFoldAll}
+					onRefresh={refreshTimeline}
+					onScrollTop={scrollTop}
+					onScrollBottom={scrollBottom}
+					{canEdit}
+				/>
+			</div>
+		</div>
 	</div>
-	</div>
-</div>
 </CaseWorkspace>
 
 <TimelineEventDialog

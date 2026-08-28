@@ -55,7 +55,10 @@
 	import { buildSuggestion } from './mentions.svelte';
 	import type { MentionItem } from './MentionList.svelte';
 	import { UsersService, type MentionableUser } from '$lib/services/users.service';
-	import { CASE_ASSETS_CTX, type CaseAssetsContext } from '$lib/contexts/case-assets.context.svelte';
+	import {
+		CASE_ASSETS_CTX,
+		type CaseAssetsContext
+	} from '$lib/contexts/case-assets.context.svelte';
 	import { CASE_IOCS_CTX, type CaseIocsContext } from '$lib/contexts/case-iocs.context.svelte';
 	import { CASE_NOTES_CTX, type CaseNotesContext } from '$lib/contexts/case-notes.context.svelte';
 	import { CASE_TASKS_CTX, type CaseTasksContext } from '$lib/contexts/case-tasks.context.svelte';
@@ -185,6 +188,7 @@
 	};
 
 	let editorElement = $state<HTMLDivElement | null>(null);
+	// eslint-disable-next-line svelte/valid-compile
 	let editor: Editor | null = null;
 	let uploading = $state(false);
 	// `typingUser` fed the old "X is typing…" hint above the toolbar.
@@ -214,14 +218,7 @@
 	// The mode inference falls back to case-summary when nothing more
 	// specific is supplied — the same behaviour as before phase 2.
 	const mode = $derived(
-		collabMode ??
-			(warRoomNoteId
-				? 'war-room-note'
-				: sitrepId
-					? 'sitrep'
-					: noteId
-						? 'note'
-						: 'case')
+		collabMode ?? (warRoomNoteId ? 'war-room-note' : sitrepId ? 'sitrep' : noteId ? 'note' : 'case')
 	);
 	const docName = $derived(
 		mode === 'note'
@@ -438,8 +435,14 @@
 	// sensitive — just needs to be stable across sessions so User Alice
 	// always shows up with the same shade to everyone else.
 	const CURSOR_PALETTE = [
-		'#f87171', '#fb923c', '#fbbf24', '#4ade80',
-		'#22d3ee', '#60a5fa', '#a78bfa', '#f472b6'
+		'#f87171',
+		'#fb923c',
+		'#fbbf24',
+		'#4ade80',
+		'#22d3ee',
+		'#60a5fa',
+		'#a78bfa',
+		'#f472b6'
 	];
 	const pickCursorColor = (userId: number) =>
 		CURSOR_PALETTE[Math.abs(userId) % CURSOR_PALETTE.length];
@@ -482,7 +485,11 @@
 		try {
 			const url = await uploadImage(file);
 			if (url) {
-				editor.chain().focus().setImage({ src: url, alt: file.name || 'image' }).run();
+				editor
+					.chain()
+					.focus()
+					.setImage({ src: url, alt: file.name || 'image' })
+					.run();
 			}
 		} finally {
 			uploading = false;
@@ -624,8 +631,7 @@
 
 	// War-room teams are cached alongside users so the @-popover can list
 	// both. Only populated when `warRoomId` is set on the editor.
-	let teamCache: Array<{ team_id: number; name: string; description: string | null }> | null =
-		null;
+	let teamCache: Array<{ team_id: number; name: string; description: string | null }> | null = null;
 	let teamPromise: Promise<
 		Array<{ team_id: number; name: string; description: string | null }>
 	> | null = null;
@@ -636,9 +642,7 @@
 		if (!teamPromise) {
 			teamPromise = (async () => {
 				try {
-					const { WarRoomTeamsService } = await import(
-						'$lib/services/war-room-teams.service'
-					);
+					const { WarRoomTeamsService } = await import('$lib/services/war-room-teams.service');
 					const res = await WarRoomTeamsService.list(Number(warRoomId));
 					if (res.ok && Array.isArray(res.data)) {
 						teamCache = res.data;
@@ -668,9 +672,7 @@
 		// Teams surface at the top of the popover — quicker to reach when
 		// the operator wants to page a whole group, and keeps the mental
 		// model "@-team pages a bunch of people" front and center.
-		const filteredTeams = q
-			? teams.filter((t) => fuzzy(t.name, q))
-			: teams;
+		const filteredTeams = q ? teams.filter((t) => fuzzy(t.name, q)) : teams;
 		const teamItems: MentionItem[] = filteredTeams.slice(0, 4).map((t) => ({
 			id: t.team_id,
 			label: t.name,
@@ -775,10 +777,7 @@
 		if (caseIocs) {
 			const iocs = caseIocs.iocs() ?? [];
 			const filtered = q
-				? iocs.filter(
-						(i) =>
-							fuzzy(i.ioc_value ?? '', q) || fuzzy(i.ioc_type?.type_name ?? '', q)
-					)
+				? iocs.filter((i) => fuzzy(i.ioc_value ?? '', q) || fuzzy(i.ioc_type?.type_name ?? '', q))
 				: iocs;
 			for (const i of filtered.slice(0, PER_KIND)) {
 				out.push({
@@ -934,8 +933,7 @@
 				id,
 				label,
 				status: task?.status?.status_name ?? null,
-				assignees:
-					task?.task_assignees?.map((a) => a.name || a.user).join(', ') || null,
+				assignees: task?.task_assignees?.map((a) => a.name || a.user).join(', ') || null,
 				onOpen: Number.isFinite(numericId) ? () => openTaskDialog(numericId) : undefined
 			};
 		} else if (kind === 'datastore') {
@@ -964,7 +962,7 @@
 					: undefined,
 				onCopyMarkdown: url
 					? async () => {
-							const md = `[${(file?.file_original_name ?? label).replace(/[\[\]]/g, '')}](${url})`;
+							const md = `[${(file?.file_original_name ?? label).replace(/[[\]]/g, '')}](${url})`;
 							try {
 								await navigator.clipboard.writeText(md);
 								toast({ title: 'Markdown link copied', variant: 'success' });
@@ -1165,15 +1163,15 @@
 				...(ydoc
 					? [
 							// `field: 'prosemirror'` matches the XmlFragment name
-					// the server writes to in `iris_engine/collab/render.py`
-					// (see `_PROSEMIRROR_FIELD`). y-tiptap defaults to
-					// `'default'` — if we accept that, the editor pulls
-					// from an empty fragment and the note stays blank
-					// even though `y_state` was applied to the doc. Yes,
-					// really: y-prosemirror uses NAMED XmlFragments
-					// inside the Y.Doc as its ProseMirror-bound root,
-					// and both sides have to agree on the name.
-					Collaboration.configure({ document: ydoc, field: 'prosemirror' }),
+							// the server writes to in `iris_engine/collab/render.py`
+							// (see `_PROSEMIRROR_FIELD`). y-tiptap defaults to
+							// `'default'` — if we accept that, the editor pulls
+							// from an empty fragment and the note stays blank
+							// even though `y_state` was applied to the doc. Yes,
+							// really: y-prosemirror uses NAMED XmlFragments
+							// inside the Y.Doc as its ProseMirror-bound root,
+							// and both sides have to agree on the name.
+							Collaboration.configure({ document: ydoc, field: 'prosemirror' }),
 							...(awareness
 								? [
 										CollaborationCaret.configure({
@@ -1204,7 +1202,8 @@
 							...this.parent?.(),
 							width: {
 								default: null,
-								parseHTML: (element) => element.getAttribute('width') || element.style.width || null,
+								parseHTML: (element) =>
+									element.getAttribute('width') || element.style.width || null,
 								renderHTML: (attributes) => {
 									if (!attributes.width) return {};
 									// Expose as both the `width` attribute (markdown-it friendly)
@@ -1280,9 +1279,10 @@
 			editorProps: {
 				attributes: {
 					// Tight `py-1` + `first:mt-0` on headings keeps the first
-				// block flush to the toolbar without sacrificing vertical
-				// rhythm between subsequent blocks.
-				class: 'outline-none min-h-[5rem] px-3 py-1 text-sm leading-normal prose prose-sm dark:prose-invert max-w-none [&_p]:my-1.5 [&_p]:text-sm [&_h1]:mt-3 [&_h1]:mb-1.5 [&_h1]:text-lg [&_h2]:mt-2.5 [&_h2]:mb-1 [&_h2]:text-base [&_h3]:mt-2 [&_h3]:mb-0.5 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0 [&_li]:text-sm [&_blockquote]:my-2 [&_blockquote]:text-sm [&_pre]:my-2 [&_pre]:text-xs [&_code]:text-xs [&>:first-child]:mt-0'
+					// block flush to the toolbar without sacrificing vertical
+					// rhythm between subsequent blocks.
+					class:
+						'outline-none min-h-[5rem] px-3 py-1 text-sm leading-normal prose prose-sm dark:prose-invert max-w-none [&_p]:my-1.5 [&_p]:text-sm [&_h1]:mt-3 [&_h1]:mb-1.5 [&_h1]:text-lg [&_h2]:mt-2.5 [&_h2]:mb-1 [&_h2]:text-base [&_h3]:mt-2 [&_h3]:mb-0.5 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0 [&_li]:text-sm [&_blockquote]:my-2 [&_blockquote]:text-sm [&_pre]:my-2 [&_pre]:text-xs [&_code]:text-xs [&>:first-child]:mt-0'
 				},
 				handleKeyDown: (_view, event) => {
 					if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
@@ -1453,197 +1453,193 @@
 		</div>
 	{/if}
 	{#if viewMode !== 'view'}
-	<div
-		class="markdown-editor-toolbar flex items-center gap-0.5 rounded-md border border-border px-1.5 py-1"
-		style="position: sticky; top: -1rem; z-index: 10; background-color: hsl(var(--muted)); isolation: isolate;"
-	>
-		<button
-			class={btn(editor?.isActive('bold') ?? false)}
-			onclick={() => editor?.chain().focus().toggleBold().run()}
+		<div
+			class="markdown-editor-toolbar flex items-center gap-0.5 rounded-md border border-border px-1.5 py-1"
+			style="position: sticky; top: -1rem; z-index: 10; background-color: hsl(var(--muted)); isolation: isolate;"
 		>
-			<BoldIcon size="12" />
-		</button>
-
-		<button
-			class={btn(editor?.isActive('italic') ?? false)}
-			onclick={() => editor?.chain().focus().toggleItalic().run()}
-		>
-			<ItalicIcon size="12" />
-		</button>
-
-		<button
-			class={btn(editor?.isActive('strike') ?? false)}
-			onclick={() => editor?.chain().focus().toggleStrike().run()}
-		>
-			<StrikethroughIcon size="12" />
-		</button>
-
-		<div class="mx-0.5 h-3.5 w-px bg-border/50"></div>
-
-		<button
-			class={btn(editor?.isActive('heading', { level: 1 }) ?? false)}
-			onclick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
-		>
-			<Heading1Icon size="12" />
-		</button>
-
-		<button
-			class={btn(editor?.isActive('heading', { level: 2 }) ?? false)}
-			onclick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
-		>
-			<Heading2Icon size="12" />
-		</button>
-
-		<button
-			class={btn(editor?.isActive('heading', { level: 3 }) ?? false)}
-			onclick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
-		>
-			<Heading3Icon size="12" />
-		</button>
-
-		<div class="mx-0.5 h-3.5 w-px bg-border/50"></div>
-
-		<button
-			class={btn(editor?.isActive('bulletList') ?? false)}
-			onclick={() => editor?.chain().focus().toggleBulletList().run()}
-		>
-			<ListIcon size="12" />
-		</button>
-
-		<button
-			class={btn(editor?.isActive('orderedList') ?? false)}
-			onclick={() => editor?.chain().focus().toggleOrderedList().run()}
-		>
-			<ListOrderedIcon size="12" />
-		</button>
-
-		<button
-			class={btn(editor?.isActive('blockquote') ?? false)}
-			onclick={() => editor?.chain().focus().toggleBlockquote().run()}
-		>
-			<QuoteIcon size="12" />
-		</button>
-
-		<button
-			class={btn(editor?.isActive('codeBlock') ?? false)}
-			onclick={() => editor?.chain().focus().toggleCodeBlock().run()}
-		>
-			<CodeIcon size="12" />
-		</button>
-
-		<div class="mx-0.5 h-3.5 w-px bg-border/50"></div>
-
-		<button
-			class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-			onclick={() => {
-				const url = window.prompt('URL');
-				if (url) editor?.chain().focus().setLink({ href: url }).run();
-			}}
-		>
-			<LinkIcon size="12" />
-		</button>
-
-		{#if caseId}
 			<button
-				class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-				disabled={uploading}
-				onclick={triggerFileInput}
+				class={btn(editor?.isActive('bold') ?? false)}
+				onclick={() => editor?.chain().focus().toggleBold().run()}
 			>
-				<ImageIcon size="12" />
+				<BoldIcon size="12" />
 			</button>
-		{/if}
 
-		<button
-			class={btn(editor?.isActive('table') ?? false)}
-			title="Insert table"
-			onclick={() =>
-				editor
-					?.chain()
-					.focus()
-					.insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-					.run()}
-		>
-			<TableIcon size="12" />
-		</button>
+			<button
+				class={btn(editor?.isActive('italic') ?? false)}
+				onclick={() => editor?.chain().focus().toggleItalic().run()}
+			>
+				<ItalicIcon size="12" />
+			</button>
 
-		{#if inTable}
+			<button
+				class={btn(editor?.isActive('strike') ?? false)}
+				onclick={() => editor?.chain().focus().toggleStrike().run()}
+			>
+				<StrikethroughIcon size="12" />
+			</button>
+
+			<div class="mx-0.5 h-3.5 w-px bg-border/50"></div>
+
+			<button
+				class={btn(editor?.isActive('heading', { level: 1 }) ?? false)}
+				onclick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
+			>
+				<Heading1Icon size="12" />
+			</button>
+
+			<button
+				class={btn(editor?.isActive('heading', { level: 2 }) ?? false)}
+				onclick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+			>
+				<Heading2Icon size="12" />
+			</button>
+
+			<button
+				class={btn(editor?.isActive('heading', { level: 3 }) ?? false)}
+				onclick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
+			>
+				<Heading3Icon size="12" />
+			</button>
+
+			<div class="mx-0.5 h-3.5 w-px bg-border/50"></div>
+
+			<button
+				class={btn(editor?.isActive('bulletList') ?? false)}
+				onclick={() => editor?.chain().focus().toggleBulletList().run()}
+			>
+				<ListIcon size="12" />
+			</button>
+
+			<button
+				class={btn(editor?.isActive('orderedList') ?? false)}
+				onclick={() => editor?.chain().focus().toggleOrderedList().run()}
+			>
+				<ListOrderedIcon size="12" />
+			</button>
+
+			<button
+				class={btn(editor?.isActive('blockquote') ?? false)}
+				onclick={() => editor?.chain().focus().toggleBlockquote().run()}
+			>
+				<QuoteIcon size="12" />
+			</button>
+
+			<button
+				class={btn(editor?.isActive('codeBlock') ?? false)}
+				onclick={() => editor?.chain().focus().toggleCodeBlock().run()}
+			>
+				<CodeIcon size="12" />
+			</button>
+
 			<div class="mx-0.5 h-3.5 w-px bg-border/50"></div>
 
 			<button
 				class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-				title="Add row below"
-				onclick={() => editor?.chain().focus().addRowAfter().run()}
+				onclick={() => {
+					const url = window.prompt('URL');
+					if (url) editor?.chain().focus().setLink({ href: url }).run();
+				}}
 			>
-				<Rows3Icon size="12" />
-				<span class="sr-only">Add row</span>
+				<LinkIcon size="12" />
 			</button>
+
+			{#if caseId}
+				<button
+					class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+					disabled={uploading}
+					onclick={triggerFileInput}
+				>
+					<ImageIcon size="12" />
+				</button>
+			{/if}
 
 			<button
-				class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-				title="Delete row"
-				onclick={() => editor?.chain().focus().deleteRow().run()}
+				class={btn(editor?.isActive('table') ?? false)}
+				title="Insert table"
+				onclick={() =>
+					editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
 			>
-				<Rows3Icon size="12" class="text-red-500" />
-				<span class="sr-only">Delete row</span>
+				<TableIcon size="12" />
 			</button>
 
-			<button
-				class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-				title="Add column after"
-				onclick={() => editor?.chain().focus().addColumnAfter().run()}
-			>
-				<Columns3Icon size="12" />
-				<span class="sr-only">Add column</span>
-			</button>
+			{#if inTable}
+				<div class="mx-0.5 h-3.5 w-px bg-border/50"></div>
 
-			<button
-				class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-				title="Delete column"
-				onclick={() => editor?.chain().focus().deleteColumn().run()}
-			>
-				<Columns3Icon size="12" class="text-red-500" />
-				<span class="sr-only">Delete column</span>
-			</button>
+				<button
+					class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+					title="Add row below"
+					onclick={() => editor?.chain().focus().addRowAfter().run()}
+				>
+					<Rows3Icon size="12" />
+					<span class="sr-only">Add row</span>
+				</button>
 
-			<button
-				class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-				title="Delete table"
-				onclick={() => editor?.chain().focus().deleteTable().run()}
-			>
-				<Trash2Icon size="12" class="text-red-500" />
-				<span class="sr-only">Delete table</span>
-			</button>
-		{/if}
+				<button
+					class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+					title="Delete row"
+					onclick={() => editor?.chain().focus().deleteRow().run()}
+				>
+					<Rows3Icon size="12" class="text-red-500" />
+					<span class="sr-only">Delete row</span>
+				</button>
 
-		{#if typingUser}
-			<span class="ml-auto text-2xs text-muted-foreground">{typingUser} is typing…</span>
-		{/if}
+				<button
+					class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+					title="Add column after"
+					onclick={() => editor?.chain().focus().addColumnAfter().run()}
+				>
+					<Columns3Icon size="12" />
+					<span class="sr-only">Add column</span>
+				</button>
 
-		<div class="ml-auto flex items-center gap-0.5">
-			<button
-				class="flex items-center gap-1 rounded p-1 text-2xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-				title={viewMode === 'edit-preview' ? 'Back to editing' : 'Preview rendered markdown'}
-				onclick={togglePreview}
-			>
-				{#if viewMode === 'edit-preview'}
-					<PencilIcon size="12" />
-					<span>Edit</span>
-				{:else}
-					<EyeIcon size="12" />
-					<span>Preview</span>
-				{/if}
-			</button>
+				<button
+					class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+					title="Delete column"
+					onclick={() => editor?.chain().focus().deleteColumn().run()}
+				>
+					<Columns3Icon size="12" class="text-red-500" />
+					<span class="sr-only">Delete column</span>
+				</button>
 
-			<button
-				class="flex items-center gap-1 rounded p-1 text-2xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-				title="Exit edit mode"
-				onclick={exitEdit}
-			>
-				<CheckIcon size="12" />
-				<span>Done</span>
-			</button>
+				<button
+					class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+					title="Delete table"
+					onclick={() => editor?.chain().focus().deleteTable().run()}
+				>
+					<Trash2Icon size="12" class="text-red-500" />
+					<span class="sr-only">Delete table</span>
+				</button>
+			{/if}
+
+			{#if typingUser}
+				<span class="ml-auto text-2xs text-muted-foreground">{typingUser} is typing…</span>
+			{/if}
+
+			<div class="ml-auto flex items-center gap-0.5">
+				<button
+					class="flex items-center gap-1 rounded p-1 text-2xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+					title={viewMode === 'edit-preview' ? 'Back to editing' : 'Preview rendered markdown'}
+					onclick={togglePreview}
+				>
+					{#if viewMode === 'edit-preview'}
+						<PencilIcon size="12" />
+						<span>Edit</span>
+					{:else}
+						<EyeIcon size="12" />
+						<span>Preview</span>
+					{/if}
+				</button>
+
+				<button
+					class="flex items-center gap-1 rounded p-1 text-2xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+					title="Exit edit mode"
+					onclick={exitEdit}
+				>
+					<CheckIcon size="12" />
+					<span>Done</span>
+				</button>
+			</div>
 		</div>
-	</div>
 	{/if}
 
 	<!--
@@ -1653,10 +1649,19 @@
 		not in 'edit') so the collab socket and editor state survive transitions
 		without re-init.
 	-->
-	<!-- svelte-ignore a11y_mouse_events_have_key_events — keyboard equivalents
-		 live in onfocusin/onfocusout below (focus events on mention chips).
-		 The Svelte linter only recognises onfocus/onblur for this rule, which
-		 do not bubble and therefore can't be used here. -->
+	<!--
+		Why the ignore below: keyboard equivalents live in onfocusin/onfocusout
+		(focus events on mention chips). The Svelte linter only recognises
+		onfocus/onblur for this rule, and those do not bubble, so they can't be
+		used here.
+
+		The rationale is kept in its own comment rather than inline after the
+		code. Svelte 5 stops reading codes at the first one not followed by a
+		comma, so inline prose is harmless to the compiler — but
+		eslint-plugin-svelte splits on whitespace instead, so every prose word
+		became a bogus "unused" ignore code (31 of them, from this one comment).
+	-->
+	<!-- svelte-ignore a11y_mouse_events_have_key_events -->
 	<div
 		class="markdown-editor-body relative {viewMode === 'edit'
 			? 'mt-2 rounded-md border border-border/50 bg-background'
@@ -1673,7 +1678,7 @@
 				role="textbox"
 				tabindex="0"
 				ondblclick={enterEdit}
-				class="prose prose-sm dark:prose-invert max-w-none cursor-text px-1 text-sm leading-normal [&_p]:my-1.5 [&_p]:text-sm [&_h1]:mt-3 [&_h1]:mb-1.5 [&_h1]:text-lg [&_h2]:mt-2.5 [&_h2]:mb-1 [&_h2]:text-base [&_h3]:mt-2 [&_h3]:mb-0.5 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0 [&_li]:text-sm [&_blockquote]:my-2 [&_blockquote]:text-sm [&_pre]:my-2 [&_pre]:text-xs [&_code]:text-xs {viewMode ===
+				class="prose prose-sm dark:prose-invert max-w-none cursor-text px-1 text-sm leading-normal [&_blockquote]:my-2 [&_blockquote]:text-sm [&_code]:text-xs [&_h1]:mb-1.5 [&_h1]:mt-3 [&_h1]:text-lg [&_h2]:mb-1 [&_h2]:mt-2.5 [&_h2]:text-base [&_h3]:mb-0.5 [&_h3]:mt-2 [&_h3]:text-sm [&_h3]:font-semibold [&_li]:my-0 [&_li]:text-sm [&_ol]:my-1.5 [&_p]:my-1.5 [&_p]:text-sm [&_pre]:my-2 [&_pre]:text-xs [&_ul]:my-1.5 {viewMode ===
 				'edit-preview'
 					? 'rounded-md border border-border/50 bg-background p-3'
 					: ''}"
@@ -1724,27 +1729,15 @@
 {/if}
 
 {#if iocDialogId !== null && caseId != null}
-	<IocDetailDialog
-		caseId={Number(caseId)}
-		iocId={iocDialogId}
-		bind:open={iocDialogOpen}
-	/>
+	<IocDetailDialog caseId={Number(caseId)} iocId={iocDialogId} bind:open={iocDialogOpen} />
 {/if}
 
 {#if taskDialogId !== null && caseId != null}
-	<TaskDetailDialog
-		caseId={Number(caseId)}
-		taskId={taskDialogId}
-		bind:open={taskDialogOpen}
-	/>
+	<TaskDetailDialog caseId={Number(caseId)} taskId={taskDialogId} bind:open={taskDialogOpen} />
 {/if}
 
 {#if noteDialogId !== null && caseId != null}
-	<NoteDetailDialog
-		caseId={Number(caseId)}
-		noteId={noteDialogId}
-		bind:open={noteDialogOpen}
-	/>
+	<NoteDetailDialog caseId={Number(caseId)} noteId={noteDialogId} bind:open={noteDialogOpen} />
 {/if}
 
 <style>

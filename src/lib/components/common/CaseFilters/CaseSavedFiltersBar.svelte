@@ -96,7 +96,8 @@
 
 			{#if presets.length === 0}
 				<div class="px-2 py-3 text-xs text-muted-foreground">
-					No saved filters yet. Build a filter and hit <span class="font-semibold">Save filter</span> to keep it.
+					No saved filters yet. Build a filter and hit <span class="font-semibold">Save filter</span
+					> to keep it.
 				</div>
 			{:else}
 				{#each presets as preset (preset.filter_id)}

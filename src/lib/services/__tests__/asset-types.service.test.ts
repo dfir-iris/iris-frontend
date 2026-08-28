@@ -53,9 +53,7 @@ describe('AssetTypesService', () => {
 		};
 
 		const urlWithQuery = '/manage/case-objects/asset-types?per_page=10000';
-		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-			urlWithQuery
-		);
+		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(urlWithQuery);
 		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await AssetTypesService.list(73, options);
@@ -64,10 +62,9 @@ describe('AssetTypesService', () => {
 		// legacy `cid` query param is gone. `per_page=10000` overrides
 		// the v2 default of 10 so the asset-type dropdown surfaces
 		// every type rather than silently truncating to ten.
-		expect(ApiService.withQuery).toHaveBeenCalledWith(
-			'/manage/case-objects/asset-types',
-			{ per_page: 10000 }
-		);
+		expect(ApiService.withQuery).toHaveBeenCalledWith('/manage/case-objects/asset-types', {
+			per_page: 10000
+		});
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
 		expect(ApiService.get).toHaveBeenCalledWith(urlWithQuery, options);
 		expect(res.data).toBe(items);

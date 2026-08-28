@@ -91,9 +91,7 @@ export class ProfileService {
 
 	// ---- Named per-user API keys (UserApiKey) --------------------------
 
-	static async listApiKeys(
-		options: ApiOptions = {}
-	): Promise<RequestResponse<UserApiKeyList>> {
+	static async listApiKeys(options: ApiOptions = {}): Promise<RequestResponse<UserApiKeyList>> {
 		return ApiService.get<UserApiKeyList>(`/me/api-keys`, options);
 	}
 

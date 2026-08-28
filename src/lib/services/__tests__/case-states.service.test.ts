@@ -42,19 +42,16 @@ describe('CaseStatesService', () => {
 		};
 
 		const urlWithQuery = '/manage/case-objects/case-states?per_page=10000';
-		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-			urlWithQuery
-		);
+		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(urlWithQuery);
 		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await CaseStatesService.list(options);
 
 		// per_page=10000 sidesteps the v2 default of 10 so dropdowns
 		// surface every case state on the deployment.
-		expect(ApiService.withQuery).toHaveBeenCalledWith(
-			'/manage/case-objects/case-states',
-			{ per_page: 10000 }
-		);
+		expect(ApiService.withQuery).toHaveBeenCalledWith('/manage/case-objects/case-states', {
+			per_page: 10000
+		});
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
 		expect(ApiService.get).toHaveBeenCalledWith(urlWithQuery, options);
 		expect(res).toBe(mockResponse);
@@ -107,11 +104,7 @@ describe('CaseStatesService', () => {
 		const res = await CaseStatesService.create(body, options);
 
 		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith(
-			'/manage/case-objects/case-states',
-			body,
-			options
-		);
+		expect(ApiService.post).toHaveBeenCalledWith('/manage/case-objects/case-states', body, options);
 		expect(res).toBe(mockResponse);
 	});
 
@@ -160,10 +153,7 @@ describe('CaseStatesService', () => {
 		const res = await CaseStatesService.remove(7, options);
 
 		expect(ApiService.delete).toHaveBeenCalledTimes(1);
-		expect(ApiService.delete).toHaveBeenCalledWith(
-			'/manage/case-objects/case-states/7',
-			options
-		);
+		expect(ApiService.delete).toHaveBeenCalledWith('/manage/case-objects/case-states/7', options);
 		expect(res).toBe(mockResponse);
 	});
 });

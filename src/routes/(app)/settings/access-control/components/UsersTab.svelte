@@ -20,7 +20,6 @@
 		LockIcon,
 		MoreHorizontalIcon,
 		PencilIcon,
-		PlusIcon,
 		PowerIcon,
 		PowerOffIcon,
 		RefreshCwIcon,
@@ -93,7 +92,7 @@
 	let listState = $state<ListState>(emptyListState());
 	let selectedId = $state<number | null>(null);
 	const selected = $derived<AccessControlUser | null>(
-		selectedId == null ? null : listState.items.find((u) => u.user_id === selectedId) ?? null
+		selectedId == null ? null : (listState.items.find((u) => u.user_id === selectedId) ?? null)
 	);
 	// The seeded demo accounts are shared between visitors and their
 	// credentials are published on the landing page, so the API refuses
@@ -253,9 +252,7 @@
 					showSuccess(user.user_active ? 'User deactivated' : 'User activated');
 				} else {
 					showError(
-						(res.data as { message?: string } | null)?.message ??
-							res.error?.message ??
-							'Failed'
+						(res.data as { message?: string } | null)?.message ?? res.error?.message ?? 'Failed'
 					);
 				}
 			}
@@ -277,9 +274,7 @@
 					showSuccess('API key rotated');
 				} else {
 					showError(
-						(res.data as { message?: string } | null)?.message ??
-							res.error?.message ??
-							'Failed'
+						(res.data as { message?: string } | null)?.message ?? res.error?.message ?? 'Failed'
 					);
 				}
 			}
@@ -296,9 +291,7 @@
 				if (res.ok) showSuccess('MFA reset');
 				else
 					showError(
-						(res.data as { message?: string } | null)?.message ??
-							res.error?.message ??
-							'Failed'
+						(res.data as { message?: string } | null)?.message ?? res.error?.message ?? 'Failed'
 					);
 			}
 		});
@@ -327,9 +320,7 @@
 					await loadList();
 				} else {
 					showError(
-						(res.data as { message?: string } | null)?.message ??
-							res.error?.message ??
-							'Failed'
+						(res.data as { message?: string } | null)?.message ?? res.error?.message ?? 'Failed'
 					);
 				}
 			}
@@ -343,10 +334,8 @@
 		<div class="flex flex-col gap-2 border-b bg-muted/30 px-3 py-2">
 			<div class="flex items-center justify-between gap-2">
 				<div class="flex items-baseline gap-2">
-					<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-						Users
-					</h2>
-					<span class="text-2xs text-muted-foreground tabular-nums">
+					<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Users</h2>
+					<span class="text-2xs tabular-nums text-muted-foreground">
 						{listState.items.length} / {listState.total}
 					</span>
 				</div>
@@ -392,9 +381,7 @@
 					{/each}
 				</div>
 			{:else if listState.items.length === 0}
-				<p class="px-3 py-6 text-center text-xs text-muted-foreground">
-					No users match.
-				</p>
+				<p class="px-3 py-6 text-center text-xs text-muted-foreground">No users match.</p>
 			{:else}
 				<ul class="divide-y">
 					{#each listState.items as u (u.user_id)}
@@ -403,9 +390,7 @@
 							<button
 								type="button"
 								class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors
-									{active
-									? 'bg-primary/10 font-medium text-foreground'
-									: 'hover:bg-muted/40'}"
+									{active ? 'bg-primary/10 font-medium text-foreground' : 'hover:bg-muted/40'}"
 								onclick={() => (selectedId = u.user_id)}
 							>
 								<UserIcon size={14} class="shrink-0 text-muted-foreground" />
@@ -416,18 +401,22 @@
 									</div>
 								</div>
 								{#if !u.user_active}
-									<span class="shrink-0 rounded-sm border bg-muted/40 px-1.5 py-0 text-3xs text-muted-foreground">
+									<span
+										class="text-3xs shrink-0 rounded-sm border bg-muted/40 px-1.5 py-0 text-muted-foreground"
+									>
 										inactive
 									</span>
 								{/if}
 								{#if u.user_is_service_account}
-									<span class="shrink-0 rounded-sm border bg-amber-400/10 px-1.5 py-0 text-3xs text-amber-700 dark:text-amber-300">
+									<span
+										class="text-3xs shrink-0 rounded-sm border bg-amber-400/10 px-1.5 py-0 text-amber-700 dark:text-amber-300"
+									>
 										svc
 									</span>
 								{/if}
 								{#if u.user_is_demo_protected}
 									<span
-										class="shrink-0 rounded-sm border bg-muted/40 px-1.5 py-0 text-3xs text-muted-foreground"
+										class="text-3xs shrink-0 rounded-sm border bg-muted/40 px-1.5 py-0 text-muted-foreground"
 										title={DEMO_LOCKED_HINT}
 									>
 										demo
@@ -459,9 +448,7 @@
 	<section class="flex min-h-0 flex-1 basis-2/3 flex-col overflow-hidden rounded-md border">
 		<div class="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
 			<div class="flex items-baseline gap-2">
-				<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-					User
-				</h2>
+				<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">User</h2>
 				{#if selected}
 					<span class="text-2xs text-muted-foreground">@{selected.user_login}</span>
 				{/if}
@@ -573,21 +560,29 @@
 						<dt class="text-2xs uppercase tracking-wide text-muted-foreground">Status</dt>
 						<dd class="flex items-center gap-1.5">
 							{#if selected.user_active}
-								<span class="inline-flex items-center gap-1 rounded-sm border border-emerald-400/40 bg-emerald-400/10 px-1.5 py-0 text-2xs text-emerald-700 dark:text-emerald-300">
+								<span
+									class="inline-flex items-center gap-1 rounded-sm border border-emerald-400/40 bg-emerald-400/10 px-1.5 py-0 text-2xs text-emerald-700 dark:text-emerald-300"
+								>
 									Active
 								</span>
 							{:else}
-								<span class="inline-flex items-center gap-1 rounded-sm border bg-muted/40 px-1.5 py-0 text-2xs text-muted-foreground">
+								<span
+									class="inline-flex items-center gap-1 rounded-sm border bg-muted/40 px-1.5 py-0 text-2xs text-muted-foreground"
+								>
 									Inactive
 								</span>
 							{/if}
 							{#if selected.user_is_service_account}
-								<span class="inline-flex items-center gap-1 rounded-sm border border-amber-400/40 bg-amber-400/10 px-1.5 py-0 text-2xs text-amber-700 dark:text-amber-300">
+								<span
+									class="inline-flex items-center gap-1 rounded-sm border border-amber-400/40 bg-amber-400/10 px-1.5 py-0 text-2xs text-amber-700 dark:text-amber-300"
+								>
 									Service account
 								</span>
 							{/if}
 							{#if selected.user_isadmin}
-								<span class="inline-flex items-center gap-1 rounded-sm border border-primary/40 bg-primary/10 px-1.5 py-0 text-2xs">
+								<span
+									class="inline-flex items-center gap-1 rounded-sm border border-primary/40 bg-primary/10 px-1.5 py-0 text-2xs"
+								>
 									Admin
 								</span>
 							{/if}
@@ -691,7 +686,7 @@
 									<li class="flex items-center gap-2 px-3 py-1.5">
 										<UserCogIcon size={11} class="shrink-0 text-muted-foreground" />
 										<span class="min-w-0 flex-1 truncate">{c.customer_name}</span>
-										<span class="shrink-0 font-mono text-3xs text-muted-foreground">
+										<span class="text-3xs shrink-0 font-mono text-muted-foreground">
 											#{c.customer_id}
 										</span>
 									</li>
@@ -719,14 +714,18 @@
 									{@const level = schema.case_access_levels.find(
 										(l) => l.value === ca.access_level
 									)}
-									<li class="flex items-center justify-between gap-2 rounded-sm border bg-muted/20 px-2 py-1">
+									<li
+										class="flex items-center justify-between gap-2 rounded-sm border bg-muted/20 px-2 py-1"
+									>
 										<span class="truncate">
 											#{ca.case_id}
 											{#if ca.case_name}
 												— {ca.case_name}
 											{/if}
 										</span>
-										<span class="shrink-0 text-muted-foreground">{level?.label ?? ca.access_level}</span>
+										<span class="shrink-0 text-muted-foreground"
+											>{level?.label ?? ca.access_level}</span
+										>
 									</li>
 								{/each}
 							</ul>
@@ -780,12 +779,7 @@
 		}}
 	/>
 
-	<UserAuditDialog
-		bind:open={auditOpen}
-		user={selected}
-		{schema}
-		{showError}
-	/>
+	<UserAuditDialog bind:open={auditOpen} user={selected} {schema} {showError} />
 {/if}
 
 <UserApiKeyDialog

@@ -146,9 +146,7 @@ export interface BackupResult {
 }
 
 export class ServerSettingsService {
-	static async get(
-		options: ApiOptions = {}
-	): Promise<RequestResponse<ServerSettingsResponse>> {
+	static async get(options: ApiOptions = {}): Promise<RequestResponse<ServerSettingsResponse>> {
 		return ApiService.get<ServerSettingsResponse>('/manage/server/settings', options);
 	}
 
@@ -159,9 +157,7 @@ export class ServerSettingsService {
 		return ApiService.put<ServerSettings>('/manage/server/settings', body, options);
 	}
 
-	static async backupDb(
-		options: ApiOptions = {}
-	): Promise<RequestResponse<BackupResult>> {
+	static async backupDb(options: ApiOptions = {}): Promise<RequestResponse<BackupResult>> {
 		return ApiService.post<BackupResult>('/manage/server/backups/db', {}, options);
 	}
 
@@ -174,7 +170,6 @@ export class ServerSettingsService {
 		body: TestMailBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<TestMailResult>> {
-		return ApiService.post<TestMailResult>(
-			'/manage/server/mail/test-send', body, options);
+		return ApiService.post<TestMailResult>('/manage/server/mail/test-send', body, options);
 	}
 }

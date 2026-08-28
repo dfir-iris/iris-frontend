@@ -96,11 +96,19 @@ export class AlertClustersService {
 	}
 
 	static async create(body: CreateAlertClusterBody, options: ApiOptions = {}) {
-		return ApiService.post<AlertCluster, CreateAlertClusterBody>('/api/v2/alert-clusters', body, options);
+		return ApiService.post<AlertCluster, CreateAlertClusterBody>(
+			'/api/v2/alert-clusters',
+			body,
+			options
+		);
 	}
 
 	static async update(id: number, body: UpdateAlertClusterBody, options: ApiOptions = {}) {
-		return ApiService.put<AlertCluster, UpdateAlertClusterBody>(`/api/v2/alert-clusters/${id}`, body, options);
+		return ApiService.put<AlertCluster, UpdateAlertClusterBody>(
+			`/api/v2/alert-clusters/${id}`,
+			body,
+			options
+		);
 	}
 
 	static async remove(id: number, options: ApiOptions = {}) {
@@ -116,7 +124,10 @@ export class AlertClustersService {
 	}
 
 	static async removeAlert(id: number, alertId: number, options: ApiOptions = {}) {
-		return ApiService.delete<AlertCluster>(`/api/v2/alert-clusters/${id}/alerts/${alertId}`, options);
+		return ApiService.delete<AlertCluster>(
+			`/api/v2/alert-clusters/${id}/alerts/${alertId}`,
+			options
+		);
 	}
 
 	static async escalate(id: number, body: EscalateAlertClusterBody, options: ApiOptions = {}) {

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
 vi.mock('$app/navigation', () => ({
 	goto: vi.fn()
@@ -50,7 +50,7 @@ describe('navigation store', () => {
 	});
 
 	it('redirects unauthenticated user from protected path to login', () => {
-		(auth.isAuthenticated as unknown as vi.Mock).mockReturnValue(false);
+		(auth.isAuthenticated as unknown as Mock).mockReturnValue(false);
 
 		const unsub = navigation.subscribe(() => {});
 
@@ -62,7 +62,7 @@ describe('navigation store', () => {
 	});
 
 	it('redirects authenticated user away from public path to app root', () => {
-		(auth.isAuthenticated as unknown as vi.Mock).mockReturnValue(true);
+		(auth.isAuthenticated as unknown as Mock).mockReturnValue(true);
 
 		const unsub = navigation.subscribe(() => {});
 
@@ -74,7 +74,7 @@ describe('navigation store', () => {
 	});
 
 	it('does nothing for authenticated user on protected path', () => {
-		(auth.isAuthenticated as unknown as vi.Mock).mockReturnValue(true);
+		(auth.isAuthenticated as unknown as Mock).mockReturnValue(true);
 
 		const unsub = navigation.subscribe(() => {});
 
@@ -86,7 +86,7 @@ describe('navigation store', () => {
 	});
 
 	it('does nothing for unauthenticated user on public path', () => {
-		(auth.isAuthenticated as unknown as vi.Mock).mockReturnValue(false);
+		(auth.isAuthenticated as unknown as Mock).mockReturnValue(false);
 
 		const unsub = navigation.subscribe(() => {});
 

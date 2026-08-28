@@ -296,12 +296,9 @@
 						{#each cases as c, idx (c.case_id)}
 							{@const owned = mode === 'default' && isOwnedByCurrentUser(c)}
 							{@const isFirstNonOwner =
-								mode === 'default' &&
-								!owned &&
-								idx > 0 &&
-								isOwnedByCurrentUser(cases[idx - 1])}
+								mode === 'default' && !owned && idx > 0 && isOwnedByCurrentUser(cases[idx - 1])}
 							{#if isFirstNonOwner}
-								<li class="border-t my-1"></li>
+								<li class="my-1 border-t"></li>
 							{/if}
 							<li>
 								<button

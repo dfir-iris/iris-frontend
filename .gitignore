@@ -7,6 +7,9 @@ node_modules
 /.svelte-kit
 /build
 
+# Coverage reports (vitest `coverage.reportsDirectory`)
+/coverage
+
 # OS
 .DS_Store
 Thumbs.db

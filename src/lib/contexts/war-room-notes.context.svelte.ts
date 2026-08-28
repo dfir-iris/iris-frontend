@@ -47,7 +47,6 @@ export interface WarRoomNoteFolderTreeNode {
 }
 
 const getNoteId = (note: WarRoomNote): number => note.note_id;
-const getFolderId = (folder: WarRoomNoteFolder): number => folder.id;
 
 /**
  * Build the folder tree from a flat REST payload. Notes are grouped
@@ -277,10 +276,7 @@ export const createWarRoomNotesContext = (getWarRoomId: () => number | null) => 
 		await loadTree(options);
 	};
 
-	const getNote = async (
-		id: number,
-		options: ApiOptions = {}
-	): Promise<WarRoomNote | null> => {
+	const getNote = async (id: number, options: ApiOptions = {}): Promise<WarRoomNote | null> => {
 		const warRoomId = getWarRoomId();
 		if (warRoomId === null) return null;
 
@@ -343,9 +339,7 @@ export const createWarRoomNotesContext = (getWarRoomId: () => number | null) => 
 			byId[getNoteId(note)] = note;
 
 			// If the folder changed, the tree structure needs re-hydration.
-			const didMove =
-				prev !== undefined &&
-				(prev.folder_id ?? null) !== (note.folder_id ?? null);
+			const didMove = prev !== undefined && (prev.folder_id ?? null) !== (note.folder_id ?? null);
 
 			if (didMove) {
 				await refresh(options);

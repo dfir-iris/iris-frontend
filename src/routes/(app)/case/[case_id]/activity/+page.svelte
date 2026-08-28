@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { page } from '$app/state';
-  import type { PageData } from "./$types";
+	import { page } from '$app/state';
+	import type { PageData } from './$types';
 
-  let { data }: { data: PageData } = $props();
+	let { data: _data }: { data: PageData } = $props();
 </script>
 
 <svelte:head>
-  <title>#{page.params.case_id} - Activity</title>
+	<title>#{page.params.case_id} - Activity</title>
 </svelte:head>

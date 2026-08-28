@@ -13,7 +13,8 @@
 
 	onMount(async () => {
 		if (currentCase?.user_id) {
-			const res = (await UsersService.get(currentCase.user_id)).data as unknown as RequestResponse<User>;
+			const res = (await UsersService.get(currentCase.user_id))
+				.data as unknown as RequestResponse<User>;
 			openingUser = res.data as User;
 		}
 	});

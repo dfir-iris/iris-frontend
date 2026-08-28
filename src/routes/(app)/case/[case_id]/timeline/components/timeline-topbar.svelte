@@ -62,7 +62,7 @@
 		onApplyFilters,
 		onClearFilters,
 		onRefresh,
-		onAddEvent,
+		onAddEvent: _onAddEvent,
 		onViewModeChange,
 		onQuickSearchChange,
 		onQuickSearchNext,
@@ -104,7 +104,9 @@
 			</Button>
 		</div>
 
-		<div class="flex w-80 max-w-full items-center gap-1 rounded-md border border-border bg-muted/40 pl-2 pr-1 focus-within:border-primary focus-within:bg-background dark:bg-slate-800/60">
+		<div
+			class="flex w-80 max-w-full items-center gap-1 rounded-md border border-border bg-muted/40 pl-2 pr-1 focus-within:border-primary focus-within:bg-background dark:bg-slate-800/60"
+		>
 			<SearchIcon class="size-3.5 shrink-0 text-muted-foreground" />
 			<input
 				type="text"
@@ -125,7 +127,9 @@
 						<RefreshCwIcon class="size-3 animate-spin" />
 						Loading…
 					{:else}
-						{quickSearchMatchCount === 0 ? 'No matches' : `${quickSearchMatchIndex + 1}/${quickSearchMatchCount}`}
+						{quickSearchMatchCount === 0
+							? 'No matches'
+							: `${quickSearchMatchIndex + 1}/${quickSearchMatchCount}`}
 					{/if}
 				</span>
 

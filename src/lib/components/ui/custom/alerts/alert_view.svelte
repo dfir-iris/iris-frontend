@@ -1,68 +1,42 @@
 <script lang="ts">
-    import { DateFormatter, getDayOfWeek, getLocalTimeZone, now } from "@internationalized/date";
-    import * as Icons from "lucide-svelte";
-    import { Button } from "$lib/components/ui/button";
-	import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
-    import { Separator } from "$lib/components/ui/separator";
-    import { Textarea } from "$lib/components/ui/textarea";
-    import * as Tooltip from "$lib/components/ui/tooltip";
-	import SeverityBadge from "$lib/components/ui/badge/severity-badge.svelte";
-	import StatusBadge from "$lib/components/ui/badge/status-badge.svelte";
-	import ScrollArea from "$lib/components/ui/scroll-area/scroll-area.svelte";
+	import * as Icons from 'lucide-svelte';
+	import { Button } from '$lib/components/ui/button';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import { Separator } from '$lib/components/ui/separator';
+	import { Textarea } from '$lib/components/ui/textarea';
+	import * as Tooltip from '$lib/components/ui/tooltip';
+	import SeverityBadge from '$lib/components/ui/badge/severity-badge.svelte';
+	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
+	import ScrollArea from '$lib/components/ui/scroll-area/scroll-area.svelte';
 
-    export let alert: any;
+	export let alert: any;
 
-	let statuses = [
-		'Pending', 'In progress', 'Completed', 'Unspecified', 'New'
-	];
+	let statuses = ['Pending', 'In progress', 'Completed', 'Unspecified', 'New'];
+	let _status = alert.status.status_name;
 
-    let status = alert.status.status_name;
-
-    function setStatus(newStatus) {
-        status = newStatus;
+	function setStatus(newStatus: string) {
+		_status = newStatus;
 	}
 
-    const fullFormatter = new DateFormatter("en-US", {
-        dateStyle: "medium",
-        timeStyle: "medium",
-    });
-
-    const relativeFormatter = new DateFormatter("en-US", {
-        weekday: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-        hourCycle: "h12",
-    });
-    let todayDate = now(getLocalTimeZone());
-
-    function getClosestWeekend() {
-        const dayOfWeek = getDayOfWeek(todayDate, "en-US");
-        if (dayOfWeek === 6) {
-            return todayDate.toDate();
-        }
-        return todayDate.add({ days: 6 - dayOfWeek }).toDate();
-    }
 </script>
 
 <div class="flex flex-col">
-
-    {#if alert}
+	{#if alert}
 		<ScrollArea class="flex-1">
 			<div class="h-full">
 				<div class="overflow-hidden border-none">
-
 					<div class="mb-1 flex items-center p-2">
 						<div class="flex gap-2">
 							<SeverityBadge severity={alert.severity.severity_name} />
 							<Separator orientation="vertical" class="mx-1 h-6" />
 							<DropdownMenu.Root>
 								<DropdownMenu.Trigger>
-									<StatusBadge status={alert.status.status_name} />
+									<StatusBadge status={alert.status.status_name as import('$lib/components/ui/badge/types').CaseStatus} />
 								</DropdownMenu.Trigger>
 								<DropdownMenu.Content>
 									{#each statuses as value}
 										<DropdownMenu.Item onclick={() => setStatus(value)}>
-											<StatusBadge status={value}/>
+											<StatusBadge status={value as import('$lib/components/ui/badge/types').CaseStatus} />
 										</DropdownMenu.Item>
 									{/each}
 								</DropdownMenu.Content>
@@ -81,31 +55,20 @@
 							</Button>
 							<Button size="sm" variant="outline" class="h-8 gap-1">
 								<Icons.Merge class="h-3.5 w-3.5" />
-								<span class="lg:sr-only xl:not-sr-only xl:whitespace-nowrap">
-									Merge
-								</span>
+								<span class="lg:sr-only xl:not-sr-only xl:whitespace-nowrap"> Merge </span>
 							</Button>
 							<Button size="sm" variant="outline" class="h-8 gap-1">
 								<Icons.Shield class="h-3.5 w-3.5" />
-								<span class="lg:sr-only xl:not-sr-only xl:whitespace-nowrap">
-									Close
-								</span>
+								<span class="lg:sr-only xl:not-sr-only xl:whitespace-nowrap"> Close </span>
 							</Button>
 							<Separator orientation="vertical" class="mx-2 h-6" />
 							<Button size="sm" variant="outline" class="h-8 gap-1">
 								<Icons.Share class="h-3.5 w-3.5" />
-								<span class="lg:sr-only xl:not-sr-only xl:whitespace-nowrap">
-									Share
-								</span>
+								<span class="lg:sr-only xl:not-sr-only xl:whitespace-nowrap"> Share </span>
 							</Button>
 							<DropdownMenu.Root>
-								<DropdownMenu.Trigger asChild let:builder>
-									<Button
-										builders={[builder]}
-										size="icon"
-										variant="outline"
-										class="h-8 w-8"
-									>
+								<DropdownMenu.Trigger>
+									<Button size="icon" variant="outline" class="h-8 w-8">
 										<Icons.EllipsisVertical class="h-3.5 w-3.5" />
 										<span class="sr-only">More</span>
 									</Button>
@@ -132,21 +95,21 @@
 									<span class="sr-only">Copy Title</span>
 								</Button>
 							</div>
-							<span class="text-sm text-slate-400 italic">
+							<span class="text-sm italic text-slate-400">
 								#{alert.alert_id} - {alert.alert_uuid}
 								<Button
-								size="icon"
-								variant="outline"
-								class="h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
+									size="icon"
+									variant="outline"
+									class="h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
 								>
 									<Icons.Copy class="h-3 w-3" />
 									<span class="sr-only">Copy Alert ID</span>
 								</Button>
 							</span>
 
-							<div class="flex items-center gap-2 mt-4 text-sm">
+							<div class="mt-4 flex items-center gap-2 text-sm">
 								<Tooltip.Provider>
-									<Tooltip.Root openDelay={0} group>
+									<Tooltip.Root delayDuration={0}>
 										<Tooltip.Trigger class="flex items-center gap-1">
 											<Icons.AlarmClock size="16" />
 											<span>{new Date(alert.alert_source_event_time).toLocaleString()}</span>
@@ -154,7 +117,7 @@
 										<Tooltip.Content>Alert source event date</Tooltip.Content>
 									</Tooltip.Root>
 									<span class="mx-2">|</span>
-									<Tooltip.Root openDelay={0} group>
+									<Tooltip.Root delayDuration={0}>
 										<Tooltip.Trigger class="flex items-center gap-1">
 											<Icons.Calendar size="16" />
 											<span>{new Date(alert.alert_creation_time).toLocaleString()}</span>
@@ -164,7 +127,6 @@
 								</Tooltip.Provider>
 							</div>
 						</div>
-
 					</div>
 					<div class="p-6 text-sm">
 						<div class="grid gap-3">
@@ -229,9 +191,11 @@
 							</ul>
 						</div>
 					</div>
-					<div class="bg-muted/50 flex flex-row items-center border-t px-6 py-3">
-						<div class="text-muted-foreground text-xs">
-							Updated <time dateTime={new Date(alert.alert_creation_time).toISOString()}>{new Date(alert.alert_creation_time).toLocaleString()}</time>
+					<div class="flex flex-row items-center border-t bg-muted/50 px-6 py-3">
+						<div class="text-xs text-muted-foreground">
+							Updated <time dateTime={new Date(alert.alert_creation_time).toISOString()}
+								>{new Date(alert.alert_creation_time).toLocaleString()}</time
+							>
 						</div>
 						<div class="ml-auto flex items-center gap-2">
 							<Textarea class="p-4" placeholder={`Reply to ${alert.customer.customer_name}...`} />
@@ -241,7 +205,7 @@
 				</div>
 			</div>
 		</ScrollArea>
-    {:else}
-        <div class="text-muted-foreground p-8 text-center">No alert selected</div>
-    {/if}
+	{:else}
+		<div class="p-8 text-center text-muted-foreground">No alert selected</div>
+	{/if}
 </div>

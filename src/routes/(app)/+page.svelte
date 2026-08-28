@@ -155,9 +155,7 @@
 		error: null
 	});
 
-	const firstName = $derived(
-		($current_user?.user_name ?? '').split(/[\s,]/)[0] || 'investigator'
-	);
+	const firstName = $derived(($current_user?.user_name ?? '').split(/[\s,]/)[0] || 'investigator');
 
 	const greeting = (): string => {
 		const h = new Date().getHours();
@@ -169,9 +167,7 @@
 
 	// Pull total + page-one preview in one shot. The list response already
 	// has pagination.total which is all we need for the KPI chips.
-	const unwrapPaginated = <T,>(
-		res: unknown
-	): { total: number; items: T[] } => {
+	const unwrapPaginated = <T,>(res: unknown): { total: number; items: T[] } => {
 		const r = res as { data?: { total?: number; data?: T[] } } | null;
 		const data = r?.data;
 		return {
@@ -209,9 +205,7 @@
 			});
 			const { total, items } = unwrapPaginated<Case>(res);
 			const openItems =
-				closedStateId != null
-					? items.filter((c) => c.state?.state_id !== closedStateId)
-					: items;
+				closedStateId != null ? items.filter((c) => c.state?.state_id !== closedStateId) : items;
 
 			// If we didn't post-filter (no Closed state id), the backend's
 			// total is authoritative. Otherwise the count is `openItems.length`
@@ -220,8 +214,7 @@
 			// must NOT fall back to `total` when `openItems.length === 0`:
 			// that's the exact "all fetched cases were Closed" case the
 			// filter is here to catch, and it should read as 0.
-			const filteredTotal =
-				closedStateId == null ? total : Math.min(total, openItems.length);
+			const filteredTotal = closedStateId == null ? total : Math.min(total, openItems.length);
 
 			openCasesState = {
 				total: filteredTotal,
@@ -412,7 +405,9 @@
 		if (typeof document !== 'undefined' && document.hidden) return;
 		const rows = await fetchActivityPage(0);
 		if (rows.length === 0) return;
-		const known = new Set(activityState.items.map((a) => a.id).filter((id): id is number => id != null));
+		const known = new Set(
+			activityState.items.map((a) => a.id).filter((id): id is number => id != null)
+		);
 		const fresh = rows.filter((r) => r.id != null && !known.has(r.id));
 		if (fresh.length === 0) return;
 		activityState = {
@@ -467,11 +462,7 @@
 	};
 
 	const loadMoreCaseActivity = async () => {
-		if (
-			caseActivityState.loadingMore ||
-			caseActivityState.allLoaded ||
-			caseActivityState.loading
-		)
+		if (caseActivityState.loadingMore || caseActivityState.allLoaded || caseActivityState.loading)
 			return;
 		caseActivityState.loadingMore = true;
 		try {
@@ -598,7 +589,9 @@
 	<title>Dashboard</title>
 </svelte:head>
 
-<div class="flex h-full w-full min-w-0 flex-1 flex-col gap-6 overflow-auto bg-gradient-to-b from-muted/30 via-background to-background p-6">
+<div
+	class="flex h-full w-full min-w-0 flex-1 flex-col gap-6 overflow-auto bg-gradient-to-b from-muted/30 via-background to-background p-6"
+>
 	<!--
 	  Hero band. One single panel: greeting on the left, four big inline
 	  metrics on the right (no nested card boxes). Numbers are the visual
@@ -608,7 +601,7 @@
 	  earlier "four little cards in a row" look.
 	-->
 	<section
-		class="relative shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elevation-1"
+		class="shadow-elevation-1 relative shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-card"
 	>
 		<!-- Soft tinted glow tucked behind the greeting so the panel has a
 		     mood rather than being a flat white slab. -->
@@ -617,7 +610,7 @@
 			aria-hidden="true"
 		></div>
 		<div
-			class="pointer-events-none absolute -right-32 -bottom-32 h-64 w-64 rounded-full bg-violet-500/10 blur-3xl"
+			class="pointer-events-none absolute -bottom-32 -right-32 h-64 w-64 rounded-full bg-violet-500/10 blur-3xl"
 			aria-hidden="true"
 		></div>
 
@@ -659,11 +652,15 @@
 					class="group flex flex-col gap-2 transition-colors"
 				>
 					<span class="flex items-baseline gap-1.5">
-						<span class="text-3xl font-semibold tabular-nums leading-none text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400">
+						<span
+							class="text-3xl font-semibold tabular-nums leading-none text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400"
+						>
 							{openCasesState.loading ? '—' : openCasesState.total}
 						</span>
 					</span>
-					<span class="flex items-center gap-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+					<span
+						class="flex items-center gap-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground"
+					>
 						<LayersIcon class="h-3 w-3 text-blue-500" />
 						My open cases
 					</span>
@@ -675,25 +672,25 @@
 					href={(() => {
 						const f = kpiState.data?.assigned_alerts.filter;
 						if (f && f.alert_status_id.length > 0) {
-							const statuses = f.alert_status_id
-								.map((id) => `alert_status_id=${id}`)
-								.join('&');
+							const statuses = f.alert_status_id.map((id) => `alert_status_id=${id}`).join('&');
 							return `/alerts?alert_owner_id=${f.alert_owner_id}&${statuses}`;
 						}
-						return myUserId != null
-							? `/alerts?alert_owner_id=${myUserId}`
-							: '/alerts';
+						return myUserId != null ? `/alerts?alert_owner_id=${myUserId}` : '/alerts';
 					})()}
 					class="group flex flex-col gap-2 transition-colors"
 				>
-					<span class="text-3xl font-semibold tabular-nums leading-none text-foreground group-hover:text-red-600 dark:group-hover:text-red-400">
+					<span
+						class="text-3xl font-semibold tabular-nums leading-none text-foreground group-hover:text-red-600 dark:group-hover:text-red-400"
+					>
 						{kpiState.loading && kpiState.data == null
 							? alertsState.loading
 								? '—'
 								: alertsState.total
-							: kpiState.data?.assigned_alerts.count ?? alertsState.total}
+							: (kpiState.data?.assigned_alerts.count ?? alertsState.total)}
 					</span>
-					<span class="flex items-center gap-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+					<span
+						class="flex items-center gap-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground"
+					>
 						<BellRingIcon class="h-3 w-3 text-red-500" />
 						My open alerts
 					</span>
@@ -705,7 +702,9 @@
 					<span class="text-3xl font-semibold tabular-nums leading-none">
 						{tasksState.loading ? '—' : tasksState.total}
 					</span>
-					<span class="flex items-center gap-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+					<span
+						class="flex items-center gap-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground"
+					>
 						<CheckCheckIcon class="h-3 w-3 text-emerald-500" />
 						Pending tasks
 					</span>
@@ -715,9 +714,11 @@
 
 				<div class="flex flex-col gap-2">
 					<span class="text-3xl font-semibold tabular-nums leading-none">
-						{kpiState.loading ? '—' : kpiState.data?.cases_closed_last_30d ?? 0}
+						{kpiState.loading ? '—' : (kpiState.data?.cases_closed_last_30d ?? 0)}
 					</span>
-					<span class="flex items-center gap-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+					<span
+						class="flex items-center gap-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground"
+					>
 						<CheckCheckIcon class="h-3 w-3 text-violet-500" />
 						Closed (30d)
 					</span>
@@ -733,14 +734,14 @@
 	-->
 	<div class="flex flex-col gap-5 lg:flex-row">
 		<section
-			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 lg:basis-2/3"
+			class="shadow-elevation-1 flex h-[22rem] min-w-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-card lg:basis-2/3"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
-				<div class="flex items-center gap-2 min-w-0">
+				<div class="flex min-w-0 items-center gap-2">
 					<LayersIcon class="h-4 w-4 shrink-0 text-blue-500" />
 					<h2 class="text-sm font-semibold">My open cases</h2>
 					{#if openCasesState.total > 0}
-						<span class="text-xs text-muted-foreground tabular-nums">
+						<span class="text-xs tabular-nums text-muted-foreground">
 							{openCasesState.total}
 						</span>
 					{/if}
@@ -783,7 +784,7 @@
 									href={`/case/${c.case_id}`}
 									class="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/50"
 								>
-									<span class="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+									<span class="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
 										#{c.case_id}
 									</span>
 									<span class="min-w-0 flex-1 truncate text-sm font-medium" title={c.case_name}>
@@ -791,13 +792,18 @@
 									</span>
 									<div class="hidden items-center gap-1.5 sm:flex">
 										{#if c.severity?.severity_name}
-											<SeverityBadge severity={c.severity.severity_name as SeverityName} icon_only />
+											<SeverityBadge
+												severity={c.severity.severity_name as SeverityName}
+												icon_only
+											/>
 										{/if}
 										{#if c.state?.state_name}
 											<StatusBadge status={c.state.state_name as CaseStatus} icon_only />
 										{/if}
 									</div>
-									<span class="hidden shrink-0 text-2xs text-muted-foreground tabular-nums md:inline">
+									<span
+										class="hidden shrink-0 text-2xs tabular-nums text-muted-foreground md:inline"
+									>
 										{formatRelative(c.open_date)}
 									</span>
 								</a>
@@ -810,14 +816,14 @@
 
 		<!-- Open alerts assigned to me -->
 		<section
-			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 lg:basis-1/3"
+			class="shadow-elevation-1 flex h-[22rem] min-w-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-card lg:basis-1/3"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
-				<div class="flex items-center gap-2 min-w-0">
+				<div class="flex min-w-0 items-center gap-2">
 					<BellRingIcon class="h-4 w-4 shrink-0 text-red-500" />
 					<h2 class="text-sm font-semibold">My open alerts</h2>
 					{#if alertsState.total > 0}
-						<span class="text-xs text-muted-foreground tabular-nums">
+						<span class="text-xs tabular-nums text-muted-foreground">
 							{alertsState.total}
 						</span>
 					{/if}
@@ -855,7 +861,7 @@
 									class="flex flex-col gap-0.5 px-4 py-2.5 transition-colors hover:bg-muted/50"
 								>
 									<div class="flex items-center gap-2">
-										<span class="shrink-0 font-mono text-2xs text-muted-foreground tabular-nums">
+										<span class="shrink-0 font-mono text-2xs tabular-nums text-muted-foreground">
 											#{a.alert_id}
 										</span>
 										<span class="min-w-0 flex-1 truncate text-sm font-medium" title={a.alert_title}>
@@ -878,7 +884,6 @@
 				{/if}
 			</div>
 		</section>
-
 	</div>
 
 	<!--
@@ -889,14 +894,14 @@
 	-->
 	<div class="flex flex-col gap-5 lg:flex-row">
 		<section
-			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 lg:basis-1/3"
+			class="shadow-elevation-1 flex h-[22rem] min-w-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-card lg:basis-1/3"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
-				<div class="flex items-center gap-2 min-w-0">
+				<div class="flex min-w-0 items-center gap-2">
 					<CheckCheckIcon class="h-4 w-4 shrink-0 text-emerald-500" />
 					<h2 class="text-sm font-semibold">My pending tasks</h2>
 					{#if tasksState.total > 0}
-						<span class="text-xs text-muted-foreground tabular-nums">
+						<span class="text-xs tabular-nums text-muted-foreground">
 							{tasksState.total}
 						</span>
 					{/if}
@@ -931,11 +936,15 @@
 											{t.task_title}
 										</span>
 										{#if t.status_name}
-											<span class="hidden shrink-0 rounded-md border border-border/40 bg-muted/40 px-1.5 py-0.5 text-2xs text-muted-foreground sm:inline">
+											<span
+												class="hidden shrink-0 rounded-md border border-border/40 bg-muted/40 px-1.5 py-0.5 text-2xs text-muted-foreground sm:inline"
+											>
 												{t.status_name}
 											</span>
 										{/if}
-										<span class="hidden shrink-0 text-2xs text-muted-foreground tabular-nums md:inline">
+										<span
+											class="hidden shrink-0 text-2xs tabular-nums text-muted-foreground md:inline"
+										>
 											{formatRelative(t.task_last_update)}
 										</span>
 									</div>
@@ -965,14 +974,14 @@
 		  consistent shape.
 		-->
 		<section
-			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 lg:basis-2/3"
+			class="shadow-elevation-1 flex h-[22rem] min-w-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-card lg:basis-2/3"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
-				<div class="flex items-center gap-2 min-w-0">
+				<div class="flex min-w-0 items-center gap-2">
 					<Star class="h-4 w-4 shrink-0 fill-amber-500 text-amber-500" />
 					<h2 class="text-sm font-semibold">Following</h2>
 					{#if followedCasesState.total > 0}
-						<span class="text-xs text-muted-foreground tabular-nums">
+						<span class="text-xs tabular-nums text-muted-foreground">
 							{followedCasesState.total}
 						</span>
 					{/if}
@@ -992,7 +1001,8 @@
 					<div class="flex flex-col items-center justify-center gap-2 p-8 text-center">
 						<Star class="h-8 w-8 text-muted-foreground/40" />
 						<p class="text-sm text-muted-foreground">
-							You aren't following any cases yet. Open a case and click ★ Follow to keep it pinned here.
+							You aren't following any cases yet. Open a case and click ★ Follow to keep it pinned
+							here.
 						</p>
 					</div>
 				{:else}
@@ -1003,7 +1013,7 @@
 									href={`/case/${c.case_id}`}
 									class="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/50"
 								>
-									<span class="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+									<span class="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
 										#{c.case_id}
 									</span>
 									<div class="min-w-0 flex-1">
@@ -1021,7 +1031,10 @@
 									</div>
 									<div class="hidden items-center gap-1.5 sm:flex">
 										{#if c.severity?.severity_name}
-											<SeverityBadge severity={c.severity.severity_name as SeverityName} icon_only />
+											<SeverityBadge
+												severity={c.severity.severity_name as SeverityName}
+												icon_only
+											/>
 										{/if}
 										{#if c.state?.state_name}
 											<StatusBadge status={c.state.state_name as CaseStatus} icon_only />
@@ -1047,10 +1060,10 @@
 		  the current user can access. Infinite-scroll and read-only.
 		-->
 		<section
-			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 lg:basis-1/2"
+			class="shadow-elevation-1 flex h-[22rem] min-w-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-card lg:basis-1/2"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
-				<div class="flex items-center gap-2 min-w-0">
+				<div class="flex min-w-0 items-center gap-2">
 					<ActivityIcon class="h-4 w-4 shrink-0 text-violet-500" />
 					<h2 class="text-sm font-semibold">Major case activities</h2>
 				</div>
@@ -1092,7 +1105,7 @@
 											<span class="min-w-0 flex-1 truncate font-medium" title={caseTitle}>
 												{caseTitle}
 											</span>
-											<span class="shrink-0 text-2xs text-muted-foreground tabular-nums">
+											<span class="shrink-0 text-2xs tabular-nums text-muted-foreground">
 												{formatRelative(a.activity_date)}
 											</span>
 										</div>
@@ -1109,7 +1122,9 @@
 									</a>
 								{:else}
 									<div class="flex flex-col gap-0.5 px-4 py-2">
-										<div class="text-2xs text-muted-foreground truncate">Case reference unavailable</div>
+										<div class="truncate text-2xs text-muted-foreground">
+											Case reference unavailable
+										</div>
 									</div>
 								{/if}
 							</li>
@@ -1121,7 +1136,10 @@
 					     to it; once the backend returns a short page the
 					     sentinel is hidden so we stop triggering. -->
 					{#if !activityState.allLoaded}
-						<div bind:this={activitySentinel} class="px-4 py-3 text-center text-2xs text-muted-foreground">
+						<div
+							bind:this={activitySentinel}
+							class="px-4 py-3 text-center text-2xs text-muted-foreground"
+						>
 							{activityState.loadingMore ? 'Loading more…' : ''}
 						</div>
 					{/if}
@@ -1136,10 +1154,10 @@
 		  per-case event stream rather than just create/close.
 		-->
 		<section
-			class="flex min-w-0 h-[22rem] flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-elevation-1 lg:basis-1/2"
+			class="shadow-elevation-1 flex h-[22rem] min-w-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-card lg:basis-1/2"
 		>
 			<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
-				<div class="flex items-center gap-2 min-w-0">
+				<div class="flex min-w-0 items-center gap-2">
 					<ListIcon class="h-4 w-4 shrink-0 text-sky-500" />
 					<h2 class="text-sm font-semibold">Case activities</h2>
 				</div>
@@ -1180,7 +1198,7 @@
 											<span class="min-w-0 flex-1 truncate" title={a.activity_desc ?? ''}>
 												{a.activity_desc ?? '—'}
 											</span>
-											<span class="shrink-0 text-2xs text-muted-foreground tabular-nums">
+											<span class="shrink-0 text-2xs tabular-nums text-muted-foreground">
 												{formatRelative(a.activity_date)}
 											</span>
 										</div>
@@ -1202,12 +1220,12 @@
 											<span class="min-w-0 flex-1 truncate" title={a.activity_desc ?? ''}>
 												{a.activity_desc ?? '—'}
 											</span>
-											<span class="shrink-0 text-2xs text-muted-foreground tabular-nums">
+											<span class="shrink-0 text-2xs tabular-nums text-muted-foreground">
 												{formatRelative(a.activity_date)}
 											</span>
 										</div>
 										{#if a.user_name}
-											<div class="text-2xs text-muted-foreground truncate">{a.user_name}</div>
+											<div class="truncate text-2xs text-muted-foreground">{a.user_name}</div>
 										{/if}
 									</div>
 								{/if}

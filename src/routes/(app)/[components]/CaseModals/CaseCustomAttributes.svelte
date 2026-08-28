@@ -20,6 +20,9 @@
 
 <CustomAttributesTab
 	objectType="case"
-	existing={(currentCase?.custom_attributes ?? null) as Record<string, Record<string, unknown>> | null}
+	existing={(currentCase?.custom_attributes ?? null) as Record<
+		string,
+		Record<string, unknown>
+	> | null}
 	onSave={save}
 />

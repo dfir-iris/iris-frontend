@@ -87,7 +87,6 @@
 			void alerts.get(id);
 		}
 	});
-
 </script>
 
 <!--
@@ -116,7 +115,7 @@
 	-->
 	{#if investigationFlowPanel.state.open}
 		<aside
-			class="my-3 mr-3 h-[calc(100%-1.5rem)] w-full max-w-md shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elevation-2 sm:my-4 sm:mr-4 sm:h-[calc(100%-2rem)]"
+			class="shadow-elevation-2 my-3 mr-3 h-[calc(100%-1.5rem)] w-full max-w-md shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-card sm:my-4 sm:mr-4 sm:h-[calc(100%-2rem)]"
 			aria-label="Investigation flow"
 		>
 			<InvestigationFlowPanel />
@@ -125,7 +124,7 @@
 
 	{#if commentsPanel.state.open}
 		<aside
-			class="my-3 mr-3 h-[calc(100%-1.5rem)] w-full max-w-md shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elevation-2 sm:my-4 sm:mr-4 sm:h-[calc(100%-2rem)]"
+			class="shadow-elevation-2 my-3 mr-3 h-[calc(100%-1.5rem)] w-full max-w-md shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-card sm:my-4 sm:mr-4 sm:h-[calc(100%-2rem)]"
 			aria-label="Comments"
 		>
 			<CommentsPanel />

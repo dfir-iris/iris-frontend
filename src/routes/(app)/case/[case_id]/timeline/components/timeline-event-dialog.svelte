@@ -156,10 +156,7 @@
 			// CustomAttributesSection seeds from `existing` and merges
 			// defaults in place; passing the row's persisted values as
 			// the initial state keeps analyst edits round-tripping.
-			custom_attributes: (event?.custom_attributes ?? {}) as Record<
-				string,
-				Record<string, unknown>
-			>
+			custom_attributes: (event?.custom_attributes ?? {}) as Record<string, Record<string, unknown>>
 		};
 
 		isSaving = false;

@@ -30,17 +30,10 @@
 		DialogHeader,
 		DialogTitle
 	} from '$lib/components/ui/dialog';
-	import {
-		Popover,
-		PopoverContent,
-		PopoverTrigger
-	} from '$lib/components/ui/popover';
+	import { Popover, PopoverContent, PopoverTrigger } from '$lib/components/ui/popover';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { toast } from '$lib/components/ui/toast';
-	import {
-		WarRoomTasksService,
-		type WarRoomTask
-	} from '$lib/services/war-room-tasks.service';
+	import { WarRoomTasksService, type WarRoomTask } from '$lib/services/war-room-tasks.service';
 	import { UsersService, type User } from '$lib/services/users.service';
 	import { TaskStatusService } from '$lib/services/task-status.service';
 	import type { TaskStatus } from '$lib/types/resources/task';
@@ -63,7 +56,7 @@
 
 	// Pagination cursor.
 	const PER_PAGE = 25;
-	let currentPage = $state(1);
+	let _currentPage = $state(1);
 	let nextPage = $state<number | null>(null);
 	let totalParents = $state(0);
 
@@ -84,7 +77,7 @@
 	let expanded = $state<Set<number>>(new Set());
 	let draggedTaskId = $state<number | null>(null);
 	let dropTargetKey = $state<string | null>(null);
-	let reparenting = $state(false);
+	let _reparenting = $state(false);
 
 	// The board is a flat, status-first view of the same filtered set, so
 	// it needs subtasks too — the list only fetches top-level rows and
@@ -133,9 +126,7 @@
 	function buildFilterParams(scope: 'top' | 'all' = 'top') {
 		// Assignees: `null` means unassigned; the service accepts either
 		// numeric user ids or the string 'unassigned'.
-		const assignee_id = selectedAssignees.map((a) =>
-			a === null ? ('unassigned' as const) : a
-		);
+		const assignee_id = selectedAssignees.map((a) => (a === null ? ('unassigned' as const) : a));
 		return {
 			q: searchDebounced.trim() || undefined,
 			status_id: selectedStatusIds.length ? selectedStatusIds : undefined,
@@ -151,7 +142,7 @@
 
 	const loadFirstPage = async () => {
 		loading = true;
-		currentPage = 1;
+		_currentPage = 1;
 		const res = await WarRoomTasksService.listPaginated(warRoomId, {
 			...buildFilterParams(),
 			page: 1
@@ -181,7 +172,7 @@
 			parents = [...parents, ...env.data];
 			totalParents = env.total;
 			nextPage = env.next_page;
-			currentPage = env.current_page;
+			_currentPage = env.current_page;
 		}
 		loadingMore = false;
 	};
@@ -312,9 +303,8 @@
 			const pid = next.parent_task_id;
 			const bucket = childrenByParent[pid] ?? [];
 			const idx = bucket.findIndex((x) => x.task_id === next.task_id);
-			const nextBucket = idx >= 0
-				? bucket.map((x) => (x.task_id === next.task_id ? next : x))
-				: [next, ...bucket];
+			const nextBucket =
+				idx >= 0 ? bucket.map((x) => (x.task_id === next.task_id ? next : x)) : [next, ...bucket];
 			childrenByParent = { ...childrenByParent, [pid]: nextBucket };
 		}
 	}
@@ -379,9 +369,11 @@
 			loadUsedTags();
 		} else {
 			const msg =
-				typeof res.error === 'string' ? res.error : dialogMode === 'create'
-					? 'Could not create task'
-					: 'Could not update task';
+				typeof res.error === 'string'
+					? res.error
+					: dialogMode === 'create'
+						? 'Could not create task'
+						: 'Could not update task';
 			toast({ title: msg, variant: 'destructive' });
 		}
 	};
@@ -531,11 +523,11 @@
 		if (!dragged) return;
 		const newParent = target === 'top' ? null : target.parentId;
 
-		reparenting = true;
+		_reparenting = true;
 		const res = await WarRoomTasksService.update(warRoomId, id, {
 			parent_task_id: newParent
 		});
-		reparenting = false;
+		_reparenting = false;
 		if (res.ok && res.data && typeof res.data !== 'string') {
 			const next = res.data as WarRoomTask;
 			removeTaskLocally(id);
@@ -625,7 +617,7 @@
 			selectedStatusIds.length +
 			selectedTags.length +
 			selectedAssignees.length +
-			((dueFrom || dueTo) ? 1 : 0)
+			(dueFrom || dueTo ? 1 : 0)
 	);
 
 	function clearFilters() {
@@ -783,8 +775,7 @@
 									class="rounded-md border px-2 py-0.5 text-xs {on
 										? 'border-primary bg-primary text-primary-foreground'
 										: 'hover:bg-muted'}"
-									onclick={() =>
-										(selectedStatusIds = toggleFilterInSet(selectedStatusIds, s.id))}
+									onclick={() => (selectedStatusIds = toggleFilterInSet(selectedStatusIds, s.id))}
 								>
 									{s.status_name}
 								</button>
@@ -826,8 +817,7 @@
 							<button
 								type="button"
 								class="flex items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-muted"
-								onclick={() =>
-									(selectedAssignees = toggleFilterInSet(selectedAssignees, null))}
+								onclick={() => (selectedAssignees = toggleFilterInSet(selectedAssignees, null))}
 							>
 								<span class="italic">Unassigned</span>
 								{#if selectedAssignees.includes(null)}
@@ -883,9 +873,7 @@
 					</div>
 
 					{#if activeFilterCount > 0}
-						<Button variant="ghost" size="sm" onclick={clearFilters}>
-							Clear filters
-						</Button>
+						<Button variant="ghost" size="sm" onclick={clearFilters}>Clear filters</Button>
 					{/if}
 				</div>
 			</PopoverContent>
@@ -905,8 +893,7 @@
 				<button
 					type="button"
 					class="inline-flex items-center gap-1 rounded-full border bg-muted/60 px-2 py-0.5 hover:bg-muted"
-					onclick={() =>
-						(selectedStatusIds = selectedStatusIds.filter((x) => x !== sid))}
+					onclick={() => (selectedStatusIds = selectedStatusIds.filter((x) => x !== sid))}
 				>
 					{s?.status_name ?? '—'}
 					<X class="h-3 w-3" />
@@ -926,8 +913,7 @@
 				<button
 					type="button"
 					class="inline-flex items-center gap-1 rounded-full border bg-muted/60 px-2 py-0.5 hover:bg-muted"
-					onclick={() =>
-						(selectedAssignees = selectedAssignees.filter((x) => x !== a))}
+					onclick={() => (selectedAssignees = selectedAssignees.filter((x) => x !== a))}
 				>
 					{userDisplay(a)}
 					<X class="h-3 w-3" />
@@ -1045,12 +1031,7 @@
 					Showing {parents.length} of {totalParents} task{totalParents === 1 ? '' : 's'}
 				</span>
 				{#if nextPage != null}
-					<Button
-						variant="outline"
-						size="sm"
-						onclick={loadNextPage}
-						disabled={loadingMore}
-					>
+					<Button variant="outline" size="sm" onclick={loadNextPage} disabled={loadingMore}>
 						{loadingMore ? 'Loading…' : `Load more (${totalParents - parents.length} left)`}
 					</Button>
 				{/if}
@@ -1079,7 +1060,7 @@
 		ondrop={(e) => onDrop(e, { parentId: t.task_id })}
 	>
 		<span
-			class="cursor-grab opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"
+			class="cursor-grab opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100"
 			draggable="true"
 			ondragstart={(e) => onDragStart(e, t)}
 			ondragend={onDragEnd}
@@ -1202,7 +1183,7 @@
 			: 'bg-card/30'} {isDragging ? 'opacity-40' : ''}"
 	>
 		<span
-			class="cursor-grab opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"
+			class="cursor-grab opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100"
 			draggable="true"
 			ondragstart={(e) => onDragStart(e, t)}
 			ondragend={onDragEnd}
@@ -1427,8 +1408,7 @@
 								<Search class="h-3.5 w-3.5 text-muted-foreground" />
 								<Input
 									value={assigneeSearch}
-									oninput={(e) =>
-										(assigneeSearch = (e.target as HTMLInputElement).value)}
+									oninput={(e) => (assigneeSearch = (e.target as HTMLInputElement).value)}
 									placeholder="Search users…"
 									class="h-9 border-0 shadow-none focus-visible:ring-0"
 								/>
@@ -1485,12 +1465,10 @@
 					<TagIcon class="mr-1 inline h-3 w-3" /> Tags
 				</span>
 				<div
-					class="mt-1 flex flex-wrap items-center gap-1 rounded-md border border-input bg-transparent px-2 py-1.5 min-h-9 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
+					class="mt-1 flex min-h-9 flex-wrap items-center gap-1 rounded-md border border-input bg-transparent px-2 py-1.5 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
 				>
 					{#each form.tags as tag}
-						<span
-							class="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs"
-						>
+						<span class="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs">
 							#{tag}
 							<button
 								type="button"
@@ -1536,9 +1514,7 @@
 			</div>
 		</div>
 		<DialogFooter>
-			<Button variant="ghost" onclick={() => (dialogOpen = false)} disabled={saving}>
-				Cancel
-			</Button>
+			<Button variant="ghost" onclick={() => (dialogOpen = false)} disabled={saving}>Cancel</Button>
 			<Button onclick={submit} disabled={saving || !form.title.trim()}>
 				{saving ? 'Saving…' : dialogMode === 'create' ? 'Create' : 'Save'}
 			</Button>

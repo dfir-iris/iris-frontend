@@ -9,16 +9,15 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import {
-		Select,
-		SelectContent,
-		SelectItem,
-		SelectTrigger
-	} from '$lib/components/ui/select';
+	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
 	import { safeCssColor, safeCssPalette } from '$lib/services/custom-dashboards.service';
 	import type { DashboardWidget } from '$lib/services/custom-dashboards.service';
 
-	type Threshold = { op: 'gte' | 'gt' | 'lte' | 'lt' | 'eq'; value: number | string; color: string };
+	type Threshold = {
+		op: 'gte' | 'gt' | 'lte' | 'lt' | 'eq';
+		value: number | string;
+		color: string;
+	};
 
 	type Props = {
 		widget: DashboardWidget;
@@ -56,9 +55,11 @@
 		return (raw as unknown[]).flatMap((r) => {
 			if (typeof r !== 'object' || r === null) return [];
 			const t = r as Record<string, unknown>;
-			const op = ['gte', 'gt', 'lte', 'lt', 'eq'].includes(String(t.op)) ? (t.op as Threshold['op']) : 'gte';
+			const op = ['gte', 'gt', 'lte', 'lt', 'eq'].includes(String(t.op))
+				? (t.op as Threshold['op'])
+				: 'gte';
 			const color = typeof t.color === 'string' ? t.color : '#dc2626';
-			const value = (typeof t.value === 'number' || typeof t.value === 'string') ? t.value : 0;
+			const value = typeof t.value === 'number' || typeof t.value === 'string' ? t.value : 0;
 			return [{ op, value, color }];
 		});
 	});
@@ -131,7 +132,9 @@
 		{:else}
 			<div class="flex flex-col gap-2">
 				{#each thresholds as t, idx (idx)}
-					<div class="grid grid-cols-1 items-end gap-2 rounded border p-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
+					<div
+						class="grid grid-cols-1 items-end gap-2 rounded border p-2 sm:grid-cols-[1fr_1fr_1fr_auto]"
+					>
 						<div class="flex flex-col gap-1">
 							<Label class="text-xs">Operator</Label>
 							<Select
@@ -156,7 +159,9 @@
 								oninput={(e) => {
 									const raw = (e.target as HTMLInputElement).value;
 									const num = Number(raw);
-									patchThreshold(idx, { value: Number.isFinite(num) && raw.trim() !== '' ? num : raw });
+									patchThreshold(idx, {
+										value: Number.isFinite(num) && raw.trim() !== '' ? num : raw
+									});
 								}}
 							/>
 						</div>
@@ -165,13 +170,15 @@
 							<div class="flex gap-1">
 								<Input
 									value={t.color}
-									oninput={(e) => patchThreshold(idx, { color: (e.target as HTMLInputElement).value })}
+									oninput={(e) =>
+										patchThreshold(idx, { color: (e.target as HTMLInputElement).value })}
 								/>
 								<input
 									type="color"
 									class="h-9 w-9 cursor-pointer rounded border bg-background"
 									value={t.color}
-									oninput={(e) => patchThreshold(idx, { color: (e.target as HTMLInputElement).value })}
+									oninput={(e) =>
+										patchThreshold(idx, { color: (e.target as HTMLInputElement).value })}
 									aria-label="Pick threshold color"
 								/>
 							</div>

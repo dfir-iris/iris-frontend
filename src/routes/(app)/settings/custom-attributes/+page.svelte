@@ -38,7 +38,6 @@
 	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { toast } from '$lib/components/ui/toast';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
@@ -288,7 +287,8 @@
 					: undefined;
 			toast({
 				title: 'Save failed',
-				description: (logs && logs.length ? logs.join('\n') : res.error?.message) ?? 'Please try again.',
+				description:
+					(logs && logs.length ? logs.join('\n') : res.error?.message) ?? 'Please try again.',
 				variant: 'destructive'
 			});
 			return;
@@ -380,8 +380,8 @@
 			<div class="leading-tight">
 				<h1 class="text-sm font-semibold">Custom Attributes</h1>
 				<p class="text-2xs text-muted-foreground">
-					Extend the default fields of cases, IOCs, assets, tasks, notes, evidence, timeline
-					events and customers.
+					Extend the default fields of cases, IOCs, assets, tasks, notes, evidence, timeline events
+					and customers.
 				</p>
 			</div>
 		</div>
@@ -405,14 +405,12 @@
 
 	<div class="flex flex-1 gap-3 overflow-hidden p-4">
 		<!-- Master: list of the eight rows -->
-		<section
-			class="flex min-h-0 flex-1 basis-1/3 flex-col overflow-hidden rounded-md border"
-		>
+		<section class="flex min-h-0 flex-1 basis-1/3 flex-col overflow-hidden rounded-md border">
 			<div class="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
 				<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 					Object types
 				</h2>
-				<span class="text-2xs text-muted-foreground tabular-nums">
+				<span class="text-2xs tabular-nums text-muted-foreground">
 					{items.length}
 				</span>
 			</div>
@@ -430,8 +428,8 @@
 					</p>
 				{:else if items.length === 0}
 					<p class="px-3 py-6 text-center text-xs text-muted-foreground">
-						No custom attribute schemas found. This is unusual — the eight rows are
-						fixture-seeded on install.
+						No custom attribute schemas found. This is unusual — the eight rows are fixture-seeded
+						on install.
 					</p>
 				{:else}
 					<ul class="divide-y">
@@ -463,9 +461,7 @@
 		</section>
 
 		<!-- Detail: metadata + JSON editor + preview -->
-		<section
-			class="flex min-h-0 flex-1 basis-2/3 flex-col overflow-hidden rounded-md border"
-		>
+		<section class="flex min-h-0 flex-1 basis-2/3 flex-col overflow-hidden rounded-md border">
 			<div class="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
 				<div class="flex items-baseline gap-2">
 					<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -595,9 +591,7 @@
 							/>
 
 							{#if validationLogs.length > 0}
-								<div
-									class="mt-1 rounded-md border border-destructive/40 bg-destructive/5 p-2"
-								>
+								<div class="mt-1 rounded-md border border-destructive/40 bg-destructive/5 p-2">
 									<p class="text-2xs font-semibold text-destructive">Schema errors</p>
 									<ul class="mt-1 list-disc space-y-0.5 pl-4">
 										{#each validationLogs as line}
@@ -615,8 +609,9 @@
 							<summary class="cursor-pointer font-medium">Field-type reference</summary>
 							<div class="mt-2 space-y-1 text-muted-foreground">
 								<p>
-									<span class="font-mono">input_string</span> — single-line text
-									(<span class="font-mono">value: string</span>,
+									<span class="font-mono">input_string</span> — single-line text (<span
+										class="font-mono">value: string</span
+									>,
 									<span class="font-mono">mandatory: bool</span>).
 								</p>
 								<p>
@@ -624,25 +619,27 @@
 									<span class="font-mono">input_string</span>).
 								</p>
 								<p>
-									<span class="font-mono">input_checkbox</span> — boolean
-									(<span class="font-mono">value: bool</span>).
+									<span class="font-mono">input_checkbox</span> — boolean (<span class="font-mono"
+										>value: bool</span
+									>).
 								</p>
 								<p>
-									<span class="font-mono">input_select</span> — dropdown
-									(<span class="font-mono">value: string</span>, requires
+									<span class="font-mono">input_select</span> — dropdown (<span class="font-mono"
+										>value: string</span
+									>, requires
 									<span class="font-mono">options: string[]</span>).
 								</p>
 								<p>
 									<span class="font-mono">input_date</span> /
-									<span class="font-mono">input_datetime</span> — date pickers
-									(<span class="font-mono">value: string</span>).
+									<span class="font-mono">input_datetime</span> — date pickers (<span
+										class="font-mono">value: string</span
+									>).
 								</p>
 								<p>
 									<span class="font-mono">raw</span> — read-only field label; no input rendered.
 								</p>
 								<p>
-									<span class="font-mono">html</span> — trusted HTML string, sanitised
-									server-side.
+									<span class="font-mono">html</span> — trusted HTML string, sanitised server-side.
 								</p>
 							</div>
 						</details>
@@ -655,7 +652,7 @@
 								<EyeIcon size={12} />
 								Analyst preview
 							</div>
-							<div class="min-h-[16rem] max-h-[32rem] overflow-auto">
+							<div class="max-h-[32rem] min-h-[16rem] overflow-auto">
 								<CustomAttributeRenderer schema={draftSchema} readonly />
 							</div>
 						</div>

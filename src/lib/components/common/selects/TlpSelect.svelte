@@ -6,7 +6,7 @@
 	let {
 		value = $bindable(),
 		onValueChange,
-		hasError = false,
+		hasError: _hasError = false,
 		placeholder = 'Select TLP level...',
 		disabled = false,
 		...restProps

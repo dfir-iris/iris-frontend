@@ -54,7 +54,12 @@ const collectFiles = (tree: DataStoreTree): DataStoreFile[] => {
 };
 
 export const createCaseDatastoreContext = (getCaseId: () => number | null) => {
-	const tree = $state<{ data: DataStoreTree; rootId: number | null; status: Status; error: string | null }>({
+	const tree = $state<{
+		data: DataStoreTree;
+		rootId: number | null;
+		status: Status;
+		error: string | null;
+	}>({
 		data: {},
 		rootId: null,
 		status: 'idle',
@@ -109,7 +114,7 @@ export const createCaseDatastoreContext = (getCaseId: () => number | null) => {
 		const payload = res.data as unknown as { data: DataStoreTree } | DataStoreTree;
 		const treeData =
 			'data' in (payload as { data?: unknown }) && (payload as { data?: unknown }).data
-				? ((payload as { data: DataStoreTree }).data)
+				? (payload as { data: DataStoreTree }).data
 				: (payload as DataStoreTree);
 
 		tree.data = treeData;
@@ -135,9 +140,9 @@ export const createCaseDatastoreContext = (getCaseId: () => number | null) => {
 
 		if (res.ok && res.data && typeof res.data !== 'string') {
 			const payload = res.data as unknown as { data: DataStoreFolder } | DataStoreFolder;
-			return ('data' in (payload as { data?: unknown }) && (payload as { data?: unknown }).data
+			return 'data' in (payload as { data?: unknown }) && (payload as { data?: unknown }).data
 				? (payload as { data: DataStoreFolder }).data
-				: (payload as DataStoreFolder));
+				: (payload as DataStoreFolder);
 		}
 		return null;
 	};
@@ -154,7 +159,11 @@ export const createCaseDatastoreContext = (getCaseId: () => number | null) => {
 		return res.ok ?? false;
 	};
 
-	const moveFolder = async (folderId: number, destinationNode: number, options: ApiOptions = {}) => {
+	const moveFolder = async (
+		folderId: number,
+		destinationNode: number,
+		options: ApiOptions = {}
+	) => {
 		const caseId = getCaseId();
 		if (caseId === null) return false;
 		const res = await CaseDatastoreService.moveFolder(

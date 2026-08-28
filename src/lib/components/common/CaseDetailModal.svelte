@@ -124,7 +124,9 @@
 	<Dialog.Content class="flex max-h-[85vh] w-[min(900px,95vw)] max-w-none flex-col gap-0 p-0">
 		<Dialog.Header class="border-b border-border/60 px-6 py-4">
 			<div class="flex flex-col gap-1">
-				<div class="flex items-center gap-2 text-2xs uppercase tracking-wider text-muted-foreground">
+				<div
+					class="flex items-center gap-2 text-2xs uppercase tracking-wider text-muted-foreground"
+				>
 					<HashIcon class="size-3" />
 					<span>Case #{caseId ?? '—'}</span>
 					{#if row?.case_soc_id}
@@ -150,7 +152,9 @@
 			-->
 			<section class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 				<div class="flex flex-col gap-1 rounded border border-border/50 bg-muted/30 p-3">
-					<div class="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-muted-foreground">
+					<div
+						class="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-muted-foreground"
+					>
 						<FlagIcon class="size-3" /><span>State</span>
 					</div>
 					<div class="text-sm font-medium">
@@ -159,7 +163,9 @@
 				</div>
 
 				<div class="flex flex-col gap-1 rounded border border-border/50 bg-muted/30 p-3">
-					<div class="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-muted-foreground">
+					<div
+						class="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-muted-foreground"
+					>
 						<ShieldAlertIcon class="size-3" /><span>Severity</span>
 					</div>
 					<div class="text-sm font-medium">
@@ -168,7 +174,9 @@
 				</div>
 
 				<div class="flex flex-col gap-1 rounded border border-border/50 bg-muted/30 p-3">
-					<div class="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-muted-foreground">
+					<div
+						class="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-muted-foreground"
+					>
 						<LayersIcon class="size-3" /><span>Customer</span>
 					</div>
 					<div class="text-sm font-medium">
@@ -177,7 +185,9 @@
 				</div>
 
 				<div class="flex flex-col gap-1 rounded border border-border/50 bg-muted/30 p-3">
-					<div class="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-muted-foreground">
+					<div
+						class="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-muted-foreground"
+					>
 						<UserIcon class="size-3" /><span>Owner</span>
 					</div>
 					<div class="text-sm font-medium">
@@ -186,14 +196,18 @@
 				</div>
 
 				<div class="flex flex-col gap-1 rounded border border-border/50 bg-muted/30 p-3">
-					<div class="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-muted-foreground">
+					<div
+						class="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-muted-foreground"
+					>
 						<CalendarIcon class="size-3" /><span>Opened</span>
 					</div>
 					<div class="text-sm font-medium">{formatDate(row?.open_date)}</div>
 				</div>
 
 				<div class="flex flex-col gap-1 rounded border border-border/50 bg-muted/30 p-3">
-					<div class="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-muted-foreground">
+					<div
+						class="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-muted-foreground"
+					>
 						<ClockIcon class="size-3" /><span>Closed</span>
 					</div>
 					<div class="text-sm font-medium">
@@ -202,19 +216,27 @@
 				</div>
 
 				<div class="flex flex-col gap-1 rounded border border-border/50 bg-muted/30 p-3">
-					<div class="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-muted-foreground">
+					<div
+						class="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-muted-foreground"
+					>
 						<CheckCircle2Icon class="size-3" /><span>Reviewer</span>
 					</div>
 					<div class="text-sm font-medium">
 						{row?.reviewer?.user_name ?? row?.reviewer?.user_login ?? 'Unassigned'}
 						{#if row?.review_status?.status_name}
-							<span class="ml-1 text-2xs text-muted-foreground">({row.review_status.status_name})</span>
+							<span class="ml-1 text-2xs text-muted-foreground"
+								>({row.review_status.status_name})</span
+							>
 						{/if}
 					</div>
 				</div>
 
-				<div class="flex flex-col gap-1 rounded border border-border/50 bg-muted/30 p-3 sm:col-span-2">
-					<div class="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-muted-foreground">
+				<div
+					class="flex flex-col gap-1 rounded border border-border/50 bg-muted/30 p-3 sm:col-span-2"
+				>
+					<div
+						class="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-muted-foreground"
+					>
 						<TagIcon class="size-3" /><span>Tags</span>
 					</div>
 					<div class="text-sm font-medium">
@@ -238,7 +260,9 @@
 
 			{#if row?.closing_note}
 				<section class="flex flex-col gap-2 rounded border border-amber-500/40 bg-amber-500/5 p-3">
-					<div class="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-amber-600 dark:text-amber-400">
+					<div
+						class="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-amber-600 dark:text-amber-400"
+					>
 						<CheckCircle2Icon class="size-3" />
 						<span>Closing note</span>
 					</div>
@@ -247,7 +271,9 @@
 			{/if}
 
 			<section class="flex flex-col gap-2">
-				<div class="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-muted-foreground">
+				<div
+					class="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-muted-foreground"
+				>
 					<span>Summary</span>
 				</div>
 				<div class="rounded border border-border/50 bg-muted/20 p-4">
@@ -270,7 +296,9 @@
 			{/if}
 		</div>
 
-		<Dialog.Footer class="flex shrink-0 items-center justify-between gap-2 border-t border-border/60 px-6 py-3">
+		<Dialog.Footer
+			class="flex shrink-0 items-center justify-between gap-2 border-t border-border/60 px-6 py-3"
+		>
 			<span class="text-2xs text-muted-foreground">
 				Click outside or press <kbd class="rounded border px-1">Esc</kbd> to close.
 			</span>

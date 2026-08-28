@@ -185,7 +185,9 @@
 		if (!next) onClose();
 	}}
 >
-	<Dialog.Content class="flex h-[80vh] max-h-[80vh] w-[min(1100px,95vw)] max-w-none flex-col gap-0 p-0">
+	<Dialog.Content
+		class="flex h-[80vh] max-h-[80vh] w-[min(1100px,95vw)] max-w-none flex-col gap-0 p-0"
+	>
 		<Dialog.Header class="shrink-0 border-b border-border/60 px-6 py-4">
 			<Dialog.Title class="flex items-center gap-2 text-base font-medium">
 				<ClockIcon class="size-4 text-muted-foreground" />
@@ -206,8 +208,11 @@
 			  live content (which is not itself a revision).
 			-->
 			<aside class="flex w-80 shrink-0 flex-col border-r border-border/40">
-				<div class="border-b border-border/30 px-4 py-2 text-2xs uppercase tracking-wider text-muted-foreground">
-					{revisions.length} {revisions.length === 1 ? 'revision' : 'revisions'}
+				<div
+					class="border-b border-border/30 px-4 py-2 text-2xs uppercase tracking-wider text-muted-foreground"
+				>
+					{revisions.length}
+					{revisions.length === 1 ? 'revision' : 'revisions'}
 				</div>
 				<div class="min-h-0 flex-1 overflow-y-auto">
 					{#if loadingList && revisions.length === 0}
@@ -232,6 +237,7 @@
 								  keyboard users still get the same
 								  behaviour.
 								-->
+								<!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
 								<li
 									class={`flex w-full cursor-pointer items-start gap-2 border-l-2 px-3 py-2 text-left transition-colors hover:bg-muted/40 ${selectedNumber === rev.revision_number ? 'border-primary bg-muted/50' : 'border-transparent'}`}
 									role="button"
@@ -244,12 +250,7 @@
 										}
 									}}
 								>
-									<UserAvatar
-										userId={null}
-										name={rev.user_name}
-										size="size-7"
-										class="mt-0.5"
-									/>
+									<UserAvatar userId={null} name={rev.user_name} size="size-7" class="mt-0.5" />
 									<div class="min-w-0 flex-1">
 										<div class="flex items-center justify-between gap-1">
 											<span class="text-xs font-semibold">v{rev.revision_number}</span>
@@ -286,7 +287,9 @@
 			  uses so what you see is what you'd restore.
 			-->
 			<section class="flex min-w-0 flex-1 flex-col">
-				<header class="flex shrink-0 items-center justify-between gap-2 border-b border-border/40 px-6 py-3">
+				<header
+					class="flex shrink-0 items-center justify-between gap-2 border-b border-border/40 px-6 py-3"
+				>
 					<div class="min-w-0 flex-1">
 						{#if loadingRevision}
 							<Skeleton class="h-5 w-1/2" />

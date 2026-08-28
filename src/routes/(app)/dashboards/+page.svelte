@@ -59,13 +59,11 @@
 				{
 					name: 'Total alerts',
 					chart_type: 'number',
-					fields: [
-						{ table: 'alerts', column: 'alert_id', aggregation: 'count', alias: 'total' }
-					]
+					fields: [{ table: 'alerts', column: 'alert_id', aggregation: 'count', alias: 'total' }]
 				}
 			]
 		});
-		if (response.ok && response.data) {
+		if (response.ok && response.data && typeof response.data !== 'string') {
 			goto(`/dashboards/${response.data.dashboard_uuid}/edit`);
 		} else {
 			error = response.error?.message ?? 'Failed to create dashboard.';
@@ -82,14 +80,14 @@
 			...(source.definition ?? {}),
 			name: `${displayName(source)} (copy)`,
 			description: source.description ?? undefined,
-			is_shared: false,
+			is_shared: false
 		};
 		const response = await CustomDashboardsService.create(def);
-		if (response.ok && response.data) {
-			toast.success(`Cloned "${displayName(source)}"`);
+		if (response.ok && response.data && typeof response.data !== 'string') {
+			toast({ title: `Cloned "${displayName(source)}"`, variant: 'success' });
 			goto(`/dashboards/${response.data.dashboard_uuid}/edit`);
 		} else {
-			toast.error(response.error?.message ?? 'Failed to clone dashboard.');
+			toast({ title: response.error?.message ?? 'Failed to clone dashboard.', variant: 'destructive' });
 		}
 	}
 
@@ -103,9 +101,9 @@
 		if (!jsonViewerDashboard) return;
 		try {
 			await navigator.clipboard.writeText(JSON.stringify(jsonViewerDashboard.definition, null, 2));
-			toast.success('Copied to clipboard');
+			toast({ title: 'Copied to clipboard', variant: 'success' });
 		} catch {
-			toast.error('Clipboard blocked — select the text manually');
+			toast({ title: 'Clipboard blocked — select the text manually', variant: 'destructive' });
 		}
 	}
 
@@ -134,7 +132,7 @@
 	// visual rhythm without random flashes on re-render. Uses the uuid's
 	// first hex char (0-f = 0-15) to pick a 24-step hue slice.
 	function accentHue(uuid: string): number {
-		const c = parseInt((uuid?.[0] ?? '0'), 16);
+		const c = parseInt(uuid?.[0] ?? '0', 16);
 		return (Number.isFinite(c) ? c : 0) * 24;
 	}
 
@@ -147,7 +145,9 @@
 	<title>Dashboards</title>
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-[1920px] flex-col gap-8 px-8 py-10 lg:px-12 xl:px-16 2xl:px-20">
+<div
+	class="mx-auto flex w-full max-w-[1920px] flex-col gap-8 px-8 py-10 lg:px-12 xl:px-16 2xl:px-20"
+>
 	<header class="flex flex-wrap items-end justify-between gap-4">
 		<div class="flex flex-col gap-1">
 			<h1 class="text-3xl font-semibold tracking-tight">Dashboards</h1>
@@ -162,7 +162,9 @@
 	</header>
 
 	{#if error}
-		<div class="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+		<div
+			class="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+		>
 			{error}
 		</div>
 	{/if}
@@ -176,7 +178,9 @@
 	{:else}
 		{#if systemDashboards.length > 0}
 			<section class="flex flex-col gap-3">
-				<h2 class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+				<h2
+					class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+				>
 					<SparklesIcon class="size-3" />
 					System
 				</h2>
@@ -186,19 +190,25 @@
 							href={`/dashboards/${dashboard.dashboard_uuid}`}
 							class="group block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
 						>
-							<Card class="relative h-full overflow-hidden border-border/50 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/60 group-hover:shadow-elevation-4">
+							<Card
+								class="group-hover:shadow-elevation-4 relative h-full overflow-hidden border-border/50 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/60"
+							>
 								<div
 									class="pointer-events-none absolute inset-x-0 top-0 h-1"
 									style="background: linear-gradient(90deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.4) 100%);"
 								></div>
 								<CardHeader class="gap-3 p-5 pt-6">
 									<div class="flex items-start gap-3">
-										<div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+										<div
+											class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+										>
 											<LayoutDashboardIcon class="size-5" />
 										</div>
 										<div class="flex min-w-0 flex-1 flex-col gap-1">
 											<div class="flex items-center gap-2">
-												<span class="truncate text-base font-semibold">{displayName(dashboard)}</span>
+												<span class="truncate text-base font-semibold"
+													>{displayName(dashboard)}</span
+												>
 												<Badge variant="secondary" class="shrink-0 gap-1 text-2xs">
 													<LockIcon class="size-3" />
 													System
@@ -245,7 +255,9 @@
 			</h2>
 			{#if userDashboards.length === 0}
 				<Card class="border-dashed bg-muted/30 p-8 text-center">
-					<div class="mx-auto flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+					<div
+						class="mx-auto flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary"
+					>
 						<LayoutDashboardIcon class="size-5" />
 					</div>
 					<p class="mt-3 text-sm font-medium">No dashboards yet</p>
@@ -263,12 +275,15 @@
 						{@const hue = accentHue(dashboard.dashboard_uuid)}
 						<a
 							href={`/dashboards/${dashboard.dashboard_uuid}`}
-							class="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl"
+							class="group block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
 						>
-							<Card class="relative h-full overflow-hidden border-border/50 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/60 group-hover:shadow-elevation-4">
+							<Card
+								class="group-hover:shadow-elevation-4 relative h-full overflow-hidden border-border/50 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/60"
+							>
 								<div
 									class="pointer-events-none absolute inset-x-0 top-0 h-1 opacity-80"
-									style="background: linear-gradient(90deg, hsl({hue} 70% 55%) 0%, hsl({hue + 30} 65% 60%) 100%);"
+									style="background: linear-gradient(90deg, hsl({hue} 70% 55%) 0%, hsl({hue +
+										30} 65% 60%) 100%);"
 								></div>
 								<CardHeader class="gap-3 pt-5">
 									<div class="flex items-start gap-3">
@@ -284,7 +299,10 @@
 													{displayName(dashboard)}
 												</span>
 												{#if dashboard.is_shared}
-													<Badge variant="outline" class="shrink-0 gap-1 border-primary/30 text-2xs text-primary">
+													<Badge
+														variant="outline"
+														class="shrink-0 gap-1 border-primary/30 text-2xs text-primary"
+													>
 														<Share2Icon class="size-3" />
 														Shared
 													</Badge>
@@ -314,7 +332,12 @@
      dashboards where an analyst wants to see the wiring before cloning
      and tweaking, and for exporting a working definition to another
      instance. -->
-<Dialog open={jsonViewerDashboard !== null} onOpenChange={(v) => { if (!v) jsonViewerDashboard = null; }}>
+<Dialog
+	open={jsonViewerDashboard !== null}
+	onOpenChange={(v) => {
+		if (!v) jsonViewerDashboard = null;
+	}}
+>
 	<DialogContent class="max-h-[85vh] max-w-3xl overflow-hidden">
 		<DialogHeader>
 			<DialogTitle class="flex items-center gap-2">
@@ -325,20 +348,19 @@
 		{#if jsonViewerDashboard}
 			<div class="flex flex-col gap-3">
 				<p class="text-xs text-muted-foreground">
-					Read-only view of the dashboard's definition. Use "Copy" to grab it
-					and paste into another instance, or clone the dashboard to get an
-					editable copy.
+					Read-only view of the dashboard's definition. Use "Copy" to grab it and paste into another
+					instance, or clone the dashboard to get an editable copy.
 				</p>
-				<pre class="max-h-[55vh] overflow-auto rounded-md border bg-muted/50 p-3 text-2xs leading-relaxed"><code>{JSON.stringify(jsonViewerDashboard.definition, null, 2)}</code></pre>
+				<pre
+					class="max-h-[55vh] overflow-auto rounded-md border bg-muted/50 p-3 text-2xs leading-relaxed"><code
+						>{JSON.stringify(jsonViewerDashboard.definition, null, 2)}</code
+					></pre>
 				<div class="flex justify-end gap-2">
 					<Button variant="outline" size="sm" onclick={copyDashboardJson}>
 						<CopyIcon class="size-3.5" />
 						Copy
 					</Button>
-					<Button
-						size="sm"
-						onclick={(e) => cloneDashboard(jsonViewerDashboard!, e)}
-					>
+					<Button size="sm" onclick={(e) => cloneDashboard(jsonViewerDashboard!, e)}>
 						<CopyIcon class="size-3.5" />
 						Clone as editable
 					</Button>

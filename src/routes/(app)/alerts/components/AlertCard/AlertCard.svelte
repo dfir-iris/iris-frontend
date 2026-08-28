@@ -88,6 +88,7 @@
 	let isAssignMenuOpen = $state(false);
 	let isSetStatusMenuOpen = $state(false);
 	let isMenuOpen = $state(false);
+	// eslint-disable-next-line svelte/valid-compile
 	let detailsLoaded = $state(alwaysExpanded || expanded);
 
 	$effect(() => {
@@ -114,14 +115,16 @@
 </script>
 
 <Card.Root
-	class={`group min-w-0 flex grow overflow-hidden transition-shadow duration-300 ${isFocused ? 'ring-1 ring-iris-blue/30 shadow-glow-blue' : ''} ${isProcessed() ? 'opacity-60 border-border/40' : ''}`}
+	class={`group flex min-w-0 grow overflow-hidden transition-shadow duration-300 ${isFocused ? 'shadow-glow-blue ring-1 ring-iris-blue/30' : ''} ${isProcessed() ? 'border-border/40 opacity-60' : ''}`}
 >
 	<Collapsible.Root
 		open={alwaysExpanded ? true : expanded}
 		onOpenChange={alwaysExpanded ? undefined : onExpandedChange}
 		disabled={alwaysExpanded}
 	>
-		<Card.Header class="!flex !flex-col !gap-3 !space-y-0 !p-4 !pb-2 sm:!flex-row sm:!items-center sm:!justify-between">
+		<Card.Header
+			class="!flex !flex-col !gap-3 !space-y-0 !p-4 !pb-2 sm:!flex-row sm:!items-center sm:!justify-between"
+		>
 			<div class="flex min-w-0 flex-1 items-center gap-3">
 				<div class="relative flex h-10 w-12 shrink-0">
 					<Collapsible.Trigger>
@@ -134,7 +137,9 @@
 
 					<button
 						class={`absolute left-5 top-3 z-0 flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium text-white ${alert.owner ? 'bg-blue-400' : 'bg-orange-700'}`}
-						title={alert.owner ? `Owner: ${alert.owner.user_name ?? alert.owner.user_login ?? ''} — click to reassign` : 'Unassigned — click to assign'}
+						title={alert.owner
+							? `Owner: ${alert.owner.user_name ?? alert.owner.user_login ?? ''} — click to reassign`
+							: 'Unassigned — click to assign'}
 						onclick={onAssign}
 					>
 						{#if alert.owner}

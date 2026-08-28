@@ -10,10 +10,7 @@ type ApiEnvelope<T> = {
 
 export class TaskStatusService {
 	static async list(options: ApiOptions = {}): Promise<RequestResponse<TaskStatus[]>> {
-		const res = await ApiService.get<ApiEnvelope<TaskStatus[]>>(
-			'/manage/task-statuses',
-			options
-		);
+		const res = await ApiService.get<ApiEnvelope<TaskStatus[]>>('/manage/task-statuses', options);
 
 		if (res.ok && res.data !== null && typeof res.data !== 'string') {
 			return { ...res, data: res.data.data };

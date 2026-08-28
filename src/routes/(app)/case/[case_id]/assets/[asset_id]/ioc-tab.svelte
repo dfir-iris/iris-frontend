@@ -317,7 +317,7 @@
 
 	{#if isLoading}
 		<div class="space-y-4">
-			{#each Array(3), i}
+			{#each Array(3) as _, i}
 				<div class="rounded-lg border bg-card p-4" in:fade={{ delay: i * 100 }}>
 					<div class="mb-3 flex items-center gap-3">
 						<Skeleton class="h-6 w-6 rounded-full" />

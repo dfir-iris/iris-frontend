@@ -32,7 +32,6 @@
 		type Severity as ApiSeverity
 	} from '$lib/services/severities.service';
 	import { WarRoomsService, type WarRoomCaseSummary } from '$lib/services/war-rooms.service';
-	import { safeHexColor } from '$lib/utils/color';
 	import { current_user } from '$lib/stores/auth.store';
 	import type { Alert } from '$lib/types/resources/alert';
 	import { toast } from '$lib/stores/toast.store';

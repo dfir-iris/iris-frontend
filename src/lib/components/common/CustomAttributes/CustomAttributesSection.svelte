@@ -66,7 +66,10 @@
 	// want a downstream mutation of `existing` (unlikely, but possible
 	// if the parent reloads the object) to blow away in-progress edits.
 	const seed = (nextSchema: CustomAttributeSchema) => {
-		const seeded = seedCustomAttributeValues(nextSchema, untrack(() => existing));
+		const seeded = seedCustomAttributeValues(
+			nextSchema,
+			untrack(() => existing)
+		);
 		// Copy into the bound object rather than reassigning: Svelte's
 		// $bindable proxy tracks the same object identity so mutating
 		// keys in place keeps the parent's reference stable.

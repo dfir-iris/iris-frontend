@@ -62,7 +62,9 @@
 		{#if loading}
 			<p class="text-sm text-muted-foreground">Loading…</p>
 		{:else if error}
-			<div class="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+			<div
+				class="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+			>
 				{error}
 			</div>
 		{:else if presets.length === 0}
@@ -70,11 +72,7 @@
 		{:else}
 			<div class="grid max-h-[55vh] grid-cols-1 gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
 				{#each presets as preset, idx (idx)}
-					<button
-						type="button"
-						class="text-left"
-						onclick={() => pick(preset)}
-					>
+					<button type="button" class="text-left" onclick={() => pick(preset)}>
 						<Card class="transition hover:border-primary">
 							<CardHeader class="pb-1">
 								<CardTitle class="flex items-center justify-between gap-2 text-sm">

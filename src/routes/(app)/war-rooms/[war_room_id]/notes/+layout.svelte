@@ -66,9 +66,7 @@
 			.map((id) => notes.byId[id])
 			.filter(
 				(n): n is NonNullable<typeof n> =>
-					!!n &&
-					(n.title.toLowerCase().includes(q) ||
-						(n.content ?? '').toLowerCase().includes(q))
+					!!n && (n.title.toLowerCase().includes(q) || (n.content ?? '').toLowerCase().includes(q))
 			);
 	});
 

@@ -187,10 +187,10 @@ export const createCaseIocsContext = (getCaseId: () => number | null) => {
 			const merged: Ioc = { ...prev, ...(body as Partial<Ioc>) };
 
 			if (body.ioc_type_id !== undefined && body.ioc_type_id !== prev.ioc_type_id) {
-				merged.ioc_type = undefined;
+				(merged as Partial<Ioc>).ioc_type = undefined;
 			}
 			if (body.ioc_tlp_id !== undefined && body.ioc_tlp_id !== prev.ioc_tlp_id) {
-				merged.tlp = undefined;
+				(merged as Partial<Ioc>).tlp = undefined;
 			}
 
 			byId[id] = merged;

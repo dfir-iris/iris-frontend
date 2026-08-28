@@ -50,7 +50,7 @@
 			</div>
 		{:else}
 			<button
-				class={`flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full border px-1.5 text-xs transition-colors ${page === item ? 'bg-iris-blue border-iris-blue text-white shadow-sm' : 'hover:bg-muted'}`}
+				class={`flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full border px-1.5 text-xs transition-colors ${page === item ? 'border-iris-blue bg-iris-blue text-white shadow-sm' : 'hover:bg-muted'}`}
 				onclick={() => onPageChange(item)}
 			>
 				{item}

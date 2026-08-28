@@ -88,10 +88,9 @@
 		if (removeSelected.size === 0) return;
 		busy = true;
 		try {
-			const res = await AccessControlService.deleteGroupCasesAccess(
-				group.group_id,
-				[...removeSelected]
-			);
+			const res = await AccessControlService.deleteGroupCasesAccess(group.group_id, [
+				...removeSelected
+			]);
 			if (res.ok && res.data && typeof res.data !== 'string') {
 				const updated = res.data as AccessControlGroup;
 				grants = [...(updated.group_cases_access ?? [])];
@@ -157,8 +156,8 @@
 		<Dialog.Header>
 			<Dialog.Title>Case access — {group.group_name}</Dialog.Title>
 			<Dialog.Description>
-				Per-case grants applied to every member of the group. Effective access for each
-				member is recomputed after every change.
+				Per-case grants applied to every member of the group. Effective access for each member is
+				recomputed after every change.
 			</Dialog.Description>
 		</Dialog.Header>
 
@@ -174,8 +173,8 @@
 					<div class="flex-1">
 						<p class="text-xs font-medium">Auto-follow every case</p>
 						<p class="text-2xs text-muted-foreground">
-							Grants the chosen access level on every existing case and on cases created
-							in the future. When on, the explicit case picker below is hidden.
+							Grants the chosen access level on every existing case and on cases created in the
+							future. When on, the explicit case picker below is hidden.
 						</p>
 					</div>
 				</div>
@@ -202,14 +201,14 @@
 				</header>
 				<div class="max-h-[20vh] overflow-y-auto rounded-md border">
 					{#if grants.length === 0}
-						<p class="px-3 py-4 text-center text-2xs text-muted-foreground">
-							No explicit grants.
-						</p>
+						<p class="px-3 py-4 text-center text-2xs text-muted-foreground">No explicit grants.</p>
 					{:else}
 						<ul class="divide-y">
 							{#each grants as ca (ca.case_id)}
 								<li>
-									<label class="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-2xs hover:bg-muted/30">
+									<label
+										class="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-2xs hover:bg-muted/30"
+									>
 										<Checkbox
 											checked={removeSelected.has(ca.case_id)}
 											onCheckedChange={() => toggleRemove(ca.case_id)}
@@ -289,7 +288,9 @@
 								<ul class="divide-y">
 									{#each casePool as c (c.case_id)}
 										<li>
-											<label class="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-2xs hover:bg-muted/30">
+											<label
+												class="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-2xs hover:bg-muted/30"
+											>
 												<Checkbox
 													checked={addCaseIds.has(c.case_id)}
 													onCheckedChange={() => toggleAddCase(c.case_id)}
@@ -310,10 +311,7 @@
 					{/if}
 
 					<div class="flex items-center justify-end gap-2">
-						<Button
-							onclick={addGrants}
-							disabled={busy || (!autoFollow && addCaseIds.size === 0)}
-						>
+						<Button onclick={addGrants} disabled={busy || (!autoFollow && addCaseIds.size === 0)}>
 							{busy
 								? 'Saving…'
 								: autoFollow

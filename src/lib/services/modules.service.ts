@@ -96,11 +96,7 @@ export class ModulesService {
 		moduleName: string,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<ModuleDetail>> {
-		return ApiService.post<ModuleDetail>(
-			'/manage/modules',
-			{ module_name: moduleName },
-			options
-		);
+		return ApiService.post<ModuleDetail>('/manage/modules', { module_name: moduleName }, options);
 	}
 
 	static async remove(
@@ -141,10 +137,7 @@ export class ModulesService {
 		moduleId: ModuleId,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<ModuleConfigExport>> {
-		return ApiService.get<ModuleConfigExport>(
-			`/manage/modules/${moduleId}/export-config`,
-			options
-		);
+		return ApiService.get<ModuleConfigExport>(`/manage/modules/${moduleId}/export-config`, options);
 	}
 
 	static async importConfig(

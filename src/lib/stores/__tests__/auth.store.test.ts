@@ -53,8 +53,7 @@ describe('auth store', () => {
 		auth.setAuth(mockResponse, tokens);
 
 		await new Promise<void>((resolve) => {
-			let unsub: (() => void) | undefined;
-
+			let unsub: (() => void) | undefined = undefined;
 			unsub = auth.subscribe((state) => {
 				if (auth.isAuthenticated()) {
 					expect(state.user).toEqual(mockResponse);
@@ -84,8 +83,7 @@ describe('auth store', () => {
 		auth.clearAuth();
 
 		await new Promise<void>((resolve) => {
-			let unsub: (() => void) | undefined;
-
+			let unsub: (() => void) | undefined = undefined;
 			unsub = auth.subscribe((state) => {
 				if (!auth.isAuthenticated()) {
 					expect(state.user).toBeNull();

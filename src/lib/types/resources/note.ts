@@ -1,4 +1,4 @@
-import type { HistoryData } from "$lib/components/common/ActivityHistory.svelte";
+import type { HistoryData } from '$lib/components/common/ActivityHistory.svelte';
 
 export interface Note {
 	note_id: number;

@@ -4,15 +4,12 @@
 	import { RefreshCw } from 'lucide-svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import DataTable from '$lib/components/ui/data-table/data-table.svelte';
-	import { ApiService } from '$lib/services/api.service';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { tasksStore, isLoadingTasksStore } from '$lib/stores/tasks.store';
+	import { isLoadingTasksStore } from '$lib/stores/tasks.store';
 	import { cellRendererFactory } from '$lib/components/ui/data-table/cell-renderer-factory';
 	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
 	import { TimeFormatter } from '$lib/utils/time-formatter';
 	import CellTitle from '$lib/components/ui/data-table/cell-title.svelte';
-	import { invalidate } from '$app/navigation';
-
 	let columnDefs = [
 		{
 			field: 'task_title',
@@ -77,11 +74,10 @@
 			filterParams: {
 				maxNumConditions: 3,
 				textMatcher: ({
-					filterOption,
 					value,
 					filterText
 				}: {
-					filterOption: any;
+					_filterOption?: any;
 					value: string;
 					filterText: string;
 				}) => {
@@ -116,12 +112,6 @@
 			]
 		}
 	];
-
-	async function refreshTasks() {
-		invalidate('app:dashboard_main_data').then(() => {
-			isLoadingTasksStore.set(false);
-		});
-	}
 
 	export let data: any = [];
 </script>

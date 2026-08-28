@@ -29,10 +29,7 @@
 	} from '$lib/types/resources/investigation-flow';
 	import type { AlertCluster } from '$lib/types/resources/alert-cluster';
 
-	let {
-		cluster,
-		onClose
-	}: { cluster: AlertCluster; onClose: () => void } = $props();
+	let { cluster, onClose }: { cluster: AlertCluster; onClose: () => void } = $props();
 
 	let overview = $state<InvestigationOverview | null>(null);
 	let loading = $state(false);
@@ -42,9 +39,7 @@
 	const load = async () => {
 		loading = true;
 		try {
-			const res = await InvestigationFlowsService.getAlertClusterProgress(
-				cluster.cluster_id
-			);
+			const res = await InvestigationFlowsService.getAlertClusterProgress(cluster.cluster_id);
 			overview = (res.data as InvestigationOverview) ?? null;
 		} finally {
 			loading = false;
@@ -66,9 +61,7 @@
 
 	const completedCount = $derived((overview?.progress ?? []).length);
 	const totalSteps = $derived(overview?.steps?.length ?? 0);
-	const percent = $derived(
-		totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0
-	);
+	const percent = $derived(totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0);
 
 	const toggleStep = async (stepId: number, checked: boolean) => {
 		if (checked) {
@@ -78,10 +71,7 @@
 				noteDrafts[stepId]
 			);
 		} else {
-			await InvestigationFlowsService.uncheckAlertClusterProgress(
-				cluster.cluster_id,
-				stepId
-			);
+			await InvestigationFlowsService.uncheckAlertClusterProgress(cluster.cluster_id, stepId);
 			noteEditingFor = null;
 		}
 		await load();
@@ -111,7 +101,9 @@
   `InvestigationFlowPanel` for the rationale.
 -->
 <div class="flex h-full w-full flex-col">
-	<header class="flex items-center justify-between border-b border-border px-4 py-3 dark:border-slate-700">
+	<header
+		class="flex items-center justify-between border-b border-border px-4 py-3 dark:border-slate-700"
+	>
 		<div class="flex min-w-0 items-center gap-2">
 			<CheckSquareIcon class="h-4 w-4 shrink-0 text-primary" />
 			<div class="min-w-0">
@@ -122,13 +114,7 @@
 			</div>
 		</div>
 		<div class="flex shrink-0 items-center gap-1">
-			<Button
-				variant="ghost"
-				size="icon"
-				onclick={load}
-				disabled={loading}
-				aria-label="Refresh"
-			>
+			<Button variant="ghost" size="icon" onclick={load} disabled={loading} aria-label="Refresh">
 				<RefreshCwIcon class="h-4 w-4 {loading ? 'animate-spin' : ''}" />
 			</Button>
 			<Button variant="ghost" size="icon" onclick={onClose} aria-label="Close">
@@ -246,8 +232,7 @@
 								{#if editingNote}
 									<MarkDownEditor
 										value={noteDrafts[step.step_id] ?? progress?.note ?? ''}
-										onChange={(v: string) =>
-											(noteDrafts = { ...noteDrafts, [step.step_id]: v })}
+										onChange={(v: string) => (noteDrafts = { ...noteDrafts, [step.step_id]: v })}
 										onSave={() => saveNote(step.step_id)}
 										initialMode="edit"
 									/>
@@ -267,9 +252,7 @@
 										>
 											Cancel
 										</Button>
-										<Button size="sm" onclick={() => saveNote(step.step_id)}>
-											Save note
-										</Button>
+										<Button size="sm" onclick={() => saveNote(step.step_id)}>Save note</Button>
 									</div>
 								{:else if progress?.note}
 									<div class="text-xs">

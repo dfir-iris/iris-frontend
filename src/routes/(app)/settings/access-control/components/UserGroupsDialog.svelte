@@ -136,7 +136,9 @@
 					<ul class="divide-y">
 						{#each visibleGroups as g (g.group_id)}
 							<li>
-								<label class="flex cursor-pointer items-center gap-2 px-3 py-2 text-xs hover:bg-muted/30">
+								<label
+									class="flex cursor-pointer items-center gap-2 px-3 py-2 text-xs hover:bg-muted/30"
+								>
 									<Checkbox
 										checked={selected.has(g.group_id)}
 										onCheckedChange={() => toggle(g.group_id)}

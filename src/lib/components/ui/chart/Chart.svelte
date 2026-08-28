@@ -63,9 +63,7 @@
 						center: ['50%', '42%'],
 						avoidLabelOverlap: true,
 						data,
-						label: dense
-							? { show: false }
-							: { show: true, formatter: '{b}: {c}', fontSize: 11 },
+						label: dense ? { show: false } : { show: true, formatter: '{b}: {c}', fontSize: 11 },
 						labelLine: { show: !dense }
 					}
 				]
@@ -79,15 +77,15 @@
 		// overlapping tick labels and reduce the chart to a gray bar.
 		const xAxisLabel = dense
 			? {
-				hideOverlap: true,
-				rotate: 30,
-				fontSize: 10,
-			}
+					hideOverlap: true,
+					rotate: 30,
+					fontSize: 10
+				}
 			: {
-				interval: 0,
-				rotate: labels.length > 6 ? 30 : 0,
-				fontSize: 11,
-			};
+					interval: 0,
+					rotate: labels.length > 6 ? 30 : 0,
+					fontSize: 11
+				};
 		return {
 			...(resolvedPalette ? { color: resolvedPalette } : {}),
 			tooltip: { trigger: 'axis' },
@@ -98,7 +96,7 @@
 			xAxis: {
 				type: 'category',
 				data: labels,
-				axisLabel: xAxisLabel,
+				axisLabel: xAxisLabel
 			},
 			yAxis: { type: 'value' },
 			series: datasets.map((d) => ({
@@ -106,8 +104,8 @@
 				type,
 				data: d.data,
 				smooth: type === 'line',
-				showSymbol: !dense,
-			})),
+				showSymbol: !dense
+			}))
 		};
 	});
 

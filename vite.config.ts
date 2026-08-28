@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from 'vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 // `VITE_ALLOWED_HOSTS` lets the operator open the dev server to extra
@@ -16,18 +16,18 @@ const allowedHosts =
 	rawAllowedHosts === 'all'
 		? true
 		: rawAllowedHosts
-			? rawAllowedHosts.split(',').map((h) => h.trim()).filter(Boolean)
+			? rawAllowedHosts
+					.split(',')
+					.map((h) => h.trim())
+					.filter(Boolean)
 			: undefined;
 
 export default defineConfig({
 	plugins: [sveltekit()],
 
-	test: {
-		globals: true,
-		environment: 'jsdom', // or 'happy-dom'
-		setupFiles: ['./src/vitest.setup.ts'], // Add this line
-		include: ['src/**/*.{test,spec}.{js,ts}']
-	},
+	// No `test` block here on purpose — Vitest prefers `vitest.config.ts` and
+	// ignores this file's, so the copy that used to live here was dead config.
+	// Unit-test settings live in `vitest.config.ts`.
 
 	server: {
 		host: '0.0.0.0',

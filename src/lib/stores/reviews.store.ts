@@ -53,6 +53,5 @@ export const reviews = createReviewsStore();
 // Legacy writables kept for the existing user-current-reviews-table component.
 export const reviewsStore = { subscribe: reviews.subscribe };
 export const isLoadingReviewsStore = {
-	subscribe: (run: (v: boolean) => void) =>
-		reviews.subscribe((s) => run(s.loading))
+	subscribe: (run: (v: boolean) => void) => reviews.subscribe((s) => run(s.loading))
 };

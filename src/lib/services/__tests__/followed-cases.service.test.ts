@@ -45,11 +45,7 @@ describe('FollowedCasesService', () => {
 		const res = await FollowedCasesService.follow(42, options);
 
 		expect(ApiService.post).toHaveBeenCalledTimes(1);
-		expect(ApiService.post).toHaveBeenCalledWith(
-			'/me/followed-cases',
-			{ case_id: 42 },
-			options
-		);
+		expect(ApiService.post).toHaveBeenCalledWith('/me/followed-cases', { case_id: 42 }, options);
 		expect(res).toBe(mockResponse);
 	});
 

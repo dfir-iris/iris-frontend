@@ -60,20 +60,14 @@ export class NotificationsService {
 		params: ListNotificationsParams = {},
 		options: ApiOptions = {}
 	): Promise<RequestResponse<NotificationFeed>> {
-		const path = ApiService.withQuery(
-			'/api/v2/notifications',
-			params as Record<string, unknown>
-		);
+		const path = ApiService.withQuery('/api/v2/notifications', params as Record<string, unknown>);
 		return ApiService.get<NotificationFeed>(path, options);
 	}
 
 	static async unreadCount(
 		options: ApiOptions = {}
 	): Promise<RequestResponse<{ unread_count: number }>> {
-		return ApiService.get<{ unread_count: number }>(
-			'/api/v2/notifications/unread-count',
-			options
-		);
+		return ApiService.get<{ unread_count: number }>('/api/v2/notifications/unread-count', options);
 	}
 
 	/**
@@ -112,10 +106,7 @@ export class NotificationsService {
 	static async getSettings(
 		options: ApiOptions = {}
 	): Promise<RequestResponse<NotificationSettingsPayload>> {
-		return ApiService.get<NotificationSettingsPayload>(
-			'/api/v2/notifications/settings',
-			options
-		);
+		return ApiService.get<NotificationSettingsPayload>('/api/v2/notifications/settings', options);
 	}
 
 	static async putSettings(

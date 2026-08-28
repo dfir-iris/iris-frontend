@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { SearchIcon, XIcon, ChevronRightIcon } from 'lucide-svelte';
-	import { Badge } from '../badge';
 	import { cn } from '$lib/utils';
 	import { createEventDispatcher } from 'svelte';
 
@@ -92,14 +91,14 @@
 	} {
 		// For field:value or field:operator:value patterns, we need to be more careful about splitting
 		// because field names can contain dots (like "ioc_type.type_name")
-		
+
 		// First, check if any field matches the beginning of the input
 		let bestFieldMatch = '';
 		let remainingInput = '';
-		
+
 		// Sort fields by length (longest first) to match the most specific field first
 		const sortedFields = [...fields].sort((a, b) => b.key.length - a.key.length);
-		
+
 		for (const field of sortedFields) {
 			if (input.startsWith(field.key + ':')) {
 				bestFieldMatch = field.key;
@@ -107,11 +106,11 @@
 				break;
 			}
 		}
-		
+
 		if (bestFieldMatch) {
 			// We found a field match, now parse the remaining part
-			const field = fields.find(f => f.key === bestFieldMatch)!;
-			
+			const field = fields.find((f) => f.key === bestFieldMatch)!;
+
 			if (!remainingInput) {
 				// Just "field:" - waiting for operator or value
 				return {
@@ -122,12 +121,12 @@
 					isComplete: false
 				};
 			}
-			
+
 			// Check if remaining part starts with an operator
 			const operators = operatorsByType[field.type] || operatorsByType.text;
 			let operatorMatch = '';
 			let valueMatch = '';
-			
+
 			for (const op of operators) {
 				if (remainingInput.startsWith(op.key + ':')) {
 					operatorMatch = op.key;
@@ -139,7 +138,7 @@
 					break;
 				}
 			}
-			
+
 			if (operatorMatch) {
 				// field:operator:value pattern
 				return {
@@ -160,13 +159,14 @@
 				};
 			}
 		}
-		
+
 		// No field match found - check if we're still typing a field name
-		const matchingField = fields.find(f => 
-			f.key.toLowerCase().startsWith(input.toLowerCase()) || 
-			f.label.toLowerCase().startsWith(input.toLowerCase())
+		const matchingField = fields.find(
+			(f) =>
+				f.key.toLowerCase().startsWith(input.toLowerCase()) ||
+				f.label.toLowerCase().startsWith(input.toLowerCase())
 		);
-		
+
 		if (matchingField) {
 			return {
 				isFieldPattern: true,
@@ -176,7 +176,7 @@
 				isComplete: false
 			};
 		}
-		
+
 		// No pattern match - treat as raw search
 		return {
 			isFieldPattern: false,
@@ -198,14 +198,15 @@
 
 		if (!parsed.isFieldPattern) {
 			// Show field suggestions
-			const filteredFields = fields.filter(f => 
-				f.key.toLowerCase().includes(input.toLowerCase()) ||
-				f.label.toLowerCase().includes(input.toLowerCase())
+			const filteredFields = fields.filter(
+				(f) =>
+					f.key.toLowerCase().includes(input.toLowerCase()) ||
+					f.label.toLowerCase().includes(input.toLowerCase())
 			);
-			
+
 			suggestions = {
 				type: 'field',
-				items: filteredFields.map(f => ({
+				items: filteredFields.map((f) => ({
 					text: f.key,
 					label: f.label,
 					field: f,
@@ -213,21 +214,22 @@
 				}))
 			};
 		} else {
-			const field = fields.find(f => 
-				f.key === parsed.fieldPart || 
-				f.label.toLowerCase() === parsed.fieldPart.toLowerCase()
+			const field = fields.find(
+				(f) =>
+					f.key === parsed.fieldPart || f.label.toLowerCase() === parsed.fieldPart.toLowerCase()
 			);
 
 			if (!field) {
 				// Field not found, show field suggestions
-				const filteredFields = fields.filter(f => 
-					f.key.toLowerCase().includes(parsed.fieldPart.toLowerCase()) ||
-					f.label.toLowerCase().includes(parsed.fieldPart.toLowerCase())
+				const filteredFields = fields.filter(
+					(f) =>
+						f.key.toLowerCase().includes(parsed.fieldPart.toLowerCase()) ||
+						f.label.toLowerCase().includes(parsed.fieldPart.toLowerCase())
 				);
-				
+
 				suggestions = {
 					type: 'field',
-					items: filteredFields.map(f => ({
+					items: filteredFields.map((f) => ({
 						text: f.key,
 						label: f.label,
 						field: f,
@@ -239,7 +241,7 @@
 				const operators = operatorsByType[field.type] || operatorsByType.text;
 				suggestions = {
 					type: 'operator',
-					items: operators.map(op => ({
+					items: operators.map((op) => ({
 						text: `${parsed.fieldPart}:${op.key}:`,
 						label: op.label,
 						key: op.key,
@@ -251,7 +253,7 @@
 				// Show value suggestions for select fields
 				suggestions = {
 					type: 'value',
-					items: field.options.map(opt => ({
+					items: field.options.map((opt) => ({
 						text: `${parsed.fieldPart}:${parsed.operatorPart}:${opt.value}`,
 						label: opt.label,
 						value: opt.value,
@@ -264,11 +266,13 @@
 				// Show completion suggestion
 				suggestions = {
 					type: 'complete',
-					items: [{
-						text: input,
-						label: `Add: ${field.label} ${getOperatorDisplay(parsed.operatorPart, field.type)} "${parsed.valuePart}"`,
-						description: 'Press Enter to add'
-					}],
+					items: [
+						{
+							text: input,
+							label: `Add: ${field.label} ${getOperatorDisplay(parsed.operatorPart, field.type)} "${parsed.valuePart}"`,
+							description: 'Press Enter to add'
+						}
+					],
 					currentField: field,
 					currentOperator: parsed.operatorPart
 				};
@@ -293,7 +297,10 @@
 			switch (event.key) {
 				case 'ArrowDown':
 					event.preventDefault();
-					selectedSuggestionIndex = Math.min(selectedSuggestionIndex + 1, suggestions.items.length - 1);
+					selectedSuggestionIndex = Math.min(
+						selectedSuggestionIndex + 1,
+						suggestions.items.length - 1
+					);
 					break;
 				case 'ArrowUp':
 					event.preventDefault();
@@ -329,13 +336,13 @@
 	// Handle Enter key press
 	function handleEnterKey() {
 		const parsed = parseCurrentInput(value);
-		
+
 		if (parsed.isFieldPattern && parsed.isComplete) {
-			const field = fields.find(f => 
-				f.key === parsed.fieldPart || 
-				f.label.toLowerCase() === parsed.fieldPart.toLowerCase()
+			const field = fields.find(
+				(f) =>
+					f.key === parsed.fieldPart || f.label.toLowerCase() === parsed.fieldPart.toLowerCase()
 			);
-			
+
 			if (field) {
 				addCondition(field, parsed.operatorPart, parsed.valuePart);
 				return;
@@ -345,8 +352,8 @@
 		// If no structured pattern and allowRawSearch, add as raw search
 		if (allowRawSearch && value.trim()) {
 			addCondition(
-				{ key: '_raw', label: 'Raw Search', type: 'text' } as SearchField, 
-				'like', 
+				{ key: '_raw', label: 'Raw Search', type: 'text' } as SearchField,
+				'like',
 				value.trim()
 			);
 		}
@@ -404,13 +411,13 @@
 	// Handle clicks outside to close suggestions
 	function handleClickOutside(event: MouseEvent) {
 		const target = event.target as Node;
-		
+
 		// Check if the click is outside the input element
 		const inputContainsTarget = inputRef && inputRef.contains && inputRef.contains(target);
-		
+
 		// Check if the click is outside the suggestions container
 		const suggestionsContainsTarget = suggestionsContainer && suggestionsContainer.contains(target);
-		
+
 		if (!inputContainsTarget && !suggestionsContainsTarget) {
 			showSuggestions = false;
 		}
@@ -424,36 +431,46 @@
 
 	// Helper to get operator display
 	function getOperatorDisplay(operator: string, fieldType: string): string {
-		const operators = operatorsByType[fieldType] || operatorsByType.text;
-		const op = operators.find(o => o.key === operator);
+		const operators = (operatorsByType as Record<string, { key: string; label: string; description: string }[]>)[fieldType] || operatorsByType.text;
+		const op = operators.find((o: { key: string }) => o.key === operator);
 		return op?.label || operator;
 	}
 </script>
 
 <div class="relative w-full">
 	<!-- Search container with auto-expanding height -->
-	<div class="group relative rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 transition-all duration-150">
-
+	<div
+		class="group relative rounded-md border border-input bg-background transition-all duration-150 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
+	>
 		<!-- Search header with icon and input -->
-		<div class="flex items-start px-2 py-1.5 gap-1.5">
-			<SearchIcon class="h-3.5 w-3.5 shrink-0 opacity-50 mt-0.5" />
-			
-			<div class="flex-1 min-w-0">
+		<div class="flex items-start gap-1.5 px-2 py-1.5">
+			<SearchIcon class="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-50" />
+
+			<div class="min-w-0 flex-1">
 				<!-- Condition badges - shown above input when present -->
 				{#if conditions.length > 0}
-					<div class="flex flex-wrap gap-1.5 mb-2">
+					<div class="mb-2 flex flex-wrap gap-1.5">
 						{#each conditions as condition, index (condition.field + condition.operator + condition.value + index)}
-							<div class="inline-flex items-center gap-1 px-2 py-0.5 bg-secondary/50 hover:bg-secondary/70 rounded text-xs border border-secondary/50 transition-all duration-150 group/badge">
+							<div
+								class="group/badge inline-flex items-center gap-1 rounded border border-secondary/50 bg-secondary/50 px-2 py-0.5 text-xs transition-all duration-150 hover:bg-secondary/70"
+							>
 								{#if condition.field === '_raw'}
-									<span class="text-muted-foreground font-medium">search:</span>
+									<span class="font-medium text-muted-foreground">search:</span>
 									<span class="font-medium">"{condition.value}"</span>
 								{:else}
-									<span class="text-primary font-semibold">{condition.label || condition.field}</span>
-									<span class="text-muted-foreground">{getOperatorDisplay(condition.operator, 'text')}</span>
-									<span class="font-mono text-foreground bg-background/50 px-1 py-0.5 rounded text-xs">"{condition.value}"</span>
+									<span class="font-semibold text-primary"
+										>{condition.label || condition.field}</span
+									>
+									<span class="text-muted-foreground"
+										>{getOperatorDisplay(condition.operator, 'text')}</span
+									>
+									<span
+										class="rounded bg-background/50 px-1 py-0.5 font-mono text-xs text-foreground"
+										>"{condition.value}"</span
+									>
 								{/if}
 								<button
-									class="rounded-full p-1 hover:bg-destructive/20 ml-1 opacity-60 group-hover/badge:opacity-100 transition-all duration-200"
+									class="ml-1 rounded-full p-1 opacity-60 transition-all duration-200 hover:bg-destructive/20 group-hover/badge:opacity-100"
 									onclick={() => removeCondition(index)}
 									aria-label="Remove condition"
 								>
@@ -465,12 +482,12 @@
 				{/if}
 
 				<!-- Main input area -->
-				<div class="flex items-center min-h-[20px]">
+				<div class="flex min-h-[20px] items-center">
 					<input
 						bind:this={inputRef}
 						bind:value
-						placeholder={conditions.length > 0 ? "Add another condition..." : placeholder}
-						class="flex-1 bg-transparent outline-none placeholder:text-muted-foreground text-xs resize-none"
+						placeholder={conditions.length > 0 ? 'Add another condition...' : placeholder}
+						class="flex-1 resize-none bg-transparent text-xs outline-none placeholder:text-muted-foreground"
 						autocomplete="off"
 						spellcheck="false"
 						oninput={handleInputChange}
@@ -482,7 +499,7 @@
 			<!-- Clear all button -->
 			{#if conditions.length > 0 || value}
 				<button
-					class="rounded-full p-1 hover:bg-muted transition-colors shrink-0"
+					class="shrink-0 rounded-full p-1 transition-colors hover:bg-muted"
 					onclick={clearAll}
 					aria-label="Clear all"
 				>
@@ -496,55 +513,72 @@
 	{#if showSuggestions}
 		<div
 			bind:this={suggestionsContainer}
-			class="absolute top-full left-0 right-0 z-50 mt-2 max-h-72 overflow-auto rounded-lg border bg-background shadow-lg backdrop-blur-sm"
+			class="absolute left-0 right-0 top-full z-50 mt-2 max-h-72 overflow-auto rounded-lg border bg-background shadow-lg backdrop-blur-sm"
 		>
 			<div class="p-2">
 				{#each suggestions.items as item, index (item.text + index)}
 					<button
 						class={cn(
-							"relative flex w-full cursor-pointer select-none items-center rounded-lg px-3 py-2.5 text-sm outline-none transition-all duration-200",
+							'relative flex w-full cursor-pointer select-none items-center rounded-lg px-3 py-2.5 text-sm outline-none transition-all duration-200',
 							selectedSuggestionIndex === index
-								? "bg-primary/10 text-primary border border-primary/20"
-								: "hover:bg-muted/50 border border-transparent"
+								? 'border border-primary/20 bg-primary/10 text-primary'
+								: 'border border-transparent hover:bg-muted/50'
 						)}
 						onclick={() => selectSuggestion(item)}
 					>
-						<div class="flex flex-col items-start flex-1 gap-1">
-							<div class="flex items-center gap-2 w-full">
+						<div class="flex flex-1 flex-col items-start gap-1">
+							<div class="flex w-full items-center gap-2">
 								<span class="font-medium">{item.label}</span>
 								{#if suggestions.type === 'field'}
-									<span class="ml-auto text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+									<span
+										class="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+									>
 										{item.description}
 									</span>
 								{:else if suggestions.type === 'operator'}
 									<span class="ml-auto text-xs text-muted-foreground">{item.description}</span>
 								{:else if suggestions.type === 'complete'}
-									<ChevronRightIcon class="h-4 w-4 text-muted-foreground ml-auto" />
+									<ChevronRightIcon class="ml-auto h-4 w-4 text-muted-foreground" />
 								{/if}
 							</div>
 							{#if suggestions.type === 'field'}
-								<span class="text-xs text-muted-foreground font-mono bg-muted/50 px-2 py-0.5 rounded">{item.text}:</span>
+								<span
+									class="rounded bg-muted/50 px-2 py-0.5 font-mono text-xs text-muted-foreground"
+									>{item.text}:</span
+								>
 							{:else if suggestions.type === 'operator'}
-								<span class="text-xs text-muted-foreground">for {suggestions.currentField?.label}</span>
+								<span class="text-xs text-muted-foreground"
+									>for {suggestions.currentField?.label}</span
+								>
 							{:else if suggestions.type === 'complete'}
-								<span class="text-xs text-muted-foreground">Press Enter or Tab to add this condition</span>
+								<span class="text-xs text-muted-foreground"
+									>Press Enter or Tab to add this condition</span
+								>
 							{/if}
 						</div>
 						{#if selectedSuggestionIndex === index}
-							<div class="ml-2 text-xs text-primary font-medium bg-primary/10 px-2 py-1 rounded">
+							<div class="ml-2 rounded bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
 								{suggestions.type === 'complete' ? '↵' : '⇥'}
 							</div>
 						{/if}
 					</button>
 				{/each}
 			</div>
-			
+
 			<!-- Help text -->
 			{#if suggestions.type === 'field'}
-				<div class="px-4 py-3 text-xs text-muted-foreground border-t bg-muted/20">
+				<div class="border-t bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
 					<div class="flex items-center gap-4">
-						<span>Type <code class="px-1.5 py-0.5 bg-background border rounded font-mono">field:value</code></span>
-						<span>or <code class="px-1.5 py-0.5 bg-background border rounded font-mono">field:operator:value</code></span>
+						<span
+							>Type <code class="rounded border bg-background px-1.5 py-0.5 font-mono"
+								>field:value</code
+							></span
+						>
+						<span
+							>or <code class="rounded border bg-background px-1.5 py-0.5 font-mono"
+								>field:operator:value</code
+							></span
+						>
 					</div>
 				</div>
 			{/if}

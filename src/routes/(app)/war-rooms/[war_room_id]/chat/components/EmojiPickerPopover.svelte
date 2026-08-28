@@ -79,9 +79,7 @@
 		};
 		// Defer one frame so the click that opened the popover doesn't
 		// immediately close it.
-		const raf = requestAnimationFrame(() =>
-			document.addEventListener('click', onClick)
-		);
+		const raf = requestAnimationFrame(() => document.addEventListener('click', onClick));
 		return () => {
 			cancelAnimationFrame(raf);
 			document.removeEventListener('click', onClick);
@@ -97,9 +95,7 @@
 	  fetches from same-origin. The library caches it in IndexedDB
 	  on first load — subsequent opens are effectively free.
 	-->
-	<div
-		class="absolute bottom-full z-50 mb-2 shadow-lg {align === 'left' ? 'left-0' : 'right-0'}"
-	>
+	<div class="absolute bottom-full z-50 mb-2 shadow-lg {align === 'left' ? 'left-0' : 'right-0'}">
 		<emoji-picker bind:this={pickerEl} data-source="/emoji/data.json"></emoji-picker>
 	</div>
 {/if}

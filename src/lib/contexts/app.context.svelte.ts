@@ -27,6 +27,7 @@ export type AppContext = {
 };
 
 export const createAppContext = (): AppContext => {
+	// eslint-disable-next-line prefer-const
 	let state = $state<AppState>({ ...DEFAULT_STATE });
 	let initialized = false;
 

@@ -40,9 +40,7 @@ describe('IocTypesService', () => {
 		};
 
 		const urlWithQuery = '/manage/case-objects/ioc-types?per_page=10000';
-		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-			urlWithQuery
-		);
+		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(urlWithQuery);
 		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
 
 		const res = await IocTypesService.list(options);
@@ -50,10 +48,9 @@ describe('IocTypesService', () => {
 		// `per_page=10000` is the explicit "give me everything" signal —
 		// the v2 backend's per_page=10 default silently truncates IOC
 		// type dropdowns to the first ten entries.
-		expect(ApiService.withQuery).toHaveBeenCalledWith(
-			'/manage/case-objects/ioc-types',
-			{ per_page: 10000 }
-		);
+		expect(ApiService.withQuery).toHaveBeenCalledWith('/manage/case-objects/ioc-types', {
+			per_page: 10000
+		});
 		expect(ApiService.get).toHaveBeenCalledTimes(1);
 		expect(ApiService.get).toHaveBeenCalledWith(urlWithQuery, options);
 		expect(res).toEqual({

@@ -68,7 +68,10 @@ export const ResizableImageNodeView: NodeViewRenderer = ({ node, editor, getPos 
 		const onMove = (moveEvent: PointerEvent) => {
 			const delta = moveEvent.clientX - startX;
 			// Clamp so the image can't disappear or escape the editor width.
-			const next = Math.max(40, Math.min(startWidth + delta, wrapper.parentElement?.clientWidth ?? 2000));
+			const next = Math.max(
+				40,
+				Math.min(startWidth + delta, wrapper.parentElement?.clientWidth ?? 2000)
+			);
 			img.style.width = `${Math.round(next)}px`;
 		};
 

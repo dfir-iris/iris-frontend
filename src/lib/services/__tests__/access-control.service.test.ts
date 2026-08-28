@@ -224,11 +224,7 @@ describe('AccessControlService — groups', () => {
 
 		await AccessControlService.updateGroup(7, { group_permissions: 3 });
 
-		expect(ApiService.put).toHaveBeenCalledWith(
-			'/manage/groups/7',
-			{ group_permissions: 3 },
-			{}
-		);
+		expect(ApiService.put).toHaveBeenCalledWith('/manage/groups/7', { group_permissions: 3 }, {});
 	});
 
 	it('setGroupMembers() PUTs to /manage/groups/<id>/members', async () => {

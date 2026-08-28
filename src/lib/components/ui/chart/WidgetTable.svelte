@@ -10,7 +10,10 @@
 <script lang="ts">
 	import type { ColumnDef } from '@tanstack/svelte-table';
 	import DataTable from '$lib/components/ui/data-table-tanstack/data-table.svelte';
-	import type { RenderedTableRow, RenderedTableCell } from '$lib/services/custom-dashboards.service';
+	import type {
+		RenderedTableRow,
+		RenderedTableCell
+	} from '$lib/services/custom-dashboards.service';
 
 	type DefaultSortEntry = { key: string; dir?: 'asc' | 'desc' };
 
@@ -39,7 +42,10 @@
 		defaultSort = []
 	}: Props = $props();
 
-	type FlatRow = Record<string, { display: string; numeric: number | null; raw: unknown; percentage: string }>;
+	type FlatRow = Record<
+		string,
+		{ display: string; numeric: number | null; raw: unknown; percentage: string }
+	>;
 
 	const data = $derived.by<FlatRow[]>(() => {
 		return (rows as RenderedTableRow[]).map((row) => {
@@ -57,7 +63,10 @@
 					display: cell?.formatted_value ?? '',
 					numeric: Number.isFinite(numeric) ? numeric : null,
 					raw: cell?.value,
-					percentage: cell?.formatted_percentage && cell.formatted_percentage !== '--' ? cell.formatted_percentage : ''
+					percentage:
+						cell?.formatted_percentage && cell.formatted_percentage !== '--'
+							? cell.formatted_percentage
+							: ''
 				};
 			});
 			return flat;
@@ -68,7 +77,12 @@
 		const av = a[key];
 		const bv = b[key];
 		// Numeric comparison when both cells expose a finite numeric.
-		if (av?.numeric !== null && av?.numeric !== undefined && bv?.numeric !== null && bv?.numeric !== undefined) {
+		if (
+			av?.numeric !== null &&
+			av?.numeric !== undefined &&
+			bv?.numeric !== null &&
+			bv?.numeric !== undefined
+		) {
 			return av.numeric - bv.numeric;
 		}
 		const aStr = String(av?.display ?? '');
@@ -133,7 +147,7 @@
 </script>
 
 <div class="flex flex-col gap-2">
-	<DataTable data={sortedData} {columns} tableClass="w-full table-auto text-xs" />
+	<DataTable data={sortedData} columns={columns as import('@tanstack/svelte-table').ColumnDef<unknown>[]} tableClass="w-full table-auto text-xs" />
 	{#if showTotals}
 		<div class="flex flex-wrap justify-end gap-3 border-t pt-2 text-xs">
 			<span class="font-medium text-muted-foreground">{totalLabel}</span>

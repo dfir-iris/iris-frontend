@@ -4,9 +4,8 @@
 	import { RefreshCw } from 'lucide-svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import DataTable from '$lib/components/ui/data-table/data-table.svelte';
-	import { DashboardService } from '$lib/services/dashboard.service';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { reviewsStore, isLoadingReviewsStore } from '$lib/stores/reviews.store';
+	import { reviews, isLoadingReviewsStore } from '$lib/stores/reviews.store';
 	import { cellRendererFactory } from '$lib/components/ui/data-table/cell-renderer-factory';
 	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
 
@@ -48,18 +47,7 @@
 	];
 
 	async function loadInitialData() {
-		isLoadingReviewsStore.set(true);
-
-		try {
-			const reviewsResponse = await DashboardService.listReviews();
-			if (reviewsResponse.ok && Array.isArray(reviewsResponse.data)) {
-				reviewsStore.set(reviewsResponse.data);
-			}
-		} catch (error) {
-			console.error('Error loading initial data:', error);
-		} finally {
-			isLoadingReviewsStore.set(false);
-		}
+		await reviews.load();
 	}
 
 	export let data: any = [];

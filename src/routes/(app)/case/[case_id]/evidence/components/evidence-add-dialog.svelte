@@ -158,12 +158,7 @@
 		</Dialog.Header>
 
 		<div class="min-h-0 flex-1 overflow-auto px-6 py-5">
-			<EvidenceForm
-				{formData}
-				{evidenceTypes}
-				onUpdateField={updateField}
-				onSave={save}
-			/>
+			<EvidenceForm {formData} {evidenceTypes} onUpdateField={updateField} onSave={save} />
 		</div>
 
 		<div class="flex shrink-0 items-center justify-end gap-2 border-t px-6 py-4">

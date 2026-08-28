@@ -36,15 +36,12 @@
  */
 const rewriteDatastoreUrls = (text: string): string => {
 	// Match: /datastore/file/view/NN?...cid=MM...  (cid may be anywhere in query)
-	return text.replace(
-		/\/datastore\/file\/view\/(\d+)(\?[^)\s"']*)?/g,
-		(match, fileId, query) => {
-			if (!query) return match; // no query, no cid → can't rewrite safely
-			const cidMatch = query.match(/[?&]cid=(\d+)/);
-			if (!cidMatch) return match;
-			return `/api/v2/cases/${cidMatch[1]}/datastore/files/${fileId}`;
-		}
-	);
+	return text.replace(/\/datastore\/file\/view\/(\d+)(\?[^)\s"']*)?/g, (match, fileId, query) => {
+		if (!query) return match; // no query, no cid → can't rewrite safely
+		const cidMatch = query.match(/[?&]cid=(\d+)/);
+		if (!cidMatch) return match;
+		return `/api/v2/cases/${cidMatch[1]}/datastore/files/${fileId}`;
+	});
 };
 
 /**

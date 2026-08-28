@@ -30,7 +30,7 @@ export interface DataStoreFile {
 // and folders type:'directory'. Folders carry a `children` map; files carry
 // the file fields directly.
 export type DataStoreTreeNode =
-	| ({ type: 'directory'; name: string; is_root?: boolean; children: DataStoreTree })
+	| { type: 'directory'; name: string; is_root?: boolean; children: DataStoreTree }
 	| ({ type: 'file' } & DataStoreFile);
 
 export type DataStoreTree = Record<string, DataStoreTreeNode>;

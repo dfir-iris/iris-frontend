@@ -366,8 +366,8 @@
 				<div class="rounded-lg bg-card/40 p-4 md:col-span-2">
 					<p class="text-sm font-medium text-muted-foreground">Timelines</p>
 					<p class="mt-0.5 text-2xs text-muted-foreground">
-						An event can appear on multiple timelines. Leaving this empty makes the event
-						visible only in the "All" view.
+						An event can appear on multiple timelines. Leaving this empty makes the event visible
+						only in the "All" view.
 					</p>
 
 					<div class="mt-1">

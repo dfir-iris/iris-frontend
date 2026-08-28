@@ -181,10 +181,7 @@ export interface UserAuditAccessEntry {
 export interface UserAuditPermissionDetail {
 	name: string;
 	value: number;
-	inherited_from: Record<
-		string,
-		{ group_name: string; group_uuid: string }
-	>;
+	inherited_from: Record<string, { group_name: string; group_uuid: string }>;
 }
 
 export interface UserAudit {
@@ -223,21 +220,14 @@ export class AccessControlService {
 		userId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<AccessControlUser>> {
-		return ApiService.get<AccessControlUser>(
-			`/manage/users/${userId}`,
-			withV2Header(options)
-		);
+		return ApiService.get<AccessControlUser>(`/manage/users/${userId}`, withV2Header(options));
 	}
 
 	static async createUser(
 		body: CreateUserBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<AccessControlUser>> {
-		return ApiService.post<AccessControlUser>(
-			'/manage/users',
-			body,
-			withV2Header(options)
-		);
+		return ApiService.post<AccessControlUser>('/manage/users', body, withV2Header(options));
 	}
 
 	static async updateUser(
@@ -256,10 +246,7 @@ export class AccessControlService {
 		userId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
-		return ApiService.delete<null>(
-			`/manage/users/${userId}`,
-			withV2Header(options)
-		);
+		return ApiService.delete<null>(`/manage/users/${userId}`, withV2Header(options));
 	}
 
 	static async activateUser(
@@ -292,9 +279,7 @@ export class AccessControlService {
 	static async renewUserApiKey(
 		userId: number,
 		options: ApiOptions = {}
-	): Promise<
-		RequestResponse<{ user_id: number; user: string; api_key: string }>
-	> {
+	): Promise<RequestResponse<{ user_id: number; user: string; api_key: string }>> {
 		return ApiService.post<{ user_id: number; user: string; api_key: string }>(
 			`/manage/users/${userId}/api-key/renew`,
 			{},
@@ -328,10 +313,7 @@ export class AccessControlService {
 		userId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<UserAudit>> {
-		return ApiService.get<UserAudit>(
-			`/manage/users/${userId}/audit`,
-			withV2Header(options)
-		);
+		return ApiService.get<UserAudit>(`/manage/users/${userId}/audit`, withV2Header(options));
 	}
 
 	// User → groups
@@ -421,10 +403,7 @@ export class AccessControlService {
 		userId: number,
 		cases: number[]
 	): Promise<RequestResponse<AccessControlUser>> {
-		return jsonDelete<AccessControlUser>(
-			`/api/v2/manage/users/${userId}/cases-access`,
-			{ cases }
-		);
+		return jsonDelete<AccessControlUser>(`/api/v2/manage/users/${userId}/cases-access`, { cases });
 	}
 
 	// ----- Groups -----------------------------------------------------
@@ -442,21 +421,14 @@ export class AccessControlService {
 		groupId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<AccessControlGroup>> {
-		return ApiService.get<AccessControlGroup>(
-			`/manage/groups/${groupId}`,
-			withV2Header(options)
-		);
+		return ApiService.get<AccessControlGroup>(`/manage/groups/${groupId}`, withV2Header(options));
 	}
 
 	static async createGroup(
 		body: CreateGroupBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<AccessControlGroup>> {
-		return ApiService.post<AccessControlGroup>(
-			'/manage/groups',
-			body,
-			withV2Header(options)
-		);
+		return ApiService.post<AccessControlGroup>('/manage/groups', body, withV2Header(options));
 	}
 
 	static async updateGroup(
@@ -475,10 +447,7 @@ export class AccessControlService {
 		groupId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
-		return ApiService.delete<null>(
-			`/manage/groups/${groupId}`,
-			withV2Header(options)
-		);
+		return ApiService.delete<null>(`/manage/groups/${groupId}`, withV2Header(options));
 	}
 
 	// Group → members
@@ -544,16 +513,13 @@ export class AccessControlService {
 		groupId: number,
 		cases: number[]
 	): Promise<RequestResponse<AccessControlGroup>> {
-		return jsonDelete<AccessControlGroup>(
-			`/api/v2/manage/groups/${groupId}/cases-access`,
-			{ cases }
-		);
+		return jsonDelete<AccessControlGroup>(`/api/v2/manage/groups/${groupId}/cases-access`, {
+			cases
+		});
 	}
 
 	// ----- Schema + lookups ------------------------------------------
-	static async schema(
-		options: ApiOptions = {}
-	): Promise<RequestResponse<AccessControlSchemaInfo>> {
+	static async schema(options: ApiOptions = {}): Promise<RequestResponse<AccessControlSchemaInfo>> {
 		return ApiService.get<AccessControlSchemaInfo>(
 			'/manage/access-control/schema',
 			withV2Header(options)
@@ -596,7 +562,6 @@ async function jsonDelete<T>(
 ): Promise<RequestResponse<T>> {
 	const { auth } = await import('$lib/stores/auth.store');
 	const { AuthService } = await import('./auth.service');
-	const { browser } = await import('$app/environment');
 	const { apiOrigin } = await import('$lib/config/api.config');
 
 	if (auth.isTokenExpired() && !auth.isRefreshTokenExpired()) {

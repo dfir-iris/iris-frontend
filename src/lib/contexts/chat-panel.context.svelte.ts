@@ -131,17 +131,12 @@ export const createChatPanelContext = () => {
 				}
 				return;
 			}
-			const baseChunk = Math.max(
-				1,
-				Math.floor((TYPING_CHARS_PER_SEC * TYPING_TICK_MS) / 1000)
-			);
+			const baseChunk = Math.max(1, Math.floor((TYPING_CHARS_PER_SEC * TYPING_TICK_MS) / 1000));
 			// Catch-up multiplier: if pending is growing past the lag
 			// threshold, drain faster so we don't fall behind.
 			const chunk = Math.min(
 				sa.pending.length,
-				sa.pending.length > TYPING_MAX_LAG_CHARS
-					? baseChunk * 3
-					: baseChunk
+				sa.pending.length > TYPING_MAX_LAG_CHARS ? baseChunk * 3 : baseChunk
 			);
 			state.streamingAssistant = {
 				...sa,
@@ -249,8 +244,7 @@ export const createChatPanelContext = () => {
 				toast({ title: state.error, variant: 'destructive' });
 			},
 			onConnectFailure: () => {
-				state.error =
-					'Could not connect to the chatbot socket. Reload the page to retry.';
+				state.error = 'Could not connect to the chatbot socket. Reload the page to retry.';
 				// Unlock the composer so the user can at least see the
 				// error and try a fresh conversation instead of typing
 				// into a paralysed textarea.
@@ -335,10 +329,7 @@ export const createChatPanelContext = () => {
 		return [];
 	};
 
-	const renameConversation = async (
-		conversationId: number,
-		title: string
-	): Promise<boolean> => {
+	const renameConversation = async (conversationId: number, title: string): Promise<boolean> => {
 		const res = await ChatService.renameConversation(conversationId, title);
 		if (res.ok && res.data && typeof res.data !== 'string') {
 			const updated = res.data as ChatConversation;
@@ -381,8 +372,7 @@ export const createChatPanelContext = () => {
 				_ensureSocket().joinConversation(conv.id);
 				return conv.id;
 			}
-			state.error =
-				(res.error?.message as string) || 'Could not create conversation';
+			state.error = (res.error?.message as string) || 'Could not create conversation';
 			return null;
 		} finally {
 			state.loading = false;
@@ -405,8 +395,7 @@ export const createChatPanelContext = () => {
 				_ensureSocket().joinConversation(conv.id);
 				return conv.id;
 			}
-			state.error =
-				(res.error?.message as string) || 'Could not create conversation';
+			state.error = (res.error?.message as string) || 'Could not create conversation';
 			return null;
 		} finally {
 			state.loading = false;
@@ -438,8 +427,7 @@ export const createChatPanelContext = () => {
 				_ensureSocket().joinConversation(conv.id);
 				return conv.id;
 			}
-			state.error =
-				(res.error?.message as string) || 'Could not create conversation';
+			state.error = (res.error?.message as string) || 'Could not create conversation';
 			return null;
 		} finally {
 			state.loading = false;
@@ -504,13 +492,7 @@ export const createChatPanelContext = () => {
 	 * any focus hint. Returns the new conversation id.
 	 */
 	const startWithScope = async (choice: {
-		kind:
-			| 'global'
-			| 'currentCase'
-			| 'currentWarRoom'
-			| 'currentAlert'
-			| 'pickCase'
-			| 'pickWarRoom';
+		kind: 'global' | 'currentCase' | 'currentWarRoom' | 'currentAlert' | 'pickCase' | 'pickWarRoom';
 		caseId?: number;
 		warRoomId?: number;
 		alertId?: number;
@@ -557,9 +539,7 @@ export const createChatPanelContext = () => {
 		// under the running tool card, then `assistant_end` refreshes the
 		// canonical pending list. If dispatch errors, the refresh
 		// re-hydrates the row from the DB so nothing is silently lost.
-		state.pendingToolCalls = state.pendingToolCalls.filter(
-			(p) => p.id !== pendingToolCallId
-		);
+		state.pendingToolCalls = state.pendingToolCalls.filter((p) => p.id !== pendingToolCallId);
 		state.streamingAssistant = { text: '', pending: '', toolUses: [] };
 		state.streamingConversationId = state.currentConversation.id;
 		_ensureSocket().approveTool(pendingToolCallId, state.currentConversation.id);
@@ -567,9 +547,7 @@ export const createChatPanelContext = () => {
 
 	const denyTool = (pendingToolCallId: number) => {
 		if (!state.currentConversation) return;
-		state.pendingToolCalls = state.pendingToolCalls.filter(
-			(p) => p.id !== pendingToolCallId
-		);
+		state.pendingToolCalls = state.pendingToolCalls.filter((p) => p.id !== pendingToolCallId);
 		state.streamingAssistant = { text: '', pending: '', toolUses: [] };
 		state.streamingConversationId = state.currentConversation.id;
 		_ensureSocket().denyTool(pendingToolCallId, state.currentConversation.id);

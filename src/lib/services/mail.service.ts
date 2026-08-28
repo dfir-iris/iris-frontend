@@ -27,8 +27,9 @@ export interface MailRule {
 	updated_at: string | null;
 }
 
-export type MailRuleBody = Partial<Omit<MailRule,
-	'id' | 'created_by_id' | 'created_at' | 'updated_at'>>;
+export type MailRuleBody = Partial<
+	Omit<MailRule, 'id' | 'created_by_id' | 'created_at' | 'updated_at'>
+>;
 
 export interface MailIngestLogEntry {
 	message_id: string;
@@ -50,11 +51,8 @@ export interface MailIngestLogEntry {
 export class MailService {
 	// --- Rules ---------------------------------------------------------
 
-	static async listRules(
-		options: ApiOptions = {}
-	): Promise<RequestResponse<{ data: MailRule[] }>> {
-		return ApiService.get<{ data: MailRule[] }>(
-			'/manage/mail/rules', options);
+	static async listRules(options: ApiOptions = {}): Promise<RequestResponse<{ data: MailRule[] }>> {
+		return ApiService.get<{ data: MailRule[] }>('/manage/mail/rules', options);
 	}
 
 	static async createRule(
@@ -69,16 +67,14 @@ export class MailService {
 		body: MailRuleBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<MailRule>> {
-		return ApiService.put<MailRule>(
-			`/manage/mail/rules/${ruleId}`, body, options);
+		return ApiService.put<MailRule>(`/manage/mail/rules/${ruleId}`, body, options);
 	}
 
 	static async deleteRule(
 		ruleId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<{ deleted: number }>> {
-		return ApiService.delete<{ deleted: number }>(
-			`/manage/mail/rules/${ruleId}`, options);
+		return ApiService.delete<{ deleted: number }>(`/manage/mail/rules/${ruleId}`, options);
 	}
 
 	// --- Ingest log ----------------------------------------------------
@@ -87,8 +83,7 @@ export class MailService {
 		limit: number = 100,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<{ data: MailIngestLogEntry[] }>> {
-		const path = ApiService.withQuery(
-			'/manage/mail/ingest-log', { limit });
+		const path = ApiService.withQuery('/manage/mail/ingest-log', { limit });
 		return ApiService.get<{ data: MailIngestLogEntry[] }>(path, options);
 	}
 
@@ -98,6 +93,9 @@ export class MailService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<{ skipped?: boolean; processed?: number; reason?: string }>> {
 		return ApiService.post<{ skipped?: boolean; processed?: number; reason?: string }>(
-			'/manage/mail/poll-now', {}, options);
+			'/manage/mail/poll-now',
+			{},
+			options
+		);
 	}
 }

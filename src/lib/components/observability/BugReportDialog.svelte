@@ -118,7 +118,7 @@
 	};
 </script>
 
-<Dialog.Root open={open} onOpenChange={(v) => (v ? onOpenChange(v) : close())}>
+<Dialog.Root {open} onOpenChange={(v) => (v ? onOpenChange(v) : close())}>
 	<Dialog.Content class="max-w-lg">
 		<Dialog.Header>
 			<Dialog.Title class="flex items-center gap-2">
@@ -126,10 +126,9 @@
 				Report an issue
 			</Dialog.Title>
 			<Dialog.Description>
-				Describe what you were doing when things went wrong. The report is sent to
-				the error-reporting collector when enabled, or logged on the server as a
-				fallback. Case content, credentials, and IOCs are redacted from any
-				auto-attached diagnostics.
+				Describe what you were doing when things went wrong. The report is sent to the
+				error-reporting collector when enabled, or logged on the server as a fallback. Case content,
+				credentials, and IOCs are redacted from any auto-attached diagnostics.
 			</Dialog.Description>
 		</Dialog.Header>
 
@@ -165,8 +164,8 @@
 				/>
 			</div>
 			<p class="text-2xs text-muted-foreground">
-				Auto-attached: current URL, browser user-agent, and the last server
-				request id ({getLastRequestId() ?? 'none yet'}).
+				Auto-attached: current URL, browser user-agent, and the last server request id ({getLastRequestId() ??
+					'none yet'}).
 			</p>
 			{#if submitError}
 				<p class="whitespace-pre-wrap text-2xs text-destructive">{submitError}</p>
@@ -175,10 +174,7 @@
 
 		<Dialog.Footer>
 			<Button variant="outline" onclick={close} disabled={submitting}>Cancel</Button>
-			<Button
-				onclick={submit}
-				disabled={submitting || !title.trim() || !description.trim()}
-			>
+			<Button onclick={submit} disabled={submitting || !title.trim() || !description.trim()}>
 				{submitting ? 'Sending…' : 'Send report'}
 			</Button>
 		</Dialog.Footer>

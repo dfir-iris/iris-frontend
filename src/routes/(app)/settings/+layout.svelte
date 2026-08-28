@@ -23,7 +23,7 @@
 	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 	import { demoHidesServerSettings } from '$lib/services/user-context.service';
 
-	let { data, children }: { data: LayoutData; children: Snippet } = $props();
+	let { data: _data, children }: { data: LayoutData; children: Snippet } = $props();
 
 	const pathname = $derived(page.url.pathname);
 
@@ -108,7 +108,7 @@
 	  `bg-background` grey) so the right pane reads as a distinct
 	  surface raised over the sidebar column instead of blending in.
 	-->
-	<div class="flex h-full min-w-0 flex-1 flex-col rounded-md border bg-card shadow-elevation-1">
+	<div class="shadow-elevation-1 flex h-full min-w-0 flex-1 flex-col rounded-md border bg-card">
 		{@render children()}
 	</div>
 </div>

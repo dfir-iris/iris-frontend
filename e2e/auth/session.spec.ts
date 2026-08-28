@@ -2,9 +2,7 @@ import { test, expect } from '@playwright/test';
 import { login } from '../helpers/auth';
 
 test.describe('Auth · session', () => {
-	test('visiting a protected route while unauthenticated redirects to /login', async ({
-		page
-	}) => {
+	test('visiting a protected route while unauthenticated redirects to /login', async ({ page }) => {
 		await page.context().clearCookies();
 		await page.goto('/');
 		await expect(page).toHaveURL(/\/login/);

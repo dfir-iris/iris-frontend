@@ -199,9 +199,7 @@
 
 	const remove = (s: WarRoomSitRep) => {
 		askConfirm({
-			title: s.published
-				? `Delete published SitRep v${s.version}?`
-				: `Delete draft "${s.title}"?`,
+			title: s.published ? `Delete published SitRep v${s.version}?` : `Delete draft "${s.title}"?`,
 			message: s.published
 				? `"${s.title}" has been broadcast to the room's chat. Deleting removes the record entirely — this can't be undone.`
 				: 'This removes the draft. It cannot be undone.',
@@ -215,9 +213,7 @@
 <div class="grid h-full w-full grid-cols-[280px_minmax(0,1fr)] overflow-hidden">
 	<aside class="flex flex-col border-r bg-card/30">
 		<header class="flex items-center justify-between gap-2 border-b p-3">
-			<h2 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-				SitReps
-			</h2>
+			<h2 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">SitReps</h2>
 			<Button size="icon" variant="ghost" class="h-6 w-6" onclick={() => (createOpen = true)}>
 				<Plus class="h-3.5 w-3.5" />
 			</Button>
@@ -338,9 +334,7 @@
 					  again, but it can still be edited or deleted.
 					-->
 					{#if editing}
-						<Button size="sm" variant="ghost" onclick={cancelEdit} disabled={saving}>
-							Cancel
-						</Button>
+						<Button size="sm" variant="ghost" onclick={cancelEdit} disabled={saving}>Cancel</Button>
 						<Button size="sm" onclick={save} disabled={saving}>
 							{saving ? 'Saving…' : 'Save'}
 						</Button>
@@ -398,9 +392,7 @@
 			<DialogTitle>New SitRep draft</DialogTitle>
 		</DialogHeader>
 		<div class="py-2">
-			<label class="text-xs font-medium text-muted-foreground" for="sitrep-title">
-				Title
-			</label>
+			<label class="text-xs font-medium text-muted-foreground" for="sitrep-title"> Title </label>
 			<Input
 				id="sitrep-title"
 				value={newTitle}
@@ -410,9 +402,7 @@
 			/>
 		</div>
 		<DialogFooter>
-			<Button variant="ghost" onclick={() => (createOpen = false)} disabled={saving}>
-				Cancel
-			</Button>
+			<Button variant="ghost" onclick={() => (createOpen = false)} disabled={saving}>Cancel</Button>
 			<Button onclick={submitCreate} disabled={saving || !newTitle.trim()}>
 				{saving ? 'Creating…' : 'Create draft'}
 			</Button>

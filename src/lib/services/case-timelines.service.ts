@@ -34,10 +34,7 @@ export interface UpdateCaseTimelineBody {
 }
 
 export class CaseTimelinesService {
-	static list(
-		caseId: number,
-		options: ApiOptions = {}
-	): Promise<RequestResponse<CaseTimeline[]>> {
+	static list(caseId: number, options: ApiOptions = {}): Promise<RequestResponse<CaseTimeline[]>> {
 		return ApiService.get<CaseTimeline[]>(`/cases/${caseId}/timelines`, options);
 	}
 
@@ -54,10 +51,7 @@ export class CaseTimelinesService {
 		timelineId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<CaseTimeline>> {
-		return ApiService.get<CaseTimeline>(
-			`/cases/${caseId}/timelines/${timelineId}`,
-			options
-		);
+		return ApiService.get<CaseTimeline>(`/cases/${caseId}/timelines/${timelineId}`, options);
 	}
 
 	static update(
@@ -66,11 +60,7 @@ export class CaseTimelinesService {
 		body: UpdateCaseTimelineBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<CaseTimeline>> {
-		return ApiService.put<CaseTimeline>(
-			`/cases/${caseId}/timelines/${timelineId}`,
-			body,
-			options
-		);
+		return ApiService.put<CaseTimeline>(`/cases/${caseId}/timelines/${timelineId}`, body, options);
 	}
 
 	static remove(

@@ -16,8 +16,8 @@
 </script>
 
 <Card.Root
-	class="cursor-pointer transition-all duration-200 hover:shadow-elevation-3 hover:-translate-y-0.5 {isActive
-		? 'border-primary/30 shadow-glow-primary ring-1 ring-primary/20'
+	class="hover:shadow-elevation-3 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 {isActive
+		? 'shadow-glow-primary border-primary/30 ring-1 ring-primary/20'
 		: ''} h-full"
 	onclick={onClick}
 >

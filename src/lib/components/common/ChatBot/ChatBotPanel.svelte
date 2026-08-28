@@ -23,10 +23,7 @@
 	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import {
-		CHAT_PANEL_CTX,
-		type ChatPanelContext
-	} from '$lib/contexts/chat-panel.context.svelte';
+	import { CHAT_PANEL_CTX, type ChatPanelContext } from '$lib/contexts/chat-panel.context.svelte';
 	import ChatMessage from './components/ChatMessage.svelte';
 	import ChatComposer from './components/ChatComposer.svelte';
 	import ChatUsageBar from './components/ChatUsageBar.svelte';
@@ -335,12 +332,16 @@
 			type="button"
 			onclick={toggleMinimize}
 			class="fixed z-50 flex items-center gap-2 rounded-full border bg-background px-4 py-2 text-xs font-medium shadow-lg transition-colors hover:bg-muted"
-			style="left: {win.x}px; top: {Math.min(win.y, (typeof window !== 'undefined' ? window.innerHeight : 0) - 48)}px;"
+			style="left: {win.x}px; top: {Math.min(
+				win.y,
+				(typeof window !== 'undefined' ? window.innerHeight : 0) - 48
+			)}px;"
 		>
 			<SparklesIcon size={14} />
 			Yuki
 			{#if chat.state.streamingAssistant}
-				<span class="ml-1 size-2 animate-pulse rounded-full bg-primary" aria-label="streaming"></span>
+				<span class="ml-1 size-2 animate-pulse rounded-full bg-primary" aria-label="streaming"
+				></span>
 			{/if}
 		</button>
 	{:else}
@@ -357,6 +358,7 @@
 			aria-label="Yuki"
 		>
 			<!-- Drag handle / header. -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div
 				class="flex shrink-0 cursor-move select-none items-center gap-2 border-b bg-muted/40 px-3 py-2"
 				onpointerdown={onHeaderPointerDown}
@@ -369,6 +371,7 @@
 				     yet, show the product name. onpointerdown stopped so a
 				     click on the title doesn't initiate a header drag. -->
 				{#if chat.state.currentConversation && renamingCurrent}
+					<!-- svelte-ignore a11y_autofocus -->
 					<input
 						type="text"
 						class="min-w-0 flex-1 rounded border bg-background px-1 py-0.5 text-xs"
@@ -487,12 +490,7 @@
 					</button>
 				</div>
 				{#if showHeaderScopePicker}
-					<ScopePicker
-						{currentCaseId}
-						{currentWarRoomId}
-						{currentAlertId}
-						onPick={onScopePicked}
-					/>
+					<ScopePicker {currentCaseId} {currentWarRoomId} {currentAlertId} onPick={onScopePicked} />
 				{/if}
 			</div>
 
@@ -603,11 +601,7 @@
 						</div>
 					{/if}
 					{#each chat.state.pendingToolCalls as pending (pending.id)}
-						<PendingToolApproval
-							{pending}
-							onApprove={chat.approveTool}
-							onDeny={chat.denyTool}
-						/>
+						<PendingToolApproval {pending} onApprove={chat.approveTool} onDeny={chat.denyTool} />
 					{/each}
 
 					{#if chat.state.error}

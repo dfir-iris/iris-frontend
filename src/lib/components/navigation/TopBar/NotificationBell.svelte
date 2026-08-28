@@ -81,7 +81,7 @@
 	}
 </script>
 
-<Popover.Root {open} onOpenChange={onOpenChange}>
+<Popover.Root {open} {onOpenChange}>
 	<Popover.Trigger
 		class="relative rounded-lg p-2 text-white/80 backdrop-blur-md transition-all duration-150 hover:bg-white/15 hover:text-white hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.18)]"
 		aria-label="Notifications"
@@ -116,7 +116,7 @@
 	  outer flex column lets the header stay put while the middle
 	  list is the only thing that scrolls.
 	-->
-	<Popover.Content align="end" class="flex w-96 max-h-[70vh] flex-col p-0">
+	<Popover.Content align="end" class="flex max-h-[70vh] w-96 flex-col p-0">
 		<div class="flex flex-shrink-0 items-center justify-between gap-2 border-b px-3 py-2">
 			<div class="text-sm font-semibold text-foreground">Notifications</div>
 			<div class="flex items-center gap-1">
@@ -144,21 +144,30 @@
 		<div class="min-h-0 flex-1 overflow-y-auto">
 			{#if $reviews.items.length > 0}
 				<div class="border-b">
-					<div class="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+					<div
+						class="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+					>
 						Pending reviews
 					</div>
 					<ul class="divide-y">
 						{#each $reviews.items as r (r.case_id)}
 							<li>
 								<button
-									onclick={() => { open = false; goto(`/case/${r.case_id}`); }}
+									onclick={() => {
+										open = false;
+										goto(`/case/${r.case_id}`);
+									}}
 									class="flex w-full items-start gap-2 bg-amber-50/60 px-3 py-2 text-left transition-colors hover:bg-muted dark:bg-amber-900/10"
 								>
 									<span class="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-amber-500"></span>
 									<div class="min-w-0 flex-1">
 										<div class="flex items-center gap-1.5">
-											<ClipboardCheckIcon size={11} class="shrink-0 text-amber-600 dark:text-amber-400" />
-											<span class="truncate text-sm font-medium text-foreground">{r.case_name}</span>
+											<ClipboardCheckIcon
+												size={11}
+												class="shrink-0 text-amber-600 dark:text-amber-400"
+											/>
+											<span class="truncate text-sm font-medium text-foreground">{r.case_name}</span
+											>
 										</div>
 										{#if r.review_status?.status_name}
 											<div class="text-xs text-muted-foreground">{r.review_status.status_name}</div>
@@ -172,16 +181,14 @@
 			{/if}
 
 			{#if $notifications.loading && $notifications.items.length === 0}
-				<div class="px-3 py-8 text-center text-sm text-muted-foreground">
-					Loading…
-				</div>
+				<div class="px-3 py-8 text-center text-sm text-muted-foreground">Loading…</div>
 			{:else if $notifications.items.length === 0 && $reviews.items.length === 0}
-				<div class="px-3 py-8 text-center text-sm text-muted-foreground">
-					You're all caught up.
-				</div>
+				<div class="px-3 py-8 text-center text-sm text-muted-foreground">You're all caught up.</div>
 			{:else if $notifications.items.length > 0}
 				{#if $reviews.items.length > 0}
-					<div class="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+					<div
+						class="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+					>
 						Notifications
 					</div>
 				{/if}
@@ -225,10 +232,7 @@
 		</div>
 
 		{#if $notifications.error}
-			<div
-				class="border-t bg-destructive/10 px-3 py-2 text-xs text-destructive"
-				role="status"
-			>
+			<div class="border-t bg-destructive/10 px-3 py-2 text-xs text-destructive" role="status">
 				{$notifications.error}
 			</div>
 		{/if}

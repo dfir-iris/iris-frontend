@@ -16,8 +16,7 @@ export const newNote = async (notes: WarRoomNotesContext, folderId?: number | nu
 	// Prefer explicit folder → currently selected → root (folder_id === null)
 	// so notes always land somewhere the user is looking at.
 	const targetFolderId =
-		folderId ??
-		(notes.ui.selectedFolderId !== undefined ? notes.ui.selectedFolderId : null);
+		folderId ?? (notes.ui.selectedFolderId !== undefined ? notes.ui.selectedFolderId : null);
 
 	const note = await notes.createNote({
 		title: 'New note',

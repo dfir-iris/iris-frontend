@@ -144,7 +144,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	try {
 		const upstream = await forwardEnvelope(parsed.ingestUrl, parsed.publicKey, body);
-		return new Response(upstream.body, {
+		return new Response(new Uint8Array(upstream.body), {
 			status: upstream.status,
 			headers: { 'Content-Type': upstream.contentType }
 		});

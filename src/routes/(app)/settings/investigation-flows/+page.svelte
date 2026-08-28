@@ -129,7 +129,8 @@
 			});
 			createOpen = false;
 			await load();
-			const created = res.data && typeof res.data === 'object' ? (res.data as InvestigationFlow) : null;
+			const created =
+				res.data && typeof res.data === 'object' ? (res.data as InvestigationFlow) : null;
 			if (created) setSelected(flows.find((f) => f.flow_id === created.flow_id) ?? created);
 			showSuccess('Flow created');
 		} catch {
@@ -208,8 +209,7 @@
 				res.data && typeof res.data === 'object' ? (res.data as DeployFlowResult) : null;
 			if (payload) {
 				const parts: string[] = [];
-				if (payload.alerts_attached > 0)
-					parts.push(`${payload.alerts_attached} alert(s)`);
+				if (payload.alerts_attached > 0) parts.push(`${payload.alerts_attached} alert(s)`);
 				if (payload.clusters_attached > 0)
 					parts.push(`${payload.clusters_attached} alert cluster(s)`);
 				const msg = parts.length ? `Attached to ${parts.join(', ')}` : 'No matches found';
@@ -344,9 +344,7 @@
 		<main class="flex min-h-0 flex-col overflow-y-auto rounded-md border bg-card">
 			{#if !selected}
 				<div class="flex flex-1 items-center justify-center p-8">
-					<p class="text-sm text-muted-foreground">
-						Select a flow, or create a new one.
-					</p>
+					<p class="text-sm text-muted-foreground">Select a flow, or create a new one.</p>
 				</div>
 			{:else}
 				<header class="flex items-center justify-between border-b p-4">
@@ -368,15 +366,12 @@
 
 				<!-- Metadata + conditions -->
 				<section class="border-b p-4">
-					<p class="mb-3 text-2xs uppercase tracking-wide text-muted-foreground">
-						Attachment
-					</p>
+					<p class="mb-3 text-2xs uppercase tracking-wide text-muted-foreground">Attachment</p>
 					<div class="grid gap-3 sm:grid-cols-2">
 						<div class="flex flex-col gap-1">
 							<label
 								for="flow-target"
-								class="text-2xs uppercase tracking-wide text-muted-foreground"
-								>Attach to</label
+								class="text-2xs uppercase tracking-wide text-muted-foreground">Attach to</label
 							>
 							<select
 								id="flow-target"
@@ -401,7 +396,10 @@
 					<p class="mb-2 mt-4 text-2xs uppercase tracking-wide text-muted-foreground">
 						Match conditions (empty = never auto-attaches)
 					</p>
-					<ConditionsBuilder bind:value={editConditions} target={editTarget === 'alert_cluster' ? 'alert_cluster' : 'alert'} />
+					<ConditionsBuilder
+						bind:value={editConditions}
+						target={editTarget === 'alert_cluster' ? 'alert_cluster' : 'alert'}
+					/>
 
 					<div class="mt-4 flex flex-wrap items-center gap-2">
 						<Button onclick={saveMetadata}>Save changes</Button>
@@ -410,8 +408,8 @@
 							{deploying ? 'Deploying…' : 'Deploy to existing'}
 						</Button>
 						<span class="text-xs text-muted-foreground">
-							Deploy back-fills this flow onto historical alerts / alert clusters that
-							match and don't already have a flow attached.
+							Deploy back-fills this flow onto historical alerts / alert clusters that match and
+							don't already have a flow attached.
 						</span>
 					</div>
 				</section>
@@ -471,16 +469,13 @@
 											<div id="step-desc-{step.step_id}" class="mt-1">
 												<MarkDownEditor
 													value={step.step_description ?? ''}
-													onChange={(v: string) =>
-														(step.step_description = v)}
+													onChange={(v: string) => (step.step_description = v)}
 													onSave={() => saveStep(step)}
 													initialMode="edit-preview"
 												/>
 											</div>
 											<div class="mt-1 flex items-center justify-between">
-												<label
-													class="inline-flex items-center gap-2 text-xs text-muted-foreground"
-												>
+												<label class="inline-flex items-center gap-2 text-xs text-muted-foreground">
 													<input
 														type="checkbox"
 														bind:checked={step.step_is_required}
@@ -488,11 +483,7 @@
 													/>
 													Required step
 												</label>
-												<Button
-													size="xs"
-													variant="outline"
-													onclick={() => saveStep(step)}
-												>
+												<Button size="xs" variant="outline" onclick={() => saveStep(step)}>
 													Save description
 												</Button>
 											</div>
@@ -542,15 +533,14 @@
 		<Dialog.Header>
 			<Dialog.Title>New investigation flow</Dialog.Title>
 			<Dialog.Description>
-				Give the flow a clear name — analysts will see it in the left pane of any alert or
-				alert cluster it attaches to. You'll set the match conditions after creating it.
+				Give the flow a clear name — analysts will see it in the left pane of any alert or alert
+				cluster it attaches to. You'll set the match conditions after creating it.
 			</Dialog.Description>
 		</Dialog.Header>
 		<div class="flex flex-col gap-3 pt-2">
 			<div class="flex flex-col gap-1">
-				<label
-					for="create-flow-name"
-					class="text-2xs uppercase tracking-wide text-muted-foreground">Name</label
+				<label for="create-flow-name" class="text-2xs uppercase tracking-wide text-muted-foreground"
+					>Name</label
 				>
 				<Input
 					id="create-flow-name"
@@ -560,9 +550,8 @@
 				/>
 			</div>
 			<div class="flex flex-col gap-1">
-				<label
-					for="create-flow-desc"
-					class="text-2xs uppercase tracking-wide text-muted-foreground">Description</label
+				<label for="create-flow-desc" class="text-2xs uppercase tracking-wide text-muted-foreground"
+					>Description</label
 				>
 				<Textarea
 					id="create-flow-desc"
@@ -591,9 +580,8 @@
 			<Dialog.Title>Rename flow</Dialog.Title>
 		</Dialog.Header>
 		<div class="flex flex-col gap-1 pt-2">
-			<label
-				for="rename-flow-name"
-				class="text-2xs uppercase tracking-wide text-muted-foreground">Name</label
+			<label for="rename-flow-name" class="text-2xs uppercase tracking-wide text-muted-foreground"
+				>Name</label
 			>
 			<Input id="rename-flow-name" bind:value={renameName} disabled={renameBusy} />
 		</div>

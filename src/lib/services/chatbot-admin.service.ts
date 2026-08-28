@@ -119,11 +119,7 @@ export class ChatbotAdminService {
 		body: ChatbotPolicyBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<ChatbotPolicy>> {
-		return ApiService.post<ChatbotPolicy>(
-			'/manage/case-chat/policies',
-			body,
-			options
-		);
+		return ApiService.post<ChatbotPolicy>('/manage/case-chat/policies', body, options);
 	}
 
 	static async updatePolicy(
@@ -131,21 +127,11 @@ export class ChatbotAdminService {
 		body: ChatbotPolicyBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<ChatbotPolicy>> {
-		return ApiService.patch<ChatbotPolicy>(
-			`/manage/case-chat/policies/${id}`,
-			body,
-			options
-		);
+		return ApiService.patch<ChatbotPolicy>(`/manage/case-chat/policies/${id}`, body, options);
 	}
 
-	static async deletePolicy(
-		id: number,
-		options: ApiOptions = {}
-	): Promise<RequestResponse<null>> {
-		return ApiService.delete<null>(
-			`/manage/case-chat/policies/${id}`,
-			options
-		);
+	static async deletePolicy(id: number, options: ApiOptions = {}): Promise<RequestResponse<null>> {
+		return ApiService.delete<null>(`/manage/case-chat/policies/${id}`, options);
 	}
 
 	static async setCustomerPolicy(
@@ -196,38 +182,26 @@ export class ChatbotAdminService {
 		conversationId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<{ conversation_id: number; turns: AdminSessionTurn[] }>> {
-		return ApiService.get(
-			`/manage/case-chat/sessions/${conversationId}/turns`,
-			options
-		);
+		return ApiService.get(`/manage/case-chat/sessions/${conversationId}/turns`, options);
 	}
 
 	// ---- Stage 3: Retention + DPO ----------------------------------
 
-	static async runRetention(
-		options: ApiOptions = {}
-	): Promise<
+	static async runRetention(options: ApiOptions = {}): Promise<
 		RequestResponse<{
 			conversations_deleted: number;
 			messages_deleted: number;
 			egress_deleted: number;
 		}>
 	> {
-		return ApiService.post(
-			'/manage/case-chat/retention/run',
-			{},
-			options
-		);
+		return ApiService.post('/manage/case-chat/retention/run', {}, options);
 	}
 
 	static async dpoExport(
 		userId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<unknown>> {
-		return ApiService.get(
-			`/manage/case-chat/dpo/export?user_id=${userId}`,
-			options
-		);
+		return ApiService.get(`/manage/case-chat/dpo/export?user_id=${userId}`, options);
 	}
 
 	static async dpoErase(
@@ -240,10 +214,6 @@ export class ChatbotAdminService {
 			egress_deleted: number;
 		}>
 	> {
-		return ApiService.post(
-			'/manage/case-chat/dpo/erase',
-			{ user_id: userId },
-			options
-		);
+		return ApiService.post('/manage/case-chat/dpo/erase', { user_id: userId }, options);
 	}
 }

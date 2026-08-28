@@ -109,7 +109,6 @@ export interface RenderReportBody {
 async function setupBinaryRequest(): Promise<{ headers: Record<string, string>; baseUrl: string }> {
 	const { auth } = await import('$lib/stores/auth.store');
 	const { AuthService } = await import('./auth.service');
-	const { browser } = await import('$app/environment');
 	const { apiOrigin } = await import('$lib/config/api.config');
 
 	if (auth.isTokenExpired() && !auth.isRefreshTokenExpired()) {
@@ -170,9 +169,7 @@ export class ReportTemplatesService {
 		return ApiService.get<ReportTemplate>(`/manage/report-templates/${identifier}`, options);
 	}
 
-	static async create(
-		body: ReportTemplateCreateBody
-	): Promise<RequestResponse<ReportTemplate>> {
+	static async create(body: ReportTemplateCreateBody): Promise<RequestResponse<ReportTemplate>> {
 		const { headers, baseUrl } = await setupBinaryRequest();
 		const url = `${baseUrl}/api/v2/manage/report-templates`;
 		const fd = new FormData();
@@ -207,11 +204,7 @@ export class ReportTemplatesService {
 		body: ReportTemplateUpdateBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<ReportTemplate>> {
-		return ApiService.put<ReportTemplate>(
-			`/manage/report-templates/${identifier}`,
-			body,
-			options
-		);
+		return ApiService.put<ReportTemplate>(`/manage/report-templates/${identifier}`, body, options);
 	}
 
 	/**
@@ -318,10 +311,7 @@ export class ReportTemplatesService {
 	static async schema(
 		options: ApiOptions = {}
 	): Promise<RequestResponse<ReportTemplateSchemaInfo>> {
-		return ApiService.get<ReportTemplateSchemaInfo>(
-			'/manage/report-templates/schema',
-			options
-		);
+		return ApiService.get<ReportTemplateSchemaInfo>('/manage/report-templates/schema', options);
 	}
 
 	static async accessibleCases(

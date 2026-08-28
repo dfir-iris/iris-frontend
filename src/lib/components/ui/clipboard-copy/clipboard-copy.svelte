@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { Copy, CheckCheck } from 'lucide-svelte';
-	import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '$lib/components/ui/tooltip';
+	import {
+		Tooltip,
+		TooltipContent,
+		TooltipProvider,
+		TooltipTrigger
+	} from '$lib/components/ui/tooltip';
 	import { cn } from '$lib/utils';
 	import { onDestroy } from 'svelte';
 
@@ -10,7 +15,7 @@
 		tooltipText = 'Copy',
 		copiedText = 'Copied!',
 		size = 14,
-		tooltipPosition = 'top',
+		tooltipPosition = 'top' as 'top' | 'right' | 'bottom' | 'left',
 		className = '',
 		alwaysVisible = false,
 		stopPropagation = true,
@@ -24,24 +29,27 @@
 	// Copy function
 	function copyToClipboard(e: MouseEvent) {
 		if (disabled || !value) return;
-		
+
 		if (stopPropagation) {
 			e.stopPropagation();
 		}
-		
-		navigator.clipboard.writeText(value).then(() => {
-			copied = true;
-			
-			// Clear any existing timeout
-			if (timeoutId) clearTimeout(timeoutId);
-			
-			// Reset after 2 seconds
-			timeoutId = setTimeout(() => {
-				copied = false;
-			}, 2000);
-		}).catch(error => {
-			console.error('Failed to copy:', error);
-		});
+
+		navigator.clipboard
+			.writeText(value)
+			.then(() => {
+				copied = true;
+
+				// Clear any existing timeout
+				if (timeoutId) clearTimeout(timeoutId);
+
+				// Reset after 2 seconds
+				timeoutId = setTimeout(() => {
+					copied = false;
+				}, 2000);
+			})
+			.catch((error) => {
+				console.error('Failed to copy:', error);
+			});
 	}
 
 	// Clean up on destroy
@@ -53,21 +61,21 @@
 <TooltipProvider>
 	<Tooltip delayDuration={100}>
 		<TooltipTrigger>
-			<button 
+			<button
 				class={cn(
-					"inline-flex items-center justify-center rounded-sm p-0.5 hover:text-primary transition-all",
-					alwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100",
-					disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
+					'inline-flex items-center justify-center rounded-sm p-0.5 transition-all hover:text-primary',
+					alwaysVisible ? 'opacity-100' : 'opacity-0 focus:opacity-100 group-hover:opacity-100',
+					disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
 					className
 				)}
 				onclick={copyToClipboard}
-				disabled={disabled}
+				{disabled}
 				aria-label={tooltipText}
 			>
 				{#if copied}
-					<CheckCheck size={size} />
+					<CheckCheck {size} />
 				{:else}
-					<Copy size={size} />
+					<Copy {size} />
 				{/if}
 			</button>
 		</TooltipTrigger>

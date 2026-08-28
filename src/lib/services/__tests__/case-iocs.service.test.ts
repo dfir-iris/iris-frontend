@@ -35,12 +35,7 @@ describe('CaseIocsService', () => {
 			page: 2,
 			per_page: 25,
 			order_by: 'ioc_value',
-			sort_dir: 'asc',
-			ioc_type_id: 1,
-			ioc_tlp_id: 2,
-			ioc_value: '8.8.8.8',
-			ioc_description: 'Google DNS',
-			ioc_tags: 'dns'
+			sort_dir: 'asc'
 		};
 
 		const options: ApiOptions = { skipTokenRefresh: true };

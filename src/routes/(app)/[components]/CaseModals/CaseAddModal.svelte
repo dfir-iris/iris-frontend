@@ -48,7 +48,10 @@
 	);
 
 	const templateOptions = $derived.by<SelectOption[]>(() =>
-		caseTemplates.caseTemplates.map((t) => ({ value: String(t.id), label: t.display_name || t.name }))
+		caseTemplates.caseTemplates.map((t) => ({
+			value: String(t.id),
+			label: t.display_name || t.name
+		}))
 	);
 
 	onMount(async () => {

@@ -200,6 +200,7 @@
 					{:else}
 						<ul class="flex flex-col">
 							{#each revisions as rev (rev.revision_number)}
+								<!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
 								<li
 									class={`flex w-full cursor-pointer items-start gap-2 border-l-2 px-3 py-2 text-left transition-colors hover:bg-muted/40 ${selectedNumber === rev.revision_number ? 'border-primary bg-muted/50' : 'border-transparent'}`}
 									role="button"

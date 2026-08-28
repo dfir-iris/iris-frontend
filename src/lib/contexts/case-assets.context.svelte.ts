@@ -192,13 +192,13 @@ export const createCaseAssetsContext = (getCaseId: () => number | null) => {
 			const merged: Asset = { ...prev, ...(body as Partial<Asset>) };
 
 			if (body.asset_type_id !== undefined && body.asset_type_id !== prev.asset_type_id) {
-				merged.asset_type = undefined;
+				(merged as Partial<Asset>).asset_type = undefined;
 			}
 			if (
 				body.analysis_status_id !== undefined &&
 				body.analysis_status_id !== prev.analysis_status_id
 			) {
-				merged.analysis_status = undefined;
+				(merged as Partial<Asset>).analysis_status = undefined;
 			}
 
 			byId[id] = merged;

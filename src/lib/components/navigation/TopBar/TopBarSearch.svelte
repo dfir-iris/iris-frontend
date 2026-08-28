@@ -52,16 +52,17 @@
 
 	// Type metadata mirrors the /search page so chips look identical
 	// across the two surfaces.
-	const TYPE_META: Record<SearchType, { label: string; Icon: typeof FileTextIcon; color: string }> = {
-		ioc: { label: 'IOC', Icon: BiohazardIcon, color: 'text-amber-500' },
-		assets: { label: 'Asset', Icon: ComputerIcon, color: 'text-sky-500' },
-		events: { label: 'Event', Icon: ClockIcon, color: 'text-emerald-500' },
-		notes: { label: 'Note', Icon: FileTextIcon, color: 'text-blue-500' },
-		tasks: { label: 'Task', Icon: SquareCheckBigIcon, color: 'text-violet-500' },
-		evidences: { label: 'Evidence', Icon: FileLock2Icon, color: 'text-rose-500' },
-		comments: { label: 'Comment', Icon: MessageSquareTextIcon, color: 'text-violet-500' },
-		summaries: { label: 'Summary', Icon: BookOpenIcon, color: 'text-indigo-500' }
-	};
+	const TYPE_META: Record<SearchType, { label: string; Icon: typeof FileTextIcon; color: string }> =
+		{
+			ioc: { label: 'IOC', Icon: BiohazardIcon, color: 'text-amber-500' },
+			assets: { label: 'Asset', Icon: ComputerIcon, color: 'text-sky-500' },
+			events: { label: 'Event', Icon: ClockIcon, color: 'text-emerald-500' },
+			notes: { label: 'Note', Icon: FileTextIcon, color: 'text-blue-500' },
+			tasks: { label: 'Task', Icon: SquareCheckBigIcon, color: 'text-violet-500' },
+			evidences: { label: 'Evidence', Icon: FileLock2Icon, color: 'text-rose-500' },
+			comments: { label: 'Comment', Icon: MessageSquareTextIcon, color: 'text-violet-500' },
+			summaries: { label: 'Summary', Icon: BookOpenIcon, color: 'text-indigo-500' }
+		};
 	const ALL_TYPES: SearchType[] = Object.keys(TYPE_META) as SearchType[];
 
 	// Two presentation modes share one piece of state:
@@ -260,7 +261,8 @@
 			if (id !== runId) return; // Stale response, ignore.
 			if (res.ok && res.data && typeof res.data !== 'string') {
 				const body = res.data as unknown as SearchEnvelope | { data: SearchEnvelope };
-				const env = 'pagination' in body ? (body as SearchEnvelope) : (body as { data: SearchEnvelope }).data;
+				const env =
+					'pagination' in body ? (body as SearchEnvelope) : (body as { data: SearchEnvelope }).data;
 				rows = env.data;
 				total = env.pagination.total;
 				totalPages = env.pagination.total_pages;
@@ -287,7 +289,8 @@
 			if (id !== runId) return;
 			if (res.ok && res.data && typeof res.data !== 'string') {
 				const body = res.data as unknown as SearchEnvelope | { data: SearchEnvelope };
-				const env = 'pagination' in body ? (body as SearchEnvelope) : (body as { data: SearchEnvelope }).data;
+				const env =
+					'pagination' in body ? (body as SearchEnvelope) : (body as { data: SearchEnvelope }).data;
 				rows = [...rows, ...env.data];
 				page = next;
 				total = env.pagination.total;
@@ -473,7 +476,7 @@
 		  is the canonical surface there.
 		-->
 		<div
-			class="absolute right-0 top-[calc(100%+6px)] z-50 flex w-[min(36rem,calc(100vw-1rem))] items-center gap-1 rounded-md border border-border bg-popover px-2 py-1 shadow-elevation-3 md:hidden"
+			class="shadow-elevation-3 absolute right-0 top-[calc(100%+6px)] z-50 flex w-[min(36rem,calc(100vw-1rem))] items-center gap-1 rounded-md border border-border bg-popover px-2 py-1 md:hidden"
 		>
 			<SearchIcon size={14} class="text-muted-foreground" />
 			<input
@@ -520,7 +523,7 @@
 		<div
 			role="dialog"
 			aria-label="Search results"
-			class="absolute right-0 top-[calc(100%+6px)] z-50 w-[min(36rem,calc(100vw-1rem))] overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-elevation-3"
+			class="shadow-elevation-3 absolute right-0 top-[calc(100%+6px)] z-50 w-[min(36rem,calc(100vw-1rem))] overflow-hidden rounded-md border border-border bg-popover text-popover-foreground"
 		>
 			<!-- Scope toggle -->
 			<div class="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
@@ -612,9 +615,7 @@
 										<span class="truncate text-sm font-medium" title={view.primary}>
 											{view.primary}
 										</span>
-										<span
-											class="flex items-center gap-1.5 text-2xs text-muted-foreground"
-										>
+										<span class="flex items-center gap-1.5 text-2xs text-muted-foreground">
 											<span class="font-mono tabular-nums">#{row.case_id}</span>
 											<span class="opacity-40">·</span>
 											<span class="truncate" title={row.case_name}>{row.case_name}</span>

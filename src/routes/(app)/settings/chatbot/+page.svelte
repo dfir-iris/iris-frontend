@@ -460,9 +460,7 @@
 	function snapshotUserText(snap: AdminSessionTurn['request_snapshot']): string {
 		if (!snap?.user_message) return '';
 		return snap.user_message
-			.map((b) =>
-				b.type === 'text' && typeof b.text === 'string' ? b.text : `[${b.type}]`
-			)
+			.map((b) => (b.type === 'text' && typeof b.text === 'string' ? b.text : `[${b.type}]`))
 			.join('');
 	}
 
@@ -584,10 +582,7 @@
 			<Tabs.Trigger value="gdpr">Retention &amp; DPO</Tabs.Trigger>
 		</Tabs.List>
 
-		<Tabs.Content
-			value="global"
-			class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-6"
-		>
+		<Tabs.Content value="global" class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
 			<!--
 			  Global chatbot config — the fallback the war-room resolver
 			  uses when no per-customer policy applies. Moved here from
@@ -595,9 +590,8 @@
 			-->
 			<div class="flex items-start justify-between gap-3">
 				<p class="text-xs text-muted-foreground">
-					Default provider, model, budgets, and redaction settings for the
-					IRIS chatbot. Per-customer policies (next tab) override these for
-					their bound customers.
+					Default provider, model, budgets, and redaction settings for the IRIS chatbot.
+					Per-customer policies (next tab) override these for their bound customers.
 				</p>
 				<div class="flex shrink-0 items-center gap-1.5">
 					<Button
@@ -645,12 +639,10 @@
 							<div>
 								<div class="font-medium">Enable the IRIS chatbot</div>
 								<p class="text-2xs text-muted-foreground">
-									When on, a floating chat button appears in the top bar. The
-									assistant sends case content — case name, description, notes,
-									IOC values, asset names, task titles — to the configured LLM
-									provider. Writes require analyst approval before running. Off
-									by default; enabling counts as an opt-in to third-party data
-									sharing.
+									When on, a floating chat button appears in the top bar. The assistant sends case
+									content — case name, description, notes, IOC values, asset names, task titles — to
+									the configured LLM provider. Writes require analyst approval before running. Off
+									by default; enabling counts as an opt-in to third-party data sharing.
 								</p>
 							</div>
 						</label>
@@ -668,8 +660,7 @@
 								value={srvForm.chatbot_provider ?? ''}
 								disabled={srvSaving}
 								onchange={(e) =>
-									(srvForm.chatbot_provider =
-										(e.currentTarget as HTMLSelectElement).value || null)}
+									(srvForm.chatbot_provider = (e.currentTarget as HTMLSelectElement).value || null)}
 							>
 								<option value="">— select —</option>
 								<option value="anthropic">Anthropic</option>
@@ -692,8 +683,7 @@
 								value={String(srvForm.chatbot_model ?? '')}
 								disabled={srvSaving}
 								oninput={(e) =>
-									(srvForm.chatbot_model =
-										(e.currentTarget as HTMLInputElement).value || null)}
+									(srvForm.chatbot_model = (e.currentTarget as HTMLInputElement).value || null)}
 							/>
 						</div>
 
@@ -715,13 +705,11 @@
 								value={String(srvForm.chatbot_api_key ?? '')}
 								disabled={srvSaving}
 								oninput={(e) =>
-									(srvForm.chatbot_api_key =
-										(e.currentTarget as HTMLInputElement).value || null)}
+									(srvForm.chatbot_api_key = (e.currentTarget as HTMLInputElement).value || null)}
 							/>
 							<p class="text-2xs text-muted-foreground">
-								Stored encrypted at rest. Leave blank to keep the current value.
-								Ollama does not require a key when run unauthenticated on
-								localhost.
+								Stored encrypted at rest. Leave blank to keep the current value. Ollama does not
+								require a key when run unauthenticated on localhost.
 							</p>
 						</div>
 
@@ -739,20 +727,16 @@
 								value={String(srvForm.chatbot_base_url ?? '')}
 								disabled={srvSaving}
 								oninput={(e) =>
-									(srvForm.chatbot_base_url =
-										(e.currentTarget as HTMLInputElement).value || null)}
+									(srvForm.chatbot_base_url = (e.currentTarget as HTMLInputElement).value || null)}
 							/>
 							<p class="text-2xs text-muted-foreground">
-								Overrides the provider's default endpoint. Useful for
-								Ollama, self-hosted proxies, and Azure Foundry's
-								Anthropic passthrough (set provider = Anthropic, base URL
-								to <code class="rounded bg-muted px-1 py-0.5 font-mono text-2xs"
-									>https://&lt;resource&gt;.openai.azure.com/anthropic</code
-								>). The provider's standard path is appended
-								automatically (e.g. <code
+								Overrides the provider's default endpoint. Useful for Ollama, self-hosted proxies,
+								and Azure Foundry's Anthropic passthrough (set provider = Anthropic, base URL to <code
 									class="rounded bg-muted px-1 py-0.5 font-mono text-2xs"
-									>/v1/messages</code
-								> for Anthropic).
+									>https://&lt;resource&gt;.openai.azure.com/anthropic</code
+								>). The provider's standard path is appended automatically (e.g.
+								<code class="rounded bg-muted px-1 py-0.5 font-mono text-2xs">/v1/messages</code> for
+								Anthropic).
 							</p>
 						</div>
 
@@ -772,8 +756,7 @@
 								disabled={srvSaving}
 								oninput={(e) => {
 									const raw = (e.currentTarget as HTMLInputElement).value;
-									srvForm.chatbot_max_turns_per_conversation =
-										raw === '' ? 25 : Number(raw);
+									srvForm.chatbot_max_turns_per_conversation = raw === '' ? 25 : Number(raw);
 								}}
 							/>
 						</div>
@@ -794,8 +777,7 @@
 								disabled={srvSaving}
 								oninput={(e) => {
 									const raw = (e.currentTarget as HTMLInputElement).value;
-									srvForm.chatbot_max_tool_calls_per_turn =
-										raw === '' ? 8 : Number(raw);
+									srvForm.chatbot_max_tool_calls_per_turn = raw === '' ? 8 : Number(raw);
 								}}
 							/>
 						</div>
@@ -816,8 +798,7 @@
 								disabled={srvSaving}
 								oninput={(e) => {
 									const raw = (e.currentTarget as HTMLInputElement).value;
-									srvForm.chatbot_daily_token_budget_per_user =
-										raw === '' ? 500000 : Number(raw);
+									srvForm.chatbot_daily_token_budget_per_user = raw === '' ? 500000 : Number(raw);
 								}}
 							/>
 						</div>
@@ -838,8 +819,7 @@
 								disabled={srvSaving}
 								oninput={(e) => {
 									const raw = (e.currentTarget as HTMLInputElement).value;
-									srvForm.chatbot_daily_token_budget_org =
-										raw === '' ? 10000000 : Number(raw);
+									srvForm.chatbot_daily_token_budget_org = raw === '' ? 10000000 : Number(raw);
 								}}
 							/>
 						</div>
@@ -847,16 +827,14 @@
 						<label class="flex items-start gap-2 sm:col-span-2">
 							<Switch
 								checked={!!srvForm.chatbot_auto_execute_read_tools}
-								onCheckedChange={(v: boolean) =>
-									(srvForm.chatbot_auto_execute_read_tools = v)}
+								onCheckedChange={(v: boolean) => (srvForm.chatbot_auto_execute_read_tools = v)}
 								disabled={srvSaving}
 							/>
 							<div>
 								<div class="font-medium">Auto-execute read-only tools</div>
 								<p class="text-2xs text-muted-foreground">
-									On (default): the assistant can run read tools (list IOCs,
-									fetch case, search) without asking. Off: every tool call,
-									even reads, shows an Approve/Deny card.
+									On (default): the assistant can run read tools (list IOCs, fetch case, search)
+									without asking. Off: every tool call, even reads, shows an Approve/Deny card.
 								</p>
 							</div>
 						</label>
@@ -864,19 +842,16 @@
 						<label class="flex items-start gap-2 sm:col-span-2">
 							<Switch
 								checked={!!srvForm.chatbot_auto_approve_write_tools}
-								onCheckedChange={(v: boolean) =>
-									(srvForm.chatbot_auto_approve_write_tools = v)}
+								onCheckedChange={(v: boolean) => (srvForm.chatbot_auto_approve_write_tools = v)}
 								disabled={srvSaving}
 							/>
 							<div>
 								<div class="font-medium">Auto-approve write tools</div>
 								<p class="text-2xs text-muted-foreground">
-									Off (default): the assistant asks before every write —
-									creating IOCs, updating assets, closing cases, etc. On:
-									writes run without confirmation. Only enable once you
-									trust the assistant's behaviour on this install; deletes
-									and status changes are irreversible from the analyst's
-									side.
+									Off (default): the assistant asks before every write — creating IOCs, updating
+									assets, closing cases, etc. On: writes run without confirmation. Only enable once
+									you trust the assistant's behaviour on this install; deletes and status changes
+									are irreversible from the analyst's side.
 								</p>
 							</div>
 						</label>
@@ -890,9 +865,8 @@
 							<div>
 								<div class="font-medium">Redact IPv4 addresses before sending</div>
 								<p class="text-2xs text-muted-foreground">
-									Off by default — redaction breaks IOC pivoting. Enable if
-									strict DLP compliance forbids sending IP addresses to the
-									LLM provider.
+									Off by default — redaction breaks IOC pivoting. Enable if strict DLP compliance
+									forbids sending IP addresses to the LLM provider.
 								</p>
 							</div>
 						</label>
@@ -910,9 +884,7 @@
 								onCheckedChange={(v: boolean) => (srvForm.chatbot_redact_hashes = v)}
 								disabled={srvSaving}
 							/>
-							<div class="font-medium">
-								Redact MD5 / SHA1 / SHA256 hashes before sending
-							</div>
+							<div class="font-medium">Redact MD5 / SHA1 / SHA256 hashes before sending</div>
 						</label>
 					</div>
 				</section>
@@ -926,9 +898,9 @@
 		<Tabs.Content value="policies" class="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
 			<div class="flex items-center justify-between pb-3">
 				<p class="text-xs text-muted-foreground">
-					A policy overrides the global chatbot config for every customer bound to it.
-					For war rooms, the strictest attached customer's policy wins. Use the
-					Customers column to bind customers to a policy.
+					A policy overrides the global chatbot config for every customer bound to it. For war
+					rooms, the strictest attached customer's policy wins. Use the Customers column to bind
+					customers to a policy.
 				</p>
 				<Button size="sm" onclick={beginCreate}>
 					<PlusIcon size={14} class="mr-1" /> New policy
@@ -939,8 +911,8 @@
 				<p class="text-xs text-muted-foreground">Loading…</p>
 			{:else if policies.length === 0}
 				<p class="text-xs text-muted-foreground">
-					No policies defined. Customers without a policy use the global Server
-					Settings chatbot block.
+					No policies defined. Customers without a policy use the global Server Settings chatbot
+					block.
 				</p>
 			{:else}
 				<div class="overflow-x-auto rounded-md border">
@@ -1023,8 +995,8 @@
 		<Tabs.Content value="sessions" class="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
 			<div class="flex items-center justify-between pb-3">
 				<p class="text-xs text-muted-foreground">
-					Every Yuki conversation across every user. Reading a session logs an
-					admin-oversight activity — visible in the audit trail.
+					Every Yuki conversation across every user. Reading a session logs an admin-oversight
+					activity — visible in the audit trail.
 				</p>
 				<label class="flex items-center gap-2 text-xs">
 					<Switch
@@ -1097,10 +1069,10 @@
 			<section class="rounded-md border p-4">
 				<h2 class="text-sm font-semibold">Retention purge</h2>
 				<p class="mt-1 text-xs text-muted-foreground">
-					Hard-deletes conversations older than each policy's retention window
-					(<code>retention_days</code>). Only policies with a non-zero window
-					are considered — customers on the global default are never purged
-					by this job. Run this from an external cron for a scheduled purge.
+					Hard-deletes conversations older than each policy's retention window (<code
+						>retention_days</code
+					>). Only policies with a non-zero window are considered — customers on the global default
+					are never purged by this job. Run this from an external cron for a scheduled purge.
 				</p>
 				<div class="mt-3 flex items-center gap-3">
 					<Button size="sm" onclick={runRetention} disabled={retentionRunning}>
@@ -1119,18 +1091,13 @@
 			<section class="rounded-md border p-4">
 				<h2 class="text-sm font-semibold">DPO export (right of access)</h2>
 				<p class="mt-1 text-xs text-muted-foreground">
-					Download every chat record for one user as JSON. Includes archived
-					conversations. Hitting this endpoint is activity-logged.
+					Download every chat record for one user as JSON. Includes archived conversations. Hitting
+					this endpoint is activity-logged.
 				</p>
 				<div class="mt-3 flex items-end gap-3">
 					<label class="flex flex-col gap-1 text-xs">
 						<span>User ID</span>
-						<Input
-							type="number"
-							bind:value={dpoUserIdInput}
-							min="1"
-							class="w-40"
-						/>
+						<Input type="number" bind:value={dpoUserIdInput} min="1" class="w-40" />
 					</label>
 					<Button size="sm" variant="outline" onclick={dpoExport} disabled={dpoBusy}>
 						{dpoBusy ? 'Working…' : 'Export JSON'}
@@ -1141,19 +1108,13 @@
 			<section class="rounded-md border border-destructive/40 p-4">
 				<h2 class="text-sm font-semibold text-destructive">DPO erasure (right to be forgotten)</h2>
 				<p class="mt-1 text-xs text-muted-foreground">
-					Hard-deletes every chat record for one user — conversations,
-					messages, pending tool calls, and egress audit rows. Cannot be
-					undone. Activity-logged.
+					Hard-deletes every chat record for one user — conversations, messages, pending tool calls,
+					and egress audit rows. Cannot be undone. Activity-logged.
 				</p>
 				<div class="mt-3 flex items-end gap-3">
 					<label class="flex flex-col gap-1 text-xs">
 						<span>User ID</span>
-						<Input
-							type="number"
-							bind:value={dpoUserIdInput}
-							min="1"
-							class="w-40"
-						/>
+						<Input type="number" bind:value={dpoUserIdInput} min="1" class="w-40" />
 					</label>
 					<Button
 						size="sm"
@@ -1254,10 +1215,7 @@
 				<span>Auto-approve writes (skip Approve/Deny)</span>
 			</label>
 			<label class="flex items-center gap-2">
-				<Switch
-					checked={form.redact_ips ?? false}
-					onCheckedChange={(v) => (form.redact_ips = v)}
-				/>
+				<Switch checked={form.redact_ips ?? false} onCheckedChange={(v) => (form.redact_ips = v)} />
 				<span>Redact IPs</span>
 			</label>
 			<label class="flex items-center gap-2">
@@ -1425,9 +1383,7 @@
 
 					<Tabs.Content value="sent">
 						{#if sessionTurns.length === 0}
-							<p class="text-muted-foreground">
-								No egress rows recorded for this conversation.
-							</p>
+							<p class="text-muted-foreground">No egress rows recorded for this conversation.</p>
 						{:else}
 							<div class="flex flex-col gap-3">
 								{#each sessionTurns as turn, idx (turn.id)}
@@ -1463,9 +1419,7 @@
 													<div class="mb-1 text-2xs font-medium text-muted-foreground">
 														User prompt
 													</div>
-													<div
-														class="whitespace-pre-wrap break-words rounded bg-background p-2"
-													>
+													<div class="whitespace-pre-wrap break-words rounded bg-background p-2">
 														{userText}
 													</div>
 												</div>
@@ -1516,9 +1470,7 @@
 												>
 													System prompt ({snap.system.length} chars)
 												</summary>
-												<div
-													class="mt-1 whitespace-pre-wrap break-words rounded bg-background p-2"
-												>
+												<div class="mt-1 whitespace-pre-wrap break-words rounded bg-background p-2">
 													{snap.system}
 												</div>
 											</details>

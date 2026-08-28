@@ -101,7 +101,7 @@
 		</div>
 	{:else}
 		<DataTable
-			{columns}
+			columns={columns as import('@tanstack/svelte-table').ColumnDef<unknown>[]}
 			data={evidences}
 			bind:page={currentPage}
 			bind:pageSize={currentPageSize}

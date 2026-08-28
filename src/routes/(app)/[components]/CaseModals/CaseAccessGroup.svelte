@@ -32,8 +32,8 @@
 
 <div class="rounded-md border border-border bg-muted/30 p-3">
 	<p class="mb-3 text-xs text-muted-foreground">
-		Pick one or more groups and an access level. Every member of the selected
-		groups will receive that access on this case.
+		Pick one or more groups and an access level. Every member of the selected groups will receive
+		that access on this case.
 	</p>
 
 	{#if loading}

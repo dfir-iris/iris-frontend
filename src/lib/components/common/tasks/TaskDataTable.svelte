@@ -68,9 +68,7 @@
 			header: () => 'Status',
 			cell: (cell) => {
 				const status = cell.getValue() as string;
-				return status
-					? renderComponent(StatusBadge, { status: status as CaseStatus })
-					: '-';
+				return status ? renderComponent(StatusBadge, { status: status as CaseStatus }) : '-';
 			}
 		},
 		{
@@ -100,7 +98,7 @@
 		</div>
 	{:else}
 		<DataTable
-			{columns}
+			columns={columns as import('@tanstack/svelte-table').ColumnDef<unknown>[]}
 			data={tasks}
 			bind:page={currentPage}
 			bind:pageSize={currentPageSize}

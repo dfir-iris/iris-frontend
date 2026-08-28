@@ -1,7 +1,7 @@
-import Root from "./searchable-select.svelte";
+import Root from './searchable-select.svelte';
 
 export {
 	Root,
 	//
-	Root as SearchableSelect,
+	Root as SearchableSelect
 };

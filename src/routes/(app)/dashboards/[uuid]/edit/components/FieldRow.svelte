@@ -8,12 +8,7 @@
 	import { XIcon } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import {
-		Select,
-		SelectContent,
-		SelectItem,
-		SelectTrigger
-	} from '$lib/components/ui/select';
+	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
 	import type {
 		DashboardSchema,
 		DashboardWidgetField
@@ -48,10 +43,11 @@
 </script>
 
 <div class="flex items-center gap-2">
-	<div class="grow grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_1fr_1fr]">
+	<div class="grid grow grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_1fr_1fr]">
 		<Select
 			value={field.table ?? ''}
-			onValueChange={(v) => patch({ table: v, column: '', aggregation: v === 'computed' ? null : field.aggregation })}
+			onValueChange={(v) =>
+				patch({ table: v, column: '', aggregation: v === 'computed' ? null : field.aggregation })}
 			type="single"
 		>
 			<SelectTrigger>{field.table || 'Table'}</SelectTrigger>
@@ -62,11 +58,7 @@
 			</SelectContent>
 		</Select>
 
-		<Select
-			value={field.column ?? ''}
-			onValueChange={(v) => patch({ column: v })}
-			type="single"
-		>
+		<Select value={field.column ?? ''} onValueChange={(v) => patch({ column: v })} type="single">
 			<SelectTrigger>{field.column || 'Column'}</SelectTrigger>
 			<SelectContent>
 				{#each columnOptions as c (c)}

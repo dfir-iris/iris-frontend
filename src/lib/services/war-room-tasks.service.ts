@@ -113,10 +113,7 @@ export class WarRoomTasksService {
 		delete flat.page;
 		delete flat.per_page;
 		const suffix = buildListQuery(flat);
-		return ApiService.get<WarRoomTask[]>(
-			`/war-rooms/${warRoomId}/tasks${suffix}`,
-			options
-		);
+		return ApiService.get<WarRoomTask[]>(`/war-rooms/${warRoomId}/tasks${suffix}`, options);
 	}
 
 	static listPaginated(

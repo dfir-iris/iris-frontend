@@ -27,12 +27,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { Badge } from '$lib/components/ui/badge';
-	import {
-		Select,
-		SelectContent,
-		SelectItem,
-		SelectTrigger
-	} from '$lib/components/ui/select';
+	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
 	import JsonEditor from '$lib/components/common/editors/JsonEditor.svelte';
 	import {
 		CustomDashboardsService,
@@ -66,11 +61,11 @@
 	let presetSectionIdx: number | null = $state(null);
 
 	// Breadcrumb shows which section the widget being edited lives in.
-	const breadcrumbSection = $derived(
-		editingTarget && editingTarget.sectionIdx >= 0
-			? sections[editingTarget.sectionIdx]?.title ?? `Section ${editingTarget.sectionIdx + 1}`
-			: undefined,
-	);
+	const breadcrumbSection = $derived.by(() => {
+		const target = editingTarget;
+		if (target == null || target.sectionIdx < 0) return undefined;
+		return sections[target.sectionIdx]?.title ?? `Section ${target.sectionIdx + 1}`;
+	});
 
 	let previewExpanded = $state(true);
 
@@ -86,9 +81,9 @@
 				const layout = { ...(w.layout ?? {}) } as Record<string, unknown>;
 				delete layout._client_id;
 				return { ...w, layout };
-			}),
+			})
 		})),
-		filters_schema: filtersSchema,
+		filters_schema: filtersSchema
 	});
 
 	// Editor mode toggle. JSON mode lets power users hand-edit the full
@@ -97,7 +92,7 @@
 	// and structure (chart_type/aggregation/operator/table whitelists).
 	let editorMode: 'visual' | 'json' = $state('visual');
 	let jsonText = $state('');
-	let jsonError: string | null = $state(null);
+	let _jsonError: string | null = $state(null);
 	let jsonValid = $state(true);
 	let schemaIssues: string[] = $state([]);
 
@@ -118,7 +113,11 @@
 		if (typeof def.name !== 'string' || !def.name.trim()) {
 			issues.push('`name` is required and must be a non-empty string.');
 		}
-		if (def.description !== undefined && def.description !== null && typeof def.description !== 'string') {
+		if (
+			def.description !== undefined &&
+			def.description !== null &&
+			typeof def.description !== 'string'
+		) {
 			issues.push('`description` must be a string or null.');
 		}
 		if (def.is_shared !== undefined && typeof def.is_shared !== 'boolean') {
@@ -134,18 +133,29 @@
 			if (typeof f.table !== 'string' || !f.table) {
 				issues.push(`${path}.table is required.`);
 			} else if (!allowedTables.has(f.table)) {
-				issues.push(`${path}.table "${f.table}" is not allowed. Allowed: ${[...allowedTables].join(', ')}.`);
+				issues.push(
+					`${path}.table "${f.table}" is not allowed. Allowed: ${[...allowedTables].join(', ')}.`
+				);
 			}
 			if (typeof f.column !== 'string' || !f.column) {
 				issues.push(`${path}.column is required.`);
 			} else if (f.table === 'computed' && !computedColumns.has(f.column)) {
-				issues.push(`${path}.column "${f.column}" is not a known computed metric. Known: ${[...computedColumns].join(', ')}.`);
-			} else if (typeof f.table === 'string' && f.table !== 'computed' && schema!.columns[f.table] && !schema!.columns[f.table].includes(f.column as string)) {
+				issues.push(
+					`${path}.column "${f.column}" is not a known computed metric. Known: ${[...computedColumns].join(', ')}.`
+				);
+			} else if (
+				typeof f.table === 'string' &&
+				f.table !== 'computed' &&
+				schema!.columns[f.table] &&
+				!schema!.columns[f.table].includes(f.column as string)
+			) {
 				issues.push(`${path}.column "${f.column}" is not a known column of "${f.table}".`);
 			}
 			if (f.aggregation !== undefined && f.aggregation !== null && f.aggregation !== '') {
 				if (typeof f.aggregation !== 'string' || !allowedAggregations.has(f.aggregation)) {
-					issues.push(`${path}.aggregation "${f.aggregation}" is not allowed. Allowed: ${[...allowedAggregations].join(', ')}.`);
+					issues.push(
+						`${path}.aggregation "${f.aggregation}" is not allowed. Allowed: ${[...allowedAggregations].join(', ')}.`
+					);
 				}
 			}
 		};
@@ -159,7 +169,9 @@
 			if (typeof fl.table !== 'string') issues.push(`${path}.table is required.`);
 			if (typeof fl.column !== 'string') issues.push(`${path}.column is required.`);
 			if (typeof fl.operator !== 'string' || !allowedOperators.has(fl.operator)) {
-				issues.push(`${path}.operator "${fl.operator}" is not allowed. Allowed: ${[...allowedOperators].join(', ')}.`);
+				issues.push(
+					`${path}.operator "${fl.operator}" is not allowed. Allowed: ${[...allowedOperators].join(', ')}.`
+				);
 			}
 			if (!('value' in fl)) issues.push(`${path}.value is required.`);
 		};
@@ -172,7 +184,9 @@
 			const w = widget as Record<string, unknown>;
 			if (typeof w.name !== 'string' || !w.name) issues.push(`${path}.name is required.`);
 			if (typeof w.chart_type !== 'string' || !allowedChartTypes.has(w.chart_type)) {
-				issues.push(`${path}.chart_type "${w.chart_type}" is not allowed. Allowed: ${[...allowedChartTypes].join(', ')}.`);
+				issues.push(
+					`${path}.chart_type "${w.chart_type}" is not allowed. Allowed: ${[...allowedChartTypes].join(', ')}.`
+				);
 			}
 			if (!Array.isArray(w.fields) || w.fields.length === 0) {
 				issues.push(`${path}.fields must be a non-empty array.`);
@@ -209,7 +223,7 @@
 	function onJsonInput(next: string, isValid: boolean, err: string | null) {
 		jsonText = next;
 		jsonValid = isValid;
-		jsonError = err;
+		_jsonError = err;
 		if (isValid) {
 			try {
 				const parsed = JSON.parse(next);
@@ -256,7 +270,7 @@
 				const layout = { ...(w.layout ?? {}) } as Record<string, unknown>;
 				delete layout._client_id;
 				return { ...w, layout };
-			}),
+			})
 		}));
 	}
 
@@ -267,10 +281,10 @@
 				description,
 				is_shared: isShared,
 				sections: stripClientIds(sections),
-				filters_schema: filtersSchema,
+				filters_schema: filtersSchema
 			},
 			null,
-			2,
+			2
 		);
 	}
 
@@ -279,17 +293,17 @@
 		try {
 			parsed = JSON.parse(text);
 		} catch (e) {
-			jsonError = `Invalid JSON: ${(e as Error).message}`;
+			_jsonError = `Invalid JSON: ${(e as Error).message}`;
 			return false;
 		}
 		if (typeof parsed !== 'object' || parsed === null) {
-			jsonError = 'Definition must be a JSON object.';
+			_jsonError = 'Definition must be a JSON object.';
 			return false;
 		}
 		const structural = validateDefinitionAgainstSchema(parsed);
 		if (structural.length > 0) {
 			schemaIssues = structural;
-			jsonError = 'Definition does not match the schema. See the issues panel below.';
+			_jsonError = 'Definition does not match the schema. See the issues panel below.';
 			return false;
 		}
 		const def = parsed as Record<string, unknown>;
@@ -299,13 +313,13 @@
 		if (Array.isArray(def.sections)) {
 			sections = (def.sections as DashboardSection[]).map((s) => ({
 				...s,
-				widgets: withWidgetIds(s.widgets ?? []),
+				widgets: withWidgetIds(s.widgets ?? [])
 			}));
 		}
 		if (Array.isArray(def.filters_schema)) {
 			filtersSchema = def.filters_schema as Array<Record<string, unknown>>;
 		}
-		jsonError = null;
+		_jsonError = null;
 		schemaIssues = [];
 		return true;
 	}
@@ -325,34 +339,32 @@
 	}
 
 	async function load() {
-		const detail = await CustomDashboardsService.get(uuid);
-		if (!detail.ok || !detail.data) {
+		const detail = await CustomDashboardsService.get(uuid!);
+		if (!detail.ok || !detail.data || typeof detail.data === 'string') {
 			error = detail.error?.message ?? 'Failed to load dashboard.';
 			return;
 		}
 		dashboard = detail.data;
-		if (dashboard.is_system) {
+		if (dashboard!.is_system) {
 			goto(`/dashboards/${uuid}`);
 			return;
 		}
-		name = dashboard.name;
-		description = dashboard.description ?? '';
-		isShared = dashboard.is_shared;
-		sections = normalizeSections(dashboard.definition);
-		const fs = (dashboard.definition.filters_schema ?? []) as Array<Record<string, unknown>>;
+		name = dashboard!.name;
+		description = dashboard!.description ?? '';
+		isShared = dashboard!.is_shared;
+		sections = normalizeSections(dashboard!.definition);
+		const fs = (dashboard!.definition.filters_schema ?? []) as Array<Record<string, unknown>>;
 		filtersSchema = Array.isArray(fs) ? [...fs] : [];
 
 		const schemaResp = await CustomDashboardsService.getSchema();
-		if (schemaResp.ok && schemaResp.data) schema = schemaResp.data;
+		if (schemaResp.ok && schemaResp.data && typeof schemaResp.data !== 'string') schema = schemaResp.data;
 	}
 
 	function openNewWidget(sectionIdx: number) {
 		editingWidget = {
 			name: 'New widget',
 			chart_type: 'number',
-			fields: [
-				{ table: 'alerts', column: 'alert_id', aggregation: 'count', alias: 'total' }
-			]
+			fields: [{ table: 'alerts', column: 'alert_id', aggregation: 'count', alias: 'total' }]
 		};
 		editingTarget = { sectionIdx, widgetIdx: null };
 		dialogOpen = true;
@@ -485,7 +497,7 @@
 			dropTarget = {
 				sectionIdx,
 				widgetIdx: sections[sectionIdx].widgets.length,
-				side: 'before',
+				side: 'before'
 			};
 		}
 	}
@@ -507,7 +519,7 @@
 		if (source.sectionIdx === dest.sectionIdx && source.widgetIdx === destIdx) return;
 
 		sections[source.sectionIdx].widgets = sections[source.sectionIdx].widgets.filter(
-			(_, i) => i !== source.widgetIdx,
+			(_, i) => i !== source.widgetIdx
 		);
 		const destWidgets = [...sections[dest.sectionIdx].widgets];
 		destWidgets.splice(Math.max(0, Math.min(destIdx, destWidgets.length)), 0, sourceWidget);
@@ -547,7 +559,7 @@
 	async function save() {
 		if (!dashboard) return;
 		if (editorMode === 'json' && !applyJSONToState(jsonText)) {
-			// jsonError is set; keep the user in JSON mode so they can fix it.
+			// _jsonError is set; keep the user in JSON mode so they can fix it.
 			return;
 		}
 		saving = true;
@@ -561,16 +573,16 @@
 				const layout = { ...(w.layout ?? {}) } as Record<string, unknown>;
 				delete layout._client_id;
 				return { ...w, layout };
-			}),
+			})
 		}));
 		const definition = {
 			name,
 			description,
 			is_shared: isShared,
 			sections: cleanSections,
-			filters_schema: filtersSchema,
+			filters_schema: filtersSchema
 		};
-		const response = await CustomDashboardsService.update(uuid, definition);
+		const response = await CustomDashboardsService.update(uuid!, definition);
 		if (response.ok) {
 			success = 'Saved.';
 		} else {
@@ -628,10 +640,16 @@
 	</header>
 
 	{#if error}
-		<div class="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
+		<div
+			class="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+		>
+			{error}
+		</div>
 	{/if}
 	{#if success}
-		<div class="rounded border border-green-500/40 bg-green-500/10 p-3 text-sm text-green-700">{success}</div>
+		<div class="rounded border border-green-500/40 bg-green-500/10 p-3 text-sm text-green-700">
+			{success}
+		</div>
 	{/if}
 
 	{#if editorMode === 'visual'}
@@ -655,134 +673,161 @@
 						<Label for="dash-shared">Share with other users</Label>
 					</div>
 				</div>
-				<FilterBarEditor entries={filtersSchema as never} {schema} onChange={(e) => (filtersSchema = e)} />
+				<FilterBarEditor
+					entries={filtersSchema as never}
+					{schema}
+					onChange={(e) => (filtersSchema = e)}
+				/>
 			</CardContent>
 		</Card>
 
 		{#each sections as section, sIdx (section.id ?? sIdx)}
-		<Card>
-			<CardHeader class="flex flex-row items-center justify-between gap-2">
-				<div class="flex grow flex-col gap-1">
-					<Input
-						value={section.title ?? ''}
-						oninput={(e) => setSectionTitle(sIdx, (e.target as HTMLInputElement).value)}
-						class="w-full max-w-md text-base font-semibold"
-					/>
-				</div>
-				<div class="flex items-center gap-2">
-					<Button variant="outline" size="sm" onclick={() => openNewWidget(sIdx)}>
-						<PlusIcon class="size-3" /> Widget
-					</Button>
-					<Button variant="outline" size="sm" onclick={() => openPresetGallery(sIdx)}>
-						<LayersIcon class="size-3" /> Preset
-					</Button>
-					<Button variant="ghost" size="icon" onclick={() => removeSection(sIdx)} title="Remove section">
-						<Trash2Icon class="size-4" />
-					</Button>
-				</div>
-			</CardHeader>
-			<CardContent
-				ondragover={(e) => onSectionDragOver(e, sIdx)}
-				ondrop={onDrop}
-			>
-				{#if section.widgets.length === 0}
-					<p
-						class="rounded border border-dashed p-6 text-center text-sm text-muted-foreground transition-colors"
-						class:bg-primary={dragSource && dropTarget?.sectionIdx === sIdx}
-						class:bg-opacity-10={dragSource && dropTarget?.sectionIdx === sIdx}
-						class:border-primary={dragSource && dropTarget?.sectionIdx === sIdx}
-					>
-						{dragSource ? 'Drop widget here' : 'No widgets. Click "+ Widget" to add one, or drop a widget here.'}
-					</p>
-				{:else}
-					<div class="grid grid-cols-1 gap-3 sm:grid-cols-12">
-						{#each section.widgets as widget, wIdx (widgetKey(widget))}
-							{@const isSource = dragSource?.sectionIdx === sIdx && dragSource?.widgetIdx === wIdx}
-							{@const dropBefore = dropTarget?.sectionIdx === sIdx && dropTarget?.widgetIdx === wIdx && dropTarget?.side === 'before'}
-							{@const dropAfter = dropTarget?.sectionIdx === sIdx && dropTarget?.widgetIdx === wIdx && dropTarget?.side === 'after'}
-							<div
-								class={`relative ${editorSizeClass(widget)}`}
-								data-widget-card
-								animate:flip={{ duration: 220 }}
-								ondragover={(e) => onCardDragOver(e, sIdx, wIdx)}
-								ondrop={onDrop}
-							>
-								{#if dropBefore}
-									<div
-										class="pointer-events-none absolute -left-2 top-0 z-10 h-full w-1 rounded-full bg-primary shadow-[0_0_8px_var(--tw-shadow-color)] shadow-primary/60"
-									></div>
-								{/if}
-								{#if dropAfter}
-									<div
-										class="pointer-events-none absolute -right-2 top-0 z-10 h-full w-1 rounded-full bg-primary shadow-[0_0_8px_var(--tw-shadow-color)] shadow-primary/60"
-									></div>
-								{/if}
-								<Card
-									class={`border-muted transition-all ${isSource ? 'opacity-30 ring-2 ring-dashed ring-primary/50 scale-95' : ''}`}
-								>
-									<CardHeader class="pb-1">
-										<CardTitle class="text-sm flex items-center justify-between gap-2">
-											<span class="flex items-center gap-1 truncate">
-												<button
-													type="button"
-													class="cursor-grab rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground active:cursor-grabbing"
-													draggable="true"
-													ondragstart={(e) => onDragStart(e, { sectionIdx: sIdx, widgetIdx: wIdx })}
-													ondragend={onDragEnd}
-													title="Drag to reorder"
-													aria-label="Drag handle"
-												>
-													<GripVerticalIcon class="size-4" />
-												</button>
-												<span class="truncate">{widget.name}</span>
-											</span>
-											<div class="flex shrink-0 items-center gap-1">
-												<Select
-													value={widgetSize(widget)}
-													onValueChange={(v) => setWidgetSize(sIdx, wIdx, v)}
-													type="single"
-												>
-													<SelectTrigger class="h-7 w-20 text-xs">{widgetSize(widget)}</SelectTrigger>
-													<SelectContent>
-														<SelectItem value="kpi">kpi</SelectItem>
-														<SelectItem value="third">third</SelectItem>
-														<SelectItem value="half">half</SelectItem>
-														<SelectItem value="full">full</SelectItem>
-													</SelectContent>
-												</Select>
-												<Button variant="ghost" size="icon" onclick={() => openEditWidget(sIdx, wIdx)} title="Edit widget">
-													<EditIcon class="size-3" />
-												</Button>
-												<Button variant="ghost" size="icon" onclick={() => removeWidget(sIdx, wIdx)} title="Remove widget">
-													<Trash2Icon class="size-3" />
-												</Button>
-											</div>
-										</CardTitle>
-									</CardHeader>
-									<CardContent class="flex flex-wrap gap-1 text-xs">
-										<Badge variant="secondary">{widget.chart_type}</Badge>
-										{#each widget.fields ?? [] as f (f.alias ?? `${f.table}.${f.column}`)}
-											<Badge variant="outline">{f.table}.{f.column}{f.aggregation ? ` · ${f.aggregation}` : ''}</Badge>
-										{/each}
-									</CardContent>
-								</Card>
-							</div>
-						{/each}
+			<Card>
+				<CardHeader class="flex flex-row items-center justify-between gap-2">
+					<div class="flex grow flex-col gap-1">
+						<Input
+							value={section.title ?? ''}
+							oninput={(e) => setSectionTitle(sIdx, (e.target as HTMLInputElement).value)}
+							class="w-full max-w-md text-base font-semibold"
+						/>
 					</div>
-				{/if}
-			</CardContent>
-		</Card>
+					<div class="flex items-center gap-2">
+						<Button variant="outline" size="sm" onclick={() => openNewWidget(sIdx)}>
+							<PlusIcon class="size-3" /> Widget
+						</Button>
+						<Button variant="outline" size="sm" onclick={() => openPresetGallery(sIdx)}>
+							<LayersIcon class="size-3" /> Preset
+						</Button>
+						<Button
+							variant="ghost"
+							size="icon"
+							onclick={() => removeSection(sIdx)}
+							title="Remove section"
+						>
+							<Trash2Icon class="size-4" />
+						</Button>
+					</div>
+				</CardHeader>
+				<CardContent ondragover={(e) => onSectionDragOver(e, sIdx)} ondrop={onDrop}>
+					{#if section.widgets.length === 0}
+						<p
+							class="rounded border border-dashed p-6 text-center text-sm text-muted-foreground transition-colors"
+							class:bg-primary={dragSource && dropTarget?.sectionIdx === sIdx}
+							class:bg-opacity-10={dragSource && dropTarget?.sectionIdx === sIdx}
+							class:border-primary={dragSource && dropTarget?.sectionIdx === sIdx}
+						>
+							{dragSource
+								? 'Drop widget here'
+								: 'No widgets. Click "+ Widget" to add one, or drop a widget here.'}
+						</p>
+					{:else}
+						<div class="grid grid-cols-1 gap-3 sm:grid-cols-12">
+							{#each section.widgets as widget, wIdx (widgetKey(widget))}
+								{@const isSource =
+									dragSource?.sectionIdx === sIdx && dragSource?.widgetIdx === wIdx}
+								{@const dropBefore =
+									dropTarget?.sectionIdx === sIdx &&
+									dropTarget?.widgetIdx === wIdx &&
+									dropTarget?.side === 'before'}
+								{@const dropAfter =
+									dropTarget?.sectionIdx === sIdx &&
+									dropTarget?.widgetIdx === wIdx &&
+									dropTarget?.side === 'after'}
+								<!-- svelte-ignore a11y_no_static_element_interactions -->
+								<div
+									class={`relative ${editorSizeClass(widget)}`}
+									data-widget-card
+									animate:flip={{ duration: 220 }}
+									ondragover={(e) => onCardDragOver(e, sIdx, wIdx)}
+									ondrop={onDrop}
+								>
+									{#if dropBefore}
+										<div
+											class="pointer-events-none absolute -left-2 top-0 z-10 h-full w-1 rounded-full bg-primary shadow-[0_0_8px_var(--tw-shadow-color)] shadow-primary/60"
+										></div>
+									{/if}
+									{#if dropAfter}
+										<div
+											class="pointer-events-none absolute -right-2 top-0 z-10 h-full w-1 rounded-full bg-primary shadow-[0_0_8px_var(--tw-shadow-color)] shadow-primary/60"
+										></div>
+									{/if}
+									<Card
+										class={`border-muted transition-all ${isSource ? 'ring-dashed scale-95 opacity-30 ring-2 ring-primary/50' : ''}`}
+									>
+										<CardHeader class="pb-1">
+											<CardTitle class="flex items-center justify-between gap-2 text-sm">
+												<span class="flex items-center gap-1 truncate">
+													<button
+														type="button"
+														class="cursor-grab rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground active:cursor-grabbing"
+														draggable="true"
+														ondragstart={(e) =>
+															onDragStart(e, { sectionIdx: sIdx, widgetIdx: wIdx })}
+														ondragend={onDragEnd}
+														title="Drag to reorder"
+														aria-label="Drag handle"
+													>
+														<GripVerticalIcon class="size-4" />
+													</button>
+													<span class="truncate">{widget.name}</span>
+												</span>
+												<div class="flex shrink-0 items-center gap-1">
+													<Select
+														value={widgetSize(widget)}
+														onValueChange={(v) => setWidgetSize(sIdx, wIdx, v)}
+														type="single"
+													>
+														<SelectTrigger class="h-7 w-20 text-xs"
+															>{widgetSize(widget)}</SelectTrigger
+														>
+														<SelectContent>
+															<SelectItem value="kpi">kpi</SelectItem>
+															<SelectItem value="third">third</SelectItem>
+															<SelectItem value="half">half</SelectItem>
+															<SelectItem value="full">full</SelectItem>
+														</SelectContent>
+													</Select>
+													<Button
+														variant="ghost"
+														size="icon"
+														onclick={() => openEditWidget(sIdx, wIdx)}
+														title="Edit widget"
+													>
+														<EditIcon class="size-3" />
+													</Button>
+													<Button
+														variant="ghost"
+														size="icon"
+														onclick={() => removeWidget(sIdx, wIdx)}
+														title="Remove widget"
+													>
+														<Trash2Icon class="size-3" />
+													</Button>
+												</div>
+											</CardTitle>
+										</CardHeader>
+										<CardContent class="flex flex-wrap gap-1 text-xs">
+											<Badge variant="secondary">{widget.chart_type}</Badge>
+											{#each widget.fields ?? [] as f (f.alias ?? `${f.table}.${f.column}`)}
+												<Badge variant="outline"
+													>{f.table}.{f.column}{f.aggregation ? ` · ${f.aggregation}` : ''}</Badge
+												>
+											{/each}
+										</CardContent>
+									</Card>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</CardContent>
+			</Card>
 		{/each}
 
 		<Button variant="outline" onclick={addSection}>
 			<PlusIcon class="size-4" /> Add section
 		</Button>
 
-		<LivePreview
-			{uuid}
-			definition={previewDefinition as never}
-			bind:expanded={previewExpanded}
-		/>
+		<LivePreview uuid={uuid!} definition={previewDefinition as never} bind:expanded={previewExpanded} />
 	{:else}
 		<Card class="flex grow flex-col">
 			<CardHeader class="shrink-0">
@@ -813,7 +858,7 @@
 									jsonText = JSON.stringify(JSON.parse(jsonText), null, 2);
 									onJsonInput(jsonText, true, null);
 								} catch (e) {
-									jsonError = `Invalid JSON: ${(e as Error).message}`;
+									_jsonError = `Invalid JSON: ${(e as Error).message}`;
 									jsonValid = false;
 								}
 							}}
@@ -849,7 +894,9 @@
 					/>
 				</div>
 				{#if jsonValid && schemaIssues.length > 0}
-					<div class="max-h-48 overflow-y-auto rounded border border-amber-500/40 bg-amber-500/5 p-2 text-xs">
+					<div
+						class="max-h-48 overflow-y-auto rounded border border-amber-500/40 bg-amber-500/5 p-2 text-xs"
+					>
 						<div class="mb-1 font-semibold text-amber-700">Schema issues</div>
 						<ul class="list-disc space-y-0.5 pl-4 text-amber-900">
 							{#each schemaIssues as issue (issue)}
@@ -867,7 +914,7 @@
 	bind:open={dialogOpen}
 	widget={editingWidget}
 	{schema}
-	breadcrumbSection={breadcrumbSection}
+	{breadcrumbSection}
 	onSave={commitWidget}
 	onOpenChange={(v) => (dialogOpen = v)}
 />

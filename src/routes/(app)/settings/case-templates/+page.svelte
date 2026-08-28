@@ -220,8 +220,7 @@
 			templateSchemaError = null;
 		} else {
 			templateSchemaError =
-				res.error?.message ??
-				'Failed to load the template schema; raw JSON still works.';
+				res.error?.message ?? 'Failed to load the template schema; raw JSON still works.';
 		}
 	};
 
@@ -271,13 +270,7 @@
 			// Strip metadata fields — they're dump-only on the
 			// backend and serving them back on update is harmless but
 			// noisy in the raw JSON view.
-			const {
-				id: _id,
-				created_at,
-				updated_at,
-				created_by_user_id,
-				...editable
-			} = tpl;
+			const { id: _id, created_at, updated_at, created_by_user_id, ...editable } = tpl;
 			void _id;
 			void created_at;
 			void updated_at;
@@ -364,7 +357,8 @@
 		const id = selectedId;
 		const tpl = listState.items.find((t) => t.id === id);
 		confirmTitle = `Delete template "${tpl?.display_name || tpl?.name || `#${id}`}"?`;
-		confirmMessage = 'This cannot be undone. Existing cases that were created from this template are unaffected.';
+		confirmMessage =
+			'This cannot be undone. Existing cases that were created from this template are unaffected.';
 		confirmAction = async () => {
 			const res = await CaseTemplatesV2Service.remove(id);
 			if (res.ok) {
@@ -425,9 +419,7 @@
 
 	// Derived display ------------------------------------------------
 	const selectedTemplate = $derived<CaseTemplateV2 | null>(
-		selectedId == null
-			? null
-			: listState.items.find((t) => t.id === selectedId) ?? null
+		selectedId == null ? null : (listState.items.find((t) => t.id === selectedId) ?? null)
 	);
 </script>
 
@@ -456,10 +448,7 @@
 				onclick={loadList}
 				disabled={listState.loading}
 			>
-				<RefreshCwIcon
-					size={12}
-					class={`mr-1 ${listState.loading ? 'animate-spin' : ''}`}
-				/>
+				<RefreshCwIcon size={12} class={`mr-1 ${listState.loading ? 'animate-spin' : ''}`} />
 				Refresh
 			</Button>
 			<Button variant="outline" size="sm" class="h-7" onclick={triggerImport}>
@@ -490,7 +479,7 @@
 						<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 							Templates
 						</h2>
-						<span class="text-2xs text-muted-foreground tabular-nums">
+						<span class="text-2xs tabular-nums text-muted-foreground">
 							{listState.items.length} / {listState.total}
 						</span>
 					</div>
@@ -549,9 +538,7 @@
 								<button
 									type="button"
 									class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors
-										{active
-										? 'bg-primary/10 font-medium text-foreground'
-										: 'hover:bg-muted/40'}"
+										{active ? 'bg-primary/10 font-medium text-foreground' : 'hover:bg-muted/40'}"
 									onclick={() => onSelect(tpl.id)}
 								>
 									<div class="min-w-0 flex-1">
@@ -609,12 +596,7 @@
 
 				{#if editorMode !== 'closed'}
 					<div class="flex items-center gap-1.5">
-						<Button
-							variant="outline"
-							size="sm"
-							class="h-7"
-							onclick={exportCurrent}
-						>
+						<Button variant="outline" size="sm" class="h-7" onclick={exportCurrent}>
 							<DownloadIcon size={12} class="mr-1" />
 							Export
 						</Button>
@@ -644,7 +626,8 @@
 
 			{#if editorMode === 'closed'}
 				<p class="flex-1 px-3 py-10 text-center text-xs text-muted-foreground">
-					Select a template on the left, or click <span class="font-medium">Add template</span> to create one.
+					Select a template on the left, or click <span class="font-medium">Add template</span> to create
+					one.
 				</p>
 			{:else}
 				{@const tabs: { id: DetailTab; label: string; icon: typeof FileCodeIcon }[] = [
@@ -755,14 +738,15 @@
 						<div class="prose prose-sm flex max-w-none flex-col gap-3 p-4 text-xs">
 							<h3 class="text-sm font-semibold">Case template structure</h3>
 							<p class="text-muted-foreground">
-								A case template is a JSON document describing how a new case should be
-								seeded — title prefix, classification, tags, tasks and note directories.
-								When applied, the post-modifier appends the summary to the case
-								description, materialises tags, creates tasks (status "To Do") and walks
-								the note directory tree creating notes.
+								A case template is a JSON document describing how a new case should be seeded —
+								title prefix, classification, tags, tasks and note directories. When applied, the
+								post-modifier appends the summary to the case description, materialises tags,
+								creates tasks (status "To Do") and walks the note directory tree creating notes.
 							</p>
 							<table class="w-full border-collapse text-2xs">
-								<thead class="border-b bg-muted/40 text-left uppercase tracking-wide text-muted-foreground">
+								<thead
+									class="border-b bg-muted/40 text-left uppercase tracking-wide text-muted-foreground"
+								>
 									<tr>
 										<th class="px-2 py-1 font-medium">Field</th>
 										<th class="px-2 py-1 font-medium">Type</th>
@@ -770,14 +754,47 @@
 									</tr>
 								</thead>
 								<tbody class="divide-y">
-									<tr><td class="px-2 py-1 font-mono">name</td><td class="px-2 py-1">string</td><td class="px-2 py-1">Required. Unique short slug.</td></tr>
-									<tr><td class="px-2 py-1 font-mono">display_name</td><td class="px-2 py-1">string</td><td class="px-2 py-1">Optional. Falls back to <code>name</code>.</td></tr>
-									<tr><td class="px-2 py-1 font-mono">description</td><td class="px-2 py-1">string</td><td class="px-2 py-1">Admin-side description (not shown on the case).</td></tr>
-									<tr><td class="px-2 py-1 font-mono">author</td><td class="px-2 py-1">string</td><td class="px-2 py-1">Max 128 chars.</td></tr>
-									<tr><td class="px-2 py-1 font-mono">title_prefix</td><td class="px-2 py-1">string</td><td class="px-2 py-1">Max 32 chars. Prepended to the case name.</td></tr>
-									<tr><td class="px-2 py-1 font-mono">summary</td><td class="px-2 py-1">string</td><td class="px-2 py-1">Appended to the case description on apply.</td></tr>
-									<tr><td class="px-2 py-1 font-mono">tags</td><td class="px-2 py-1">string[]</td><td class="px-2 py-1">Appended to the case tags.</td></tr>
-									<tr><td class="px-2 py-1 font-mono">classification</td><td class="px-2 py-1">string</td><td class="px-2 py-1">Must match an existing case classification's <code>name</code>.</td></tr>
+									<tr
+										><td class="px-2 py-1 font-mono">name</td><td class="px-2 py-1">string</td><td
+											class="px-2 py-1">Required. Unique short slug.</td
+										></tr
+									>
+									<tr
+										><td class="px-2 py-1 font-mono">display_name</td><td class="px-2 py-1"
+											>string</td
+										><td class="px-2 py-1">Optional. Falls back to <code>name</code>.</td></tr
+									>
+									<tr
+										><td class="px-2 py-1 font-mono">description</td><td class="px-2 py-1"
+											>string</td
+										><td class="px-2 py-1">Admin-side description (not shown on the case).</td></tr
+									>
+									<tr
+										><td class="px-2 py-1 font-mono">author</td><td class="px-2 py-1">string</td><td
+											class="px-2 py-1">Max 128 chars.</td
+										></tr
+									>
+									<tr
+										><td class="px-2 py-1 font-mono">title_prefix</td><td class="px-2 py-1"
+											>string</td
+										><td class="px-2 py-1">Max 32 chars. Prepended to the case name.</td></tr
+									>
+									<tr
+										><td class="px-2 py-1 font-mono">summary</td><td class="px-2 py-1">string</td
+										><td class="px-2 py-1">Appended to the case description on apply.</td></tr
+									>
+									<tr
+										><td class="px-2 py-1 font-mono">tags</td><td class="px-2 py-1">string[]</td><td
+											class="px-2 py-1">Appended to the case tags.</td
+										></tr
+									>
+									<tr
+										><td class="px-2 py-1 font-mono">classification</td><td class="px-2 py-1"
+											>string</td
+										><td class="px-2 py-1"
+											>Must match an existing case classification's <code>name</code>.</td
+										></tr
+									>
 									<tr>
 										<td class="px-2 py-1 font-mono">tasks</td>
 										<td class="px-2 py-1">object[]</td>

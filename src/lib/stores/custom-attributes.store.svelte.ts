@@ -26,7 +26,9 @@ import {
 
 const cache = new Map<CustomAttributeObjectType, Promise<CustomAttributeSchema>>();
 
-const mergeRows = (rows: { attribute_content?: CustomAttributeSchema | null }[]): CustomAttributeSchema => {
+const mergeRows = (
+	rows: { attribute_content?: CustomAttributeSchema | null }[]
+): CustomAttributeSchema => {
 	const out: CustomAttributeSchema = {};
 	for (const row of rows) {
 		const content = row.attribute_content ?? {};
@@ -59,9 +61,7 @@ export const loadCustomAttributeSchema = (
  * detail view opens with the fresh schema instead of the stale one
  * captured earlier in the session.
  */
-export const invalidateCustomAttributeSchema = (
-	objectType?: CustomAttributeObjectType
-): void => {
+export const invalidateCustomAttributeSchema = (objectType?: CustomAttributeObjectType): void => {
 	if (objectType) {
 		cache.delete(objectType);
 		delete hasCustomAttributes[objectType];

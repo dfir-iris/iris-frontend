@@ -132,11 +132,7 @@ export class WarRoomTimelinesService {
 		body: { name?: string; description?: string | null; color?: string | null },
 		options: ApiOptions = {}
 	): Promise<RequestResponse<WarRoomTimeline>> {
-		return ApiService.patch(
-			`/war-rooms/${warRoomId}/timelines/${timelineId}`,
-			body,
-			options
-		);
+		return ApiService.patch(`/war-rooms/${warRoomId}/timelines/${timelineId}`, body, options);
 	}
 
 	static remove(
@@ -144,10 +140,7 @@ export class WarRoomTimelinesService {
 		timelineId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
-		return ApiService.delete<null>(
-			`/war-rooms/${warRoomId}/timelines/${timelineId}`,
-			options
-		);
+		return ApiService.delete<null>(`/war-rooms/${warRoomId}/timelines/${timelineId}`, options);
 	}
 
 	static listEvents(
@@ -172,11 +165,7 @@ export class WarRoomTimelinesService {
 		body: CreateWarRoomTimelineEventBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<WarRoomTimelineEvent>> {
-		return ApiService.post(
-			`/war-rooms/${warRoomId}/timelines/${timelineId}/events`,
-			body,
-			options
-		);
+		return ApiService.post(`/war-rooms/${warRoomId}/timelines/${timelineId}/events`, body, options);
 	}
 
 	static updateEvent(
@@ -185,11 +174,7 @@ export class WarRoomTimelinesService {
 		body: UpdateWarRoomTimelineEventBody,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<WarRoomTimelineEvent>> {
-		return ApiService.patch(
-			`/war-rooms/${warRoomId}/timelines/events/${eventId}`,
-			body,
-			options
-		);
+		return ApiService.patch(`/war-rooms/${warRoomId}/timelines/events/${eventId}`, body, options);
 	}
 
 	static removeEvent(
@@ -197,10 +182,7 @@ export class WarRoomTimelinesService {
 		eventId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
-		return ApiService.delete<null>(
-			`/war-rooms/${warRoomId}/timelines/events/${eventId}`,
-			options
-		);
+		return ApiService.delete<null>(`/war-rooms/${warRoomId}/timelines/events/${eventId}`, options);
 	}
 
 	/** Toggle the triage flag. Server flips + returns the fresh row. */
@@ -209,11 +191,7 @@ export class WarRoomTimelinesService {
 		eventId: number,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<WarRoomTimelineEvent>> {
-		return ApiService.post(
-			`/war-rooms/${warRoomId}/timelines/events/${eventId}/flag`,
-			{},
-			options
-		);
+		return ApiService.post(`/war-rooms/${warRoomId}/timelines/events/${eventId}/flag`, {}, options);
 	}
 
 	/** Shallow-copy an event onto the same timeline. Server-side helper

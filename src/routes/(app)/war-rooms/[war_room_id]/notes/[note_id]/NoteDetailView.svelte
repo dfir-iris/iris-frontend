@@ -20,7 +20,7 @@
 	import NoteHeader from './note-header.svelte';
 
 	let {
-		warRoomId,
+		warRoomId: _warRoomId,
 		noteId,
 		onAfterDelete
 	}: {

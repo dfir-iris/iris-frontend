@@ -20,14 +20,8 @@
 	} from '$lib/components/ui/dialog';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { toast } from '$lib/components/ui/toast';
-	import {
-		WarRoomTeamsService,
-		type WarRoomTeam
-	} from '$lib/services/war-room-teams.service';
-	import {
-		WarRoomsService,
-		type WarRoomMember
-	} from '$lib/services/war-rooms.service';
+	import { WarRoomTeamsService, type WarRoomTeam } from '$lib/services/war-room-teams.service';
+	import { WarRoomsService, type WarRoomMember } from '$lib/services/war-rooms.service';
 	import { UsersService, type User } from '$lib/services/users.service';
 
 	const warRoomId = $derived(Number(page.params.war_room_id));
@@ -149,8 +143,7 @@
 			.filter((u) => {
 				if (!needle) return true;
 				return (
-					u.user_login.toLowerCase().includes(needle) ||
-					u.user_name.toLowerCase().includes(needle)
+					u.user_login.toLowerCase().includes(needle) || u.user_name.toLowerCase().includes(needle)
 				);
 			})
 			.map((u) => ({
@@ -212,8 +205,8 @@
 		<div>
 			<h2 class="text-lg font-semibold">Teams</h2>
 			<p class="text-xs text-muted-foreground">
-				Group members together and @-mention the group in chat, notes, and
-				tasks. Every member of a mentioned team gets notified.
+				Group members together and @-mention the group in chat, notes, and tasks. Every member of a
+				mentioned team gets notified.
 			</p>
 		</div>
 		<Button onclick={openCreate}>
@@ -256,19 +249,11 @@
 								</div>
 							{/if}
 						</div>
-						<Button
-							variant="ghost"
-							size="sm"
-							onclick={() => toggleExpand(t.team_id)}
-						>
+						<Button variant="ghost" size="sm" onclick={() => toggleExpand(t.team_id)}>
 							<Users class="mr-1 h-3.5 w-3.5" />
 							{isOpen ? 'Hide' : 'Show'}
 						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							onclick={() => openAddMember(t)}
-						>
+						<Button variant="ghost" size="sm" onclick={() => openAddMember(t)}>
 							<Plus class="mr-1 h-3.5 w-3.5" /> Add
 						</Button>
 						<Button
@@ -327,9 +312,7 @@
 		</DialogHeader>
 		<div class="flex flex-col gap-3 py-2">
 			<div>
-				<label class="text-xs font-medium text-muted-foreground" for="team-name">
-					Name
-				</label>
+				<label class="text-xs font-medium text-muted-foreground" for="team-name"> Name </label>
 				<Input
 					id="team-name"
 					value={newName}
@@ -338,25 +321,19 @@
 				/>
 			</div>
 			<div>
-				<label
-					class="text-xs font-medium text-muted-foreground"
-					for="team-description"
-				>
+				<label class="text-xs font-medium text-muted-foreground" for="team-description">
 					Description
 				</label>
 				<Textarea
 					id="team-description"
 					value={newDescription}
-					oninput={(e) =>
-						(newDescription = (e.target as HTMLTextAreaElement).value)}
+					oninput={(e) => (newDescription = (e.target as HTMLTextAreaElement).value)}
 					placeholder="Optional — who's in this team, what they own"
 					rows={2}
 				/>
 			</div>
 			<div>
-				<label class="text-xs font-medium text-muted-foreground" for="team-color">
-					Color
-				</label>
+				<label class="text-xs font-medium text-muted-foreground" for="team-color"> Color </label>
 				<input
 					id="team-color"
 					type="color"
@@ -401,9 +378,7 @@
 			</div>
 			<div class="max-h-56 overflow-y-auto rounded-md border">
 				{#if memberCandidates.length === 0}
-					<div class="p-3 text-center text-xs text-muted-foreground">
-						No matching users.
-					</div>
+					<div class="p-3 text-center text-xs text-muted-foreground">No matching users.</div>
 				{:else}
 					<ul>
 						{#each memberCandidates as m (m.user_id)}
@@ -439,24 +414,17 @@
 				<p
 					class="rounded-md border border-amber-500/30 bg-amber-500/5 px-2.5 py-1.5 text-2xs text-amber-800 dark:text-amber-300"
 				>
-					{selectedCandidate.user_name} isn't a war-room member yet. Adding them to
-					this team will also add them to the war room as
+					{selectedCandidate.user_name} isn't a war-room member yet. Adding them to this team will also
+					add them to the war room as
 					<span class="font-medium">responder</span>.
 				</p>
 			{/if}
 		</div>
 		<DialogFooter>
-			<Button
-				variant="ghost"
-				onclick={() => (addMemberOpen = false)}
-				disabled={addingMember}
-			>
+			<Button variant="ghost" onclick={() => (addMemberOpen = false)} disabled={addingMember}>
 				Cancel
 			</Button>
-			<Button
-				onclick={submitAddMember}
-				disabled={addingMember || selectedUserId == null}
-			>
+			<Button onclick={submitAddMember} disabled={addingMember || selectedUserId == null}>
 				{addingMember ? 'Adding…' : 'Add'}
 			</Button>
 		</DialogFooter>

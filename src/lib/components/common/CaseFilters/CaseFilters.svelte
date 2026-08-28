@@ -29,9 +29,7 @@
 <div class="flex flex-col gap-3">
 	<div class="flex items-center justify-end gap-2">
 		{#if onClear}
-			<Button variant="ghost" size="sm" onclick={onClear} disabled={!hasActive}>
-				Clear
-			</Button>
+			<Button variant="ghost" size="sm" onclick={onClear} disabled={!hasActive}>Clear</Button>
 		{/if}
 		{#if onApply}
 			<Button size="sm" onclick={onApply} disabled={!hasActive}>Apply</Button>

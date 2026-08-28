@@ -12,12 +12,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import {
-		Select,
-		SelectContent,
-		SelectItem,
-		SelectTrigger
-	} from '$lib/components/ui/select';
+	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
 	import type { DashboardSchema } from '$lib/services/custom-dashboards.service';
 
 	type FilterEntry = {
@@ -82,7 +77,9 @@
 	{:else}
 		<div class="flex flex-col gap-2">
 			{#each entries as entry, idx (`${idx}-${entry.key}`)}
-				<div class="grid grid-cols-1 items-end gap-2 rounded border p-2 sm:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto]">
+				<div
+					class="grid grid-cols-1 items-end gap-2 rounded border p-2 sm:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto]"
+				>
 					<div class="flex flex-col gap-1">
 						<Label class="text-xs">Key</Label>
 						<Input
@@ -148,7 +145,13 @@
 						<div></div>
 					{/if}
 					<div class="flex items-center gap-1">
-						<Button variant="ghost" size="icon" disabled={idx === 0} onclick={() => move(idx, -1)} title="Move up">
+						<Button
+							variant="ghost"
+							size="icon"
+							disabled={idx === 0}
+							onclick={() => move(idx, -1)}
+							title="Move up"
+						>
 							<ChevronUpIcon class="size-4" />
 						</Button>
 						<Button

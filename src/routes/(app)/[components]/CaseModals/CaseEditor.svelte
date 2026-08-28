@@ -197,7 +197,9 @@
 <form class="space-y-4" onsubmit={onSubmit}>
 	<div class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
 		<label class="flex flex-col gap-1">
-			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Case name</span>
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+				>Case name</span
+			>
 			<Input class="h-8 text-xs" bind:value={caseName} autocomplete="off" />
 		</label>
 
@@ -207,7 +209,9 @@
 		</label>
 
 		<label class="flex flex-col gap-1">
-			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Classification</span>
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+				>Classification</span
+			>
 			<SearchSelect
 				size="sm"
 				value={caseClassificationId}
@@ -243,7 +247,8 @@
 		</label>
 
 		<label class="flex flex-col gap-1">
-			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Outcome</span>
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Outcome</span
+			>
 			<SearchSelect
 				size="sm"
 				value={statusId}
@@ -255,7 +260,9 @@
 		</label>
 
 		<label class="flex flex-col gap-1">
-			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Customer</span>
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+				>Customer</span
+			>
 			<SearchSelect
 				size="sm"
 				value={customerId}
@@ -267,7 +274,9 @@
 		</label>
 
 		<label class="flex flex-col gap-1">
-			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Reviewer</span>
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+				>Reviewer</span
+			>
 			<SearchSelect
 				size="sm"
 				value={reviewerId}
@@ -279,7 +288,9 @@
 		</label>
 
 		<label class="flex flex-col gap-1">
-			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Severity</span>
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+				>Severity</span
+			>
 			<SearchSelect
 				size="sm"
 				value={severityId}
@@ -301,22 +312,32 @@
 		</div>
 
 		<label class="flex flex-col gap-1">
-			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Case ID</span>
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Case ID</span
+			>
 			<Input class="h-8 text-xs" value={currentCase?.case_id} autocomplete="off" readonly />
 		</label>
 
 		<label class="flex flex-col gap-1">
 			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">UUID</span>
-			<Input class="h-8 font-mono text-xs" value={currentCase?.case_uuid} autocomplete="off" readonly />
+			<Input
+				class="h-8 font-mono text-xs"
+				value={currentCase?.case_uuid}
+				autocomplete="off"
+				readonly
+			/>
 		</label>
 
 		<label class="flex flex-col gap-1">
-			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Open date</span>
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+				>Open date</span
+			>
 			<Input class="h-8 text-xs" value={currentCase?.open_date} autocomplete="off" readonly />
 		</label>
 
 		<label class="flex flex-col gap-1">
-			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Opening user</span>
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+				>Opening user</span
+			>
 			<Input class="h-8 text-xs" value={currentCase?.user_id} autocomplete="off" readonly />
 		</label>
 	</div>

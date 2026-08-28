@@ -12,7 +12,6 @@
 	import { onMount } from 'svelte';
 	import {
 		FolderIcon,
-		KeyRoundIcon,
 		LockIcon,
 		MoreHorizontalIcon,
 		PencilIcon,
@@ -72,7 +71,7 @@
 	let listState = $state<ListState>(emptyListState());
 	let selectedId = $state<number | null>(null);
 	const selected = $derived<AccessControlGroup | null>(
-		selectedId == null ? null : listState.items.find((g) => g.group_id === selectedId) ?? null
+		selectedId == null ? null : (listState.items.find((g) => g.group_id === selectedId) ?? null)
 	);
 	// The demo groups carry the permissions every demo account inherits,
 	// so the API refuses every write against them
@@ -207,9 +206,7 @@
 					await loadList();
 				} else {
 					showError(
-						(res.data as { message?: string } | null)?.message ??
-							res.error?.message ??
-							'Failed'
+						(res.data as { message?: string } | null)?.message ?? res.error?.message ?? 'Failed'
 					);
 				}
 			}
@@ -229,7 +226,7 @@
 					<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 						Groups
 					</h2>
-					<span class="text-2xs text-muted-foreground tabular-nums">
+					<span class="text-2xs tabular-nums text-muted-foreground">
 						{listState.items.length} / {listState.total}
 					</span>
 				</div>
@@ -284,9 +281,7 @@
 							<button
 								type="button"
 								class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors
-									{active
-									? 'bg-primary/10 font-medium text-foreground'
-									: 'hover:bg-muted/40'}"
+									{active ? 'bg-primary/10 font-medium text-foreground' : 'hover:bg-muted/40'}"
 								onclick={() => (selectedId = g.group_id)}
 							>
 								<ShieldIcon size={14} class="shrink-0 text-muted-foreground" />
@@ -300,7 +295,7 @@
 								</div>
 								{#if g.group_is_demo_protected}
 									<span
-										class="shrink-0 rounded-sm border bg-muted/40 px-1.5 py-0 text-3xs text-muted-foreground"
+										class="text-3xs shrink-0 rounded-sm border bg-muted/40 px-1.5 py-0 text-muted-foreground"
 										title={DEMO_LOCKED_HINT}
 									>
 										demo
@@ -335,9 +330,7 @@
 	<section class="flex min-h-0 flex-1 basis-2/3 flex-col overflow-hidden rounded-md border">
 		<div class="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
 			<div class="flex items-baseline gap-2">
-				<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-					Group
-				</h2>
+				<h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Group</h2>
 				{#if selected}
 					<span class="text-2xs text-muted-foreground">{selected.group_name}</span>
 				{/if}
@@ -474,7 +467,9 @@
 								Case access ({(selected.group_cases_access ?? []).length})
 							</h3>
 							{#if selected.group_auto_follow}
-								<span class="rounded-sm border border-emerald-400/40 bg-emerald-400/10 px-1.5 py-0 text-3xs text-emerald-700 dark:text-emerald-300">
+								<span
+									class="text-3xs rounded-sm border border-emerald-400/40 bg-emerald-400/10 px-1.5 py-0 text-emerald-700 dark:text-emerald-300"
+								>
 									Auto-follow
 								</span>
 							{/if}
@@ -503,7 +498,9 @@
 						{:else}
 							<ul class="grid grid-cols-1 gap-1 text-2xs sm:grid-cols-2">
 								{#each selected.group_cases_access ?? [] as ca}
-									<li class="flex items-center justify-between gap-2 rounded-sm border bg-muted/20 px-2 py-1">
+									<li
+										class="flex items-center justify-between gap-2 rounded-sm border bg-muted/20 px-2 py-1"
+									>
 										<span class="truncate">
 											#{ca.case_id}
 											{#if ca.case_name}— {ca.case_name}{/if}

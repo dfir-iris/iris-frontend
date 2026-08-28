@@ -35,7 +35,10 @@
 	import { Label } from '$lib/components/ui/label';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
-	import type { CustomAttributeSchema, CustomAttributeField } from '$lib/services/custom-attributes.service';
+	import type {
+		CustomAttributeSchema,
+		CustomAttributeField
+	} from '$lib/services/custom-attributes.service';
 
 	type Props = {
 		schema: CustomAttributeSchema;
@@ -90,8 +93,7 @@
 
 {#if tabNames.length === 0}
 	<p class="px-3 py-6 text-center text-xs text-muted-foreground">
-		This schema has no tabs yet. Add one with the JSON editor to see the
-		preview.
+		This schema has no tabs yet. Add one with the JSON editor to see the preview.
 	</p>
 {:else}
 	<Tabs bind:value={activeTab} class="flex min-h-0 w-full flex-1 flex-col">
@@ -202,6 +204,7 @@
 									  browser.
 									-->
 									<div class="prose prose-xs max-w-none text-xs">
+										<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 										{@html DOMPurify.sanitize(stringValue(field), { USE_PROFILES: { html: true } })}
 									</div>
 								{:else}

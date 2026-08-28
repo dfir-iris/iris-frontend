@@ -6,10 +6,7 @@
 	import { FileTextIcon, FolderIcon, FolderOpenIcon } from 'lucide-svelte';
 	import { page } from '$app/state';
 	import { Button } from '$lib/components/ui/button';
-	import type {
-		WarRoomNote,
-		WarRoomNoteFolder
-	} from '$lib/services/war-room-notes.service';
+	import type { WarRoomNote } from '$lib/services/war-room-notes.service';
 	import type { WarRoomNoteFolderTreeNode } from '$lib/contexts/war-room-notes.context.svelte';
 	import Self from './notes-tree.svelte';
 	import type { ContextMenuSource } from '../types';

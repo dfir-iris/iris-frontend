@@ -15,18 +15,9 @@
 		CASE_ASSETS_CTX,
 		type CaseAssetsContext
 	} from '$lib/contexts/case-assets.context.svelte';
-	import {
-		CASE_IOCS_CTX,
-		type CaseIocsContext
-	} from '$lib/contexts/case-iocs.context.svelte';
-	import {
-		CASE_NOTES_CTX,
-		type CaseNotesContext
-	} from '$lib/contexts/case-notes.context.svelte';
-	import {
-		CASE_TASKS_CTX,
-		type CaseTasksContext
-	} from '$lib/contexts/case-tasks.context.svelte';
+	import { CASE_IOCS_CTX, type CaseIocsContext } from '$lib/contexts/case-iocs.context.svelte';
+	import { CASE_NOTES_CTX, type CaseNotesContext } from '$lib/contexts/case-notes.context.svelte';
+	import { CASE_TASKS_CTX, type CaseTasksContext } from '$lib/contexts/case-tasks.context.svelte';
 	import { UsersService, type User } from '$lib/services/users.service';
 	import MentionPopover, { type MentionPopoverPayload } from './MentionPopover.svelte';
 	import AssetDetailDialog from '../../../../routes/(app)/case/[case_id]/assets/[asset_id]/AssetDetailDialog.svelte';

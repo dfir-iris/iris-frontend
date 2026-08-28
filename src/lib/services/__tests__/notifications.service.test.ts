@@ -116,11 +116,7 @@ describe('NotificationsService — feed', () => {
 
 		await NotificationsService.clear({ all: true });
 
-		expect(ApiService.post).toHaveBeenCalledWith(
-			'/api/v2/notifications/clear',
-			{ all: true },
-			{}
-		);
+		expect(ApiService.post).toHaveBeenCalledWith('/api/v2/notifications/clear', { all: true }, {});
 	});
 });
 
@@ -165,10 +161,7 @@ describe('NotificationsService — settings', () => {
 		});
 
 		await NotificationsService.getAdminSettings();
-		expect(ApiService.get).toHaveBeenCalledWith(
-			'/api/v2/manage/notification-settings',
-			{}
-		);
+		expect(ApiService.get).toHaveBeenCalledWith('/api/v2/manage/notification-settings', {});
 	});
 
 	it('putAdminSettings() PUTs to the admin path', async () => {

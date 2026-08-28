@@ -6,10 +6,10 @@
 	import 'ag-grid-community/styles/ag-grid.css';
 	import 'ag-grid-community/styles/ag-theme-quartz.css';
 	import { Input } from '$lib/components/ui/input';
-	import { Search, PlusCircle } from 'lucide-svelte';
+	import { Search } from 'lucide-svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Badge } from '$lib/components/ui/badge';
-	import { MoreHorizontal, X } from 'lucide-svelte';
+	import { X } from 'lucide-svelte';
 	import type { QuickFilter } from '$lib/types/quick-filter';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
@@ -22,7 +22,7 @@
 	let grid: any = null;
 	let gridRef: any = null;
 	let api: any = null;
-	let columnApi: any = null;
+	let _columnApi: any = null;
 
 	let searchText = '';
 	let selectedFilters: Record<string, Set<string>> = {};
@@ -45,7 +45,7 @@
 			filter: 'agTextColumnFilter',
 			filterParams: {
 				defaultOption: 'contains',
-				textMatcher: (params) => {
+				textMatcher: (params: { value?: unknown; filter: string }) => {
 					const value = params.value?.toString() || '';
 					const filterText = params.filter;
 					return value.includes(filterText);
@@ -58,12 +58,11 @@
 		onGridReady: (params) => {
 			params.api.sizeColumnsToFit();
 			api = params.api;
-			columnApi = params.columnApi;
 		}
 	};
 
-	export let rowData = [];
-	export let columnDefs = [];
+	export let rowData: unknown[] = [];
+	export let columnDefs: unknown[] = [];
 
 	function onFirstDataRendered(params: FirstDataRenderedEvent) {
 		params.api.sizeColumnsToFit();
@@ -73,11 +72,11 @@
 		grid = createGrid(gridRef, {
 			...gridOptions,
 			rowData,
-			columnDefs
+			columnDefs: columnDefs as import('ag-grid-community').ColDef[]
 		});
 	});
 
-	const updateData = (newRowData) => {
+	const updateData = (newRowData: unknown[]) => {
 		if (!api) return;
 		api.setGridOption('rowData', newRowData);
 	};
@@ -94,7 +93,7 @@
 	function applyFilters() {
 		if (!api) return;
 
-		const filterModel = {};
+		const filterModel: Record<string, unknown> = {};
 		Object.entries(selectedFilters).forEach(([field, values]) => {
 			if (values.size > 0) {
 				filterModel[field] = {

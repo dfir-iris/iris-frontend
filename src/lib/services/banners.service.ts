@@ -29,9 +29,7 @@ export class BannersService {
 	 * Currently-active banners. Any authenticated user can read this;
 	 * the SPA polls it from the root (app) layout to render the top strip.
 	 */
-	static async listActive(
-		options: ApiOptions = {}
-	): Promise<RequestResponse<Banner[]>> {
+	static async listActive(options: ApiOptions = {}): Promise<RequestResponse<Banner[]>> {
 		return ApiService.get<Banner[]>(`/manage/banners/active`, options);
 	}
 

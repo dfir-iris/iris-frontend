@@ -51,13 +51,9 @@
 			case 'currentCase':
 				return currentCaseId != null ? `Case #${currentCaseId}` : 'Current case';
 			case 'currentWarRoom':
-				return currentWarRoomId != null
-					? `War-room #${currentWarRoomId}`
-					: 'Current war-room';
+				return currentWarRoomId != null ? `War-room #${currentWarRoomId}` : 'Current war-room';
 			case 'currentAlert':
-				return currentAlertId != null
-					? `Alert #${currentAlertId}`
-					: 'Current alert';
+				return currentAlertId != null ? `Alert #${currentAlertId}` : 'Current alert';
 			case 'pickCase':
 				return 'Pick a case…';
 			case 'pickWarRoom':
@@ -115,9 +111,7 @@
 
 	{#if !compact || expanded}
 		<div class="flex flex-col gap-1 rounded border bg-background p-2">
-			<label class="text-2xs font-medium text-muted-foreground" for="scope-kind">
-				Scope
-			</label>
+			<label class="text-2xs font-medium text-muted-foreground" for="scope-kind"> Scope </label>
 			<select
 				id="scope-kind"
 				class="h-7 rounded border bg-background px-2 text-xs"

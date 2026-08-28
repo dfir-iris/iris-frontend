@@ -41,7 +41,10 @@ export interface CaseTemplate {
 	created_by_user_id?: number;
 }
 
-export type CaseTemplateBody = Omit<CaseTemplate, 'id' | 'created_at' | 'updated_at' | 'created_by_user_id'>;
+export type CaseTemplateBody = Omit<
+	CaseTemplate,
+	'id' | 'created_at' | 'updated_at' | 'created_by_user_id'
+>;
 
 /**
  * Thin compat wrapper: delegates to the v2 endpoints. Kept under
@@ -90,11 +93,7 @@ export class CaseTemplatesService {
 		body: Partial<CaseTemplateBody>,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<CaseTemplate>> {
-		return ApiService.put<CaseTemplate>(
-			`/manage/case-templates/${templateId}`,
-			body,
-			options
-		);
+		return ApiService.put<CaseTemplate>(`/manage/case-templates/${templateId}`, body, options);
 	}
 
 	static async remove(
@@ -207,11 +206,7 @@ export class CaseTemplatesV2Service {
 		body: Partial<CaseTemplateBodyV2>,
 		options: ApiOptions = {}
 	): Promise<RequestResponse<CaseTemplateV2>> {
-		return ApiService.put<CaseTemplateV2>(
-			`/manage/case-templates/${identifier}`,
-			body,
-			options
-		);
+		return ApiService.put<CaseTemplateV2>(`/manage/case-templates/${identifier}`, body, options);
 	}
 
 	static async remove(

@@ -194,7 +194,11 @@ describe('CaseTimelineService', () => {
 		expect(url).toContain('per_page=25');
 		// Legacy `q=<JSON>` shape must NOT reappear.
 		expect(url).not.toContain('q=');
-		expect(res.data).toMatchObject({ timeline: [], tim: [], pagination: mockResponse.data.pagination });
+		expect(res.data).toMatchObject({
+			timeline: [],
+			tim: [],
+			pagination: mockResponse.data.pagination
+		});
 	});
 
 	it('removeEvent() should call ApiService.delete with /api/v2/cases/{caseId}/events/{id} + options', async () => {

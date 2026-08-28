@@ -51,8 +51,7 @@
 						<p class="text-sm font-medium text-muted-foreground">Filename *</p>
 						<Input
 							value={formData.filename}
-							oninput={(e) =>
-								updateField('filename', (e.currentTarget as HTMLInputElement).value)}
+							oninput={(e) => updateField('filename', (e.currentTarget as HTMLInputElement).value)}
 							class="mt-1"
 						/>
 					</div>
@@ -112,8 +111,7 @@
 
 						<Input
 							value={formData.file_hash ?? ''}
-							oninput={(e) =>
-								updateField('file_hash', (e.currentTarget as HTMLInputElement).value)}
+							oninput={(e) => updateField('file_hash', (e.currentTarget as HTMLInputElement).value)}
 							class="mt-1 font-mono"
 						/>
 					</div>
@@ -133,10 +131,7 @@
 							type="datetime-local"
 							value={formData.acquisition_date ?? ''}
 							oninput={(e) =>
-								updateField(
-									'acquisition_date',
-									(e.currentTarget as HTMLInputElement).value
-								)}
+								updateField('acquisition_date', (e.currentTarget as HTMLInputElement).value)}
 							class="mt-1"
 						/>
 					</div>

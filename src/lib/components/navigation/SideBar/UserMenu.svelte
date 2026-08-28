@@ -15,7 +15,7 @@
 	let { collapsed }: Props = $props();
 
 	const pathname = $derived(page.url.pathname);
-	const hash = $derived(page.url.hash);
+	const _hash = $derived(page.url.hash);
 
 	// Auth is loaded from the root `+layout.svelte` effect; a second
 	// `loadAuth` call here used to race the first one, sometimes wiping
