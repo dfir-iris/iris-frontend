@@ -288,7 +288,7 @@
 									style="background: linear-gradient(90deg, hsl({hue} 70% 55%) 0%, hsl({hue +
 										30} 65% 60%) 100%);"
 								></div>
-								<CardHeader class="gap-3 pt-5">
+								<CardHeader class="gap-3 p-5 pt-5">
 									<div class="flex items-start gap-3">
 										<div
 											class="flex size-9 shrink-0 items-center justify-center rounded-lg text-sm font-semibold"
