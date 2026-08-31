@@ -322,6 +322,42 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		return true;
 	};
 
+	const removeEvents = async (
+		ids: CaseTimelineEventIdentifier[],
+		options: ApiOptions = {}
+	): Promise<{ removed: CaseTimelineEventIdentifier[]; failed: CaseTimelineEventIdentifier[] }> => {
+		const caseId = getCaseId();
+		if (caseId === null) return { removed: [], failed: [...ids] };
+
+		const outcomes = await Promise.allSettled(
+			ids.map((id) => CaseTimelineService.removeEvent(caseId, id, options))
+		);
+
+		const removed: CaseTimelineEventIdentifier[] = [];
+		const failed: CaseTimelineEventIdentifier[] = [];
+
+		outcomes.forEach((outcome, index) => {
+			const id = ids[index];
+			if (outcome.status === 'fulfilled' && outcome.value.ok) {
+				removed.push(id);
+			} else {
+				failed.push(id);
+			}
+		});
+
+		for (const id of removed) {
+			delete byId[id];
+			if (ui.selectedEventId === id) ui.selectedEventId = undefined;
+		}
+
+		if (removed.length > 0) {
+			list.eventIds = list.eventIds.filter((eventId) => !removed.includes(eventId));
+			await refresh(list.query, options);
+		}
+
+		return { removed, failed };
+	};
+
 	const selectEvent = (id?: number) => {
 		ui.selectedEventId = id;
 	};
@@ -358,6 +394,7 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		createEvent,
 		patchEvent,
 		removeEvent,
+		removeEvents,
 		selectEvent,
 		reset
 	};

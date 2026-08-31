@@ -386,14 +386,27 @@
 		const eventIds =
 			selected.size > 0 ? [...selected] : selectedEvent ? [selectedEvent.event_id] : [];
 
-		for (const eventId of eventIds) {
-			await timeline.removeEvent(eventId, { fetch });
-		}
+		try {
+			const { removed, failed } = await timeline.removeEvents(eventIds, { fetch });
 
-		selected = new Set();
-		selecting = false;
-		selectedEvent = undefined;
-		showConfirmDelete = false;
+			if (failed.length > 0) {
+				toast({
+					title: `Failed to delete ${failed.length} of ${eventIds.length} event${eventIds.length === 1 ? '' : 's'}`,
+					description: 'They are still on the timeline.',
+					variant: 'destructive'
+				});
+			} else {
+				toast({
+					title: `Deleted ${removed.length} event${removed.length === 1 ? '' : 's'}`,
+					variant: 'success'
+				});
+			}
+		} finally {
+			selected = new Set();
+			selecting = false;
+			selectedEvent = undefined;
+			showConfirmDelete = false;
+		}
 	};
 
 	const deleteEvent = async (eventId: number) => {

@@ -14,6 +14,7 @@
 		type CaseAccessContext
 	} from '$lib/contexts/case-access.context.svelte';
 	import MarkDownEditor from '$lib/components/common/MarkDown/MarkDownEditor.svelte';
+	import { toast } from '$lib/components/ui/toast';
 	import NoteHeader from './note-header.svelte';
 	import CustomAttributesTabWrapper from '$lib/components/common/CustomAttributes/CustomAttributesTab.svelte';
 	import {
@@ -114,7 +115,17 @@
 
 	const handleDelete = async () => {
 		if (!note) return;
-		await notes.removeNote(note.note_id);
+
+		if (!(await notes.removeNote(note.note_id))) {
+			toast({
+				title: 'Failed to delete note',
+				description: 'The note is still in this case.',
+				variant: 'destructive'
+			});
+			return;
+		}
+
+		toast({ title: 'Note deleted', variant: 'success' });
 		onAfterDelete?.();
 	};
 

@@ -23,6 +23,7 @@
 	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { toast } from '$lib/components/ui/toast';
 	import { CHAT_PANEL_CTX, type ChatPanelContext } from '$lib/contexts/chat-panel.context.svelte';
 	import ChatMessage from './components/ChatMessage.svelte';
 	import ChatComposer from './components/ChatComposer.svelte';
@@ -164,7 +165,17 @@
 	}
 	async function commitRenameCurrent() {
 		if (!chat.state.currentConversation) return;
-		await chat.renameConversation(chat.state.currentConversation.id, currentTitleDraft);
+
+		const renamed = await chat.renameConversation(
+			chat.state.currentConversation.id,
+			currentTitleDraft
+		);
+
+		if (!renamed) {
+			toast({ title: 'Failed to rename conversation', variant: 'destructive' });
+			return;
+		}
+
 		renamingCurrent = false;
 	}
 	function cancelRenameCurrent() {

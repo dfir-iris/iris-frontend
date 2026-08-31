@@ -8,6 +8,7 @@
 	import type { Case } from '$lib/types/resources/case';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
+	import { toast } from '$lib/components/ui/toast';
 	import CaseGeneralInfo from './CaseGeneralInfo.svelte';
 	import CaseModificationHistory from './CaseModificationHistory.svelte';
 	import CaseAccess from './CaseAccess.svelte';
@@ -149,7 +150,16 @@
 	title="Are you sure?"
 	message="You are about to delete this case forever. This cannot be reverted. All associated data will be deleted."
 	onConfirm={async () => {
-		await cases.remove(case_id);
+		if (!(await cases.remove(case_id))) {
+			toast({
+				title: 'Failed to delete case',
+				description: `Case ${case_id} has not been deleted.`,
+				variant: 'destructive'
+			});
+			return;
+		}
+
+		toast({ title: `Case ${case_id} deleted`, variant: 'success' });
 		goto('/cases');
 	}}
 	onCancel={() => (showConfirmDelete = false)}
@@ -159,6 +169,17 @@
 	bind:open={showConfirmClose}
 	title="Are you sure?"
 	message={`Case ID ${case_id} will be closed and will not appear in contexts anymore.`}
-	onConfirm={async () => await cases.close(case_id)}
+	onConfirm={async () => {
+		if (!(await cases.close(case_id))) {
+			toast({
+				title: 'Failed to close case',
+				description: `Case ${case_id} is still open.`,
+				variant: 'destructive'
+			});
+			return;
+		}
+
+		toast({ title: `Case ${case_id} closed`, variant: 'success' });
+	}}
 	onCancel={() => (showConfirmClose = false)}
 />
