@@ -8,6 +8,12 @@ type MergeAlertsDeps = {
 	cases: CasesContext;
 };
 
+export type MergeAlertsResult = {
+	caseId: number | null;
+	merged: AlertIdentifier[];
+	failed: AlertIdentifier[];
+};
+
 const getIocsImportList = (alert: { iocs?: Array<{ ioc_id: number }> }) =>
 	(alert.iocs ?? []).map((ioc) => String(ioc.ioc_id));
 
@@ -18,67 +24,79 @@ export const mergeAlerts = async (
 	{ alerts, cases }: MergeAlertsDeps,
 	alertIds: AlertIdentifier[],
 	payload: MergeAlertPayload
-) => {
-	if (payload.target_case_id !== null) {
-		for (const alertId of alertIds) {
-			const alert = await alerts.get(alertId);
-			if (!alert) return null;
+): Promise<MergeAlertsResult> => {
+	const merged: AlertIdentifier[] = [];
+	const failed: AlertIdentifier[] = [];
 
-			const merged = await alerts.merge(alertId, {
-				target_case_id: payload.target_case_id,
-				note: payload.note,
-				import_as_event: payload.import_as_event,
-				iocs_import_list: getIocsImportList(alert),
-				assets_import_list: getAssetsImportList(alert)
-			});
+	const mergeInto = async (targetCaseId: number, alertId: AlertIdentifier) => {
+		const alert = await alerts.get(alertId);
 
-			if (!merged) return null;
+		if (!alert) {
+			failed.push(alertId);
+			return;
 		}
 
-		await cases.refresh();
-		await alerts.refresh();
+		const result = await alerts.merge(alertId, {
+			target_case_id: targetCaseId,
+			note: payload.note,
+			import_as_event: payload.import_as_event,
+			iocs_import_list: getIocsImportList(alert),
+			assets_import_list: getAssetsImportList(alert)
+		});
 
-		return payload.target_case_id;
+		if (result) merged.push(alertId);
+		else failed.push(alertId);
+	};
+
+	const settle = async (caseId: number | null): Promise<MergeAlertsResult> => {
+		if (merged.length > 0) {
+			await cases.refresh();
+			await alerts.refresh();
+		}
+
+		return { caseId, merged, failed };
+	};
+
+	if (payload.target_case_id !== null) {
+		for (const alertId of alertIds) {
+			await mergeInto(payload.target_case_id, alertId);
+		}
+
+		return settle(payload.target_case_id);
 	}
 
 	let createdCaseId: number | null = null;
 
 	for (const alertId of alertIds) {
-		const alert = await alerts.get(alertId);
-		if (!alert) return null;
+		if (createdCaseId !== null) {
+			await mergeInto(createdCaseId, alertId);
+			continue;
+		}
 
-		const iocsImportList = getIocsImportList(alert);
-		const assetsImportList = getAssetsImportList(alert);
+		const alert = await alerts.get(alertId);
+
+		if (!alert) {
+			failed.push(alertId);
+			continue;
+		}
 
 		const escalated = await alerts.escalate(alertId, {
 			case_title: payload.case_title,
 			case_tags: payload.case_tags,
 			case_template_id: payload.case_template_id ? String(payload.case_template_id) : undefined,
 			import_as_event: payload.import_as_event,
-			iocs_import_list: iocsImportList,
-			assets_import_list: assetsImportList
+			iocs_import_list: getIocsImportList(alert),
+			assets_import_list: getAssetsImportList(alert)
 		});
 
-		if (!escalated) return null;
-
-		if (createdCaseId === null) {
-			createdCaseId = escalated.case_id;
+		if (!escalated) {
+			failed.push(alertId);
 			continue;
 		}
 
-		const merged = await alerts.merge(alertId, {
-			target_case_id: createdCaseId,
-			note: payload.note,
-			import_as_event: payload.import_as_event,
-			iocs_import_list: iocsImportList,
-			assets_import_list: assetsImportList
-		});
-
-		if (!merged) return null;
+		createdCaseId = escalated.case_id;
+		merged.push(alertId);
 	}
 
-	await cases.refresh();
-	await alerts.refresh();
-
-	return createdCaseId;
+	return settle(createdCaseId);
 };

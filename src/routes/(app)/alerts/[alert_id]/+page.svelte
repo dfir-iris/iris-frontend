@@ -17,6 +17,7 @@
 	import type { AlertStatus } from '$lib/services/alert-status.service';
 	import { current_user } from '$lib/stores/auth.store';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
+	import { toast } from '$lib/components/ui/toast';
 	import { AlertCard } from '../components/AlertCard';
 	import AlertsReasignDialog from '../components/alerts-reasign-dialog.svelte';
 	import AlertsCloseDialog from '../components/alerts-close-dialog.svelte';
@@ -117,10 +118,22 @@
 		await refreshConditionally(await updateAlert(alert_id, { alert_status_id }));
 
 	const confirmMergeAlert = async (mergeAlertPayload: MergeAlertPayload) => {
-		const updatedCaseId = await mergeAlerts({ alerts, cases }, [alert.alert_id], mergeAlertPayload);
+		const { merged, failed } = await mergeAlerts(
+			{ alerts, cases },
+			[alert.alert_id],
+			mergeAlertPayload
+		);
 
-		if (updatedCaseId) {
+		if (merged.length > 0) {
 			refreshAlert();
+		}
+
+		if (failed.length > 0) {
+			toast({
+				title: 'Failed to merge alert',
+				description: 'The alert was left unchanged.',
+				variant: 'destructive'
+			});
 		}
 
 		showAlertMerge = false;

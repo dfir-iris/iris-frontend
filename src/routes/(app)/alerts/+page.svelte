@@ -42,6 +42,7 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
+	import { toast } from '$lib/components/ui/toast';
 	import {
 		DropdownMenu,
 		DropdownMenuContent,
@@ -739,14 +740,27 @@
 	};
 
 	const confirmMergeAlerts = async (mergeAlertPayload: MergeAlertPayload) => {
-		const updatedCaseId = await mergeAlerts(
-			{ alerts, cases },
-			getSelectedAlertIds(),
-			mergeAlertPayload
-		);
+		const selectedIds = getSelectedAlertIds();
+		const { merged, failed } = await mergeAlerts({ alerts, cases }, selectedIds, mergeAlertPayload);
 
-		if (updatedCaseId) {
+		if (merged.length > 0) {
 			await refreshAlerts();
+		}
+
+		if (failed.length > 0) {
+			toast({
+				title: `Failed to merge ${failed.length} of ${selectedIds.length} alert${selectedIds.length === 1 ? '' : 's'}`,
+				description:
+					merged.length > 0
+						? `${merged.length} merged successfully; the rest were left unchanged.`
+						: 'No alerts were merged.',
+				variant: 'destructive'
+			});
+		} else {
+			toast({
+				title: `Merged ${merged.length} alert${merged.length === 1 ? '' : 's'}`,
+				variant: 'success'
+			});
 		}
 
 		showMerge = false;
