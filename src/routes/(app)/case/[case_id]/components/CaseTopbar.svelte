@@ -83,7 +83,7 @@
 	const activityPanel = getContext<ActivityPanelContext | undefined>(ACTIVITY_PANEL_CTX);
 	const datastorePanel = getContext<DatastorePanelContext | undefined>(DATASTORE_PANEL_CTX);
 	const caseAccess = getContext<CaseAccessContext | undefined>(CASE_ACCESS_CTX);
-	const canEdit = $derived(caseAccess?.canEdit() ?? true);
+	const canEdit = $derived(caseAccess?.canEdit() ?? false);
 
 	type IconComponent = typeof Shield | typeof Activity;
 
