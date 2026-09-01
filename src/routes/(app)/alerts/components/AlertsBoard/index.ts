@@ -4,6 +4,7 @@ export {
 	ALERT_BOARD_GROUPS,
 	isAlertBoardGroup,
 	isAlertViewMode,
+	UNASSIGNED_OWNER_ID,
 	type AlertBoardGroup,
 	type AlertViewMode
 } from './board-config';

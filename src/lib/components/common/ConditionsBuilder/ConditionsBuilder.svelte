@@ -36,17 +36,11 @@
 	export function emptyRootGroup(): GroupNode {
 		return { logic: 'and', conditions: [] };
 	}
-</script>
-
-<script lang="ts">
-	import { PlusIcon, Trash2Icon, LayersIcon } from 'lucide-svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
 
 	// Operator vocabulary — must match `filtering.build_condition` on the
 	// backend. `like` / `not_like` do case-insensitive substring; `in` /
 	// `not_in` expect a comma-separated `value`.
-	const OPERATORS = [
+	export const OPERATORS = [
 		{ value: 'eq', label: 'equals' },
 		{ value: 'neq', label: '≠ not equals' },
 		{ value: 'like', label: 'contains (like)' },
@@ -56,6 +50,60 @@
 		{ value: 'gte', label: '≥ greater or equal' },
 		{ value: 'lte', label: '≤ less or equal' }
 	];
+
+	// `like` / `not_like` compile to Postgres ILIKE, which only exists for
+	// text types: `alert_status_id ILIKE '%0%'` raises
+	// `operator does not exist: integer ~~* unknown`. The backend now casts
+	// non-text columns defensively (filtering.py::_ilike_target) so this is
+	// no longer a 500, but substring-matching an id, uuid or timestamp is
+	// almost never what the author meant — so don't offer it.
+	const STRING_ONLY_OPERATORS = new Set(['like', 'not_like']);
+
+	// Heads of JSON(B) columns. The backend extracts JSON paths as text
+	// (`->>`, see `build_json_condition`), so every string operator is valid
+	// on `alert_context.<key>` no matter how the key is named.
+	const JSON_COLUMN_HEADS = new Set(['alert_context', 'alert_source_content']);
+
+	// Naming conventions for the non-text column types on Alert /
+	// AlertCluster. This is a UX guard, not a correctness boundary — the
+	// field input is free text, so the backend cast remains the real safety
+	// net for anything typed by hand that these patterns miss.
+	const NON_TEXT_SUFFIXES = ['_id', '_uuid', '_time', '_at'];
+	const NON_TEXT_NAMES = new Set(['date_update']);
+
+	/** True when `field` names a column ILIKE can't be applied to. */
+	export function isNonTextField(field: string): boolean {
+		const trimmed = (field ?? '').trim();
+		if (!trimmed) return false; // nothing typed yet — stay permissive
+		const segments = trimmed.split('.');
+		// A JSON document path is extracted as text; a relationship path
+		// (`assets.asset_type_id`) resolves to a real column, so judge it by
+		// its leaf segment.
+		if (segments.length > 1 && JSON_COLUMN_HEADS.has(segments[0])) return false;
+		const leaf = segments[segments.length - 1];
+		return NON_TEXT_NAMES.has(leaf) || NON_TEXT_SUFFIXES.some((s) => leaf.endsWith(s));
+	}
+
+	/** Operators offerable for `field`. */
+	export function operatorsFor(field: string) {
+		if (!isNonTextField(field)) return OPERATORS;
+		return OPERATORS.filter((op) => !STRING_ONLY_OPERATORS.has(op.value));
+	}
+
+	/**
+	 * Keep the select and the emitted DSL in sync. Switching to a numeric
+	 * field while `like` is selected would hide the option but still submit
+	 * `like`, so fall back to `eq`.
+	 */
+	export function operatorForField(field: string, current: string): string {
+		return isNonTextField(field) && STRING_ONLY_OPERATORS.has(current) ? 'eq' : current;
+	}
+</script>
+
+<script lang="ts">
+	import { PlusIcon, Trash2Icon, LayersIcon } from 'lucide-svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 
 	type AnyNode = LeafNode | GroupNode;
 
@@ -189,6 +237,16 @@
 		});
 	};
 
+	// Field edits go through their own patcher because changing the field
+	// can invalidate the currently-selected operator.
+	const patchLeafField = (path: number[], field: string) => {
+		value = cloneReplace(value, path, (n) => {
+			if (isGroup(n)) return n;
+			const leaf = n as LeafNode;
+			return { ...leaf, field, operator: operatorForField(field, leaf.operator) };
+		});
+	};
+
 	const setGroupLogic = (path: number[], logic: 'and' | 'or') => {
 		value = cloneReplace(value, path, (n) => (isGroup(n) ? { ...n, logic } : n));
 	};
@@ -224,14 +282,14 @@
 			list={listId}
 			placeholder="Field (e.g. alert_title)"
 			value={node.field}
-			oninput={(e) => patchLeaf(path, { field: (e.target as HTMLInputElement).value })}
+			oninput={(e) => patchLeafField(path, (e.target as HTMLInputElement).value)}
 		/>
 		<select
 			class="h-9 rounded-md border bg-background px-2 text-sm"
 			value={node.operator}
 			onchange={(e) => patchLeaf(path, { operator: (e.target as HTMLSelectElement).value })}
 		>
-			{#each OPERATORS as op (op.value)}
+			{#each operatorsFor(node.field) as op (op.value)}
 				<option value={op.value}>{op.label}</option>
 			{/each}
 		</select>

@@ -7,7 +7,7 @@
   offer the analyst a knob that does nothing half the time.
 -->
 <script lang="ts">
-	import { Columns3, List } from 'lucide-svelte';
+	import { Columns3, List, PanelLeftOpen } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Tooltip, TooltipProvider, TooltipTrigger } from '$lib/components/ui/tooltip';
 	import TooltipContent from '$lib/components/ui/tooltip/tooltip-content.svelte';
@@ -24,6 +24,7 @@
 
 	const views = [
 		{ mode: 'list', Icon: List, label: 'List view' },
+		{ mode: 'split', Icon: PanelLeftOpen, label: 'Split triage' },
 		{ mode: 'board', Icon: Columns3, label: 'Board view' }
 	] as const;
 

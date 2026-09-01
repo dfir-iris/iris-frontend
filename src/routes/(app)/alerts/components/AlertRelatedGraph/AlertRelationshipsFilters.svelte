@@ -1,15 +1,7 @@
 <script lang="ts">
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
-
-	export type AlertRelationshipsFiltersValue = {
-		openAlerts: boolean;
-		closedAlerts: boolean;
-		openCases: boolean;
-		closedCases: boolean;
-		numberOfNodes: number;
-		daysBack: number;
-	};
+	import type { AlertRelationshipsFiltersValue } from './alert-relationships-filters';
 
 	type Props = {
 		value: AlertRelationshipsFiltersValue;

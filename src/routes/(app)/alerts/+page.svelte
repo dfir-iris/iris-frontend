@@ -63,9 +63,11 @@
 		AlertsViewSwitcher,
 		isAlertBoardGroup,
 		isAlertViewMode,
+		UNASSIGNED_OWNER_ID,
 		type AlertBoardGroup,
 		type AlertViewMode
 	} from './components/AlertsBoard';
+	import { AlertsSplitView } from './components/AlertsSplitView';
 	import AlertHistoryDialog from './components/alert-history-dialog.svelte';
 	import AlertsPagination from './components/alerts-pagination.svelte';
 	import AlertsReasignDialog from './components/alerts-reasign-dialog.svelte';
@@ -121,7 +123,7 @@
 		page: 1,
 		per_page: DEFAULT_ITEMS_PER_PAGE,
 		expanded: false,
-		view: 'list',
+		view: 'split',
 		board_group: 'severity',
 		filters: defaultFilters()
 	});
@@ -185,6 +187,75 @@
 		label: `${n} entries`
 	}));
 
+	/**
+	 * Which quick-filter tab the split cockpit shows as active.
+	 *
+	 * Derived from the current `alert_owner_id` filter:
+	 *   • current user id  → 'mine'
+	 *   • -1 (UNASSIGNED)  → 'unassigned'
+	 *   • anything else    → null  (All open)
+	 *
+	 * 'escalated' is not yet a distinct filter in the current API; the
+	 * tab is wired but maps to null until escalated-status filtering is
+	 * added to FilterAlertsParams.
+	 */
+	const queueTab = $derived.by((): 'mine' | 'unassigned' | 'escalated' | null => {
+		const ownerId = query.filters.alert_owner_id;
+		if (ownerId != null && ownerId === $current_user?.id) return 'mine';
+		if (ownerId === UNASSIGNED_OWNER_ID) return 'unassigned';
+		// Escalated tab: a single status_id matching the escalated status
+		const escalatedStatus = alertStatuses.find(
+			(s) => s.status_name.toLowerCase() === 'escalated'
+		);
+		if (
+			escalatedStatus &&
+			query.filters.alert_status_id === escalatedStatus.status_id &&
+			ownerId == null
+		)
+			return 'escalated';
+		return null;
+	});
+
+	const TERMINAL_STATUS_NAMES = new Set(['closed', 'merged', 'dismissed', 'escalated']);
+
+	const changeQueueTab = (tab: 'mine' | 'unassigned' | 'escalated' | null) => {
+		let alert_owner_id: number | undefined;
+		let alert_status_id: number | undefined;
+		let custom_conditions: string | undefined;
+
+		if (tab === 'mine') alert_owner_id = $current_user?.id ?? undefined;
+		else if (tab === 'unassigned') alert_owner_id = UNASSIGNED_OWNER_ID;
+		// else: All open — no owner filter
+
+		if (tab === 'escalated') {
+			const escalatedStatus = alertStatuses.find(
+				(s) => s.status_name.toLowerCase() === 'escalated'
+			);
+			if (escalatedStatus) alert_status_id = escalatedStatus.status_id;
+		} else {
+			// For all other tabs, exclude terminal statuses
+			const terminalIds = alertStatuses
+				.filter((s) => TERMINAL_STATUS_NAMES.has(s.status_name.toLowerCase()))
+				.map((s) => s.status_id);
+			if (terminalIds.length > 0) {
+				custom_conditions = JSON.stringify([
+					{ field: 'alert_status_id', operator: 'not_in', value: terminalIds }
+				]);
+			}
+		}
+
+		void commitQuery({
+			...query,
+			page: 1,
+			filters: {
+				...query.filters,
+				alert_owner_id,
+				alert_status_id,
+				custom_conditions
+			}
+		});
+	};
+
 	const normalizeAlert = (value: unknown): Alert => {
 		if (!value || typeof value !== 'object') return {} as Alert;
 
@@ -228,7 +299,7 @@
 			per_page:
 				Number.isFinite(perPageRaw) && perPageRaw >= 1 ? perPageRaw : DEFAULT_ITEMS_PER_PAGE,
 			expanded: url.searchParams.get('expanded') === '1',
-			view: isAlertViewMode(viewRaw) ? viewRaw : 'list',
+			view: isAlertViewMode(viewRaw) ? viewRaw : 'split',
 			board_group: isAlertBoardGroup(groupRaw) ? groupRaw : 'severity',
 			filters
 		};
@@ -247,7 +318,8 @@
 		else url.searchParams.delete('expanded');
 
 		if (queryState.view === 'board') url.searchParams.set('view', 'board');
-		else url.searchParams.delete('view');
+		else if (queryState.view === 'list') url.searchParams.set('view', 'list');
+		else url.searchParams.delete('view'); // 'split' is the default — no param needed
 
 		// Only meaningful alongside `view=board`; keeping it out of the URL
 		// otherwise stops a stale grouping from riding along on a shared
@@ -296,6 +368,7 @@
 			status = 'ready';
 			return;
 		}
+		// split view uses the same paginated list as list view
 
 		status = 'loading';
 
@@ -354,8 +427,7 @@
 		if (view === query.view) return;
 
 		// Bulk selection is a list-view affordance; carrying it into the
-		// board would leave the action bar hanging over a UI that has no
-		// checkboxes to clear it with.
+		// board or split view would leave the action bar orphaned.
 		cancelSelect();
 
 		void commitQuery({
@@ -607,6 +679,7 @@
 		cancelSelect();
 	};
 
+
 	const confirmMergeAlerts = async (mergeAlertPayload: MergeAlertPayload) => {
 		const updatedCaseId = await mergeAlerts(
 			{ alerts, cases },
@@ -759,10 +832,170 @@
   (mounted in the alerts +layout.svelte) sits as a sibling outside of
   this scrolling region and stays full-height alongside.
 -->
-<div class="mx-auto flex h-full min-h-0 w-full max-w-9xl grow flex-col overflow-hidden p-6 pb-0">
+<div
+	class="mx-auto flex h-full min-h-0 w-full grow flex-col overflow-hidden"
+	class:max-w-9xl={query.view !== 'split'}
+	class:p-6={query.view !== 'split'}
+	class:pb-0={query.view !== 'split'}
+>
 	{#if status === 'initial'}
 		<div class="flex h-full w-full items-center justify-center">
 			<Loading size={32} />
+		</div>
+	{:else if query.view === 'split'}
+		<!-- Split view: same toolbar as list/board, cockpit fills the remaining space -->
+		<div class:opacity-60={status === 'loading'} class="flex min-h-0 grow flex-col gap-3 px-6 pt-6">
+			<div class="flex shrink-0 items-center justify-between gap-4">
+				<div class="flex items-center gap-3">
+					<h2 class="whitespace-nowrap text-lg font-semibold">
+						{getTotal({ data: alertsData } as RequestResponse<Paginated<Alert>>)} Alerts
+					</h2>
+
+					<Button
+						size="xs"
+						variant={filtersOpen ? 'default' : 'outline'}
+						onclick={() => (filtersOpen = !filtersOpen)}
+					>
+						Filter
+					</Button>
+
+					{#if alerts.savedFilters.items.length}
+						<div class="flex items-center gap-1">
+							<div
+								class="w-48 [&_button[role=combobox]]:!h-7 [&_button[role=combobox]]:!rounded-md [&_button[role=combobox]]:!px-2.5 [&_button[role=combobox]]:!py-0 [&_button[role=combobox]]:!text-xs [&_button[role=combobox]]:!font-normal"
+							>
+								<SearchableSelect
+									value={selectedSavedFilterId}
+									placeholder="Select preset filter"
+									searchPlaceholder="Search preset filters..."
+									emptyMessage="No preset filters found."
+									items={alerts.savedFilters.items.map((filter) => ({
+										value: String(filter.filter_id),
+										label: filter.filter_name
+									}))}
+									onValueChange={(v) => {
+										if (v === '') {
+											clearSavedFilterSelection();
+											return;
+										}
+										selectedSavedFilterId = v;
+										const id = Number(v);
+										if (!Number.isFinite(id)) return;
+										applySavedFilter(id);
+									}}
+								/>
+							</div>
+
+							{#if canDeleteSelectedFilter}
+								<Button
+									variant="outline"
+									size="xs"
+									title="Delete preset filter"
+									aria-label="Delete preset filter"
+									onclick={() => (showConfirmDeletePreset = true)}
+								>
+									<TrashIcon class="h-4 w-4" />
+								</Button>
+							{/if}
+						</div>
+					{/if}
+				</div>
+
+				<div class="flex items-center gap-2">
+					<Button
+						variant="outline"
+						size="xs"
+						onclick={refreshCurrentView}
+						disabled={status === 'loading'}
+					>
+						Refresh
+					</Button>
+
+					<AlertsViewSwitcher
+						view={query.view}
+						group={query.board_group}
+						onViewChange={changeView}
+						onGroupChange={changeBoardGroup}
+					/>
+				</div>
+			</div>
+
+			{#if filtersOpen}
+				<AlertFilters
+					value={query.filters}
+					onChange={(next) => { query = { ...query, filters: next }; }}
+					onApply={() => commitQuery({ ...query, page: 1 })}
+					onClear={() => {
+						clearSavedFilterSelection();
+						commitQuery({ ...query, page: 1, filters: defaultFilters() });
+					}}
+					presets={alerts.savedFilters.items}
+					onSaveAsFilter={saveAsFilter}
+					saving={savingFilter}
+					{alertResolutions}
+					{alertStatuses}
+					{caseClassifications}
+					{severities}
+					{customers}
+					{owners}
+				/>
+			{/if}
+
+			<AlertsSplitView
+				class="-mx-6 min-h-0 grow"
+				alerts={alertsData.data}
+				loading={status === 'loading'}
+				total={getTotal({ data: alertsData } as RequestResponse<Paginated<Alert>>)}
+				page={query.page}
+				perPage={query.per_page}
+				{selected}
+				sortLabel={query.filters.sort === 'asc' ? 'Oldest' : 'Newest'}
+				shortcutsEnabled={!showMerge &&
+					!showClose &&
+					!showAlertEdit &&
+					!showAlertHistory &&
+					!showConfirmDelete &&
+					!reassignOpen}
+				onToggleSort={toggleSort}
+				onSelect={(alert_id, checked) => (selected = { ...selected, [alert_id]: checked })}
+				onSelectAll={(checked) => {
+					selectedAll = checked;
+					selected = Object.fromEntries(
+						alertsData.data.map((alert) => [alert.alert_id, checked])
+					);
+				}}
+				onEscalate={(alert) => {
+					selected = { ...selected, [alert.alert_id]: true };
+					showMerge = true;
+				}}
+				onMerge={(alert) => {
+					selected = { ...selected, [alert.alert_id]: true };
+					showMerge = true;
+				}}
+				onClose={(alert) => {
+					selected = { ...selected, [alert.alert_id]: true };
+					showClose = true;
+				}}
+				onOpenCluster={(cluster_id) => goto(`/alert-clusters/${cluster_id}`)}
+				onPageChange={changePage}
+				queueTab={queueTab}
+				onQueueTabChange={changeQueueTab}
+				onAssignToMe={assignToCurrentUser}
+				onAssign={openReassignDialog}
+			>
+				{#snippet filterBar()}
+					<AlertFilterLabels
+						value={query.filters}
+						onRemove={(key) => void removeFilter(key)}
+						{alertResolutions}
+						{alertStatuses}
+						{caseClassifications}
+						{severities}
+						{customers}
+						{owners}
+					/>
+				{/snippet}
+			</AlertsSplitView>
 		</div>
 	{:else}
 		<div class:opacity-60={status === 'loading'} class="flex min-h-0 grow flex-col gap-5">
@@ -835,12 +1068,6 @@
 					</div>
 
 					<div class="flex items-center gap-2">
-						<!--
-					  Select / expand / sort / per-page all act on the
-					  paginated card list; the board has no checkboxes,
-					  no collapsed state and pages itself, so they are
-					  list-view only.
-					-->
 						{#if query.view === 'list'}
 							{#if selecting}
 								<Button variant="outline" size="xs" onclick={cancelSelect}>Cancel</Button>

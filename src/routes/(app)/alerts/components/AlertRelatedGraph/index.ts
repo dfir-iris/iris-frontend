@@ -1,4 +1,4 @@
-import type { AlertRelationshipsFiltersValue } from './AlertRelationshipsFilters.svelte';
+import type { AlertRelationshipsFiltersValue } from './alert-relationships-filters';
 
 export { default as AlertRelatedGraph } from './AlertRelatedGraph.svelte';
 export { default as AlertRelationshipsFilters } from './AlertRelationshipsFilters.svelte';

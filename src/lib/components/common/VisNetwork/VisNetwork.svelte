@@ -12,6 +12,7 @@
 	import { DataSet } from 'vis-data';
 	import type { Options, IdType, Position } from 'vis-network';
 	import type { VisNode, VisEdge } from './types';
+	import { releaseWheelToPage, type VisActivatable } from './utils';
 
 	type Props = {
 		nodes: VisNode[];
@@ -106,13 +107,8 @@
 		network.on('click', handleClick);
 		network.on('oncontext', handleContext);
 
-		const handleMouseLeave = () => {
-			// Re-show the clickToUse overlay so the graph releases scroll
-			// control back to the page until the user clicks into it again.
-			if (options.clickToUse) {
-				network?.setOptions({ clickToUse: true });
-			}
-		};
+		const handleMouseLeave = () =>
+			releaseWheelToPage(network as (Network & VisActivatable) | null, options.clickToUse);
 
 		container.addEventListener('mouseleave', handleMouseLeave);
 
@@ -161,4 +157,55 @@
 	});
 </script>
 
-<div bind:this={container} class={className}></div>
+<div bind:this={container} class="vis-network-host {className}"></div>
+
+<style>
+	/*
+	  `clickToUse` works by laying a transparent `.vis-overlay` over the
+	  canvas that swallows input until the user clicks in. vis-network builds
+	  that element at runtime but ships its styling separately, in
+	  `vis-util/.../activator.css` — and the root `vis-network` entry we
+	  import (deliberately, see the note at the top of this file) pulls in no
+	  CSS at all. Unstyled, the overlay is a statically positioned, zero-height
+	  div that covers nothing, so the wheel reaches the canvas and the graph
+	  zooms the moment the pointer crosses it while the page is being
+	  scrolled. Restore just the rules the overlay needs rather than importing
+	  the full vis stylesheet, which would also restyle tooltips and ship
+	  bootstrap overrides.
+	*/
+	.vis-network-host :global(.vis-overlay) {
+		position: absolute;
+		inset: 0;
+		z-index: 10;
+	}
+
+	/* The overlay is invisible, so signal that a click is needed to interact
+	   — otherwise the swallowed first click just reads as an unresponsive
+	   graph. */
+	.vis-network-host :global(.vis-overlay)::after {
+		content: 'Click to interact';
+		position: absolute;
+		bottom: 0.5rem;
+		left: 50%;
+		transform: translateX(-50%);
+		padding: 0.125rem 0.5rem;
+		border: 1px solid hsl(var(--border));
+		border-radius: 9999px;
+		background: hsl(var(--background));
+		color: hsl(var(--muted-foreground));
+		font-size: 0.6875rem;
+		line-height: 1rem;
+		white-space: nowrap;
+		opacity: 0;
+		transition: opacity 150ms ease;
+	}
+
+	.vis-network-host :global(.vis-overlay):hover::after {
+		opacity: 1;
+	}
+
+	/* Active-state ring, themed instead of vis's hardcoded blue. */
+	.vis-network-host :global(.vis-network.vis-active) {
+		box-shadow: 0 0 0 2px hsl(var(--primary) / 0.4);
+	}
+</style>

@@ -76,7 +76,9 @@ export interface CaseAccessMe {
 	access_level: CaseAccessLevel;
 }
 
-export type FilterCasesParams = Omit<ListCasesParams, 'order_by' | 'is_open'>;
+// `/cases/filter` shares the same pagination parsing as `/cases`, so it
+// honours `order_by` + `sort_dir` too.
+export type FilterCasesParams = Omit<ListCasesParams, 'is_open'>;
 
 export type FilterCasesMessage = {
 	total: number;

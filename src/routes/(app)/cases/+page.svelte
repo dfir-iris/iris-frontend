@@ -1,16 +1,18 @@
 <script lang="ts">
-	import { PlusIcon, UploadIcon } from 'lucide-svelte';
+	import { CheckIcon, ExternalLinkIcon, FolderOpenIcon, PlusIcon, UploadIcon } from 'lucide-svelte';
 	import { getContext } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
+	import { current_user } from '$lib/stores/auth.store';
 	import type { Case, Tags } from '$lib/types/resources/case';
-	import type { RequestResponse, Paginated } from '$lib/services/api.service';
+	import type { Paginated } from '$lib/services/api.service';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import { DEFAULT_DEBOUNCE, DEFAULT_ITEMS_PER_PAGE } from '$lib/config/api.config';
 	import {
 		CaseFilters,
 		CaseSavedFiltersBar,
 		emptyGroup,
+		isGroup,
 		pruneTree,
 		treeHasActiveCondition,
 		type FilterDef,
@@ -18,15 +20,23 @@
 		type FilterLogic,
 		type FilterRow
 	} from '$lib/components/common/CaseFilters';
-	import CasesDataTable from '$lib/components/common/cases-data-table.svelte';
 	import { UsersService, type User } from '$lib/services/users.service';
 	import { CustomersService } from '$lib/services/customers.service';
 	import { CaseStatesService, type CaseState } from '$lib/services/case-states.service';
 	import { SeveritiesService, type Severity } from '$lib/services/severities.service';
+	import {
+		CaseClassificationsService,
+		type CaseClassification
+	} from '$lib/services/case-classifications.service';
+	import { MarkDownPreview } from '$lib/components/common/MarkDown';
+	import SeverityBadge from '$lib/components/ui/badge/severity-badge.svelte';
+	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
+	import type { CaseStatus, Severity as SeverityName } from '$lib/components/ui/badge/types';
 	import { Button } from '$lib/components/ui/button';
 	import Checkbox from '$lib/components/ui/checkbox/checkbox.svelte';
 	import Label from '$lib/components/ui/label/label.svelte';
 	import Searchbar from '$lib/components/ui/searchbar/searchbar.svelte';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Select } from '$lib/components/ui/select';
 	import SelectTrigger from '$lib/components/ui/select/select-trigger.svelte';
 	import SelectContent from '$lib/components/ui/select/select-content.svelte';
@@ -48,35 +58,133 @@
 	let selectedSavedFilterId = $state('');
 	let savingFilter = $state(false);
 
-	// Sort is now driven server-side via `order_by` + `direction` so
-	// pagination + sort stay in sync. The data-table reports column
-	// header clicks through `sort` / `onSortChange`; we translate the
-	// column id to the backend column name in `serverOrderBy()`.
+	// Sort is driven server-side via `order_by` + `sort_dir` so
+	// pagination + sort stay in sync.
 	type SortState = { id: string; dir: 'asc' | 'desc' | null } | null;
 	let sort = $state<SortState>({ id: 'open_date', dir: 'desc' });
 
-	let casesPaginated = $state<Promise<RequestResponse<Paginated<Case>>> | null>(null);
+	// Flat mirror of the current page so the queue list can render rows
+	// synchronously and manage selection without re-awaiting a promise on
+	// every keystroke.
+	let caseRows = $state<Case[]>([]);
+	let caseTotal = $state(0);
+	let listStatus = $state<'loading' | 'idle' | 'error'>('loading');
+	let listError = $state<string | null>(null);
 
 	// Lookups feeding the prefilled value pickers in the filter builder.
-	// Loaded once on mount; the backend filters match these by *name*
-	// (not id) so the picker emits the textual value the backend
-	// already compares against (see manage_cases_db.build_filter_case_query).
 	let userOptions = $state<{ value: string; label: string }[]>([]);
 	let customerOptions = $state<{ value: string; label: string }[]>([]);
 	let stateOptions = $state<{ value: string; label: string }[]>([]);
 	let severityOptions = $state<{ value: string; label: string }[]>([]);
+	// Raw severities kept so the KPI strip can resolve the "Critical"
+	// severity_id — the picker options only carry names.
+	let severitiesRaw = $state<Severity[]>([]);
+	// Cases carry `classification_id` but no nested classification object,
+	// so the detail pane resolves the display name through this lookup.
+	let classifications = $state<CaseClassification[]>([]);
 
 	const perPageOptions = [5, 10, 25, 50, 100].map((n) => ({
 		value: String(n),
 		label: `${n} entries`
 	}));
 
-	// Filter definitions for the cases overview. `valueOptions` turns
-	// the value input into a prefilled picker for low-cardinality
-	// fields — derived so the dropdown updates as the lookup arrays
-	// load. Backend matches these by the textual value (state_name,
-	// severity_name, customer name, user login), so the picker emits
-	// strings that the backend can compare directly.
+	// ── Split-view selection ────────────────────────────────────────────
+	// The queue holds the row the analyst clicked; the detail pane needs
+	// the *full* case (list rows come back partially hydrated), so we
+	// fetch it by id and fall back to the row while that's in flight.
+	let selectedId = $state<number | null>(null);
+	let selectedFull = $state<Case | null>(null);
+	let detailLoading = $state(false);
+
+	const selectedRow = $derived(caseRows.find((c) => c.case_id === selectedId) ?? null);
+	const detailCase = $derived(
+		selectedFull?.case_id === selectedId ? selectedFull : selectedRow
+	);
+
+	const selectCase = async (c: Case) => {
+		if (selectedId === c.case_id) {
+			selectedId = null;
+			selectedFull = null;
+			return;
+		}
+		selectedId = c.case_id;
+		selectedFull = null;
+		detailLoading = true;
+		try {
+			const full = await cases.get(c.case_id);
+			// Guard against a slower earlier request landing last.
+			if (selectedId === c.case_id) selectedFull = full;
+		} finally {
+			if (selectedId === c.case_id) detailLoading = false;
+		}
+	};
+
+	// ── KPI strip ───────────────────────────────────────────────────────
+	// Counts come from dedicated `per_page=1` queries rather than being
+	// tallied off the current page, so they describe the whole queue and
+	// stay correct regardless of paging or the active filter set.
+	const STALE_DAYS = 7;
+
+	const myUserId = $derived($current_user?.user_id ?? $current_user?.id ?? null);
+
+	let kpi = $state<{
+		open: number | null;
+		critical: number | null;
+		stalled: number | null;
+		mine: number | null;
+	}>({ open: null, critical: null, stalled: null, mine: null });
+
+	const readTotal = (res: unknown): number => {
+		const r = res as { data?: { total?: number } } | null;
+		return typeof r?.data?.total === 'number' ? r.data.total : 0;
+	};
+
+	const countCases = async (params: Record<string, unknown>): Promise<number> => {
+		try {
+			const res = await cases.listPaginated({ page: 1, per_page: 1, ...params });
+			return readTotal(res);
+		} catch {
+			return 0;
+		}
+	};
+
+	// `open_date <= cutoff` is a plain SQL comparison server-side, so a
+	// YYYY-MM-DD bound is enough to mean "opened more than 7 days ago".
+	const staleCutoff = (): string => {
+		const d = new Date(Date.now() - STALE_DAYS * 86_400_000);
+		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+	};
+
+	const loadKpis = async () => {
+		const criticalId = severitiesRaw.find(
+			(s) => s.severity_name?.toLowerCase() === 'critical'
+		)?.severity_id;
+
+		const [open, critical, stalled, mine] = await Promise.all([
+			countCases({ is_open: true }),
+			criticalId != null
+				? countCases({ is_open: true, severity_id: criticalId })
+				: Promise.resolve(0),
+			countCases({ is_open: true, end_open_date: staleCutoff() }),
+			myUserId != null
+				? countCases({ is_open: true, case_owner_id: myUserId })
+				: Promise.resolve(0)
+		]);
+
+		kpi = { open, critical, stalled, mine };
+	};
+
+	// Refresh the KPI strip once the severity lookup and the signed-in
+	// user have both resolved, and again whenever either changes.
+	let lastKpiKey: string | undefined = undefined;
+	$effect(() => {
+		const key = `${severitiesRaw.length}:${myUserId ?? ''}`;
+		if (key === lastKpiKey) return;
+		lastKpiKey = key;
+		void loadKpis();
+	});
+
+	// Filter definitions for the cases overview.
 	const filterDefs = $derived<FilterDef<Case>[]>([
 		{ id: 'title', label: 'Title', get: (c) => (c as Case).case_name },
 		{ id: 'case_id', label: 'Case ID', get: (c) => (c as Case).case_id },
@@ -119,11 +227,6 @@
 		}
 	]);
 
-	// Column id → backend `order_by` column. The backend's
-	// `build_filter_case_query` special-cases `owner`, `opened_by`,
-	// `customer_name`, `state`; everything else must match a `Cases`
-	// model attribute. Anything not in this map falls through to no
-	// sort.
 	const serverOrderBy = (columnId: string): string | null => {
 		switch (columnId) {
 			case 'case_name':
@@ -145,6 +248,41 @@
 			default:
 				return null;
 		}
+	};
+
+	// Queue column headers. `id` feeds `serverOrderBy`; `firstDir` is the
+	// direction a fresh click picks, so dates open newest-first while names
+	// open A→Z. "Age" sorts on `open_date` — the idle figure next to it is
+	// derived from `modification_history` client-side and has no server
+	// ordering column, so it deliberately isn't sortable on its own.
+	const QUEUE_COLUMNS: {
+		id: string;
+		label: string;
+		cls: string;
+		firstDir: 'asc' | 'desc';
+	}[] = [
+		{ id: 'case_name', label: 'Case', cls: 'q-col-case', firstDir: 'asc' },
+		{ id: 'state.state_name', label: 'Stage', cls: 'q-col-stage', firstDir: 'asc' },
+		{ id: 'owner.user_login', label: 'Owner', cls: 'q-col-owner', firstDir: 'asc' },
+		{ id: 'open_date', label: 'Age · Idle', cls: 'q-col-age', firstDir: 'desc' }
+	];
+
+	// Oldest-first reads as ascending age, so the age column's caret is
+	// inverted relative to the underlying `open_date` direction.
+	const sortArrow = (columnId: string): string => {
+		if (sort?.id !== columnId || !sort.dir) return '';
+		const ascending = columnId === 'open_date' ? sort.dir === 'desc' : sort.dir === 'asc';
+		return ascending ? '▲' : '▼';
+	};
+
+	const toggleSort = (column: { id: string; firstDir: 'asc' | 'desc' }) => {
+		sort =
+			sort?.id === column.id && sort.dir
+				? { id: column.id, dir: sort.dir === 'asc' ? 'desc' : 'asc' }
+				: { id: column.id, dir: column.firstDir };
+
+		// A re-sorted queue makes the current page number meaningless.
+		updateUrl({ page: 1 });
 	};
 
 	const updateUrl = (params: { search?: string; page?: number; showClosed?: boolean }) => {
@@ -176,10 +314,6 @@
 	let filtersDebounce: ReturnType<typeof setTimeout> | null = null;
 	let debouncedGroup = $state<FilterGroup>(emptyGroup('and'));
 
-	// Apply runs the filter set immediately (also called when the user
-	// presses Enter inside a value input). Without it, filter changes
-	// took ~DEFAULT_DEBOUNCE before reaching the server which felt
-	// laggy.
 	const applyFiltersNow = () => {
 		if (filtersDebounce) clearTimeout(filtersDebounce);
 		debouncedGroup = filterGroup;
@@ -203,7 +337,6 @@
 		if (!value || typeof value !== 'object') return {} as Case;
 
 		const raw = value as Record<string, unknown>;
-
 		const normalized: Record<string, unknown> = { ...raw };
 
 		const name = raw.name;
@@ -238,10 +371,6 @@
 		currentPage = urlPage;
 		showClosed = urlShowClosed;
 
-		// Send the trimmed filter tree so empty rows / empty
-		// sub-groups don't cost a round-trip. If nothing is active
-		// after pruning, omit `filters` entirely so the server isn't
-		// forced to parse a no-op tree.
 		const pruned = pruneTree(debouncedGroup);
 		const hasFilters = treeHasActiveCondition(pruned);
 
@@ -255,42 +384,36 @@
 			logic: pruned.logic,
 			filters: hasFilters ? JSON.stringify(pruned) : undefined,
 			order_by: orderBy ?? undefined,
-			direction: orderBy && direction ? direction : undefined
+			// The API reads the direction from `sort_dir` (see
+			// `parse_pagination_parameters`); `direction` is silently ignored.
+			sort_dir: orderBy && direction ? direction : undefined
 		};
 
 		const params = urlShowClosed ? baseParams : { ...baseParams, is_open: true };
 
-		const p = cases.filterPaginated(params);
+		listStatus = 'loading';
+		listError = null;
 
-		casesPaginated = p.then((res) => {
+		// The queue renders off `caseRows` rather than awaiting the promise in
+		// the template, so this only drains the response into local state.
+		void cases.filterPaginated(params).then((res) => {
 			const raw = res.data;
 
 			if (!raw || typeof raw !== 'object' || typeof raw === 'string') {
-				const empty: Paginated<Case> = {
-					data: [] as Case[],
-					total: 0,
-					current_page: urlPage,
-					last_page: 1,
-					next_page: null
-				};
-
-				return {
-					...res,
-					ok: false,
-					data: empty
-				};
+				caseRows = [];
+				caseTotal = 0;
+				listStatus = 'error';
+				listError = res.error?.message ?? 'Failed to load cases';
+				return;
 			}
 
 			const pageData = raw as Paginated<Case>;
 			const list = Array.isArray(pageData.data) ? pageData.data : ([] as Case[]);
+			const normalized = list.map(normalizeCase);
 
-			return {
-				...res,
-				data: {
-					...pageData,
-					data: list.map(normalizeCase)
-				}
-			};
+			caseRows = normalized;
+			caseTotal = typeof pageData.total === 'number' ? pageData.total : normalized.length;
+			listStatus = 'idle';
 		});
 	});
 
@@ -321,17 +444,19 @@
 	// Lookup loaders --------------------------------------------------
 
 	const loadLookups = async () => {
-		// Run in parallel; failures degrade the picker to a free-text
-		// input rather than blocking the page.
-		const [usersRes, customersRes, statesRes, severitiesRes] = await Promise.all([
-			UsersService.list(),
-			CustomersService.list(),
-			CaseStatesService.list(),
-			SeveritiesService.list()
-		]);
+		const [usersRes, customersRes, statesRes, severitiesRes, classificationsRes] =
+			await Promise.all([
+				UsersService.list(),
+				CustomersService.list(),
+				CaseStatesService.list(),
+				SeveritiesService.list(),
+				CaseClassificationsService.list()
+			]);
 
-		// users response is a Paginated<User>; customers / states /
-		// severities are flat arrays.
+		classifications = Array.isArray(classificationsRes.data)
+			? (classificationsRes.data as CaseClassification[])
+			: [];
+
 		const usersData = usersRes.data as { data?: User[] } | User[] | null;
 		const users: User[] = Array.isArray(usersData) ? usersData : (usersData?.data ?? []);
 		userOptions = users.map((u) => ({
@@ -348,6 +473,7 @@
 		stateOptions = states.map((s) => ({ value: s.state_name, label: s.state_name }));
 
 		const severities = Array.isArray(severitiesRes.data) ? (severitiesRes.data as Severity[]) : [];
+		severitiesRaw = severities;
 		severityOptions = severities.map((s) => ({ value: s.severity_name, label: s.severity_name }));
 	};
 
@@ -355,11 +481,6 @@
 		void loadLookups();
 	});
 
-	// Saved-filter payload — versioned shape so we can keep reading
-	// pre-nesting presets a user already saved. The legacy shape was
-	// `{ logic, filters: FilterRow[] }`; the new shape is
-	// `{ group: FilterGroup }`. The reader normalises both into a
-	// FilterGroup before applying.
 	type LegacySavedFilterPayload = {
 		logic?: FilterLogic;
 		filters?: FilterRow[];
@@ -431,49 +552,289 @@
 	const hasActiveFilter = $derived(
 		treeHasActiveCondition(filterGroup) || search.trim() !== '' || showClosed
 	);
+
+	// ── Presentation helpers ────────────────────────────────────────────
+
+	const ownerName = (c: Case | null): string => {
+		const o = c?.owner as { user_name?: string; user_login?: string } | null | undefined;
+		return o?.user_name || o?.user_login || '';
+	};
+
+	const ageDays = (iso: string | null | undefined): number => {
+		if (!iso) return 0;
+		const t = new Date(iso).getTime();
+		if (Number.isNaN(t)) return 0;
+		return Math.floor((Date.now() - t) / 86_400_000);
+	};
+
+	const ageLabel = (iso: string | null | undefined): string => {
+		if (!iso) return '—';
+		const days = ageDays(iso);
+		if (days === 0) return 'today';
+		if (days === 1) return '1d';
+		return `${days}d`;
+	};
+
+	const isStalled = (c: Case | null): boolean =>
+		!!c?.open_date && !c?.close_date && ageDays(c.open_date) > STALE_DAYS;
+
+	// Canonical IRIS investigation pipeline, in the order the seeded case
+	// states are created (see post_init). `CaseState` carries no ordering
+	// column, so the progression has to be named here; states outside the
+	// pipeline (Unspecified / In progress, plus any custom state a
+	// deployment adds) resolve to -1 and simply render no progress bar.
+	const STAGES = [
+		'Open',
+		'Containment',
+		'Eradication',
+		'Recovery',
+		'Post-Incident',
+		'Reporting',
+		'Closed'
+	];
+
+	const stageIndex = (name: string | null | undefined): number =>
+		STAGES.findIndex((s) => s.toLowerCase() === (name ?? '').toLowerCase().trim());
+
+	/** Two-letter avatar chip, matching the alert cockpit's convention. */
+	const initials = (name: string | null | undefined): string => {
+		const parts = (name ?? '').trim().split(/[\s._-]+/).filter(Boolean);
+		if (parts.length === 0) return '??';
+		if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+		return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+	};
+
+	/**
+	 * "Idle" = how long the case has sat untouched. `modification_history`
+	 * is keyed by unix seconds (same shape as the alert history), so the
+	 * newest key is the last time anything moved. Cases with no history
+	 * fall back to their open date, which is the correct reading: nothing
+	 * has happened since they were opened.
+	 */
+	const lastActivityAt = (c: Case | null): number | null => {
+		const h = c?.modification_history as Record<string, unknown> | null | undefined;
+		if (h && typeof h === 'object') {
+			const stamps = Object.keys(h)
+				.map(Number)
+				.filter((n) => Number.isFinite(n) && n > 0);
+			if (stamps.length > 0) return Math.max(...stamps) * 1000;
+		}
+		if (!c?.open_date) return null;
+		const t = new Date(c.open_date).getTime();
+		return Number.isNaN(t) ? null : t;
+	};
+
+	const idleDays = (c: Case | null): number | null => {
+		const at = lastActivityAt(c);
+		if (at === null) return null;
+		return Math.max(0, Math.floor((Date.now() - at) / 86_400_000));
+	};
+
+	// `UserInfo` carries both `id` and `user_id` optionally depending on
+	// which serializer produced it, so read either rather than silently
+	// never matching the signed-in user.
+	const ownerId = (c: Case | null): number | null =>
+		c?.owner?.id ?? c?.owner?.user_id ?? null;
+
+	const classificationName = (c: Case | null): string => {
+		if (c?.classification_id == null) return '—';
+		const hit = classifications.find((k) => k.id === c.classification_id);
+		return hit?.name_expanded || hit?.name || `#${c.classification_id}`;
+	};
+
+	// Assign straight from the queue. The patched case is written back into
+	// both the detail pane and the queue row so the owner column updates
+	// without a full refetch; the KPI strip is refreshed because
+	// "Assigned to me" just changed.
+	let assigning = $state(false);
+	const assignToMe = async (c: Case) => {
+		if (assigning || myUserId == null) return;
+		assigning = true;
+		try {
+			const updated = await cases.patch(c.case_id, { owner_id: myUserId });
+			if (updated) {
+				if (selectedId === c.case_id) selectedFull = updated;
+				caseRows = caseRows.map((r) => (r.case_id === c.case_id ? { ...r, ...updated } : r));
+				void loadKpis();
+			}
+		} finally {
+			assigning = false;
+		}
+	};
+
+	const formatDate = (iso: string | null | undefined): string => {
+		if (!iso) return '—';
+		const d = new Date(iso);
+		if (Number.isNaN(d.getTime())) return '—';
+		return d.toLocaleString(undefined, {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit'
+		});
+	};
+
+	const stripCaseIdPrefix = (name: string | null | undefined): string => {
+		const m = (name ?? '').match(/^#\d+\s*-\s*(.+)$/);
+		return m ? m[1] : (name ?? '');
+	};
+
+	// ── Header ──────────────────────────────────────────────────────────
+
+	// Row density only changes padding, so it is presentation-local — no need
+	// to round-trip it through the URL.
+	let density = $state<'comfortable' | 'compact'>('comfortable');
+
+	const applyKpiFilter = (row: FilterRow) => {
+		filterGroup = { logic: 'and', items: [row] };
+		selectedSavedFilterId = '';
+		applyFiltersNow();
+	};
+
+	// The KPI strip mirrors whatever `filterGroup` currently holds rather than
+	// tracking its own selection, so hand-edits in the filter builder can't
+	// leave a card highlighted for a filter that is no longer applied.
+	const activeKpi = $derived.by(() => {
+		const [only, ...rest] = filterGroup.items;
+
+		if (only && rest.length === 0 && !isGroup(only)) {
+			if (only.fieldId === 'severity' && only.value.toLowerCase() === 'critical') {
+				return 'critical';
+			}
+			if (only.fieldId === 'owner' && only.value === $current_user?.user_login) {
+				return 'mine';
+			}
+		}
+
+		return hasActiveFilter ? null : 'open';
+	});
+
+	const kpiCards = $derived([
+		{
+			id: 'open',
+			label: 'Open',
+			value: kpi.open,
+			// `hasActiveFilter` also counts the search box and the closed
+			// toggle, so this card has to reset all three to light up again.
+			select: () => {
+				search = '';
+				selectedSavedFilterId = '';
+				filterGroup = emptyGroup('and');
+				applyFiltersNow();
+				updateUrl({ search: '', showClosed: false, page: 1 });
+			}
+		},
+		{
+			id: 'critical',
+			label: 'Critical',
+			value: kpi.critical,
+			select: () => {
+				const crit = severitiesRaw.find((s) => s.severity_name?.toLowerCase() === 'critical');
+				if (crit) applyKpiFilter({ fieldId: 'severity', operation: 'equals', value: crit.severity_name });
+			}
+		},
+		{
+			id: 'stalled',
+			label: `Stalled > ${STALE_DAYS}d`,
+			value: kpi.stalled,
+			// Staleness is a date window rather than a field match, so there is
+			// no equivalent filter row to hand the builder — display only.
+			select: null
+		},
+		{
+			id: 'mine',
+			label: 'Assigned to me',
+			value: kpi.mine,
+			select: () => {
+				const me = $current_user?.user_login;
+				if (me) applyKpiFilter({ fieldId: 'owner', operation: 'equals', value: me });
+			}
+		}
+	]);
+
+	const sortLabel = $derived(
+		(QUEUE_COLUMNS.find((c) => c.id === sort?.id)?.label ?? 'open date').toLowerCase()
+	);
+
+	const queueSubtitle = $derived(
+		kpi.open === null
+			? 'Counting the open queue…'
+			: `${kpi.open} open ${kpi.open === 1 ? 'investigation' : 'investigations'}, sorted by ${sortLabel}.`
+	);
+
+	const lastPage = $derived(Math.max(1, Math.ceil(caseTotal / Number(perPage))));
+	const rangeLabel = $derived(
+		caseTotal === 0
+			? '0 of 0'
+			: `${(currentPage - 1) * Number(perPage) + 1}–${Math.min(currentPage * Number(perPage), caseTotal)} of ${caseTotal}`
+	);
 </script>
 
 <svelte:head>
-	<title>Cases</title>
+	<title>Overview</title>
 </svelte:head>
 
-<!--
-  Outer container is height-bounded so the table can scroll on its
-  own (`min-h-0 overflow-hidden`). Only the table region scrolls — the
-  page header and filter strip stay pinned, matching the alerts list
-  layout.
--->
-<div class="flex h-full min-h-0 grow flex-col gap-4 overflow-hidden p-4">
-	<div class="flex shrink-0 flex-row items-center gap-4">
-		<h1>{showClosed ? 'All Cases' : 'Open Cases'}</h1>
-
-		<div class="ml-auto"></div>
-
-		<div class="flex items-center space-x-2 rounded p-1 hover:bg-muted/50">
-			<Checkbox
-				id="show_closed"
-				checked={showClosed}
-				onCheckedChange={(checked) => updateUrl({ showClosed: checked === true, page: 1 })}
-			/>
-
-			<Label for="show_closed" class="w-full cursor-pointer text-sm font-normal">
-				Show closed cases
-			</Label>
+<div class="ov-root">
+	<!-- ── Title + primary actions ──────────────────────────────────── -->
+	<header class="ov-head">
+		<div class="ov-head-text">
+			<h1 class="ov-title">Case queue</h1>
+			<p class="ov-sub">{queueSubtitle}</p>
 		</div>
 
-		<Button variant="outline" onclick={() => goto('/cases/import')}>
-			<UploadIcon />
-			Import Case
-		</Button>
+		<div class="ov-head-actions">
+			<Button variant="outline" size="sm" onclick={() => goto('/cases/import')}>
+				<UploadIcon />
+				Import
+			</Button>
 
-		<Button onclick={() => (cases.ui.showAddModal = true)}>
-			<PlusIcon />
-			Open Case
-		</Button>
+			<Button size="sm" onclick={() => (cases.ui.showAddModal = true)}>
+				<PlusIcon />
+				Open a case
+			</Button>
+		</div>
+	</header>
+
+	<!-- ── KPI cards ────────────────────────────────────────────────── -->
+	{#snippet kpiBody(card: (typeof kpiCards)[number])}
+		<span class="kpi-dot" aria-hidden="true"></span>
+		<span class="kpi-lbl">{card.label}</span>
+		<span class="kpi-val">{card.value ?? '—'}</span>
+	{/snippet}
+
+	<div class="ov-kpis">
+		{#each kpiCards as card (card.id)}
+			{@const active = activeKpi === card.id}
+			{#if card.select}
+				<button
+					type="button"
+					class="kpi kpi--{card.id}"
+					class:kpi--active={active}
+					aria-pressed={active}
+					onclick={card.select}
+				>
+					{@render kpiBody(card)}
+				</button>
+			{:else}
+				<div class="kpi kpi--{card.id}">{@render kpiBody(card)}</div>
+			{/if}
+		{/each}
 	</div>
 
-	<div class="flex shrink-0 flex-wrap items-center justify-between gap-2">
-		<div class="flex items-center gap-2">
+	<!--
+	  ── Filter toolbar ─────────────────────────────────────────────────
+	  Two groups, so the row reads left-to-right as one idea each:
+	    left  — what the queue contains (search, filters, closed cases)
+	    right — how it is displayed (page size, row density)
+	  Everything sits on a single 2rem control height.
+	-->
+	<div class="ov-toolbar">
+		<div class="ov-tools">
+			<div class="ov-search">
+				<Searchbar placeholder="Filter by title, ID, tag…" bind:value={search} />
+			</div>
+
 			<Button
 				variant={filterBuilderOpen ? 'default' : 'outline'}
 				size="sm"
@@ -495,14 +856,23 @@
 				onDelete={(id) => deleteSavedFilter(id)}
 				onSave={(meta) => saveCurrentFilter(meta)}
 			/>
+
+			<span class="ov-sep" aria-hidden="true"></span>
+
+			<div class="ov-showclosed">
+				<Checkbox
+					id="show_closed"
+					checked={showClosed}
+					onCheckedChange={(checked) => updateUrl({ showClosed: checked === true, page: 1 })}
+				/>
+				<Label for="show_closed" class="cursor-pointer text-xs font-normal">Show closed</Label>
+			</div>
 		</div>
 
-		<div class="flex items-center gap-2">
-			<div class="flex min-w-48">
-				<Searchbar placeholder="Search cases" bind:value={search} />
-			</div>
+		<div class="ov-spacer"></div>
 
-			<div class="flex h-10">
+		<div class="ov-tools">
+			<div class="ov-perpage">
 				<Select
 					value={String(perPage)}
 					onValueChange={(value) => {
@@ -512,8 +882,7 @@
 					}}
 					type="single"
 				>
-					<SelectTrigger>{perPage} entries per page</SelectTrigger>
-
+					<SelectTrigger>{perPage} / page</SelectTrigger>
 					<SelectContent>
 						{#each perPageOptions as perPageOption (perPageOption.value)}
 							<SelectItem value={perPageOption.value}>{perPageOption.label}</SelectItem>
@@ -521,11 +890,29 @@
 					</SelectContent>
 				</Select>
 			</div>
+
+			<!-- Row density. Segmented control, matching the queue mockup. -->
+			<div class="ov-density" role="group" aria-label="Row density">
+				<button
+					type="button"
+					class:ov-density--on={density === 'comfortable'}
+					onclick={() => (density = 'comfortable')}
+				>
+					Comfortable
+				</button>
+				<button
+					type="button"
+					class:ov-density--on={density === 'compact'}
+					onclick={() => (density = 'compact')}
+				>
+					Compact
+				</button>
+			</div>
 		</div>
 	</div>
 
 	{#if filterBuilderOpen}
-		<div class="shrink-0">
+		<div class="ov-filterpanel">
 			<CaseFilters
 				defs={filterDefs}
 				group={filterGroup}
@@ -543,15 +930,949 @@
 		</div>
 	{/if}
 
-	{#if casesPaginated}
-		<CasesDataTable
-			class="flex min-h-0 flex-1"
-			cases={casesPaginated}
-			page={currentPage}
-			pageSize={perPage}
-			onPageChange={(page) => updateUrl({ page })}
-			{sort}
-			onSortChange={(next) => (sort = next)}
-		/>
-	{/if}
+	<!-- ── Split: queue | detail ────────────────────────────────────── -->
+	<div class="ov-split">
+		<!-- Queue -->
+		<div class="ov-queue" class:ov-queue--compact={density === 'compact'}>
+			<div class="q-head">
+				{#each QUEUE_COLUMNS as col (col.id)}
+					{@const arrow = sortArrow(col.id)}
+					<button
+						type="button"
+						class="q-sort {col.cls}"
+						class:q-sort--active={arrow !== ''}
+						aria-label="Sort by {col.label}{arrow === ''
+						? ''
+						: arrow === '▲'
+							? ' (ascending)'
+							: ' (descending)'}"
+						onclick={() => toggleSort(col)}
+					>
+						<span>{col.label}</span>
+						<span class="q-sort-arrow" aria-hidden="true">{arrow}</span>
+					</button>
+				{/each}
+			</div>
+
+			<div class="q-list">
+				{#if listStatus === 'loading'}
+					<div class="q-loading">
+						{#each Array(8) as _}
+							<Skeleton class="h-11 w-full" />
+						{/each}
+					</div>
+				{:else if listStatus === 'error'}
+					<div class="q-error">{listError}</div>
+				{:else if caseRows.length === 0}
+					<div class="q-empty">
+						<FolderOpenIcon class="h-8 w-8 opacity-40" />
+						<p>No cases match this view.</p>
+						{#if hasActiveFilter}
+							<Button size="sm" variant="outline" onclick={clearActiveFilter}>Clear filters</Button>
+						{/if}
+					</div>
+				{:else}
+					{#each caseRows as c (c.case_id)}
+						{@const active = selectedId === c.case_id}
+						{@const stalled = isStalled(c)}
+						{@const stage = stageIndex(c.state?.state_name)}
+						{@const owner = ownerName(c)}
+						{@const idle = idleDays(c)}
+						<button
+							type="button"
+							class="q-row {active ? 'q-row--active' : ''}"
+							onclick={() => void selectCase(c)}
+						>
+							<!-- Case: severity + title, then identifiers, then tags -->
+							<div class="q-cell-case">
+								<div class="q-case-line">
+									{#if c.severity?.severity_name}
+										<SeverityBadge severity={c.severity.severity_name as SeverityName} />
+									{/if}
+									<span class="q-title" title={c.case_name}>
+										{stripCaseIdPrefix(c.case_name)}
+									</span>
+								</div>
+								<div class="q-ident">
+									{#if c.case_soc_id}
+										<span class="q-soc">{c.case_soc_id}</span>
+										<span class="q-dot">·</span>
+									{/if}
+									<span class="q-id">#{c.case_id}</span>
+									{#if c.case_customer?.customer_name}
+										<span class="q-dot">·</span>
+										<span class="q-cust" title={c.case_customer.customer_name}>
+											{c.case_customer.customer_name}
+										</span>
+									{/if}
+								</div>
+								{#if c.tags?.length}
+									<div class="q-tags">
+										{#each c.tags.slice(0, 3) as t, i (t.tag_title ?? i)}
+											<span class="q-tag">{t.tag_title}</span>
+										{/each}
+										{#if c.tags.length > 3}
+											<span class="q-tag q-tag--more">+{c.tags.length - 3}</span>
+										{/if}
+									</div>
+								{/if}
+							</div>
+
+							<!-- Stage: name + pipeline progress -->
+							<div class="q-cell-stage">
+								<span class="q-stage-name">{c.state?.state_name ?? '—'}</span>
+								{#if stage >= 0}
+									<span class="q-pipe" aria-hidden="true">
+										{#each STAGES as s, i (s)}
+											<span class="q-seg {i < stage ? 'q-seg--done' : ''} {i === stage ? 'q-seg--now' : ''}"
+											></span>
+										{/each}
+									</span>
+								{/if}
+							</div>
+
+							<!-- Owner: avatar chip + name, or an explicit unassigned state -->
+							<div class="q-cell-owner">
+								{#if owner}
+									<span class="q-avatar">{initials(owner)}</span>
+									<span class="q-owner-name" title={owner}>{owner}</span>
+								{:else}
+									<span class="q-avatar q-avatar--none">?</span>
+									<span class="q-owner-none">Unassigned</span>
+								{/if}
+							</div>
+
+							<!-- Age · Idle -->
+							<div class="q-cell-age">
+								<span class="q-age {stalled ? 'q-age--stalled' : ''}">{ageLabel(c.open_date)}</span>
+								{#if idle !== null}
+									<span class="q-idle {idle > STALE_DAYS ? 'q-idle--hot' : ''}">
+										idle {idle}d
+									</span>
+								{/if}
+							</div>
+						</button>
+					{/each}
+				{/if}
+			</div>
+
+			<div class="q-foot">
+				<button
+					type="button"
+					class="q-page-btn"
+					disabled={currentPage <= 1}
+					onclick={() => updateUrl({ page: currentPage - 1 })}
+				>
+					Prev
+				</button>
+				<span class="q-page-lbl">{rangeLabel} · page {currentPage}/{lastPage}</span>
+				<button
+					type="button"
+					class="q-page-btn"
+					disabled={currentPage >= lastPage}
+					onclick={() => updateUrl({ page: currentPage + 1 })}
+				>
+					Next
+				</button>
+			</div>
+		</div>
+
+		<!-- Detail -->
+		<div class="ov-detail">
+			{#if !detailCase}
+				<div class="d-empty">
+					<FolderOpenIcon class="h-10 w-10 opacity-30" />
+					<p>Select a case to see its summary.</p>
+				</div>
+			{:else}
+				{@const c = detailCase}
+				{@const stage = stageIndex(c.state?.state_name)}
+				{@const idle = idleDays(c)}
+				<div class="d-head">
+					<div class="d-head-top">
+						{#if c.severity?.severity_name}
+							<SeverityBadge severity={c.severity.severity_name as SeverityName} />
+						{/if}
+						{#if c.case_soc_id}
+							<span class="d-soc">{c.case_soc_id}</span>
+							<span class="q-dot">·</span>
+						{/if}
+						<span class="d-id">#{c.case_id}</span>
+						<div class="ov-spacer"></div>
+						{#if c.state?.state_name}
+							<StatusBadge status={c.state.state_name as CaseStatus} />
+						{/if}
+					</div>
+
+					<h2 class="d-title">{stripCaseIdPrefix(c.case_name)}</h2>
+
+					<!-- Primary actions. "Open workspace" is the main path into
+					     the case; the rest are the shortcuts an analyst reaches
+					     for straight off the queue. -->
+					<div class="d-actions">
+						<a class="d-btn d-btn--primary" href={`/case/${c.case_id}`}>
+							Open workspace
+							<ExternalLinkIcon class="h-3.5 w-3.5" />
+						</a>
+						<button
+							type="button"
+							class="d-btn"
+							disabled={assigning || myUserId == null || ownerId(c) === myUserId}
+							onclick={() => void assignToMe(c)}
+						>
+							{ownerId(c) === myUserId ? 'Assigned to you' : assigning ? 'Assigning…' : 'Assign to me'}
+						</button>
+						<a class="d-btn" href={`/case/${c.case_id}/notes`}>Add note</a>
+						{#if isStalled(c)}
+							<span class="d-stalled">Stalled {ageDays(c.open_date)}d</span>
+						{/if}
+					</div>
+
+					<!-- Investigation pipeline -->
+					{#if stage >= 0}
+						<ol class="d-steps" aria-label="Investigation progress">
+							{#each STAGES as s, i (s)}
+								<li
+									class="d-step"
+									class:d-step--done={i < stage}
+									class:d-step--now={i === stage}
+									aria-current={i === stage ? 'step' : undefined}
+								>
+									<span class="d-step-mark" aria-hidden="true">
+										{#if i < stage}<CheckIcon class="size-2.5" strokeWidth={3.5} />{/if}
+									</span>
+									<span class="d-step-lbl" title={s}>{s}</span>
+									<span class="sr-only">
+										{i < stage ? 'completed' : i === stage ? 'current stage' : 'not started'}
+									</span>
+								</li>
+							{/each}
+						</ol>
+					{/if}
+				</div>
+
+				<div class="d-body">
+					<div class="d-meta">
+						<div class="d-meta-cell">
+							<span class="d-meta-lbl">Customer</span>
+							<span class="d-meta-val">{c.case_customer?.customer_name ?? '—'}</span>
+						</div>
+						<div class="d-meta-cell">
+							<span class="d-meta-lbl">Owner</span>
+							<span class="d-meta-val d-meta-val--owner">
+								{#if ownerName(c)}
+									<span class="q-avatar">{initials(ownerName(c))}</span>
+									{ownerName(c)}
+								{:else}
+									<span class="q-avatar q-avatar--none">?</span>
+									<span class="q-owner-none">Unassigned</span>
+								{/if}
+							</span>
+						</div>
+						<div class="d-meta-cell">
+							<span class="d-meta-lbl">Opened</span>
+							<span class="d-meta-val">
+								{formatDate(c.open_date)}
+								{#if c.open_date}<span class="d-meta-dim"> · {ageLabel(c.open_date)}</span>{/if}
+							</span>
+						</div>
+						<div class="d-meta-cell">
+							<span class="d-meta-lbl">{c.close_date ? 'Closed' : 'Last activity'}</span>
+							<span class="d-meta-val">
+								{#if c.close_date}
+									{formatDate(c.close_date)}
+								{:else if idle !== null}
+									<span class={idle > STALE_DAYS ? 'd-meta-hot' : ''}>{idle}d ago</span>
+								{:else}
+									—
+								{/if}
+							</span>
+						</div>
+						<div class="d-meta-cell">
+							<span class="d-meta-lbl">Classification</span>
+							<span class="d-meta-val">{classificationName(c)}</span>
+						</div>
+						<div class="d-meta-cell">
+							<span class="d-meta-lbl">Tags</span>
+							<span class="d-meta-val">
+								{#if c.tags?.length}
+									<span class="d-tags">
+										{#each c.tags as t, i (t.tag_title ?? i)}
+											<span class="d-tag">{t.tag_title}</span>
+										{/each}
+									</span>
+								{:else}
+									—
+								{/if}
+							</span>
+						</div>
+					</div>
+
+					{#if detailLoading && !selectedFull}
+						<div class="d-section">
+							<Skeleton class="h-4 w-24" />
+							<Skeleton class="h-16 w-full" />
+						</div>
+					{/if}
+
+					{#if c.case_description?.trim()}
+						<div class="d-section">
+							<h3 class="d-section-title">Summary</h3>
+							<MarkDownPreview markdown={c.case_description ?? ''} />
+						</div>
+					{/if}
+
+					{#if c.closing_note?.trim()}
+						<div class="d-section">
+							<h3 class="d-section-title">Outcome</h3>
+							<MarkDownPreview markdown={c.closing_note ?? ''} />
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</div>
+	</div>
 </div>
+
+<style>
+	.ov-root {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-height: 0;
+		overflow: hidden;
+		gap: 0.75rem;
+		padding: 1rem 1rem 0;
+	}
+	.ov-spacer { flex: 1; }
+
+	/* ── Title block ───────────────────────────────────────────────── */
+	.ov-head {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1rem;
+		flex-shrink: 0;
+	}
+	.ov-head-text { min-width: 0; }
+	.ov-title {
+		font-size: 1.75rem;
+		font-weight: 700;
+		line-height: 1.15;
+		letter-spacing: -0.02em;
+		color: hsl(var(--foreground));
+	}
+	.ov-sub {
+		margin-top: 0.25rem;
+		max-width: 34rem;
+		font-size: 0.8125rem;
+		line-height: 1.45;
+		color: hsl(var(--muted-foreground));
+	}
+	.ov-head-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-shrink: 0;
+	}
+
+	/* ── KPI chips ─────────────────────────────────────────────────── */
+	/* Single compact row: swatch · label · count. These are a glance-and-filter
+	   control, not the focus of the page, so they stay out of the way. */
+	.ov-kpis {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.375rem;
+		flex-shrink: 0;
+	}
+	.kpi {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		height: 1.75rem;
+		padding: 0 0.5rem;
+		border: 1px solid hsl(var(--border));
+		border-radius: 0.375rem;
+		background: hsl(var(--card));
+		text-align: left;
+		color: inherit;
+		transition:
+			box-shadow 120ms ease,
+			border-color 120ms ease;
+	}
+	button.kpi { cursor: pointer; }
+	button.kpi:hover { border-color: hsl(214 91% 40% / 0.5); }
+	button.kpi:focus-visible {
+		outline: 2px solid hsl(214 91% 40%);
+		outline-offset: 2px;
+	}
+	.kpi--active {
+		border-color: hsl(214 91% 22%);
+		box-shadow: 0 0 0 1px hsl(214 91% 22%);
+	}
+	:global(.dark) .kpi--active {
+		border-color: hsl(214 91% 55%);
+		box-shadow: 0 0 0 1px hsl(214 91% 55%);
+	}
+	.kpi-lbl {
+		font-size: 0.625rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: hsl(var(--muted-foreground));
+		white-space: nowrap;
+	}
+	/* The square swatch is the mockup's colour key for each metric. */
+	.kpi-dot {
+		width: 0.375rem;
+		height: 0.375rem;
+		border-radius: 1px;
+		flex-shrink: 0;
+	}
+	.kpi--open .kpi-dot { background: hsl(214 91% 22%); }
+	.kpi--critical .kpi-dot { background: hsl(var(--destructive)); }
+	.kpi--stalled .kpi-dot { background: hsl(38 92% 45%); }
+	.kpi--mine .kpi-dot { background: hsl(214 91% 45%); }
+	.kpi-val {
+		font-size: 0.8125rem;
+		font-weight: 700;
+		line-height: 1;
+		font-variant-numeric: tabular-nums;
+	}
+	/* ── Toolbar ───────────────────────────────────────────────────── */
+	/* One height for every control in the row. The shared Input is `h-10` and
+	   `size="sm"` buttons are `h-8`; left alone they stagger by 8px. */
+	.ov-toolbar {
+		--tool-h: 2rem;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem 0.75rem;
+		flex-shrink: 0;
+	}
+	/* A cluster of related controls — tighter than the gap between clusters. */
+	.ov-tools {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.375rem;
+		min-width: 0;
+	}
+	.ov-sep {
+		width: 1px;
+		height: 1rem;
+		background: hsl(var(--border));
+	}
+	.ov-search { display: flex; min-width: 14rem; flex: 0 1 20rem; }
+	.ov-search :global(input) { height: var(--tool-h); }
+	/* Searchbar pins its icons at `top-2` for the default 2.5rem field; nudge
+	   them back to centre now that the field is shorter. */
+	.ov-search :global(.absolute) { top: 0.375rem; }
+	.ov-perpage { display: flex; height: var(--tool-h); }
+	.ov-showclosed {
+		display: flex;
+		align-items: center;
+		gap: 0.4375rem;
+		height: var(--tool-h);
+		padding: 0 0.625rem;
+		border: 1px solid hsl(var(--border));
+		border-radius: 0.5rem;
+		background: hsl(var(--background));
+	}
+	.ov-showclosed:hover { border-color: hsl(var(--ring) / 0.4); }
+	.ov-density {
+		display: flex;
+		height: var(--tool-h);
+		padding: 0.125rem;
+		border: 1px solid hsl(var(--border));
+		border-radius: 0.5rem;
+		background: hsl(var(--muted) / 0.5);
+	}
+	.ov-density button {
+		padding: 0 0.625rem;
+		border: none;
+		border-radius: 0.375rem;
+		background: transparent;
+		font-size: 0.6875rem;
+		font-weight: 500;
+		color: hsl(var(--muted-foreground));
+		cursor: pointer;
+	}
+	.ov-density button:hover { color: hsl(var(--foreground)); }
+	.ov-density button:focus-visible {
+		outline: 2px solid hsl(214 91% 40%);
+		outline-offset: 1px;
+	}
+	.ov-density .ov-density--on {
+		background: hsl(214 91% 22%);
+		color: hsl(0 0% 100%);
+	}
+	.ov-filterpanel { flex-shrink: 0; }
+
+	/* ── Split ─────────────────────────────────────────────────────── */
+	.ov-split {
+		flex: 1;
+		min-height: 0;
+		display: grid;
+		grid-template-columns: minmax(0, 1.5fr) minmax(380px, 1fr);
+		gap: 0;
+		border: 1px solid hsl(var(--border));
+		border-bottom: none;
+		border-radius: 0.625rem 0.625rem 0 0;
+		overflow: hidden;
+		background: hsl(var(--card));
+	}
+
+	/* ── Queue ─────────────────────────────────────────────────────── */
+	.ov-queue {
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+		border-right: 1px solid hsl(var(--border));
+	}
+	/* Queue rows and the header share one column track so the values stay
+	   aligned under their labels. */
+	.q-head,
+	.q-row {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 8.5rem 9rem 5.25rem;
+		gap: 0.75rem;
+		align-items: center;
+	}
+	.q-head {
+		flex-shrink: 0;
+		height: 2rem;
+		padding: 0 0.875rem;
+		border-bottom: 1px solid hsl(var(--border));
+		background: hsl(var(--muted) / 0.35);
+		font-size: 0.625rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.07em;
+		color: hsl(var(--muted-foreground));
+	}
+	.q-col-age { text-align: right; }
+	/* Header cells are buttons, so strip the UA chrome and re-inherit the
+	   uppercase label styling from `.q-head`. */
+	.q-sort {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		min-width: 0;
+		padding: 0;
+		border: 0;
+		background: none;
+		font: inherit;
+		letter-spacing: inherit;
+		text-transform: inherit;
+		color: inherit;
+		cursor: pointer;
+	}
+	.q-sort:hover { color: hsl(var(--foreground)); }
+	.q-sort:focus-visible {
+		outline: 2px solid hsl(214 91% 40%);
+		outline-offset: 2px;
+		border-radius: 2px;
+	}
+	.q-sort--active { color: hsl(var(--foreground)); }
+	.q-sort.q-col-age { justify-content: flex-end; }
+	.q-sort-arrow { font-size: 0.5rem; line-height: 1; }
+	.q-list { flex: 1; min-height: 0; overflow-y: auto; }
+	.q-loading {
+		display: flex;
+		flex-direction: column;
+		gap: 0.375rem;
+		padding: 0.625rem 0.875rem;
+	}
+	.q-error {
+		padding: 1.5rem 1rem;
+		text-align: center;
+		font-size: 0.75rem;
+		color: hsl(var(--destructive));
+	}
+	.q-empty {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 3rem 1rem;
+		font-size: 0.8125rem;
+		color: hsl(var(--muted-foreground));
+	}
+
+	.q-row {
+		width: 100%;
+		padding: 0.5rem 0.875rem;
+		border: none;
+		border-left: 2px solid transparent;
+		border-bottom: 1px solid hsl(var(--border) / 0.6);
+		background: transparent;
+		text-align: left;
+		cursor: pointer;
+		color: inherit;
+	}
+	.q-row:hover { background: hsl(var(--muted) / 0.45); }
+	.q-row--active {
+		background: hsl(214 91% 40% / 0.08);
+		border-left-color: hsl(214 91% 35%);
+	}
+	/* Compact drops the row padding and the tag chips — the two things that
+	   cost the most vertical space — so more of the queue fits on screen. */
+	.ov-queue--compact .q-row { padding-top: 0.3125rem; padding-bottom: 0.3125rem; }
+	.ov-queue--compact .q-tags { display: none; }
+
+	/* Case cell */
+	.q-cell-case { display: flex; flex-direction: column; gap: 0.1875rem; min-width: 0; }
+	.q-case-line { display: flex; align-items: center; gap: 0.4375rem; min-width: 0; }
+	.q-title {
+		min-width: 0;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.q-ident {
+		display: flex;
+		align-items: center;
+		gap: 0.3125rem;
+		min-width: 0;
+		font-size: 0.6875rem;
+		color: hsl(var(--muted-foreground));
+	}
+	.q-soc, .q-id { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+	.q-dot { opacity: 0.45; }
+	.q-cust { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.q-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+	.q-tag {
+		font-size: 0.625rem;
+		line-height: 1.4;
+		padding: 0 0.375rem;
+		border-radius: 999px;
+		border: 1px solid hsl(var(--border));
+		background: hsl(var(--muted) / 0.55);
+		color: hsl(var(--muted-foreground));
+	}
+	.q-tag--more { opacity: 0.75; }
+
+	/* Stage cell */
+	.q-cell-stage { display: flex; flex-direction: column; gap: 0.3125rem; min-width: 0; }
+	.q-stage-name {
+		font-size: 0.75rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.q-pipe { display: flex; gap: 2px; }
+	.q-seg {
+		flex: 1;
+		height: 3px;
+		border-radius: 999px;
+		background: hsl(var(--muted-foreground) / 0.2);
+	}
+	/* Row scale is too small for the detail pane's tick marks, so cleared
+	   stages fill in solid instead — same progress read, 3px tall. */
+	.q-seg--done { background: hsl(214 91% 35% / 0.55); }
+	.q-seg--now { background: hsl(214 91% 35%); }
+
+	/* Owner cell */
+	.q-cell-owner { display: flex; align-items: center; gap: 0.375rem; min-width: 0; }
+	.q-avatar {
+		flex-shrink: 0;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.25rem;
+		height: 1.25rem;
+		border-radius: 999px;
+		background: hsl(214 91% 35% / 0.12);
+		color: hsl(214 91% 32%);
+		font-size: 0.5625rem;
+		font-weight: 700;
+		letter-spacing: 0.02em;
+	}
+	.q-avatar--none {
+		background: transparent;
+		border: 1px dashed hsl(38 92% 45% / 0.7);
+		color: hsl(38 92% 40%);
+	}
+	.q-owner-name {
+		font-size: 0.75rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.q-owner-none { font-size: 0.75rem; font-weight: 500; color: hsl(38 92% 40%); }
+
+	/* Age · Idle cell */
+	.q-cell-age {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 0.125rem;
+	}
+	.q-age {
+		font-size: 0.75rem;
+		font-weight: 500;
+		font-variant-numeric: tabular-nums;
+	}
+	.q-age--stalled { color: hsl(38 92% 42%); }
+	.q-idle {
+		font-size: 0.625rem;
+		font-variant-numeric: tabular-nums;
+		color: hsl(var(--muted-foreground));
+	}
+	.q-idle--hot { color: hsl(var(--destructive)); font-weight: 600; }
+
+	.q-foot {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+		flex-shrink: 0;
+		height: 2.25rem;
+		padding: 0 0.875rem;
+		border-top: 1px solid hsl(var(--border));
+	}
+	.q-page-btn {
+		font-size: 0.6875rem;
+		padding: 0.1875rem 0.5rem;
+		border: 1px solid hsl(var(--border));
+		border-radius: 0.3125rem;
+		background: transparent;
+		cursor: pointer;
+		color: inherit;
+	}
+	.q-page-btn:hover:not(:disabled) { background: hsl(var(--muted) / 0.6); }
+	.q-page-btn:disabled { opacity: 0.4; cursor: default; }
+	.q-page-lbl {
+		font-size: 0.6875rem;
+		color: hsl(var(--muted-foreground));
+		font-variant-numeric: tabular-nums;
+	}
+
+	/* ── Detail ────────────────────────────────────────────────────── */
+	.ov-detail {
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+		overflow: hidden;
+	}
+	.d-empty {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.625rem;
+		font-size: 0.875rem;
+		color: hsl(var(--muted-foreground));
+	}
+	.d-head {
+		flex-shrink: 0;
+		padding: 1rem 1.25rem 0.875rem;
+		border-bottom: 1px solid hsl(var(--border));
+	}
+	.d-head-top {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-bottom: 0.375rem;
+	}
+	.d-id {
+		font-family: ui-monospace, monospace;
+		font-size: 0.75rem;
+		color: hsl(var(--muted-foreground));
+	}
+	.d-soc { font-size: 0.75rem; color: hsl(var(--muted-foreground)); }
+	.d-title {
+		font-size: 1rem;
+		font-weight: 600;
+		line-height: 1.35;
+		margin-bottom: 0.75rem;
+	}
+
+	/* Actions */
+	.d-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.375rem;
+	}
+	.d-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-size: 0.75rem;
+		font-weight: 500;
+		padding: 0.3125rem 0.6875rem;
+		border: 1px solid hsl(var(--border));
+		border-radius: 0.375rem;
+		background: hsl(var(--background));
+		color: inherit;
+		text-decoration: none;
+		cursor: pointer;
+		white-space: nowrap;
+	}
+	.d-btn:hover:not(:disabled) { background: hsl(var(--muted) / 0.6); }
+	.d-btn:disabled { opacity: 0.55; cursor: default; }
+	.d-btn--primary {
+		background: hsl(214 91% 22%);
+		border-color: hsl(214 91% 22%);
+		color: white;
+	}
+	.d-btn--primary:hover { background: hsl(214 91% 28%); }
+
+	/* Pipeline — a checklist rather than a bar, so the stages already cleared
+	   read as done at a glance and the current one is unambiguous. */
+	.d-steps {
+		margin-top: 0.875rem;
+		display: grid;
+		grid-template-columns: repeat(7, minmax(0, 1fr));
+		list-style: none;
+	}
+	.d-step {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.3125rem;
+		min-width: 0;
+	}
+	/* Connector to the next step, drawn from this marker's centre. It is
+	   filled only once this step is done, so the line tracks progress too. */
+	.d-step::after {
+		content: '';
+		position: absolute;
+		top: 0.4375rem;
+		left: calc(50% + 0.5rem);
+		right: calc(-50% + 0.5rem);
+		height: 2px;
+		background: hsl(var(--muted-foreground) / 0.2);
+	}
+	.d-step:last-child::after { display: none; }
+	.d-step--done::after { background: hsl(214 91% 35%); }
+	.d-step-mark {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 0.875rem;
+		height: 0.875rem;
+		border: 1px solid hsl(var(--border));
+		border-radius: 999px;
+		background: hsl(var(--card));
+		color: hsl(0 0% 100%);
+	}
+	.d-step--done .d-step-mark {
+		border-color: hsl(214 91% 22%);
+		background: hsl(214 91% 22%);
+	}
+	/* Current stage: an unfilled ring, so it reads as "in progress" next to
+	   the solid ticks behind it. */
+	.d-step--now .d-step-mark {
+		border-color: hsl(214 91% 35%);
+		box-shadow: inset 0 0 0 2px hsl(214 91% 35%);
+	}
+	.d-step-lbl {
+		max-width: 100%;
+		font-size: 0.5625rem;
+		font-weight: 500;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: hsl(var(--muted-foreground));
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.d-step--done .d-step-lbl { color: hsl(var(--foreground) / 0.7); }
+	.d-step--now .d-step-lbl { color: hsl(214 91% 32%); font-weight: 700; }
+	/* The 22%/32% blues disappear against the dark surface. */
+	:global(.dark) .d-step--done::after { background: hsl(214 91% 55%); }
+	:global(.dark) .d-step--done .d-step-mark {
+		border-color: hsl(214 91% 45%);
+		background: hsl(214 91% 45%);
+	}
+	:global(.dark) .d-step--now .d-step-mark {
+		border-color: hsl(214 91% 55%);
+		box-shadow: inset 0 0 0 2px hsl(214 91% 55%);
+	}
+	:global(.dark) .d-step--now .d-step-lbl { color: hsl(214 91% 65%); }
+
+	.d-stalled {
+		font-size: 0.625rem;
+		font-weight: 600;
+		padding: 0.125rem 0.5rem;
+		border-radius: 999px;
+		background: hsl(38 92% 50% / 0.15);
+		border: 1px solid hsl(38 92% 50% / 0.4);
+		color: hsl(38 92% 32%);
+	}
+
+	.d-body {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		padding: 1rem 1.25rem 1.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1.125rem;
+	}
+	/* Bordered meta grid — hairline cells, like the mockup's summary block. */
+	.d-meta {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 1px;
+		background: hsl(var(--border));
+		border: 1px solid hsl(var(--border));
+		border-radius: 0.5rem;
+		overflow: hidden;
+		/* `overflow: hidden` zeroes this flex item's automatic minimum height,
+		   so without this the grid is squeezed by `.d-body` and clips its last
+		   row (classification + tags) instead of letting the pane scroll. */
+		flex-shrink: 0;
+	}
+	.d-meta-cell {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		min-width: 0;
+		padding: 0.625rem 0.75rem;
+		background: hsl(var(--card));
+	}
+	.d-meta-lbl {
+		font-size: 0.625rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.07em;
+		color: hsl(var(--muted-foreground));
+	}
+	.d-meta-val {
+		font-size: 0.8125rem;
+		min-width: 0;
+		/* Long customer names and classifications wrap inside the cell rather
+		   than running past its edge — there is no nowrap here, so an ellipsis
+		   would never have applied. */
+		overflow-wrap: anywhere;
+	}
+	.d-meta-val--owner { display: flex; align-items: center; gap: 0.375rem; }
+	.d-meta-dim { color: hsl(var(--muted-foreground)); }
+	.d-meta-hot { color: hsl(var(--destructive)); font-weight: 600; }
+	.d-section { display: flex; flex-direction: column; gap: 0.5rem; }
+	.d-section-title {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.07em;
+		color: hsl(var(--muted-foreground));
+	}
+	/* Block-level so the chip row takes the cell's full width and wraps at it. */
+	.d-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+	.d-tag {
+		font-size: 0.6875rem;
+		padding: 0.125rem 0.5rem;
+		border-radius: 999px;
+		border: 1px solid hsl(var(--border));
+		background: hsl(var(--muted) / 0.5);
+	}
+</style>

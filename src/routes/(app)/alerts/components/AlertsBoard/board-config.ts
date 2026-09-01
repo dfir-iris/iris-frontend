@@ -15,10 +15,10 @@ export const isAlertBoardGroup = (value: unknown): value is AlertBoardGroup =>
 	ALERT_BOARD_GROUPS.includes(value as AlertBoardGroup);
 
 /** Which view the alerts page renders. */
-export type AlertViewMode = 'list' | 'board';
+export type AlertViewMode = 'list' | 'board' | 'split';
 
 export const isAlertViewMode = (value: unknown): value is AlertViewMode =>
-	value === 'list' || value === 'board';
+	value === 'list' || value === 'board' || value === 'split';
 
 /**
  * Statuses that take an alert out of triage. The board never shows

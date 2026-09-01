@@ -15,7 +15,12 @@ import { ApiService } from '../api.service';
 
 import type { Case } from '$lib/types/resources/case';
 import type { Paginated, ApiOptions } from '../api.service';
-import type { CreateCaseBody, UpdateCaseBody, ListCasesParams } from '../case.service';
+import type {
+	CreateCaseBody,
+	UpdateCaseBody,
+	ListCasesParams,
+	FilterCasesParams
+} from '../case.service';
 
 describe('CaseService', () => {
 	beforeEach(() => {
@@ -158,6 +163,44 @@ describe('CaseService', () => {
 
 		expect(ApiService.delete).toHaveBeenCalledTimes(1);
 		expect(ApiService.delete).toHaveBeenCalledWith('/api/v2/cases/73', options);
+		expect(res).toBe(mockResponse);
+	});
+
+	// Regression: the Overview queue sorts server-side through this endpoint.
+	// The API reads the direction from `sort_dir` (see
+	// `parse_pagination_parameters`) — sending `direction` instead silently
+	// falls back to ascending, so the sort keys must reach the query verbatim.
+	it('filter() should forward order_by + sort_dir to the query', async () => {
+		const params: FilterCasesParams = {
+			page: 2,
+			per_page: 25,
+			order_by: 'open_date',
+			sort_dir: 'desc'
+		};
+
+		const builtPath = '/api/v2/cases/filter?page=2&per_page=25&order_by=open_date&sort_dir=desc';
+
+		(ApiService.withQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(builtPath);
+
+		const mockResponse = {
+			ok: true,
+			status: 200,
+			data: { total: 0, cases: [] as Case[] }
+		};
+
+		(ApiService.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+
+		const res = await CaseService.filter(params);
+
+		expect(ApiService.withQuery).toHaveBeenCalledWith('/api/v2/cases/filter', {
+			page: 2,
+			per_page: 25,
+			order_by: 'open_date',
+			sort_dir: 'desc',
+			case_ids: undefined
+		});
+
+		expect(ApiService.get).toHaveBeenCalledWith(builtPath, {});
 		expect(res).toBe(mockResponse);
 	});
 });
