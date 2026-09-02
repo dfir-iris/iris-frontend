@@ -4,6 +4,7 @@
 	import DataTable from '$lib/components/ui/data-table-tanstack/data-table.svelte';
 	import { LinkCell } from '$lib/components/ui/table';
 	import { createEventDispatcher } from 'svelte';
+	import RowCheckbox from '$lib/components/common/RowCheckbox.svelte';
 
 	export let evidences: Evidence[];
 	export let caseId: string | number | null = null;
@@ -11,6 +12,9 @@
 	export let totalPages: number | null = null;
 	export let tablePage: number | null = null;
 	export let perPage: number = 10;
+	export let selectionMode: boolean = false;
+	export let selectedEvidences: Set<number> = new Set();
+	export let onToggleSelect: ((id: number) => void) | undefined = undefined;
 
 	const dispatch = createEventDispatcher();
 
@@ -55,7 +59,7 @@
 		return `${value.toFixed(value >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 	};
 
-	const columns: ColumnDef<Evidence>[] = [
+	const dataColumns: ColumnDef<Evidence>[] = [
 		{
 			accessorKey: 'filename',
 			header: () => 'Filename',
@@ -92,6 +96,22 @@
 			cell: (cell) => (cell.getValue() as string) || '-'
 		}
 	];
+
+	$: columns = selectionMode
+		? [
+				{
+					id: '__select__',
+					header: () => '',
+					meta: { thClass: 'w-8 pr-0', tdClass: 'w-8 pr-0' },
+					cell: (cell: import('@tanstack/svelte-table').CellContext<Evidence, unknown>) =>
+						renderComponent(RowCheckbox, {
+							checked: selectedEvidences.has(cell.row.original.id),
+							onToggle: () => onToggleSelect?.(cell.row.original.id)
+						})
+				} as ColumnDef<Evidence>,
+				...dataColumns
+			]
+		: dataColumns;
 </script>
 
 <div class="{className} flex overflow-auto">

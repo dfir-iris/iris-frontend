@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
 	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
 	import { getIocTypeIcon } from '$lib/components/common/ioc/ioc-type-icon';
 	import type { Ioc } from '$lib/types/resources/ioc';
@@ -6,9 +7,12 @@
 	import TlpBadge from '$lib/components/common/tlp/TlpBadge.svelte';
 	import SeenElsewhereBadge from '$lib/components/common/SeenElsewhereBadge.svelte';
 	import { toPlainSnippet } from '$lib/utils/text';
-	import { CaseIocsService } from '$lib/services/case-iocs.service';
+	import { CASE_IOCS_CTX, type CaseIocsContext } from '$lib/contexts/case-iocs.context.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+
+	// May be undefined when rendered outside the case/iocs route (e.g. dashboard).
+	const caseIocs = getContext<CaseIocsContext | undefined>(CASE_IOCS_CTX);
 
 	let {
 		ioc,
@@ -100,10 +104,7 @@
 					variant="inline"
 					objectLabel="IOC"
 					objectId={ioc.ioc_id}
-					load={async () => {
-						const res = await CaseIocsService.listOtherCaseLinks(caseId, ioc.ioc_id);
-						return res.ok && Array.isArray(res.data) ? res.data : null;
-					}}
+					load={() => caseIocs?.getLinks(ioc.ioc_id) ?? Promise.resolve(null)}
 				/>
 			{/if}
 		{/snippet}

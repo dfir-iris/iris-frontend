@@ -1,5 +1,13 @@
 <script lang="ts">
-	import { CheckIcon, ExternalLinkIcon, FolderOpenIcon, PlusIcon, UploadIcon } from 'lucide-svelte';
+	import {
+		CheckIcon,
+		ChevronLeftIcon,
+		ExternalLinkIcon,
+		FolderOpenIcon,
+		PlusIcon,
+		SlidersHorizontalIcon,
+		UploadIcon
+	} from 'lucide-svelte';
 	import { getContext } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -11,6 +19,7 @@
 	import {
 		CaseFilters,
 		CaseSavedFiltersBar,
+		countActiveConditions,
 		emptyGroup,
 		isGroup,
 		pruneTree,
@@ -97,9 +106,7 @@
 	let detailLoading = $state(false);
 
 	const selectedRow = $derived(caseRows.find((c) => c.case_id === selectedId) ?? null);
-	const detailCase = $derived(
-		selectedFull?.case_id === selectedId ? selectedFull : selectedRow
-	);
+	const detailCase = $derived(selectedFull?.case_id === selectedId ? selectedFull : selectedRow);
 
 	const selectCase = async (c: Case) => {
 		if (selectedId === c.case_id) {
@@ -117,6 +124,13 @@
 		} finally {
 			if (selectedId === c.case_id) detailLoading = false;
 		}
+	};
+
+	// Drops back to the queue. Only reachable from the small-screen layout,
+	// where the two panes swap instead of sitting side by side.
+	const clearSelection = () => {
+		selectedId = null;
+		selectedFull = null;
 	};
 
 	// ── KPI strip ───────────────────────────────────────────────────────
@@ -166,9 +180,7 @@
 				? countCases({ is_open: true, severity_id: criticalId })
 				: Promise.resolve(0),
 			countCases({ is_open: true, end_open_date: staleCutoff() }),
-			myUserId != null
-				? countCases({ is_open: true, case_owner_id: myUserId })
-				: Promise.resolve(0)
+			myUserId != null ? countCases({ is_open: true, case_owner_id: myUserId }) : Promise.resolve(0)
 		]);
 
 		kpi = { open, critical, stalled, mine };
@@ -258,13 +270,27 @@
 	const QUEUE_COLUMNS: {
 		id: string;
 		label: string;
+		/** Column name as it reads mid-sentence, for the page subtitle. */
+		sortName: string;
 		cls: string;
 		firstDir: 'asc' | 'desc';
 	}[] = [
-		{ id: 'case_name', label: 'Case', cls: 'q-col-case', firstDir: 'asc' },
-		{ id: 'state.state_name', label: 'Stage', cls: 'q-col-stage', firstDir: 'asc' },
-		{ id: 'owner.user_login', label: 'Owner', cls: 'q-col-owner', firstDir: 'asc' },
-		{ id: 'open_date', label: 'Age · Idle', cls: 'q-col-age', firstDir: 'desc' }
+		{ id: 'case_name', label: 'Case', sortName: 'name', cls: 'q-col-case', firstDir: 'asc' },
+		{
+			id: 'state.state_name',
+			label: 'Stage',
+			sortName: 'stage',
+			cls: 'q-col-stage',
+			firstDir: 'asc'
+		},
+		{
+			id: 'owner.user_login',
+			label: 'Owner',
+			sortName: 'owner',
+			cls: 'q-col-owner',
+			firstDir: 'asc'
+		},
+		{ id: 'open_date', label: 'Age · Idle', sortName: 'age', cls: 'q-col-age', firstDir: 'desc' }
 	];
 
 	// Oldest-first reads as ascending age, so the age column's caret is
@@ -553,6 +579,11 @@
 		treeHasActiveCondition(filterGroup) || search.trim() !== '' || showClosed
 	);
 
+	// Badge on the Filters button. Counts only the builder's conditions —
+	// the search box and Show closed have their own visible controls in the
+	// header, so folding them in here would double-report them.
+	const activeConditionCount = $derived(countActiveConditions(filterGroup));
+
 	// ── Presentation helpers ────────────────────────────────────────────
 
 	const ownerName = (c: Case | null): string => {
@@ -598,7 +629,10 @@
 
 	/** Two-letter avatar chip, matching the alert cockpit's convention. */
 	const initials = (name: string | null | undefined): string => {
-		const parts = (name ?? '').trim().split(/[\s._-]+/).filter(Boolean);
+		const parts = (name ?? '')
+			.trim()
+			.split(/[\s._-]+/)
+			.filter(Boolean);
 		if (parts.length === 0) return '??';
 		if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
 		return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -630,36 +664,10 @@
 		return Math.max(0, Math.floor((Date.now() - at) / 86_400_000));
 	};
 
-	// `UserInfo` carries both `id` and `user_id` optionally depending on
-	// which serializer produced it, so read either rather than silently
-	// never matching the signed-in user.
-	const ownerId = (c: Case | null): number | null =>
-		c?.owner?.id ?? c?.owner?.user_id ?? null;
-
 	const classificationName = (c: Case | null): string => {
 		if (c?.classification_id == null) return '—';
 		const hit = classifications.find((k) => k.id === c.classification_id);
 		return hit?.name_expanded || hit?.name || `#${c.classification_id}`;
-	};
-
-	// Assign straight from the queue. The patched case is written back into
-	// both the detail pane and the queue row so the owner column updates
-	// without a full refetch; the KPI strip is refreshed because
-	// "Assigned to me" just changed.
-	let assigning = $state(false);
-	const assignToMe = async (c: Case) => {
-		if (assigning || myUserId == null) return;
-		assigning = true;
-		try {
-			const updated = await cases.patch(c.case_id, { owner_id: myUserId });
-			if (updated) {
-				if (selectedId === c.case_id) selectedFull = updated;
-				caseRows = caseRows.map((r) => (r.case_id === c.case_id ? { ...r, ...updated } : r));
-				void loadKpis();
-			}
-		} finally {
-			assigning = false;
-		}
 	};
 
 	const formatDate = (iso: string | null | undefined): string => {
@@ -731,15 +739,20 @@
 			value: kpi.critical,
 			select: () => {
 				const crit = severitiesRaw.find((s) => s.severity_name?.toLowerCase() === 'critical');
-				if (crit) applyKpiFilter({ fieldId: 'severity', operation: 'equals', value: crit.severity_name });
+				if (crit)
+					applyKpiFilter({ fieldId: 'severity', operation: 'equals', value: crit.severity_name });
 			}
 		},
 		{
 			id: 'stalled',
-			label: `Stalled > ${STALE_DAYS}d`,
+			// This counts cases *opened* more than STALE_DAYS ago, which is all
+			// the API can filter on. Real staleness would need last-activity,
+			// which only exists per-case in `modification_history`, so the label
+			// says what the number actually is.
+			label: `Opened > ${STALE_DAYS}d`,
 			value: kpi.stalled,
-			// Staleness is a date window rather than a field match, so there is
-			// no equivalent filter row to hand the builder — display only.
+			// A date window rather than a field match, so there is no equivalent
+			// filter row to hand the builder — display only.
 			select: null
 		},
 		{
@@ -753,9 +766,7 @@
 		}
 	]);
 
-	const sortLabel = $derived(
-		(QUEUE_COLUMNS.find((c) => c.id === sort?.id)?.label ?? 'open date').toLowerCase()
-	);
+	const sortLabel = $derived(QUEUE_COLUMNS.find((c) => c.id === sort?.id)?.sortName ?? 'age');
 
 	const queueSubtitle = $derived(
 		kpi.open === null
@@ -776,12 +787,52 @@
 </svelte:head>
 
 <div class="ov-root">
-	<!-- ── Title + primary actions ──────────────────────────────────── -->
+	<!--
+	  ── Header ─────────────────────────────────────────────────────────
+	  One line: what the page is, how to narrow it, what to add to it.
+	  Title left, query controls in the middle, primary actions at the end.
+	-->
 	<header class="ov-head">
 		<div class="ov-head-text">
 			<h1 class="ov-title">Case queue</h1>
 			<p class="ov-sub">{queueSubtitle}</p>
 		</div>
+
+		<div class="ov-tools ov-tools--query">
+			<div class="ov-search">
+				<Searchbar placeholder="Filter by title, ID, tag…" bind:value={search} />
+			</div>
+
+			<!--
+			  One entry point to everything filter-related. The badge is the
+			  condition count so the button reports the current state without
+			  the panel having to be open.
+			-->
+			<Button
+				variant={filterBuilderOpen ? 'default' : 'outline'}
+				size="sm"
+				aria-expanded={filterBuilderOpen}
+				aria-controls="case-filter-panel"
+				onclick={() => (filterBuilderOpen = !filterBuilderOpen)}
+			>
+				<SlidersHorizontalIcon />
+				Filters
+				{#if activeConditionCount > 0}
+					<span class="ov-badge">{activeConditionCount}</span>
+				{/if}
+			</Button>
+
+			<div class="ov-showclosed">
+				<Checkbox
+					id="show_closed"
+					checked={showClosed}
+					onCheckedChange={(checked) => updateUrl({ showClosed: checked === true, page: 1 })}
+				/>
+				<Label for="show_closed" class="cursor-pointer text-xs font-normal">Show closed</Label>
+			</div>
+		</div>
+
+		<span class="ov-sep" aria-hidden="true"></span>
 
 		<div class="ov-head-actions">
 			<Button variant="outline" size="sm" onclick={() => goto('/cases/import')}>
@@ -796,82 +847,38 @@
 		</div>
 	</header>
 
-	<!-- ── KPI cards ────────────────────────────────────────────────── -->
+	<!--
+	  ── KPI strip + view controls ──────────────────────────────────────
+	  The counts double as one-click filters; page size and row density are
+	  display-only, so they sit apart at the end of the same row.
+	-->
 	{#snippet kpiBody(card: (typeof kpiCards)[number])}
 		<span class="kpi-dot" aria-hidden="true"></span>
 		<span class="kpi-lbl">{card.label}</span>
 		<span class="kpi-val">{card.value ?? '—'}</span>
 	{/snippet}
 
-	<div class="ov-kpis">
-		{#each kpiCards as card (card.id)}
-			{@const active = activeKpi === card.id}
-			{#if card.select}
-				<button
-					type="button"
-					class="kpi kpi--{card.id}"
-					class:kpi--active={active}
-					aria-pressed={active}
-					onclick={card.select}
-				>
-					{@render kpiBody(card)}
-				</button>
-			{:else}
-				<div class="kpi kpi--{card.id}">{@render kpiBody(card)}</div>
-			{/if}
-		{/each}
-	</div>
-
-	<!--
-	  ── Filter toolbar ─────────────────────────────────────────────────
-	  Two groups, so the row reads left-to-right as one idea each:
-	    left  — what the queue contains (search, filters, closed cases)
-	    right — how it is displayed (page size, row density)
-	  Everything sits on a single 2rem control height.
-	-->
-	<div class="ov-toolbar">
-		<div class="ov-tools">
-			<div class="ov-search">
-				<Searchbar placeholder="Filter by title, ID, tag…" bind:value={search} />
-			</div>
-
-			<Button
-				variant={filterBuilderOpen ? 'default' : 'outline'}
-				size="sm"
-				onclick={() => (filterBuilderOpen = !filterBuilderOpen)}
-			>
-				{filterBuilderOpen ? 'Hide filter' : 'Build filter'}
-				{#if hasActiveFilter}
-					<span class="ml-1 size-2 rounded-full bg-primary-foreground/80"></span>
+	<div class="ov-subhead">
+		<div class="ov-kpis">
+			{#each kpiCards as card (card.id)}
+				{@const active = activeKpi === card.id}
+				{#if card.select}
+					<button
+						type="button"
+						class="kpi kpi--{card.id}"
+						class:kpi--active={active}
+						aria-pressed={active}
+						onclick={card.select}
+					>
+						{@render kpiBody(card)}
+					</button>
+				{:else}
+					<div class="kpi kpi--{card.id}">{@render kpiBody(card)}</div>
 				{/if}
-			</Button>
-
-			<CaseSavedFiltersBar
-				presets={cases.savedFilters.items}
-				selectedId={selectedSavedFilterId}
-				{hasActiveFilter}
-				saving={savingFilter}
-				onSelect={(id) => applySavedFilter(id)}
-				onClear={clearActiveFilter}
-				onDelete={(id) => deleteSavedFilter(id)}
-				onSave={(meta) => saveCurrentFilter(meta)}
-			/>
-
-			<span class="ov-sep" aria-hidden="true"></span>
-
-			<div class="ov-showclosed">
-				<Checkbox
-					id="show_closed"
-					checked={showClosed}
-					onCheckedChange={(checked) => updateUrl({ showClosed: checked === true, page: 1 })}
-				/>
-				<Label for="show_closed" class="cursor-pointer text-xs font-normal">Show closed</Label>
-			</div>
+			{/each}
 		</div>
 
-		<div class="ov-spacer"></div>
-
-		<div class="ov-tools">
+		<div class="ov-tools ov-tools--view">
 			<div class="ov-perpage">
 				<Select
 					value={String(perPage)}
@@ -911,8 +918,31 @@
 		</div>
 	</div>
 
+	<!--
+	  ── Filter panel ───────────────────────────────────────────────────
+	  Every filter verb lives in this one card, top to bottom in the order
+	  you use them: load a preset, build the conditions, then save / clear /
+	  apply. Scattering them across the header meant "Save filter" sat above
+	  the thing it saves and "Apply" floated under the density toggle.
+	-->
 	{#if filterBuilderOpen}
-		<div class="ov-filterpanel">
+		<div class="ov-filterpanel" id="case-filter-panel">
+			<div class="ov-fp-head">
+				<span class="ov-fp-title">Filter the queue</span>
+
+				<CaseSavedFiltersBar
+					part="presets"
+					presets={cases.savedFilters.items}
+					selectedId={selectedSavedFilterId}
+					{hasActiveFilter}
+					saving={savingFilter}
+					onSelect={(id) => applySavedFilter(id)}
+					onClear={clearActiveFilter}
+					onDelete={(id) => deleteSavedFilter(id)}
+					onSave={(meta) => saveCurrentFilter(meta)}
+				/>
+			</div>
+
 			<CaseFilters
 				defs={filterDefs}
 				group={filterGroup}
@@ -926,12 +956,28 @@
 					selectedSavedFilterId = '';
 					applyFiltersNow();
 				}}
-			/>
+			>
+				{#snippet footerStart()}
+					<CaseSavedFiltersBar
+						part="save"
+						presets={cases.savedFilters.items}
+						selectedId={selectedSavedFilterId}
+						{hasActiveFilter}
+						saving={savingFilter}
+						onSelect={(id) => applySavedFilter(id)}
+						onClear={clearActiveFilter}
+						onDelete={(id) => deleteSavedFilter(id)}
+						onSave={(meta) => saveCurrentFilter(meta)}
+					/>
+				{/snippet}
+			</CaseFilters>
 		</div>
 	{/if}
 
-	<!-- ── Split: queue | detail ────────────────────────────────────── -->
-	<div class="ov-split">
+	<!-- ── Split: queue | detail ──────────────────────────────────────
+	     Side by side on wide screens. Narrow ones show one pane at a time
+	     and use this flag to pick which — see the media query. -->
+	<div class="ov-split" class:ov-split--detail={detailCase !== null}>
 		<!-- Queue -->
 		<div class="ov-queue" class:ov-queue--compact={density === 'compact'}>
 			<div class="q-head">
@@ -942,10 +988,10 @@
 						class="q-sort {col.cls}"
 						class:q-sort--active={arrow !== ''}
 						aria-label="Sort by {col.label}{arrow === ''
-						? ''
-						: arrow === '▲'
-							? ' (ascending)'
-							: ' (descending)'}"
+							? ''
+							: arrow === '▲'
+								? ' (ascending)'
+								: ' (descending)'}"
 						onclick={() => toggleSort(col)}
 					>
 						<span>{col.label}</span>
@@ -1024,7 +1070,10 @@
 								{#if stage >= 0}
 									<span class="q-pipe" aria-hidden="true">
 										{#each STAGES as s, i (s)}
-											<span class="q-seg {i < stage ? 'q-seg--done' : ''} {i === stage ? 'q-seg--now' : ''}"
+											<span
+												class="q-seg {i < stage ? 'q-seg--done' : ''} {i === stage
+													? 'q-seg--now'
+													: ''}"
 											></span>
 										{/each}
 									</span>
@@ -1088,6 +1137,12 @@
 				{@const c = detailCase}
 				{@const stage = stageIndex(c.state?.state_name)}
 				{@const idle = idleDays(c)}
+				<!-- Only rendered on small screens, where this pane replaces
+				     the queue rather than sitting beside it. -->
+				<button type="button" class="d-back" onclick={clearSelection}>
+					<ChevronLeftIcon class="h-3.5 w-3.5" />
+					Back to queue
+				</button>
 				<div class="d-head">
 					<div class="d-head-top">
 						{#if c.severity?.severity_name}
@@ -1114,14 +1169,6 @@
 							Open workspace
 							<ExternalLinkIcon class="h-3.5 w-3.5" />
 						</a>
-						<button
-							type="button"
-							class="d-btn"
-							disabled={assigning || myUserId == null || ownerId(c) === myUserId}
-							onclick={() => void assignToMe(c)}
-						>
-							{ownerId(c) === myUserId ? 'Assigned to you' : assigning ? 'Assigning…' : 'Assign to me'}
-						</button>
 						<a class="d-btn" href={`/case/${c.case_id}/notes`}>Add note</a>
 						{#if isStalled(c)}
 							<span class="d-stalled">Stalled {ageDays(c.open_date)}d</span>
@@ -1236,6 +1283,9 @@
 
 <style>
 	.ov-root {
+		/* One height for every control in the header. The shared Input is `h-10`
+		   and `size="sm"` buttons are `h-8`; left alone they stagger by 8px. */
+		--tool-h: 2rem;
 		display: flex;
 		flex-direction: column;
 		height: 100%;
@@ -1244,35 +1294,53 @@
 		gap: 0.75rem;
 		padding: 1rem 1rem 0;
 	}
-	.ov-spacer { flex: 1; }
+	.ov-spacer {
+		flex: 1;
+	}
 
-	/* ── Title block ───────────────────────────────────────────────── */
+	/* ── Header row ────────────────────────────────────────────────── */
+	/* Title · query controls · primary actions, all on one line. Only wraps
+	   once the viewport genuinely can't hold them. */
 	.ov-head {
 		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: 1rem;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem 0.75rem;
 		flex-shrink: 0;
 	}
-	.ov-head-text { min-width: 0; }
+	/* Pushes everything after it to the end of the row. */
+	.ov-head-text {
+		min-width: 0;
+		margin-right: auto;
+	}
+	/* Sized to sit level with the 2rem controls beside it rather than tower
+	   over them. */
 	.ov-title {
-		font-size: 1.75rem;
+		font-size: 1.25rem;
 		font-weight: 700;
-		line-height: 1.15;
+		line-height: 1.2;
 		letter-spacing: -0.02em;
 		color: hsl(var(--foreground));
 	}
 	.ov-sub {
-		margin-top: 0.25rem;
 		max-width: 34rem;
-		font-size: 0.8125rem;
-		line-height: 1.45;
+		font-size: 0.75rem;
+		line-height: 1.35;
 		color: hsl(var(--muted-foreground));
 	}
 	.ov-head-actions {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+		flex-shrink: 0;
+	}
+
+	/* ── KPI + view row ────────────────────────────────────────────── */
+	.ov-subhead {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem 0.75rem;
 		flex-shrink: 0;
 	}
 
@@ -1301,8 +1369,12 @@
 			box-shadow 120ms ease,
 			border-color 120ms ease;
 	}
-	button.kpi { cursor: pointer; }
-	button.kpi:hover { border-color: hsl(214 91% 40% / 0.5); }
+	button.kpi {
+		cursor: pointer;
+	}
+	button.kpi:hover {
+		border-color: hsl(214 91% 40% / 0.5);
+	}
 	button.kpi:focus-visible {
 		outline: 2px solid hsl(214 91% 40%);
 		outline-offset: 2px;
@@ -1330,46 +1402,77 @@
 		border-radius: 1px;
 		flex-shrink: 0;
 	}
-	.kpi--open .kpi-dot { background: hsl(214 91% 22%); }
-	.kpi--critical .kpi-dot { background: hsl(var(--destructive)); }
-	.kpi--stalled .kpi-dot { background: hsl(38 92% 45%); }
-	.kpi--mine .kpi-dot { background: hsl(214 91% 45%); }
+	.kpi--open .kpi-dot {
+		background: hsl(214 91% 22%);
+	}
+	.kpi--critical .kpi-dot {
+		background: hsl(var(--destructive));
+	}
+	.kpi--stalled .kpi-dot {
+		background: hsl(38 92% 45%);
+	}
+	.kpi--mine .kpi-dot {
+		background: hsl(214 91% 45%);
+	}
 	.kpi-val {
 		font-size: 0.8125rem;
 		font-weight: 700;
 		line-height: 1;
 		font-variant-numeric: tabular-nums;
 	}
-	/* ── Toolbar ───────────────────────────────────────────────────── */
-	/* One height for every control in the row. The shared Input is `h-10` and
-	   `size="sm"` buttons are `h-8`; left alone they stagger by 8px. */
-	.ov-toolbar {
-		--tool-h: 2rem;
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.5rem 0.75rem;
-		flex-shrink: 0;
-	}
-	/* A cluster of related controls — tighter than the gap between clusters. */
+	/* ── Control clusters ──────────────────────────────────────────── */
+	/* A cluster of related controls — tighter than the gap between clusters.
+	   Clusters never break internally; if a row runs out of width the whole
+	   cluster wraps below, which stays readable. */
 	.ov-tools {
 		display: flex;
-		flex-wrap: wrap;
+		flex-wrap: nowrap;
 		align-items: center;
 		gap: 0.375rem;
 		min-width: 0;
 	}
+	/* Shrinks (through the search field) before it wraps, so the header holds
+	   one line down to a fairly narrow viewport. */
+	.ov-tools--query {
+		flex: 0 1 auto;
+	}
+	.ov-tools--view {
+		flex: 0 0 auto;
+		margin-left: auto;
+	}
+	/* Only the search field gives ground when the row tightens. */
+	.ov-tools > :global(:not(.ov-search)) {
+		flex-shrink: 0;
+	}
 	.ov-sep {
+		flex-shrink: 0;
 		width: 1px;
 		height: 1rem;
 		background: hsl(var(--border));
 	}
-	.ov-search { display: flex; min-width: 14rem; flex: 0 1 20rem; }
-	.ov-search :global(input) { height: var(--tool-h); }
+	.ov-search {
+		display: flex;
+		min-width: 9rem;
+		flex: 0 1 16rem;
+	}
+	/* Searchbar's root is `position: relative` with an inner `w-full` input, so
+	   it needs to fill this slot or the field renders narrower than the space
+	   reserved for it and leaves a gap before the next control. */
+	.ov-search > :global(div) {
+		width: 100%;
+	}
+	.ov-search :global(input) {
+		height: var(--tool-h);
+	}
 	/* Searchbar pins its icons at `top-2` for the default 2.5rem field; nudge
 	   them back to centre now that the field is shorter. */
-	.ov-search :global(.absolute) { top: 0.375rem; }
-	.ov-perpage { display: flex; height: var(--tool-h); }
+	.ov-search :global(.absolute) {
+		top: 0.375rem;
+	}
+	.ov-perpage {
+		display: flex;
+		height: var(--tool-h);
+	}
 	.ov-showclosed {
 		display: flex;
 		align-items: center;
@@ -1380,7 +1483,9 @@
 		border-radius: 0.5rem;
 		background: hsl(var(--background));
 	}
-	.ov-showclosed:hover { border-color: hsl(var(--ring) / 0.4); }
+	.ov-showclosed:hover {
+		border-color: hsl(var(--ring) / 0.4);
+	}
 	.ov-density {
 		display: flex;
 		height: var(--tool-h);
@@ -1399,7 +1504,9 @@
 		color: hsl(var(--muted-foreground));
 		cursor: pointer;
 	}
-	.ov-density button:hover { color: hsl(var(--foreground)); }
+	.ov-density button:hover {
+		color: hsl(var(--foreground));
+	}
 	.ov-density button:focus-visible {
 		outline: 2px solid hsl(214 91% 40%);
 		outline-offset: 1px;
@@ -1408,7 +1515,52 @@
 		background: hsl(214 91% 22%);
 		color: hsl(0 0% 100%);
 	}
-	.ov-filterpanel { flex-shrink: 0; }
+	/* ── Filter panel ──────────────────────────────────────────────── */
+	/* A card, so the preset picker, the conditions and the actions read as
+	   one block rather than three things loose on the page. */
+	.ov-filterpanel {
+		flex-shrink: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		padding: 0.75rem;
+		border: 1px solid hsl(var(--border));
+		border-radius: 0.625rem;
+		background: hsl(var(--muted) / 0.35);
+	}
+	.ov-fp-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem 0.75rem;
+	}
+	.ov-fp-title {
+		margin-right: auto;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: hsl(var(--muted-foreground));
+	}
+
+	/* Condition count on the Filters button. Tinted from the button's own ink
+	   rather than a fixed colour, so it reads on both the outline and the
+	   filled variant without a second rule. */
+	.ov-badge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 1rem;
+		height: 1rem;
+		margin-left: 0.125rem;
+		padding: 0 0.25rem;
+		border-radius: 999px;
+		background: color-mix(in srgb, currentColor 20%, transparent);
+		font-size: 0.625rem;
+		font-weight: 700;
+		line-height: 1;
+		font-variant-numeric: tabular-nums;
+	}
 
 	/* ── Split ─────────────────────────────────────────────────────── */
 	.ov-split {
@@ -1452,7 +1604,9 @@
 		letter-spacing: 0.07em;
 		color: hsl(var(--muted-foreground));
 	}
-	.q-col-age { text-align: right; }
+	.q-col-age {
+		text-align: right;
+	}
 	/* Header cells are buttons, so strip the UA chrome and re-inherit the
 	   uppercase label styling from `.q-head`. */
 	.q-sort {
@@ -1469,16 +1623,29 @@
 		color: inherit;
 		cursor: pointer;
 	}
-	.q-sort:hover { color: hsl(var(--foreground)); }
+	.q-sort:hover {
+		color: hsl(var(--foreground));
+	}
 	.q-sort:focus-visible {
 		outline: 2px solid hsl(214 91% 40%);
 		outline-offset: 2px;
 		border-radius: 2px;
 	}
-	.q-sort--active { color: hsl(var(--foreground)); }
-	.q-sort.q-col-age { justify-content: flex-end; }
-	.q-sort-arrow { font-size: 0.5rem; line-height: 1; }
-	.q-list { flex: 1; min-height: 0; overflow-y: auto; }
+	.q-sort--active {
+		color: hsl(var(--foreground));
+	}
+	.q-sort.q-col-age {
+		justify-content: flex-end;
+	}
+	.q-sort-arrow {
+		font-size: 0.5rem;
+		line-height: 1;
+	}
+	.q-list {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+	}
 	.q-loading {
 		display: flex;
 		flex-direction: column;
@@ -1512,19 +1679,36 @@
 		cursor: pointer;
 		color: inherit;
 	}
-	.q-row:hover { background: hsl(var(--muted) / 0.45); }
+	.q-row:hover {
+		background: hsl(var(--muted) / 0.45);
+	}
 	.q-row--active {
 		background: hsl(214 91% 40% / 0.08);
 		border-left-color: hsl(214 91% 35%);
 	}
 	/* Compact drops the row padding and the tag chips — the two things that
 	   cost the most vertical space — so more of the queue fits on screen. */
-	.ov-queue--compact .q-row { padding-top: 0.3125rem; padding-bottom: 0.3125rem; }
-	.ov-queue--compact .q-tags { display: none; }
+	.ov-queue--compact .q-row {
+		padding-top: 0.3125rem;
+		padding-bottom: 0.3125rem;
+	}
+	.ov-queue--compact .q-tags {
+		display: none;
+	}
 
 	/* Case cell */
-	.q-cell-case { display: flex; flex-direction: column; gap: 0.1875rem; min-width: 0; }
-	.q-case-line { display: flex; align-items: center; gap: 0.4375rem; min-width: 0; }
+	.q-cell-case {
+		display: flex;
+		flex-direction: column;
+		gap: 0.1875rem;
+		min-width: 0;
+	}
+	.q-case-line {
+		display: flex;
+		align-items: center;
+		gap: 0.4375rem;
+		min-width: 0;
+	}
 	.q-title {
 		min-width: 0;
 		font-size: 0.8125rem;
@@ -1541,10 +1725,24 @@
 		font-size: 0.6875rem;
 		color: hsl(var(--muted-foreground));
 	}
-	.q-soc, .q-id { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; }
-	.q-dot { opacity: 0.45; }
-	.q-cust { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.q-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+	.q-soc,
+	.q-id {
+		font-family: ui-monospace, monospace;
+		font-variant-numeric: tabular-nums;
+	}
+	.q-dot {
+		opacity: 0.45;
+	}
+	.q-cust {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.q-tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem;
+	}
 	.q-tag {
 		font-size: 0.625rem;
 		line-height: 1.4;
@@ -1554,17 +1752,27 @@
 		background: hsl(var(--muted) / 0.55);
 		color: hsl(var(--muted-foreground));
 	}
-	.q-tag--more { opacity: 0.75; }
+	.q-tag--more {
+		opacity: 0.75;
+	}
 
 	/* Stage cell */
-	.q-cell-stage { display: flex; flex-direction: column; gap: 0.3125rem; min-width: 0; }
+	.q-cell-stage {
+		display: flex;
+		flex-direction: column;
+		gap: 0.3125rem;
+		min-width: 0;
+	}
 	.q-stage-name {
 		font-size: 0.75rem;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.q-pipe { display: flex; gap: 2px; }
+	.q-pipe {
+		display: flex;
+		gap: 2px;
+	}
 	.q-seg {
 		flex: 1;
 		height: 3px;
@@ -1573,11 +1781,20 @@
 	}
 	/* Row scale is too small for the detail pane's tick marks, so cleared
 	   stages fill in solid instead — same progress read, 3px tall. */
-	.q-seg--done { background: hsl(214 91% 35% / 0.55); }
-	.q-seg--now { background: hsl(214 91% 35%); }
+	.q-seg--done {
+		background: hsl(214 91% 35% / 0.55);
+	}
+	.q-seg--now {
+		background: hsl(214 91% 35%);
+	}
 
 	/* Owner cell */
-	.q-cell-owner { display: flex; align-items: center; gap: 0.375rem; min-width: 0; }
+	.q-cell-owner {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		min-width: 0;
+	}
 	.q-avatar {
 		flex-shrink: 0;
 		display: inline-flex;
@@ -1603,7 +1820,11 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.q-owner-none { font-size: 0.75rem; font-weight: 500; color: hsl(38 92% 40%); }
+	.q-owner-none {
+		font-size: 0.75rem;
+		font-weight: 500;
+		color: hsl(38 92% 40%);
+	}
 
 	/* Age · Idle cell */
 	.q-cell-age {
@@ -1617,13 +1838,18 @@
 		font-weight: 500;
 		font-variant-numeric: tabular-nums;
 	}
-	.q-age--stalled { color: hsl(38 92% 42%); }
+	.q-age--stalled {
+		color: hsl(38 92% 42%);
+	}
 	.q-idle {
 		font-size: 0.625rem;
 		font-variant-numeric: tabular-nums;
 		color: hsl(var(--muted-foreground));
 	}
-	.q-idle--hot { color: hsl(var(--destructive)); font-weight: 600; }
+	.q-idle--hot {
+		color: hsl(var(--destructive));
+		font-weight: 600;
+	}
 
 	.q-foot {
 		display: flex;
@@ -1644,8 +1870,13 @@
 		cursor: pointer;
 		color: inherit;
 	}
-	.q-page-btn:hover:not(:disabled) { background: hsl(var(--muted) / 0.6); }
-	.q-page-btn:disabled { opacity: 0.4; cursor: default; }
+	.q-page-btn:hover:not(:disabled) {
+		background: hsl(var(--muted) / 0.6);
+	}
+	.q-page-btn:disabled {
+		opacity: 0.4;
+		cursor: default;
+	}
 	.q-page-lbl {
 		font-size: 0.6875rem;
 		color: hsl(var(--muted-foreground));
@@ -1685,7 +1916,10 @@
 		font-size: 0.75rem;
 		color: hsl(var(--muted-foreground));
 	}
-	.d-soc { font-size: 0.75rem; color: hsl(var(--muted-foreground)); }
+	.d-soc {
+		font-size: 0.75rem;
+		color: hsl(var(--muted-foreground));
+	}
 	.d-title {
 		font-size: 1rem;
 		font-weight: 600;
@@ -1715,14 +1949,21 @@
 		cursor: pointer;
 		white-space: nowrap;
 	}
-	.d-btn:hover:not(:disabled) { background: hsl(var(--muted) / 0.6); }
-	.d-btn:disabled { opacity: 0.55; cursor: default; }
+	.d-btn:hover:not(:disabled) {
+		background: hsl(var(--muted) / 0.6);
+	}
+	.d-btn:disabled {
+		opacity: 0.55;
+		cursor: default;
+	}
 	.d-btn--primary {
 		background: hsl(214 91% 22%);
 		border-color: hsl(214 91% 22%);
 		color: white;
 	}
-	.d-btn--primary:hover { background: hsl(214 91% 28%); }
+	.d-btn--primary:hover {
+		background: hsl(214 91% 28%);
+	}
 
 	/* Pipeline — a checklist rather than a bar, so the stages already cleared
 	   read as done at a glance and the current one is unambiguous. */
@@ -1751,8 +1992,12 @@
 		height: 2px;
 		background: hsl(var(--muted-foreground) / 0.2);
 	}
-	.d-step:last-child::after { display: none; }
-	.d-step--done::after { background: hsl(214 91% 35%); }
+	.d-step:last-child::after {
+		display: none;
+	}
+	.d-step--done::after {
+		background: hsl(214 91% 35%);
+	}
 	.d-step-mark {
 		display: flex;
 		align-items: center;
@@ -1785,10 +2030,17 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.d-step--done .d-step-lbl { color: hsl(var(--foreground) / 0.7); }
-	.d-step--now .d-step-lbl { color: hsl(214 91% 32%); font-weight: 700; }
+	.d-step--done .d-step-lbl {
+		color: hsl(var(--foreground) / 0.7);
+	}
+	.d-step--now .d-step-lbl {
+		color: hsl(214 91% 32%);
+		font-weight: 700;
+	}
 	/* The 22%/32% blues disappear against the dark surface. */
-	:global(.dark) .d-step--done::after { background: hsl(214 91% 55%); }
+	:global(.dark) .d-step--done::after {
+		background: hsl(214 91% 55%);
+	}
 	:global(.dark) .d-step--done .d-step-mark {
 		border-color: hsl(214 91% 45%);
 		background: hsl(214 91% 45%);
@@ -1797,7 +2049,9 @@
 		border-color: hsl(214 91% 55%);
 		box-shadow: inset 0 0 0 2px hsl(214 91% 55%);
 	}
-	:global(.dark) .d-step--now .d-step-lbl { color: hsl(214 91% 65%); }
+	:global(.dark) .d-step--now .d-step-lbl {
+		color: hsl(214 91% 65%);
+	}
 
 	.d-stalled {
 		font-size: 0.625rem;
@@ -1855,10 +2109,23 @@
 		   would never have applied. */
 		overflow-wrap: anywhere;
 	}
-	.d-meta-val--owner { display: flex; align-items: center; gap: 0.375rem; }
-	.d-meta-dim { color: hsl(var(--muted-foreground)); }
-	.d-meta-hot { color: hsl(var(--destructive)); font-weight: 600; }
-	.d-section { display: flex; flex-direction: column; gap: 0.5rem; }
+	.d-meta-val--owner {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+	}
+	.d-meta-dim {
+		color: hsl(var(--muted-foreground));
+	}
+	.d-meta-hot {
+		color: hsl(var(--destructive));
+		font-weight: 600;
+	}
+	.d-section {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
 	.d-section-title {
 		font-size: 0.6875rem;
 		font-weight: 600;
@@ -1867,12 +2134,107 @@
 		color: hsl(var(--muted-foreground));
 	}
 	/* Block-level so the chip row takes the cell's full width and wraps at it. */
-	.d-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+	.d-tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem;
+	}
 	.d-tag {
 		font-size: 0.6875rem;
 		padding: 0.125rem 0.5rem;
 		border-radius: 999px;
 		border: 1px solid hsl(var(--border));
 		background: hsl(var(--muted) / 0.5);
+	}
+
+	/* Belongs to the stacked layout only; the wide split keeps both panes
+	   on screen, so there is nothing to go back from. */
+	.d-back {
+		display: none;
+		align-items: center;
+		align-self: flex-start;
+		gap: 0.25rem;
+		flex-shrink: 0;
+		/* Matches `.d-head`'s inline padding so it lines up with the title. */
+		padding: 0.75rem 1.25rem 0;
+		border: 0;
+		background: none;
+		color: hsl(var(--muted-foreground));
+		font-size: 0.75rem;
+		font-weight: 500;
+		cursor: pointer;
+	}
+	.d-back:hover {
+		color: hsl(var(--foreground));
+	}
+
+	/* ── Small screens ───────────────────────────────────────────────
+	   The two-pane split cannot hold below this width: the detail pane's
+	   380px floor squeezes the queue until the row's fixed tracks
+	   (8.5rem + 9rem + 5.25rem ≈ 364px) no longer fit their column, and
+	   the header labels and stage text overlap. Collapse to one column,
+	   render the rows as stacked cards, and show a single pane at a
+	   time. */
+	@media (max-width: 63.9375rem) {
+		.ov-split {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		/* Queue until a case is picked, detail once one is — with the back
+		   button above as the way out. */
+		.ov-split--detail .ov-queue {
+			display: none;
+		}
+		.ov-split:not(.ov-split--detail) .ov-detail {
+			display: none;
+		}
+
+		.ov-queue {
+			border-right: none;
+		}
+
+		/* The header describes column tracks that no longer exist, so it
+		   degrades to a plain row of sort controls. Keeping it (rather than
+		   hiding it) is what preserves sorting on small screens. */
+		.q-head {
+			display: flex;
+			flex-wrap: wrap;
+			height: auto;
+			gap: 0.25rem 0.875rem;
+			padding: 0.4375rem 0.875rem;
+		}
+		.q-col-age {
+			text-align: left;
+		}
+
+		/* Card rows: the case block gets a line to itself, the rest share
+		   the next one with age pushed to the end. */
+		.q-row {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			gap: 0.375rem 0.75rem;
+		}
+		.q-cell-case {
+			flex: 1 0 100%;
+		}
+		.q-cell-stage {
+			/* Enough basis for the pipeline segments, which are `flex: 1` and
+			   would otherwise collapse to nothing. */
+			flex: 0 1 auto;
+			min-width: 6rem;
+		}
+		.q-cell-owner {
+			flex: 0 1 auto;
+		}
+		.q-cell-age {
+			flex: 0 0 auto;
+			margin-left: auto;
+			text-align: right;
+		}
+
+		.d-back {
+			display: inline-flex;
+		}
 	}
 </style>

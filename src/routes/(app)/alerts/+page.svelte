@@ -22,7 +22,9 @@
 		type InvestigationFlowPanelContext
 	} from '$lib/contexts/investigation-flow-panel.context.svelte';
 	import type { RequestResponse, Paginated } from '$lib/services/api.service';
-	import type { UpdateAlertBody } from '$lib/services/alerts.service';
+	import type { FilterAlertsParams, UpdateAlertBody } from '$lib/services/alerts.service';
+	import type { AlertQueueUnit } from '$lib/types/resources/alert-queue-unit';
+	import { pruneAlertQueueUnits, replaceAlertInQueueUnits } from '$lib/utils/alert-queue';
 	import {
 		AlertResolutionService,
 		type AlertResolution
@@ -74,7 +76,8 @@
 	import AlertsCloseDialog from './components/alerts-close-dialog.svelte';
 	import AlertEditDialog from './components/alert-edit-dialog.svelte';
 	import AlertsMergeDialog, {
-		type MergeAlertPayload
+		type MergeAlertPayload,
+		type MergeMode
 	} from './components/alerts-merge-dialog.svelte';
 	import { mergeAlerts } from './helpers/alerts-merge';
 	import { closeAlerts } from './helpers/alerts-close';
@@ -153,6 +156,14 @@
 		next_page: null
 	});
 
+	// Split view only: the queue rows, with clustered alerts folded into
+	// their cluster. `null` in every other view, where the flat
+	// `alertsData` is the whole story.
+	let alertGroups = $state<AlertQueueUnit[] | null>(null);
+	// Number of queue units, which is what the split view pages over —
+	// `alertsData.total` still counts alerts, for the heading.
+	let groupTotal = $state(0);
+
 	// Reported by the board so the heading count stays truthful when the
 	// list view's own `alertsData.total` is stale (or never fetched).
 	let boardTotal = $state(0);
@@ -180,6 +191,9 @@
 	let showAlertHistory = $state(false);
 	let showAlertEdit = $state(false);
 	let showMerge = $state(false);
+	// Which half of the merge dialog to land on: "Escalate" opens a new
+	// case, "Merge" folds the alerts into an existing one.
+	let mergeMode = $state<MergeMode>('new');
 	let showClose = $state(false);
 
 	const perPageOptions = [5, 10, 25, 50, 100, 200, 500].map((n) => ({
@@ -204,9 +218,7 @@
 		if (ownerId != null && ownerId === $current_user?.id) return 'mine';
 		if (ownerId === UNASSIGNED_OWNER_ID) return 'unassigned';
 		// Escalated tab: a single status_id matching the escalated status
-		const escalatedStatus = alertStatuses.find(
-			(s) => s.status_name.toLowerCase() === 'escalated'
-		);
+		const escalatedStatus = alertStatuses.find((s) => s.status_name.toLowerCase() === 'escalated');
 		if (
 			escalatedStatus &&
 			query.filters.alert_status_id === escalatedStatus.status_id &&
@@ -368,20 +380,31 @@
 			status = 'ready';
 			return;
 		}
-		// split view uses the same paginated list as list view
 
 		status = 'loading';
 
+		const params = {
+			...next.filters,
+			alert_start_date: toApiDate(next.filters.alert_start_date),
+			alert_end_date: toApiDate(next.filters.alert_end_date, true),
+			creation_start_date: toApiDate(next.filters.creation_start_date),
+			creation_end_date: toApiDate(next.filters.creation_end_date, true),
+			page: next.page,
+			per_page: next.per_page
+		};
+
 		try {
-			const response = await alerts.listPaginated({
-				...next.filters,
-				alert_start_date: toApiDate(next.filters.alert_start_date),
-				alert_end_date: toApiDate(next.filters.alert_end_date, true),
-				creation_start_date: toApiDate(next.filters.creation_start_date),
-				creation_end_date: toApiDate(next.filters.creation_end_date, true),
-				page: next.page,
-				per_page: next.per_page
-			});
+			// The split view's queue lists a cluster as one entry with its
+			// alerts inside it, so it pages over *units* and needs the
+			// grouped endpoint. The list view still wants a flat page.
+			if (next.view === 'split') {
+				await loadAlertGroups(params);
+				return;
+			}
+
+			alertGroups = null;
+
+			const response = await alerts.listPaginated(params);
 
 			const raw = response.data as Paginated<Alert>;
 			const list = Array.isArray(raw.data) ? raw.data : [];
@@ -393,6 +416,29 @@
 		} finally {
 			status = 'ready';
 		}
+	};
+
+	const loadAlertGroups = async (params: FilterAlertsParams) => {
+		const grouped = await alerts.listGroupedPaginated(params);
+
+		// A failed request empties the queue rather than leaving the previous
+		// page on screen, so nothing can be acted on that the server did not
+		// just confirm.
+		if (!grouped) {
+			alertGroups = [];
+			groupTotal = 0;
+			alertsData = { data: [], total: 0, current_page: 1, last_page: 1, next_page: null };
+			return;
+		}
+
+		alertGroups = grouped.units;
+
+		// `alertsData` stays the flat, de-duplicated page so selection,
+		// bulk actions and the "N Alerts" heading keep working untouched.
+		// Only the pager reads `groupTotal`, because that is the one number
+		// that counts units instead of alerts.
+		groupTotal = grouped.totalUnits;
+		alertsData = grouped.page;
 	};
 
 	const commitQuery = async (nextQuery: QueryState) => {
@@ -473,6 +519,11 @@
 			data: alertsList.map((alert) => (alert.alert_id === updated.alert_id ? updated : alert))
 		};
 
+		// Same reason as in `applyRemovedAlerts`: the split view's rows come
+		// from `alertGroups`, so patching only the flat page would leave the
+		// queue showing the old status until a reload.
+		if (alertGroups) alertGroups = replaceAlertInQueueUnits(alertGroups, updated);
+
 		if (reassignAlert?.alert_id === updated.alert_id) {
 			reassignAlert = updated;
 			reassignOwnerId = String(updated.alert_owner_id ?? '');
@@ -490,6 +541,14 @@
 			data: nextAlerts,
 			total: nextTotal
 		};
+
+		// The split view renders `alertGroups`, not `alertsData`, so deleted
+		// alerts would otherwise sit in the queue until the next reload.
+		if (alertGroups) {
+			const { units, removedUnits } = pruneAlertQueueUnits(alertGroups, idSet);
+			alertGroups = units;
+			groupTotal = Math.max(0, groupTotal - removedUnits);
+		}
 	};
 
 	const getPagesCount = (): number => {
@@ -679,7 +738,6 @@
 		cancelSelect();
 	};
 
-
 	const confirmMergeAlerts = async (mergeAlertPayload: MergeAlertPayload) => {
 		const updatedCaseId = await mergeAlerts(
 			{ alerts, cases },
@@ -824,6 +882,93 @@
 </svelte:head>
 
 <!--
+  The bulk-action buttons, defined once and rendered by both the list
+  view and the split view's selection bar. Sharing the snippet rather
+  than copying the markup is what keeps "same as the list view" true
+  as these actions change.
+-->
+{#snippet bulkActions()}
+	<Button
+		variant="outline"
+		size="xs"
+		onclick={() => {
+			mergeMode = 'new';
+			showMerge = true;
+		}}>Escalate</Button
+	>
+
+	<Button
+		variant="outline"
+		size="xs"
+		onclick={() => {
+			mergeMode = 'existing';
+			showMerge = true;
+		}}>Merge</Button
+	>
+
+	<DropdownMenu>
+		<DropdownMenuTrigger>
+			<Button variant="outline" size="xs">
+				Assign
+				<ChevronDownIcon size="14" />
+			</Button>
+		</DropdownMenuTrigger>
+
+		<DropdownMenuContent align="end">
+			<DropdownMenuItem
+				onclick={async () => {
+					const updates = await Promise.all(
+						getSelectedAlertIds()
+							.map((alertId) => getAlertFromPage(alertId))
+							.filter((alert): alert is Alert => alert !== null)
+							.map((alert) => assignToCurrentUser(alert))
+					);
+
+					if (updates.length === 0) {
+						await refreshAlerts();
+					}
+
+					cancelSelect();
+				}}>Assign to me</DropdownMenuItem
+			>
+
+			<DropdownMenuItem
+				onclick={() =>
+					openReassignDialog(
+						getSelectedAlertIds().length === 1
+							? (getAlertFromPage(getSelectedAlertIds()[0]) ?? undefined)
+							: undefined
+					)}>Assign</DropdownMenuItem
+			>
+		</DropdownMenuContent>
+	</DropdownMenu>
+
+	<DropdownMenu>
+		<DropdownMenuTrigger>
+			<Button variant="outline" size="xs">
+				Set status
+				<ChevronDownIcon size="14" />
+			</Button>
+		</DropdownMenuTrigger>
+
+		<DropdownMenuContent align="end">
+			{#each alertStatuses as alertStatus}
+				<DropdownMenuItem onclick={() => setStatus(alertStatus.status_id)}>
+					{alertStatus.status_name}</DropdownMenuItem
+				>
+			{/each}
+		</DropdownMenuContent>
+	</DropdownMenu>
+
+	<Button variant="destructive" size="xs" onclick={() => (showClose = true)}>Close with note</Button
+	>
+
+	<Button variant="destructive" size="xs" onclick={() => (showConfirmDelete = true)}
+		><TrashIcon /> Delete</Button
+	>
+{/snippet}
+
+<!--
   Page layout: the outer container is height-bounded so the alert list
   can scroll on its own (`min-h-0 overflow-hidden`). The header /
   filter strip / bulk-action bar / pagination all live in a
@@ -923,7 +1068,9 @@
 			{#if filtersOpen}
 				<AlertFilters
 					value={query.filters}
-					onChange={(next) => { query = { ...query, filters: next }; }}
+					onChange={(next) => {
+						query = { ...query, filters: next };
+					}}
 					onApply={() => commitQuery({ ...query, page: 1 })}
 					onClear={() => {
 						clearSavedFilterSelection();
@@ -944,8 +1091,9 @@
 			<AlertsSplitView
 				class="-mx-6 min-h-0 grow"
 				alerts={alertsData.data}
+				groups={alertGroups}
 				loading={status === 'loading'}
-				total={getTotal({ data: alertsData } as RequestResponse<Paginated<Alert>>)}
+				total={groupTotal}
 				page={query.page}
 				perPage={query.per_page}
 				{selected}
@@ -958,18 +1106,23 @@
 					!reassignOpen}
 				onToggleSort={toggleSort}
 				onSelect={(alert_id, checked) => (selected = { ...selected, [alert_id]: checked })}
+				onSelectMany={(alertIds, checked) => {
+					const next = { ...selected };
+					for (const alertId of alertIds) next[alertId] = checked;
+					selected = next;
+				}}
 				onSelectAll={(checked) => {
 					selectedAll = checked;
-					selected = Object.fromEntries(
-						alertsData.data.map((alert) => [alert.alert_id, checked])
-					);
+					selected = Object.fromEntries(alertsData.data.map((alert) => [alert.alert_id, checked]));
 				}}
 				onEscalate={(alert) => {
 					selected = { ...selected, [alert.alert_id]: true };
+					mergeMode = 'new';
 					showMerge = true;
 				}}
 				onMerge={(alert) => {
 					selected = { ...selected, [alert.alert_id]: true };
+					mergeMode = 'existing';
 					showMerge = true;
 				}}
 				onClose={(alert) => {
@@ -978,7 +1131,7 @@
 				}}
 				onOpenCluster={(cluster_id) => goto(`/alert-clusters/${cluster_id}`)}
 				onPageChange={changePage}
-				queueTab={queueTab}
+				{queueTab}
 				onQueueTabChange={changeQueueTab}
 				onAssignToMe={assignToCurrentUser}
 				onAssign={openReassignDialog}
@@ -994,6 +1147,10 @@
 						{customers}
 						{owners}
 					/>
+				{/snippet}
+
+				{#snippet selectionBar()}
+					{@render bulkActions()}
 				{/snippet}
 			</AlertsSplitView>
 		</div>
@@ -1210,71 +1367,7 @@
 				/>
 
 				{#if query.view === 'list' && getSelectedCount() > 0}
-					<div class="flex gap-2">
-						<Button variant="outline" size="xs" onclick={() => (showMerge = true)}>Merge</Button>
-
-						<DropdownMenu>
-							<DropdownMenuTrigger>
-								<Button variant="outline" size="xs">
-									Assign
-									<ChevronDownIcon size="14" />
-								</Button>
-							</DropdownMenuTrigger>
-
-							<DropdownMenuContent align="end">
-								<DropdownMenuItem
-									onclick={async () => {
-										const updates = await Promise.all(
-											getSelectedAlertIds()
-												.map((alertId) => getAlertFromPage(alertId))
-												.filter((alert): alert is Alert => alert !== null)
-												.map((alert) => assignToCurrentUser(alert))
-										);
-
-										if (updates.length === 0) {
-											await refreshAlerts();
-										}
-
-										cancelSelect();
-									}}>Assign to me</DropdownMenuItem
-								>
-
-								<DropdownMenuItem
-									onclick={() =>
-										openReassignDialog(
-											getSelectedAlertIds().length === 1
-												? (getAlertFromPage(getSelectedAlertIds()[0]) ?? undefined)
-												: undefined
-										)}>Assign</DropdownMenuItem
-								>
-							</DropdownMenuContent>
-						</DropdownMenu>
-
-						<DropdownMenu>
-							<DropdownMenuTrigger>
-								<Button variant="outline" size="xs">
-									Set status
-									<ChevronDownIcon size="14" />
-								</Button>
-							</DropdownMenuTrigger>
-
-							<DropdownMenuContent align="end">
-								{#each alertStatuses as alertStatus}
-									<DropdownMenuItem onclick={() => setStatus(alertStatus.status_id)}>
-										{alertStatus.status_name}</DropdownMenuItem
-									>
-								{/each}
-							</DropdownMenuContent>
-						</DropdownMenu>
-
-						<Button variant="destructive" size="xs" onclick={() => (showClose = true)}
-							>Close with note</Button
-						>
-
-						<Button variant="destructive" size="xs" onclick={() => (showConfirmDelete = true)}
-							><TrashIcon /> Delete</Button
-						>
-					</div>
+					<div class="flex flex-wrap gap-2">{@render bulkActions()}</div>
 				{/if}
 			</div>
 
@@ -1356,6 +1449,9 @@
 											})}
 										onShowMerge={() => {
 											selected = { ...selected, [alert.alert_id]: true };
+											// `mergeMode` is sticky, so every entry point sets it.
+											// This button has always opened on a new case.
+											mergeMode = 'new';
 											showMerge = true;
 										}}
 										onShowClose={(withNote: boolean) => {
@@ -1404,6 +1500,7 @@
 {#if selectedAlert}
 	<AlertsMergeDialog
 		bind:open={showMerge}
+		defaultMode={mergeMode}
 		selectedAlertIds={getSelectedAlertIds()}
 		selectedAlert={getSelectedAlertIds().length === 1 ? selectedAlert : undefined}
 		onConfirm={confirmMergeAlerts}

@@ -130,7 +130,10 @@
 		  is anchored to <main> (which never scrolls) rather than to
 		  the scroll viewport itself.
 		-->
-		<div class="relative z-0 flex min-h-0 min-w-0 grow flex-col overflow-auto bg-background">
+		<div
+			data-testid="app-scroll-viewport"
+			class="relative z-0 flex min-h-0 min-w-0 grow flex-col overflow-auto bg-background"
+		>
 			{@render children()}
 		</div>
 	</main>

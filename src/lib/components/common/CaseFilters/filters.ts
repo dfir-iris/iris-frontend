@@ -48,14 +48,27 @@ export type FilterTreeNode = FilterRow | FilterGroup;
 export const isGroup = (node: FilterTreeNode): node is FilterGroup =>
 	(node as FilterGroup).items !== undefined;
 
+/** True when a leaf will actually narrow the result set. */
+const rowIsActive = (row: FilterRow): boolean => {
+	const op = (row.operation ?? '').toLowerCase();
+	if (op === 'empty' || op === 'not_empty') return true;
+	return (row.value ?? '').trim() !== '';
+};
+
 /** Returns true when the tree carries at least one actionable condition. */
 export const treeHasActiveCondition = (group: FilterGroup): boolean =>
-	group.items.some((item) => {
-		if (isGroup(item)) return treeHasActiveCondition(item);
-		const op = (item.operation ?? '').toLowerCase();
-		if (op === 'empty' || op === 'not_empty') return true;
-		return (item.value ?? '').trim() !== '';
-	});
+	group.items.some((item) => (isGroup(item) ? treeHasActiveCondition(item) : rowIsActive(item)));
+
+/**
+ * How many actionable conditions the tree holds, counting nested groups.
+ * Drives the badge on the overview's Filters button, so half-typed rows
+ * don't inflate it.
+ */
+export const countActiveConditions = (group: FilterGroup): number =>
+	group.items.reduce(
+		(n, item) => n + (isGroup(item) ? countActiveConditions(item) : rowIsActive(item) ? 1 : 0),
+		0
+	);
 
 /** Strip rows with empty values, prune empty sub-groups. */
 export const pruneTree = (group: FilterGroup): FilterGroup => {

@@ -35,11 +35,24 @@
 		open: boolean;
 		selectedAlertIds: number[];
 		selectedAlert?: Alert;
+		/**
+		 * Which half of the dialog to open on. "Escalate" means a brand new
+		 * case, "Merge" means folding the alerts into one that already
+		 * exists — same dialog, different starting point.
+		 */
+		defaultMode?: MergeMode;
 		onClose: () => void;
 		onConfirm: (payload: MergeAlertPayload) => void;
 	};
 
-	let { open = $bindable(), selectedAlertIds, selectedAlert, onClose, onConfirm }: Props = $props();
+	let {
+		open = $bindable(),
+		selectedAlertIds,
+		selectedAlert,
+		defaultMode = 'new',
+		onClose,
+		onConfirm
+	}: Props = $props();
 
 	const caseTemplates = getContext<CaseTemplatesContext>(CASE_TEMPLATES_CTX);
 
@@ -160,7 +173,7 @@
 			: 'Merge multiple alerts in a new case';
 
 	const resetForm = () => {
-		mergeMode = 'new';
+		mergeMode = defaultMode;
 		targetCaseId = null;
 		targetCaseName = '';
 		caseTitle = selectedAlert

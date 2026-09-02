@@ -18,9 +18,11 @@
 	import { getContext, onMount } from 'svelte';
 	import type { Alert } from '$lib/types/resources/alert';
 	import type { AlertCluster } from '$lib/types/resources/alert-cluster';
+	import type { AlertQueueUnit } from '$lib/types/resources/alert-queue-unit';
 	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
 	import { AlertClustersService } from '$lib/services/alert-clusters.service';
 	import AlertRelatedGraph from '../AlertRelatedGraph/AlertRelatedGraph.svelte';
+	import { clusterSelectionState, flattenAlertQueueUnits } from '$lib/utils/alert-queue';
 	import {
 		activityEntries,
 		ageLabel,
@@ -40,7 +42,17 @@
 
 	interface Props {
 		class?: string;
+		/**
+		 * Every alert on the page, flat and de-duplicated. Drives selection
+		 * and the bulk actions the parent owns. When `groups` is set this is
+		 * the flattening of it, not a second query.
+		 */
 		alerts: Alert[];
+		/**
+		 * Queue rows with clustered alerts collapsed into their cluster. When
+		 * omitted the queue falls back to one row per alert.
+		 */
+		groups?: AlertQueueUnit[] | null;
 		loading?: boolean;
 		total: number;
 		page: number;
@@ -57,6 +69,12 @@
 		 * in the parent without threading all the lookup arrays down here.
 		 */
 		filterBar?: import('svelte').Snippet;
+		/**
+		 * Optional snippet rendered above the queue whenever something is
+		 * selected. The page passes the same bulk-action buttons the list
+		 * view uses, so the two views can never drift apart.
+		 */
+		selectionBar?: import('svelte').Snippet;
 		/** Whether the filter panel is currently open (used to toggle the button label). */
 		filterPanelOpen?: boolean;
 		/** Called when the user clicks the "+ Filter" button. */
@@ -65,6 +83,8 @@
 		shortcutsEnabled?: boolean;
 		onToggleSort: () => void;
 		onSelect: (alertId: number, checked: boolean) => void;
+		/** Select or clear a whole group of alerts at once — a cluster's members. */
+		onSelectMany: (alertIds: number[], checked: boolean) => void;
 		onSelectAll: (checked: boolean) => void;
 		onAssignToMe: (alert: Alert) => void;
 		onAssign: (alert: Alert) => void;
@@ -81,6 +101,7 @@
 	let {
 		class: className = '',
 		alerts,
+		groups = null,
 		loading = false,
 		total,
 		page,
@@ -90,11 +111,13 @@
 		queueTab,
 		queueCounts,
 		filterBar,
+		selectionBar,
 		filterPanelOpen = false,
 		onOpenFilters,
 		shortcutsEnabled = true,
 		onToggleSort,
 		onSelect,
+		onSelectMany,
 		onSelectAll,
 		onAssignToMe,
 		onAssign,
@@ -109,6 +132,11 @@
 	type Tab = 'overview' | 'assets' | 'cluster' | 'iocs' | 'raw' | 'timeline' | 'notes' | 'graph';
 
 	let focusedId = $state<number | null>(null);
+	// Which pane the small-screen layout is showing. Inert above the stacking
+	// breakpoint, where both panes are on screen at once. It can't be derived
+	// from `focusedId`: the effect below auto-focuses the first alert, so the
+	// detail would open on load and the queue would never be reachable.
+	let narrowPane = $state<'queue' | 'detail'>('queue');
 	let activeTab = $state<Tab>('overview');
 	let rowEls = $state<Record<number, HTMLElement | undefined>>({});
 	let showAssignMenu = $state<boolean>(false);
@@ -136,19 +164,62 @@
 		};
 	});
 
+	// ---- queue rows --------------------------------------------------
+
+	// Which clusters the analyst has folded shut. Expanded is the default:
+	// the cluster is the queue entry, but its alerts still have to be
+	// walkable with j/k without a click first.
+	let collapsedClusters = $state<Record<number, boolean>>({});
+
+	const isClusterOpen = (clusterId: number) => collapsedClusters[clusterId] !== true;
+
+	const toggleCluster = (clusterId: number) => {
+		collapsedClusters = { ...collapsedClusters, [clusterId]: isClusterOpen(clusterId) };
+	};
+
+	// One code path for both modes: without grouping every alert is its own
+	// unit, which is exactly what the ungrouped queue rendered before.
+	const queueUnits = $derived<AlertQueueUnit[]>(
+		groups ?? alerts.map((alert) => ({ kind: 'alert', alert }))
+	);
+
+	// What the keyboard walks: on-screen alerts only, so `j` never lands on
+	// a row hidden inside a folded cluster.
+	const visibleAlerts = $derived(flattenAlertQueueUnits(queueUnits, isClusterOpen));
+
+	const unitKey = (unit: AlertQueueUnit) =>
+		unit.kind === 'cluster' ? `c${unit.cluster.cluster_id}` : `a${unit.alert.alert_id}`;
+
+	// ---- cluster selection -------------------------------------------
+
+	// A cluster's checkbox reflects, and drives, its members: ticked when
+	// every member is, a bar while only some are.
+	const clusterSelection = (members: Alert[]) => clusterSelectionState(members, selected);
+
+	const toggleClusterSelection = (members: Alert[]) => {
+		const checked = clusterSelection(members) !== 'all';
+		onSelectMany(
+			members.map((member) => member.alert_id),
+			checked
+		);
+	};
+
+	// Drives the selection bar. Counted over the page rather than over
+	// `selected`, whose keys can outlive the alerts they came from.
+	const selectedCount = $derived(alerts.filter((a) => selected[a.alert_id] === true).length);
+
 	// Keep the cursor on a row that still exists after a refresh / page
 	// change, but never yank it off a row the analyst deliberately moved to.
-	const focusedIndex = $derived(alerts.findIndex((a) => a.alert_id === focusedId));
-	const focused = $derived(focusedIndex >= 0 ? alerts[focusedIndex] : undefined);
+	const focusedIndex = $derived(visibleAlerts.findIndex((a) => a.alert_id === focusedId));
+	const focused = $derived(focusedIndex >= 0 ? visibleAlerts[focusedIndex] : undefined);
 
 	$effect(() => {
-		if (alerts.length === 0) {
+		if (visibleAlerts.length === 0) {
 			focusedId = null;
-		} else if (!alerts.some((a) => a.alert_id === focusedId)) {
-			focusedId = alerts[0].alert_id;
+		} else if (!visibleAlerts.some((a) => a.alert_id === focusedId)) {
+			focusedId = visibleAlerts[0].alert_id;
 		}
 	});
-
 
 	// ---- cluster context for the focused alert -----------------------
 
@@ -206,7 +277,11 @@
 
 	const tabs = $derived([
 		{ id: 'overview' as Tab, label: 'Overview', count: undefined as number | undefined },
-		{ id: 'assets' as Tab, label: 'Assets', count: (focused?.assets?.length ?? 0) > 0 ? focused?.assets?.length : undefined },
+		{
+			id: 'assets' as Tab,
+			label: 'Assets',
+			count: (focused?.assets?.length ?? 0) > 0 ? focused?.assets?.length : undefined
+		},
 		{ id: 'cluster' as Tab, label: 'Cluster', count: cluster?.alert_ids?.length },
 		{ id: 'iocs' as Tab, label: 'IOCs', count: iocs.length },
 		{ id: 'raw' as Tab, label: 'Raw event', count: undefined },
@@ -222,10 +297,10 @@
 	// ---- keyboard ----------------------------------------------------
 
 	const move = (delta: number) => {
-		if (alerts.length === 0) return;
+		if (visibleAlerts.length === 0) return;
 		const from = focusedIndex >= 0 ? focusedIndex : 0;
-		const next = Math.min(alerts.length - 1, Math.max(0, from + delta));
-		focusedId = alerts[next].alert_id;
+		const next = Math.min(visibleAlerts.length - 1, Math.max(0, from + delta));
+		focusedId = visibleAlerts[next].alert_id;
 		rowEls[focusedId]?.scrollIntoView({ block: 'nearest' });
 	};
 
@@ -239,10 +314,7 @@
 		if (!el) return false;
 		const tag = el.tagName;
 		return (
-			tag === 'INPUT' ||
-			tag === 'TEXTAREA' ||
-			tag === 'SELECT' ||
-			el.isContentEditable === true
+			tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable === true
 		);
 	};
 
@@ -288,7 +360,14 @@
 
 <svelte:window on:keydown={onKeydown} />
 
-<div class="iris-triage {className}" role="region" aria-label="Alert triage cockpit">
+<!-- Both panes sit side by side on wide screens. Narrow ones show one at a
+     time and use `show-detail` to pick which — see the media query. -->
+<div
+	class="iris-triage {className}"
+	class:show-detail={narrowPane === 'detail'}
+	role="region"
+	aria-label="Alert triage cockpit"
+>
 	<!-- ============ queue ============ -->
 	<div class="queue">
 		<!-- Quick-filter tabs: My queue / Unassigned / Escalated / All open -->
@@ -301,7 +380,8 @@
 				aria-selected={queueTab === 'mine'}
 				onclick={() => onQueueTabChange('mine')}
 			>
-				My queue{#if queueCounts?.mine != null}<span class="qtab-count">{queueCounts.mine}</span>{/if}
+				My queue{#if queueCounts?.mine != null}<span class="qtab-count">{queueCounts.mine}</span
+					>{/if}
 			</button>
 			<button
 				type="button"
@@ -311,7 +391,9 @@
 				aria-selected={queueTab === 'unassigned'}
 				onclick={() => onQueueTabChange('unassigned')}
 			>
-				Unassigned{#if queueCounts?.unassigned != null}<span class="qtab-count">{queueCounts.unassigned}</span>{/if}
+				Unassigned{#if queueCounts?.unassigned != null}<span class="qtab-count"
+						>{queueCounts.unassigned}</span
+					>{/if}
 			</button>
 			<button
 				type="button"
@@ -321,7 +403,9 @@
 				aria-selected={queueTab === 'escalated'}
 				onclick={() => onQueueTabChange('escalated')}
 			>
-				Escalated{#if queueCounts?.escalated != null}<span class="qtab-count">{queueCounts.escalated}</span>{/if}
+				Escalated{#if queueCounts?.escalated != null}<span class="qtab-count"
+						>{queueCounts.escalated}</span
+					>{/if}
 			</button>
 			<button
 				type="button"
@@ -339,7 +423,12 @@
 			<div class="filter-bar">
 				{#if filterBar}{@render filterBar()}{/if}
 				{#if onOpenFilters}
-					<button type="button" class="btn-filter-add" class:btn-filter-active={filterPanelOpen} onclick={onOpenFilters}>{filterPanelOpen ? 'Hide filters ×' : '+ Filter'}</button>
+					<button
+						type="button"
+						class="btn-filter-add"
+						class:btn-filter-active={filterPanelOpen}
+						onclick={onOpenFilters}>{filterPanelOpen ? 'Hide filters ×' : '+ Filter'}</button
+					>
 				{/if}
 			</div>
 		{/if}
@@ -358,81 +447,164 @@
 			<button type="button" class="queue-sort" onclick={onToggleSort}>Sort: {sortLabel} ▾</button>
 		</div>
 
+		{#if selectionBar && selectedCount > 0}
+			<div class="selection-bar">
+				<span class="selection-count"
+					>{selectedCount} selected{#if allSelected}&nbsp;· whole page{/if}</span
+				>
+				<button type="button" class="selection-clear" onclick={() => onSelectAll(false)}
+					>Clear</button
+				>
+				<div class="selection-actions">{@render selectionBar()}</div>
+			</div>
+		{/if}
+
+		<!-- One row per alert, or — when `groups` is set — one row per cluster
+		     with its member alerts nested underneath. `queueUnits` papers over
+		     the difference so there is a single row template either way. -->
+		{#snippet queueRow(alert: Alert, inCluster: boolean)}
+			{@const isFocused = alert.alert_id === focusedId}
+			{@const sev = severityVar(alert.severity?.severity_name)}
+			<div class="row" class:row-focused={isFocused} bind:this={rowEls[alert.alert_id]}>
+				<button
+					type="button"
+					class="checkbox"
+					role="checkbox"
+					aria-checked={selected[alert.alert_id] === true}
+					aria-label="Select alert {alert.alert_id}"
+					data-checked={selected[alert.alert_id] === true}
+					onclick={() => onSelect(alert.alert_id, !selected[alert.alert_id])}
+				></button>
+
+				<button
+					type="button"
+					class="row-main"
+					role="option"
+					aria-selected={isFocused}
+					onclick={() => {
+						focusedId = alert.alert_id;
+						narrowPane = 'detail';
+					}}
+				>
+					<span class="sev-bar" style="background:{sev}"></span>
+
+					<span class="row-body">
+						<span class="row-meta">
+							<span class="row-sev" style="color:{sev}">{alert.severity?.severity_name ?? '—'}</span
+							>
+							<span class="vrule"></span>
+							<span class="row-client">{alert.customer?.customer_name ?? ''}</span>
+							<span class="spacer"></span>
+							<span class="row-time">{relativeDate(alert.alert_source_event_time, now)}</span>
+						</span>
+
+						<span class="row-title" style="color:{titleVar(alert.status?.status_name, isFocused)}"
+							>{alert.alert_title}</span
+						>
+
+						<span class="row-chips">
+							<!-- Inside a cluster the header already says so; only flag
+							     the alert when it also belongs to other clusters. -->
+							{#if inCluster ? (alert.clusters?.length ?? 0) > 1 : (alert.clusters?.length ?? 0) > 0}
+								<span class="chip-cluster">
+									<span class="chip-glyph">◈</span>
+									<span
+										>{alert.clusters.length > 1
+											? `${alert.clusters.length} clusters`
+											: 'Clustered'}</span
+									>
+								</span>
+							{/if}
+							{#if assetLabel(alert.assets)}
+								<span class="chip-mono">{assetLabel(alert.assets)}</span>
+							{/if}
+							{#if primaryTechnique(alert)}
+								<span class="chip-mono">{primaryTechnique(alert)}</span>
+							{/if}
+							<span class="spacer"></span>
+							<span class="row-status" style="color:{statusVar(alert.status?.status_name)}"
+								>{alert.status?.status_name ?? ''}</span
+							>
+						</span>
+					</span>
+				</button>
+			</div>
+		{/snippet}
+
 		<div class="queue-scroll" role="listbox" aria-label="Alerts" tabindex="-1">
-			{#if loading && alerts.length === 0}
+			{#if loading && queueUnits.length === 0}
 				<div class="queue-empty">Loading alerts…</div>
-			{:else if alerts.length === 0}
+			{:else if queueUnits.length === 0}
 				<div class="queue-empty">No alerts match the current filters.</div>
 			{:else}
-				{#each alerts as alert (alert.alert_id)}
-					{@const isFocused = alert.alert_id === focusedId}
-					{@const sev = severityVar(alert.severity?.severity_name)}
-					<div
-						class="row"
-						class:row-focused={isFocused}
-						bind:this={rowEls[alert.alert_id]}
-					>
-						<button
-							type="button"
-							class="checkbox"
-							role="checkbox"
-							aria-checked={selected[alert.alert_id] === true}
-							aria-label="Select alert {alert.alert_id}"
-							data-checked={selected[alert.alert_id] === true}
-							onclick={() => onSelect(alert.alert_id, !selected[alert.alert_id])}
-						></button>
+				{#each queueUnits as unit (unitKey(unit))}
+					{#if unit.kind === 'cluster'}
+						{@const open = isClusterOpen(unit.cluster.cluster_id)}
+						{@const picked = clusterSelection(unit.alerts)}
+						<div class="cluster-group" class:cluster-shut={!open}>
+							<div class="cluster-head">
+								<button
+									type="button"
+									class="checkbox"
+									role="checkbox"
+									aria-checked={picked === 'all' ? true : picked === 'some' ? 'mixed' : false}
+									aria-label="{picked === 'all' ? 'Deselect' : 'Select'} the {unit.alerts
+										.length} alerts of {unit.cluster.cluster_title}"
+									data-checked={picked === 'all'}
+									data-partial={picked === 'some'}
+									disabled={unit.alerts.length === 0}
+									onclick={() => toggleClusterSelection(unit.alerts)}
+								></button>
 
-						<button
-							type="button"
-							class="row-main"
-							role="option"
-							aria-selected={isFocused}
-							onclick={() => (focusedId = alert.alert_id)}
-						>
-							<span class="sev-bar" style="background:{sev}"></span>
-
-							<span class="row-body">
-								<span class="row-meta">
-									<span class="row-sev" style="color:{sev}"
-										>{alert.severity?.severity_name ?? '—'}</span
-									>
-									<span class="vrule"></span>
-									<span class="row-client">{alert.customer?.customer_name ?? ''}</span>
-									<span class="spacer"></span>
-									<span class="row-time">{relativeDate(alert.alert_source_event_time, now)}</span>
-								</span>
-
-								<span
-									class="row-title"
-									style="color:{titleVar(alert.status?.status_name, isFocused)}"
-									>{alert.alert_title}</span
+								<button
+									type="button"
+									class="cluster-toggle"
+									aria-expanded={open}
+									aria-label="{open ? 'Collapse' : 'Expand'} {unit.cluster.cluster_title}"
+									onclick={() => toggleCluster(unit.cluster.cluster_id)}
 								>
-
-								<span class="row-chips">
-									{#if (alert.clusters?.length ?? 0) > 0}
-										<span class="chip-cluster">
-											<span class="chip-glyph">◈</span>
-											<span
-												>{alert.clusters.length > 1
-													? `${alert.clusters.length} clusters`
-													: 'Clustered'}</span
-											>
-										</span>
-									{/if}
-									{#if assetLabel(alert.assets)}
-										<span class="chip-mono">{assetLabel(alert.assets)}</span>
-									{/if}
-									{#if primaryTechnique(alert)}
-										<span class="chip-mono">{primaryTechnique(alert)}</span>
-									{/if}
-									<span class="spacer"></span>
-									<span class="row-status" style="color:{statusVar(alert.status?.status_name)}"
-										>{alert.status?.status_name ?? ''}</span
+									<span class="cluster-caret" aria-hidden="true">{open ? '▾' : '▸'}</span>
+									<span class="chip-glyph" aria-hidden="true">◈</span>
+									<span class="cluster-title">{unit.cluster.cluster_title}</span>
+									<span class="cluster-count"
+										>{unit.alerts_total}
+										{unit.alerts_total === 1 ? 'alert' : 'alerts'}</span
 									>
-								</span>
-							</span>
-						</button>
-					</div>
+									{#if picked !== 'none'}
+										<!-- Folding a cluster shut hides its ticked rows, so the
+										     header has to say what is still selected inside it. -->
+										<span class="cluster-picked"
+											>{unit.alerts.filter((a) => selected[a.alert_id] === true).length} selected</span
+										>
+									{/if}
+								</button>
+								<button
+									type="button"
+									class="cluster-open"
+									onclick={() => onOpenCluster(unit.cluster.cluster_id)}>Open ›</button
+								>
+							</div>
+
+							{#if open}
+								{#each unit.alerts as alert (alert.alert_id)}
+									{@render queueRow(alert, true)}
+								{/each}
+
+								{#if unit.alerts_truncated}
+									<!-- The server caps how many members it ships per row so
+									     one huge cluster can't dominate the page. -->
+									<button
+										type="button"
+										class="cluster-more"
+										onclick={() => onOpenCluster(unit.cluster.cluster_id)}
+										>Showing {unit.alerts.length} of {unit.alerts_total} — open the cluster for the rest</button
+									>
+								{/if}
+							{/if}
+						</div>
+					{:else}
+						{@render queueRow(unit.alert, false)}
+					{/if}
 				{/each}
 			{/if}
 		</div>
@@ -461,6 +633,13 @@
 
 	<!-- ============ detail ============ -->
 	<div class="detail">
+		<!-- Only shown on small screens, where this pane replaces the queue
+		     rather than sitting beside it. Sits outside the branch below so the
+		     way back survives `focused` going empty — a filter change can clear
+		     it while this pane is the one on screen. -->
+		<button type="button" class="detail-back" onclick={() => (narrowPane = 'queue')}>
+			‹ Back to queue
+		</button>
 		{#if !focused}
 			<div class="detail-empty">Select an alert to triage it.</div>
 		{:else}
@@ -491,22 +670,28 @@
 								class="btn-outline"
 								onclick={() => (showAssignMenu = !showAssignMenu)}
 								aria-haspopup="true"
-								aria-expanded={showAssignMenu}
-							>Assign ▾</button>
+								aria-expanded={showAssignMenu}>Assign ▾</button
+							>
 							{#if showAssignMenu}
 								<div class="assign-dropdown" role="menu">
 									<button
 										type="button"
 										class="assign-item"
 										role="menuitem"
-										onclick={() => { onAssignToMe(f); showAssignMenu = false; }}
-									>Assign to me</button>
+										onclick={() => {
+											onAssignToMe(f);
+											showAssignMenu = false;
+										}}>Assign to me</button
+									>
 									<button
 										type="button"
 										class="assign-item"
 										role="menuitem"
-										onclick={() => { onAssign(f); showAssignMenu = false; }}
-									>Assign to…</button>
+										onclick={() => {
+											onAssign(f);
+											showAssignMenu = false;
+										}}>Assign to…</button
+									>
 								</div>
 							{/if}
 						</div>
@@ -520,7 +705,11 @@
 
 				<div class="detail-chips">
 					{#if cluster}
-						<button type="button" class="chip-cluster chip-lg" onclick={() => cluster && onOpenCluster(cluster.cluster_id)}>
+						<button
+							type="button"
+							class="chip-cluster chip-lg"
+							onclick={() => cluster && onOpenCluster(cluster.cluster_id)}
+						>
 							<span class="chip-glyph">◈</span>
 							<span>Cluster: {clusterLabel}</span>
 						</button>
@@ -551,294 +740,308 @@
 					<AlertRelatedGraph alertId={f.alert_id} />
 				</div>
 			{:else}
-			<div class="detail-body">
-				<div class="detail-main">
-					{#if activeTab === 'overview'}
-						{#if f.alert_description}
-							<section class="section">
-								<h3 class="section-title">Description</h3>
-								<div class="detail-prose">{f.alert_description}</div>
-							</section>
+				<div class="detail-body">
+					<div class="detail-main">
+						{#if activeTab === 'overview'}
+							{#if f.alert_description}
+								<section class="section">
+									<h3 class="section-title">Description</h3>
+									<div class="detail-prose">{f.alert_description}</div>
+								</section>
+							{/if}
+
+							{#if f.alert_context && Object.keys(f.alert_context).length > 0}
+								<section class="section">
+									<h3 class="section-title">Context</h3>
+									<div class="context-grid">
+										{#each Object.entries(f.alert_context) as [k, v] (k)}
+											<span class="context-key">{k}</span>
+											<span class="context-val">{v}</span>
+										{/each}
+									</div>
+								</section>
+							{/if}
+
+							{#if (f.assets?.length ?? 0) > 0}
+								<section class="section">
+									<h3 class="section-title">Assets</h3>
+									<div class="asset-list">
+										{#each f.assets as a (a.asset_id)}
+											<div class="asset-row">
+												<div class="asset-name">{a.asset_name}</div>
+												{#if a.asset_type?.asset_name || a.asset_ip || a.asset_domain}
+													<div class="asset-meta">
+														{[a.asset_type?.asset_name, a.asset_ip, a.asset_domain]
+															.filter(Boolean)
+															.join(' · ')}
+													</div>
+												{/if}
+											</div>
+										{/each}
+									</div>
+								</section>
+							{/if}
+
+							{#if iocs.length > 0}
+								<section class="section">
+									<h3 class="section-title">Observables</h3>
+									<div class="ioc-chips">
+										{#each iocs as ioc (ioc.ioc_id)}
+											{@const flag = observableFlag(ioc)}
+											<span class="ioc-chip">
+												<span class="ioc-kind">{ioc.ioc_type?.type_name ?? 'ioc'}</span>
+												<span class="ioc-val">{ioc.ioc_value}</span>
+												{#if flag.text}
+													<span class="ioc-flag" style="color:{flag.color}">{flag.text}</span>
+												{/if}
+											</span>
+										{/each}
+									</div>
+								</section>
+							{/if}
+
+							{#if !f.alert_description && (!f.alert_context || Object.keys(f.alert_context).length === 0) && (f.assets?.length ?? 0) === 0 && iocs.length === 0}
+								<p class="section-empty">No overview data for this alert.</p>
+							{/if}
 						{/if}
 
-						{#if f.alert_context && Object.keys(f.alert_context).length > 0}
-							<section class="section">
-								<h3 class="section-title">Context</h3>
-								<div class="context-grid">
-									{#each Object.entries(f.alert_context) as [k, v] (k)}
-										<span class="context-key">{k}</span>
-										<span class="context-val">{v}</span>
-									{/each}
-								</div>
-							</section>
-						{/if}
-
-						{#if (f.assets?.length ?? 0) > 0}
+						{#if activeTab === 'assets'}
 							<section class="section">
 								<h3 class="section-title">Assets</h3>
-								<div class="asset-list">
-									{#each f.assets as a (a.asset_id)}
-										<div class="asset-row">
-											<div class="asset-name">{a.asset_name}</div>
-											{#if a.asset_type?.asset_name || a.asset_ip || a.asset_domain}
+								{#if (f.assets?.length ?? 0) === 0}
+									<p class="section-empty">No assets linked to this alert.</p>
+								{:else}
+									<div class="asset-list">
+										{#each f.assets as a (a.asset_id)}
+											<div class="asset-row">
+												<div class="asset-name">{a.asset_name}</div>
 												<div class="asset-meta">
-													{[a.asset_type?.asset_name, a.asset_ip, a.asset_domain].filter(Boolean).join(' · ')}
+													{[a.asset_type?.asset_name, a.asset_ip, a.asset_domain]
+														.filter(Boolean)
+														.join(' · ')}
 												</div>
-											{/if}
-										</div>
-									{/each}
-								</div>
+											</div>
+										{/each}
+									</div>
+								{/if}
 							</section>
 						{/if}
 
-						{#if iocs.length > 0}
+						{#if activeTab === 'cluster'}
+							<section class="section">
+								<h3 class="section-title">Why this fired together</h3>
+								{#if clusterMembers.length === 0}
+									<p class="section-empty">This alert is not part of a cluster.</p>
+								{:else}
+									<div class="cluster-list">
+										{#each clusterMembers as member (member.alert_id)}
+											<div class="cluster-row">
+												<span class="cluster-time">{clockTime(member.alert_source_event_time)}</span
+												>
+												<span
+													class="sev-bar cluster-bar"
+													style="background:{severityVar(member.severity?.severity_name)}"
+												></span>
+												<span class="cluster-body">
+													<span class="cluster-title">{member.alert_title}</span>
+													<span class="cluster-meta"
+														>{[assetLabel(member.assets), primaryTechnique(member)]
+															.filter(Boolean)
+															.join(' · ')}</span
+													>
+												</span>
+												<span class="cluster-link"
+													>{member.alert_id === f.alert_id
+														? 'this alert'
+														: `#A-${member.alert_id}`}</span
+												>
+											</div>
+										{/each}
+										{#if cluster}
+											<button
+												type="button"
+												class="cluster-promote"
+												onclick={() => cluster && onOpenCluster(cluster.cluster_id)}
+												>Promote all {cluster.alert_ids?.length ?? clusterMembers.length} to one case
+												→</button
+											>
+										{/if}
+									</div>
+								{/if}
+							</section>
+						{/if}
+
+						{#if activeTab === 'iocs'}
 							<section class="section">
 								<h3 class="section-title">Observables</h3>
-								<div class="ioc-chips">
-									{#each iocs as ioc (ioc.ioc_id)}
-										{@const flag = observableFlag(ioc)}
-										<span class="ioc-chip">
-											<span class="ioc-kind">{ioc.ioc_type?.type_name ?? 'ioc'}</span>
-											<span class="ioc-val">{ioc.ioc_value}</span>
-											{#if flag.text}
-												<span class="ioc-flag" style="color:{flag.color}">{flag.text}</span>
-											{/if}
-										</span>
-									{/each}
-								</div>
+								{#if iocs.length === 0}
+									<p class="section-empty">No observables extracted from this alert.</p>
+								{:else}
+									<div class="ioc-chips">
+										{#each iocs as ioc (ioc.ioc_id)}
+											{@const flag = observableFlag(ioc)}
+											<span class="ioc-chip">
+												<span class="ioc-kind">{ioc.ioc_type?.type_name ?? 'ioc'}</span>
+												<span class="ioc-val">{ioc.ioc_value}</span>
+												{#if flag.text}
+													<span class="ioc-flag" style="color:{flag.color}">{flag.text}</span>
+												{/if}
+											</span>
+										{/each}
+									</div>
+								{/if}
 							</section>
 						{/if}
 
-						{#if !f.alert_description && (!f.alert_context || Object.keys(f.alert_context).length === 0) && (f.assets?.length ?? 0) === 0 && iocs.length === 0}
-							<p class="section-empty">No overview data for this alert.</p>
+						{#if activeTab === 'raw'}
+							<section class="section">
+								<h3 class="section-title">Raw event</h3>
+								{#if rawEvent}
+									<pre class="raw">{rawEvent}</pre>
+								{:else}
+									<p class="section-empty">No raw event payload was stored with this alert.</p>
+								{/if}
+							</section>
 						{/if}
-					{/if}
 
-					{#if activeTab === 'assets'}
-						<section class="section">
-							<h3 class="section-title">Assets</h3>
-							{#if (f.assets?.length ?? 0) === 0}
-								<p class="section-empty">No assets linked to this alert.</p>
+						{#if activeTab === 'timeline'}
+							{@const allEntries = activityEntries(f.modification_history, 1000)}
+							{#if allEntries.length === 0}
+								<p class="section-empty">No recorded activity.</p>
 							{:else}
-								<div class="asset-list">
-									{#each f.assets as a (a.asset_id)}
-										<div class="asset-row">
-											<div class="asset-name">{a.asset_name}</div>
-											<div class="asset-meta">
-												{[a.asset_type?.asset_name, a.asset_ip, a.asset_domain]
-													.filter(Boolean)
-													.join(' · ')}
+								<div class="tl-list">
+									{#each allEntries as entry (entry.at)}
+										<div class="tl-row">
+											<div class="tl-left">
+												<span class="tl-time"
+													>{new Date(entry.at).toLocaleString(undefined, {
+														month: 'short',
+														day: 'numeric',
+														hour: '2-digit',
+														minute: '2-digit'
+													})}</span
+												>
+												<span class="tl-user">{entry.user || '—'}</span>
+											</div>
+											<div class="tl-dot"></div>
+											<div class="tl-right">
+												<span class="tl-verb">{entry.verb}</span>
+												{#if entry.changes.length > 0}
+													<div class="tl-changes">
+														{#each entry.changes as ch (ch.field)}
+															<div class="tl-change">
+																<span class="tl-field">{ch.field}</span>
+																{#if ch.from !== '—'}
+																	<span class="tl-from">{ch.from}</span>
+																	<span class="tl-arrow">→</span>
+																{/if}
+																<span class="tl-to">{ch.to}</span>
+															</div>
+														{/each}
+													</div>
+												{/if}
 											</div>
 										</div>
 									{/each}
 								</div>
 							{/if}
-						</section>
-					{/if}
-
-					{#if activeTab === 'cluster'}
-						<section class="section">
-							<h3 class="section-title">Why this fired together</h3>
-							{#if clusterMembers.length === 0}
-								<p class="section-empty">This alert is not part of a cluster.</p>
-							{:else}
-								<div class="cluster-list">
-									{#each clusterMembers as member (member.alert_id)}
-										<div class="cluster-row">
-											<span class="cluster-time">{clockTime(member.alert_source_event_time)}</span>
-											<span
-												class="sev-bar cluster-bar"
-												style="background:{severityVar(member.severity?.severity_name)}"
-											></span>
-											<span class="cluster-body">
-												<span class="cluster-title">{member.alert_title}</span>
-												<span class="cluster-meta"
-													>{[assetLabel(member.assets), primaryTechnique(member)]
-														.filter(Boolean)
-														.join(' · ')}</span
-												>
-											</span>
-											<span class="cluster-link"
-												>{member.alert_id === f.alert_id
-													? 'this alert'
-													: `#A-${member.alert_id}`}</span
-											>
-										</div>
-									{/each}
-									{#if cluster}
-										<button
-											type="button"
-											class="cluster-promote"
-											onclick={() => cluster && onOpenCluster(cluster.cluster_id)}
-											>Promote all {cluster.alert_ids?.length ?? clusterMembers.length} to one case →</button
-										>
-									{/if}
-								</div>
-							{/if}
-						</section>
-					{/if}
-
-					{#if activeTab === 'iocs'}
-						<section class="section">
-							<h3 class="section-title">Observables</h3>
-							{#if iocs.length === 0}
-								<p class="section-empty">No observables extracted from this alert.</p>
-							{:else}
-								<div class="ioc-chips">
-									{#each iocs as ioc (ioc.ioc_id)}
-										{@const flag = observableFlag(ioc)}
-										<span class="ioc-chip">
-											<span class="ioc-kind">{ioc.ioc_type?.type_name ?? 'ioc'}</span>
-											<span class="ioc-val">{ioc.ioc_value}</span>
-											{#if flag.text}
-												<span class="ioc-flag" style="color:{flag.color}">{flag.text}</span>
-											{/if}
-										</span>
-									{/each}
-								</div>
-							{/if}
-						</section>
-					{/if}
-
-					{#if activeTab === 'raw'}
-						<section class="section">
-							<h3 class="section-title">Raw event</h3>
-							{#if rawEvent}
-								<pre class="raw">{rawEvent}</pre>
-							{:else}
-								<p class="section-empty">No raw event payload was stored with this alert.</p>
-							{/if}
-						</section>
-					{/if}
-
-					{#if activeTab === 'timeline'}
-						{@const allEntries = activityEntries(f.modification_history, 1000)}
-						{#if allEntries.length === 0}
-							<p class="section-empty">No recorded activity.</p>
-						{:else}
-							<div class="tl-list">
-								{#each allEntries as entry (entry.at)}
-									<div class="tl-row">
-										<div class="tl-left">
-											<span class="tl-time">{new Date(entry.at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-											<span class="tl-user">{entry.user || '—'}</span>
-										</div>
-										<div class="tl-dot"></div>
-										<div class="tl-right">
-											<span class="tl-verb">{entry.verb}</span>
-											{#if entry.changes.length > 0}
-												<div class="tl-changes">
-													{#each entry.changes as ch (ch.field)}
-														<div class="tl-change">
-															<span class="tl-field">{ch.field}</span>
-															{#if ch.from !== '—'}
-																<span class="tl-from">{ch.from}</span>
-																<span class="tl-arrow">→</span>
-															{/if}
-															<span class="tl-to">{ch.to}</span>
-														</div>
-													{/each}
-												</div>
-											{/if}
-										</div>
-									</div>
-								{/each}
-							</div>
 						{/if}
-					{/if}
 
-					{#if activeTab === 'notes'}
-						<section class="section">
-							<h3 class="section-title">Notes</h3>
-							{#if notes}
-								<div class="note">{notes}</div>
-							{:else}
-								<p class="section-empty">No notes on this alert yet.</p>
-							{/if}
-						</section>
-					{/if}
+						{#if activeTab === 'notes'}
+							<section class="section">
+								<h3 class="section-title">Notes</h3>
+								{#if notes}
+									<div class="note">{notes}</div>
+								{:else}
+									<p class="section-empty">No notes on this alert yet.</p>
+								{/if}
+							</section>
+						{/if}
+					</div>
 
-				</div>
-
-				<div class="detail-side">
-					<div class="side-block">
-						<h3 class="section-title">Triage</h3>
-						<div class="side-rows">
-							<div class="side-row">
-								<span class="side-label">Status</span>
-								<span style="color:{statusVar(f.status?.status_name)}; font-weight:500"
-									>{f.status?.status_name ?? '—'}</span
-								>
-							</div>
-							<div class="side-row">
-								<span class="side-label">Owner</span>
-								<span class="side-value">{f.owner?.user_name ?? 'Unassigned'}</span>
-							</div>
-							<div class="side-row">
-								<span class="side-label">Severity</span>
-								<span class="side-mono" style="color:{severityVar(f.severity?.severity_name)}"
-									>{f.severity?.severity_name ?? '—'}</span
-								>
-							</div>
-							<div class="side-row">
-								<span class="side-label">Age</span>
-								<span
-									class="side-mono"
-									style="color:{ageVar(f.alert_source_event_time, now)}"
-									>{ageLabel(f.alert_source_event_time, now) || '—'}</span
-								>
-							</div>
-							<div class="side-row">
-								<span class="side-label">Resolution</span>
-								<span class="side-value"
-									>{f.resolution_status?.resolution_status_name ?? 'Unset'}</span
-								>
+					<div class="detail-side">
+						<div class="side-block">
+							<h3 class="section-title">Triage</h3>
+							<div class="side-rows">
+								<div class="side-row">
+									<span class="side-label">Status</span>
+									<span style="color:{statusVar(f.status?.status_name)}; font-weight:500"
+										>{f.status?.status_name ?? '—'}</span
+									>
+								</div>
+								<div class="side-row">
+									<span class="side-label">Owner</span>
+									<span class="side-value">{f.owner?.user_name ?? 'Unassigned'}</span>
+								</div>
+								<div class="side-row">
+									<span class="side-label">Severity</span>
+									<span class="side-mono" style="color:{severityVar(f.severity?.severity_name)}"
+										>{f.severity?.severity_name ?? '—'}</span
+									>
+								</div>
+								<div class="side-row">
+									<span class="side-label">Age</span>
+									<span class="side-mono" style="color:{ageVar(f.alert_source_event_time, now)}"
+										>{ageLabel(f.alert_source_event_time, now) || '—'}</span
+									>
+								</div>
+								<div class="side-row">
+									<span class="side-label">Resolution</span>
+									<span class="side-value"
+										>{f.resolution_status?.resolution_status_name ?? 'Unset'}</span
+									>
+								</div>
 							</div>
 						</div>
-					</div>
 
-					<div class="hrule"></div>
+						<div class="hrule"></div>
 
-					<div class="side-block">
-						<h3 class="section-title">Seen before</h3>
-						{#if cluster}
-							<p class="side-prose">
-								Clustered with {(cluster.alert_ids?.length ?? 1) - 1} other alert{(cluster.alert_ids
-									?.length ?? 1) -
-									1 ===
-								1
-									? ''
-									: 's'} by <span class="side-strong">{cluster.source_rule?.rule_name ?? 'a correlation rule'}</span>.
-							</p>
-							<button type="button" class="side-link" onclick={() => cluster && onOpenCluster(cluster.cluster_id)}
-								>View cluster →</button
-							>
-						{:else}
-							<p class="side-prose">No correlation history for this alert.</p>
-						{/if}
-					</div>
+						<div class="side-block">
+							<h3 class="section-title">Seen before</h3>
+							{#if cluster}
+								<p class="side-prose">
+									Clustered with {(cluster.alert_ids?.length ?? 1) - 1} other alert{(cluster
+										.alert_ids?.length ?? 1) -
+										1 ===
+									1
+										? ''
+										: 's'} by
+									<span class="side-strong"
+										>{cluster.source_rule?.rule_name ?? 'a correlation rule'}</span
+									>.
+								</p>
+								<button
+									type="button"
+									class="side-link"
+									onclick={() => cluster && onOpenCluster(cluster.cluster_id)}
+									>View cluster →</button
+								>
+							{:else}
+								<p class="side-prose">No correlation history for this alert.</p>
+							{/if}
+						</div>
 
-					<div class="hrule"></div>
+						<div class="hrule"></div>
 
-					<div class="side-block">
-						<h3 class="section-title">Activity</h3>
-						{#if activity.length === 0}
-							<p class="section-empty">Nothing recorded yet.</p>
-						{:else}
-							<div class="activity">
-								{#each activity as entry (entry.at)}
-									<div class="activity-entry">
-										<div class="activity-title">{entry.verb || entry.action}</div>
-										<div class="activity-meta">
-											{entry.time}{entry.user ? ` · ${entry.user}` : ''}
+						<div class="side-block">
+							<h3 class="section-title">Activity</h3>
+							{#if activity.length === 0}
+								<p class="section-empty">Nothing recorded yet.</p>
+							{:else}
+								<div class="activity">
+									{#each activity as entry (entry.at)}
+										<div class="activity-entry">
+											<div class="activity-title">{entry.verb || entry.action}</div>
+											<div class="activity-meta">
+												{entry.time}{entry.user ? ` · ${entry.user}` : ''}
+											</div>
 										</div>
-									</div>
-								{/each}
-							</div>
-						{/if}
+									{/each}
+								</div>
+							{/if}
+						</div>
 					</div>
 				</div>
-			</div>
 			{/if}
 		{/if}
 	</div>
@@ -1111,6 +1314,58 @@
 		background: var(--acc);
 		border-color: var(--acc);
 	}
+	/* Some-but-not-all: a bar rather than a fill, so it never reads as
+	   "everything under here is picked". */
+	.checkbox[data-partial='true'] {
+		border-color: var(--acc);
+		background: linear-gradient(
+			to bottom,
+			transparent 0 40%,
+			var(--acc) 40% 60%,
+			transparent 60% 100%
+		);
+	}
+	.checkbox:disabled {
+		cursor: default;
+		opacity: 0.4;
+	}
+
+	/* Bulk-action strip. Only the frame lives here — the buttons come from
+	   the page as a snippet so they are literally the list view's. */
+	.selection-bar {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 8px 16px;
+		border-bottom: 1px solid var(--b-sub);
+		background: var(--s-acc-tint);
+		flex-wrap: wrap;
+		flex-shrink: 0;
+	}
+	.selection-count {
+		font-size: 12px;
+		font-weight: 600;
+		color: var(--acc);
+		white-space: nowrap;
+	}
+	.selection-clear {
+		padding: 0;
+		font-size: 12px;
+		color: var(--t-8);
+		background: none;
+		border: 0;
+		cursor: pointer;
+		font-family: inherit;
+	}
+	.selection-clear:hover {
+		color: var(--t-4);
+	}
+	.selection-actions {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		flex-wrap: wrap;
+	}
 
 	.queue-scroll {
 		flex: 1;
@@ -1128,6 +1383,105 @@
 		display: grid;
 		place-items: center;
 		height: 100%;
+	}
+
+	/* ---------------- cluster groups ----------------
+	   A cluster is one queue entry: a labelled header with its member
+	   alerts nested under it. The tinted left rail is what says "these
+	   rows belong together" once you have scrolled past the header. */
+	.cluster-group {
+		border-bottom: 1px solid var(--b-hair);
+		background: var(--s-sunken);
+	}
+	.cluster-group > .row {
+		border-bottom: none;
+		border-left: 2px solid var(--b-cluster);
+		padding-left: 22px;
+		background: var(--s-card);
+	}
+	.cluster-group > .row:hover {
+		background: var(--s-hover);
+	}
+	.cluster-group > .row.row-focused {
+		background: var(--s-sel);
+	}
+
+	.cluster-head {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 0 12px 0 8px;
+	}
+	.cluster-toggle {
+		display: flex;
+		flex: 1;
+		min-width: 0;
+		align-items: center;
+		gap: 7px;
+		padding: 9px 4px;
+		background: none;
+		border: none;
+		text-align: left;
+		cursor: pointer;
+		color: inherit;
+	}
+	.cluster-caret {
+		width: 9px;
+		font-size: 9px;
+		color: var(--t-9);
+	}
+	.cluster-title {
+		overflow: hidden;
+		font-size: 12.5px;
+		font-weight: 600;
+		color: var(--t-4);
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.cluster-count {
+		flex: none;
+		font-size: 11.5px;
+		color: var(--t-9);
+	}
+	.cluster-picked {
+		flex: none;
+		padding: 1px 6px;
+		font-size: 11px;
+		font-weight: 600;
+		color: var(--acc);
+		background: var(--s-acc-tint);
+		border: 1px solid var(--b-cluster);
+		border-radius: 4px;
+		white-space: nowrap;
+	}
+	.cluster-open {
+		flex: none;
+		padding: 2px 7px;
+		font-size: 11.5px;
+		color: var(--t-9);
+		background: none;
+		border: 1px solid transparent;
+		border-radius: 5px;
+		cursor: pointer;
+	}
+	.cluster-open:hover {
+		color: var(--acc);
+		border-color: var(--b-cluster);
+	}
+	.cluster-more {
+		display: block;
+		width: 100%;
+		padding: 8px 16px 8px 22px;
+		font-size: 11.5px;
+		text-align: left;
+		color: var(--acc-soft);
+		background: none;
+		border: none;
+		border-left: 2px solid var(--b-cluster);
+		cursor: pointer;
+	}
+	.cluster-more:hover {
+		background: var(--s-hover);
 	}
 
 	.row {
@@ -1911,6 +2265,51 @@
 	@media (max-width: 1100px) {
 		.iris-triage {
 			grid-template-columns: 420px 1fr;
+		}
+	}
+
+	/* Belongs to the stacked layout only; the wide split keeps both panes on
+	   screen, so there is nothing to go back from. */
+	.detail-back {
+		display: none;
+		align-self: flex-start;
+		flex-shrink: 0;
+		/* Matches `.detail-head`'s inline padding so it lines up with the
+		   title beneath it. */
+		padding: 12px 22px 0;
+		border: 0;
+		background: none;
+		color: var(--t-2);
+		font-size: 12px;
+		font-weight: 500;
+		cursor: pointer;
+	}
+	.detail-back:hover {
+		color: var(--t-1);
+	}
+
+	/*
+	 * Below this width the queue's fixed 420px track leaves the detail too
+	 * little room to be readable, so the two panes stop sharing the viewport
+	 * and swap instead — queue until an alert is picked, then the detail with
+	 * a way back. Matches the case queue's stacking breakpoint.
+	 */
+	@media (max-width: 63.9375rem) {
+		.iris-triage {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.iris-triage:not(.show-detail) .detail {
+			display: none;
+		}
+		.iris-triage.show-detail .queue {
+			display: none;
+		}
+		/* No pane beside it to divide from once stacked. */
+		.queue {
+			border-right: none;
+		}
+		.detail-back {
+			display: inline-flex;
 		}
 	}
 </style>

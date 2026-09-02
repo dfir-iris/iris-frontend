@@ -2,6 +2,7 @@ import { CaseIocsService } from '$lib/services/case-iocs.service';
 import type {
 	CaseIocIdentifier,
 	CreateCaseIocBody,
+	IocOtherCaseLink,
 	ListCaseIocsParams,
 	UpdateCaseIocBody
 } from '$lib/services/case-iocs.service';
@@ -32,6 +33,12 @@ const normalizeListParams = (
 
 export const createCaseIocsContext = (getCaseId: () => number | null) => {
 	const byId = $state<Record<number, Ioc>>({});
+
+	// Cached cross-case link results keyed by ioc_id. A Map entry of `null`
+	// means "fetch returned empty / error". In-flight requests are stored as
+	// Promise entries so concurrent callers share one request instead of
+	// N parallel fetches for the same id.
+	const linksCache = new Map<number, IocOtherCaseLink[] | Promise<IocOtherCaseLink[]>>();
 
 	const list = $state<{
 		ids: number[];
@@ -241,6 +248,28 @@ export const createCaseIocsContext = (getCaseId: () => number | null) => {
 		return false;
 	};
 
+	const getLinks = async (iocId: CaseIocIdentifier): Promise<IocOtherCaseLink[]> => {
+		const caseId = getCaseId();
+		if (caseId === null) return [];
+
+		const cached = linksCache.get(iocId);
+
+		// Already resolved — return immediately.
+		if (Array.isArray(cached)) return cached;
+
+		// In-flight — join the existing promise instead of issuing a second request.
+		if (cached instanceof Promise) return cached;
+
+		const promise = CaseIocsService.listOtherCaseLinks(caseId, iocId).then((res) => {
+			const result = res.ok && Array.isArray(res.data) ? res.data : [];
+			linksCache.set(iocId, result);
+			return result;
+		});
+
+		linksCache.set(iocId, promise);
+		return promise;
+	};
+
 	const selectIoc = (id?: number) => {
 		ui.selectedIocId = id;
 	};
@@ -249,6 +278,7 @@ export const createCaseIocsContext = (getCaseId: () => number | null) => {
 		for (const key of Object.keys(byId)) {
 			delete byId[Number(key)];
 		}
+		linksCache.clear();
 
 		list.ids = [];
 		list.params = normalizeListParams({});
@@ -273,6 +303,7 @@ export const createCaseIocsContext = (getCaseId: () => number | null) => {
 		listPaginated,
 		refresh,
 		getIoc,
+		getLinks,
 		createIoc,
 		patchIoc,
 		removeIoc,

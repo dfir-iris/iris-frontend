@@ -18,6 +18,7 @@ export interface IocExportColumn {
 	label: string;
 	header: string;
 	getter: (ioc: Ioc) => string;
+	defaultSelected?: boolean;
 }
 
 export const AVAILABLE_IOC_EXPORT_COLUMNS: IocExportColumn[] = [
@@ -25,55 +26,64 @@ export const AVAILABLE_IOC_EXPORT_COLUMNS: IocExportColumn[] = [
 		key: 'ioc_id',
 		label: 'IOC ID',
 		header: 'IOC ID',
-		getter: (ioc: Ioc) => ioc.ioc_id?.toString() || ''
+		getter: (ioc: Ioc) => ioc.ioc_id?.toString() || '',
+		defaultSelected: false
 	},
 	{
 		key: 'ioc_value',
 		label: 'IOC Value',
 		header: 'IOC Value',
-		getter: (ioc: Ioc) => ioc.ioc_value || ''
+		getter: (ioc: Ioc) => ioc.ioc_value || '',
+		defaultSelected: true
 	},
 	{
 		key: 'ioc_description',
 		label: 'Description',
 		header: 'Description',
-		getter: (ioc: Ioc) => ioc.ioc_description || ''
+		getter: (ioc: Ioc) => ioc.ioc_description || '',
+		defaultSelected: true
 	},
 	{
 		key: 'ioc_type',
 		label: 'Type',
 		header: 'Type',
-		getter: (ioc: Ioc) => ioc.ioc_type?.type_name || ''
+		getter: (ioc: Ioc) => ioc.ioc_type?.type_name || '',
+		defaultSelected: true
 	},
 	{
 		key: 'ioc_tags',
 		label: 'Tags',
 		header: 'Tags',
-		getter: (ioc: Ioc) => ioc.ioc_tags || ''
+		getter: (ioc: Ioc) => ioc.ioc_tags || '',
+		defaultSelected: true
 	},
 	{
 		key: 'tlp',
 		label: 'TLP',
 		header: 'TLP',
-		getter: (ioc: Ioc) => ioc.tlp?.tlp_name || ''
+		getter: (ioc: Ioc) => ioc.tlp?.tlp_name || '',
+		defaultSelected: true
 	},
 	{
 		key: 'ioc_misp',
 		label: 'MISP',
 		header: 'MISP',
-		getter: (ioc: Ioc) => JSON.stringify(ioc.ioc_misp || {})
+		getter: (ioc: Ioc) => JSON.stringify(ioc.ioc_misp || {}),
+		defaultSelected: false
 	},
 	{
 		key: 'user_id',
 		label: 'User ID',
 		header: 'User ID',
-		getter: (ioc: Ioc) => ioc.user_id?.toString() || ''
+		getter: (ioc: Ioc) => ioc.user_id?.toString() || '',
+		defaultSelected: false
 	},
 	{
 		key: 'custom_attributes',
 		label: 'Custom Attributes',
 		header: 'Custom Attributes',
-		getter: (ioc: Ioc) => JSON.stringify(ioc.custom_attributes || {})
+		getter: (ioc: Ioc) => JSON.stringify(ioc.custom_attributes || {}),
+		defaultSelected: false
 	}
 ];
 

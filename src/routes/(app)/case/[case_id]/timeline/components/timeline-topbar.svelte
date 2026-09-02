@@ -45,7 +45,6 @@
 		onQuickSearchNext: () => void;
 		onQuickSearchPrev: () => void;
 		onDownloadCsv: () => void;
-		onDownloadCsvWithUserInfo: () => void;
 		onUploadCsv: () => void;
 		canEdit?: boolean;
 	};
@@ -68,7 +67,6 @@
 		onQuickSearchNext,
 		onQuickSearchPrev,
 		onDownloadCsv,
-		onDownloadCsvWithUserInfo,
 		onUploadCsv,
 		canEdit = true
 	}: Props = $props();
@@ -229,11 +227,7 @@
 				</DropdownMenuTrigger>
 
 				<DropdownMenuContent align="end">
-					<DropdownMenuItem onclick={onDownloadCsv}>Download as CSV</DropdownMenuItem>
-
-					<DropdownMenuItem onclick={onDownloadCsvWithUserInfo}>
-						Download as CSV with user info
-					</DropdownMenuItem>
+					<DropdownMenuItem onclick={onDownloadCsv}>Download as CSV…</DropdownMenuItem>
 
 					{#if canEdit}
 						<Separator class="my-2" />

@@ -38,7 +38,6 @@ describe('rankOf', () => {
 	it('returns rank for known severity', () => expect(rankOf(SEVERITY_RANK, 'critical')).toBe(0));
 	it('returns rank for known status', () => expect(rankOf(STATUS_RANK, 'new')).toBe(0));
 	it('returns 50 for unknown severity', () => expect(rankOf(SEVERITY_RANK, 'custom')).toBe(50));
-	it('returns 90 for unspecified', () =>
-		expect(rankOf(SEVERITY_RANK, 'unspecified')).toBe(90));
+	it('returns 90 for unspecified', () => expect(rankOf(SEVERITY_RANK, 'unspecified')).toBe(90));
 	it('is case-insensitive', () => expect(rankOf(SEVERITY_RANK, 'CRITICAL')).toBe(0));
 });

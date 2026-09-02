@@ -8,6 +8,7 @@
 	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
 	import type { CaseStatus } from '$lib/components/ui/badge/types';
 	import AssigneesCell from './AssigneesCell.svelte';
+	import RowCheckbox from '$lib/components/common/RowCheckbox.svelte';
 
 	export let tasks: Task[];
 	export let caseId: string | number | null = null;
@@ -15,6 +16,9 @@
 	export let totalPages: number | null = null;
 	export let tablePage: number | null = null;
 	export let perPage: number = 10;
+	export let selectionMode: boolean = false;
+	export let selectedTasks: Set<number> = new Set();
+	export let onToggleSelect: ((id: number) => void) | undefined = undefined;
 
 	const dispatch = createEventDispatcher();
 
@@ -51,7 +55,7 @@
 		dispatch('pageSizeChange', { pageSize: currentPageSize });
 	}
 
-	const columns: ColumnDef<Task>[] = [
+	const dataColumns: ColumnDef<Task>[] = [
 		{
 			accessorKey: 'task_title',
 			header: () => 'Title',
@@ -89,6 +93,22 @@
 			cell: (cell) => cell.getValue() || '-'
 		}
 	];
+
+	$: columns = selectionMode
+		? [
+				{
+					id: '__select__',
+					header: () => '',
+					meta: { thClass: 'w-8 pr-0', tdClass: 'w-8 pr-0' },
+					cell: (cell: import('@tanstack/svelte-table').CellContext<Task, unknown>) =>
+						renderComponent(RowCheckbox, {
+							checked: selectedTasks.has(cell.row.original.id),
+							onToggle: () => onToggleSelect?.(cell.row.original.id)
+						})
+				} as ColumnDef<Task>,
+				...dataColumns
+			]
+		: dataColumns;
 </script>
 
 <div class="{className} flex overflow-auto">

@@ -3,6 +3,7 @@
 	import { renderComponent, type ColumnDef } from '@tanstack/svelte-table';
 	import DataTable from '$lib/components/ui/data-table-tanstack/data-table.svelte';
 	import { LinkCell } from '$lib/components/ui/table';
+	import RowCheckbox from '$lib/components/common/RowCheckbox.svelte';
 
 	export let assets: Asset[] = [];
 	export let caseId: string | number | null = null;
@@ -10,6 +11,9 @@
 	export let totalPages: number | null = null;
 	export let tablePage: number | null = null;
 	export let perPage: number = 10;
+	export let selectionMode: boolean = false;
+	export let selectedAssets: Set<number> = new Set();
+	export let onToggleSelect: ((id: number) => void) | undefined = undefined;
 
 	import { page } from '$app/stores';
 
@@ -59,7 +63,7 @@
 		dispatch('pageSizeChange', { pageSize: currentPageSize });
 	}
 
-	const columns: ColumnDef<Asset>[] = [
+	const dataColumns: ColumnDef<Asset>[] = [
 		{
 			accessorKey: 'asset_name',
 			header: () => 'Name',
@@ -89,6 +93,23 @@
 			cell: (cell) => cell.getValue() || '-'
 		}
 	];
+
+	// Rebuild columns when selection state changes so checkbox checked reflects current set.
+	$: columns = selectionMode
+		? [
+				{
+					id: '__select__',
+					header: () => '',
+					meta: { thClass: 'w-8 pr-0', tdClass: 'w-8 pr-0' },
+					cell: (cell: import('@tanstack/svelte-table').CellContext<Asset, unknown>) =>
+						renderComponent(RowCheckbox, {
+							checked: selectedAssets.has(cell.row.original.asset_id),
+							onToggle: () => onToggleSelect?.(cell.row.original.asset_id)
+						})
+				} as ColumnDef<Asset>,
+				...dataColumns
+			]
+		: dataColumns;
 </script>
 
 <div class="{className} flex overflow-auto">

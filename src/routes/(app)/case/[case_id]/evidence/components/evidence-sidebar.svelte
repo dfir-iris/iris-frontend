@@ -1,14 +1,16 @@
 <script lang="ts">
 	import { getContext, onMount, onDestroy } from 'svelte';
-	import { Grid, List, RefreshCwIcon } from 'lucide-svelte';
+	import { Grid, List, RefreshCwIcon, CheckSquareIcon, DownloadCloudIcon } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import {
 		CASE_EVIDENCES_CTX,
 		type CaseEvidencesContext
 	} from '$lib/contexts/case-evidences.context.svelte';
-	import type { ListCaseEvidencesParams } from '$lib/services/case-evidences.service';
-	import type { Evidence } from '$lib/types/resources/evidence';
+	import { CaseEvidencesService, type ListCaseEvidencesParams } from '$lib/services/case-evidences.service';
+	import type { Evidence, EvidenceType } from '$lib/types/resources/evidence';
+	import DownloadModal from '$lib/components/common/DownloadModal.svelte';
+	import { AVAILABLE_EVIDENCE_EXPORT_COLUMNS, convertEvidencesToCSV } from '$lib/utils/evidence.utils';
 	import EvidenceCard from './evidence-card.svelte';
 	import EvidenceDataTable from '$lib/components/common/evidence/EvidenceDataTable.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -20,6 +22,15 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Tooltip, TooltipProvider, TooltipTrigger } from '$lib/components/ui/tooltip';
 	import TooltipContent from '$lib/components/ui/tooltip/tooltip-content.svelte';
+	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
+	import {
+		DropdownMenu,
+		DropdownMenuContent,
+		DropdownMenuItem,
+		DropdownMenuTrigger
+	} from '$lib/components/ui/dropdown-menu';
+	import { ChevronDownIcon } from 'lucide-svelte';
+	import { EvidenceTypesService } from '$lib/services/evidence-types.service';
 
 	const caseEvidences = getContext<CaseEvidencesContext>(CASE_EVIDENCES_CTX);
 
@@ -32,6 +43,14 @@
 	let observer: IntersectionObserver | null = null;
 	let loadMoreTrigger: HTMLDivElement | null = null;
 	let scrollContainer: HTMLDivElement | null = null;
+
+	let selectionMode = $state(false);
+	let selectedEvidences = $state<Set<number>>(new Set());
+	let showConfirmDelete = $state(false);
+	let isBulkWorking = $state(false);
+
+	// Reference data for bulk-edit dropdowns
+	let evidenceTypes = $state<EvidenceType[]>([]);
 
 	const searchFields: SearchField[] = [
 		{ key: 'filename', label: 'Filename', type: 'text' },
@@ -109,6 +128,7 @@
 	const selectedEvidenceId = $derived(
 		page.params.evidence_id ? Number(page.params.evidence_id) : null
 	);
+	const selectedCount = $derived(selectedEvidences.size);
 
 	const refreshEvidences = async (pageNumber = 1) => {
 		if (isRefreshing) return;
@@ -196,12 +216,105 @@
 		};
 	};
 
+	const toggleEvidenceSelection = (evidenceId: number) => {
+		if (selectedEvidences.has(evidenceId)) {
+			selectedEvidences.delete(evidenceId);
+		} else {
+			selectedEvidences.add(evidenceId);
+		}
+		selectedEvidences = new Set(selectedEvidences);
+	};
+
+	const selectAll = () => {
+		selectedEvidences = new Set(displayEvidences.map((e) => e.id));
+	};
+
+	const cancelSelect = () => {
+		selectionMode = false;
+		selectedEvidences = new Set();
+	};
+
+	const deleteSelected = async () => {
+		if (!selectedCount) { showConfirmDelete = false; return; }
+		isBulkWorking = true;
+		const ids = [...selectedEvidences];
+		await Promise.all(ids.map((id) => caseEvidences.removeEvidence(id)));
+		isBulkWorking = false;
+		showConfirmDelete = false;
+		cancelSelect();
+		await refreshEvidences(1);
+	};
+
+	const setEvidenceType = async (typeId: number) => {
+		if (!selectedCount) return;
+		isBulkWorking = true;
+		const ids = [...selectedEvidences];
+		await Promise.all(ids.map((id) => caseEvidences.patchEvidence(id, { type_id: typeId })));
+		isBulkWorking = false;
+		cancelSelect();
+		await refreshEvidences(caseEvidences.list.currentPage);
+	};
+
 	const openEvidence = (evidenceId: number) =>
 		goto(`/case/${page.params.case_id}/evidence/${evidenceId}`);
+
+	let showDownloadModal = $state(false);
+	let isDownloading = $state(false);
+
+	const downloadCountVisible = $derived(
+		selectionMode && selectedEvidences.size > 0 ? selectedEvidences.size : displayEvidences.length
+	);
+	const downloadCountAll = $derived(caseEvidences.list.total);
+
+	const handleDownloadConfirm = async (
+		downloadType: 'visible' | 'all',
+		selectedColumnKeys: Set<string>
+	) => {
+		isDownloading = true;
+
+		try {
+			const columns = AVAILABLE_EVIDENCE_EXPORT_COLUMNS.filter((c) => selectedColumnKeys.has(c.key));
+			let rows: Evidence[];
+
+			if (downloadType === 'visible' && selectionMode && selectedEvidences.size > 0) {
+				rows = displayEvidences.filter((e) => selectedEvidences.has(e.id));
+			} else if (downloadType === 'visible') {
+				rows = displayEvidences;
+			} else {
+				rows = [];
+				let pageNumber = 1;
+				let nextPage: number | null = 1;
+
+				while (nextPage !== null) {
+					const params: ListCaseEvidencesParams = { page: pageNumber, per_page: 100 };
+					const res = await CaseEvidencesService.list(Number(page.params.case_id), params, { fetch });
+					if (!res.ok || res.error || !res.data || typeof res.data === 'string') break;
+					rows.push(...res.data.data);
+					nextPage = res.data.next_page;
+					pageNumber = nextPage ?? pageNumber;
+				}
+			}
+
+			const csv = convertEvidencesToCSV(rows, columns);
+			const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+			const url = URL.createObjectURL(blob);
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = `case-${page.params.case_id}-evidence.csv`;
+			link.click();
+			URL.revokeObjectURL(url);
+		} finally {
+			isDownloading = false;
+			showDownloadModal = false;
+		}
+	};
 
 	onMount(async () => {
 		await refreshEvidences(1);
 		setupObserver();
+
+		const res = await EvidenceTypesService.list();
+		if (res.ok && Array.isArray(res.data)) evidenceTypes = res.data;
 	});
 
 	onDestroy(() => {
@@ -222,6 +335,19 @@
 		<h2 class="text-lg font-semibold">Evidence</h2>
 
 		<div class="ml-auto flex items-center gap-2">
+			{#if !selectionMode}
+				<TooltipProvider>
+					<Tooltip>
+						<TooltipTrigger>
+							<Button size="icon" variant="ghost" onclick={() => (selectionMode = true)}>
+								<CheckSquareIcon size={16} />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent align="center" side="bottom">Select</TooltipContent>
+					</Tooltip>
+				</TooltipProvider>
+			{/if}
+
 			<TooltipProvider>
 				<Tooltip>
 					<TooltipTrigger>
@@ -270,8 +396,51 @@
 					<TooltipContent align="center" side="bottom">Refresh</TooltipContent>
 				</Tooltip>
 			</TooltipProvider>
+
+			<TooltipProvider>
+				<Tooltip>
+					<TooltipTrigger>
+						<Button size="icon" variant="ghost" onclick={() => (showDownloadModal = true)}>
+							<DownloadCloudIcon size={16} />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent align="center" side="bottom">Download as CSV</TooltipContent>
+				</Tooltip>
+			</TooltipProvider>
 		</div>
 	</div>
+
+	{#if selectionMode}
+		<div class="flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-muted/40 px-2 py-1.5">
+			<span class="text-xs text-muted-foreground">{selectedCount} selected</span>
+
+			<Button size="xs" variant="outline" onclick={selectAll}>Select All</Button>
+
+			<DropdownMenu>
+				<DropdownMenuTrigger>
+					<Button size="xs" variant="outline" disabled={!selectedCount || isBulkWorking || !evidenceTypes.length}>
+						Set Type <ChevronDownIcon size={12} />
+					</Button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="start" class="max-h-60 overflow-y-auto">
+					{#each evidenceTypes as t}
+						<DropdownMenuItem onclick={() => setEvidenceType(t.id)}>{t.name}</DropdownMenuItem>
+					{/each}
+				</DropdownMenuContent>
+			</DropdownMenu>
+
+			<Button
+				size="xs"
+				variant="destructive"
+				disabled={!selectedCount || isBulkWorking}
+				onclick={() => (showConfirmDelete = true)}
+			>
+				Delete
+			</Button>
+
+			<Button size="xs" variant="ghost" onclick={cancelSelect} class="ml-auto">Cancel</Button>
+		</div>
+	{/if}
 
 	<AdvancedSearch
 		placeholder="Search evidence..."
@@ -289,6 +458,9 @@
 				tablePage={caseEvidences.list.currentPage}
 				totalPages={caseEvidences.list.lastPage}
 				perPage={caseEvidences.list.params.per_page}
+				{selectionMode}
+				{selectedEvidences}
+				onToggleSelect={toggleEvidenceSelection}
 				on:pageChange={(e) => refreshEvidences(e.detail.page)}
 				on:pageSizeChange={(e) => {
 					caseEvidences.list.params.per_page = e.detail.pageSize;
@@ -301,15 +473,40 @@
 					<div
 						role="button"
 						tabindex="0"
-						onclick={() => openEvidence(evidence.id)}
-						onkeydown={(e) => {
-							if (e.key === 'Enter' || e.key === ' ') {
-								e.preventDefault();
+						onclick={() => {
+							if (selectionMode) {
+								toggleEvidenceSelection(evidence.id);
+							} else {
 								openEvidence(evidence.id);
 							}
 						}}
+						onkeydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								if (selectionMode) {
+									toggleEvidenceSelection(evidence.id);
+								} else {
+									openEvidence(evidence.id);
+								}
+							}
+						}}
 					>
-						<EvidenceCard {evidence} isSelected={selectedEvidenceId === evidence.id} />
+						{#if selectionMode}
+							<div class="flex items-center gap-2 px-2">
+								<input
+									type="checkbox"
+									class="size-4 shrink-0 cursor-pointer accent-primary"
+									checked={selectedEvidences.has(evidence.id)}
+									onclick={(e) => { e.stopPropagation(); toggleEvidenceSelection(evidence.id); }}
+									onchange={() => {}}
+								/>
+								<div class="min-w-0 flex-1">
+									<EvidenceCard {evidence} isSelected={selectedEvidenceId === evidence.id} />
+								</div>
+							</div>
+						{:else}
+							<EvidenceCard {evidence} isSelected={selectedEvidenceId === evidence.id} />
+						{/if}
 					</div>
 				{/each}
 
@@ -324,3 +521,24 @@
 		{/if}
 	</div>
 </div>
+
+<DownloadModal
+	open={showDownloadModal}
+	title="Download Evidence as CSV"
+	itemNounPlural="evidence items"
+	availableColumns={AVAILABLE_EVIDENCE_EXPORT_COLUMNS}
+	countVisible={downloadCountVisible}
+	countAll={downloadCountAll}
+	isProcessing={isDownloading}
+	processingMessage="Fetching all evidence…"
+	onConfirm={handleDownloadConfirm}
+	onOpenChange={(v) => (showDownloadModal = v)}
+/>
+
+<ConfirmationDialog
+	bind:open={showConfirmDelete}
+	title="Delete Evidence"
+	message="Delete {selectedCount} selected evidence item{selectedCount === 1 ? '' : 's'}? This cannot be undone."
+	confirmText="Delete"
+	onConfirm={deleteSelected}
+/>

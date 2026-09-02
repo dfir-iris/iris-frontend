@@ -1,6 +1,7 @@
 import { ApiService } from './api.service';
 import type { ApiOptions, RequestResponse } from './api.service';
 import type { Alert } from '$lib/types/resources/alert';
+import type { AlertQueueUnit } from '$lib/types/resources/alert-queue-unit';
 
 export type AlertIdentifier = number;
 export type SortDir = 'asc' | 'desc';
@@ -65,6 +66,17 @@ export type FilterAlertsMessage = {
 	status: string;
 	message: string;
 	data: FilterAlertsData;
+};
+
+export type GroupedAlertsData = {
+	/** Number of *units* (clusters + unclustered alerts) — drives paging. */
+	total: number;
+	/** Number of matching alerts, for headings that count alerts. */
+	total_alerts: number;
+	data: AlertQueueUnit[];
+	last_page?: number | null;
+	current_page?: number;
+	next_page?: number | null;
 };
 
 export interface CreateAlertBody {
@@ -205,21 +217,34 @@ const parseRelatedAlert = (value: unknown): RelatedAlert => {
 	};
 };
 
+const toAlertListQuery = (params: FilterAlertsParams): Record<string, unknown> => ({
+	...params,
+	alert_tags: toCommaSeparated(params.alert_tags),
+	alert_assets: toCommaSeparated(params.alert_assets),
+	alert_iocs: toCommaSeparated(params.alert_iocs),
+	alert_ids: toCommaSeparated(params.alert_ids)
+});
+
 export class AlertService {
 	static async list(
 		params: FilterAlertsParams = {},
 		options: ApiOptions = {}
 	): Promise<RequestResponse<FilterAlertsMessage>> {
-		const query: Record<string, unknown> = {
-			...params,
-			alert_tags: toCommaSeparated(params.alert_tags),
-			alert_assets: toCommaSeparated(params.alert_assets),
-			alert_iocs: toCommaSeparated(params.alert_iocs),
-			alert_ids: toCommaSeparated(params.alert_ids)
-		};
-
-		const path = ApiService.withQuery('/api/v2/alerts', query);
+		const path = ApiService.withQuery('/api/v2/alerts', toAlertListQuery(params));
 		return ApiService.get<FilterAlertsMessage>(path, options);
+	}
+
+	/**
+	 * Same filters as `list`, but clustered alerts collapse into their
+	 * cluster and pagination counts queue units rather than alerts. See
+	 * `AlertQueueUnit`.
+	 */
+	static async listGrouped(
+		params: FilterAlertsParams = {},
+		options: ApiOptions = {}
+	): Promise<RequestResponse<GroupedAlertsData>> {
+		const path = ApiService.withQuery('/api/v2/alerts/grouped', toAlertListQuery(params));
+		return ApiService.get<GroupedAlertsData>(path, options);
 	}
 
 	static async get(

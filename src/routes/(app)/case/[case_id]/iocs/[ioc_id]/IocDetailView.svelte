@@ -48,7 +48,6 @@
 	import HistoryTab from './history-tab.svelte';
 	import CommentsTab from './comments-tab.svelte';
 	import SeenElsewhereBadge from '$lib/components/common/SeenElsewhereBadge.svelte';
-	import { CaseIocsService } from '$lib/services/case-iocs.service';
 
 	type EditData = {
 		ioc_value: string;
@@ -357,10 +356,7 @@
 							<SeenElsewhereBadge
 								objectLabel="IOC"
 								objectId={ioc.ioc_id}
-								load={async () => {
-									const res = await CaseIocsService.listOtherCaseLinks(caseId, ioc.ioc_id);
-									return res.ok && Array.isArray(res.data) ? res.data : null;
-								}}
+								load={() => caseIocs.getLinks(ioc.ioc_id)}
 							/>
 						</div>
 					</div>

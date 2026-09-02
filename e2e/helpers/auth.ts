@@ -3,6 +3,11 @@ import { type Page, expect } from '@playwright/test';
 const DEFAULT_USERNAME = process.env.IRIS_E2E_USERNAME ?? 'administrator';
 const DEFAULT_PASSWORD = process.env.IRIS_E2E_PASSWORD ?? 'MySuperAdminPassword!';
 
+// The account `login()` uses by default. Exported so specs can assert on
+// what the UI renders for the logged-in user (the sidebar user chip shows
+// "Loading..." until `/whoami` resolves) without re-deriving the env var.
+export const E2E_USERNAME = DEFAULT_USERNAME;
+
 // Log the browser session in via the real /login form. Relies on the
 // baseURL from playwright.config.ts pointing at the running stack.
 //

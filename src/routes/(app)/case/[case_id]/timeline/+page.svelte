@@ -36,6 +36,7 @@
 		type CommentsPanelContext
 	} from '$lib/contexts/comments-panel.context.svelte';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
+	import DownloadModal from '$lib/components/common/DownloadModal.svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Button } from '$lib/components/ui/button';
 	import ChipHoverHost from '$lib/components/common/MarkDown/ChipHoverHost.svelte';
@@ -629,58 +630,73 @@
 
 	const csvEscape = (value: string | number | boolean | null | undefined) => {
 		const text = value === null || value === undefined ? '' : String(value);
-
-		return `"${text.replaceAll('"', '""')}"`;
+		if (/[",\n\r]/.test(text)) return `"${text.replaceAll('"', '""')}"`;
+		return text;
 	};
 
 	const csvDescription = (value: string | null | undefined) =>
 		(value ?? '').replaceAll('\n', ' - ');
 
-	const downloadTimelineCsv = (withUserInfo = false) => {
-		const headers = [
-			'event_date(UTC)',
-			'event_title',
-			'event_description',
-			'event_tz',
-			'event_date_wtz',
-			'event_category',
-			'event_tags',
-			'linked_assets',
-			'linked_iocs',
-			...(withUserInfo ? ['created_by', 'creation_date'] : [])
-		];
+	const TIMELINE_EXPORT_COLUMNS = [
+		{ key: 'event_date', header: 'Date (UTC)', defaultSelected: true },
+		{ key: 'event_title', header: 'Title', defaultSelected: true },
+		{ key: 'event_description', header: 'Description', defaultSelected: true },
+		{ key: 'event_tz', header: 'Timezone', defaultSelected: false },
+		{ key: 'event_date_wtz', header: 'Date (with TZ)', defaultSelected: false },
+		{ key: 'event_category', header: 'Category', defaultSelected: true },
+		{ key: 'event_tags', header: 'Tags', defaultSelected: true },
+		{ key: 'linked_assets', header: 'Linked Assets', defaultSelected: false },
+		{ key: 'linked_iocs', header: 'Linked IOCs', defaultSelected: false },
+		{ key: 'created_by', header: 'Created By', defaultSelected: false },
+		{ key: 'creation_date', header: 'Creation Date', defaultSelected: false }
+	];
 
-		const rows = timeline.events();
+	let showDownloadModal = $state(false);
+	let isDownloadingTimeline = $state(false);
 
-		const csv = [
-			headers.join(','),
-			...rows.map((event) =>
-				[
-					event.event_date,
-					event.event_title,
-					csvDescription(event.event_content),
-					event.event_tz,
-					event.event_date_wtz,
-					event.category_name,
-					event.event_tags,
-					event.assets?.map((asset) => String(asset.name ?? '')).join(';') ?? '',
-					event.iocs?.map((ioc) => String(ioc.name ?? '')).join('|') ?? '',
-					...(withUserInfo ? [event.user, event.event_added] : [])
-				]
-					.map(csvEscape)
-					.join(',')
-			)
-		].join('\n');
+	const handleTimelineDownload = async (
+		_downloadType: 'visible' | 'all',
+		selectedColumnKeys: Set<string>
+	) => {
+		isDownloadingTimeline = true;
 
-		const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-		const url = URL.createObjectURL(blob);
-		const link = document.createElement('a');
+		try {
+			// Always ensure all events are loaded before writing.
+			await timeline.loadAll();
 
-		link.href = url;
-		link.download = `case-${page.params.case_id}-timeline${withUserInfo ? '-with-user-info' : ''}.csv`;
-		link.click();
+			const rows = timeline.events();
+			const colGetters: Record<string, (e: CaseTimelineEvent) => string> = {
+				event_date: (e) => e.event_date,
+				event_title: (e) => e.event_title,
+				event_description: (e) => csvDescription(e.event_content),
+				event_tz: (e) => e.event_tz,
+				event_date_wtz: (e) => e.event_date_wtz ?? '',
+				event_category: (e) => e.category_name ?? '',
+				event_tags: (e) => e.event_tags ?? '',
+				linked_assets: (e) => e.assets?.map((a) => String(a.name ?? '')).join(';') ?? '',
+				linked_iocs: (e) => e.iocs?.map((i) => String(i.name ?? '')).join('|') ?? '',
+				created_by: (e) => e.user ?? '',
+				creation_date: (e) => e.event_added ?? ''
+			};
 
-		URL.revokeObjectURL(url);
+			const cols = TIMELINE_EXPORT_COLUMNS.filter((c) => selectedColumnKeys.has(c.key));
+			const header = cols.map((c) => csvEscape(c.header)).join(',');
+			const dataRows = rows.map((event) =>
+				cols.map((c) => csvEscape(colGetters[c.key]?.(event) ?? '')).join(',')
+			);
+			const csv = [header, ...dataRows].join('\r\n');
+
+			const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+			const url = URL.createObjectURL(blob);
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = `case-${page.params.case_id}-timeline.csv`;
+			link.click();
+			URL.revokeObjectURL(url);
+		} finally {
+			isDownloadingTimeline = false;
+			showDownloadModal = false;
+		}
 	};
 
 	const parseCsvLine = (line: string) => {
@@ -849,8 +865,7 @@
 				{onQuickSearchChange}
 				onQuickSearchNext={quickSearchNext}
 				onQuickSearchPrev={quickSearchPrev}
-				onDownloadCsv={() => downloadTimelineCsv(false)}
-				onDownloadCsvWithUserInfo={() => downloadTimelineCsv(true)}
+				onDownloadCsv={() => (showDownloadModal = true)}
 				onUploadCsv={uploadTimelineCsv}
 				{canEdit}
 			/>
@@ -947,6 +962,19 @@
 	onRefreshIocs={loadCaseIocs}
 	onAddIoc={openAddIoc}
 	onOpenChange={(open) => (eventDialogOpen = open)}
+/>
+
+<DownloadModal
+	open={showDownloadModal}
+	title="Download Timeline as CSV"
+	itemNounPlural="events"
+	availableColumns={TIMELINE_EXPORT_COLUMNS}
+	countVisible={timeline.events().length}
+	countAll={timeline.list.total}
+	isProcessing={isDownloadingTimeline}
+	processingMessage="Loading all timeline events…"
+	onConfirm={handleTimelineDownload}
+	onOpenChange={(v) => (showDownloadModal = v)}
 />
 
 <ConfirmationDialog

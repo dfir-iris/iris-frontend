@@ -5,13 +5,18 @@
 	import { Label } from '$lib/components/ui/label';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { RefreshCwIcon } from 'lucide-svelte';
-	import type { ExportColumn } from '$lib/utils/asset.utils'; // Assuming ExportColumn is similar
+
+	export interface ModalColumn {
+		key: string;
+		header: string;
+		defaultSelected?: boolean;
+	}
 
 	type DownloadModalProps = {
 		open: boolean;
 		title?: string;
 		itemNounPlural?: string;
-		availableColumns: ExportColumn[];
+		availableColumns: ModalColumn[];
 		countVisible: number;
 		countAll: number;
 		isProcessing?: boolean;

@@ -13,6 +13,8 @@ import type {
 } from '$lib/services/alerts.service';
 import type { ApiOptions, Paginated, RequestResponse } from '$lib/services/api.service';
 import type { Alert } from '$lib/types/resources/alert';
+import type { AlertQueueUnit } from '$lib/types/resources/alert-queue-unit';
+import { flattenAlertQueueUnits, parseAlertQueueUnits } from '$lib/utils/alert-queue';
 import { AlertsFiltersService } from '$lib/services/alerts-filters.service';
 import type {
 	SavedFilter,
@@ -34,6 +36,15 @@ type FilterEnvelope = {
 	current_page?: number;
 	last_page?: number;
 	next_page?: number | null;
+};
+
+export type GroupedAlertPage = {
+	/** Clusters and lone alerts, in the order the queue should render them. */
+	units: AlertQueueUnit[];
+	/** How many units match the filters, across every page. */
+	totalUnits: number;
+	/** The same page flattened to alerts, for everything that counts alerts. */
+	page: Paginated<Alert>;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -157,6 +168,61 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 			...response,
 			data: page
 		} as unknown as RequestResponse<Paginated<Alert>>;
+	};
+
+	/**
+	 * The cluster-grouped queue, as used by the split view.
+	 *
+	 * The body is a page of *units* rather than alerts, so `total` counts
+	 * units (a cluster is one) while `total_alerts` counts the alerts inside
+	 * them. Both are returned: the pager needs the first, the "N Alerts"
+	 * heading the second.
+	 *
+	 * It does the same `byId` / `list.ids` bookkeeping as `listPaginated`,
+	 * which is not optional — select-all resolves to `list.ids`, so a grouped
+	 * page that skipped it would leave bulk actions pointed at the previous
+	 * page's alerts.
+	 */
+	const listGroupedPaginated = async (
+		params: FilterAlertsParams = {},
+		options: ApiOptions = {}
+	): Promise<GroupedAlertPage | null> => {
+		const response = await AlertService.listGrouped(params, options);
+
+		if (
+			!response.ok ||
+			response.error ||
+			response.data === null ||
+			typeof response.data === 'string'
+		) {
+			return null;
+		}
+
+		const raw = isRecord(response.data) ? response.data : null;
+		const units = parseAlertQueueUnits(raw?.data);
+		const data = flattenAlertQueueUnits(units);
+
+		const page = {
+			data,
+			total: typeof raw?.total_alerts === 'number' ? raw.total_alerts : data.length,
+			current_page: typeof raw?.current_page === 'number' ? raw.current_page : 1,
+			last_page: typeof raw?.last_page === 'number' ? raw.last_page : 1,
+			next_page: typeof raw?.next_page === 'number' ? raw.next_page : null,
+			per_page: Number(params.per_page)
+		} as Paginated<Alert>;
+
+		for (const alert of data) byId[getId(alert)] = alert;
+
+		list.params = params;
+		list.ids = data.map(getId);
+		list.status = 'idle';
+		list.error = null;
+
+		return {
+			units,
+			totalUnits: typeof raw?.total === 'number' ? raw.total : units.length,
+			page
+		};
 	};
 
 	const refresh = async (options: ApiOptions = {}) => load(list.params, options);
@@ -452,6 +518,7 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 		alerts,
 		load,
 		listPaginated,
+		listGroupedPaginated,
 		refresh,
 		loadSavedFilters,
 		getSavedFilter,

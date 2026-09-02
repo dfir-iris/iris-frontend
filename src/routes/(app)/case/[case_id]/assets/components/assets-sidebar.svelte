@@ -1,14 +1,16 @@
 <script lang="ts">
 	import { getContext, onMount, onDestroy } from 'svelte';
-	import { RefreshCwIcon, List, Grid } from 'lucide-svelte';
+	import { RefreshCwIcon, List, Grid, CheckSquareIcon, DownloadCloudIcon } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import {
 		CASE_ASSETS_CTX,
 		type CaseAssetsContext
 	} from '$lib/contexts/case-assets.context.svelte';
-	import type { ListCaseAssetsParams } from '$lib/services/case-assets.service';
+	import { CaseAssetsService, type ListCaseAssetsParams } from '$lib/services/case-assets.service';
 	import type { Asset } from '$lib/types/resources/asset';
+	import DownloadModal from '$lib/components/common/DownloadModal.svelte';
+	import { AVAILABLE_EXPORT_COLUMNS, convertToCSV } from '$lib/utils/asset.utils';
 	import { Button } from '$lib/components/ui/button';
 	import {
 		AdvancedSearch,
@@ -21,6 +23,15 @@
 	import { getAssetUrl } from '../helpers';
 	import TooltipContent from '$lib/components/ui/tooltip/tooltip-content.svelte';
 	import { Tooltip, TooltipProvider, TooltipTrigger } from '$lib/components/ui/tooltip';
+	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
+	import {
+		DropdownMenu,
+		DropdownMenuContent,
+		DropdownMenuItem,
+		DropdownMenuTrigger
+	} from '$lib/components/ui/dropdown-menu';
+	import { ChevronDownIcon } from 'lucide-svelte';
+	import { AnalysisStatusService, type AnalysisStatusItem } from '$lib/services/analysis-status.service';
 
 	const caseAssets = getContext<CaseAssetsContext>(CASE_ASSETS_CTX);
 
@@ -33,7 +44,19 @@
 	let viewMode = $state<'cards' | 'table'>('cards');
 	let selectedFilters = $state<string[]>([]);
 	let selectionMode = $state(false);
-	let selectedAssets = $state<Set<string>>(new Set());
+	let selectedAssets = $state<Set<number>>(new Set());
+	let showConfirmDelete = $state(false);
+	let isBulkWorking = $state(false);
+
+	// Reference data for bulk-edit dropdowns
+	let analysisStatuses = $state<AnalysisStatusItem[]>([]);
+
+	const COMPROMISE_STATUSES = [
+		{ id: 1, name: 'Compromised' },
+		{ id: 2, name: 'Not Compromised' },
+		{ id: 3, name: 'Unknown' },
+		{ id: 4, name: 'To be determined' }
+	];
 
 	let observer: IntersectionObserver | null = null;
 	let loadMoreTrigger: HTMLDivElement | null = null;
@@ -44,6 +67,7 @@
 	);
 
 	const selectedAssetId = $derived(page.params.asset_id ? Number(page.params.asset_id) : null);
+	const selectedCount = $derived(selectedAssets.size);
 
 	const filterOptions = [
 		{
@@ -220,23 +244,121 @@
 		};
 	};
 
-	const toggleAssetSelection = (assetId: string) => {
+	const toggleAssetSelection = (assetId: number, e?: Event) => {
+		e?.stopPropagation();
 		if (selectedAssets.has(assetId)) {
 			selectedAssets.delete(assetId);
 		} else {
 			selectedAssets.add(assetId);
 		}
-
 		selectedAssets = new Set(selectedAssets);
+	};
+
+	const selectAll = () => {
+		selectedAssets = new Set(displayAssets.map((a) => a.asset_id));
+	};
+
+	const cancelSelect = () => {
+		selectionMode = false;
+		selectedAssets = new Set();
+	};
+
+	const deleteSelected = async () => {
+		if (!selectedCount) { showConfirmDelete = false; return; }
+		isBulkWorking = true;
+		const ids = [...selectedAssets];
+		await Promise.all(ids.map((id) => caseAssets.removeAsset(id)));
+		isBulkWorking = false;
+		showConfirmDelete = false;
+		cancelSelect();
+		await refreshAssets(1);
+	};
+
+	const setCompromiseStatus = async (statusId: number) => {
+		if (!selectedCount) return;
+		isBulkWorking = true;
+		const ids = [...selectedAssets];
+		await Promise.all(ids.map((id) => caseAssets.patchAsset(id, { asset_compromise_status_id: statusId })));
+		isBulkWorking = false;
+		cancelSelect();
+		await refreshAssets(caseAssets.list.currentPage);
+	};
+
+	const setAnalysisStatus = async (statusId: number) => {
+		if (!selectedCount) return;
+		isBulkWorking = true;
+		const ids = [...selectedAssets];
+		await Promise.all(ids.map((id) => caseAssets.patchAsset(id, { analysis_status_id: statusId })));
+		isBulkWorking = false;
+		cancelSelect();
+		await refreshAssets(caseAssets.list.currentPage);
 	};
 
 	const openAsset = (assetId: number) =>
 		goto(getAssetUrl(Number(page.params.case_id), String(assetId)));
 
+	let showDownloadModal = $state(false);
+	let isDownloading = $state(false);
+
+	const downloadCountVisible = $derived(
+		selectionMode && selectedAssets.size > 0 ? selectedAssets.size : displayAssets.length
+	);
+	const downloadCountAll = $derived(caseAssets.list.total);
+
+	const handleDownloadConfirm = async (
+		downloadType: 'visible' | 'all',
+		selectedColumnKeys: Set<string>
+	) => {
+		isDownloading = true;
+
+		try {
+			const columns = AVAILABLE_EXPORT_COLUMNS.filter((c) => selectedColumnKeys.has(c.key));
+			let rows: Asset[];
+
+			if (downloadType === 'visible' && selectionMode && selectedAssets.size > 0) {
+				rows = displayAssets.filter((a) => selectedAssets.has(a.asset_id));
+			} else if (downloadType === 'visible') {
+				rows = displayAssets;
+			} else {
+				const conditions = buildConditions();
+				rows = [];
+				let pageNumber = 1;
+				let nextPage: number | null = 1;
+
+				while (nextPage !== null) {
+					const params: ListCaseAssetsParams = {
+						page: pageNumber,
+						per_page: 100,
+						custom_conditions: conditions.length > 0 ? JSON.stringify(conditions) : undefined
+					};
+					const res = await CaseAssetsService.list(Number(page.params.case_id), params, { fetch });
+					if (!res.ok || res.error || !res.data || typeof res.data === 'string') break;
+					rows.push(...res.data.data);
+					nextPage = res.data.next_page;
+					pageNumber = nextPage ?? pageNumber;
+				}
+			}
+
+			const csv = convertToCSV(rows, columns);
+			const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+			const url = URL.createObjectURL(blob);
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = `case-${page.params.case_id}-assets.csv`;
+			link.click();
+			URL.revokeObjectURL(url);
+		} finally {
+			isDownloading = false;
+			showDownloadModal = false;
+		}
+	};
+
 	onMount(async () => {
 		await refreshAssets(1);
-
 		setupObserver();
+
+		const res = await AnalysisStatusService.list();
+		if (res.ok && Array.isArray(res.data)) analysisStatuses = res.data;
 	});
 
 	onDestroy(() => {
@@ -274,6 +396,23 @@
 		<h2 class="text-lg font-semibold">Assets</h2>
 
 		<div class="ml-auto flex items-center gap-2">
+			{#if !selectionMode}
+				<TooltipProvider>
+					<Tooltip>
+						<TooltipTrigger>
+							<Button
+								size="icon"
+								variant="ghost"
+								onclick={() => (selectionMode = true)}
+							>
+								<CheckSquareIcon size={16} />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent align="center" side="bottom">Select</TooltipContent>
+					</Tooltip>
+				</TooltipProvider>
+			{/if}
+
 			<TooltipProvider>
 				<Tooltip>
 					<TooltipTrigger>
@@ -329,8 +468,65 @@
 					<TooltipContent align="center" side="bottom">Refresh</TooltipContent>
 				</Tooltip>
 			</TooltipProvider>
+
+			<TooltipProvider>
+				<Tooltip>
+					<TooltipTrigger>
+						<Button size="icon" variant="ghost" onclick={() => (showDownloadModal = true)}>
+							<DownloadCloudIcon size={16} />
+						</Button>
+					</TooltipTrigger>
+
+					<TooltipContent align="center" side="bottom">Download as CSV</TooltipContent>
+				</Tooltip>
+			</TooltipProvider>
 		</div>
 	</div>
+
+	{#if selectionMode}
+		<div class="flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-muted/40 px-2 py-1.5">
+			<span class="text-xs text-muted-foreground">{selectedCount} selected</span>
+
+			<Button size="xs" variant="outline" onclick={selectAll}>Select All</Button>
+
+			<DropdownMenu>
+				<DropdownMenuTrigger>
+					<Button size="xs" variant="outline" disabled={!selectedCount || isBulkWorking}>
+						Compromise <ChevronDownIcon size={12} />
+					</Button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="start">
+					{#each COMPROMISE_STATUSES as s}
+						<DropdownMenuItem onclick={() => setCompromiseStatus(s.id)}>{s.name}</DropdownMenuItem>
+					{/each}
+				</DropdownMenuContent>
+			</DropdownMenu>
+
+			<DropdownMenu>
+				<DropdownMenuTrigger>
+					<Button size="xs" variant="outline" disabled={!selectedCount || isBulkWorking || !analysisStatuses.length}>
+						Analysis <ChevronDownIcon size={12} />
+					</Button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="start">
+					{#each analysisStatuses as s}
+						<DropdownMenuItem onclick={() => setAnalysisStatus(s.id)}>{s.name}</DropdownMenuItem>
+					{/each}
+				</DropdownMenuContent>
+			</DropdownMenu>
+
+			<Button
+				size="xs"
+				variant="destructive"
+				disabled={!selectedCount || isBulkWorking}
+				onclick={() => (showConfirmDelete = true)}
+			>
+				Delete
+			</Button>
+
+			<Button size="xs" variant="ghost" onclick={cancelSelect} class="ml-auto">Cancel</Button>
+		</div>
+	{/if}
 
 	<AdvancedSearch
 		placeholder="Search assets..."
@@ -348,6 +544,9 @@
 				tablePage={caseAssets.list.currentPage}
 				totalPages={caseAssets.list.lastPage}
 				perPage={caseAssets.list.params.per_page}
+				{selectionMode}
+				{selectedAssets}
+				onToggleSelect={toggleAssetSelection}
 				on:pageChange={(e) => refreshAssets(e.detail.page)}
 				on:pageSizeChange={(e) => {
 					caseAssets.list.params.per_page = e.detail.pageSize;
@@ -355,14 +554,18 @@
 				}}
 			/>
 		{:else}
-			<div use:handleScrollContainerRef class="-mx-2 flex h-full min-h-0 flex-col overflow-y-auto">
+			<div
+				use:handleScrollContainerRef
+				data-testid="assets-scroll-container"
+				class="-mx-2 flex h-full min-h-0 flex-col overflow-y-auto"
+			>
 				{#each displayAssets as asset (asset.asset_id)}
 					<div
 						role="button"
 						tabindex="0"
 						onclick={() => {
 							if (selectionMode) {
-								toggleAssetSelection(asset.asset_id.toString());
+								toggleAssetSelection(asset.asset_id);
 							} else {
 								openAsset(asset.asset_id);
 							}
@@ -372,14 +575,29 @@
 								e.preventDefault();
 
 								if (selectionMode) {
-									toggleAssetSelection(asset.asset_id.toString());
+									toggleAssetSelection(asset.asset_id);
 								} else {
 									openAsset(asset.asset_id);
 								}
 							}
 						}}
 					>
-						<AssetCard {asset} isSelected={selectedAssetId === asset.asset_id} />
+						{#if selectionMode}
+							<div class="flex items-center gap-2 px-2">
+								<input
+									type="checkbox"
+									class="size-4 shrink-0 cursor-pointer accent-primary"
+									checked={selectedAssets.has(asset.asset_id)}
+									onclick={(e) => { e.stopPropagation(); toggleAssetSelection(asset.asset_id); }}
+									onchange={() => {}}
+								/>
+								<div class="min-w-0 flex-1">
+									<AssetCard {asset} isSelected={selectedAssetId === asset.asset_id} />
+								</div>
+							</div>
+						{:else}
+							<AssetCard {asset} isSelected={selectedAssetId === asset.asset_id} />
+						{/if}
 					</div>
 				{/each}
 
@@ -394,3 +612,24 @@
 		{/if}
 	</div>
 </div>
+
+<DownloadModal
+	open={showDownloadModal}
+	title="Download Assets as CSV"
+	itemNounPlural="assets"
+	availableColumns={AVAILABLE_EXPORT_COLUMNS}
+	countVisible={downloadCountVisible}
+	countAll={downloadCountAll}
+	isProcessing={isDownloading}
+	processingMessage="Fetching all assets…"
+	onConfirm={handleDownloadConfirm}
+	onOpenChange={(v) => (showDownloadModal = v)}
+/>
+
+<ConfirmationDialog
+	bind:open={showConfirmDelete}
+	title="Delete Assets"
+	message="Delete {selectedCount} selected asset{selectedCount === 1 ? '' : 's'}? This cannot be undone."
+	confirmText="Delete"
+	onConfirm={deleteSelected}
+/>

@@ -6,6 +6,7 @@
 	import DataTable from '$lib/components/ui/data-table-tanstack/data-table.svelte';
 	import TlpBadge from '../tlp/TlpBadge.svelte';
 	import IocNameCell from './IocNameCell.svelte';
+	import RowCheckbox from '$lib/components/common/RowCheckbox.svelte';
 
 	export let iocs: Ioc[];
 	export let caseId: string | number | null = null;
@@ -13,6 +14,9 @@
 	export let totalPages: number | null = null;
 	export let tablePage: number | null = null;
 	export let perPage: number = 10;
+	export let selectionMode: boolean = false;
+	export let selectedIocs: Set<number> = new Set();
+	export let onToggleSelect: ((id: number) => void) | undefined = undefined;
 
 	const dispatch = createEventDispatcher();
 
@@ -49,7 +53,7 @@
 		dispatch('pageSizeChange', { pageSize: currentPageSize });
 	}
 
-	const columns: ColumnDef<Ioc>[] = [
+	const dataColumns: ColumnDef<Ioc>[] = [
 		{
 			accessorKey: 'ioc_value',
 			header: () => 'Name',
@@ -82,6 +86,22 @@
 			}
 		}
 	];
+
+	$: columns = selectionMode
+		? [
+				{
+					id: '__select__',
+					header: () => '',
+					meta: { thClass: 'w-8 pr-0', tdClass: 'w-8 pr-0' },
+					cell: (cell: import('@tanstack/svelte-table').CellContext<Ioc, unknown>) =>
+						renderComponent(RowCheckbox, {
+							checked: selectedIocs.has(cell.row.original.ioc_id),
+							onToggle: () => onToggleSelect?.(cell.row.original.ioc_id)
+						})
+				} as ColumnDef<Ioc>,
+				...dataColumns
+			]
+		: dataColumns;
 </script>
 
 <div class="{className} flex overflow-auto">

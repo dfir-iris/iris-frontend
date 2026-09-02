@@ -371,7 +371,20 @@
 		</div>
 	</div>
 {:else}
-	<div class="flex w-full grow flex-col bg-background">
+	<!--
+	  `h-full min-h-0` is load-bearing, and only became so once (app)/+layout
+	  turned its scroll viewport into a *column* flex container. As a row item
+	  this div was height-stretched by `align-items: stretch`, so it always
+	  matched the viewport regardless of content. On the main axis of a column
+	  it is instead sized by `grow` — and `min-height: auto` lets it refuse to
+	  shrink below its intrinsic content height. A long asset/IOC list then
+	  pushes this div past the viewport, the (app) `overflow-auto` scrolls the
+	  whole page, and the sidebar's own `h-full` chain resolves against an
+	  over-tall box so its `overflow-y-auto` never activates (which also kills
+	  the IntersectionObserver infinite scroll — the sentinel is always "in
+	  view"). Pinning the height here keeps the scroll inside the panes.
+	-->
+	<div class="flex h-full min-h-0 w-full grow flex-col bg-background">
 		<CaseTopbar menuItems={caseMenuItems} />
 
 		{#if caseAccess.isReadOnly()}

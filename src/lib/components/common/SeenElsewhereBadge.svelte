@@ -76,29 +76,27 @@
 {#if count > 0}
 	{#if variant === 'inline'}
 		<!--
-		  Inline (list-row) presentation. Visually identical to the popover
-		  variant but rendered as a non-interactive `<span>` so it can sit
-		  inside a parent `<button>` row without producing nested-button
-		  HTML. The row's own click handler navigates to the detail view
-		  where the full popover variant is reachable.
+		  Inline (list-row) presentation — kept deliberately tiny so it
+		  doesn't dominate a dense card row. Icon-only with a count badge;
+		  the tooltip carries the full label. Non-interactive `<span>` so
+		  it can sit inside a parent `<button>` row without nested-button
+		  HTML.
 		-->
 		<span
-			class="inline-flex items-center gap-1 rounded-full border border-amber-500/50 bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:border-amber-400/40 dark:bg-amber-400/15 dark:text-amber-300"
+			class="inline-flex items-center gap-0.5 rounded border border-amber-500/40 bg-amber-500/10 px-1 py-px text-2xs font-medium text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-400"
 			title={`Seen in ${count} other case${count === 1 ? '' : 's'}`}
 		>
-			<HistoryIcon size={12} />
+			<HistoryIcon size={10} />
 			<span class="tabular-nums">{count}</span>
-			<span>seen before</span>
 		</span>
 	{:else}
 		<Popover.Root>
 			<Popover.Trigger
-				class="inline-flex items-center gap-1.5 rounded-full border-2 border-amber-500/60 bg-amber-500/15 px-3 py-1 text-sm font-semibold text-amber-700 shadow-sm transition-colors hover:bg-amber-500/25 hover:text-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 dark:border-amber-400/60 dark:bg-amber-400/15 dark:text-amber-300 dark:hover:bg-amber-400/25"
+				class="inline-flex items-center gap-1 rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-500/20 hover:text-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-400 dark:hover:bg-amber-400/20"
 				aria-label={`Seen in ${count} other case${count === 1 ? '' : 's'}`}
 			>
-				<HistoryIcon size={14} />
+				<HistoryIcon size={12} />
 				<span class="tabular-nums">{count}</span>
-				<span>seen before</span>
 			</Popover.Trigger>
 			<Popover.Content align="start" class="w-80 p-0">
 				<div class="border-b px-3 py-2 text-xs font-semibold">

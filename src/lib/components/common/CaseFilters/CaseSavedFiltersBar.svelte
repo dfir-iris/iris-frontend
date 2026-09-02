@@ -38,6 +38,13 @@
 		onClear: () => void;
 		onDelete: (id: number) => void;
 		onSave: (meta: SaveMeta) => void;
+		/**
+		 * Which half to render. Loading a preset happens before you edit and
+		 * saving one after, so the cases overview mounts the picker in its
+		 * filter panel's header and the save button in its footer. `both`
+		 * keeps them side by side for any other caller.
+		 */
+		part?: 'both' | 'presets' | 'save';
 	};
 
 	let {
@@ -48,7 +55,8 @@
 		onSelect,
 		onClear,
 		onDelete,
-		onSave
+		onSave,
+		part = 'both'
 	}: Props = $props();
 
 	let saveOpen = $state(false);
@@ -78,115 +86,124 @@
 </script>
 
 <div class="flex items-center gap-2">
-	<DropdownMenu>
-		<DropdownMenuTrigger>
-			<Button variant="outline" size="sm" class="gap-1">
-				<BookmarkIcon class="size-4" />
-				<span class="max-w-[160px] truncate">
-					{selectedPresetName() ?? 'Saved filters'}
-				</span>
-				<ChevronDownIcon class="size-3" />
-			</Button>
-		</DropdownMenuTrigger>
+	{#if part !== 'save'}
+		<DropdownMenu>
+			<DropdownMenuTrigger>
+				<Button variant="outline" size="sm" class="gap-1">
+					<BookmarkIcon class="size-4" />
+					<span class="max-w-[160px] truncate">
+						{selectedPresetName() ?? 'Saved filters'}
+					</span>
+					<ChevronDownIcon class="size-3" />
+				</Button>
+			</DropdownMenuTrigger>
 
-		<DropdownMenuContent align="start" class="w-72">
-			<DropdownMenuLabel class="text-2xs uppercase tracking-wide text-muted-foreground">
-				Apply a preset
-			</DropdownMenuLabel>
+			<DropdownMenuContent align="start" class="w-72">
+				<DropdownMenuLabel class="text-2xs uppercase tracking-wide text-muted-foreground">
+					Apply a preset
+				</DropdownMenuLabel>
 
-			{#if presets.length === 0}
-				<div class="px-2 py-3 text-xs text-muted-foreground">
-					No saved filters yet. Build a filter and hit <span class="font-semibold">Save filter</span
-					> to keep it.
-				</div>
-			{:else}
-				{#each presets as preset (preset.filter_id)}
-					<DropdownMenuItem
-						class="flex items-center justify-between gap-2 pr-1"
-						onclick={() => onSelect(preset.filter_id)}
-					>
-						<div class="flex min-w-0 flex-1 flex-col">
-							<span class="truncate text-sm">{preset.filter_name}</span>
-							<span class="text-2xs text-muted-foreground">
-								{preset.filter_is_private ? 'Private' : 'Public'}
-								{#if preset.filter_description}· {preset.filter_description}{/if}
-							</span>
-						</div>
-						<button
-							type="button"
-							class="rounded p-1 text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
-							aria-label={`Delete ${preset.filter_name}`}
-							onclick={(e) => {
-								e.stopPropagation();
-								onDelete(preset.filter_id);
-							}}
+				{#if presets.length === 0}
+					<div class="px-2 py-3 text-xs text-muted-foreground">
+						No saved filters yet. Build a filter and hit <span class="font-semibold"
+							>Save filter</span
+						> to keep it.
+					</div>
+				{:else}
+					{#each presets as preset (preset.filter_id)}
+						<DropdownMenuItem
+							class="flex items-center justify-between gap-2 pr-1"
+							onclick={() => onSelect(preset.filter_id)}
 						>
-							<TrashIcon class="size-3.5" />
-						</button>
-					</DropdownMenuItem>
-				{/each}
-			{/if}
+							<div class="flex min-w-0 flex-1 flex-col">
+								<span class="truncate text-sm">{preset.filter_name}</span>
+								<span class="text-2xs text-muted-foreground">
+									{preset.filter_is_private ? 'Private' : 'Public'}
+									{#if preset.filter_description}· {preset.filter_description}{/if}
+								</span>
+							</div>
+							<button
+								type="button"
+								class="rounded p-1 text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
+								aria-label={`Delete ${preset.filter_name}`}
+								onclick={(e) => {
+									e.stopPropagation();
+									onDelete(preset.filter_id);
+								}}
+							>
+								<TrashIcon class="size-3.5" />
+							</button>
+						</DropdownMenuItem>
+					{/each}
+				{/if}
 
-			<DropdownMenuSeparator />
-			<DropdownMenuItem onclick={onClear} disabled={!selectedId && !hasActiveFilter}>
-				Clear filter
-			</DropdownMenuItem>
-		</DropdownMenuContent>
-	</DropdownMenu>
+				<DropdownMenuSeparator />
+				<DropdownMenuItem onclick={onClear} disabled={!selectedId && !hasActiveFilter}>
+					Clear filter
+				</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	{/if}
 
-	<Button
-		variant="outline"
-		size="sm"
-		disabled={!hasActiveFilter || saving}
-		onclick={openSave}
-		title={hasActiveFilter ? 'Save current filter' : 'Build a filter first'}
-	>
-		{saving ? 'Saving…' : 'Save filter'}
-	</Button>
+	{#if part !== 'presets'}
+		<Button
+			variant="outline"
+			size="sm"
+			disabled={!hasActiveFilter || saving}
+			onclick={openSave}
+			title={hasActiveFilter ? 'Save current filter' : 'Build a filter first'}
+		>
+			{saving ? 'Saving…' : 'Save filter'}
+		</Button>
+	{/if}
 </div>
 
-<Dialog.Root bind:open={saveOpen}>
-	<Dialog.Content class="max-w-md">
-		<Dialog.Header>
-			<Dialog.Title>Save filter</Dialog.Title>
-		</Dialog.Header>
+<!-- Mounted with the save button, so the `presets`-only half doesn't render
+     a second copy of the dialog. -->
+{#if part !== 'presets'}
+	<Dialog.Root bind:open={saveOpen}>
+		<Dialog.Content class="max-w-md">
+			<Dialog.Header>
+				<Dialog.Title>Save filter</Dialog.Title>
+			</Dialog.Header>
 
-		<div class="flex flex-col gap-3 py-2">
-			<div class="flex flex-col gap-1">
-				<Label for="saved-filter-name">Name</Label>
-				<Input
-					id="saved-filter-name"
-					bind:value={saveName}
-					placeholder="e.g. My open cases this month"
-					autofocus
-				/>
+			<div class="flex flex-col gap-3 py-2">
+				<div class="flex flex-col gap-1">
+					<Label for="saved-filter-name">Name</Label>
+					<Input
+						id="saved-filter-name"
+						bind:value={saveName}
+						placeholder="e.g. My open cases this month"
+						autofocus
+					/>
+				</div>
+
+				<div class="flex flex-col gap-1">
+					<Label for="saved-filter-description">Description (optional)</Label>
+					<Input
+						id="saved-filter-description"
+						bind:value={saveDescription}
+						placeholder="What this filter is for"
+					/>
+				</div>
+
+				<div class="flex items-center gap-2">
+					<input
+						id="saved-filter-private"
+						type="checkbox"
+						bind:checked={savePrivate}
+						class="size-4 rounded border-border"
+					/>
+					<Label for="saved-filter-private" class="cursor-pointer text-sm font-normal">
+						Private (only visible to you)
+					</Label>
+				</div>
 			</div>
 
-			<div class="flex flex-col gap-1">
-				<Label for="saved-filter-description">Description (optional)</Label>
-				<Input
-					id="saved-filter-description"
-					bind:value={saveDescription}
-					placeholder="What this filter is for"
-				/>
-			</div>
-
-			<div class="flex items-center gap-2">
-				<input
-					id="saved-filter-private"
-					type="checkbox"
-					bind:checked={savePrivate}
-					class="size-4 rounded border-border"
-				/>
-				<Label for="saved-filter-private" class="cursor-pointer text-sm font-normal">
-					Private (only visible to you)
-				</Label>
-			</div>
-		</div>
-
-		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (saveOpen = false)}>Cancel</Button>
-			<Button onclick={submitSave} disabled={!saveName.trim()}>Save</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+			<Dialog.Footer>
+				<Button variant="outline" onclick={() => (saveOpen = false)}>Cancel</Button>
+				<Button onclick={submitSave} disabled={!saveName.trim()}>Save</Button>
+			</Dialog.Footer>
+		</Dialog.Content>
+	</Dialog.Root>
+{/if}

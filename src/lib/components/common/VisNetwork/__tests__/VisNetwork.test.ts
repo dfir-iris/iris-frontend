@@ -22,10 +22,7 @@ describe('VisNetwork clickToUse scroll gating', () => {
 		// div covering nothing, so the wheel reaches the canvas and the graph
 		// zooms on hover without any click. These rules must stay here.
 		const source = readFileSync(componentPath, 'utf8');
-		const overlayRule = source
-			.split(':global(.vis-overlay)')[1]
-			?.split('}')[0]
-			?.replace(/\s/g, '');
+		const overlayRule = source.split(':global(.vis-overlay)')[1]?.split('}')[0]?.replace(/\s/g, '');
 
 		expect(overlayRule).toBeDefined();
 		expect(overlayRule).toContain('position:absolute');

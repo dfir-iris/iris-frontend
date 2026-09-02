@@ -95,7 +95,10 @@ export const relativeDate = (iso: string | null | undefined, now: number = Date.
 	const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 	const todayStart = new Date(now);
 	todayStart.setHours(0, 0, 0, 0);
-	const diffDays = Math.floor((todayStart.getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86_400_000);
+	const diffDays = Math.floor(
+		(todayStart.getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) /
+			86_400_000
+	);
 	if (diffDays === 0) return `Today ${time}`;
 	if (diffDays === 1) return `Yesterday ${time}`;
 	if (diffDays <= 6) return `${diffDays} days ago`;
@@ -167,9 +170,7 @@ export const techniqueLabels = (alert: Pick<Alert, 'alert_tags' | 'classificatio
 };
 
 /** Single chip for the queue row, which only has width for one. */
-export const primaryTechnique = (
-	alert: Pick<Alert, 'alert_tags' | 'classification'>
-): string => {
+export const primaryTechnique = (alert: Pick<Alert, 'alert_tags' | 'classification'>): string => {
 	const all = techniqueLabels(alert);
 	if (all.length === 0) return '';
 	return all.length > 1 ? `${all[0]} +${all.length - 1}` : all[0];
@@ -204,7 +205,9 @@ export const observableFlag = (ioc: Pick<Ioc, 'ioc_tags' | 'tlp'>): ObservableFl
 	if (tags.length > 0) return { text: tags[0], color: 'var(--t-9)' };
 
 	const tlp = ioc.tlp?.tlp_name?.trim();
-	return tlp ? { text: `tlp:${tlp.toLowerCase()}`, color: 'var(--t-9)' } : { text: '', color: 'var(--t-9)' };
+	return tlp
+		? { text: `tlp:${tlp.toLowerCase()}`, color: 'var(--t-9)' }
+		: { text: '', color: 'var(--t-9)' };
 };
 
 /**
@@ -240,7 +243,10 @@ export const censusLabel = (alertCount: number, clusterCount: number): string =>
 
 /** Two-letter avatar for the Activity / Notes lists. */
 export const initials = (name: string | null | undefined): string => {
-	const parts = (name ?? '').trim().split(/[\s._-]+/).filter(Boolean);
+	const parts = (name ?? '')
+		.trim()
+		.split(/[\s._-]+/)
+		.filter(Boolean);
 	if (parts.length === 0) return '??';
 	if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
 	return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -333,10 +339,7 @@ export const parseAction = (raw: string): { verb: string; changes: FieldChange[]
 	return { verb: raw, changes: [] };
 };
 
-export const activityEntries = (
-	history: unknown,
-	limit = 3
-): ActivityEntry[] => {
+export const activityEntries = (history: unknown, limit = 3): ActivityEntry[] => {
 	if (!history || typeof history !== 'object') return [];
 	return Object.entries(history as Record<string, { user?: string; action?: string }>)
 		.map(([key, value]) => {

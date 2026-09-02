@@ -26,7 +26,10 @@ const asset = (name: string): Asset => ({ asset_name: name }) as unknown as Asse
 const ioc = (tags: string | null, tlp?: string): Ioc =>
 	({ ioc_tags: tags, tlp: tlp ? { tlp_name: tlp } : undefined }) as unknown as Ioc;
 
-const alert = (tags: string, classification?: string): Pick<Alert, 'alert_tags' | 'classification'> =>
+const alert = (
+	tags: string,
+	classification?: string
+): Pick<Alert, 'alert_tags' | 'classification'> =>
 	({
 		alert_tags: tags,
 		classification: classification ? { name: classification } : undefined
