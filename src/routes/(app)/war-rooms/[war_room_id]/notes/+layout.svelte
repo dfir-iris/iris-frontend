@@ -200,13 +200,29 @@
 		showMove = false;
 	};
 
-	const deleteItem = () => {
+	const deleteItem = async () => {
 		if (contextMenu.source === 'folder' && contextMenu.folderId) {
-			notes.removeFolder(contextMenu.folderId);
+			if (await notes.removeFolder(contextMenu.folderId)) {
+				toast({ title: 'Folder deleted', variant: 'success' });
+			} else {
+				toast({
+					title: 'Failed to delete folder',
+					description: 'The folder is still in this war room.',
+					variant: 'destructive'
+				});
+			}
 		}
 
 		if (contextMenu.source === 'note' && contextMenu.noteId) {
-			notes.removeNote(contextMenu.noteId);
+			if (await notes.removeNote(contextMenu.noteId)) {
+				toast({ title: 'Note deleted', variant: 'success' });
+			} else {
+				toast({
+					title: 'Failed to delete note',
+					description: 'The note is still in this war room.',
+					variant: 'destructive'
+				});
+			}
 		}
 	};
 
