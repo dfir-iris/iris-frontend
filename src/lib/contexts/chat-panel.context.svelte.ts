@@ -98,6 +98,8 @@ export const createChatPanelContext = () => {
 		usage: null
 	});
 
+	const mutation = $state<{ error: string | null }>({ error: null });
+
 	let socket: ChatSocketClient | null = null;
 
 	// ---- Character-drip typing effect ----
@@ -330,6 +332,8 @@ export const createChatPanelContext = () => {
 	};
 
 	const renameConversation = async (conversationId: number, title: string): Promise<boolean> => {
+		mutation.error = null;
+
 		const res = await ChatService.renameConversation(conversationId, title);
 		if (res.ok && res.data && typeof res.data !== 'string') {
 			const updated = res.data as ChatConversation;
@@ -338,12 +342,19 @@ export const createChatPanelContext = () => {
 			}
 			return true;
 		}
+
+		mutation.error = res.error?.message ?? null;
 		return false;
 	};
 
 	const archiveConversation = async (conversationId: number): Promise<boolean> => {
+		mutation.error = null;
+
 		const res = await ChatService.archiveConversation(conversationId);
-		if (!res.ok) return false;
+		if (!res.ok) {
+			mutation.error = res.error?.message ?? null;
+			return false;
+		}
 		if (state.currentConversation?.id === conversationId) {
 			state.currentConversation = null;
 			state.messages = [];
@@ -571,6 +582,7 @@ export const createChatPanelContext = () => {
 		get state() {
 			return state;
 		},
+		mutation,
 		openPanel,
 		closePanel,
 		toggle,

@@ -550,9 +550,10 @@
 		if (!(await cases.removeSavedFilter(id))) {
 			toast({
 				title: 'Failed to delete saved filter',
-				description: 'The filter is still available.',
+				description: cases.mutation.error ?? 'The filter is still available.',
 				variant: 'destructive'
 			});
+
 			return;
 		}
 

@@ -226,9 +226,10 @@
 		if (!(await caseIocs.removeIoc(iocId, { fetch }))) {
 			toast({
 				title: 'Failed to delete IOC',
-				description: 'The IOC is still in this case.',
+				description: caseIocs.mutation.error ?? 'The IOC is still in this case.',
 				variant: 'destructive'
 			});
+
 			return;
 		}
 

@@ -57,6 +57,8 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		selectedEventId: undefined
 	});
 
+	const mutation = $state<{ error: string | null }>({ error: null });
+
 	const currentCaseId = $derived(() => getCaseId());
 
 	const currentEvent = $derived(() =>
@@ -304,12 +306,17 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		id: CaseTimelineEventIdentifier,
 		options: ApiOptions = {}
 	): Promise<boolean> => {
+		mutation.error = null;
+
 		const caseId = getCaseId();
 		if (caseId === null) return false;
 
 		const res = await CaseTimelineService.removeEvent(caseId, id, options);
 
-		if (!res.ok) return false;
+		if (!res.ok) {
+			mutation.error = res.error?.message ?? null;
+			return false;
+		}
 
 		delete byId[id];
 		list.eventIds = list.eventIds.filter((eventId) => eventId !== id);
@@ -326,6 +333,8 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		ids: CaseTimelineEventIdentifier[],
 		options: ApiOptions = {}
 	): Promise<{ removed: CaseTimelineEventIdentifier[]; failed: CaseTimelineEventIdentifier[] }> => {
+		mutation.error = null;
+
 		const caseId = getCaseId();
 		if (caseId === null) return { removed: [], failed: [...ids] };
 
@@ -383,6 +392,7 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		byId,
 		list,
 		ui,
+		mutation,
 		currentCaseId,
 		currentEvent,
 		events,

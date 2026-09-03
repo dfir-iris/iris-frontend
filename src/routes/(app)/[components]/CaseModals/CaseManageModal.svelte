@@ -153,9 +153,10 @@
 		if (!(await cases.remove(case_id))) {
 			toast({
 				title: 'Failed to delete case',
-				description: `Case ${case_id} has not been deleted.`,
+				description: cases.mutation.error ?? `Case ${case_id} has not been deleted.`,
 				variant: 'destructive'
 			});
+
 			return;
 		}
 

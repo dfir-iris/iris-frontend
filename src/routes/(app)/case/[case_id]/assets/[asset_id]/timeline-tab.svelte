@@ -228,9 +228,10 @@
 		if (!removed) {
 			toast({
 				title: 'Failed to delete event',
-				description: 'The event is still on the timeline.',
+				description: timeline.mutation.error ?? 'The event is still on the timeline.',
 				variant: 'destructive'
 			});
+
 			return;
 		}
 

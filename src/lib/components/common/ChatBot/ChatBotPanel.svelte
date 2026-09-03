@@ -172,7 +172,12 @@
 		);
 
 		if (!renamed) {
-			toast({ title: 'Failed to rename conversation', variant: 'destructive' });
+			toast({
+				title: 'Failed to rename conversation',
+				description: chat.mutation.error ?? undefined,
+				variant: 'destructive'
+			});
+
 			return;
 		}
 

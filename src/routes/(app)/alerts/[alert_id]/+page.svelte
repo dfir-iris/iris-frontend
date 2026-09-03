@@ -156,9 +156,17 @@
 	};
 
 	const deleteAlert = async () => {
-		if (await alerts.remove(alert_id)) {
-			goto('/alerts');
+		if (!(await alerts.remove(alert_id))) {
+			toast({
+				title: 'Failed to delete alert',
+				description: alerts.mutation.error ?? 'The alert was not deleted.',
+				variant: 'destructive'
+			});
+
+			return;
 		}
+
+		goto('/alerts');
 	};
 
 	$effect(() => {

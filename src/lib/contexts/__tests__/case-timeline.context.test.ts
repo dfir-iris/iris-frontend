@@ -129,3 +129,48 @@ describe('removeEvents', () => {
 		expect(removeEvent).not.toHaveBeenCalled();
 	});
 });
+
+describe('mutation.error', () => {
+	it('starts out unset', async () => {
+		const timeline = await seeded([1]);
+
+		expect(timeline.mutation.error).toBeNull();
+	});
+
+	it('carries the backend message when a single delete fails', async () => {
+		const timeline = await seeded([1]);
+		removeEvent.mockResolvedValue({
+			ok: false,
+			error: { message: 'Insufficient permissions', type: 'forbidden', status: 403 }
+		} as never);
+
+		await timeline.removeEvent(1);
+
+		expect(timeline.mutation.error).toBe('Insufficient permissions');
+	});
+
+	it('is cleared by the next successful delete', async () => {
+		const timeline = await seeded([1, 2]);
+		removeEvent.mockResolvedValueOnce({
+			ok: false,
+			error: { message: 'Insufficient permissions', type: 'forbidden', status: 403 }
+		} as never);
+
+		await timeline.removeEvent(1);
+		expect(timeline.mutation.error).toBe('Insufficient permissions');
+
+		listEvents.mockResolvedValue(listResponse([1]) as never);
+		await timeline.removeEvent(2);
+
+		expect(timeline.mutation.error).toBeNull();
+	});
+
+	it('is null when the backend sends no message', async () => {
+		const timeline = await seeded([1]);
+		removeEvent.mockResolvedValue({ ok: false } as never);
+
+		await timeline.removeEvent(1);
+
+		expect(timeline.mutation.error).toBeNull();
+	});
+});

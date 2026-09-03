@@ -119,9 +119,10 @@
 		if (!(await notes.removeNote(note.note_id))) {
 			toast({
 				title: 'Failed to delete note',
-				description: 'The note is still in this case.',
+				description: notes.mutation.error ?? 'The note is still in this case.',
 				variant: 'destructive'
 			});
+
 			return;
 		}
 

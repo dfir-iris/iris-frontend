@@ -59,6 +59,8 @@ export const createCaseAssetsContext = (getCaseId: () => number | null) => {
 		showAddModal: false
 	});
 
+	const mutation = $state<{ error: string | null }>({ error: null });
+
 	const currentCaseId = $derived(() => getCaseId());
 
 	const currentAsset = $derived(() =>
@@ -219,6 +221,8 @@ export const createCaseAssetsContext = (getCaseId: () => number | null) => {
 		id: CaseAssetIdentifier,
 		options: ApiOptions = {}
 	): Promise<boolean> => {
+		mutation.error = null;
+
 		const caseId = getCaseId();
 
 		if (caseId === null) return false;
@@ -240,6 +244,8 @@ export const createCaseAssetsContext = (getCaseId: () => number | null) => {
 			await refresh(options);
 			return true;
 		}
+
+		mutation.error = res.error?.message ?? null;
 
 		if (prev) {
 			byId[id] = prev;
@@ -277,6 +283,7 @@ export const createCaseAssetsContext = (getCaseId: () => number | null) => {
 		byId,
 		list,
 		ui,
+		mutation,
 		currentCaseId,
 		currentAsset,
 		assets,

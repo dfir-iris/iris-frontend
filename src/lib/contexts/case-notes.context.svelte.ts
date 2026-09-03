@@ -205,6 +205,8 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 		showAddFolderModal: false
 	});
 
+	const mutation = $state<{ error: string | null }>({ error: null });
+
 	const currentCaseId = $derived(() => getCaseId());
 
 	const currentNote = $derived(() =>
@@ -449,6 +451,8 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 	};
 
 	const removeNote = async (id: CaseNoteIdentifier, options: ApiOptions = {}): Promise<boolean> => {
+		mutation.error = null;
+
 		const caseId = getCaseId();
 
 		if (caseId === null) return false;
@@ -466,6 +470,8 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 			await refresh(options);
 			return true;
 		}
+
+		mutation.error = res.error?.message ?? null;
 
 		if (prev) byId[id] = prev;
 		if (!list.noteIds.includes(id)) list.noteIds = [id, ...list.noteIds];
@@ -524,6 +530,8 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 		id: NoteDirectoryIdentifier,
 		options: ApiOptions = {}
 	): Promise<boolean> => {
+		mutation.error = null;
+
 		const caseId = getCaseId();
 
 		if (caseId === null) return false;
@@ -534,6 +542,8 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 			await refresh(options);
 			return true;
 		}
+
+		mutation.error = res.error?.message ?? null;
 
 		await refresh(options);
 		return false;
@@ -569,6 +579,7 @@ export const createCaseNotesContext = (getCaseId: () => number | null) => {
 
 	return {
 		byId,
+		mutation,
 		foldersById,
 		list,
 		ui,

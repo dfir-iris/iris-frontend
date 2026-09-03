@@ -227,9 +227,10 @@
 		if (!removed) {
 			toast({
 				title: 'Could not delete alert',
-				description: 'The alert was not deleted.',
+				description: alerts.mutation.error ?? 'The alert was not deleted.',
 				variant: 'destructive'
 			});
+
 			return;
 		}
 

@@ -203,7 +203,7 @@
 			} else {
 				toast({
 					title: 'Failed to delete folder',
-					description: 'The folder is still in this case.',
+					description: notes.mutation.error ?? 'The folder is still in this case.',
 					variant: 'destructive'
 				});
 			}
@@ -215,7 +215,7 @@
 			} else {
 				toast({
 					title: 'Failed to delete note',
-					description: 'The note is still in this case.',
+					description: notes.mutation.error ?? 'The note is still in this case.',
 					variant: 'destructive'
 				});
 			}

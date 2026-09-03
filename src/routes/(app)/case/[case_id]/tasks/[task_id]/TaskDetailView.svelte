@@ -217,9 +217,10 @@
 		if (!(await caseTasks.removeTask(taskId, { fetch }))) {
 			toast({
 				title: 'Failed to delete task',
-				description: 'The task is still in this case.',
+				description: caseTasks.mutation.error ?? 'The task is still in this case.',
 				variant: 'destructive'
 			});
+
 			return;
 		}
 

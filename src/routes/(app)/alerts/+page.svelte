@@ -630,9 +630,17 @@
 
 		showConfirmDeletePreset = false;
 
-		if (removed) {
-			clearSavedFilterSelection();
+		if (!removed) {
+			toast({
+				title: 'Failed to delete saved filter',
+				description: alerts.mutation.error ?? 'The filter is still available.',
+				variant: 'destructive'
+			});
+
+			return;
 		}
+
+		clearSavedFilterSelection();
 	};
 
 	const saveAsFilter = async (

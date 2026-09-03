@@ -266,9 +266,10 @@
 		if (!(await caseAssets.removeAsset(assetId, { fetch }))) {
 			toast({
 				title: 'Failed to delete asset',
-				description: 'The asset is still in this case.',
+				description: caseAssets.mutation.error ?? 'The asset is still in this case.',
 				variant: 'destructive'
 			});
+
 			return;
 		}
 
