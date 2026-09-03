@@ -181,4 +181,41 @@ test.describe('Cases · list', () => {
 		// empty; if this ever fails on a truly empty tenant, seed one here.)
 		await expect(page.getByText('No cases match this view.')).toBeHidden({ timeout: 10_000 });
 	});
+
+	// Regression: `applyFiltersNow` commits a filter synchronously, but its
+	// callers reassign `filterGroup` first — so the filters $effect re-ran
+	// afterwards and armed a fresh 250ms timer anyway. That timer re-applied the
+	// tree that had just been applied (a second, pointless list fetch) and called
+	// `updateUrl({ page: 1 })`, which strips the page param out from under anyone
+	// who paginated inside that window.
+	//
+	// The stray URL write is a no-op unless you paginate within 250ms of the
+	// click, so racing it would make a flaky test. The duplicate fetch is the
+	// same leak observed deterministically.
+	test('applying a KPI filter does not schedule a second list fetch', async ({ page }) => {
+		test.setTimeout(60_000);
+
+		await page.goto('/cases', { waitUntil: 'networkidle' });
+
+		// "Open" is the environment-independent choice: it reassigns `filterGroup`
+		// to a fresh empty tree on every click regardless of what severities or
+		// cases the tenant has, so the click always drives exactly one refetch.
+		const openKpi = page.locator('button.kpi--open');
+		await expect(openKpi).toBeVisible({ timeout: 10_000 });
+
+		let fetches = 0;
+		page.on('request', (req) => {
+			if (req.url().includes('/api/v2/cases/filter')) fetches++;
+		});
+
+		await openKpi.click();
+
+		// Well past the 250ms debounce the leaked timer used to fire on.
+		await page.waitForTimeout(1_500);
+
+		// Exactly one: the click's own refetch. Two means the timer leaked. If the
+		// page's fetch fan-out ever legitimately changes, update the number rather
+		// than loosening the bound — the whole point is that it is exact.
+		expect(fetches).toBe(1);
+	});
 });

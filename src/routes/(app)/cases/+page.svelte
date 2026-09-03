@@ -8,7 +8,7 @@
 		SlidersHorizontalIcon,
 		UploadIcon
 	} from 'lucide-svelte';
-	import { getContext } from 'svelte';
+	import { getContext, untrack } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { current_user } from '$lib/stores/auth.store';
@@ -338,11 +338,23 @@
 	};
 
 	let filtersDebounce: ReturnType<typeof setTimeout> | null = null;
-	let didInitFilters = false;
 	let debouncedGroup = $state<FilterGroup>(emptyGroup('and'));
+
+	// The last tree whose application is already accounted for — either because
+	// it is the one we mounted with, or because `applyFiltersNow` just committed
+	// it. Deliberately a plain `let`: the effect below must not take a
+	// dependency on it. See the comment there for what it protects against.
+	// Capturing the initial reference is the whole point here, so `untrack`
+	// states that rather than leaving svelte-check to warn about it.
+	let appliedGroup: FilterGroup = untrack(() => filterGroup);
 
 	const applyFiltersNow = () => {
 		if (filtersDebounce) clearTimeout(filtersDebounce);
+		// Claim the tree before the effect sees it. Callers reassign `filterGroup`
+		// and then call this synchronously, so without the claim the effect re-runs
+		// afterwards and arms a fresh timer that fires `updateUrl({ page: 1 })`
+		// 250ms later — undoing whatever page the caller had just navigated to.
+		appliedGroup = filterGroup;
 		debouncedGroup = filterGroup;
 		currentPage = 1;
 		updateUrl({ page: 1 });
@@ -351,24 +363,22 @@
 	$effect(() => {
 		const g = filterGroup;
 
-		// Mount is not a filter change. `filterGroup` and `debouncedGroup` are
-		// seeded by two separate `emptyGroup('and')` calls, so they start out
-		// equal-but-distinct and the un-guarded version treated that as a real
-		// edit ~250ms in: it re-ran the query (a duplicate list fetch on every
-		// load) and called `updateUrl({ page: 1 })`, which deletes the `page`
-		// param — so a deep link to /cases?page=3 silently snapped back to page
-		// 1 with no user interaction. Adopt the group without arming the timer;
-		// the assignment is a no-op in value terms, and this effect runs before
-		// the query effect below, so the first fetch still sees the right tree.
-		if (!didInitFilters) {
-			didInitFilters = true;
-			debouncedGroup = g;
-			return;
-		}
+		// Debounce only genuine, un-applied edits. Two things land here that are
+		// not edits: mount (`filterGroup` and `debouncedGroup` come from two
+		// separate `emptyGroup('and')` calls, so they are equal but distinct
+		// objects) and the reassignment every `applyFiltersNow` caller performs
+		// just before committing. Both used to arm the 250ms timer, which then
+		// ran `updateUrl({ page: 1 })` — and `updateUrl` deletes the `page` param
+		// at page <= 1, so a deep link to /cases?page=3 snapped back to page 1
+		// with no user interaction, and every load paid for a duplicate fetch.
+		// An identity check covers both cases; a first-run-only flag covered
+		// just the mount half.
+		if (g === appliedGroup) return;
 
 		if (filtersDebounce) clearTimeout(filtersDebounce);
 
 		filtersDebounce = setTimeout(() => {
+			appliedGroup = g;
 			debouncedGroup = g;
 			currentPage = 1;
 			updateUrl({ page: 1 });

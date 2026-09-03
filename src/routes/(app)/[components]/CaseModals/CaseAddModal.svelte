@@ -55,10 +55,17 @@
 	);
 
 	onMount(async () => {
-		const classificationsResponse = (await CaseClassificationsService.list())
-			.data as unknown as RequestResponse<CaseClassification[]>;
+		// `ApiService` resolves a failed request to `{ data: null, error, ok: false }`
+		// rather than throwing, so the outer `.data` is null whenever this call
+		// does not succeed. The app layout mounts this modal on every route,
+		// including the unauthenticated boot where the classifications request
+		// 401s — so the unguarded double-unwrap threw
+		// "Cannot read properties of null (reading 'data')" as an unhandled
+		// rejection on every logged-out load. Guard both levels of the envelope.
+		const response = await CaseClassificationsService.list();
+		const envelope = response.data as unknown as RequestResponse<CaseClassification[]> | null;
 
-		classifications = (classificationsResponse.data ?? []) as CaseClassification[];
+		classifications = (envelope?.data ?? []) as CaseClassification[];
 	});
 
 	// Templates are also created from Settings, which writes through its own

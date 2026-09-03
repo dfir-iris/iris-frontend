@@ -19,6 +19,7 @@
 		applyAssetImageTheme
 	} from '$lib/components/common/VisNetwork';
 	import Button from '$lib/components/ui/button/button.svelte';
+	import { buildAlertPivotHref } from '$lib/utils/alert-pivot';
 	import { AlertRelationshipsFilters, defaultAlertRelationshipsFilters } from '.';
 
 	type ContextMenuState = {
@@ -229,18 +230,21 @@
 		} else if (contextMenu.node.group === 'alert') {
 			goto(`/alerts/${getId(contextMenu.node.id as string)}`);
 		} else if (contextMenu.node.group === 'asset' || contextMenu.node.group === 'ioc') {
-			const id = getId(contextMenu.node.id as string);
-			const url = new URL(window.location.href);
-			const isAlertsPage = url.pathname === '/alerts' || url.pathname === '/alerts/';
+			// The pivot has to carry the IOC/asset *value* — that is what the alerts
+			// list matches on server-side. This graph's ids do embed the value
+			// (`ioc_<ioc_value>`, `asset_<asset_name>`), but `getId` splits on the
+			// first underscore, so `evil_domain.com` pivoted as `evil` and matched
+			// nothing. The label is the same value, whole.
+			//
+			// Deliberately not an early `return`: a labelless node has nothing to
+			// pivot on, but the menu below still has to close.
+			const href = buildAlertPivotHref(
+				contextMenu.node.group,
+				contextMenu.node.label as string | undefined,
+				window.location.href
+			);
 
-			if (!isAlertsPage) {
-				url.pathname = '/alerts/';
-				url.search = '';
-			}
-
-			url.searchParams.set(contextMenu.node.group === 'asset' ? 'alert_assets' : 'alert_iocs', id);
-
-			goto(`${url.pathname}?${url.searchParams.toString()}`);
+			if (href) goto(href);
 		}
 
 		closeContextMenu();

@@ -34,6 +34,7 @@
 	} from '$lib/components/common/VisNetwork';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
+	import { buildAlertPivotHref } from '$lib/utils/alert-pivot';
 
 	type Group = 'alert' | 'ioc' | 'asset';
 
@@ -517,14 +518,22 @@
 
 	const openOrPivot = (node: AlertClusterGraphNode) => {
 		if (node.group === 'alert') {
+			// Alerts are the one group whose raw id is what we want:
+			// `/alerts/[alert_id]` is keyed on the numeric primary key.
 			goto(`/alerts/${getRawId(node.id)}`);
 			return;
 		}
-		const url = new URL(window.location.href);
-		url.pathname = '/alerts/';
-		url.search = '';
-		url.searchParams.set(node.group === 'asset' ? 'alert_assets' : 'alert_iocs', getRawId(node.id));
-		goto(`${url.pathname}?${url.searchParams.toString()}`);
+
+		// ...but the alerts *list* filters on the IOC/asset value, not on a key.
+		// This used to pivot on `getRawId(node.id)`, and the graph builds its ids
+		// as `ioc_<ioc_id>` / `asset_<asset_id>` — so the query ran
+		// `ioc_value IN ('42')` and returned nothing, every time.
+		//
+		// `node.label` is the value the filter wants, and it arrives here
+		// untruncated: `nodeById` is built from the raw `graph.nodes`, not from
+		// the styled array where `shortLabel` clips at 42 characters.
+		const href = buildAlertPivotHref(node.group, node.label, window.location.href);
+		if (href) goto(href);
 	};
 
 	const toggleGroup = (g: Group) => {

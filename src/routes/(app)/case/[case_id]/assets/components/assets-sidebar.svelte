@@ -369,9 +369,23 @@
 		}
 	});
 
+	// Mount is not a search. `onMount` already fetches page 1, so the effect's
+	// first pass was a duplicate request — and it lands 300ms in, after the
+	// infinite-scroll observer has often already appended page 2. `refreshAssets(1)`
+	// resets `list.ids` to page 1 and threw that page away, and because the reset
+	// does not run through `loadMore` the rAF chain-load below never re-checked
+	// and the observer saw no intersection *change* to fire on. The sidebar was
+	// left pinned at 20 rows however far you scrolled.
+	let didInitSearch = false;
+
 	$effect(() => {
 		const currentSearchTerm = searchTerm;
 		const currentConditions = searchConditions;
+
+		if (!didInitSearch) {
+			didInitSearch = true;
+			return;
+		}
 
 		clearTimeout(searchDebounceTimer);
 
