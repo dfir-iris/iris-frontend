@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/fixtures';
 import { adminApi, discover, apiJson } from '../helpers/api';
 
 // Global (non-case-scoped) tasks and dim-tasks API coverage.

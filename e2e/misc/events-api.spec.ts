@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/fixtures';
 import { adminApi, seed, cleanup, apiJson } from '../helpers/api';
 
 // Standalone events API (not case-scoped). Also covers case-scoped event

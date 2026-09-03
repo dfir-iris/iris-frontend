@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/fixtures';
 import { adminApi } from '../helpers/api';
 
 // Taxonomy API: read-only list endpoints for severity, TLP, alert statuses,

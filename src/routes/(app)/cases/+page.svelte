@@ -338,6 +338,7 @@
 	};
 
 	let filtersDebounce: ReturnType<typeof setTimeout> | null = null;
+	let didInitFilters = false;
 	let debouncedGroup = $state<FilterGroup>(emptyGroup('and'));
 
 	const applyFiltersNow = () => {
@@ -349,6 +350,21 @@
 
 	$effect(() => {
 		const g = filterGroup;
+
+		// Mount is not a filter change. `filterGroup` and `debouncedGroup` are
+		// seeded by two separate `emptyGroup('and')` calls, so they start out
+		// equal-but-distinct and the un-guarded version treated that as a real
+		// edit ~250ms in: it re-ran the query (a duplicate list fetch on every
+		// load) and called `updateUrl({ page: 1 })`, which deletes the `page`
+		// param — so a deep link to /cases?page=3 silently snapped back to page
+		// 1 with no user interaction. Adopt the group without arming the timer;
+		// the assignment is a no-op in value terms, and this effect runs before
+		// the query effect below, so the first fetch still sees the right tree.
+		if (!didInitFilters) {
+			didInitFilters = true;
+			debouncedGroup = g;
+			return;
+		}
 
 		if (filtersDebounce) clearTimeout(filtersDebounce);
 
@@ -388,14 +404,44 @@
 		return normalized as unknown as Case;
 	};
 
+	// Tracks the last `?search=` this effect adopted, so a re-run triggered by
+	// an unrelated URL change (page, show_closed) can't stomp text the user is
+	// still typing into the box.
+	let mirroredSearch: string | null = null;
+
+	// The exact term this component last pushed into the URL. `updateUrl` trims
+	// before writing, so the echo that comes back can differ from what is still
+	// in the box ("acme corp " -> "acme corp") — adopting it would delete the
+	// space the user just typed mid-phrase, and the corrective write would then
+	// no-op on `nextHref === curHref`. Echoes of our own write are skipped;
+	// genuine external navigations (back/forward, deep link) still win.
+	let pushedSearch: string | null = null;
+
+	// URL -> state mirror. This effect must depend on `page.url` and NOTHING
+	// else. It used to be fused into the query-building effect below, which
+	// also reads `debouncedGroup` / `sort` / `perPage` — so any change to those
+	// re-ran `search = urlSearch` and wiped whatever was half-typed. That fired
+	// on every single load: `filterGroup` and `debouncedGroup` are seeded by two
+	// separate `emptyGroup('and')` calls, so the filters debounce assigns a
+	// fresh (but equal) object ~250ms after mount and counts as a real change.
+	$effect(() => {
+		const params = page.url.searchParams;
+		const urlSearch = params.get('search') ?? '';
+
+		if (urlSearch !== mirroredSearch) {
+			mirroredSearch = urlSearch;
+			if (urlSearch !== pushedSearch) search = urlSearch;
+			pushedSearch = null;
+		}
+
+		currentPage = Number(params.get('page') ?? '1') || 1;
+		showClosed = params.get('show_closed') === '1';
+	});
+
 	$effect(() => {
 		const urlSearch = page.url.searchParams.get('search') ?? '';
 		const urlPage = Number(page.url.searchParams.get('page') ?? '1') || 1;
 		const urlShowClosed = page.url.searchParams.get('show_closed') === '1';
-
-		search = urlSearch;
-		currentPage = urlPage;
-		showClosed = urlShowClosed;
 
 		const pruned = pruneTree(debouncedGroup);
 		const hasFilters = treeHasActiveCondition(pruned);
@@ -457,6 +503,9 @@
 		if (searchDebounce) clearTimeout(searchDebounce);
 
 		searchDebounce = setTimeout(() => {
+			// Record what the URL is about to hold (post-trim) so the mirror can
+			// recognise the echo of this write and leave the live input alone.
+			pushedSearch = searchParam.trim();
 			updateUrl({ search: searchParam, page: 1 });
 		}, DEFAULT_DEBOUNCE);
 	});
@@ -539,10 +588,18 @@
 		updateUrl({ showClosed, search, page: 1 });
 	};
 
+	// Must reset everything `hasActiveFilter` reports on. It also counts the
+	// search box and the Show-closed toggle, so clearing only the builder tree
+	// left "Clear filters" as a dead button whenever one of those two was the
+	// sole active filter: the click did nothing and the button stayed on screen.
+	// `showClosed` is URL-owned (the mirror effect writes it back), so it is
+	// cleared through `updateUrl` rather than assigned here.
 	const clearActiveFilter = () => {
+		search = '';
 		selectedSavedFilterId = '';
 		filterGroup = emptyGroup('and');
 		applyFiltersNow();
+		updateUrl({ search: '', showClosed: false, page: 1 });
 	};
 
 	const deleteSavedFilter = async (id: number) => {
@@ -723,15 +780,11 @@
 			id: 'open',
 			label: 'Open',
 			value: kpi.open,
-			// `hasActiveFilter` also counts the search box and the closed
-			// toggle, so this card has to reset all three to light up again.
-			select: () => {
-				search = '';
-				selectedSavedFilterId = '';
-				filterGroup = emptyGroup('and');
-				applyFiltersNow();
-				updateUrl({ search: '', showClosed: false, page: 1 });
-			}
+			// "Open" means no filter at all, which is exactly what the Clear
+			// filters button does — `activeKpi` lights this card up when
+			// `hasActiveFilter` goes false, and that counts the search box and
+			// the closed toggle as well as the builder tree.
+			select: clearActiveFilter
 		},
 		{
 			id: 'critical',

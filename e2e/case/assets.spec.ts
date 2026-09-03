@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/fixtures';
 import { login } from '../helpers/auth';
 import { adminApi, seed, cleanup } from '../helpers/api';
 
@@ -41,7 +41,15 @@ test.describe('Case · assets', () => {
 
 			const sidebar = page.getByTestId('assets-scroll-container');
 			await expect(sidebar).toBeVisible({ timeout: 10_000 });
-			await expect(page.getByText('scroll-asset-0').first()).toBeVisible({ timeout: 10_000 });
+
+			// The sidebar lists newest-first, 20 per page (order_by=asset_id,
+			// sort_dir=desc — see case-assets.context.svelte.ts), so page 1 holds
+			// scroll-asset-39..20 and scroll-asset-0 is the last row of page 2.
+			// Asserting on a specific name would bake in the sort order and the
+			// page size; assert that page 1 rendered rows at all instead.
+			await expect(sidebar.locator('[id^="asset-card-"]').first()).toBeVisible({
+				timeout: 10_000
+			});
 
 			// The sidebar owns the overflow...
 			await expect

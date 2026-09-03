@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/fixtures';
 import { login } from '../helpers/auth';
 
 // Settings pages that were absent from shell.spec.ts.

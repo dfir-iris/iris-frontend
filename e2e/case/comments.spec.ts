@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/fixtures';
 import { adminApi, seed, cleanup, apiJson } from '../helpers/api';
 
 // Comment CRUD on case-scoped objects (assets, iocs, notes, tasks, evidences).

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/fixtures';
 import { adminApi, apiJson } from '../helpers/api';
 
 // Manage / customers CRUD — only the GET list is used as a seed helper;

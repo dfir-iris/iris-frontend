@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/fixtures';
 import { adminApi, seed, cleanup, apiJson } from '../helpers/api';
 
 // The v2 search API (/api/v2/search) requires the search_across_cases

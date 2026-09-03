@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/fixtures';
 import { adminApi } from '../helpers/api';
 
 // Manage / custom attributes — list and schema endpoints.

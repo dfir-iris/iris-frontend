@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/fixtures';
 import { E2E_USERNAME, login } from '../helpers/auth';
 import { adminApi, seed, cleanup } from '../helpers/api';
 
@@ -11,8 +11,11 @@ test.describe('Complex flow · case context switch', () => {
 	test('current case indicator changes when navigating to a new case', async ({ page }) => {
 		// Two full page loads, each waiting for the app to settle, plus the
 		// seed/cleanup round trips — the 30s project default is too tight once
-		// the waits below are given room to actually be waits.
-		test.setTimeout(90_000);
+		// the waits below are given room to actually be waits. 60s covers the
+		// 40s of explicit ceilings below plus login and the seed round trips;
+		// it runs in ~5s, so the rest is headroom, not budget. (90s just meant
+		// a genuine hang burned an extra half-minute before reporting.)
+		test.setTimeout(60_000);
 
 		const api = await adminApi();
 		const caseId = await seed.case(api, { case_name: 'switched to' });
