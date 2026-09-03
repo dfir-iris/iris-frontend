@@ -93,10 +93,18 @@
 	</div>
 
 	<div class="shrink-0 border-t border-border/30 px-4 pt-3">
+		<!--
+			Opens ready to type. Leaving this in 'view' mode meant every
+			comment started with a double-click on a "Double-click to edit…"
+			placeholder — a click that carried no meaning, in a box that
+			exists only to be written in. The comments side panel has always
+			seeded 'edit' for the same reason.
+		-->
 		<MarkDownEditor
 			value={comment_text}
 			onChange={(value) => (comment_text = value)}
 			onSave={saveComment}
+			initialMode="edit"
 		/>
 	</div>
 
