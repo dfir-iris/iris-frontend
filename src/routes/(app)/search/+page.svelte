@@ -54,6 +54,7 @@
 		type EvidenceRow,
 		type SummaryRow
 	} from '$lib/services/search.service';
+	import { toggleSearchType } from './search-types';
 
 	// Catalog of selectable types. Order = display order in the chip row.
 	const TYPE_CATALOG: {
@@ -75,8 +76,8 @@
 	const ALL_TYPES = TYPE_CATALOG.map((t) => t.value);
 
 	// State for the form + result list. Default to every type selected so
-	// users can search broadly out-of-the-box and narrow down with the
-	// chip toggles if they want a sharper query.
+	// users can search broadly out-of-the-box; the first chip clicked
+	// from here narrows to that one category (see `toggleSearchType`).
 	let selectedTypes = $state<SearchType[]>([...ALL_TYPES]);
 	let searchValue = $state('');
 	let page = $state(1);
@@ -167,11 +168,7 @@
 	};
 
 	const toggleType = (t: SearchType) => {
-		if (selectedTypes.includes(t)) {
-			selectedTypes = selectedTypes.filter((x) => x !== t);
-		} else {
-			selectedTypes = [...selectedTypes, t];
-		}
+		selectedTypes = toggleSearchType(selectedTypes, t, ALL_TYPES);
 	};
 
 	const selectAll = () => (selectedTypes = [...ALL_TYPES]);
