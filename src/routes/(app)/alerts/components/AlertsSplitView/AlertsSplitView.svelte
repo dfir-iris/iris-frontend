@@ -24,6 +24,12 @@
 	import AlertRelatedGraph from '../AlertRelatedGraph/AlertRelatedGraph.svelte';
 	import { clusterSelectionState, flattenAlertQueueUnits } from '$lib/utils/alert-queue';
 	import {
+		ALERT_QUEUE_COLUMNS,
+		alertSortArrow,
+		type AlertSortColumn,
+		type AlertSortState
+	} from '../../helpers/alert-queue-columns';
+	import {
 		activityEntries,
 		ageLabel,
 		ageVar,
@@ -58,7 +64,8 @@
 		page: number;
 		perPage: number;
 		selected: Record<number, boolean>;
-		sortLabel: string;
+		/** Which column the queue is ordered by, and in which direction. */
+		sort: AlertSortState;
 		/** Which quick-filter tab is active. `null` = All open (no owner filter). */
 		queueTab: 'mine' | 'unassigned' | 'escalated' | null;
 		/** Shortcut key hints only; actual counts are from total/tabs */
@@ -81,7 +88,7 @@
 		onOpenFilters?: () => void;
 		/** Suspends the keyboard bindings while a dialog or panel owns focus. */
 		shortcutsEnabled?: boolean;
-		onToggleSort: () => void;
+		onToggleSort: (column: AlertSortColumn) => void;
 		onSelect: (alertId: number, checked: boolean) => void;
 		/** Select or clear a whole group of alerts at once — a cluster's members. */
 		onSelectMany: (alertIds: number[], checked: boolean) => void;
@@ -107,7 +114,7 @@
 		page,
 		perPage,
 		selected,
-		sortLabel,
+		sort,
 		queueTab,
 		queueCounts,
 		filterBar,
@@ -433,6 +440,9 @@
 			</div>
 		{/if}
 
+		<!-- Column headers, the same affordance the case overview queue has:
+		     click one to order the whole result set by it, click it again to
+		     reverse. Ordering is server-side, so it survives paging. -->
 		<div class="queue-head">
 			<button
 				type="button"
@@ -443,8 +453,25 @@
 				data-checked={allSelected}
 				onclick={() => onSelectAll(!allSelected)}
 			></button>
-			<div class="spacer"></div>
-			<button type="button" class="queue-sort" onclick={onToggleSort}>Sort: {sortLabel} ▾</button>
+			<div class="queue-cols" role="group" aria-label="Sort alerts">
+				{#each ALERT_QUEUE_COLUMNS as col (col.id)}
+					{@const arrow = alertSortArrow(sort, col.id)}
+					<button
+						type="button"
+						class="queue-sort {col.cls}"
+						class:queue-sort-active={arrow !== ''}
+						aria-label="Sort by {col.label}{arrow === ''
+							? ''
+							: arrow === '▲'
+								? ' (ascending)'
+								: ' (descending)'}"
+						onclick={() => onToggleSort(col.id)}
+					>
+						<span>{col.label}</span>
+						<span class="queue-sort-arrow" aria-hidden="true">{arrow}</span>
+					</button>
+				{/each}
+			</div>
 		</div>
 
 		{#if selectionBar && selectedCount > 0}
@@ -1288,16 +1315,51 @@
 		color: var(--t-9);
 	}
 
+	/* Column labels sit where the value they order by appears in a row:
+	   severity leads, event time and status trail on the right. The rows
+	   are stacked rather than gridded — a clustered alert nests under its
+	   cluster — so this is an alignment by eye, not a shared track. */
+	.queue-cols {
+		display: flex;
+		flex: 1;
+		min-width: 0;
+		align-items: center;
+		gap: 14px;
+	}
 	.queue-sort {
-		font-size: 12px;
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		font-family: inherit;
+		font-size: 10px;
+		font-weight: 600;
+		letter-spacing: 0.09em;
+		text-transform: uppercase;
 		color: var(--t-9);
 		background: none;
 		border: 0;
 		padding: 0;
 		cursor: pointer;
+		white-space: nowrap;
 	}
 	.queue-sort:hover {
 		color: var(--t-6);
+	}
+	.queue-sort:focus-visible {
+		outline: 2px solid var(--acc);
+		outline-offset: 2px;
+		border-radius: 2px;
+	}
+	.queue-sort-active {
+		color: var(--t-4);
+	}
+	.queue-sort-arrow {
+		font-size: 8px;
+		line-height: 1;
+	}
+	/* Status and event time read off the right-hand end of a row. */
+	.q-col-status {
+		margin-left: auto;
 	}
 
 	.checkbox {

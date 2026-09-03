@@ -36,6 +36,12 @@ export interface FilterAlertsParams {
 	per_page?: number;
 	sort?: SortDir;
 	/**
+	 * Column the queue is ordered by — 'event_time' (the default),
+	 * 'creation_time', 'title', 'severity', 'status', 'customer_name' or
+	 * 'owner'. Anything else falls back to 'event_time' server-side.
+	 */
+	order_by?: string;
+	/**
 	 * JSON-encoded list of `{field, operator, value}` conditions, evaluated
 	 * server-side via the generic filtering layer. See
 	 * `app/datamgmt/filtering.py::apply_custom_conditions`. Useful for

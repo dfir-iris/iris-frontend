@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import type { AlertStatus } from '$lib/services/alert-status.service';
 import type { SavedFilter } from '$lib/services/alerts-filters.service';
 import { UNASSIGNED_OWNER_ID } from '../../components/AlertsBoard/board-config';
+import { defaultFilters } from '../../components/AlertFilters/filters';
 import { buildDefaultAlertFilters } from '../alerts-default-view';
+
+// These cases are about what a view *adds* to the baseline query, not
+// about what the baseline ordering happens to be, so they build on the
+// defaults rather than restating them.
+const base = defaultFilters();
 
 const alertStatuses: AlertStatus[] = [
 	{ status_id: 1, status_name: 'New' },
@@ -24,12 +30,12 @@ const preset: SavedFilter = {
 
 describe('buildDefaultAlertFilters', () => {
 	it('leaves the query unfiltered for the "all" view', () => {
-		expect(buildDefaultAlertFilters({ mode: 'all' }, { alertStatuses })).toEqual({ sort: 'desc' });
+		expect(buildDefaultAlertFilters({ mode: 'all' }, { alertStatuses })).toEqual(base);
 	});
 
 	it('excludes terminal statuses for the "open" view', () => {
 		expect(buildDefaultAlertFilters({ mode: 'open' }, { alertStatuses })).toEqual({
-			sort: 'desc',
+			...base,
 			custom_conditions: OPEN_CONDITION
 		});
 	});
@@ -37,7 +43,7 @@ describe('buildDefaultAlertFilters', () => {
 	it('scopes the open queue to the current user for "mine"', () => {
 		expect(buildDefaultAlertFilters({ mode: 'mine' }, { alertStatuses, currentUserId: 8 })).toEqual(
 			{
-				sort: 'desc',
+				...base,
 				custom_conditions: OPEN_CONDITION,
 				alert_owner_id: 8
 			}
@@ -46,14 +52,14 @@ describe('buildDefaultAlertFilters', () => {
 
 	it('falls back to the plain open queue when the current user is unknown', () => {
 		expect(buildDefaultAlertFilters({ mode: 'mine' }, { alertStatuses })).toEqual({
-			sort: 'desc',
+			...base,
 			custom_conditions: OPEN_CONDITION
 		});
 	});
 
 	it('uses the unassigned sentinel for "unassigned"', () => {
 		expect(buildDefaultAlertFilters({ mode: 'unassigned' }, { alertStatuses })).toEqual({
-			sort: 'desc',
+			...base,
 			custom_conditions: OPEN_CONDITION,
 			alert_owner_id: UNASSIGNED_OWNER_ID
 		});
@@ -72,12 +78,12 @@ describe('buildDefaultAlertFilters', () => {
 	it('falls back to an unfiltered view when the preset is gone', () => {
 		expect(
 			buildDefaultAlertFilters({ mode: 'preset', filter_id: 3 }, { alertStatuses, preset: null })
-		).toEqual({ sort: 'desc' });
+		).toEqual(base);
 	});
 
 	it('degrades to an unfiltered view when the status lookup is empty', () => {
 		expect(buildDefaultAlertFilters({ mode: 'open' }, { alertStatuses: [] })).toEqual({
-			sort: 'desc',
+			...base,
 			custom_conditions: undefined
 		});
 	});

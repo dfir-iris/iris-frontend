@@ -15,6 +15,7 @@ type SavedAlertFilterData = {
 	case_id?: number;
 	alert_owner_id?: number;
 	custom_conditions?: string;
+	order_by?: Filters['order_by'];
 	sort?: Filters['sort'];
 };
 
@@ -50,6 +51,7 @@ export const uiFiltersToSavedFilterData = (filters: Filters): SavedAlertFilterDa
 	case_id: filters.case_id,
 	alert_owner_id: filters.alert_owner_id,
 	custom_conditions: filters.custom_conditions,
+	order_by: filters.order_by,
 	sort: filters.sort
 });
 
@@ -73,6 +75,10 @@ export const savedFilterToUiFilters = (savedFilter: SavedFilter, filters: Filter
 		case_id: savedFilterData.case_id,
 		alert_owner_id: savedFilterData.alert_owner_id,
 		custom_conditions: savedFilterData.custom_conditions,
+		// Filters saved before the queue had sortable columns carry only a
+		// direction, so the column they were sorted on falls back to
+		// whatever the queue is showing now.
+		order_by: savedFilterData.order_by ?? filters.order_by,
 		sort: savedFilterData.sort ?? filters.sort
 	};
 };

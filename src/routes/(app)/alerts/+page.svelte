@@ -97,6 +97,11 @@
 	import { closeAlerts } from './helpers/alerts-close';
 	import { assignAlertsToOwner, reassignAlertOwner } from './helpers/alerts-assign';
 	import { unlinkAlertCase } from './helpers/alert-unlink';
+	import {
+		parseAlertSort,
+		toggleAlertSort,
+		type AlertSortColumn
+	} from './helpers/alert-queue-columns';
 
 	type QueryState = {
 		page: number;
@@ -133,7 +138,8 @@
 		'alert_owner_id',
 		'resolution_status_id',
 		'custom_conditions',
-		'sort'
+		'sort',
+		'order_by'
 	];
 
 	let query = $state<QueryState>({
@@ -415,8 +421,15 @@
 
 		status = 'loading';
 
+		// An order the queue cannot draw a header caret for is not one it
+		// should ask the server for either — otherwise a hand-edited
+		// `order_by` sorts the rows one way while the headers claim another.
+		const sort = parseAlertSort(next.filters.order_by, next.filters.sort);
+
 		const params = {
 			...next.filters,
+			order_by: sort.column,
+			sort: sort.dir,
 			alert_start_date: toApiDate(next.filters.alert_start_date),
 			alert_end_date: toApiDate(next.filters.alert_end_date, true),
 			creation_start_date: toApiDate(next.filters.creation_start_date),
@@ -533,13 +546,20 @@
 		});
 	};
 
-	const toggleSort = async () => {
-		const nextSort: Filters['sort'] = query.filters.sort === 'asc' ? 'desc' : 'asc';
+	const activeSort = $derived(parseAlertSort(query.filters.order_by, query.filters.sort));
+
+	/**
+	 * Re-order the queue. Ordering is a server-side concern (`order_by` +
+	 * `sort`), so the page has to go back to 1 — the rows that were on it
+	 * are not the rows that come first any more.
+	 */
+	const toggleSort = async (column: AlertSortColumn) => {
+		const next = toggleAlertSort(activeSort, column);
 
 		await commitQuery({
 			...query,
 			page: 1,
-			filters: { ...query.filters, sort: nextSort }
+			filters: { ...query.filters, order_by: next.column, sort: next.dir }
 		});
 	};
 
@@ -1243,7 +1263,7 @@
 				page={query.page}
 				perPage={query.per_page}
 				{selected}
-				sortLabel={query.filters.sort === 'asc' ? 'Oldest' : 'Newest'}
+				sort={activeSort}
 				shortcutsEnabled={!showMerge &&
 					!showClose &&
 					!showAlertEdit &&
@@ -1417,13 +1437,15 @@
 						</Button>
 
 						{#if query.view === 'list'}
+							<!-- The card list has no column headers to sort from, so it
+							     keeps the newest/oldest toggle it has always had. -->
 							<Button
 								variant="outline"
 								size="xs"
-								onclick={toggleSort}
+								onclick={() => toggleSort('event_time')}
 								disabled={status === 'loading'}
 							>
-								{#if query.filters.sort === 'asc'}
+								{#if activeSort.column === 'event_time' && activeSort.dir === 'asc'}
 									<ArrowDownNarrowWide class="h-4 w-4" />
 								{:else}
 									<ArrowUpNarrowWide class="h-4 w-4" />

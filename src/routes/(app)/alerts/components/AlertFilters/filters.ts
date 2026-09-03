@@ -1,4 +1,5 @@
 import type { FilterAlertsParams } from '$lib/services/alerts.service';
+import { DEFAULT_ALERT_SORT } from '../../helpers/alert-queue-columns';
 
 /**
  * The filter subset the alerts page round-trips through the URL.
@@ -32,8 +33,10 @@ export type Filters = Pick<
 	| 'resolution_status_id'
 	| 'custom_conditions'
 	| 'sort'
+	| 'order_by'
 >;
 
 export const defaultFilters = (): Filters => ({
-	sort: 'desc'
+	order_by: DEFAULT_ALERT_SORT.column,
+	sort: DEFAULT_ALERT_SORT.dir
 });
