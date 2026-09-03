@@ -33,8 +33,15 @@
 	let alertResolutions = $state<AlertResolution[]>([]);
 	let resolutionStatusId = $state<number | null>(null);
 
+	let title = $state('');
+	let description = $state('');
 	let note = $state('');
 	let tags = $state('');
+
+	// The title is what identifies the alert everywhere it is listed, so
+	// an empty one would leave a blank row in the queue. Saving is
+	// blocked rather than silently falling back to the previous value.
+	const titleIsValid = $derived(title.trim().length > 0);
 	let classificationId = $state('');
 	let caseClassifications = $state<CaseClassification[]>([]);
 	let severityId = $state('');
@@ -57,6 +64,8 @@
 
 	$effect(() => {
 		if (alert) {
+			title = alert.alert_title ?? '';
+			description = alert.alert_description ?? '';
 			note = alert.alert_note;
 			resolutionStatusId = alert.alert_resolution_status_id;
 			classificationId = String(alert.alert_classification_id);
@@ -99,6 +108,38 @@
 
 		<div class="flex-1 overflow-auto px-6 py-5">
 			<div class="space-y-5">
+				<!--
+					Title and description sit above everything else because
+					they are what an analyst reads first in the queue. Alerts
+					usually arrive from a feed, but the wording is regularly
+					wrong for the incident in front of you and re-ingesting
+					the alert to correct it is not an option.
+				-->
+				<div class="space-y-2">
+					<Label for="alert-title" class="block text-sm font-medium">Title</Label>
+					<input
+						id="alert-title"
+						type="text"
+						class="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-ring"
+						placeholder="Alert title"
+						aria-invalid={!titleIsValid}
+						bind:value={title}
+					/>
+					{#if !titleIsValid}
+						<p class="text-xs text-destructive">A title is required.</p>
+					{/if}
+				</div>
+
+				<div class="space-y-2">
+					<Label for="alert-description" class="block text-sm font-medium">Description</Label>
+					<textarea
+						id="alert-description"
+						class="min-h-28 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-ring"
+						placeholder="What triggered this alert?"
+						bind:value={description}
+					></textarea>
+				</div>
+
 				<div class="space-y-2">
 					<div class="flex flex-col gap-3">
 						<Label class="text-sm font-medium">Resolution status</Label>
@@ -162,8 +203,11 @@
 				}}>Cancel</Button
 			>
 			<Button
+				disabled={!titleIsValid}
 				onclick={() =>
 					onSave({
+						alert_title: title.trim(),
+						alert_description: description,
 						alert_note: note,
 						alert_tags: tags,
 						alert_resolution_status_id: resolutionStatusId,
