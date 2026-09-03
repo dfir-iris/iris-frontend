@@ -23,7 +23,8 @@
 		FingerprintIcon,
 		LockIcon,
 		MessageSquareOffIcon,
-		MessageSquareIcon
+		MessageSquareIcon,
+		ListFilterIcon
 	} from 'lucide-svelte';
 	import { setMode } from 'mode-watcher';
 	import { Button } from '$lib/components/ui/button';
@@ -32,7 +33,16 @@
 	import * as Card from '$lib/components/ui/card';
 	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
 	import SegmentedSelect from '$lib/components/ui/segmented-select/segmented-select.svelte';
+	import { SearchableSelect } from '$lib/components/ui/searchable-select';
 	import { toast } from '$lib/components/ui/toast';
+	import { AlertsFiltersService, type SavedFilter } from '$lib/services/alerts-filters.service';
+	import {
+		ALERTS_DEFAULT_VIEW,
+		ALERTS_DEFAULT_VIEW_OPTIONS,
+		loadAlertsDefaultView,
+		saveAlertsDefaultView,
+		type AlertsDefaultView
+	} from '$lib/utils/alerts-default-view';
 	import { ProfileService, type Profile } from '$lib/services/profile.service';
 	import { AvatarsService } from '$lib/services/avatars.service';
 	import { avatarStore } from '$lib/services/avatar-cache';
@@ -62,7 +72,76 @@
 	let avatarBusy = $state(false);
 	let avatarInput = $state<HTMLInputElement | null>(null);
 
+	// --- Default alerts view ---------------------------------------------
+	//
+	// Which view the Alerts page opens on when it is reached without a
+	// filter of its own. The saved presets are offered alongside the
+	// built-in modes so a user who already curated one can make it their
+	// landing view; a user without permission to list them (or an
+	// instance with none) just gets the built-ins.
+	const PRESET_PREFIX = 'preset:';
+
+	const viewToSelectValue = (view: AlertsDefaultView) =>
+		view.mode === 'preset' ? `${PRESET_PREFIX}${view.filter_id}` : view.mode;
+
+	let alertPresets = $state<SavedFilter[]>([]);
+	// Bound to the select, so it moves as soon as the user picks. The
+	// last value the server acknowledged is kept alongside it, which is
+	// what a failed save (or a re-pick of the current entry, which the
+	// select reports as a clear) is restored from.
+	let alertsDefaultViewValue = $state(viewToSelectValue(ALERTS_DEFAULT_VIEW));
+	let savedDefaultViewValue = viewToSelectValue(ALERTS_DEFAULT_VIEW);
+
+	const alertsDefaultViewItems = $derived([
+		...ALERTS_DEFAULT_VIEW_OPTIONS.map((option) => ({
+			value: option.mode,
+			label: option.label
+		})),
+		...alertPresets.map((preset) => ({
+			value: `${PRESET_PREFIX}${preset.filter_id}`,
+			label: `Preset — ${preset.filter_name}`
+		}))
+	]);
+
+	const loadAlertsDefaults = async () => {
+		savedDefaultViewValue = viewToSelectValue(await loadAlertsDefaultView());
+		alertsDefaultViewValue = savedDefaultViewValue;
+
+		const res = await AlertsFiltersService.list();
+		if (res.ok && Array.isArray(res.data)) {
+			alertPresets = res.data;
+		}
+	};
+
+	const setAlertsDefaultView = async (value: string) => {
+		// Picking the current entry again clears the select. There is no
+		// "no default" state, so put the choice straight back.
+		if (value === '' || value === savedDefaultViewValue) {
+			alertsDefaultViewValue = savedDefaultViewValue;
+			return;
+		}
+
+		const next: AlertsDefaultView = value.startsWith(PRESET_PREFIX)
+			? { mode: 'preset', filter_id: Number(value.slice(PRESET_PREFIX.length)) }
+			: { mode: value as AlertsDefaultView['mode'] };
+
+		alertsDefaultViewValue = value;
+
+		if (await saveAlertsDefaultView(next)) {
+			savedDefaultViewValue = value;
+			return;
+		}
+
+		alertsDefaultViewValue = savedDefaultViewValue;
+		toast({
+			title: 'Failed to save the default alerts view',
+			variant: 'destructive'
+		});
+	};
+
 	const load = async () => {
+		void loadAlertsDefaults();
+
 		const res = await ProfileService.get();
 		if (res.ok && res.data && typeof res.data !== 'string') {
 			profile = res.data as Profile;
@@ -404,6 +483,26 @@
 						value={profile.has_deletion_confirmation ? 'true' : 'false'}
 						onChange={(value) => setDeletionPrompt(value === 'true')}
 					/>
+				</div>
+
+				<div class="flex flex-col gap-2 md:col-span-2">
+					<Label class="flex items-center gap-1.5">
+						<ListFilterIcon size={14} />
+						Default alerts view
+					</Label>
+					<SearchableSelect
+						items={alertsDefaultViewItems}
+						bind:value={alertsDefaultViewValue}
+						placeholder="Select a default view"
+						searchPlaceholder="Search views..."
+						emptyMessage="No views found."
+						aria-label="Default alerts view"
+						onValueChange={setAlertsDefaultView}
+					/>
+					<p class="text-2xs text-muted-foreground">
+						Applied when you open Alerts from the side bar. Links that already carry filters — a
+						bookmark, a shared URL, or the filter bar after you clear it — are left alone.
+					</p>
 				</div>
 			</Card.Content>
 		</Card.Root>

@@ -38,7 +38,7 @@
 	import { CustomersService, type Customer } from '$lib/services/customers.service';
 	import { UsersService, type MentionableUser } from '$lib/services/users.service';
 	import AlertFilterLabels from './components/AlertFilters/AlertFilterLabels.svelte';
-	import { current_user } from '$lib/stores/auth.store';
+	import { auth, current_user } from '$lib/stores/auth.store';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
@@ -79,6 +79,14 @@
 		type MergeAlertPayload,
 		type MergeMode
 	} from './components/alerts-merge-dialog.svelte';
+	import {
+		ALERTS_DEFAULT_VIEW,
+		loadAlertsDefaultView,
+		openAlertsCondition,
+		type AlertsDefaultView
+	} from '$lib/utils/alerts-default-view';
+	import type { SavedFilter } from '$lib/services/alerts-filters.service';
+	import { buildDefaultAlertFilters } from './helpers/alerts-default-view';
 	import { mergeAlerts } from './helpers/alerts-merge';
 	import { closeAlerts } from './helpers/alerts-close';
 	import { assignAlertsToOwner, reassignAlertOwner } from './helpers/alerts-assign';
@@ -139,6 +147,16 @@
 	);
 
 	let status = $state<'initial' | 'loading' | 'ready'>('initial');
+
+	// The user's default view, resolved once per page load before the
+	// first query goes out. Firing an unfiltered request and then
+	// immediately superseding it would flash every alert in the instance
+	// and waste the round-trip, so the effect below holds until
+	// `defaultViewResolved` flips.
+	let defaultView = $state<AlertsDefaultView>(ALERTS_DEFAULT_VIEW);
+	let defaultViewPreset = $state<SavedFilter | null>(null);
+	let defaultViewResolved = $state(false);
+
 	let filtersOpen = $state(false);
 	let selectedSavedFilterId = $state<string>('');
 	let savingFilter = $state(false);
@@ -228,8 +246,6 @@
 		return null;
 	});
 
-	const TERMINAL_STATUS_NAMES = new Set(['closed', 'merged', 'dismissed', 'escalated']);
-
 	const changeQueueTab = (tab: 'mine' | 'unassigned' | 'escalated' | null) => {
 		let alert_owner_id: number | undefined;
 		let alert_status_id: number | undefined;
@@ -245,15 +261,9 @@
 			);
 			if (escalatedStatus) alert_status_id = escalatedStatus.status_id;
 		} else {
-			// For all other tabs, exclude terminal statuses
-			const terminalIds = alertStatuses
-				.filter((s) => TERMINAL_STATUS_NAMES.has(s.status_name.toLowerCase()))
-				.map((s) => s.status_id);
-			if (terminalIds.length > 0) {
-				custom_conditions = JSON.stringify([
-					{ field: 'alert_status_id', operator: 'not_in', value: terminalIds }
-				]);
-			}
+			// For all other tabs, exclude terminal statuses — the same
+			// "open" scope the per-user default view builds on.
+			custom_conditions = openAlertsCondition(alertStatuses);
 		}
 
 		void commitQuery({
@@ -317,7 +327,19 @@
 		};
 	};
 
-	const writeQueryToUrl = async (queryState: QueryState) => {
+	/**
+	 * Whether the URL already names a view of its own.
+	 *
+	 * `sort` counts: the page writes it on every commit, so its presence
+	 * marks a URL this page (or a bookmark of one) produced — including
+	 * the deliberately empty one left behind by "Clear". Only a bare
+	 * `/alerts`, which is what the side-bar entry links to, is treated
+	 * as "no view chosen" and gets the user's default applied.
+	 */
+	const urlCarriesFilters = (url: URL) => FILTER_KEYS.some((key) => url.searchParams.has(key));
+
+	/** Resolves to whether a navigation was actually issued. */
+	const writeQueryToUrl = async (queryState: QueryState): Promise<boolean> => {
 		const url = new URL(window.location.href);
 
 		if (queryState.page <= 1) url.searchParams.delete('page');
@@ -363,13 +385,15 @@
 
 		const nextHref = `${url.pathname}${url.search}`;
 		const currentHref = `${window.location.pathname}${window.location.search}`;
-		if (nextHref === currentHref) return;
+		if (nextHref === currentHref) return false;
 
 		await goto(nextHref, {
 			replaceState: true,
 			keepFocus: true,
 			noScroll: true
 		});
+
+		return true;
 	};
 
 	const loadAlerts = async (next: QueryState) => {
@@ -832,22 +856,98 @@
 	};
 
 	$effect(() => {
-		const nextQuery = readQueryFromUrl(new URL(page.url));
+		const url = new URL(page.url);
+		const nextQuery = readQueryFromUrl(url);
+
+		// Nothing is fetched until the default view is known — see the
+		// declaration of `defaultViewResolved`. The query still lands so
+		// the toolbar renders against the URL rather than against stale
+		// state once the spinner clears.
+		if (!defaultViewResolved) {
+			query = nextQuery;
+			return;
+		}
+
+		if (!urlCarriesFilters(url)) {
+			const next = {
+				...nextQuery,
+				page: 1,
+				filters: buildDefaultAlertFilters(defaultView, {
+					alertStatuses,
+					currentUserId: $current_user?.id,
+					preset: defaultViewPreset
+				})
+			};
+
+			query = next;
+
+			// A preset default is still a preset: name it in the toolbar
+			// so the chips, the delete affordance and the dropdown agree
+			// with what the queue is actually showing.
+			if (defaultView.mode === 'preset' && defaultViewPreset) {
+				selectedSavedFilterId = String(defaultViewPreset.filter_id);
+			}
+
+			// Writing the URL re-enters this effect, and *that* pass does
+			// the loading: going through `commitQuery` here would fetch
+			// once now and once again on the resulting navigation. If the
+			// href happens not to change there is no second pass, so load
+			// directly instead.
+			void (async () => {
+				const navigated = await writeQueryToUrl(next);
+				if (!navigated) await loadAlerts(next);
+			})();
+
+			return;
+		}
+
 		query = nextQuery;
 
 		void loadAlerts(nextQuery);
 	});
 
 	onMount(async () => {
+		// The status lookup and the default-view preference gate the
+		// first alerts query, so they are fetched together and up front;
+		// every other lookup only feeds the filter panel and can follow.
+		try {
+			const [alertStatusResult, storedView] = await Promise.all([
+				AlertStatusService.list(),
+				loadAlertsDefaultView()
+			]);
+
+			const alertStatusResponse = alertStatusResult.data as unknown as RequestResponse<
+				AlertStatus[]
+			>;
+
+			alertStatuses = (alertStatusResponse?.data ?? []) as AlertStatus[];
+
+			defaultView = storedView;
+
+			// `mine` needs an id, and on a hard reload straight onto
+			// /alerts the layout's whoami may still be in flight. This
+			// shares that in-flight call rather than issuing a second
+			// one, and returns immediately once it has landed.
+			if (storedView.mode === 'mine' && $current_user?.id == null) {
+				await auth.loadAuth(fetch);
+			}
+
+			if (storedView.mode === 'preset' && storedView.filter_id != null) {
+				// A preset the user has since lost access to (or deleted)
+				// resolves to null; `buildDefaultAlertFilters` then falls
+				// back to an unfiltered view rather than an empty one.
+				defaultViewPreset = await alerts.getSavedFilter(storedView.filter_id);
+			}
+		} finally {
+			// Even a failed lookup has to release the gate, or the page
+			// would sit on the spinner forever.
+			defaultViewResolved = true;
+		}
+
 		const alertResolutionResponse = (await AlertResolutionService.list())
 			.data as unknown as RequestResponse<AlertResolution[]>;
 
 		alertResolutions = alertResolutionResponse.data as AlertResolution[];
-
-		const alertStatusResponse = (await AlertStatusService.list())
-			.data as unknown as RequestResponse<AlertStatus[]>;
-
-		alertStatuses = alertStatusResponse.data as AlertStatus[];
 
 		const caseClassificationsResponse = (await CaseClassificationsService.list())
 			.data as unknown as RequestResponse<CaseClassification[]>;

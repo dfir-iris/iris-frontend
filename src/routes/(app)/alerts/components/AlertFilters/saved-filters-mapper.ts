@@ -1,4 +1,4 @@
-import type { Filters } from '.';
+import type { Filters } from './filters';
 import type { SavedFilter } from '$lib/services/alerts-filters.service';
 
 type SavedAlertFilterData = {
