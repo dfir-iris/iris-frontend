@@ -3,7 +3,7 @@
 	import { mode } from 'mode-watcher';
 	import DOMPurify from 'dompurify';
 	import type { IdType, Options } from 'vis-network';
-	import { EyeIcon } from 'lucide-svelte';
+	import { EyeIcon, ExternalLinkIcon } from 'lucide-svelte';
 	import alertSvg from 'lucide-static/icons/bell.svg?raw';
 	import iocSvg from 'lucide-static/icons/link.svg?raw';
 	import caseSvg from 'lucide-static/icons/briefcase-business.svg?raw';
@@ -19,7 +19,7 @@
 		applyAssetImageTheme
 	} from '$lib/components/common/VisNetwork';
 	import Button from '$lib/components/ui/button/button.svelte';
-	import { buildAlertPivotHref } from '$lib/utils/alert-pivot';
+	import { openAlertPivot } from '$lib/utils/alert-pivot';
 	import { AlertRelationshipsFilters, defaultAlertRelationshipsFilters } from '.';
 
 	type ContextMenuState = {
@@ -236,15 +236,15 @@
 			// first underscore, so `evil_domain.com` pivoted as `evil` and matched
 			// nothing. The label is the same value, whole.
 			//
-			// Deliberately not an early `return`: a labelless node has nothing to
-			// pivot on, but the menu below still has to close.
-			const href = buildAlertPivotHref(
+			// New tab, unlike the case/alert branches above: the pivot is a lookup
+			// made *while* reading the graph, so keep the graph where it is. A
+			// labelless node is a no-op rather than an early `return` — the menu
+			// below still has to close either way.
+			openAlertPivot(
 				contextMenu.node.group,
 				contextMenu.node.label as string | undefined,
 				window.location.href
 			);
-
-			if (href) goto(href);
 		}
 
 		closeContextMenu();
@@ -272,6 +272,11 @@
 			class="absolute z-20 rounded-2xl border bg-background px-2 shadow-xl"
 			style={`left:${contextMenu.x}px;top:${contextMenu.y}px;transform:translate(8px, 8px);`}
 		>
+			<!--
+			  The icon says where the click lands: the eye for viewing a case or
+			  alert in this tab, the external-link glyph for the pivot, which
+			  opens a new tab (see `handleNodeAction`).
+			-->
 			{#if contextMenu.node.group === 'case' || contextMenu.node.group === 'alert'}
 				<Button variant="link" size="xs" onclick={() => handleNodeAction()}>
 					<EyeIcon class="size-4" />
@@ -279,10 +284,16 @@
 					#{getId(contextMenu.node.id as string)}
 				</Button>
 			{:else}
-				<Button size="xs" variant="link" onclick={() => handleNodeAction()}>
-					<EyeIcon class="size-4" />
+				<Button
+					size="xs"
+					variant="link"
+					title="Opens the filtered alert list in a new tab"
+					onclick={() => handleNodeAction()}
+				>
+					<ExternalLinkIcon class="size-4" />
 					Pivot on {contextMenu.node.group}
 					{contextMenu.node.label}
+					<span class="sr-only">(opens in a new tab)</span>
 				</Button>
 			{/if}
 		</div>

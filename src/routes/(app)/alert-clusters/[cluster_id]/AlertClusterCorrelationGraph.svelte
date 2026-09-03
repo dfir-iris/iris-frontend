@@ -15,6 +15,7 @@
 		ZoomInIcon,
 		ZoomOutIcon,
 		ChevronRightIcon,
+		ArrowRightIcon,
 		ExternalLinkIcon
 	} from 'lucide-svelte';
 	import alertSvg from 'lucide-static/icons/bell.svg?raw';
@@ -34,7 +35,7 @@
 	} from '$lib/components/common/VisNetwork';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
-	import { buildAlertPivotHref } from '$lib/utils/alert-pivot';
+	import { openAlertPivot } from '$lib/utils/alert-pivot';
 
 	type Group = 'alert' | 'ioc' | 'asset';
 
@@ -532,8 +533,11 @@
 		// `node.label` is the value the filter wants, and it arrives here
 		// untruncated: `nodeById` is built from the raw `graph.nodes`, not from
 		// the styled array where `shortLabel` clips at 42 characters.
-		const href = buildAlertPivotHref(node.group, node.label, window.location.href);
-		if (href) goto(href);
+		//
+		// New tab, unlike the alert branch above: the pivot is a lookup made
+		// *while* reading the graph, and a same-tab navigation would discard the
+		// layout, selection and zoom the analyst just built up.
+		openAlertPivot(node.group, node.label, window.location.href);
 	};
 
 	const toggleGroup = (g: Group) => {
@@ -711,21 +715,32 @@
 					class="absolute z-20 rounded-md border bg-background p-1 shadow-xl"
 					style={`left:${contextMenu.x}px;top:${contextMenu.y}px;transform:translate(8px, 8px);`}
 				>
+					<!--
+					  The icon distinguishes where the click lands: an arrow for the
+					  in-tab alert navigation, the external-link glyph only for the
+					  pivot, which opens a new tab (see `openOrPivot`). Using one
+					  icon for both made it decoration rather than a signal.
+					-->
 					<Button
 						variant="ghost"
 						size="xs"
 						class="w-full justify-start gap-2"
+						title={contextMenu.node.group === 'alert'
+							? undefined
+							: 'Opens the filtered alert list in a new tab'}
 						onclick={() => {
 							const node = nodeById.get(contextMenu.node?.id as string);
 							if (node) openOrPivot(node);
 							contextMenu = { open: false, x: 0, y: 0 };
 						}}
 					>
-						<ExternalLinkIcon class="h-3 w-3" />
 						{#if contextMenu.node.group === 'alert'}
+							<ArrowRightIcon class="h-3 w-3" />
 							View alert #{getRawId(contextMenu.node.id as string)}
 						{:else}
+							<ExternalLinkIcon class="h-3 w-3" />
 							Pivot alerts by {contextMenu.node.group}
+							<span class="sr-only">(opens in a new tab)</span>
 						{/if}
 					</Button>
 				</div>
@@ -888,18 +903,26 @@
 				</div>
 
 				<footer class="border-t px-4 py-3">
+					<!-- Same icon split as the context menu above. -->
 					<Button
 						variant="default"
 						size="xs"
 						class="w-full justify-between"
+						title={selectedNode.group === 'alert'
+							? undefined
+							: 'Opens the filtered alert list in a new tab'}
 						onclick={() => openOrPivot(selectedNode)}
 					>
 						{#if selectedNode.group === 'alert'}
 							Open alert #{getRawId(selectedNode.id)}
+							<ArrowRightIcon class="h-3 w-3" />
 						{:else}
-							Pivot alerts by {selectedNode.group}
+							<span>
+								Pivot alerts by {selectedNode.group}
+								<span class="sr-only">(opens in a new tab)</span>
+							</span>
+							<ExternalLinkIcon class="h-3 w-3" />
 						{/if}
-						<ExternalLinkIcon class="h-3 w-3" />
 					</Button>
 				</footer>
 			</aside>

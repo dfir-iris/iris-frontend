@@ -48,3 +48,31 @@ export function buildAlertPivotHref(
 
 	return `${url.pathname}?${url.searchParams.toString()}`;
 }
+
+/**
+ * Opens the pivot in a new tab, leaving the caller's graph exactly as it was.
+ *
+ * Pivoting is a side-quest: the analyst is reading a correlation graph and
+ * wants to see the alerts behind one node without losing the layout, the
+ * selection, and the scroll position they built up — all of which a
+ * same-tab `goto` throws away.
+ *
+ * `noopener,noreferrer` keeps the new tab from getting a live `window.opener`
+ * handle back into this one. Callers must invoke this synchronously from the
+ * click handler; deferring it past an `await` would let the popup blocker
+ * treat it as unsolicited.
+ *
+ * Returns false when there was nothing to pivot on, so callers can tell the
+ * no-op apart from a real navigation.
+ */
+export function openAlertPivot(
+	group: AlertPivotGroup,
+	label: string | null | undefined,
+	currentHref: string
+): boolean {
+	const href = buildAlertPivotHref(group, label, currentHref);
+	if (href === null) return false;
+
+	window.open(href, '_blank', 'noopener,noreferrer');
+	return true;
+}

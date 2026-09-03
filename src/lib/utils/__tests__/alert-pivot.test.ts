@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { buildAlertPivotHref } from '../alert-pivot';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { buildAlertPivotHref, openAlertPivot } from '../alert-pivot';
 
 const CLUSTER = 'https://iris.local/alert-clusters/7';
 
@@ -107,5 +107,53 @@ describe('buildAlertPivotHref', () => {
 		it('trims surrounding whitespace off a real value', () => {
 			expect(buildAlertPivotHref('ioc', '  8.8.8.8  ', CLUSTER)).toBe('/alerts/?alert_iocs=8.8.8.8');
 		});
+	});
+});
+
+describe('openAlertPivot', () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	// The pivot is a lookup made while reading a correlation graph. Navigating
+	// in-tab threw away the layout, selection and zoom the analyst had built up,
+	// so they had to rebuild the view every time they checked a node.
+	it('opens the pivot in a new tab instead of navigating', () => {
+		const open = vi.spyOn(window, 'open').mockReturnValue(null);
+
+		expect(openAlertPivot('ioc', '8.8.8.8', CLUSTER)).toBe(true);
+
+		expect(open).toHaveBeenCalledTimes(1);
+		expect(open).toHaveBeenCalledWith('/alerts/?alert_iocs=8.8.8.8', '_blank', 'noopener,noreferrer');
+	});
+
+	it('passes the asset pivot through the same builder', () => {
+		const open = vi.spyOn(window, 'open').mockReturnValue(null);
+
+		openAlertPivot('asset', 'WIN_DC_01', CLUSTER);
+
+		expect(open).toHaveBeenCalledWith(
+			'/alerts/?alert_assets=WIN_DC_01',
+			'_blank',
+			'noopener,noreferrer'
+		);
+	});
+
+	// `noopener` keeps the opened tab from holding a live `window.opener`
+	// reference back into the app.
+	it('always opens with noopener and noreferrer', () => {
+		const open = vi.spyOn(window, 'open').mockReturnValue(null);
+
+		openAlertPivot('ioc', 'evil.example', CLUSTER);
+
+		expect(open.mock.calls[0][2]).toBe('noopener,noreferrer');
+	});
+
+	it('does nothing and reports false when there is no value to pivot on', () => {
+		const open = vi.spyOn(window, 'open').mockReturnValue(null);
+
+		expect(openAlertPivot('ioc', '   ', CLUSTER)).toBe(false);
+
+		expect(open).not.toHaveBeenCalled();
 	});
 });
