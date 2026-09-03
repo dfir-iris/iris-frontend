@@ -1171,8 +1171,12 @@
 					onChange={(next) => {
 						query = { ...query, filters: next };
 					}}
-					onApply={() => commitQuery({ ...query, page: 1 })}
+					onApply={() => {
+						filtersOpen = false;
+						commitQuery({ ...query, page: 1 });
+					}}
 					onClear={() => {
+						filtersOpen = false;
 						clearSavedFilterSelection();
 						commitQuery({ ...query, page: 1, filters: defaultFilters() });
 					}}
@@ -1429,12 +1433,16 @@
 								filters: next
 							};
 						}}
-						onApply={() =>
+						onApply={() => {
+							filtersOpen = false;
+
 							commitQuery({
 								...query,
 								page: 1
-							})}
+							});
+						}}
 						onClear={() => {
+							filtersOpen = false;
 							clearSavedFilterSelection();
 
 							commitQuery({

@@ -1013,8 +1013,12 @@
 					filterGroup = next;
 					selectedSavedFilterId = '';
 				}}
-				onApply={applyFiltersNow}
+				onApply={() => {
+					filterBuilderOpen = false;
+					applyFiltersNow();
+				}}
 				onClear={() => {
+					filterBuilderOpen = false;
 					filterGroup = emptyGroup('and');
 					selectedSavedFilterId = '';
 					applyFiltersNow();
