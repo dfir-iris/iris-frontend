@@ -21,8 +21,10 @@
 
 	// Coerce user input for operators that take structured values.
 	// `in` / `not_in` split on commas → array of trimmed strings;
-	// numeric-looking scalars stay strings (the backend coerces them on
-	// the SQL side via SQLAlchemy binds — no need for us to guess).
+	// scalar values stay strings. The backend coerces numeric strings
+	// to int/float for `gte`/`lte` before binding (see
+	// `filtering.py::build_condition`) — keeping them as strings here
+	// keeps the JSON round-trip simple.
 	export function coerceValue(raw: string, operator: string): unknown {
 		if (operator === 'in' || operator === 'not_in') {
 			return raw
