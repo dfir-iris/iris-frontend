@@ -161,7 +161,7 @@
 	<title>Alert #{alert_id}</title>
 </svelte:head>
 
-<div class="mx-auto flex h-full w-full max-w-8xl grow flex-col gap-4 overflow-y-auto p-4">
+<div class="mx-auto flex w-full max-w-8xl grow flex-col gap-4 p-4">
 	{#await alertPromise}
 		<div class="flex items-center gap-2 text-sm text-muted-foreground">Loading...</div>
 	{:then alert}
