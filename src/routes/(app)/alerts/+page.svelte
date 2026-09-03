@@ -22,7 +22,12 @@
 		type InvestigationFlowPanelContext
 	} from '$lib/contexts/investigation-flow-panel.context.svelte';
 	import type { RequestResponse, Paginated } from '$lib/services/api.service';
-	import type { FilterAlertsParams, UpdateAlertBody } from '$lib/services/alerts.service';
+	import type {
+		CreateAlertBody,
+		FilterAlertsParams,
+		UpdateAlertBody
+	} from '$lib/services/alerts.service';
+	import { toast } from '$lib/components/ui/toast';
 	import type { AlertQueueUnit } from '$lib/types/resources/alert-queue-unit';
 	import { pruneAlertQueueUnits, replaceAlertInQueueUnits } from '$lib/utils/alert-queue';
 	import {
@@ -75,6 +80,7 @@
 	import AlertsReasignDialog from './components/alerts-reasign-dialog.svelte';
 	import AlertsCloseDialog from './components/alerts-close-dialog.svelte';
 	import AlertEditDialog from './components/alert-edit-dialog.svelte';
+	import AlertCreateDialog from './components/alert-create-dialog.svelte';
 	import AlertsMergeDialog, {
 		type MergeAlertPayload,
 		type MergeMode
@@ -208,6 +214,8 @@
 
 	let showAlertHistory = $state(false);
 	let showAlertEdit = $state(false);
+	let showAlertCreate = $state(false);
+	let creatingAlert = $state(false);
 	let showMerge = $state(false);
 	// Which half of the merge dialog to land on: "Escalate" opens a new
 	// case, "Merge" folds the alerts into an existing one.
@@ -715,6 +723,38 @@
 		return updated;
 	};
 
+	const createAlert = async (body: CreateAlertBody) => {
+		creatingAlert = true;
+
+		try {
+			const created = await alerts.create(body);
+
+			if (!created) {
+				// The API is the authority on who may write alerts for
+				// which customer, so a refusal lands here rather than
+				// being second-guessed by hiding the button.
+				toast({
+					title: 'Failed to create the alert',
+					description: 'Check that you have write access for the selected customer.',
+					variant: 'destructive'
+				});
+				return;
+			}
+
+			showAlertCreate = false;
+
+			toast({ title: `Alert #${created.alert_id} created` });
+
+			// Re-query rather than splicing the new alert in: it may not
+			// belong in the current filter, page or board column at all,
+			// and a row that vanishes on the next refresh is worse than
+			// one that never appeared.
+			refreshCurrentView();
+		} finally {
+			creatingAlert = false;
+		}
+	};
+
 	const confirmReassign = async () => {
 		if (!reassignAlert) return;
 
@@ -1147,6 +1187,8 @@
 				</div>
 
 				<div class="flex items-center gap-2">
+					<Button size="xs" onclick={() => (showAlertCreate = true)}>New alert</Button>
+
 					<Button
 						variant="outline"
 						size="xs"
@@ -1362,6 +1404,8 @@
 								{query.expanded ? 'Collapse All' : 'Expand All'}
 							</Button>
 						{/if}
+
+						<Button size="xs" onclick={() => (showAlertCreate = true)}>New alert</Button>
 
 						<Button
 							variant="outline"
@@ -1628,6 +1672,21 @@
 		alert={selectedAlert}
 	/>
 {/if}
+
+<!--
+	Outside the `selectedAlert` block on purpose: creating an alert is
+	the one alert action that does not need one to already exist.
+-->
+<AlertCreateDialog
+	bind:open={showAlertCreate}
+	onClose={() => (showAlertCreate = false)}
+	onCreate={createAlert}
+	saving={creatingAlert}
+	{alertStatuses}
+	{caseClassifications}
+	{severities}
+	{customers}
+/>
 
 <AlertsReasignDialog
 	bind:open={reassignOpen}
