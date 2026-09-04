@@ -247,7 +247,10 @@
 	};
 
 	const deleteSelected = async () => {
-		if (!selectedCount) { showConfirmDelete = false; return; }
+		if (!selectedCount) {
+			showConfirmDelete = false;
+			return;
+		}
 		isBulkWorking = true;
 		const ids = [...selectedIocs];
 		await Promise.all(ids.map((id) => caseIocs.removeIoc(id)));
@@ -449,14 +452,20 @@
 	</div>
 
 	{#if selectionMode}
-		<div class="flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-muted/40 px-2 py-1.5">
+		<div
+			class="flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-muted/40 px-2 py-1.5"
+		>
 			<span class="text-xs text-muted-foreground">{selectedCount} selected</span>
 
 			<Button size="xs" variant="outline" onclick={selectAll}>Select All</Button>
 
 			<DropdownMenu>
 				<DropdownMenuTrigger>
-					<Button size="xs" variant="outline" disabled={!selectedCount || isBulkWorking || !iocTypes.length}>
+					<Button
+						size="xs"
+						variant="outline"
+						disabled={!selectedCount || isBulkWorking || !iocTypes.length}
+					>
 						Set Type <ChevronDownIcon size={12} />
 					</Button>
 				</DropdownMenuTrigger>
@@ -536,7 +545,10 @@
 									type="checkbox"
 									class="size-4 shrink-0 cursor-pointer accent-primary"
 									checked={selectedIocs.has(ioc.ioc_id)}
-									onclick={(e) => { e.stopPropagation(); toggleIocSelection(ioc.ioc_id); }}
+									onclick={(e) => {
+										e.stopPropagation();
+										toggleIocSelection(ioc.ioc_id);
+									}}
 									onchange={() => {}}
 								/>
 								<div class="min-w-0 flex-1">
@@ -577,7 +589,9 @@
 <ConfirmationDialog
 	bind:open={showConfirmDelete}
 	title="Delete IOCs"
-	message="Delete {selectedCount} selected IOC{selectedCount === 1 ? '' : 's'}? This cannot be undone."
+	message="Delete {selectedCount} selected IOC{selectedCount === 1
+		? ''
+		: 's'}? This cannot be undone."
 	confirmText="Delete"
 	onConfirm={deleteSelected}
 />

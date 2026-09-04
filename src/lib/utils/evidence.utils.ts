@@ -85,7 +85,10 @@ export function escapeCSVValue(value: string | null | undefined): string {
 	return s;
 }
 
-export function convertEvidencesToCSV(evidences: Evidence[], columns: EvidenceExportColumn[]): string {
+export function convertEvidencesToCSV(
+	evidences: Evidence[],
+	columns: EvidenceExportColumn[]
+): string {
 	if (!evidences.length || !columns.length) return '';
 	const header = columns.map((c) => escapeCSVValue(c.header)).join(',');
 	const rows = evidences.map((e) => columns.map((c) => escapeCSVValue(c.getter(e))).join(','));
