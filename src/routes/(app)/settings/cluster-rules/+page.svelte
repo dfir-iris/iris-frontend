@@ -74,16 +74,20 @@
 	// the window per rule as they iterate.
 	let sampleDays = $state<number>(30);
 
-	const showError = (msg: string) => toast({ title: msg, variant: 'destructive' });
+	const showError = (msg: string, detail?: string) =>
+		toast({ title: msg, description: detail, variant: 'destructive' });
 	const showSuccess = (msg: string) => toast({ title: msg, variant: 'success' });
 
 	const load = async () => {
 		loading = true;
 		try {
 			const res = await ClusterRulesService.list();
+			if (!res.ok) {
+				showError('Failed to load rules', res.error?.message);
+				return;
+			}
+
 			rules = (res.data as ClusterRule[]) ?? [];
-		} catch {
-			showError('Failed to load rules');
 		} finally {
 			loading = false;
 		}
@@ -153,19 +157,18 @@
 				...(titleTemplate ? { title_template: titleTemplate } : {})
 			}
 		};
-		try {
-			if (editing.rule_id === 0) {
-				await ClusterRulesService.create(body);
-				showSuccess('Rule created');
-			} else {
-				await ClusterRulesService.update(editing.rule_id, body);
-				showSuccess('Rule updated');
-			}
-			editing = null;
-			await load();
-		} catch {
-			showError('Failed to save rule');
+		const isNew = editing.rule_id === 0;
+		const res = isNew
+			? await ClusterRulesService.create(body)
+			: await ClusterRulesService.update(editing.rule_id, body);
+		if (!res.ok) {
+			showError(isNew ? 'Failed to create rule' : 'Failed to save rule', res.error?.message);
+			return;
 		}
+
+		editing = null;
+		await load();
+		showSuccess(isNew ? 'Rule created' : 'Rule updated');
 	};
 
 	const askDelete = (rule: ClusterRule) => {
@@ -175,14 +178,16 @@
 
 	const confirmDelete = async () => {
 		if (!ruleToDelete) return;
-		try {
-			await ClusterRulesService.remove(ruleToDelete.rule_id);
-			showSuccess('Rule deleted');
-			ruleToDelete = null;
-			await load();
-		} catch {
-			showError('Failed to delete rule');
+
+		const res = await ClusterRulesService.remove(ruleToDelete.rule_id);
+		if (!res.ok) {
+			showError('Failed to delete rule', res.error?.message);
+			return;
 		}
+
+		ruleToDelete = null;
+		await load();
+		showSuccess('Rule deleted');
 	};
 
 	const runTest = async () => {
@@ -190,14 +195,15 @@
 			showError('Save the rule first — Test runs against the saved rule');
 			return;
 		}
-		try {
-			const res = await ClusterRulesService.test(editing.rule_id, {
-				sample_days: sampleDays
-			});
-			testMatches = (res.data as { matching_alert_ids?: number[] })?.matching_alert_ids ?? [];
-		} catch {
-			showError('Test failed');
+		const res = await ClusterRulesService.test(editing.rule_id, {
+			sample_days: sampleDays
+		});
+		if (!res.ok) {
+			showError('Test failed', res.error?.message);
+			return;
 		}
+
+		testMatches = (res.data as { matching_alert_ids?: number[] })?.matching_alert_ids ?? [];
 	};
 
 	const runBackfill = async () => {
@@ -207,21 +213,27 @@
 			const res = await ClusterRulesService.backfill(editing.rule_id, {
 				sample_days: sampleDays
 			});
+			if (!res.ok) {
+				showError('Back-fill failed', res.error?.message);
+				return;
+			}
+
 			const payload =
 				res.data && typeof res.data === 'object' ? (res.data as BackfillRuleResponse) : null;
-			if (payload) {
-				const parts: string[] = [];
-				if (payload.attached) parts.push(`${payload.attached} attached`);
-				if (payload.skipped_already_in_cluster)
-					parts.push(`${payload.skipped_already_in_cluster} skipped (already in cluster)`);
-				if (payload.errors) parts.push(`${payload.errors} error(s)`);
-				const summary = parts.length
-					? parts.join(' · ')
-					: `Considered ${payload.considered} — no changes`;
-				showSuccess(summary);
+			if (!payload) {
+				showError('Back-fill failed', 'The server returned an unexpected response.');
+				return;
 			}
-		} catch {
-			showError('Back-fill failed');
+
+			const parts: string[] = [];
+			if (payload.attached) parts.push(`${payload.attached} attached`);
+			if (payload.skipped_already_in_cluster)
+				parts.push(`${payload.skipped_already_in_cluster} skipped (already in cluster)`);
+			if (payload.errors) parts.push(`${payload.errors} error(s)`);
+			const summary = parts.length
+				? parts.join(' · ')
+				: `Considered ${payload.considered} — no changes`;
+			showSuccess(summary);
 		} finally {
 			backfilling = false;
 			backfillOpen = false;
