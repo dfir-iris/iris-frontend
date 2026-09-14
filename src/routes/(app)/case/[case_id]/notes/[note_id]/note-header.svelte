@@ -97,10 +97,14 @@
 	const lastSaved = $derived.by<LastSaved | null>(() => {
 		if (!note.modification_history) return null;
 
+		// The keys are epoch seconds as strings, so compare them as numbers and
+		// take the last. The previous comparator read `getDate()` (day of the
+		// month, 1-31) on one side and `getTime()` (epoch ms) on the other, so
+		// the test was never true and the sort returned -1 for every pair —
+		// leaving the order untouched and `pop()` returning whichever key the
+		// object happened to enumerate last.
 		const lastModification = Object.keys(note.modification_history)
-			.sort((a: string, b: string) =>
-				getModificationDate(b).getDate() < getModificationDate(a).getTime() ? 1 : -1
-			)
+			.sort((a: string, b: string) => Number(a) - Number(b))
 			.pop();
 
 		if (!lastModification) return null;
