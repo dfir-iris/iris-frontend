@@ -56,19 +56,37 @@ export interface PageParams {
 // parses JSON inbound. Its auth behaviour is still wanted, so the pre-flight
 // refresh and the bearer header are reproduced here — same shape as
 // case-transfer.service.ts, which faces the same two-way mismatch.
+// Returns `null` when the request never produced a response at all — the
+// browser is offline, DNS failed, the TLS handshake was rejected. `fetch`
+// signals that by REJECTING, not by an `ok: false` response, so without this
+// catch the rejection escapes every caller below (none of which are awaited
+// inside a try) and lands in `window.onerror` as an uncaught
+// "TypeError: Failed to fetch". ApiService swallows this case for JSON
+// requests; these binary/multipart paths bypass it and have to do it here.
 const authorizedFetch = async (
 	url: string,
 	init: RequestInit & { headers: Record<string, string> }
-): Promise<Response> => {
-	if (auth.isTokenExpired() && !auth.isRefreshTokenExpired()) {
-		await AuthService.refreshToken();
+): Promise<Response | null> => {
+	try {
+		if (auth.isTokenExpired() && !auth.isRefreshTokenExpired()) {
+			await AuthService.refreshToken();
+		}
+
+		const token = auth.getAccessToken();
+		if (token) init.headers.Authorization = `Bearer ${token}`;
+
+		const base = browser ? (ApiService.baseUrl ?? '').replace(/\/$/, '') : '';
+		return await fetch(`${base}${url}`, init);
+	} catch {
+		return null;
 	}
+};
 
-	const token = auth.getAccessToken();
-	if (token) init.headers.Authorization = `Bearer ${token}`;
-
-	const base = browser ? (ApiService.baseUrl ?? '').replace(/\/$/, '') : '';
-	return fetch(`${base}${url}`, init);
+// `status: 0` mirrors what ApiService reports for a network-level failure, so
+// callers that branch on status see one convention across both paths.
+const NETWORK_FAILURE: ManagedAssetTransferFailure = {
+	message: 'Network request failed',
+	status: 0
 };
 
 // Failures from these endpoints are `{message, data?}` JSON even when the
@@ -226,6 +244,7 @@ export class ManagedAssetsService {
 			body: JSON.stringify(body)
 		});
 
+		if (!response) return { ok: false, error: NETWORK_FAILURE };
 		if (!response.ok) return { ok: false, error: await readFailure(response) };
 
 		return {
@@ -259,6 +278,7 @@ export class ManagedAssetsService {
 			body: form
 		});
 
+		if (!response) return { ok: false, error: NETWORK_FAILURE };
 		if (!response.ok) return { ok: false, error: await readFailure(response) };
 
 		// v2 success bodies are the payload itself — there is no `data` envelope.

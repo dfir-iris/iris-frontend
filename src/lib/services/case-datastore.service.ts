@@ -222,7 +222,19 @@ export class CaseDatastoreService {
 		const token = auth.getAccessToken();
 		if (token) headers['Authorization'] = `Bearer ${token}`;
 
-		const res = await fetch(url, { headers, credentials: 'include' });
+		// The whole read is wrapped because the "network failure" the contract
+		// above promises to report as `null` is a fetch REJECTION, not an
+		// `ok: false` response — the `!res.ok` check below never sees it. Left
+		// uncaught it escapes as "TypeError: Failed to fetch" from every
+		// evidence/datastore download (GlitchTip iris-saas-frontend#183).
+		// `res.blob()` can fail the same way on a truncated response.
+		let res: Response;
+		try {
+			res = await fetch(url, { headers, credentials: 'include' });
+		} catch {
+			return null;
+		}
+
 		if (!res.ok) return null;
 
 		// Best-effort filename extraction from Content-Disposition so the
@@ -241,8 +253,12 @@ export class CaseDatastoreService {
 			}
 		}
 
-		const blob = await res.blob();
-		return { url: URL.createObjectURL(blob), filename };
+		try {
+			const blob = await res.blob();
+			return { url: URL.createObjectURL(blob), filename };
+		} catch {
+			return null;
+		}
 	}
 
 	static async uploadFile(

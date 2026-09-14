@@ -38,19 +38,37 @@ const ARCHIVE_FALLBACK_NAME = 'case-export.iris';
 // back. We still want its auth behaviour, so the pre-flight refresh and the
 // bearer header are reproduced here — same shape as the Datastore panel's
 // upload path in case-datastore.service.ts.
+// Returns `null` when the request never produced a response at all — the
+// browser is offline, DNS failed, the TLS handshake was rejected. `fetch`
+// signals that by REJECTING, not by an `ok: false` response, so without this
+// catch the rejection escapes every caller below (none of which are awaited
+// inside a try) and lands in `window.onerror` as an uncaught
+// "TypeError: Failed to fetch". ApiService swallows this case for JSON
+// requests; these binary/multipart paths bypass it and have to do it here.
 const authorizedFetch = async (
 	url: string,
 	init: RequestInit & { headers: Record<string, string> }
-): Promise<Response> => {
-	if (auth.isTokenExpired() && !auth.isRefreshTokenExpired()) {
-		await AuthService.refreshToken();
+): Promise<Response | null> => {
+	try {
+		if (auth.isTokenExpired() && !auth.isRefreshTokenExpired()) {
+			await AuthService.refreshToken();
+		}
+
+		const token = auth.getAccessToken();
+		if (token) init.headers.Authorization = `Bearer ${token}`;
+
+		const base = browser ? (ApiService.baseUrl ?? '').replace(/\/$/, '') : '';
+		return await fetch(`${base}${url}`, init);
+	} catch {
+		return null;
 	}
+};
 
-	const token = auth.getAccessToken();
-	if (token) init.headers.Authorization = `Bearer ${token}`;
-
-	const base = browser ? (ApiService.baseUrl ?? '').replace(/\/$/, '') : '';
-	return fetch(`${base}${url}`, init);
+// `status: 0` mirrors what ApiService reports for a network-level failure, so
+// callers that branch on status see one convention across both paths.
+const NETWORK_FAILURE: CaseTransferFailure = {
+	message: 'Network request failed',
+	status: 0
 };
 
 // Errors from these endpoints are `{message, data?}` JSON even when the success
@@ -107,6 +125,7 @@ export class CaseTransferService {
 			body: JSON.stringify(body)
 		});
 
+		if (!response) return { ok: false, error: NETWORK_FAILURE };
 		if (!response.ok) return { ok: false, error: await readFailure(response) };
 
 		return {
@@ -136,6 +155,7 @@ export class CaseTransferService {
 			body: form
 		});
 
+		if (!response) return { ok: false, error: NETWORK_FAILURE };
 		if (!response.ok) return { ok: false, error: await readFailure(response) };
 
 		return { ok: true, value: (await response.json()) as BundleInspection };
