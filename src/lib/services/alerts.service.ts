@@ -2,6 +2,8 @@ import { ApiService } from './api.service';
 import type { ApiOptions, RequestResponse } from './api.service';
 import type { Alert } from '$lib/types/resources/alert';
 import type { AlertQueueUnit } from '$lib/types/resources/alert-queue-unit';
+import type { Asset } from '$lib/types/resources/asset';
+import type { Ioc } from '$lib/types/resources/ioc';
 
 export type AlertIdentifier = number;
 export type SortDir = 'asc' | 'desc';
@@ -127,6 +129,31 @@ export interface CreateAlertBody {
 }
 
 export type UpdateAlertBody = Partial<CreateAlertBody>;
+
+/**
+ * Details an analyst documents on an alert's IOC. The server only reads
+ * these keys — identity, ownership and case attachment are not editable
+ * from an alert (see `alerts_routes/iocs.py`).
+ */
+export interface UpdateAlertIocBody {
+	ioc_value?: string;
+	ioc_type_id?: number;
+	ioc_tlp_id?: number;
+	ioc_description?: string | null;
+	ioc_tags?: string | null;
+	ioc_enrichment?: Record<string, unknown> | null;
+}
+
+/** Same contract as `UpdateAlertIocBody`, for an alert's assets. */
+export interface UpdateAlertAssetBody {
+	asset_name?: string;
+	asset_type_id?: number;
+	asset_description?: string | null;
+	asset_domain?: string | null;
+	asset_ip?: string | null;
+	asset_tags?: string | null;
+	asset_enrichment?: Record<string, unknown> | null;
+}
 
 export type RelatedAlertNode = {
 	id: string;
@@ -280,6 +307,37 @@ export class AlertService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
 		return ApiService.delete<null>(`/api/v2/alerts/${alertId}`, options);
+	}
+
+	/**
+	 * Edit one of the alert's IOCs in place. The IOC keeps belonging to
+	 * the alert — this is not the case IOC route, which needs a case.
+	 */
+	static async updateIoc(
+		alertId: AlertIdentifier,
+		iocId: number,
+		body: UpdateAlertIocBody,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<Ioc>> {
+		return ApiService.put<Ioc, UpdateAlertIocBody>(
+			`/api/v2/alerts/${alertId}/iocs/${iocId}`,
+			body,
+			options
+		);
+	}
+
+	/** Edit one of the alert's assets in place. See `updateIoc`. */
+	static async updateAsset(
+		alertId: AlertIdentifier,
+		assetId: number,
+		body: UpdateAlertAssetBody,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<Asset>> {
+		return ApiService.put<Asset, UpdateAlertAssetBody>(
+			`/api/v2/alerts/${alertId}/assets/${assetId}`,
+			body,
+			options
+		);
 	}
 
 	static async getRelatedAlerts(

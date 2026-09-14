@@ -7,6 +7,9 @@
 	import TlpBadge from '../tlp/TlpBadge.svelte';
 	import IocNameCell from './IocNameCell.svelte';
 	import RowCheckbox from '$lib/components/common/RowCheckbox.svelte';
+	import TagDisplay from '$lib/components/common/tag/TagDisplay.svelte';
+	import RowActionsCell from '$lib/components/common/table/RowActionsCell.svelte';
+	import TruncatedTextCell from '$lib/components/common/table/TruncatedTextCell.svelte';
 
 	export let iocs: Ioc[];
 	export let caseId: string | number | null = null;
@@ -17,6 +20,15 @@
 	export let selectionMode: boolean = false;
 	export let selectedIocs: Set<number> = new Set();
 	export let onToggleSelect: ((id: number) => void) | undefined = undefined;
+
+	// Detail columns, off by default so the case views keep the compact
+	// table they have. The alert views turn them on: an alert's IOCs are
+	// only ever read there, and the description, the tags and whatever a
+	// module enriched them with are the whole point of reading them.
+	export let showDescription: boolean = false;
+	export let showTags: boolean = false;
+	export let onShowEnrichment: ((ioc: Ioc) => void) | undefined = undefined;
+	export let onEdit: ((ioc: Ioc) => void) | undefined = undefined;
 
 	const dispatch = createEventDispatcher();
 
@@ -53,7 +65,14 @@
 		dispatch('pageSizeChange', { pageSize: currentPageSize });
 	}
 
-	const dataColumns: ColumnDef<Ioc>[] = [
+	// The detail columns compete for the same fixed width as the base
+	// ones, so the base widths shrink when they are shown rather than
+	// squeezing the value out of the first column.
+	$: detailed = showDescription || showTags;
+
+	let dataColumns: ColumnDef<Ioc>[] = [];
+
+	$: dataColumns = [
 		{
 			accessorKey: 'ioc_value',
 			header: () => 'Name',
@@ -73,18 +92,60 @@
 		{
 			accessorKey: 'ioc_type.type_name',
 			header: () => 'Type',
-			meta: { thClass: 'w-1/4' },
+			meta: { thClass: detailed ? 'w-[14%]' : 'w-1/4' },
 			cell: (cell) => cell.getValue() || '-'
 		},
 		{
 			accessorKey: 'tlp.tlp_name',
 			header: () => 'TLP',
-			meta: { thClass: 'w-[30%]' },
+			meta: { thClass: detailed ? 'w-[12%]' : 'w-[30%]' },
 			cell: (cell) => {
 				const tlpName = cell.getValue() as string;
 				return renderComponent(TlpBadge, { tlp_name: tlpName });
 			}
-		}
+		},
+		...(showDescription
+			? [
+					{
+						accessorKey: 'ioc_description',
+						header: () => 'Description',
+						meta: { thClass: 'w-[28%]', tdClass: 'max-w-0' },
+						cell: (cell) =>
+							renderComponent(TruncatedTextCell, { value: cell.getValue() as string | null })
+					} as ColumnDef<Ioc>
+				]
+			: []),
+		...(showTags
+			? [
+					{
+						accessorKey: 'ioc_tags',
+						header: () => 'Tags',
+						meta: { thClass: 'w-[18%]', tdClass: 'max-w-0' },
+						cell: (cell) =>
+							renderComponent(TagDisplay, { tags: (cell.getValue() as string) ?? '', size: 'xs' })
+					} as ColumnDef<Ioc>
+				]
+			: []),
+		...(onEdit || onShowEnrichment
+			? [
+					{
+						id: '__actions__',
+						header: () => '',
+						meta: { thClass: 'w-16', tdClass: 'w-16' },
+						cell: (cell) => {
+							const ioc = cell.row.original;
+
+							return renderComponent(RowActionsCell, {
+								hasEnrichment: !!ioc.ioc_enrichment,
+								onShowEnrichment: onShowEnrichment && (() => onShowEnrichment?.(ioc)),
+								onEdit: onEdit && (() => onEdit?.(ioc)),
+								editLabel: 'Edit IOC',
+								enrichmentLabel: 'View IOC enrichment'
+							});
+						}
+					} as ColumnDef<Ioc>
+				]
+			: [])
 	];
 
 	$: columns = selectionMode

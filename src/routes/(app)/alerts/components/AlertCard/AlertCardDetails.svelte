@@ -1,13 +1,19 @@
 <script lang="ts">
 	import { Collapsible } from 'bits-ui';
 	import type { Alert } from '$lib/types/resources/alert';
+	import type { Asset } from '$lib/types/resources/asset';
+	import type { Ioc } from '$lib/types/resources/ioc';
 	import { mediumDateTimeFormatter } from '$lib/utils/time-formatter';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import ClipboardCopy from '$lib/components/ui/clipboard-copy/clipboard-copy.svelte';
 	import IocDataTable from '$lib/components/common/ioc/IocDataTable.svelte';
 	import AssetDataTable from '$lib/components/common/assets/AssetDataTable.svelte';
+	import EnrichmentDialog from '$lib/components/common/EnrichmentDialog.svelte';
 	import { AlertRelatedGraph } from '../AlertRelatedGraph';
 	import { MarkDownPreview } from '$lib/components/common/MarkDown';
+	import AlertIocEditDialog from '../alert-ioc-edit-dialog.svelte';
+	import AlertAssetEditDialog from '../alert-asset-edit-dialog.svelte';
+	import { hasChanges, saveAlertAsset, saveAlertIoc } from '../../helpers/alert-observables';
 
 	let {
 		alert
@@ -16,6 +22,80 @@
 	} = $props();
 
 	let showRawAlert = $state(false);
+
+	let enrichmentOpen = $state(false);
+	let enrichmentSubject = $state('');
+	let enrichmentValue = $state<unknown>(null);
+
+	// The edited row and the dialog's own open flag are kept apart so the
+	// dialog is only mounted while something is being edited — one card
+	// per alert is rendered in the queue, and each carries these.
+	let editedIoc = $state<Ioc | null>(null);
+	let iocDialogOpen = $state(false);
+	let editedAsset = $state<Asset | null>(null);
+	let assetDialogOpen = $state(false);
+	let saving = $state(false);
+
+	const showEnrichment = (subject: string, enrichment: unknown) => {
+		enrichmentSubject = subject;
+		enrichmentValue = enrichment;
+		enrichmentOpen = true;
+	};
+
+	const editIoc = (ioc: Ioc) => {
+		editedIoc = ioc;
+		iocDialogOpen = true;
+	};
+
+	const closeIocDialog = () => {
+		iocDialogOpen = false;
+		editedIoc = null;
+	};
+
+	const editAsset = (asset: Asset) => {
+		editedAsset = asset;
+		assetDialogOpen = true;
+	};
+
+	const closeAssetDialog = () => {
+		assetDialogOpen = false;
+		editedAsset = null;
+	};
+
+	// `saveAlertIoc` patches the row back into `alert` itself, which is
+	// what the tables render — nothing to refetch, and the other views
+	// on the same alert object see the edit too.
+	const saveIoc = async (ioc: Ioc, changes: Parameters<typeof saveAlertIoc>[2]) => {
+		if (!hasChanges(changes)) {
+			closeIocDialog();
+			return;
+		}
+
+		saving = true;
+
+		const updated = await saveAlertIoc(alert, ioc.ioc_id, changes);
+
+		saving = false;
+
+		// A failed save leaves the dialog open with the analyst's text in
+		// it — the toast says what went wrong and the edit is not lost.
+		if (updated) closeIocDialog();
+	};
+
+	const saveAsset = async (asset: Asset, changes: Parameters<typeof saveAlertAsset>[2]) => {
+		if (!hasChanges(changes)) {
+			closeAssetDialog();
+			return;
+		}
+
+		saving = true;
+
+		const updated = await saveAlertAsset(alert, asset.asset_id, changes);
+
+		saving = false;
+
+		if (updated) closeAssetDialog();
+	};
 
 	const contextEntries: { key: string; value: string }[] = $derived.by(() => {
 		const ctx = alert.alert_context;
@@ -132,7 +212,13 @@
 	{#if alert.iocs.length}
 		<div class="rounded-lg border border-border/50 bg-muted/30 p-4">
 			<h4 class="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">IOCs</h4>
-			<IocDataTable iocs={alert.iocs} />
+			<IocDataTable
+				iocs={alert.iocs}
+				showDescription
+				showTags
+				onShowEnrichment={(ioc) => showEnrichment(ioc.ioc_value, ioc.ioc_enrichment)}
+				onEdit={editIoc}
+			/>
 		</div>
 	{/if}
 
@@ -142,7 +228,12 @@
 			<h4 class="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 				Assets
 			</h4>
-			<AssetDataTable assets={alert.assets} />
+			<AssetDataTable
+				assets={alert.assets}
+				showDescription
+				onShowEnrichment={(asset) => showEnrichment(asset.asset_name, asset.asset_enrichment)}
+				onEdit={editAsset}
+			/>
 		</div>
 	{/if}
 
@@ -176,3 +267,29 @@
 		</Collapsible.Root>
 	</div>
 </div>
+
+<EnrichmentDialog
+	bind:open={enrichmentOpen}
+	subject={enrichmentSubject}
+	enrichment={enrichmentValue}
+/>
+
+{#if editedIoc}
+	<AlertIocEditDialog
+		bind:open={iocDialogOpen}
+		ioc={editedIoc}
+		{saving}
+		onClose={closeIocDialog}
+		onSave={(changes) => editedIoc && saveIoc(editedIoc, changes)}
+	/>
+{/if}
+
+{#if editedAsset}
+	<AlertAssetEditDialog
+		bind:open={assetDialogOpen}
+		asset={editedAsset}
+		{saving}
+		onClose={closeAssetDialog}
+		onSave={(changes) => editedAsset && saveAsset(editedAsset, changes)}
+	/>
+{/if}

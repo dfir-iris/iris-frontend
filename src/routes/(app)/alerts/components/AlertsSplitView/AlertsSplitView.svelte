@@ -19,9 +19,16 @@
 	import type { Alert } from '$lib/types/resources/alert';
 	import type { AlertCluster } from '$lib/types/resources/alert-cluster';
 	import type { AlertQueueUnit } from '$lib/types/resources/alert-queue-unit';
+	import type { Asset } from '$lib/types/resources/asset';
+	import type { Ioc } from '$lib/types/resources/ioc';
 	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
 	import { AlertClustersService } from '$lib/services/alert-clusters.service';
+	import type { UpdateAlertAssetBody, UpdateAlertIocBody } from '$lib/services/alerts.service';
+	import EnrichmentDialog from '$lib/components/common/EnrichmentDialog.svelte';
 	import AlertRelatedGraph from '../AlertRelatedGraph/AlertRelatedGraph.svelte';
+	import AlertIocEditDialog from '../alert-ioc-edit-dialog.svelte';
+	import AlertAssetEditDialog from '../alert-asset-edit-dialog.svelte';
+	import { hasChanges, saveAlertAsset, saveAlertIoc } from '../../helpers/alert-observables';
 	import { clusterSelectionState, flattenAlertQueueUnits } from '$lib/utils/alert-queue';
 	import {
 		ALERT_QUEUE_COLUMNS,
@@ -278,6 +285,86 @@
 
 	const iocs = $derived(focused?.iocs ?? []);
 	const rawEvent = $derived(formatRawEvent(focused?.alert_source_content));
+
+	// ---- observable details ------------------------------------------
+
+	// The IOC/asset tabs are where an analyst documents what an
+	// observable turned out to be, so they carry the same edit and
+	// enrichment affordances the card view has.
+	let enrichmentOpen = $state(false);
+	let enrichmentSubject = $state('');
+	let enrichmentValue = $state<unknown>(null);
+
+	let editedIoc = $state<Ioc | null>(null);
+	let iocDialogOpen = $state(false);
+	let editedAsset = $state<Asset | null>(null);
+	let assetDialogOpen = $state(false);
+	let savingObservable = $state(false);
+
+	// Suspends j/k/e/m/x while one of these dialogs is up — `isTyping`
+	// only covers the fields, not the buttons between them.
+	const observableDialogOpen = $derived(enrichmentOpen || iocDialogOpen || assetDialogOpen);
+
+	const showEnrichment = (subject: string, enrichment: unknown) => {
+		enrichmentSubject = subject;
+		enrichmentValue = enrichment;
+		enrichmentOpen = true;
+	};
+
+	const editIoc = (ioc: Ioc) => {
+		editedIoc = ioc;
+		iocDialogOpen = true;
+	};
+
+	const closeIocDialog = () => {
+		iocDialogOpen = false;
+		editedIoc = null;
+	};
+
+	const editAsset = (asset: Asset) => {
+		editedAsset = asset;
+		assetDialogOpen = true;
+	};
+
+	const closeAssetDialog = () => {
+		assetDialogOpen = false;
+		editedAsset = null;
+	};
+
+	const saveIoc = async (ioc: Ioc, changes: UpdateAlertIocBody) => {
+		if (!focused) return;
+
+		if (!hasChanges(changes)) {
+			closeIocDialog();
+			return;
+		}
+
+		savingObservable = true;
+
+		const updated = await saveAlertIoc(focused, ioc.ioc_id, changes);
+
+		savingObservable = false;
+
+		if (updated) closeIocDialog();
+	};
+
+	const saveAsset = async (asset: Asset, changes: UpdateAlertAssetBody) => {
+		if (!focused) return;
+
+		if (!hasChanges(changes)) {
+			closeAssetDialog();
+			return;
+		}
+
+		savingObservable = true;
+
+		const updated = await saveAlertAsset(focused, asset.asset_id, changes);
+
+		savingObservable = false;
+
+		if (updated) closeAssetDialog();
+	};
+
 	const activity = $derived(activityEntries(focused?.modification_history, 3));
 	const techniques = $derived(focused ? techniqueLabels(focused) : []);
 	const notes = $derived((focused?.alert_note ?? '').trim());
@@ -326,7 +413,7 @@
 	};
 
 	const onKeydown = (event: KeyboardEvent) => {
-		if (!shortcutsEnabled) return;
+		if (!shortcutsEnabled || observableDialogOpen) return;
 		if (event.metaKey || event.ctrlKey || event.altKey) return;
 		if (isTyping(event.target)) return;
 
@@ -841,12 +928,45 @@
 									<div class="asset-list">
 										{#each f.assets as a (a.asset_id)}
 											<div class="asset-row">
-												<div class="asset-name">{a.asset_name}</div>
-												<div class="asset-meta">
-													{[a.asset_type?.asset_name, a.asset_ip, a.asset_domain]
-														.filter(Boolean)
-														.join(' · ')}
+												<div class="obs-head">
+													<div class="obs-main">
+														<div class="asset-name">{a.asset_name}</div>
+														<div class="asset-meta">
+															{[a.asset_type?.asset_name, a.asset_ip, a.asset_domain]
+																.filter(Boolean)
+																.join(' · ')}
+														</div>
+													</div>
+
+													<div class="obs-actions">
+														<button
+															type="button"
+															class="obs-btn"
+															disabled={!a.asset_enrichment}
+															title={a.asset_enrichment ? 'View enrichment' : 'No enrichment'}
+															onclick={() => showEnrichment(a.asset_name, a.asset_enrichment)}
+															>Enrichment</button
+														>
+														<button
+															type="button"
+															class="obs-btn"
+															title="Edit asset"
+															onclick={() => editAsset(a)}>Edit</button
+														>
+													</div>
 												</div>
+
+												{#if a.asset_description}
+													<div class="obs-desc">{a.asset_description}</div>
+												{/if}
+
+												{#if a.asset_tags}
+													<div class="obs-tags">
+														{#each a.asset_tags.split(',').filter(Boolean) as tag (tag)}
+															<span class="obs-tag">{tag.trim()}</span>
+														{/each}
+													</div>
+												{/if}
 											</div>
 										{/each}
 									</div>
@@ -904,16 +1024,60 @@
 								{#if iocs.length === 0}
 									<p class="section-empty">No observables extracted from this alert.</p>
 								{:else}
-									<div class="ioc-chips">
+									<!--
+									  The overview keeps the one-line chips; this tab is
+									  where the observable is worked on, so it spells out
+									  what was written about it and lets it be edited.
+									-->
+									<div class="asset-list">
 										{#each iocs as ioc (ioc.ioc_id)}
 											{@const flag = observableFlag(ioc)}
-											<span class="ioc-chip">
-												<span class="ioc-kind">{ioc.ioc_type?.type_name ?? 'ioc'}</span>
-												<span class="ioc-val">{ioc.ioc_value}</span>
-												{#if flag.text}
-													<span class="ioc-flag" style="color:{flag.color}">{flag.text}</span>
+											<div class="asset-row">
+												<div class="obs-head">
+													<div class="obs-main">
+														<div class="asset-name">
+															{ioc.ioc_value}
+															{#if flag.text}
+																<span class="ioc-flag" style="color:{flag.color}">{flag.text}</span>
+															{/if}
+														</div>
+														<div class="asset-meta">
+															{[ioc.ioc_type?.type_name, ioc.tlp?.tlp_name]
+																.filter(Boolean)
+																.join(' · ')}
+														</div>
+													</div>
+
+													<div class="obs-actions">
+														<button
+															type="button"
+															class="obs-btn"
+															disabled={!ioc.ioc_enrichment}
+															title={ioc.ioc_enrichment ? 'View enrichment' : 'No enrichment'}
+															onclick={() => showEnrichment(ioc.ioc_value, ioc.ioc_enrichment)}
+															>Enrichment</button
+														>
+														<button
+															type="button"
+															class="obs-btn"
+															title="Edit IOC"
+															onclick={() => editIoc(ioc)}>Edit</button
+														>
+													</div>
+												</div>
+
+												{#if ioc.ioc_description}
+													<div class="obs-desc">{ioc.ioc_description}</div>
 												{/if}
-											</span>
+
+												{#if ioc.ioc_tags}
+													<div class="obs-tags">
+														{#each ioc.ioc_tags.split(',').filter(Boolean) as tag (tag)}
+															<span class="obs-tag">{tag.trim()}</span>
+														{/each}
+													</div>
+												{/if}
+											</div>
 										{/each}
 									</div>
 								{/if}
@@ -1073,6 +1237,32 @@
 		{/if}
 	</div>
 </div>
+
+<EnrichmentDialog
+	bind:open={enrichmentOpen}
+	subject={enrichmentSubject}
+	enrichment={enrichmentValue}
+/>
+
+{#if editedIoc}
+	<AlertIocEditDialog
+		bind:open={iocDialogOpen}
+		ioc={editedIoc}
+		saving={savingObservable}
+		onClose={closeIocDialog}
+		onSave={(changes) => editedIoc && saveIoc(editedIoc, changes)}
+	/>
+{/if}
+
+{#if editedAsset}
+	<AlertAssetEditDialog
+		bind:open={assetDialogOpen}
+		asset={editedAsset}
+		saving={savingObservable}
+		onClose={closeAssetDialog}
+		onSave={(changes) => editedAsset && saveAsset(editedAsset, changes)}
+	/>
+{/if}
 
 <style>
 	/*
@@ -2116,6 +2306,59 @@
 	.asset-meta {
 		font-size: 12px;
 		color: var(--t-8);
+	}
+
+	/* Observable detail rows — IOC and asset tabs. */
+	.obs-head {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 10px;
+	}
+	.obs-main {
+		min-width: 0;
+	}
+	.obs-actions {
+		display: flex;
+		flex-shrink: 0;
+		gap: 6px;
+	}
+	.obs-btn {
+		padding: 3px 8px;
+		font-size: 11px;
+		color: var(--t-6);
+		background: var(--s-chip);
+		border: 1px solid var(--b-4);
+		border-radius: 6px;
+		cursor: pointer;
+	}
+	.obs-btn:hover:not(:disabled) {
+		color: var(--t-2);
+		border-color: var(--b-1);
+	}
+	.obs-btn:disabled {
+		opacity: 0.4;
+		cursor: default;
+	}
+	.obs-desc {
+		font-size: 12.5px;
+		line-height: 1.55;
+		color: var(--t-6);
+		white-space: pre-wrap;
+	}
+	.obs-tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 5px;
+		margin-top: 2px;
+	}
+	.obs-tag {
+		padding: 2px 6px;
+		font-size: 10.5px;
+		color: var(--t-8);
+		background: var(--s-chip);
+		border: 1px solid var(--b-4);
+		border-radius: 5px;
 	}
 
 	.note {

@@ -14,6 +14,8 @@ import { AlertService } from '../alerts.service';
 import { ApiService } from '../api.service';
 
 import type { Alert } from '$lib/types/resources/alert';
+import type { Asset } from '$lib/types/resources/asset';
+import type { Ioc } from '$lib/types/resources/ioc';
 import type { ApiOptions } from '../api.service';
 import type {
 	CreateAlertBody,
@@ -155,6 +157,52 @@ describe('AlertService', () => {
 
 		expect(ApiService.put).toHaveBeenCalledTimes(1);
 		expect(ApiService.put).toHaveBeenCalledWith('/api/v2/alerts/10', body, options);
+		expect(res).toBe(mockResponse);
+	});
+
+	it('updateIoc() should call ApiService.put with /api/v2/alerts/{id}/iocs/{ioc_id}, body, options', async () => {
+		const body = {
+			ioc_description: 'seen in the proxy logs',
+			ioc_tags: 'c2,confirmed'
+		};
+
+		const options: ApiOptions = { skipTokenRefresh: true };
+
+		const mockResponse = {
+			ok: true,
+			status: 200,
+			data: { ioc_id: 7 } as unknown as Ioc
+		};
+
+		(ApiService.put as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+
+		const res = await AlertService.updateIoc(10, 7, body, options);
+
+		expect(ApiService.put).toHaveBeenCalledTimes(1);
+		expect(ApiService.put).toHaveBeenCalledWith('/api/v2/alerts/10/iocs/7', body, options);
+		expect(res).toBe(mockResponse);
+	});
+
+	it('updateAsset() should call ApiService.put with /api/v2/alerts/{id}/assets/{asset_id}, body, options', async () => {
+		const body = {
+			asset_description: 'jump host',
+			asset_enrichment: { vt: { malicious: 0 } }
+		};
+
+		const options: ApiOptions = { skipTokenRefresh: true };
+
+		const mockResponse = {
+			ok: true,
+			status: 200,
+			data: { asset_id: 4 } as unknown as Asset
+		};
+
+		(ApiService.put as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+
+		const res = await AlertService.updateAsset(10, 4, body, options);
+
+		expect(ApiService.put).toHaveBeenCalledTimes(1);
+		expect(ApiService.put).toHaveBeenCalledWith('/api/v2/alerts/10/assets/4', body, options);
 		expect(res).toBe(mockResponse);
 	});
 

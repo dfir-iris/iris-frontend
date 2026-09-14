@@ -4,6 +4,8 @@
 	import DataTable from '$lib/components/ui/data-table-tanstack/data-table.svelte';
 	import { LinkCell } from '$lib/components/ui/table';
 	import RowCheckbox from '$lib/components/common/RowCheckbox.svelte';
+	import RowActionsCell from '$lib/components/common/table/RowActionsCell.svelte';
+	import TruncatedTextCell from '$lib/components/common/table/TruncatedTextCell.svelte';
 
 	export let assets: Asset[] = [];
 	export let caseId: string | number | null = null;
@@ -14,6 +16,12 @@
 	export let selectionMode: boolean = false;
 	export let selectedAssets: Set<number> = new Set();
 	export let onToggleSelect: ((id: number) => void) | undefined = undefined;
+
+	// Opt-in detail columns and row actions — see IocDataTable for why
+	// they default to off.
+	export let showDescription: boolean = false;
+	export let onShowEnrichment: ((asset: Asset) => void) | undefined = undefined;
+	export let onEdit: ((asset: Asset) => void) | undefined = undefined;
 
 	import { page } from '$app/stores';
 
@@ -63,7 +71,9 @@
 		dispatch('pageSizeChange', { pageSize: currentPageSize });
 	}
 
-	const dataColumns: ColumnDef<Asset>[] = [
+	let dataColumns: ColumnDef<Asset>[] = [];
+
+	$: dataColumns = [
 		{
 			accessorKey: 'asset_name',
 			header: () => 'Name',
@@ -91,7 +101,38 @@
 			accessorKey: 'asset_tags',
 			header: () => 'Tags',
 			cell: (cell) => cell.getValue() || '-'
-		}
+		},
+		...(showDescription
+			? [
+					{
+						accessorKey: 'asset_description',
+						header: () => 'Description',
+						meta: { thClass: 'w-[26%]', tdClass: 'max-w-0' },
+						cell: (cell) =>
+							renderComponent(TruncatedTextCell, { value: cell.getValue() as string | null })
+					} as ColumnDef<Asset>
+				]
+			: []),
+		...(onEdit || onShowEnrichment
+			? [
+					{
+						id: '__actions__',
+						header: () => '',
+						meta: { thClass: 'w-16', tdClass: 'w-16' },
+						cell: (cell) => {
+							const asset = cell.row.original;
+
+							return renderComponent(RowActionsCell, {
+								hasEnrichment: !!asset.asset_enrichment,
+								onShowEnrichment: onShowEnrichment && (() => onShowEnrichment?.(asset)),
+								onEdit: onEdit && (() => onEdit?.(asset)),
+								editLabel: 'Edit asset',
+								enrichmentLabel: 'View asset enrichment'
+							});
+						}
+					} as ColumnDef<Asset>
+				]
+			: [])
 	];
 
 	// Rebuild columns when selection state changes so checkbox checked reflects current set.
