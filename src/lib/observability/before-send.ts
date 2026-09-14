@@ -70,7 +70,104 @@ function redactQueryString(qs: string): string {
 	return leading + params.toString();
 }
 
+// ---- Noise filters ------------------------------------------------
+//
+// A tracker only works if its contents mean something. At the time this was
+// written 26 of 29 unresolved issues were noise: 23 stale-chunk errors from
+// somebody's dev server, 2 more dev-machine crashes, and one browser
+// extension. Resolving those by hand does not help — the next `vite dev`
+// rebuild produces fresh chunk hashes, fresh fingerprints and fresh issue IDs.
+// They have to be dropped before they are sent.
+
+// Loopback only. Deliberately NOT the private ranges — IRIS is an on-prem
+// DFIR tool and a 10.x / 192.168.x deployment is a real customer whose errors
+// we want. The failure mode of guessing wrong here is silence, which is worse
+// than noise.
+const DEV_HOSTNAME_RE = /^(localhost|127(\.\d{1,3}){3}|\[?::1\]?|0\.0\.0\.0|.+\.localhost)$/i;
+
+// Cross-origin and browser-quirk signatures. Each of these is defined by
+// carrying no actionable information — the browser has already withheld the
+// detail that would make it actionable.
+const NOISE_MESSAGE_RE = new RegExp(
+	[
+		// Classic cross-origin sanitisation: no file, no line, no stack.
+		'^Script error\\.?$',
+		// Firefox's equivalent when a foreign origin (extension, iframe)
+		// touches a function across the boundary. The only frame is our own
+		// global `onerror` handler, so there is nothing to fix.
+		'^Permission denied to access property',
+		// Layout quirk, not a fault: fires when a ResizeObserver callback
+		// resizes its own observed element. Harmless and extremely chatty.
+		'^ResizeObserver loop'
+	].join('|')
+);
+
+const EXTENSION_FRAME_RE = /^(chrome|moz|safari(-web)?|ms-browser)-extension:\/\//i;
+
+function hostnameOf(url: string): string | null {
+	try {
+		return new URL(url).hostname;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * True when the event came from a developer's own machine.
+ *
+ * A dev server reporting into the shared tracker is the actual defect — the
+ * right place to fix it is the DSN configuration — but this is the guard that
+ * holds regardless of how any individual box is set up.
+ */
+function isLocalDevEvent(event: ErrorEvent): boolean {
+	const url = event.request?.url;
+	if (typeof url !== 'string') return false;
+	const host = hostnameOf(url);
+	return host !== null && DEV_HOSTNAME_RE.test(host);
+}
+
+function messagesOf(event: ErrorEvent): string[] {
+	const out: string[] = [];
+	if (typeof event.message === 'string') out.push(event.message);
+	for (const value of event.exception?.values ?? []) {
+		if (typeof value.value === 'string') out.push(value.value);
+	}
+	return out;
+}
+
+/** Every frame belongs to a browser extension, so none of it is our code. */
+function isExtensionOnly(event: ErrorEvent): boolean {
+	const frames = (event.exception?.values ?? []).flatMap((value) => value.stacktrace?.frames ?? []);
+	if (frames.length === 0) return false;
+	return frames.every(
+		(frame) => typeof frame.filename === 'string' && EXTENSION_FRAME_RE.test(frame.filename)
+	);
+}
+
+/**
+ * Decide whether an event is worth sending at all.
+ *
+ * Note what is deliberately NOT filtered:
+ *
+ *  - "error loading dynamically imported module". On localhost it is a stale
+ *    chunk from a rebuild and the host check above already drops it. On a real
+ *    deployment it means a user held a tab open across a deploy, which is worth
+ *    knowing — a steady trickle would point at a caching or rollout problem.
+ *    Matching the message would discard both.
+ *  - The bug-report dialog's own submissions, which arrive as `level: info`.
+ *    They are the feature working.
+ */
+export function shouldDropEvent(event: ErrorEvent): boolean {
+	if (isLocalDevEvent(event)) return true;
+	if (messagesOf(event).some((message) => NOISE_MESSAGE_RE.test(message))) return true;
+	if (isExtensionOnly(event)) return true;
+	return false;
+}
+
 export function beforeSend(event: ErrorEvent, _hint: EventHint): ErrorEvent | null {
+	// Drop first: redaction is pure overhead on an event that isn't going out.
+	if (shouldDropEvent(event)) return null;
+
 	const request = event.request;
 	if (request && typeof request === 'object') {
 		if (request.headers) request.headers = redactHeaders(request.headers) as typeof request.headers;
