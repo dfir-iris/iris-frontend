@@ -80,7 +80,17 @@
 			}
 		}
 
-		await auth.loadAuth(fetch, true);
+		// `redirectOnFailure = true` makes `loadAuth` throw a SvelteKit
+		// `redirect(302, '/login')` when there is no session. We are already on
+		// /login, so that is the expected outcome for a first-time visitor —
+		// not an error. Letting it propagate aborts `onMount` before the MFA
+		// routing below runs and surfaces as an unhandled rejection.
+		try {
+			await auth.loadAuth(fetch, true);
+		} catch {
+			// No session. `loadAuth` has cleared auth state; fall through to
+			// the checks below, which handle the signed-out case correctly.
+		}
 
 		// The refresh token is in an HttpOnly cookie and the access token is
 		// only in memory (empty right after a reload), so neither can be
