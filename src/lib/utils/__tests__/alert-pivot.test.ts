@@ -84,7 +84,11 @@ describe('buildAlertPivotHref', () => {
 		});
 
 		it('replaces a pivot term already in the URL rather than appending a second one', () => {
-			const href = buildAlertPivotHref('ioc', '1.1.1.1', 'https://iris.local/alerts?alert_iocs=8.8.8.8');
+			const href = buildAlertPivotHref(
+				'ioc',
+				'1.1.1.1',
+				'https://iris.local/alerts?alert_iocs=8.8.8.8'
+			);
 
 			const params = new URL(href!, CLUSTER).searchParams;
 			expect(params.getAll('alert_iocs')).toEqual(['1.1.1.1']);
@@ -105,7 +109,9 @@ describe('buildAlertPivotHref', () => {
 		});
 
 		it('trims surrounding whitespace off a real value', () => {
-			expect(buildAlertPivotHref('ioc', '  8.8.8.8  ', CLUSTER)).toBe('/alerts/?alert_iocs=8.8.8.8');
+			expect(buildAlertPivotHref('ioc', '  8.8.8.8  ', CLUSTER)).toBe(
+				'/alerts/?alert_iocs=8.8.8.8'
+			);
 		});
 	});
 });
@@ -124,7 +130,11 @@ describe('openAlertPivot', () => {
 		expect(openAlertPivot('ioc', '8.8.8.8', CLUSTER)).toBe(true);
 
 		expect(open).toHaveBeenCalledTimes(1);
-		expect(open).toHaveBeenCalledWith('/alerts/?alert_iocs=8.8.8.8', '_blank', 'noopener,noreferrer');
+		expect(open).toHaveBeenCalledWith(
+			'/alerts/?alert_iocs=8.8.8.8',
+			'_blank',
+			'noopener,noreferrer'
+		);
 	});
 
 	it('passes the asset pivot through the same builder', () => {

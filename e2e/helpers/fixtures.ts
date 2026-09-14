@@ -29,7 +29,10 @@ export const test = base.extend<{ page: Page }>({
 			const type = msg.type();
 			const text = msg.text();
 
-			if (type === 'error' || (type === 'warning' && NOTABLE_WARNINGS.some((rx) => rx.test(text)))) {
+			if (
+				type === 'error' ||
+				(type === 'warning' && NOTABLE_WARNINGS.some((rx) => rx.test(text)))
+			) {
 				consoleErrors.push(`[${type}] ${text}`);
 			}
 		});
