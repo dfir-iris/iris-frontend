@@ -52,6 +52,7 @@
 	import CollaborationCaret from '@tiptap/extension-collaboration-caret';
 	import { SocketYjsProvider } from '$lib/collab/socket-yjs-provider';
 	import { createMentionNode } from './mention-node';
+	import { isGuardedKey, runKeymapSafely, type KeymapFailure } from './safe-keymap';
 	import { buildSuggestion } from './mentions.svelte';
 	import type { MentionItem } from './MentionList.svelte';
 	import { UsersService, type MentionableUser } from '$lib/services/users.service';
@@ -1133,6 +1134,38 @@
 		input.click();
 	};
 
+	/**
+	 * A keymap handler threw while building its transaction. Nothing was
+	 * dispatched, so the note is intact and the caret hasn't moved — but the
+	 * keystroke was lost, and saying so beats leaving the user to wonder why
+	 * Enter stopped working.
+	 *
+	 * The Sentry import is dynamic so the SDK doesn't land in the editor
+	 * chunk; this path runs at most once per stuck keystroke.
+	 */
+	const reportKeymapFailure = ({ error, depth, path }: KeymapFailure) => {
+		console.error('[markdown-editor] keymap transform failed', { error, depth, path });
+
+		toast({
+			title: 'That line break could not be applied',
+			description: 'The note is unchanged. Try placing the cursor outside the current block.',
+			variant: 'destructive'
+		});
+
+		void import('@sentry/sveltekit')
+			.then((Sentry) => {
+				Sentry.captureException(error, {
+					tags: { component: 'markdown-editor', collab: docName ? 'yes' : 'no' },
+					// The minified frames in the raw report are unattributable on
+					// their own; the node path is what makes it reproducible.
+					extra: { selectionDepth: depth, nodePath: path.join(' > '), docName }
+				});
+			})
+			.catch(() => {
+				// Reporting is best-effort — never let it mask the original error.
+			});
+	};
+
 	// --- Editor setup ---
 	onMount(() => {
 		editor = new Editor({
@@ -1284,7 +1317,7 @@
 					class:
 						'outline-none min-h-[5rem] px-3 py-1 text-sm leading-normal prose prose-sm dark:prose-invert max-w-none [&_p]:my-1.5 [&_p]:text-sm [&_h1]:mt-3 [&_h1]:mb-1.5 [&_h1]:text-lg [&_h2]:mt-2.5 [&_h2]:mb-1 [&_h2]:text-base [&_h3]:mt-2 [&_h3]:mb-0.5 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0 [&_li]:text-sm [&_blockquote]:my-2 [&_blockquote]:text-sm [&_pre]:my-2 [&_pre]:text-xs [&_code]:text-xs [&>:first-child]:mt-0'
 				},
-				handleKeyDown: (_view, event) => {
+				handleKeyDown: (view, event) => {
 					if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
 						onSave();
 						return true;
@@ -1294,6 +1327,13 @@
 						event.preventDefault();
 						onSave();
 						return true;
+					}
+
+					// Plain Enter runs through the guard so a failed
+					// `splitBlock` degrades to "the key did nothing" instead of
+					// throwing out of ProseMirror's dispatch. See safe-keymap.ts.
+					if (isGuardedKey(event)) {
+						return runKeymapSafely(view, event, reportKeymapFailure);
 					}
 
 					return false;
