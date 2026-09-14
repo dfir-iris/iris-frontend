@@ -190,11 +190,18 @@
 	const confirmMerge = async (payload: MergeAlertPayload) => {
 		if (!alert) return;
 
-		const targetCaseId = await mergeAlerts({ alerts, cases }, [alert.alert_id], payload);
+		const { failed } = await mergeAlerts({ alerts, cases }, [alert.alert_id], payload);
 
 		showMerge = false;
 
-		if (targetCaseId === null) return;
+		if (failed.length > 0) {
+			toast({
+				title: 'Failed to merge alert',
+				description: 'The alert was left unchanged.',
+				variant: 'destructive'
+			});
+			return;
+		}
 
 		// Merge / escalation is applied server-side, so the local row is
 		// stale — refetch before telling the opener what changed.
@@ -220,9 +227,10 @@
 		if (!removed) {
 			toast({
 				title: 'Could not delete alert',
-				description: 'The alert was not deleted.',
+				description: alerts.mutation.error ?? 'The alert was not deleted.',
 				variant: 'destructive'
 			});
+
 			return;
 		}
 

@@ -16,12 +16,17 @@
 		COMMENTS_PANEL_CTX,
 		type CommentsPanelContext
 	} from '$lib/contexts/comments-panel.context.svelte';
+	import type { RequestResponse } from '$lib/services/api.service';
 	import { CommentsService, type Comment } from '$lib/services/comments.service';
 	import { Comments } from '$lib/components/common/Comments';
 	import { MarkDownEditor } from '$lib/components/common/MarkDown';
 	import Button from '$lib/components/ui/button/button.svelte';
+	import { toast } from '$lib/components/ui/toast';
 
 	const panel = getContext<CommentsPanelContext>(COMMENTS_PANEL_CTX);
+
+	const showError = (msg: string, detail?: string) =>
+		toast({ title: msg, description: detail, variant: 'destructive' });
 
 	let comments = $state<Comment[]>([]);
 	let commentText = $state('');
@@ -45,6 +50,11 @@
 		loading = true;
 		try {
 			const res = await CommentsService.list(entity.type, entity.id, { per_page: 10000 });
+			if (!res.ok) {
+				showError('Failed to load comments', res.error?.message);
+				return;
+			}
+
 			const data = res.data;
 			comments = data && typeof data === 'object' && Array.isArray(data.data) ? data.data : [];
 			await scrollToBottom();
@@ -66,7 +76,13 @@
 	const deleteComment = async (id: number) => {
 		const entity = panel.state.entity;
 		if (!entity) return;
-		await CommentsService.remove(entity.type, entity.id, id);
+
+		const res = await CommentsService.remove(entity.type, entity.id, id);
+		if (!res.ok) {
+			showError('Failed to delete comment', res.error?.message);
+			return;
+		}
+
 		await loadComments();
 	};
 
@@ -75,16 +91,25 @@
 		const text = commentText.trim();
 		if (!entity || !text) return;
 
+		let res: RequestResponse<Comment>;
 		if (editingCommentId) {
 			const existing = getCommentById(editingCommentId);
-			if (existing) {
-				await CommentsService.update(entity.type, entity.id, editingCommentId, {
-					...existing,
-					comment_text: text
-				});
-			}
+			if (!existing) return;
+
+			res = await CommentsService.update(entity.type, entity.id, editingCommentId, {
+				...existing,
+				comment_text: text
+			});
 		} else {
-			await CommentsService.create(entity.type, entity.id, { comment_text: text });
+			res = await CommentsService.create(entity.type, entity.id, { comment_text: text });
+		}
+
+		if (!res.ok) {
+			showError(
+				editingCommentId ? 'Failed to save comment' : 'Failed to post comment',
+				res.error?.message
+			);
+			return;
 		}
 
 		commentText = '';

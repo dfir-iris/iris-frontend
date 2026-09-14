@@ -4,6 +4,8 @@
 	import { Comments } from '$lib/components/common/Comments';
 	import { MarkDownEditor } from '$lib/components/common/MarkDown';
 	import { Button } from '$lib/components/ui/button';
+	import { toast } from '$lib/components/ui/toast';
+	import type { RequestResponse } from '$lib/services/api.service';
 	import { CommentsService, type Comment } from '$lib/services/comments.service';
 
 	let { task, onRefresh }: { task: Task; onRefresh: () => void } = $props();
@@ -13,6 +15,9 @@
 	let editing_comment_id = $state<number | null>(null);
 	let commentsContainer = $state<HTMLDivElement | undefined>();
 	let lastLoadedTaskId = $state<number | null>(null);
+
+	const showError = (msg: string, detail?: string) =>
+		toast({ title: msg, description: detail, variant: 'destructive' });
 
 	const scrollToBottom = async () => {
 		await tick();
@@ -34,12 +39,21 @@
 	};
 
 	const deleteComment = async (commentId: number) => {
-		await CommentsService.remove('tasks', task.id, commentId);
+		const res = await CommentsService.remove('tasks', task.id, commentId);
+		if (!res.ok) {
+			showError('Failed to delete comment', res.error?.message);
+			return;
+		}
+
 		await refresh();
 	};
 
 	const refresh = async () => {
 		const res = await CommentsService.list('tasks', task.id);
+		if (!res.ok) {
+			showError('Failed to load comments', res.error?.message);
+			return;
+		}
 
 		const data = res.data;
 		comments = data && typeof data === 'object' && Array.isArray(data.data) ? data.data : [];
@@ -55,18 +69,27 @@
 		const text = comment_text.trim();
 		if (!text) return;
 
+		let res: RequestResponse<Comment>;
 		if (editing_comment_id) {
 			const comment = getCommentById(editing_comment_id);
 			if (!comment) return;
 
-			await CommentsService.update('tasks', task.id, editing_comment_id, {
+			res = await CommentsService.update('tasks', task.id, editing_comment_id, {
 				...comment,
 				comment_text: text
 			});
 		} else {
-			await CommentsService.create('tasks', task.id, {
+			res = await CommentsService.create('tasks', task.id, {
 				comment_text: text
 			});
+		}
+
+		if (!res.ok) {
+			showError(
+				editing_comment_id ? 'Failed to save comment' : 'Failed to post comment',
+				res.error?.message
+			);
+			return;
 		}
 
 		comment_text = '';

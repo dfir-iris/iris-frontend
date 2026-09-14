@@ -4,6 +4,8 @@
 	import { Comments } from '$lib/components/common/Comments';
 	import { MarkDownEditor } from '$lib/components/common/MarkDown';
 	import { Button } from '$lib/components/ui/button';
+	import { toast } from '$lib/components/ui/toast';
+	import type { RequestResponse } from '$lib/services/api.service';
 	import { CommentsService, type Comment } from '$lib/services/comments.service';
 
 	let { ioc, onRefresh }: { ioc: Ioc; onRefresh: () => void } = $props();
@@ -13,6 +15,9 @@
 	let editing_comment_id = $state<number | null>(null);
 	let commentsContainer = $state<HTMLDivElement | undefined>();
 	let lastLoadedIocId = $state<number | null>(null);
+
+	const showError = (msg: string, detail?: string) =>
+		toast({ title: msg, description: detail, variant: 'destructive' });
 
 	const scrollToBottom = async () => {
 		await tick();
@@ -34,12 +39,21 @@
 	};
 
 	const deleteComment = async (commentId: number) => {
-		await CommentsService.remove('iocs', ioc.ioc_id, commentId);
+		const res = await CommentsService.remove('iocs', ioc.ioc_id, commentId);
+		if (!res.ok) {
+			showError('Failed to delete comment', res.error?.message);
+			return;
+		}
+
 		await refresh();
 	};
 
 	const refresh = async () => {
 		const res = await CommentsService.list('iocs', ioc.ioc_id);
+		if (!res.ok) {
+			showError('Failed to load comments', res.error?.message);
+			return;
+		}
 
 		const data = res.data;
 		comments = data && typeof data === 'object' && Array.isArray(data.data) ? data.data : [];
@@ -55,18 +69,27 @@
 		const text = comment_text.trim();
 		if (!text) return;
 
+		let res: RequestResponse<Comment>;
 		if (editing_comment_id) {
 			const comment = getCommentById(editing_comment_id);
 			if (!comment) return;
 
-			await CommentsService.update('iocs', ioc.ioc_id, editing_comment_id, {
+			res = await CommentsService.update('iocs', ioc.ioc_id, editing_comment_id, {
 				...comment,
 				comment_text: text
 			});
 		} else {
-			await CommentsService.create('iocs', ioc.ioc_id, {
+			res = await CommentsService.create('iocs', ioc.ioc_id, {
 				comment_text: text
 			});
+		}
+
+		if (!res.ok) {
+			showError(
+				editing_comment_id ? 'Failed to save comment' : 'Failed to post comment',
+				res.error?.message
+			);
+			return;
 		}
 
 		comment_text = '';

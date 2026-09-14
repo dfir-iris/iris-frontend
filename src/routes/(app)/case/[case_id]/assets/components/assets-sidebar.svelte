@@ -31,7 +31,10 @@
 		DropdownMenuTrigger
 	} from '$lib/components/ui/dropdown-menu';
 	import { ChevronDownIcon } from 'lucide-svelte';
-	import { AnalysisStatusService, type AnalysisStatusItem } from '$lib/services/analysis-status.service';
+	import {
+		AnalysisStatusService,
+		type AnalysisStatusItem
+	} from '$lib/services/analysis-status.service';
 
 	const caseAssets = getContext<CaseAssetsContext>(CASE_ASSETS_CTX);
 
@@ -264,7 +267,10 @@
 	};
 
 	const deleteSelected = async () => {
-		if (!selectedCount) { showConfirmDelete = false; return; }
+		if (!selectedCount) {
+			showConfirmDelete = false;
+			return;
+		}
 		isBulkWorking = true;
 		const ids = [...selectedAssets];
 		await Promise.all(ids.map((id) => caseAssets.removeAsset(id)));
@@ -278,7 +284,9 @@
 		if (!selectedCount) return;
 		isBulkWorking = true;
 		const ids = [...selectedAssets];
-		await Promise.all(ids.map((id) => caseAssets.patchAsset(id, { asset_compromise_status_id: statusId })));
+		await Promise.all(
+			ids.map((id) => caseAssets.patchAsset(id, { asset_compromise_status_id: statusId }))
+		);
 		isBulkWorking = false;
 		cancelSelect();
 		await refreshAssets(caseAssets.list.currentPage);
@@ -414,11 +422,7 @@
 				<TooltipProvider>
 					<Tooltip>
 						<TooltipTrigger>
-							<Button
-								size="icon"
-								variant="ghost"
-								onclick={() => (selectionMode = true)}
-							>
+							<Button size="icon" variant="ghost" onclick={() => (selectionMode = true)}>
 								<CheckSquareIcon size={16} />
 							</Button>
 						</TooltipTrigger>
@@ -498,7 +502,9 @@
 	</div>
 
 	{#if selectionMode}
-		<div class="flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-muted/40 px-2 py-1.5">
+		<div
+			class="flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-muted/40 px-2 py-1.5"
+		>
 			<span class="text-xs text-muted-foreground">{selectedCount} selected</span>
 
 			<Button size="xs" variant="outline" onclick={selectAll}>Select All</Button>
@@ -518,7 +524,11 @@
 
 			<DropdownMenu>
 				<DropdownMenuTrigger>
-					<Button size="xs" variant="outline" disabled={!selectedCount || isBulkWorking || !analysisStatuses.length}>
+					<Button
+						size="xs"
+						variant="outline"
+						disabled={!selectedCount || isBulkWorking || !analysisStatuses.length}
+					>
 						Analysis <ChevronDownIcon size={12} />
 					</Button>
 				</DropdownMenuTrigger>
@@ -602,7 +612,10 @@
 									type="checkbox"
 									class="size-4 shrink-0 cursor-pointer accent-primary"
 									checked={selectedAssets.has(asset.asset_id)}
-									onclick={(e) => { e.stopPropagation(); toggleAssetSelection(asset.asset_id); }}
+									onclick={(e) => {
+										e.stopPropagation();
+										toggleAssetSelection(asset.asset_id);
+									}}
 									onchange={() => {}}
 								/>
 								<div class="min-w-0 flex-1">
@@ -643,7 +656,9 @@
 <ConfirmationDialog
 	bind:open={showConfirmDelete}
 	title="Delete Assets"
-	message="Delete {selectedCount} selected asset{selectedCount === 1 ? '' : 's'}? This cannot be undone."
+	message="Delete {selectedCount} selected asset{selectedCount === 1
+		? ''
+		: 's'}? This cannot be undone."
 	confirmText="Delete"
 	onConfirm={deleteSelected}
 />

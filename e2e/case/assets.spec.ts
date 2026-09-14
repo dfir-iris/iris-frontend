@@ -53,10 +53,9 @@ test.describe('Case · assets', () => {
 
 			// The sidebar owns the overflow...
 			await expect
-				.poll(
-					() => sidebar.evaluate((el) => el.scrollHeight - el.clientHeight),
-					{ timeout: 10_000 }
-				)
+				.poll(() => sidebar.evaluate((el) => el.scrollHeight - el.clientHeight), {
+					timeout: 10_000
+				})
 				.toBeGreaterThan(0);
 
 			// ...and the page-level viewport does not scroll vertically.

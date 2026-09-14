@@ -17,6 +17,7 @@
 		type WarRoomNotesContext
 	} from '$lib/contexts/war-room-notes.context.svelte';
 	import MarkDownEditor from '$lib/components/common/MarkDown/MarkDownEditor.svelte';
+	import { toast } from '$lib/components/ui/toast';
 	import NoteHeader from './note-header.svelte';
 
 	let {
@@ -111,7 +112,18 @@
 
 	const handleDelete = async () => {
 		if (!note) return;
-		await notes.removeNote(note.note_id);
+
+		if (!(await notes.removeNote(note.note_id))) {
+			toast({
+				title: 'Failed to delete note',
+				description: notes.mutation.error ?? 'The note is still in this war room.',
+				variant: 'destructive'
+			});
+
+			return;
+		}
+
+		toast({ title: 'Note deleted', variant: 'success' });
 		onAfterDelete?.();
 	};
 

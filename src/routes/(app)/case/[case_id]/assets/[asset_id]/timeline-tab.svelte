@@ -17,6 +17,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
+	import { toast } from '$lib/components/ui/toast';
 	import {
 		CASE_TIMELINE_CTX,
 		createCaseTimelineContext
@@ -218,9 +219,23 @@
 
 	const confirmDelete = async () => {
 		if (pendingDeleteId == null) return;
-		await timeline.removeEvent(pendingDeleteId, { fetch });
+
+		const removed = await timeline.removeEvent(pendingDeleteId, { fetch });
+
 		pendingDeleteId = null;
 		confirmDeleteOpen = false;
+
+		if (!removed) {
+			toast({
+				title: 'Failed to delete event',
+				description: timeline.mutation.error ?? 'The event is still on the timeline.',
+				variant: 'destructive'
+			});
+
+			return;
+		}
+
+		toast({ title: 'Event deleted', variant: 'success' });
 		await timeline.refresh({ asset_id: [assetId] }, { fetch });
 		onCountChange?.(timeline.list.total);
 	};

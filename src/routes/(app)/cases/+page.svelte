@@ -42,6 +42,7 @@
 	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
 	import type { CaseStatus, Severity as SeverityName } from '$lib/components/ui/badge/types';
 	import { Button } from '$lib/components/ui/button';
+	import { toast } from '$lib/components/ui/toast';
 	import Checkbox from '$lib/components/ui/checkbox/checkbox.svelte';
 	import Label from '$lib/components/ui/label/label.svelte';
 	import Searchbar from '$lib/components/ui/searchbar/searchbar.svelte';
@@ -613,7 +614,17 @@
 	};
 
 	const deleteSavedFilter = async (id: number) => {
-		await cases.removeSavedFilter(id);
+		if (!(await cases.removeSavedFilter(id))) {
+			toast({
+				title: 'Failed to delete saved filter',
+				description: cases.mutation.error ?? 'The filter is still available.',
+				variant: 'destructive'
+			});
+
+			return;
+		}
+
+		toast({ title: 'Saved filter deleted', variant: 'success' });
 		if (selectedSavedFilterId === String(id)) selectedSavedFilterId = '';
 	};
 

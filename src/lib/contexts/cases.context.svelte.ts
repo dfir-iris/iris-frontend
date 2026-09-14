@@ -56,6 +56,8 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 		showManageModal: false
 	});
 
+	const mutation = $state<{ error: string | null }>({ error: null });
+
 	// Saved filter presets for the cases overview page. Loaded lazily
 	// (the overview page calls `loadSavedFilters()` on mount); kept
 	// here so the same list survives navigation between the overview
@@ -137,11 +139,15 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 		id: CasesFilterIdentifier,
 		options: ApiOptions = {}
 	): Promise<boolean> => {
+		mutation.error = null;
+
 		const response = await CasesFiltersService.remove(id, options);
 		if (response.ok && !response.error) {
 			await loadSavedFilters(savedFilters.params, options);
 			return true;
 		}
+
+		mutation.error = response.error?.message ?? null;
 		return false;
 	};
 
@@ -282,6 +288,8 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 	};
 
 	const remove = async (id: CaseIdentifier, options: ApiOptions = {}): Promise<boolean> => {
+		mutation.error = null;
+
 		const prev = byId[id];
 
 		if (prev) delete byId[id];
@@ -290,6 +298,8 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 		const res = await CaseService.remove(id, options);
 
 		if (res.ok && !res.error) return true;
+
+		mutation.error = res.error?.message ?? null;
 
 		if (prev) byId[id] = prev;
 		if (!list.ids.includes(id)) list.ids = [id, ...list.ids];
@@ -401,6 +411,7 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 		byId,
 		list,
 		ui,
+		mutation,
 		cases,
 		currentCaseId,
 		currentCase,

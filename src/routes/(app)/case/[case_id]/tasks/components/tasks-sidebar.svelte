@@ -162,7 +162,10 @@
 	};
 
 	const deleteSelected = async () => {
-		if (!selectedCount) { showConfirmDelete = false; return; }
+		if (!selectedCount) {
+			showConfirmDelete = false;
+			return;
+		}
 		isBulkWorking = true;
 		const ids = [...selectedTasks];
 		await Promise.all(ids.map((id) => caseTasks.removeTask(id)));
@@ -253,7 +256,8 @@
 			TaskStatusService.list(),
 			CaseService.listUsers(Number(page.params.case_id))
 		]);
-		if (statusRes.ok && Array.isArray(statusRes.data)) taskStatuses = statusRes.data as TaskStatus[];
+		if (statusRes.ok && Array.isArray(statusRes.data))
+			taskStatuses = statusRes.data as TaskStatus[];
 		caseUsers = users;
 	});
 
@@ -325,14 +329,20 @@
 	</div>
 
 	{#if selectionMode}
-		<div class="flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-muted/40 px-2 py-1.5">
+		<div
+			class="flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-muted/40 px-2 py-1.5"
+		>
 			<span class="text-xs text-muted-foreground">{selectedCount} selected</span>
 
 			<Button size="xs" variant="outline" onclick={selectAll}>Select All</Button>
 
 			<DropdownMenu>
 				<DropdownMenuTrigger>
-					<Button size="xs" variant="outline" disabled={!selectedCount || isBulkWorking || !taskStatuses.length}>
+					<Button
+						size="xs"
+						variant="outline"
+						disabled={!selectedCount || isBulkWorking || !taskStatuses.length}
+					>
 						Set Status <ChevronDownIcon size={12} />
 					</Button>
 				</DropdownMenuTrigger>
@@ -345,13 +355,19 @@
 
 			<DropdownMenu>
 				<DropdownMenuTrigger>
-					<Button size="xs" variant="outline" disabled={!selectedCount || isBulkWorking || !caseUsers.length}>
+					<Button
+						size="xs"
+						variant="outline"
+						disabled={!selectedCount || isBulkWorking || !caseUsers.length}
+					>
 						Assign <ChevronDownIcon size={12} />
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="start" class="max-h-60 overflow-y-auto">
 					{#each caseUsers as u}
-						<DropdownMenuItem onclick={() => setAssignee(u.user_id ?? u.id ?? 0)}>{u.user_name}</DropdownMenuItem>
+						<DropdownMenuItem onclick={() => setAssignee(u.user_id ?? u.id ?? 0)}
+							>{u.user_name}</DropdownMenuItem
+						>
 					{/each}
 				</DropdownMenuContent>
 			</DropdownMenu>
@@ -424,7 +440,10 @@
 									type="checkbox"
 									class="size-4 shrink-0 cursor-pointer accent-primary"
 									checked={selectedTasks.has(task.id)}
-									onclick={(e) => { e.stopPropagation(); toggleTaskSelection(task.id); }}
+									onclick={(e) => {
+										e.stopPropagation();
+										toggleTaskSelection(task.id);
+									}}
 									onchange={() => {}}
 								/>
 								<div class="min-w-0 flex-1">
@@ -465,7 +484,9 @@
 <ConfirmationDialog
 	bind:open={showConfirmDelete}
 	title="Delete Tasks"
-	message="Delete {selectedCount} selected task{selectedCount === 1 ? '' : 's'}? This cannot be undone."
+	message="Delete {selectedCount} selected task{selectedCount === 1
+		? ''
+		: 's'}? This cannot be undone."
 	confirmText="Delete"
 	onConfirm={deleteSelected}
 />

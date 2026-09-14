@@ -105,6 +105,8 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 		error: null
 	});
 
+	const mutation = $state<{ error: string | null }>({ error: null });
+
 	const load = async (params: FilterAlertsParams = {}, options: ApiOptions = {}) => {
 		list.params = params;
 		list.status = 'loading';
@@ -316,6 +318,8 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 		id: SavedFilterIdentifier,
 		options: ApiOptions = {}
 	): Promise<boolean> => {
+		mutation.error = null;
+
 		const response = await AlertsFiltersService.remove(id, options);
 
 		if (response.ok && !response.error) {
@@ -323,6 +327,7 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 			return true;
 		}
 
+		mutation.error = response.error?.message ?? null;
 		return false;
 	};
 
@@ -400,6 +405,8 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 	};
 
 	const remove = async (id: AlertIdentifier, options: ApiOptions = {}): Promise<boolean> => {
+		mutation.error = null;
+
 		const previous = byId[id];
 
 		if (previous) delete byId[id];
@@ -408,6 +415,8 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 		const response = await AlertService.remove(id, options);
 
 		if (response.ok && !response.error) return true;
+
+		mutation.error = response.error?.message ?? null;
 
 		if (previous) byId[id] = previous;
 		if (!list.ids.includes(id)) list.ids = [id, ...list.ids];
@@ -515,6 +524,7 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 		byId,
 		list,
 		savedFilters,
+		mutation,
 		alerts,
 		load,
 		listPaginated,

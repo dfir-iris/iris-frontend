@@ -7,6 +7,9 @@
 	type="checkbox"
 	class="size-4 cursor-pointer accent-primary"
 	{checked}
-	onclick={(e) => { e.stopPropagation(); onToggle(); }}
+	onclick={(e) => {
+		e.stopPropagation();
+		onToggle();
+	}}
 	onchange={() => {}}
 />

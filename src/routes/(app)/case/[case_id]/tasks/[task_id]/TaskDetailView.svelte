@@ -214,7 +214,17 @@
 	};
 
 	const handleTaskDeleted = async () => {
-		await caseTasks.removeTask(taskId, { fetch });
+		if (!(await caseTasks.removeTask(taskId, { fetch }))) {
+			toast({
+				title: 'Failed to delete task',
+				description: caseTasks.mutation.error ?? 'The task is still in this case.',
+				variant: 'destructive'
+			});
+
+			return;
+		}
+
+		toast({ title: 'Task deleted', variant: 'success' });
 		onAfterDelete?.();
 	};
 

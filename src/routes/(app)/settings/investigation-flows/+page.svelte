@@ -75,20 +75,24 @@
 	// ---- Deploy result feedback ----
 	let deploying = $state(false);
 
-	const showError = (msg: string) => toast({ title: msg, variant: 'destructive' });
+	const showError = (msg: string, detail?: string) =>
+		toast({ title: msg, description: detail, variant: 'destructive' });
 	const showSuccess = (msg: string) => toast({ title: msg, variant: 'success' });
 
 	const load = async () => {
 		loading = true;
 		try {
 			const res = await InvestigationFlowsService.list();
+			if (!res.ok) {
+				showError('Failed to load investigation flows', res.error?.message);
+				return;
+			}
+
 			flows = (res.data as InvestigationFlow[]) ?? [];
 			if (selected) {
 				const refreshed = flows.find((f) => f.flow_id === selected!.flow_id) ?? null;
 				setSelected(refreshed);
 			}
-		} catch {
-			showError('Failed to load investigation flows');
 		} finally {
 			loading = false;
 		}
@@ -127,14 +131,17 @@
 				flow_target: 'alert',
 				flow_conditions: { logic: 'and', conditions: [] }
 			});
+			if (!res.ok) {
+				showError('Failed to create flow', res.error?.message);
+				return;
+			}
+
 			createOpen = false;
 			await load();
 			const created =
 				res.data && typeof res.data === 'object' ? (res.data as InvestigationFlow) : null;
 			if (created) setSelected(flows.find((f) => f.flow_id === created.flow_id) ?? created);
 			showSuccess('Flow created');
-		} catch {
-			showError('Failed to create flow');
 		} finally {
 			createBusy = false;
 		}
@@ -156,12 +163,15 @@
 		}
 		renameBusy = true;
 		try {
-			await InvestigationFlowsService.update(selected.flow_id, { flow_name: name });
+			const res = await InvestigationFlowsService.update(selected.flow_id, { flow_name: name });
+			if (!res.ok) {
+				showError('Failed to rename flow', res.error?.message);
+				return;
+			}
+
 			renameOpen = false;
 			await load();
 			showSuccess('Flow renamed');
-		} catch {
-			showError('Failed to rename flow');
 		} finally {
 			renameBusy = false;
 		}
@@ -170,33 +180,37 @@
 	// ---- Save metadata + conditions ----
 	const saveMetadata = async () => {
 		if (!selected) return;
-		try {
-			await InvestigationFlowsService.update(selected.flow_id, {
-				flow_target: editTarget,
-				flow_priority: editPriority,
-				flow_conditions: {
-					logic: editConditions.logic,
-					conditions: editConditions.conditions
-				}
-			});
-			await load();
-			showSuccess('Flow saved');
-		} catch {
-			showError('Failed to save flow');
+
+		const res = await InvestigationFlowsService.update(selected.flow_id, {
+			flow_target: editTarget,
+			flow_priority: editPriority,
+			flow_conditions: {
+				logic: editConditions.logic,
+				conditions: editConditions.conditions
+			}
+		});
+		if (!res.ok) {
+			showError('Failed to save flow', res.error?.message);
+			return;
 		}
+
+		await load();
+		showSuccess('Flow saved');
 	};
 
 	// ---- Delete ----
 	const confirmDelete = async () => {
 		if (!selected) return;
-		try {
-			await InvestigationFlowsService.remove(selected.flow_id);
-			selected = null;
-			await load();
-			showSuccess('Flow deleted');
-		} catch {
-			showError('Failed to delete flow');
+
+		const res = await InvestigationFlowsService.remove(selected.flow_id);
+		if (!res.ok) {
+			showError('Failed to delete flow', res.error?.message);
+			return;
 		}
+
+		selected = null;
+		await load();
+		showSuccess('Flow deleted');
 	};
 
 	// ---- Deploy ----
@@ -205,18 +219,23 @@
 		deploying = true;
 		try {
 			const res = await InvestigationFlowsService.deploy(selected.flow_id);
+			if (!res.ok) {
+				showError('Deploy failed', res.error?.message);
+				return;
+			}
+
 			const payload =
 				res.data && typeof res.data === 'object' ? (res.data as DeployFlowResult) : null;
-			if (payload) {
-				const parts: string[] = [];
-				if (payload.alerts_attached > 0) parts.push(`${payload.alerts_attached} alert(s)`);
-				if (payload.clusters_attached > 0)
-					parts.push(`${payload.clusters_attached} alert cluster(s)`);
-				const msg = parts.length ? `Attached to ${parts.join(', ')}` : 'No matches found';
-				showSuccess(msg);
+			if (!payload) {
+				showError('Deploy failed', 'The server returned an unexpected response.');
+				return;
 			}
-		} catch {
-			showError('Deploy failed');
+
+			const parts: string[] = [];
+			if (payload.alerts_attached > 0) parts.push(`${payload.alerts_attached} alert(s)`);
+			if (payload.clusters_attached > 0)
+				parts.push(`${payload.clusters_attached} alert cluster(s)`);
+			showSuccess(parts.length ? `Attached to ${parts.join(', ')}` : 'No matches found');
 		} finally {
 			deploying = false;
 		}
@@ -226,56 +245,67 @@
 	const addStep = async () => {
 		if (!selected) return;
 		const order = (selected.steps?.length ?? 0) + 1;
-		try {
-			await InvestigationFlowsService.createStep(selected.flow_id, {
-				step_order: order,
-				step_title: `Step ${order}`
-			});
-			await load();
-		} catch {
-			showError('Failed to add step');
+
+		const res = await InvestigationFlowsService.createStep(selected.flow_id, {
+			step_order: order,
+			step_title: `Step ${order}`
+		});
+		if (!res.ok) {
+			showError('Failed to add step', res.error?.message);
+			return;
 		}
+
+		await load();
 	};
 
 	const removeStep = async (step: InvestigationFlowStep) => {
 		if (!selected) return;
-		try {
-			await InvestigationFlowsService.deleteStep(selected.flow_id, step.step_id);
-			await load();
-		} catch {
-			showError('Failed to delete step');
+
+		const res = await InvestigationFlowsService.deleteStep(selected.flow_id, step.step_id);
+		if (!res.ok) {
+			showError('Failed to delete step', res.error?.message);
+			return;
 		}
+
+		await load();
 	};
 
 	const saveStep = async (step: InvestigationFlowStep) => {
 		if (!selected) return;
-		try {
-			await InvestigationFlowsService.updateStep(selected.flow_id, step.step_id, {
-				step_title: step.step_title,
-				step_description: step.step_description ?? '',
-				step_order: step.step_order,
-				step_is_required: step.step_is_required
-			});
-		} catch {
-			showError('Failed to save step');
-		}
+
+		const res = await InvestigationFlowsService.updateStep(selected.flow_id, step.step_id, {
+			step_title: step.step_title,
+			step_description: step.step_description ?? '',
+			step_order: step.step_order,
+			step_is_required: step.step_is_required
+		});
+		if (!res.ok) showError('Failed to save step', res.error?.message);
 	};
 
 	// Swap two adjacent steps by trading `step_order`.
 	const swap = async (a: InvestigationFlowStep, b: InvestigationFlowStep) => {
 		if (!selected) return;
 		const orderA = a.step_order;
-		try {
-			await InvestigationFlowsService.updateStep(selected.flow_id, a.step_id, {
-				step_order: b.step_order
-			});
-			await InvestigationFlowsService.updateStep(selected.flow_id, b.step_id, {
-				step_order: orderA
-			});
-			await load();
-		} catch {
-			showError('Failed to reorder step');
+
+		const first = await InvestigationFlowsService.updateStep(selected.flow_id, a.step_id, {
+			step_order: b.step_order
+		});
+		if (!first.ok) {
+			showError('Failed to reorder step', first.error?.message);
+			return;
 		}
+
+		const second = await InvestigationFlowsService.updateStep(selected.flow_id, b.step_id, {
+			step_order: orderA
+		});
+		if (!second.ok) {
+			showError(
+				'Failed to reorder step',
+				second.error?.message ?? 'The steps may now be out of order.'
+			);
+		}
+
+		await load();
 	};
 
 	onMount(load);

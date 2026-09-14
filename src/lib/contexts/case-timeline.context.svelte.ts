@@ -57,6 +57,8 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		selectedEventId: undefined
 	});
 
+	const mutation = $state<{ error: string | null }>({ error: null });
+
 	const currentCaseId = $derived(() => getCaseId());
 
 	const currentEvent = $derived(() =>
@@ -304,12 +306,17 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		id: CaseTimelineEventIdentifier,
 		options: ApiOptions = {}
 	): Promise<boolean> => {
+		mutation.error = null;
+
 		const caseId = getCaseId();
 		if (caseId === null) return false;
 
 		const res = await CaseTimelineService.removeEvent(caseId, id, options);
 
-		if (!res.ok) return false;
+		if (!res.ok) {
+			mutation.error = res.error?.message ?? null;
+			return false;
+		}
 
 		delete byId[id];
 		list.eventIds = list.eventIds.filter((eventId) => eventId !== id);
@@ -320,6 +327,44 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 
 		await refresh(list.query, options);
 		return true;
+	};
+
+	const removeEvents = async (
+		ids: CaseTimelineEventIdentifier[],
+		options: ApiOptions = {}
+	): Promise<{ removed: CaseTimelineEventIdentifier[]; failed: CaseTimelineEventIdentifier[] }> => {
+		mutation.error = null;
+
+		const caseId = getCaseId();
+		if (caseId === null) return { removed: [], failed: [...ids] };
+
+		const outcomes = await Promise.allSettled(
+			ids.map((id) => CaseTimelineService.removeEvent(caseId, id, options))
+		);
+
+		const removed: CaseTimelineEventIdentifier[] = [];
+		const failed: CaseTimelineEventIdentifier[] = [];
+
+		outcomes.forEach((outcome, index) => {
+			const id = ids[index];
+			if (outcome.status === 'fulfilled' && outcome.value.ok) {
+				removed.push(id);
+			} else {
+				failed.push(id);
+			}
+		});
+
+		for (const id of removed) {
+			delete byId[id];
+			if (ui.selectedEventId === id) ui.selectedEventId = undefined;
+		}
+
+		if (removed.length > 0) {
+			list.eventIds = list.eventIds.filter((eventId) => !removed.includes(eventId));
+			await refresh(list.query, options);
+		}
+
+		return { removed, failed };
 	};
 
 	const selectEvent = (id?: number) => {
@@ -347,6 +392,7 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		byId,
 		list,
 		ui,
+		mutation,
 		currentCaseId,
 		currentEvent,
 		events,
@@ -358,6 +404,7 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 		createEvent,
 		patchEvent,
 		removeEvent,
+		removeEvents,
 		selectEvent,
 		reset
 	};

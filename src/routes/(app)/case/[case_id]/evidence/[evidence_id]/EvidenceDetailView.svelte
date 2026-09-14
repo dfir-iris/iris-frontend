@@ -210,7 +210,17 @@
 	};
 
 	const handleEvidenceDeleted = async () => {
-		await caseEvidences.removeEvidence(evidenceId, { fetch });
+		if (!(await caseEvidences.removeEvidence(evidenceId, { fetch }))) {
+			toast({
+				title: 'Failed to delete evidence',
+				description: caseEvidences.mutation.error ?? 'The evidence is still in this case.',
+				variant: 'destructive'
+			});
+
+			return;
+		}
+
+		toast({ title: 'Evidence deleted', variant: 'success' });
 		onAfterDelete?.();
 	};
 

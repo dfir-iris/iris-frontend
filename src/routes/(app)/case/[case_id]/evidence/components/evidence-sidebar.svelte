@@ -7,10 +7,16 @@
 		CASE_EVIDENCES_CTX,
 		type CaseEvidencesContext
 	} from '$lib/contexts/case-evidences.context.svelte';
-	import { CaseEvidencesService, type ListCaseEvidencesParams } from '$lib/services/case-evidences.service';
+	import {
+		CaseEvidencesService,
+		type ListCaseEvidencesParams
+	} from '$lib/services/case-evidences.service';
 	import type { Evidence, EvidenceType } from '$lib/types/resources/evidence';
 	import DownloadModal from '$lib/components/common/DownloadModal.svelte';
-	import { AVAILABLE_EVIDENCE_EXPORT_COLUMNS, convertEvidencesToCSV } from '$lib/utils/evidence.utils';
+	import {
+		AVAILABLE_EVIDENCE_EXPORT_COLUMNS,
+		convertEvidencesToCSV
+	} from '$lib/utils/evidence.utils';
 	import EvidenceCard from './evidence-card.svelte';
 	import EvidenceDataTable from '$lib/components/common/evidence/EvidenceDataTable.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -235,7 +241,10 @@
 	};
 
 	const deleteSelected = async () => {
-		if (!selectedCount) { showConfirmDelete = false; return; }
+		if (!selectedCount) {
+			showConfirmDelete = false;
+			return;
+		}
 		isBulkWorking = true;
 		const ids = [...selectedEvidences];
 		await Promise.all(ids.map((id) => caseEvidences.removeEvidence(id)));
@@ -273,7 +282,9 @@
 		isDownloading = true;
 
 		try {
-			const columns = AVAILABLE_EVIDENCE_EXPORT_COLUMNS.filter((c) => selectedColumnKeys.has(c.key));
+			const columns = AVAILABLE_EVIDENCE_EXPORT_COLUMNS.filter((c) =>
+				selectedColumnKeys.has(c.key)
+			);
 			let rows: Evidence[];
 
 			if (downloadType === 'visible' && selectionMode && selectedEvidences.size > 0) {
@@ -287,7 +298,9 @@
 
 				while (nextPage !== null) {
 					const params: ListCaseEvidencesParams = { page: pageNumber, per_page: 100 };
-					const res = await CaseEvidencesService.list(Number(page.params.case_id), params, { fetch });
+					const res = await CaseEvidencesService.list(Number(page.params.case_id), params, {
+						fetch
+					});
 					if (!res.ok || res.error || !res.data || typeof res.data === 'string') break;
 					rows.push(...res.data.data);
 					nextPage = res.data.next_page;
@@ -411,14 +424,20 @@
 	</div>
 
 	{#if selectionMode}
-		<div class="flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-muted/40 px-2 py-1.5">
+		<div
+			class="flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-muted/40 px-2 py-1.5"
+		>
 			<span class="text-xs text-muted-foreground">{selectedCount} selected</span>
 
 			<Button size="xs" variant="outline" onclick={selectAll}>Select All</Button>
 
 			<DropdownMenu>
 				<DropdownMenuTrigger>
-					<Button size="xs" variant="outline" disabled={!selectedCount || isBulkWorking || !evidenceTypes.length}>
+					<Button
+						size="xs"
+						variant="outline"
+						disabled={!selectedCount || isBulkWorking || !evidenceTypes.length}
+					>
 						Set Type <ChevronDownIcon size={12} />
 					</Button>
 				</DropdownMenuTrigger>
@@ -497,7 +516,10 @@
 									type="checkbox"
 									class="size-4 shrink-0 cursor-pointer accent-primary"
 									checked={selectedEvidences.has(evidence.id)}
-									onclick={(e) => { e.stopPropagation(); toggleEvidenceSelection(evidence.id); }}
+									onclick={(e) => {
+										e.stopPropagation();
+										toggleEvidenceSelection(evidence.id);
+									}}
 									onchange={() => {}}
 								/>
 								<div class="min-w-0 flex-1">
@@ -538,7 +560,9 @@
 <ConfirmationDialog
 	bind:open={showConfirmDelete}
 	title="Delete Evidence"
-	message="Delete {selectedCount} selected evidence item{selectedCount === 1 ? '' : 's'}? This cannot be undone."
+	message="Delete {selectedCount} selected evidence item{selectedCount === 1
+		? ''
+		: 's'}? This cannot be undone."
 	confirmText="Delete"
 	onConfirm={deleteSelected}
 />

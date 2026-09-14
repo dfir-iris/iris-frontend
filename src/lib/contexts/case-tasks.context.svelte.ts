@@ -68,6 +68,8 @@ export const createCaseTasksContext = (getCaseId: () => number | null) => {
 		viewMode: 'cards'
 	});
 
+	const mutation = $state<{ error: string | null }>({ error: null });
+
 	const currentCaseId = $derived(() => getCaseId());
 
 	const currentTask = $derived(() =>
@@ -219,6 +221,8 @@ export const createCaseTasksContext = (getCaseId: () => number | null) => {
 	};
 
 	const removeTask = async (id: CaseTaskIdentifier, options: ApiOptions = {}): Promise<boolean> => {
+		mutation.error = null;
+
 		const caseId = getCaseId();
 
 		if (caseId === null) return false;
@@ -240,6 +244,8 @@ export const createCaseTasksContext = (getCaseId: () => number | null) => {
 			await refresh(options);
 			return true;
 		}
+
+		mutation.error = res.error?.message ?? null;
 
 		if (prev) {
 			byId[id] = prev;
@@ -279,6 +285,7 @@ export const createCaseTasksContext = (getCaseId: () => number | null) => {
 		byId,
 		list,
 		ui,
+		mutation,
 		currentCaseId,
 		currentTask,
 		tasks,

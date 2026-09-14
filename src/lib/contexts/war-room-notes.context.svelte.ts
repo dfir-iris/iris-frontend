@@ -179,6 +179,8 @@ export const createWarRoomNotesContext = (getWarRoomId: () => number | null) => 
 		showAddFolderModal: false
 	});
 
+	const mutation = $state<{ error: string | null }>({ error: null });
+
 	const currentWarRoomId = $derived(() => getWarRoomId());
 
 	const currentNote = $derived(() =>
@@ -355,6 +357,8 @@ export const createWarRoomNotesContext = (getWarRoomId: () => number | null) => 
 	};
 
 	const removeNote = async (id: number, options: ApiOptions = {}): Promise<boolean> => {
+		mutation.error = null;
+
 		const warRoomId = getWarRoomId();
 		if (warRoomId === null) return false;
 
@@ -370,6 +374,8 @@ export const createWarRoomNotesContext = (getWarRoomId: () => number | null) => 
 			await refresh(options);
 			return true;
 		}
+
+		mutation.error = res.error?.message ?? null;
 
 		// Rollback optimistic state on failure.
 		if (prev) byId[id] = prev;
@@ -425,6 +431,8 @@ export const createWarRoomNotesContext = (getWarRoomId: () => number | null) => 
 	};
 
 	const removeFolder = async (id: number, options: ApiOptions = {}): Promise<boolean> => {
+		mutation.error = null;
+
 		const warRoomId = getWarRoomId();
 		if (warRoomId === null) return false;
 
@@ -433,6 +441,8 @@ export const createWarRoomNotesContext = (getWarRoomId: () => number | null) => 
 			await refresh(options);
 			return true;
 		}
+
+		mutation.error = res.error?.message ?? null;
 
 		await refresh(options);
 		return false;
@@ -472,6 +482,7 @@ export const createWarRoomNotesContext = (getWarRoomId: () => number | null) => 
 		foldersById,
 		list,
 		ui,
+		mutation,
 		currentWarRoomId,
 		currentNote,
 		folders,

@@ -223,7 +223,17 @@
 	};
 
 	const handleIocDeleted = async () => {
-		await caseIocs.removeIoc(iocId, { fetch });
+		if (!(await caseIocs.removeIoc(iocId, { fetch }))) {
+			toast({
+				title: 'Failed to delete IOC',
+				description: caseIocs.mutation.error ?? 'The IOC is still in this case.',
+				variant: 'destructive'
+			});
+
+			return;
+		}
+
+		toast({ title: 'IOC deleted', variant: 'success' });
 		onAfterDelete?.();
 	};
 
