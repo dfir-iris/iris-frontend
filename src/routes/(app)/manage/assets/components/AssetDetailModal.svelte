@@ -68,12 +68,19 @@
 		asset ? asset.case_sighting_count + asset.alert_sighting_count : 0
 	);
 
-	const tagList = $derived(
-		(asset?.tags ?? '')
-			.split(',')
-			.map((tag) => tag.trim())
-			.filter((tag) => tag !== '')
-	);
+	// `tags` is a comma-separated string with no uniqueness guarantee — an
+	// asset tagged "prod,prod" (via import, or two edits racing) yields two
+	// identical entries. The chip list below keys on the tag itself, and a
+	// repeated key makes Svelte throw `each_key_duplicate` and blank the
+	// modal. Duplicate chips carry no meaning anyway, so collapse them.
+	const tagList = $derived([
+		...new Set(
+			(asset?.tags ?? '')
+				.split(',')
+				.map((tag) => tag.trim())
+				.filter((tag) => tag !== '')
+		)
+	]);
 </script>
 
 <Dialog.Root

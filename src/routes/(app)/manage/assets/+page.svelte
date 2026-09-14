@@ -96,6 +96,33 @@
 	let loading = $state(false);
 	let envelope = $state<ManagedAssetPage<ManagedAsset> | null>(null);
 
+	/**
+	 * The table keys its rows on `managed_asset_id`, and a repeated id makes
+	 * Svelte throw `each_key_duplicate` — which takes the whole registry page
+	 * down, not just the offending row. A page of results should never contain
+	 * the same asset twice, so if it does the fault is upstream (a join against
+	 * sightings that lost its DISTINCT, most likely). Drop the repeats so the
+	 * page still renders, and say so in the console rather than swallowing it:
+	 * duplicate rows also mean the pagination totals are wrong.
+	 */
+	const rows = $derived.by<ManagedAsset[]>(() => {
+		const source = envelope?.data ?? [];
+		const seen = new Set<number>();
+		const unique = source.filter((asset) => {
+			if (seen.has(asset.managed_asset_id)) return false;
+			seen.add(asset.managed_asset_id);
+			return true;
+		});
+
+		if (unique.length !== source.length) {
+			console.warn(
+				`[assets] API returned ${source.length - unique.length} duplicate asset id(s) on page ${page}; totals are unreliable`
+			);
+		}
+
+		return unique;
+	});
+
 	// Dialog / panel state.
 	let formOpen = $state(false);
 	let formAsset = $state<ManagedAssetDetail | null>(null);
@@ -730,9 +757,9 @@
 								<Skeleton class="h-10 w-full" />
 							{/each}
 						</div>
-					{:else if envelope && envelope.data.length > 0}
+					{:else if envelope && rows.length > 0}
 						<AssetsTable
-							assets={envelope.data}
+							assets={rows}
 							{orderBy}
 							{sortDir}
 							{canWrite}
