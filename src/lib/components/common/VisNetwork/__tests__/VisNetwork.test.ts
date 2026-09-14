@@ -5,6 +5,14 @@
  * The bug: scrolling the alerts page and passing the pointer over an
  * expanded alert's relationship graph zoomed the graph instead of letting
  * the page scroll. There were two independent causes, one per test below.
+ *
+ * Runs in the node environment, not the project-wide jsdom default: the
+ * first test reads `VisNetwork.svelte` off disk, and under jsdom Vite
+ * externalises `node:fs`/`node:path`/`node:url` "for browser compatibility",
+ * which leaves `fileURLToPath` undefined and the whole suite uncollectable.
+ * Nothing here touches the DOM, so node is the correct environment anyway.
+ *
+ * @vitest-environment node
  */
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
