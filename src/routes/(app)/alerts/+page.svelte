@@ -47,7 +47,6 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
-	import { toast } from '$lib/components/ui/toast';
 	import {
 		DropdownMenu,
 		DropdownMenuContent,
