@@ -25,6 +25,7 @@
 	import { AlertClustersService } from '$lib/services/alert-clusters.service';
 	import type { UpdateAlertAssetBody, UpdateAlertIocBody } from '$lib/services/alerts.service';
 	import EnrichmentDialog from '$lib/components/common/EnrichmentDialog.svelte';
+	import InvestigationFlowSteps from '$lib/components/common/InvestigationFlow/InvestigationFlowSteps.svelte';
 	import AlertRelatedGraph from '../AlertRelatedGraph/AlertRelatedGraph.svelte';
 	import AlertIocEditDialog from '../alert-ioc-edit-dialog.svelte';
 	import AlertAssetEditDialog from '../alert-asset-edit-dialog.svelte';
@@ -143,7 +144,16 @@
 		onQueueTabChange
 	}: Props = $props();
 
-	type Tab = 'overview' | 'assets' | 'cluster' | 'iocs' | 'raw' | 'timeline' | 'notes' | 'graph';
+	type Tab =
+		| 'overview'
+		| 'flow'
+		| 'assets'
+		| 'cluster'
+		| 'iocs'
+		| 'raw'
+		| 'timeline'
+		| 'notes'
+		| 'graph';
 
 	let focusedId = $state<number | null>(null);
 	// Which pane the small-screen layout is showing. Inert above the stacking
@@ -369,14 +379,30 @@
 	const techniques = $derived(focused ? techniqueLabels(focused) : []);
 	const notes = $derived((focused?.alert_note ?? '').trim());
 
-	const tabs = $derived([
+	type TabDef = { id: Tab; label: string; count: number | undefined; dot?: boolean };
+
+	const tabs = $derived<TabDef[]>([
 		{ id: 'overview' as Tab, label: 'Overview', count: undefined as number | undefined },
+		{
+			id: 'flow' as Tab,
+			label: 'Investigation',
+			count: undefined,
+			// The step count needs a round trip, so the tab can't carry one.
+			// The alert already says whether a flow is attached, which is the
+			// part worth advertising — there is a checklist waiting here.
+			dot: focused?.investigation_flow != null
+		},
 		{
 			id: 'assets' as Tab,
 			label: 'Assets',
 			count: (focused?.assets?.length ?? 0) > 0 ? focused?.assets?.length : undefined
 		},
-		{ id: 'cluster' as Tab, label: 'Cluster', count: cluster?.alert_ids?.length },
+		{
+			id: 'cluster' as Tab,
+			label: 'Cluster',
+			count: cluster?.alert_ids?.length,
+			dot: cluster != null
+		},
 		{ id: 'iocs' as Tab, label: 'IOCs', count: iocs.length },
 		{ id: 'raw' as Tab, label: 'Raw event', count: undefined },
 		{ id: 'timeline' as Tab, label: 'Timeline', count: undefined },
@@ -678,7 +704,13 @@
 									onclick={() => toggleCluster(unit.cluster.cluster_id)}
 								>
 									<span class="cluster-caret" aria-hidden="true">{open ? '▾' : '▸'}</span>
-									<span class="chip-glyph" aria-hidden="true">◈</span>
+									<!-- Spelled out rather than left to the ◈ glyph alone: the
+									     rail and the tint only read as "these rows belong
+									     together" once you already know the convention. -->
+									<span class="cluster-badge">
+										<span class="chip-glyph" aria-hidden="true">◈</span>
+										<span>Cluster</span>
+									</span>
 									<span class="cluster-title">{unit.cluster.cluster_title}</span>
 									<span class="cluster-count"
 										>{unit.alerts_total}
@@ -819,13 +851,22 @@
 
 				<div class="detail-chips">
 					{#if cluster}
+						<!-- Sits among the technique chips, so it gets the accent
+						     border and its own label to read as a different kind of
+						     thing: the others describe the alert, this one says the
+						     alert is not alone. -->
 						<button
 							type="button"
-							class="chip-cluster chip-lg"
+							class="chip-cluster chip-lg chip-cluster-strong"
 							onclick={() => cluster && onOpenCluster(cluster.cluster_id)}
+							title="Open the cluster"
 						>
-							<span class="chip-glyph">◈</span>
-							<span>Cluster: {clusterLabel}</span>
+							<span class="cluster-badge">
+								<span class="chip-glyph" aria-hidden="true">◈</span>
+								<span>Cluster</span>
+							</span>
+							<span>{clusterLabel}</span>
+							<span class="chip-go" aria-hidden="true">›</span>
 						</button>
 					{/if}
 					{#each techniques as technique}
@@ -844,7 +885,12 @@
 						aria-selected={activeTab === tab.id}
 						onclick={() => (activeTab = tab.id)}
 					>
-						{tab.label}{#if tab.count !== undefined}<span class="tab-count">{tab.count}</span>{/if}
+						{tab.label}{#if tab.count !== undefined}<span class="tab-count">{tab.count}</span
+							>{:else if tab.dot}<span
+								class="tab-dot"
+								aria-hidden="true"
+								title="Attached to this alert"
+							></span>{/if}
 					</button>
 				{/each}
 			</div>
@@ -852,6 +898,17 @@
 			{#if activeTab === 'graph'}
 				<div class="graph-pane">
 					<AlertRelatedGraph alertId={f.alert_id} />
+				</div>
+			{:else if activeTab === 'flow'}
+				<!--
+				  Full-width like the graph rather than a column of
+				  `detail-main`: the checklist carries markdown descriptions
+				  and a note editor per step, which the ~60% main column
+				  squeezes badly. The shared component brings the app's own
+				  tokens with it — same arrangement the graph pane uses.
+				-->
+				<div class="flow-pane">
+					<InvestigationFlowSteps alertId={f.alert_id} />
 				</div>
 			{:else}
 				<div class="detail-body">
@@ -1639,10 +1696,14 @@
 
 	/* ---------------- cluster groups ----------------
 	   A cluster is one queue entry: a labelled header with its member
-	   alerts nested under it. The tinted left rail is what says "these
-	   rows belong together" once you have scrolled past the header. */
+	   alerts nested under it. Three things carry that, in falling order
+	   of how far you can scroll and still see them: the rail running down
+	   the whole group, the tinted header band, and the badge on it. */
 	.cluster-group {
-		border-bottom: 1px solid var(--b-hair);
+		margin: 6px 0;
+		border-top: 1px solid var(--b-cluster);
+		border-bottom: 1px solid var(--b-cluster);
+		border-left: 3px solid var(--acc);
 		background: var(--s-sunken);
 	}
 	.cluster-group > .row {
@@ -1663,6 +1724,23 @@
 		align-items: center;
 		gap: 8px;
 		padding: 0 12px 0 8px;
+		background: var(--s-cluster);
+		border-bottom: 1px solid var(--b-cluster);
+	}
+	.cluster-badge {
+		display: inline-flex;
+		flex: none;
+		align-items: center;
+		gap: 4px;
+		padding: 1px 6px;
+		font-size: 10px;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--acc);
+		background: var(--s-card);
+		border: 1px solid var(--b-cluster);
+		border-radius: 4px;
 	}
 	.cluster-toggle {
 		display: flex;
@@ -1682,18 +1760,28 @@
 		font-size: 9px;
 		color: var(--t-9);
 	}
-	.cluster-title {
+	/* Scoped to the queue header: `.cluster-title` is also the member
+	   title in the Cluster tab further down, and at equal specificity
+	   that rule was winning here — the header was rendering at the
+	   member list's lighter 13.5px/500 instead of this. */
+	.cluster-toggle .cluster-title {
 		overflow: hidden;
 		font-size: 12.5px;
 		font-weight: 600;
-		color: var(--t-4);
+		color: var(--t-2);
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 	.cluster-count {
 		flex: none;
-		font-size: 11.5px;
-		color: var(--t-9);
+		padding: 1px 6px;
+		font-size: 11px;
+		font-weight: 600;
+		color: var(--t-4);
+		background: var(--s-card);
+		border: 1px solid var(--b-cluster);
+		border-radius: 999px;
+		white-space: nowrap;
 	}
 	.cluster-picked {
 		flex: none;
@@ -1869,6 +1957,16 @@
 	}
 	button.chip-cluster:hover {
 		border-color: var(--acc);
+	}
+	.chip-cluster-strong {
+		gap: 7px;
+		padding-left: 4px;
+		border-color: var(--acc);
+		color: var(--t-2);
+		font-weight: 600;
+	}
+	.chip-go {
+		color: var(--acc);
 	}
 
 	.queue-foot {
@@ -2077,6 +2175,17 @@
 		margin-left: 5px;
 		color: var(--t-10);
 	}
+	/* Stands in for a count on tabs whose content is only known after a
+	   fetch: says "there is something here" without claiming how much. */
+	.tab-dot {
+		display: inline-block;
+		width: 5px;
+		height: 5px;
+		margin-left: 5px;
+		vertical-align: middle;
+		background: var(--acc);
+		border-radius: 50%;
+	}
 
 	.detail-body {
 		flex: 1;
@@ -2153,7 +2262,7 @@
 		gap: 3px;
 		min-width: 0;
 	}
-	.cluster-title {
+	.cluster-body .cluster-title {
 		font-size: 13.5px;
 		font-weight: 500;
 		color: var(--t-2);
@@ -2238,6 +2347,16 @@
 		min-height: 0;
 		overflow: hidden;
 		background: var(--s-sunken);
+	}
+
+	/* The checklist scrolls internally, so the pane must be a bounded
+	   flex child — `min-height: 0` is what lets it be shorter than its
+	   content instead of pushing the detail pane past the viewport. */
+	.flow-pane {
+		flex: 1;
+		min-height: 0;
+		overflow: hidden;
+		background: var(--s-card);
 	}
 
 	.context-grid {
