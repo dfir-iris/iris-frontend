@@ -10,7 +10,7 @@ vi.mock('../api.service', () => ({
 	}
 }));
 
-import { AlertService } from '../alerts.service';
+import { AlertService, alertSearchQueryError } from '../alerts.service';
 import { ApiService } from '../api.service';
 
 import type { Alert } from '$lib/types/resources/alert';
@@ -338,5 +338,40 @@ describe('AlertService', () => {
 		expect(ApiService.post).toHaveBeenCalledTimes(1);
 		expect(ApiService.post).toHaveBeenCalledWith('/api/v2/alerts/escalate/10', body, options);
 		expect(res).toBe(mockResponse);
+	});
+});
+
+describe('alertSearchQueryError', () => {
+	const refusal = (status: number, data: unknown) => ({ ok: false, status, data });
+
+	it('reads the message and the offset out of a refused query', () => {
+		expect(
+			alertSearchQueryError(
+				refusal(400, { message: 'Unknown field "sevrity"', data: { position: 4 } })
+			)
+		).toEqual({ message: 'Unknown field "sevrity"', position: 4 });
+	});
+
+	it('reports offset zero, which is a real place in the expression', () => {
+		expect(
+			alertSearchQueryError(refusal(400, { message: 'Unexpected token', data: { position: 0 } }))
+		).toEqual({ message: 'Unexpected token', position: 0 });
+	});
+
+	// Without an offset there is nothing to underline, so these stay with
+	// the generic API toast rather than reaching the bar.
+	it('ignores a 400 that is not about the expression', () => {
+		expect(alertSearchQueryError(refusal(400, { message: 'Invalid page' }))).toBeNull();
+		expect(alertSearchQueryError(refusal(400, { message: 'Too long', data: {} }))).toBeNull();
+		expect(alertSearchQueryError(refusal(400, 'plain text body'))).toBeNull();
+		expect(
+			alertSearchQueryError(refusal(500, { message: 'boom', data: { position: 2 } }))
+		).toBeNull();
+	});
+
+	it('ignores a response that succeeded', () => {
+		expect(
+			alertSearchQueryError({ ok: true, status: 200, data: { total: 0, data: [] } })
+		).toBeNull();
 	});
 });

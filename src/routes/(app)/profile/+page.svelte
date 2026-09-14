@@ -103,14 +103,41 @@
 		}))
 	]);
 
+	// The expression behind the `query` view. Kept alongside the select
+	// because picking that entry is only half the choice — an empty
+	// expression is not a view, so nothing is saved until it is typed.
+	let alertsDefaultQuery = $state('');
+	let savedDefaultQuery = '';
+
 	const loadAlertsDefaults = async () => {
-		savedDefaultViewValue = viewToSelectValue(await loadAlertsDefaultView());
+		const view = await loadAlertsDefaultView();
+		savedDefaultViewValue = viewToSelectValue(view);
 		alertsDefaultViewValue = savedDefaultViewValue;
+		savedDefaultQuery = view.query ?? '';
+		alertsDefaultQuery = savedDefaultQuery;
 
 		const res = await AlertsFiltersService.list();
 		if (res.ok && Array.isArray(res.data)) {
 			alertPresets = res.data;
 		}
+	};
+
+	/** Write a view, restoring the last acknowledged choice if it does not land. */
+	const commitAlertsDefaultView = async (next: AlertsDefaultView, selectValue: string) => {
+		alertsDefaultViewValue = selectValue;
+
+		if (await saveAlertsDefaultView(next)) {
+			savedDefaultViewValue = selectValue;
+			savedDefaultQuery = next.query ?? '';
+			return;
+		}
+
+		alertsDefaultViewValue = savedDefaultViewValue;
+		alertsDefaultQuery = savedDefaultQuery;
+		toast({
+			title: 'Failed to save the default alerts view',
+			variant: 'destructive'
+		});
 	};
 
 	const setAlertsDefaultView = async (value: string) => {
@@ -121,22 +148,35 @@
 			return;
 		}
 
+		if (value === 'query') {
+			// Reveal the expression field and wait for it. Saving `query`
+			// with nothing in it would store a view that resolves to the
+			// open queue anyway, and look like it had been accepted.
+			alertsDefaultViewValue = value;
+			if (alertsDefaultQuery.trim() !== '') await saveAlertsDefaultQuery();
+			return;
+		}
+
 		const next: AlertsDefaultView = value.startsWith(PRESET_PREFIX)
 			? { mode: 'preset', filter_id: Number(value.slice(PRESET_PREFIX.length)) }
 			: { mode: value as AlertsDefaultView['mode'] };
 
-		alertsDefaultViewValue = value;
+		await commitAlertsDefaultView(next, value);
+	};
 
-		if (await saveAlertsDefaultView(next)) {
-			savedDefaultViewValue = value;
+	const saveAlertsDefaultQuery = async () => {
+		const expression = alertsDefaultQuery.trim();
+
+		if (expression === '') {
+			// Emptying the field is a way out of this mode, not a new view.
+			alertsDefaultViewValue = savedDefaultViewValue;
+			alertsDefaultQuery = savedDefaultQuery;
 			return;
 		}
 
-		alertsDefaultViewValue = savedDefaultViewValue;
-		toast({
-			title: 'Failed to save the default alerts view',
-			variant: 'destructive'
-		});
+		if (expression === savedDefaultQuery && savedDefaultViewValue === 'query') return;
+
+		await commitAlertsDefaultView({ mode: 'query', query: expression }, 'query');
 	};
 
 	const load = async () => {
@@ -499,6 +539,20 @@
 						aria-label="Default alerts view"
 						onValueChange={setAlertsDefaultView}
 					/>
+					{#if alertsDefaultViewValue === 'query'}
+						<Input
+							bind:value={alertsDefaultQuery}
+							placeholder="is:open owner:me severity:>=High"
+							aria-label="Default alerts search expression"
+							onblur={saveAlertsDefaultQuery}
+							onkeydown={(event: KeyboardEvent) => {
+								if (event.key === 'Enter') {
+									event.preventDefault();
+									void saveAlertsDefaultQuery();
+								}
+							}}
+						/>
+					{/if}
 					<p class="text-2xs text-muted-foreground">
 						Applied when you open Alerts from the side bar. Links that already carry filters — a
 						bookmark, a shared URL, or the filter bar after you clear it — are left alone.

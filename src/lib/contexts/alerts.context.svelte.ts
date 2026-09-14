@@ -1,5 +1,6 @@
-import { AlertService } from '$lib/services/alerts.service';
+import { AlertService, alertSearchQueryError } from '$lib/services/alerts.service';
 import type {
+	AlertSearchQueryError,
 	AlertIdentifier,
 	FilterAlertsParams,
 	UpdateAlertBody,
@@ -86,11 +87,19 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 		ids: number[];
 		status: Status;
 		error: string | null;
+		/**
+		 * Set when the last listing was refused because of its `query`.
+		 * Kept apart from `error` because it is the only failure the search
+		 * bar can act on: it carries the offset to underline, and it is the
+		 * user's typing rather than something that went wrong.
+		 */
+		searchError: AlertSearchQueryError | null;
 	}>({
 		params: {},
 		ids: [],
 		status: 'idle',
-		error: null
+		error: null,
+		searchError: null
 	});
 
 	const savedFilters = $state<{
@@ -111,6 +120,7 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 		list.params = params;
 		list.status = 'loading';
 		list.error = null;
+		list.searchError = null;
 
 		const response = await AlertService.list(params, options);
 
@@ -121,7 +131,8 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 			typeof response.data === 'string'
 		) {
 			list.status = 'error';
-			list.error = response.error?.message ?? 'Failed to load alerts';
+			list.searchError = alertSearchQueryError(response);
+			list.error = list.searchError?.message ?? response.error?.message ?? 'Failed to load alerts';
 			return;
 		}
 
@@ -153,8 +164,11 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 			response.data === null ||
 			typeof response.data === 'string'
 		) {
+			list.searchError = alertSearchQueryError(response);
 			return response as unknown as RequestResponse<Paginated<Alert>>;
 		}
+
+		list.searchError = null;
 
 		const envelope = extractFilterEnvelope(response.data);
 		const page = toPaginatedAlerts(envelope, params as Record<string, unknown>);
@@ -197,8 +211,11 @@ export const createAlertsContext = (getId: (a: Alert) => number) => {
 			response.data === null ||
 			typeof response.data === 'string'
 		) {
+			list.searchError = alertSearchQueryError(response);
 			return null;
 		}
+
+		list.searchError = null;
 
 		const raw = isRecord(response.data) ? response.data : null;
 		const units = parseAlertQueueUnits(raw?.data);

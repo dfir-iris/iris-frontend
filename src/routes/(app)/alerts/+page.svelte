@@ -22,10 +22,12 @@
 		type InvestigationFlowPanelContext
 	} from '$lib/contexts/investigation-flow-panel.context.svelte';
 	import type { RequestResponse, Paginated } from '$lib/services/api.service';
-	import type {
-		CreateAlertBody,
-		FilterAlertsParams,
-		UpdateAlertBody
+	import {
+		AlertService,
+		type AlertSearchField,
+		type CreateAlertBody,
+		type FilterAlertsParams,
+		type UpdateAlertBody
 	} from '$lib/services/alerts.service';
 	import { toast } from '$lib/components/ui/toast';
 	import type { AlertQueueUnit } from '$lib/types/resources/alert-queue-unit';
@@ -43,7 +45,8 @@
 	import { CustomersService, type Customer } from '$lib/services/customers.service';
 	import { UsersService, type MentionableUser } from '$lib/services/users.service';
 	import AlertFilterLabels from './components/AlertFilters/AlertFilterLabels.svelte';
-	import { auth, current_user } from '$lib/stores/auth.store';
+	import LuceneSearchBar from '$lib/components/common/SearchBar/LuceneSearchBar.svelte';
+	import { current_user } from '$lib/stores/auth.store';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
@@ -70,7 +73,6 @@
 		AlertsViewSwitcher,
 		isAlertBoardGroup,
 		isAlertViewMode,
-		UNASSIGNED_OWNER_ID,
 		type AlertBoardGroup,
 		type AlertViewMode
 	} from './components/AlertsBoard';
@@ -88,10 +90,19 @@
 	import {
 		ALERTS_DEFAULT_VIEW,
 		loadAlertsDefaultView,
-		openAlertsCondition,
 		type AlertsDefaultView
 	} from '$lib/utils/alerts-default-view';
 	import type { SavedFilter } from '$lib/services/alerts-filters.service';
+	import {
+		applySimpleClauses,
+		parseSimpleClauses,
+		pickSimpleFilters,
+		queueTabOf,
+		withoutSimpleFilters,
+		withQueueTab,
+		type AlertQueryLookups,
+		type QueueTab
+	} from './helpers/alert-query';
 	import { buildDefaultAlertFilters } from './helpers/alerts-default-view';
 	import { mergeAlerts } from './helpers/alerts-merge';
 	import { closeAlerts } from './helpers/alerts-close';
@@ -138,6 +149,7 @@
 		'alert_owner_id',
 		'resolution_status_id',
 		'custom_conditions',
+		'query',
 		'sort',
 		'order_by'
 	];
@@ -211,6 +223,127 @@
 	let customers = $state<Customer[]>([]);
 	let owners = $state<MentionableUser[]>([]);
 
+	// The `query` vocabulary, from `GET /api/v2/alerts/search-schema`.
+	// Only autocomplete reads it — the bar submits its text verbatim, so an
+	// empty catalogue costs suggestions and nothing else.
+	let searchFields = $state<AlertSearchField[]>([]);
+
+	/**
+	 * Values to offer after `field:`.
+	 *
+	 * Served from the lookups this page already holds rather than a second
+	 * round-trip — and, because those lookups are what the caller is
+	 * entitled to see, autocomplete cannot name a tenant they cannot read.
+	 */
+	const searchValuesFor = (alias: string): string[] => {
+		switch (alias) {
+			case 'status':
+				return alertStatuses.map((status) => status.status_name);
+			case 'severity':
+				return severities.map((severity) => severity.severity_name);
+			case 'classification':
+				return caseClassifications.map((classification) => classification.name);
+			case 'resolution':
+				return alertResolutions.map((resolution) => resolution.resolution_status_name);
+			case 'customer':
+				return customers.map((customer) => customer.customer_name);
+			case 'owner':
+				// `me` and `none` are resolved server-side and are what an
+				// analyst reaches for first, so they lead the list.
+				return ['me', 'none', ...owners.map((owner) => owner.user_name || owner.user_login)];
+			default:
+				return [];
+		}
+	};
+
+	/** Whatever the bar is currently searching for, `''` when it is empty. */
+	const searchQuery = $derived(query.filters.query ?? '');
+
+	const submitSearchQuery = (expression: string) => {
+		const trimmed = expression.trim();
+
+		void commitQuery({
+			...query,
+			page: 1,
+			filters: {
+				...query.filters,
+				// Undefined rather than '' so the key drops out of the URL and
+				// the request instead of riding along as an empty param.
+				query: trimmed === '' ? undefined : trimmed
+			}
+		});
+	};
+
+	/**
+	 * The name⇄id tables the advanced panel translates through.
+	 *
+	 * The bar speaks names and the form stores ids, so every trip between
+	 * them goes through these. They only affect what the form can *show* —
+	 * the request always carries the name for the backend to resolve again.
+	 */
+	const queryLookups = $derived<AlertQueryLookups>({
+		statuses: alertStatuses.map((status) => ({
+			id: status.status_id,
+			name: status.status_name
+		})),
+		severities: severities.map((severity) => ({
+			id: severity.severity_id,
+			name: severity.severity_name
+		})),
+		classifications: caseClassifications.map((classification) => ({
+			id: classification.id,
+			name: classification.name
+		})),
+		resolutions: alertResolutions.map((resolution) => ({
+			id: resolution.resolution_status_id,
+			name: resolution.resolution_status_name
+		})),
+		customers: customers.map((customer) => ({
+			id: customer.customer_id,
+			name: customer.customer_name
+		})),
+		owners: owners.map((owner) => ({
+			id: Number(owner.user_id),
+			name: owner.user_name || owner.user_login
+		}))
+	});
+
+	/** The expression split into what the advanced panel can edit and what it cannot. */
+	const panelClauses = $derived(parseSimpleClauses(query.filters.query, queryLookups));
+
+	/**
+	 * What the advanced panel's fields show.
+	 *
+	 * The expression wins over the scalar params of the same name: nothing
+	 * writes those any more, so the only way one is still set is an old URL
+	 * or a saved filter from before the bar existed.
+	 */
+	const panelFilters = $derived<Filters>({ ...query.filters, ...panelClauses.known });
+
+	/**
+	 * Stage an edit made in the advanced panel.
+	 *
+	 * The form's fields are written back into the expression and their
+	 * scalar params dropped, which is what migrates an old saved filter the
+	 * first time someone edits it. `custom_conditions` is left alone — it is
+	 * its own parameter with its own builder, not part of the grammar.
+	 */
+	const changePanelFilters = (next: Filters) => {
+		const expression = applySimpleClauses(
+			query.filters.query,
+			pickSimpleFilters(next),
+			queryLookups
+		);
+
+		query = {
+			...query,
+			filters: {
+				...withoutSimpleFilters(next),
+				query: expression === '' ? undefined : expression
+			}
+		};
+	};
+
 	let reassignOpen = $state(false);
 	let reassignAlert = $state<Alert | null>(null);
 	let reassignOwnerId = $state<string>('');
@@ -236,58 +369,32 @@
 	/**
 	 * Which quick-filter tab the split cockpit shows as active.
 	 *
-	 * Derived from the current `alert_owner_id` filter:
-	 *   • current user id  → 'mine'
-	 *   • -1 (UNASSIGNED)  → 'unassigned'
-	 *   • anything else    → null  (All open)
-	 *
-	 * 'escalated' is not yet a distinct filter in the current API; the
-	 * tab is wired but maps to null until escalated-status filtering is
-	 * added to FilterAlertsParams.
+	 * Read off the search expression — `is:open owner:me` and friends —
+	 * rather than off the scalar params, because the bar is what the tabs
+	 * now write. `null` is "All open", which is also what any expression
+	 * the strip does not describe shows as.
 	 */
-	const queueTab = $derived.by((): 'mine' | 'unassigned' | 'escalated' | null => {
-		const ownerId = query.filters.alert_owner_id;
-		if (ownerId != null && ownerId === $current_user?.id) return 'mine';
-		if (ownerId === UNASSIGNED_OWNER_ID) return 'unassigned';
-		// Escalated tab: a single status_id matching the escalated status
-		const escalatedStatus = alertStatuses.find((s) => s.status_name.toLowerCase() === 'escalated');
-		if (
-			escalatedStatus &&
-			query.filters.alert_status_id === escalatedStatus.status_id &&
-			ownerId == null
-		)
-			return 'escalated';
-		return null;
-	});
+	const queueTab = $derived(queueTabOf(query.filters.query));
 
-	const changeQueueTab = (tab: 'mine' | 'unassigned' | 'escalated' | null) => {
-		let alert_owner_id: number | undefined;
-		let alert_status_id: number | undefined;
-		let custom_conditions: string | undefined;
-
-		if (tab === 'mine') alert_owner_id = $current_user?.id ?? undefined;
-		else if (tab === 'unassigned') alert_owner_id = UNASSIGNED_OWNER_ID;
-		// else: All open — no owner filter
-
-		if (tab === 'escalated') {
-			const escalatedStatus = alertStatuses.find(
-				(s) => s.status_name.toLowerCase() === 'escalated'
-			);
-			if (escalatedStatus) alert_status_id = escalatedStatus.status_id;
-		} else {
-			// For all other tabs, exclude terminal statuses — the same
-			// "open" scope the per-user default view builds on.
-			custom_conditions = openAlertsCondition(alertStatuses);
-		}
-
+	/**
+	 * Switch queue, keeping whatever else is in the bar.
+	 *
+	 * Only the strip's own clauses are replaced, so picking "Unassigned"
+	 * while searching for a host keeps searching for that host. The legacy
+	 * owner / status / custom-condition params the tabs used to write are
+	 * cleared, since the expression now says the same thing and leaving
+	 * both would AND two copies of it together.
+	 */
+	const changeQueueTab = (tab: QueueTab) => {
 		void commitQuery({
 			...query,
 			page: 1,
 			filters: {
 				...query.filters,
-				alert_owner_id,
-				alert_status_id,
-				custom_conditions
+				alert_owner_id: undefined,
+				alert_status_id: undefined,
+				custom_conditions: undefined,
+				query: withQueueTab(query.filters.query, tab)
 			}
 		});
 	};
@@ -450,6 +557,16 @@
 			alertGroups = null;
 
 			const response = await alerts.listPaginated(params);
+
+			// A refused request empties the queue rather than leaving the
+			// previous page on screen — the same rule the grouped path
+			// follows. It matters most for a rejected search expression,
+			// where the rows still shown would be the ones the analyst was
+			// trying to narrow away from.
+			if (response.ok === false) {
+				alertsData = { data: [], total: 0, current_page: 1, last_page: 1, next_page: null };
+				return;
+			}
 
 			const raw = response.data as Paginated<Alert>;
 			const list = Array.isArray(raw.data) ? raw.data : [];
@@ -953,11 +1070,7 @@
 			const next = {
 				...nextQuery,
 				page: 1,
-				filters: buildDefaultAlertFilters(defaultView, {
-					alertStatuses,
-					currentUserId: $current_user?.id,
-					preset: defaultViewPreset
-				})
+				filters: buildDefaultAlertFilters(defaultView, { preset: defaultViewPreset })
 			};
 
 			query = next;
@@ -1005,14 +1118,6 @@
 
 			defaultView = storedView;
 
-			// `mine` needs an id, and on a hard reload straight onto
-			// /alerts the layout's whoami may still be in flight. This
-			// shares that in-flight call rather than issuing a second
-			// one, and returns immediately once it has landed.
-			if (storedView.mode === 'mine' && $current_user?.id == null) {
-				await auth.loadAuth(fetch);
-			}
-
 			if (storedView.mode === 'preset' && storedView.filter_id != null) {
 				// A preset the user has since lost access to (or deleted)
 				// resolves to null; `buildDefaultAlertFilters` then falls
@@ -1053,6 +1158,17 @@
 			: Array.isArray(mentionableResponse?.data)
 				? (mentionableResponse.data as unknown as MentionableUser[])
 				: [];
+
+		// The search bar's vocabulary. Fetched rather than hard-coded so an
+		// alias the backend gained is offered without a frontend release; a
+		// failure just means autocomplete stays quiet, since the bar submits
+		// the raw string either way.
+		// `response_api_success` serialises its argument as the whole body, so
+		// the route's `{'fields': …}` *is* the payload — there is no outer
+		// `data` envelope here, unlike the `response_success` routes.
+		const schemaResponse = await AlertService.searchSchema();
+		const schema = schemaResponse.data as { fields?: AlertSearchField[] } | null;
+		searchFields = schema?.fields ?? [];
 
 		await alerts.loadSavedFilters();
 	});
@@ -1150,6 +1266,241 @@
 {/snippet}
 
 <!--
+  The queue's header strip, shared by all three views.
+
+  Split, list and board rendered three near-copies of this row before,
+  which is how the split view ended up without the per-page selector and
+  the board without the sort toggle. The view-specific controls are the
+  `{#if}` blocks inside; in split and board view they simply don't render,
+  so one snippet covers all three without a view parameter.
+-->
+{#snippet queueToolbar()}
+	<div class="flex shrink-0 items-center justify-between gap-4">
+		<div class="flex items-center gap-3">
+			<h2 class="whitespace-nowrap text-lg font-semibold">
+				{query.view === 'board'
+					? boardTotal
+					: getTotal({ data: alertsData } as RequestResponse<Paginated<Alert>>)} Alerts
+			</h2>
+
+			<Button
+				size="xs"
+				variant={filtersOpen ? 'default' : 'outline'}
+				onclick={() => (filtersOpen = !filtersOpen)}
+			>
+				Filter
+			</Button>
+
+			{#if alerts.savedFilters.items.length}
+				<div class="flex items-center gap-1">
+					<div
+						class="w-48 [&_button[role=combobox]]:!h-7 [&_button[role=combobox]]:!rounded-md [&_button[role=combobox]]:!px-2.5 [&_button[role=combobox]]:!py-0 [&_button[role=combobox]]:!text-xs [&_button[role=combobox]]:!font-normal"
+					>
+						<SearchableSelect
+							value={selectedSavedFilterId}
+							placeholder="Select preset filter"
+							searchPlaceholder="Search preset filters..."
+							emptyMessage="No preset filters found."
+							items={alerts.savedFilters.items.map((filter) => ({
+								value: String(filter.filter_id),
+								label: filter.filter_name
+							}))}
+							onValueChange={(v) => {
+								if (v === '') {
+									clearSavedFilterSelection();
+									return;
+								}
+
+								selectedSavedFilterId = v;
+
+								const id = Number(v);
+								if (!Number.isFinite(id)) return;
+
+								applySavedFilter(id);
+							}}
+						/>
+					</div>
+
+					{#if canDeleteSelectedFilter}
+						<Button
+							variant="outline"
+							size="xs"
+							title="Delete preset filter"
+							aria-label="Delete preset filter"
+							onclick={() => (showConfirmDeletePreset = true)}
+						>
+							<TrashIcon class="h-4 w-4" />
+						</Button>
+					{/if}
+				</div>
+			{/if}
+		</div>
+
+		<div class="flex items-center gap-2">
+			{#if query.view === 'list'}
+				{#if selecting}
+					<Button variant="outline" size="xs" onclick={cancelSelect}>Cancel</Button>
+
+					<Button
+						variant="outline"
+						size="xs"
+						onclick={() => {
+							selected = {};
+							selectedAll = true;
+						}}>Select All</Button
+					>
+				{:else}
+					<Button variant="outline" size="xs" onclick={() => (selecting = true)}>Select</Button>
+				{/if}
+
+				<Button
+					variant="outline"
+					size="xs"
+					onclick={() => {
+						expanded = {};
+
+						commitQuery({
+							...query,
+							expanded: !query.expanded
+						});
+					}}
+				>
+					{query.expanded ? 'Collapse All' : 'Expand All'}
+				</Button>
+			{/if}
+
+			<Button size="xs" onclick={() => (showAlertCreate = true)}>New alert</Button>
+
+			<Button
+				variant="outline"
+				size="xs"
+				onclick={refreshCurrentView}
+				disabled={status === 'loading'}
+			>
+				Refresh
+			</Button>
+
+			{#if query.view === 'list'}
+				<!-- The card list has no column headers to sort from, so it
+				     keeps the newest/oldest toggle it has always had. -->
+				<Button
+					variant="outline"
+					size="xs"
+					onclick={() => toggleSort('event_time')}
+					disabled={status === 'loading'}
+				>
+					{#if activeSort.column === 'event_time' && activeSort.dir === 'asc'}
+						<ArrowDownNarrowWide class="h-4 w-4" />
+					{:else}
+						<ArrowUpNarrowWide class="h-4 w-4" />
+					{/if}
+				</Button>
+
+				<Select
+					value={String(query.per_page)}
+					onValueChange={(value) => {
+						const nextPerPage = Number(value);
+
+						commitQuery({
+							...query,
+							page: 1,
+							per_page: nextPerPage
+						});
+					}}
+					type="single"
+				>
+					<SelectTrigger class="h-7 px-2.5 py-0">{query.per_page} entries per page</SelectTrigger>
+
+					<SelectContent>
+						{#each perPageOptions as perPageOption}
+							<SelectItem value={perPageOption.value}>{perPageOption.label}</SelectItem>
+						{/each}
+					</SelectContent>
+				</Select>
+			{/if}
+
+			<AlertsViewSwitcher
+				view={query.view}
+				group={query.board_group}
+				onViewChange={changeView}
+				onGroupChange={changeBoardGroup}
+			/>
+		</div>
+	</div>
+{/snippet}
+
+<!--
+  The search bar, rendered identically in every view so a query typed in
+  one survives switching to another — which it does, because the
+  expression lives in `query.filters` and rides the URL like every other
+  filter.
+-->
+{#snippet searchBar()}
+	<LuceneSearchBar
+		class="shrink-0"
+		value={searchQuery}
+		onSubmit={submitSearchQuery}
+		fields={searchFields}
+		valuesFor={searchValuesFor}
+		serverError={alerts.list.searchError}
+		historyKey="iris.alerts.recent-queries"
+		disabled={status === 'loading'}
+	/>
+{/snippet}
+
+<!--
+  The advanced panel — the same grid as before, now an editor for the
+  search bar rather than a second set of parameters. Every field writes a
+  clause into the expression; the clauses it has no field for come back as
+  `residue` and are shown, read-only, at the bottom of the form.
+-->
+{#snippet advancedFilters()}
+	{#if filtersOpen}
+		<AlertFilters
+			value={panelFilters}
+			onChange={changePanelFilters}
+			residue={panelClauses.residue}
+			onApply={() => {
+				filtersOpen = false;
+				commitQuery({ ...query, page: 1 });
+			}}
+			onClear={() => {
+				filtersOpen = false;
+				clearSavedFilterSelection();
+				commitQuery({ ...query, page: 1, filters: defaultFilters() });
+			}}
+			presets={alerts.savedFilters.items}
+			onSaveAsFilter={saveAsFilter}
+			saving={savingFilter}
+			{alertResolutions}
+			{alertStatuses}
+			{caseClassifications}
+			{severities}
+			{customers}
+			{owners}
+		/>
+	{/if}
+{/snippet}
+
+<!--
+  One chip per scalar param an old URL or saved filter still carries. The
+  expression is chipped inside the bar itself, so it is deliberately absent
+  from here.
+-->
+{#snippet filterChips()}
+	<AlertFilterLabels
+		value={query.filters}
+		onRemove={(key) => void removeFilter(key)}
+		{alertResolutions}
+		{alertStatuses}
+		{caseClassifications}
+		{severities}
+		{customers}
+		{owners}
+	/>
+{/snippet}
+
+<!--
   Page layout: the outer container is height-bounded so the alert list
   can scroll on its own (`min-h-0 overflow-hidden`). The header /
   filter strip / bulk-action bar / pagination all live in a
@@ -1171,109 +1522,11 @@
 	{:else if query.view === 'split'}
 		<!-- Split view: same toolbar as list/board, cockpit fills the remaining space -->
 		<div class:opacity-60={status === 'loading'} class="flex min-h-0 grow flex-col gap-3 px-6 pt-6">
-			<div class="flex shrink-0 items-center justify-between gap-4">
-				<div class="flex items-center gap-3">
-					<h2 class="whitespace-nowrap text-lg font-semibold">
-						{getTotal({ data: alertsData } as RequestResponse<Paginated<Alert>>)} Alerts
-					</h2>
+			{@render queueToolbar()}
 
-					<Button
-						size="xs"
-						variant={filtersOpen ? 'default' : 'outline'}
-						onclick={() => (filtersOpen = !filtersOpen)}
-					>
-						Filter
-					</Button>
+			{@render searchBar()}
 
-					{#if alerts.savedFilters.items.length}
-						<div class="flex items-center gap-1">
-							<div
-								class="w-48 [&_button[role=combobox]]:!h-7 [&_button[role=combobox]]:!rounded-md [&_button[role=combobox]]:!px-2.5 [&_button[role=combobox]]:!py-0 [&_button[role=combobox]]:!text-xs [&_button[role=combobox]]:!font-normal"
-							>
-								<SearchableSelect
-									value={selectedSavedFilterId}
-									placeholder="Select preset filter"
-									searchPlaceholder="Search preset filters..."
-									emptyMessage="No preset filters found."
-									items={alerts.savedFilters.items.map((filter) => ({
-										value: String(filter.filter_id),
-										label: filter.filter_name
-									}))}
-									onValueChange={(v) => {
-										if (v === '') {
-											clearSavedFilterSelection();
-											return;
-										}
-										selectedSavedFilterId = v;
-										const id = Number(v);
-										if (!Number.isFinite(id)) return;
-										applySavedFilter(id);
-									}}
-								/>
-							</div>
-
-							{#if canDeleteSelectedFilter}
-								<Button
-									variant="outline"
-									size="xs"
-									title="Delete preset filter"
-									aria-label="Delete preset filter"
-									onclick={() => (showConfirmDeletePreset = true)}
-								>
-									<TrashIcon class="h-4 w-4" />
-								</Button>
-							{/if}
-						</div>
-					{/if}
-				</div>
-
-				<div class="flex items-center gap-2">
-					<Button size="xs" onclick={() => (showAlertCreate = true)}>New alert</Button>
-
-					<Button
-						variant="outline"
-						size="xs"
-						onclick={refreshCurrentView}
-						disabled={status === 'loading'}
-					>
-						Refresh
-					</Button>
-
-					<AlertsViewSwitcher
-						view={query.view}
-						group={query.board_group}
-						onViewChange={changeView}
-						onGroupChange={changeBoardGroup}
-					/>
-				</div>
-			</div>
-
-			{#if filtersOpen}
-				<AlertFilters
-					value={query.filters}
-					onChange={(next) => {
-						query = { ...query, filters: next };
-					}}
-					onApply={() => {
-						filtersOpen = false;
-						commitQuery({ ...query, page: 1 });
-					}}
-					onClear={() => {
-						filtersOpen = false;
-						clearSavedFilterSelection();
-						commitQuery({ ...query, page: 1, filters: defaultFilters() });
-					}}
-					presets={alerts.savedFilters.items}
-					onSaveAsFilter={saveAsFilter}
-					saving={savingFilter}
-					{alertResolutions}
-					{alertStatuses}
-					{caseClassifications}
-					{severities}
-					{customers}
-					{owners}
-				/>
-			{/if}
+			{@render advancedFilters()}
 
 			<AlertsSplitView
 				class="-mx-6 min-h-0 grow"
@@ -1324,16 +1577,7 @@
 				onAssign={openReassignDialog}
 			>
 				{#snippet filterBar()}
-					<AlertFilterLabels
-						value={query.filters}
-						onRemove={(key) => void removeFilter(key)}
-						{alertResolutions}
-						{alertStatuses}
-						{caseClassifications}
-						{severities}
-						{customers}
-						{owners}
-					/>
+					{@render filterChips()}
 				{/snippet}
 
 				{#snippet selectionBar()}
@@ -1350,216 +1594,17 @@
 			  pinned while the alert list below scrolls.
 			-->
 			<div class="flex shrink-0 flex-col gap-5">
-				<div class="flex items-center justify-between gap-4">
-					<div class="flex items-center gap-3">
-						<h2 class="whitespace-nowrap text-lg font-semibold">
-							{query.view === 'board'
-								? boardTotal
-								: getTotal({ data: alertsData } as RequestResponse<Paginated<Alert>>)} Alerts
-						</h2>
+				{@render queueToolbar()}
 
-						<Button
-							size="xs"
-							variant={filtersOpen ? 'default' : 'outline'}
-							onclick={() => (filtersOpen = !filtersOpen)}
-						>
-							Filter
-						</Button>
-
-						{#if alerts.savedFilters.items.length}
-							<div class="flex items-center gap-1">
-								<div
-									class="w-48 [&_button[role=combobox]]:!h-7 [&_button[role=combobox]]:!rounded-md [&_button[role=combobox]]:!px-2.5 [&_button[role=combobox]]:!py-0 [&_button[role=combobox]]:!text-xs [&_button[role=combobox]]:!font-normal"
-								>
-									<SearchableSelect
-										value={selectedSavedFilterId}
-										placeholder="Select preset filter"
-										searchPlaceholder="Search preset filters..."
-										emptyMessage="No preset filters found."
-										items={alerts.savedFilters.items.map((filter) => ({
-											value: String(filter.filter_id),
-											label: filter.filter_name
-										}))}
-										onValueChange={(v) => {
-											if (v === '') {
-												clearSavedFilterSelection();
-												return;
-											}
-
-											selectedSavedFilterId = v;
-
-											const id = Number(v);
-											if (!Number.isFinite(id)) return;
-
-											applySavedFilter(id);
-										}}
-									/>
-								</div>
-
-								{#if canDeleteSelectedFilter}
-									<Button
-										variant="outline"
-										size="xs"
-										title="Delete preset filter"
-										aria-label="Delete preset filter"
-										onclick={() => (showConfirmDeletePreset = true)}
-									>
-										<TrashIcon class="h-4 w-4" />
-									</Button>
-								{/if}
-							</div>
-						{/if}
-					</div>
-
-					<div class="flex items-center gap-2">
-						{#if query.view === 'list'}
-							{#if selecting}
-								<Button variant="outline" size="xs" onclick={cancelSelect}>Cancel</Button>
-
-								<Button
-									variant="outline"
-									size="xs"
-									onclick={() => {
-										selected = {};
-										selectedAll = true;
-									}}>Select All</Button
-								>
-							{:else}
-								<Button variant="outline" size="xs" onclick={() => (selecting = true)}
-									>Select</Button
-								>
-							{/if}
-
-							<Button
-								variant="outline"
-								size="xs"
-								onclick={() => {
-									expanded = {};
-
-									commitQuery({
-										...query,
-										expanded: !query.expanded
-									});
-								}}
-							>
-								{query.expanded ? 'Collapse All' : 'Expand All'}
-							</Button>
-						{/if}
-
-						<Button size="xs" onclick={() => (showAlertCreate = true)}>New alert</Button>
-
-						<Button
-							variant="outline"
-							size="xs"
-							onclick={refreshCurrentView}
-							disabled={status === 'loading'}
-						>
-							Refresh
-						</Button>
-
-						{#if query.view === 'list'}
-							<!-- The card list has no column headers to sort from, so it
-							     keeps the newest/oldest toggle it has always had. -->
-							<Button
-								variant="outline"
-								size="xs"
-								onclick={() => toggleSort('event_time')}
-								disabled={status === 'loading'}
-							>
-								{#if activeSort.column === 'event_time' && activeSort.dir === 'asc'}
-									<ArrowDownNarrowWide class="h-4 w-4" />
-								{:else}
-									<ArrowUpNarrowWide class="h-4 w-4" />
-								{/if}
-							</Button>
-
-							<Select
-								value={String(query.per_page)}
-								onValueChange={(value) => {
-									const nextPerPage = Number(value);
-
-									commitQuery({
-										...query,
-										page: 1,
-										per_page: nextPerPage
-									});
-								}}
-								type="single"
-							>
-								<SelectTrigger class="h-7 px-2.5 py-0"
-									>{query.per_page} entries per page</SelectTrigger
-								>
-
-								<SelectContent>
-									{#each perPageOptions as perPageOption}
-										<SelectItem value={perPageOption.value}>{perPageOption.label}</SelectItem>
-									{/each}
-								</SelectContent>
-							</Select>
-						{/if}
-
-						<AlertsViewSwitcher
-							view={query.view}
-							group={query.board_group}
-							onViewChange={changeView}
-							onGroupChange={changeBoardGroup}
-						/>
-					</div>
-				</div>
+				{@render searchBar()}
 
 				{#if query.view === 'list' && getPagesCount() > 1}
 					<AlertsPagination page={query.page} pages={getPagesCount()} onPageChange={changePage} />
 				{/if}
 
-				{#if filtersOpen}
-					<AlertFilters
-						value={query.filters}
-						onChange={(next) => {
-							query = {
-								...query,
-								filters: next
-							};
-						}}
-						onApply={() => {
-							filtersOpen = false;
+				{@render advancedFilters()}
 
-							commitQuery({
-								...query,
-								page: 1
-							});
-						}}
-						onClear={() => {
-							filtersOpen = false;
-							clearSavedFilterSelection();
-
-							commitQuery({
-								...query,
-								page: 1,
-								filters: defaultFilters()
-							});
-						}}
-						presets={alerts.savedFilters.items}
-						onSaveAsFilter={saveAsFilter}
-						saving={savingFilter}
-						{alertResolutions}
-						{alertStatuses}
-						{caseClassifications}
-						{severities}
-						{customers}
-						{owners}
-					/>
-				{/if}
-
-				<AlertFilterLabels
-					value={query.filters}
-					onRemove={(key) => void removeFilter(key)}
-					{alertResolutions}
-					{alertStatuses}
-					{caseClassifications}
-					{severities}
-					{customers}
-					{owners}
-				/>
+				{@render filterChips()}
 
 				{#if query.view === 'list' && getSelectedCount() > 0}
 					<div class="flex flex-wrap gap-2">{@render bulkActions()}</div>

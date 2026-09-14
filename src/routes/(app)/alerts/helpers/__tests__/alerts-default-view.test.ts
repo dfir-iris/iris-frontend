@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AlertStatus } from '$lib/services/alert-status.service';
 import type { SavedFilter } from '$lib/services/alerts-filters.service';
-import { UNASSIGNED_OWNER_ID } from '../../components/AlertsBoard/board-config';
 import { defaultFilters } from '../../components/AlertFilters/filters';
 import { buildDefaultAlertFilters } from '../alerts-default-view';
 
@@ -9,16 +7,6 @@ import { buildDefaultAlertFilters } from '../alerts-default-view';
 // about what the baseline ordering happens to be, so they build on the
 // defaults rather than restating them.
 const base = defaultFilters();
-
-const alertStatuses: AlertStatus[] = [
-	{ status_id: 1, status_name: 'New' },
-	{ status_id: 4, status_name: 'Closed' },
-	{ status_id: 5, status_name: 'Merged' }
-];
-
-const OPEN_CONDITION = JSON.stringify([
-	{ field: 'alert_status_id', operator: 'not_in', value: [4, 5] }
-]);
 
 const preset: SavedFilter = {
 	filter_id: 3,
@@ -30,61 +18,52 @@ const preset: SavedFilter = {
 
 describe('buildDefaultAlertFilters', () => {
 	it('leaves the query unfiltered for the "all" view', () => {
-		expect(buildDefaultAlertFilters({ mode: 'all' }, { alertStatuses })).toEqual(base);
+		expect(buildDefaultAlertFilters({ mode: 'all' })).toEqual(base);
 	});
 
 	it('excludes terminal statuses for the "open" view', () => {
-		expect(buildDefaultAlertFilters({ mode: 'open' }, { alertStatuses })).toEqual({
+		expect(buildDefaultAlertFilters({ mode: 'open' })).toEqual({ ...base, query: 'is:open' });
+	});
+
+	// `owner:me` rather than an id: the expression is stored per user and
+	// resolved per request, so it stays correct if it is ever shared.
+	it('scopes the open queue to the caller for "mine"', () => {
+		expect(buildDefaultAlertFilters({ mode: 'mine' })).toEqual({
 			...base,
-			custom_conditions: OPEN_CONDITION
+			query: 'is:open owner:me'
 		});
 	});
 
-	it('scopes the open queue to the current user for "mine"', () => {
-		expect(buildDefaultAlertFilters({ mode: 'mine' }, { alertStatuses, currentUserId: 8 })).toEqual(
-			{
-				...base,
-				custom_conditions: OPEN_CONDITION,
-				alert_owner_id: 8
-			}
-		);
-	});
-
-	it('falls back to the plain open queue when the current user is unknown', () => {
-		expect(buildDefaultAlertFilters({ mode: 'mine' }, { alertStatuses })).toEqual({
+	it('uses the unowned form for "unassigned"', () => {
+		expect(buildDefaultAlertFilters({ mode: 'unassigned' })).toEqual({
 			...base,
-			custom_conditions: OPEN_CONDITION
+			query: 'is:open owner:none'
 		});
 	});
 
-	it('uses the unassigned sentinel for "unassigned"', () => {
-		expect(buildDefaultAlertFilters({ mode: 'unassigned' }, { alertStatuses })).toEqual({
+	it('pins an arbitrary expression for the "query" view', () => {
+		expect(
+			buildDefaultAlertFilters({ mode: 'query', query: 'severity:>=High -status:Closed' })
+		).toEqual({ ...base, query: 'severity:>=High -status:Closed' });
+	});
+
+	it('falls back to the open queue when the pinned expression is blank', () => {
+		expect(buildDefaultAlertFilters({ mode: 'query', query: '   ' })).toEqual({
 			...base,
-			custom_conditions: OPEN_CONDITION,
-			alert_owner_id: UNASSIGNED_OWNER_ID
+			query: 'is:open'
 		});
 	});
 
 	it('applies a saved preset', () => {
-		const filters = buildDefaultAlertFilters(
-			{ mode: 'preset', filter_id: 3 },
-			{ alertStatuses, preset }
-		);
+		const filters = buildDefaultAlertFilters({ mode: 'preset', filter_id: 3 }, { preset });
 
 		expect(filters.alert_severity_id).toBe(5);
 		expect(filters.sort).toBe('asc');
 	});
 
 	it('falls back to an unfiltered view when the preset is gone', () => {
-		expect(
-			buildDefaultAlertFilters({ mode: 'preset', filter_id: 3 }, { alertStatuses, preset: null })
-		).toEqual(base);
-	});
-
-	it('degrades to an unfiltered view when the status lookup is empty', () => {
-		expect(buildDefaultAlertFilters({ mode: 'open' }, { alertStatuses: [] })).toEqual({
-			...base,
-			custom_conditions: undefined
-		});
+		expect(buildDefaultAlertFilters({ mode: 'preset', filter_id: 3 }, { preset: null })).toEqual(
+			base
+		);
 	});
 });

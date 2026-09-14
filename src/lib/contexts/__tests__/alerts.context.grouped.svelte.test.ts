@@ -3,7 +3,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('$lib/services/alerts.service', () => ({
 	AlertService: {
 		listGrouped: vi.fn()
-	}
+	},
+	// Stubbed away: the failure path calls it, but these cases are about
+	// what `listGroupedPaginated` returns, not about search expressions.
+	// `alerts.service.test.ts` covers the helper itself.
+	alertSearchQueryError: () => null
 }));
 
 vi.mock('$lib/services/alerts-filters.service', () => ({

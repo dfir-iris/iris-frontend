@@ -32,6 +32,7 @@ export type Filters = Pick<
 	| 'alert_owner_id'
 	| 'resolution_status_id'
 	| 'custom_conditions'
+	| 'query'
 	| 'sort'
 	| 'order_by'
 >;
@@ -40,3 +41,19 @@ export const defaultFilters = (): Filters => ({
 	order_by: DEFAULT_ALERT_SORT.column,
 	sort: DEFAULT_ALERT_SORT.dir
 });
+
+/**
+ * The keys of `Filters` that carry queue *ordering* rather than a
+ * predicate.
+ *
+ * They ride along in `Filters` because they round-trip through the same
+ * URL query and the same saved-filter payload as the real filters — but
+ * they never narrow the result set, and `defaultFilters()` always
+ * populates them. Anything presenting "what is filtered" back to the user
+ * has to skip them, or an unfiltered queue advertises a bogus
+ * `event_time` chip.
+ */
+const SORT_KEYS: readonly (keyof Filters)[] = ['order_by', 'sort'];
+
+/** True for the keys that actually narrow the alert queue. */
+export const isNarrowingFilter = (key: keyof Filters): boolean => !SORT_KEYS.includes(key);

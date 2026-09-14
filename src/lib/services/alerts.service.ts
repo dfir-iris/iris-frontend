@@ -51,7 +51,73 @@ export interface FilterAlertsParams {
 	 * status name is not in [Closed, Merged, Escalated]".
 	 */
 	custom_conditions?: string;
+	/**
+	 * Lucene-style search expression, evaluated server-side — e.g.
+	 * `is:open owner:me severity:>=High -status:Closed`. The backend is
+	 * the authority on what it means; `$lib/search/lucene` only reads it
+	 * client-side to highlight, diagnose and autocomplete. A malformed
+	 * expression comes back 400 with the offset in `data.position`.
+	 *
+	 * ANDs with every other parameter here, so it narrows and never widens.
+	 * `GET /api/v2/alerts/search-schema` lists the vocabulary.
+	 */
+	query?: string;
 }
+
+/** One searchable alias, as `GET /api/v2/alerts/search-schema` describes it. */
+export interface AlertSearchField {
+	alias: string;
+	/** Further aliases meaning exactly this field. */
+	synonyms: string[];
+	/** How values are treated — 'text', 'enum', 'date', 'macro', … */
+	kind: string;
+	description: string;
+	/** Whether the values are a closed set the client can offer. */
+	enumerable: boolean;
+	/** Whether `>=` and `[a TO b]` mean anything on this field. */
+	ordered: boolean;
+	/**
+	 * The values themselves, when they are fixed rather than rows —
+	 * today only the `is:` macros. Everything else is tenant-scoped and
+	 * the page already holds what the caller may see.
+	 */
+	values: string[];
+}
+
+/** A `query` the backend refused, and where it gave up reading it. */
+export interface AlertSearchQueryError {
+	message: string;
+	/** Character offset into the expression, or null when not attributable. */
+	position: number | null;
+}
+
+/**
+ * The search-expression complaint in a failed listing response, if that
+ * is what failed.
+ *
+ * The listing routes reject a malformed `query` with a 400 whose body is
+ * `{message, data: {position}}`. Told apart from every other 400 by that
+ * `position`: without one there is nothing to underline, and the generic
+ * API toast is the right surface.
+ */
+export const alertSearchQueryError = (
+	response: RequestResponse<unknown>
+): AlertSearchQueryError | null => {
+	if (response.ok !== false || response.status !== 400) return null;
+
+	const body = response.data;
+	if (body === null || typeof body !== 'object') return null;
+
+	const { message, data } = body as { message?: unknown; data?: unknown };
+	if (typeof message !== 'string') return null;
+
+	const position =
+		data !== null && typeof data === 'object' ? (data as { position?: unknown }).position : null;
+
+	if (typeof position !== 'number') return null;
+
+	return { message, position };
+};
 
 export interface GetRelatedAlertsParams {
 	open_alerts?: boolean;
@@ -278,6 +344,18 @@ export class AlertService {
 	): Promise<RequestResponse<GroupedAlertsData>> {
 		const path = ApiService.withQuery('/api/v2/alerts/grouped', toAlertListQuery(params));
 		return ApiService.get<GroupedAlertsData>(path, options);
+	}
+
+	/**
+	 * The vocabulary behind `query`.
+	 *
+	 * Fetched rather than hard-coded so an alias the backend gained is
+	 * offered by autocomplete without a frontend release.
+	 */
+	static async searchSchema(
+		options: ApiOptions = {}
+	): Promise<RequestResponse<{ fields: AlertSearchField[] }>> {
+		return ApiService.get<{ fields: AlertSearchField[] }>('/api/v2/alerts/search-schema', options);
 	}
 
 	static async get(

@@ -1,5 +1,5 @@
 export { uiFiltersToSavedFilterData, savedFilterToUiFilters } from './saved-filters-mapper';
-export { defaultFilters } from './filters';
+export { defaultFilters, isNarrowingFilter } from './filters';
 export type { Filters } from './filters';
 export { default as AlertFilters } from './AlertFilters.svelte';
 export { default as AlertFilterLabels } from './AlertFilterLabels.svelte';

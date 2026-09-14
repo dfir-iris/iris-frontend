@@ -6,7 +6,7 @@
 	import type { Severity } from '$lib/services/severities.service';
 	import type { Customer } from '$lib/services/customers.service';
 	import type { MentionableUser } from '$lib/services/users.service';
-	import type { Filters } from '.';
+	import { isNarrowingFilter, type Filters } from '.';
 
 	type Props = {
 		value: Filters;
@@ -30,10 +30,15 @@
 		owners
 	}: Props = $props();
 
-	type Item = {
-		key: keyof Filters;
-		value: string;
-	};
+	/**
+	 * One chip per legacy scalar param.
+	 *
+	 * These only reach the page from a URL or a saved filter written before
+	 * the search bar existed, since nothing sets them now. The expression
+	 * itself is chipped inside the bar, where each clause can be edited as
+	 * well as dropped.
+	 */
+	type Item = { key: keyof Filters; value: string };
 
 	// Count the leaves in a custom_conditions payload so we can render
 	// a "custom conditions (N)" chip instead of dumping the whole JSON
@@ -64,7 +69,15 @@
 		const result: Item[] = [];
 
 		for (const [key, raw] of Object.entries(value) as [keyof Filters, Filters[keyof Filters]][]) {
-			if (key === 'sort') continue;
+			// `order_by` / `sort` are queue ordering, not filters — and
+			// `defaultFilters()` always sets them, so letting them through
+			// put a permanent "event_time" chip in the bar whose × silently
+			// dropped the sort column.
+			if (!isNarrowingFilter(key)) continue;
+			// The expression belongs to the search bar, which chips it clause
+			// by clause. A second chip for the whole thing down here would be
+			// a duplicate whose × dropped every condition at once.
+			if (key === 'query') continue;
 			if (raw == null) continue;
 
 			let resolved = raw;
@@ -116,14 +129,15 @@
 
 {#if items.length}
 	<div class="flex flex-wrap items-center gap-1.5">
-		{#each items as item, i (`${String(item.key)}:${i}`)}
+		{#each items as item, i (item.key)}
 			<div class="flex items-center gap-1.5">
 				<div class="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs">
-					<span>{item.value}</span>
+					<span class="max-w-[20rem] truncate" title={item.value}>{item.value}</span>
 
 					<button
 						type="button"
 						class="text-muted-foreground transition-colors hover:text-foreground"
+						aria-label={`Remove filter ${item.value}`}
 						onclick={() => onRemove(item.key)}
 					>
 						<XIcon class="size-3" />

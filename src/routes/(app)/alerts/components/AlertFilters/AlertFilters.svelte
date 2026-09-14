@@ -29,6 +29,15 @@
 		onChange: (next: Filters) => void;
 		onApply: () => void;
 		onClear?: () => void;
+		/**
+		 * The part of the search expression this form cannot render —
+		 * alternations, negations, wildcards, JSON paths.
+		 *
+		 * Shown read-only rather than hidden: it is still narrowing the
+		 * queue, and the fields below would otherwise look like the whole
+		 * story. It survives every edit made here untouched.
+		 */
+		residue?: string;
 		presets?: Preset[];
 		selectedPresetId?: string;
 		onPresetSelect?: (id: number) => void;
@@ -47,6 +56,7 @@
 		onChange,
 		onApply,
 		onClear,
+		residue = '',
 		presets = [],
 		onSaveAsFilter,
 		saving = false,
@@ -413,6 +423,15 @@
 			value={value.custom_conditions ?? undefined}
 			onChange={(next) => onChange({ ...value, custom_conditions: next })}
 		/>
+
+		{#if residue.trim() !== ''}
+			<div class="space-y-1 rounded-lg border border-dashed border-border/70 bg-background/50 p-3">
+				<div class="text-xs text-muted-foreground">
+					Also applied, from the search bar — edit it there
+				</div>
+				<code class="block break-all font-mono text-xs">{residue}</code>
+			</div>
+		{/if}
 	</div>
 
 	<div class="flex shrink-0 items-center justify-between border-t border-border/50 px-5 py-4">

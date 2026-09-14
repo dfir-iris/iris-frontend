@@ -14,19 +14,27 @@
  */
 
 import { UsersService } from '$lib/services/users.service';
-import type { AlertStatus } from '$lib/services/alert-status.service';
 
 export const ALERTS_DEFAULT_VIEW_PREF_KEY = 'alerts_default_view';
 
-export type AlertsDefaultViewMode = 'open' | 'mine' | 'unassigned' | 'all' | 'preset';
+export type AlertsDefaultViewMode = 'open' | 'mine' | 'unassigned' | 'all' | 'preset' | 'query';
 
 export type AlertsDefaultView = {
 	mode: AlertsDefaultViewMode;
 	/** Saved-filter id. Only read when `mode === 'preset'`. */
 	filter_id?: number;
+	/** Search-bar expression. Only read when `mode === 'query'`. */
+	query?: string;
 };
 
-const MODES: readonly AlertsDefaultViewMode[] = ['open', 'mine', 'unassigned', 'all', 'preset'];
+const MODES: readonly AlertsDefaultViewMode[] = [
+	'open',
+	'mine',
+	'unassigned',
+	'all',
+	'preset',
+	'query'
+];
 
 /**
  * What every user gets until they pick something else. "All open" is
@@ -44,36 +52,24 @@ export const ALERTS_DEFAULT_VIEW_OPTIONS: readonly {
 	{ mode: 'open', label: 'All open alerts' },
 	{ mode: 'mine', label: 'Open alerts assigned to me' },
 	{ mode: 'unassigned', label: 'Open unassigned alerts' },
-	{ mode: 'all', label: 'All alerts (no filter)' }
+	{ mode: 'all', label: 'All alerts (no filter)' },
+	{ mode: 'query', label: 'A search expression' }
 ];
 
 /**
- * Statuses that take an alert out of triage — what "open" excludes.
+ * The expression each built-in mode lands on.
  *
- * Matched by name rather than by id: ids come from `post_init.py` in
- * insert order and differ between deployments.
+ * Written in the search grammar rather than as query parameters so the
+ * landing view is a query the analyst can see in the bar and edit — and so
+ * "open" and "me" are resolved by the backend, where the terminal status
+ * names and the caller's identity actually live.
  */
-export const TERMINAL_ALERT_STATUS_NAMES: ReadonlySet<string> = new Set([
-	'closed',
-	'merged',
-	'dismissed',
-	'escalated'
-]);
-
-/**
- * The `custom_conditions` payload that narrows a query to alerts still
- * in triage, or `undefined` when the status lookup has not loaded (or
- * names none of the terminal statuses) and there is nothing to exclude.
- */
-export const openAlertsCondition = (alertStatuses: AlertStatus[]): string | undefined => {
-	const terminalIds = alertStatuses
-		.filter((status) => TERMINAL_ALERT_STATUS_NAMES.has((status.status_name ?? '').toLowerCase()))
-		.map((status) => status.status_id);
-
-	if (terminalIds.length === 0) return undefined;
-
-	return JSON.stringify([{ field: 'alert_status_id', operator: 'not_in', value: terminalIds }]);
-};
+export const ALERTS_DEFAULT_VIEW_QUERIES: Readonly<Record<'open' | 'mine' | 'unassigned', string>> =
+	{
+		open: 'is:open',
+		mine: 'is:open owner:me',
+		unassigned: 'is:open owner:none'
+	};
 
 /**
  * Read a stored preference back into a view, tolerating anything the
@@ -84,7 +80,11 @@ export const openAlertsCondition = (alertStatuses: AlertStatus[]): string | unde
 export const parseAlertsDefaultView = (raw: unknown): AlertsDefaultView => {
 	if (!raw || typeof raw !== 'object') return ALERTS_DEFAULT_VIEW;
 
-	const { mode, filter_id } = raw as { mode?: unknown; filter_id?: unknown };
+	const { mode, filter_id, query } = raw as {
+		mode?: unknown;
+		filter_id?: unknown;
+		query?: unknown;
+	};
 
 	if (typeof mode !== 'string' || !MODES.includes(mode as AlertsDefaultViewMode)) {
 		return ALERTS_DEFAULT_VIEW;
@@ -96,6 +96,15 @@ export const parseAlertsDefaultView = (raw: unknown): AlertsDefaultView => {
 		// the open queue is a better answer than an empty page.
 		if (!Number.isFinite(id)) return ALERTS_DEFAULT_VIEW;
 		return { mode, filter_id: id };
+	}
+
+	if (mode === 'query') {
+		// Same reasoning as `preset`: an empty expression is not a view.
+		// What it *says* is not checked here — the backend is the authority
+		// on the grammar, and a query this client cannot parse may simply be
+		// one a newer server can.
+		if (typeof query !== 'string' || query.trim() === '') return ALERTS_DEFAULT_VIEW;
+		return { mode, query: query.trim() };
 	}
 
 	return { mode: mode as AlertsDefaultViewMode };
@@ -119,7 +128,11 @@ export const loadAlertsDefaultView = async (): Promise<AlertsDefaultView> => {
 /** Persist the caller's default view. Returns whether the write landed. */
 export const saveAlertsDefaultView = async (view: AlertsDefaultView): Promise<boolean> => {
 	const payload: AlertsDefaultView =
-		view.mode === 'preset' ? { mode: 'preset', filter_id: view.filter_id } : { mode: view.mode };
+		view.mode === 'preset'
+			? { mode: 'preset', filter_id: view.filter_id }
+			: view.mode === 'query'
+				? { mode: 'query', query: view.query }
+				: { mode: view.mode };
 
 	const response = await UsersService.setMyPreference(ALERTS_DEFAULT_VIEW_PREF_KEY, payload);
 

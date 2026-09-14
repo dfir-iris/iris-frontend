@@ -8,30 +8,13 @@ vi.mock('$lib/services/users.service', () => ({
 }));
 
 import { UsersService } from '$lib/services/users.service';
-import type { AlertStatus } from '$lib/services/alert-status.service';
 import {
 	ALERTS_DEFAULT_VIEW,
 	ALERTS_DEFAULT_VIEW_PREF_KEY,
 	loadAlertsDefaultView,
-	openAlertsCondition,
 	parseAlertsDefaultView,
 	saveAlertsDefaultView
 } from '../alerts-default-view';
-
-const status = (status_id: number, status_name: string): AlertStatus => ({
-	status_id,
-	status_name
-});
-
-const STATUSES = [
-	status(1, 'New'),
-	status(2, 'Assigned'),
-	status(3, 'In progress'),
-	status(4, 'Closed'),
-	status(5, 'Merged'),
-	status(6, 'Escalated'),
-	status(7, 'Dismissed')
-];
 
 describe('parseAlertsDefaultView', () => {
 	it('falls back to the open queue for anything unusable', () => {
@@ -57,18 +40,23 @@ describe('parseAlertsDefaultView', () => {
 			ALERTS_DEFAULT_VIEW
 		);
 	});
-});
 
-describe('openAlertsCondition', () => {
-	it('excludes every terminal status, matched case-insensitively by name', () => {
-		expect(JSON.parse(openAlertsCondition(STATUSES) as string)).toEqual([
-			{ field: 'alert_status_id', operator: 'not_in', value: [4, 5, 6, 7] }
-		]);
+	it('keeps a pinned expression, trimmed, and drops a query view without one', () => {
+		expect(parseAlertsDefaultView({ mode: 'query', query: '  is:open owner:me  ' })).toEqual({
+			mode: 'query',
+			query: 'is:open owner:me'
+		});
+		expect(parseAlertsDefaultView({ mode: 'query' })).toEqual(ALERTS_DEFAULT_VIEW);
+		expect(parseAlertsDefaultView({ mode: 'query', query: '   ' })).toEqual(ALERTS_DEFAULT_VIEW);
 	});
 
-	it('returns undefined when there is nothing to exclude', () => {
-		expect(openAlertsCondition([])).toBeUndefined();
-		expect(openAlertsCondition([status(1, 'New')])).toBeUndefined();
+	// The server owns the grammar. A client that cannot parse an expression
+	// may simply be older than the one that saved it, so nothing here tries.
+	it('keeps an expression it does not understand', () => {
+		expect(parseAlertsDefaultView({ mode: 'query', query: 'whatever:(' })).toEqual({
+			mode: 'query',
+			query: 'whatever:('
+		});
 	});
 });
 
@@ -137,6 +125,15 @@ describe('saveAlertsDefaultView', () => {
 		expect(UsersService.setMyPreference).toHaveBeenCalledWith(ALERTS_DEFAULT_VIEW_PREF_KEY, {
 			mode: 'preset',
 			filter_id: 7
+		});
+	});
+
+	it('keeps the expression for a query view', async () => {
+		await saveAlertsDefaultView({ mode: 'query', query: 'is:open severity:>=High', filter_id: 7 });
+
+		expect(UsersService.setMyPreference).toHaveBeenCalledWith(ALERTS_DEFAULT_VIEW_PREF_KEY, {
+			mode: 'query',
+			query: 'is:open severity:>=High'
 		});
 	});
 

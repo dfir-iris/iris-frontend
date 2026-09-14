@@ -15,6 +15,13 @@ type SavedAlertFilterData = {
 	case_id?: number;
 	alert_owner_id?: number;
 	custom_conditions?: string;
+	/**
+	 * The search-bar expression. `filter_data` is free-form JSON
+	 * server-side, so this needed no migration — and a preset saved before
+	 * the bar existed simply has no `query`, which
+	 * `savedFilterToUiFilters` reads as "clear it".
+	 */
+	query?: string;
 	order_by?: Filters['order_by'];
 	sort?: Filters['sort'];
 };
@@ -51,6 +58,7 @@ export const uiFiltersToSavedFilterData = (filters: Filters): SavedAlertFilterDa
 	case_id: filters.case_id,
 	alert_owner_id: filters.alert_owner_id,
 	custom_conditions: filters.custom_conditions,
+	query: filters.query,
 	order_by: filters.order_by,
 	sort: filters.sort
 });
@@ -75,6 +83,11 @@ export const savedFilterToUiFilters = (savedFilter: SavedFilter, filters: Filter
 		case_id: savedFilterData.case_id,
 		alert_owner_id: savedFilterData.alert_owner_id,
 		custom_conditions: savedFilterData.custom_conditions,
+		// Unconditional, like every predicate above it: applying a preset
+		// replaces the whole view, so a preset that carries no expression
+		// has to clear the one currently in the bar rather than leave it
+		// silently ANDed onto someone else's saved filter.
+		query: savedFilterData.query,
 		// Filters saved before the queue had sortable columns carry only a
 		// direction, so the column they were sorted on falls back to
 		// whatever the queue is showing now.

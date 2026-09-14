@@ -1,15 +1,12 @@
-import type { AlertStatus } from '$lib/services/alert-status.service';
 import type { SavedFilter } from '$lib/services/alerts-filters.service';
-import { openAlertsCondition, type AlertsDefaultView } from '$lib/utils/alerts-default-view';
+import {
+	ALERTS_DEFAULT_VIEW_QUERIES,
+	type AlertsDefaultView
+} from '$lib/utils/alerts-default-view';
 import { defaultFilters, type Filters } from '../components/AlertFilters/filters';
 import { savedFilterToUiFilters } from '../components/AlertFilters/saved-filters-mapper';
-import { UNASSIGNED_OWNER_ID } from '../components/AlertsBoard/board-config';
 
 type DefaultViewContext = {
-	/** The status lookup, needed to name the statuses "open" excludes. */
-	alertStatuses: AlertStatus[];
-	/** Resolves the `mine` view. */
-	currentUserId?: number | null;
 	/** The saved filter the `preset` view names, already fetched. */
 	preset?: SavedFilter | null;
 };
@@ -17,14 +14,20 @@ type DefaultViewContext = {
 /**
  * Turn a stored default view into the filter set the alerts page runs.
  *
- * Every branch degrades to something usable rather than to an empty
- * page: a preset that has since been deleted, a status lookup that
- * failed, or an unknown current user all fall back to the widest view
- * the branch can still express.
+ * Every branch but `preset` lands on a search expression, so the view an
+ * analyst starts from is one they can read in the bar and edit a word of —
+ * rather than a set of parameters with no visible source. It also puts the
+ * two resolutions that need a database or a session where they belong:
+ * `is:open` names the terminal statuses server-side, and `owner:me` is
+ * whoever is looking.
+ *
+ * Every branch degrades to something usable rather than to an empty page:
+ * a preset that has since been deleted, or a `query` view saved without an
+ * expression, both fall back to the widest view the branch can express.
  */
 export const buildDefaultAlertFilters = (
 	view: AlertsDefaultView,
-	context: DefaultViewContext
+	context: DefaultViewContext = {}
 ): Filters => {
 	const base = defaultFilters();
 
@@ -34,18 +37,10 @@ export const buildDefaultAlertFilters = (
 		return context.preset ? savedFilterToUiFilters(context.preset, base) : base;
 	}
 
-	const filters: Filters = {
-		...base,
-		custom_conditions: openAlertsCondition(context.alertStatuses)
-	};
-
-	if (view.mode === 'mine') {
-		// Without a known user id "mine" cannot be expressed; the plain
-		// open queue is closer to the intent than every alert at once.
-		if (context.currentUserId != null) filters.alert_owner_id = context.currentUserId;
-	} else if (view.mode === 'unassigned') {
-		filters.alert_owner_id = UNASSIGNED_OWNER_ID;
+	if (view.mode === 'query') {
+		const query = view.query?.trim();
+		return query ? { ...base, query } : { ...base, query: ALERTS_DEFAULT_VIEW_QUERIES.open };
 	}
 
-	return filters;
+	return { ...base, query: ALERTS_DEFAULT_VIEW_QUERIES[view.mode] };
 };
