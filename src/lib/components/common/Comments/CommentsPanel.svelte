@@ -4,134 +4,25 @@
   case workspace level so it doesn't tear down when the user navigates
   between detail pages. Driven by the `comments-panel.context` store.
 
-  The panel handles its own data lifecycle: when `entity` changes it
-  re-fetches comments, clears the composer, and resets the scroll. A
-  caller only needs to call `commentsPanel.open({ type, id, label })`
+  The thread itself — data lifecycle, list, composer — is
+  `CommentsThread`; this component is only the panel chrome around it.
+  A caller only needs to call `commentsPanel.open({ type, id, label })`
   — no clean-up callbacks required.
 -->
 <script lang="ts">
-	import { tick, getContext, untrack } from 'svelte';
+	import { getContext } from 'svelte';
 	import { XIcon, RefreshCwIcon, MessageSquareIcon } from 'lucide-svelte';
 	import {
 		COMMENTS_PANEL_CTX,
 		type CommentsPanelContext
 	} from '$lib/contexts/comments-panel.context.svelte';
-	import type { RequestResponse } from '$lib/services/api.service';
-	import { CommentsService, type Comment } from '$lib/services/comments.service';
-	import { Comments } from '$lib/components/common/Comments';
-	import { MarkDownEditor } from '$lib/components/common/MarkDown';
+	import CommentsThread from './CommentsThread.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
-	import { toast } from '$lib/components/ui/toast';
 
 	const panel = getContext<CommentsPanelContext>(COMMENTS_PANEL_CTX);
 
-	const showError = (msg: string, detail?: string) =>
-		toast({ title: msg, description: detail, variant: 'destructive' });
-
-	let comments = $state<Comment[]>([]);
-	let commentText = $state('');
-	let editingCommentId = $state<number | null>(null);
+	let thread = $state<CommentsThread | null>(null);
 	let loading = $state(false);
-	let scrollEl = $state<HTMLDivElement | null>(null);
-
-	const scrollToBottom = async () => {
-		await tick();
-		if (!scrollEl) return;
-		scrollEl.scrollTop = scrollEl.scrollHeight;
-	};
-
-	const loadComments = async () => {
-		const entity = panel.state.entity;
-		if (!entity) {
-			comments = [];
-			return;
-		}
-
-		loading = true;
-		try {
-			const res = await CommentsService.list(entity.type, entity.id, { per_page: 10000 });
-			if (!res.ok) {
-				showError('Failed to load comments', res.error?.message);
-				return;
-			}
-
-			const data = res.data;
-			comments = data && typeof data === 'object' && Array.isArray(data.data) ? data.data : [];
-			await scrollToBottom();
-		} finally {
-			loading = false;
-		}
-	};
-
-	const getCommentById = (id: number): Comment | undefined =>
-		comments.find((c) => c.comment_id === id);
-
-	const editComment = (id: number) => {
-		const c = getCommentById(id);
-		if (!c) return;
-		commentText = c.comment_text ?? '';
-		editingCommentId = id;
-	};
-
-	const deleteComment = async (id: number) => {
-		const entity = panel.state.entity;
-		if (!entity) return;
-
-		const res = await CommentsService.remove(entity.type, entity.id, id);
-		if (!res.ok) {
-			showError('Failed to delete comment', res.error?.message);
-			return;
-		}
-
-		await loadComments();
-	};
-
-	const saveComment = async () => {
-		const entity = panel.state.entity;
-		const text = commentText.trim();
-		if (!entity || !text) return;
-
-		let res: RequestResponse<Comment>;
-		if (editingCommentId) {
-			const existing = getCommentById(editingCommentId);
-			if (!existing) return;
-
-			res = await CommentsService.update(entity.type, entity.id, editingCommentId, {
-				...existing,
-				comment_text: text
-			});
-		} else {
-			res = await CommentsService.create(entity.type, entity.id, { comment_text: text });
-		}
-
-		if (!res.ok) {
-			showError(
-				editingCommentId ? 'Failed to save comment' : 'Failed to post comment',
-				res.error?.message
-			);
-			return;
-		}
-
-		commentText = '';
-		editingCommentId = null;
-		await loadComments();
-	};
-
-	// React to entity changes. The untrack() prevents this effect from
-	// re-running when loadComments mutates `comments` (we only want it to
-	// fire when the entity identity actually changes).
-	$effect(() => {
-		const entity = panel.state.entity;
-		untrack(() => {
-			commentText = '';
-			editingCommentId = null;
-			if (entity && panel.state.open) {
-				void loadComments();
-			} else if (!entity) {
-				comments = [];
-			}
-		});
-	});
 
 	// Escape-to-close
 	$effect(() => {
@@ -165,7 +56,7 @@
 				variant="ghost"
 				size="icon"
 				class="size-7"
-				onclick={loadComments}
+				onclick={() => thread?.reload()}
 				disabled={!panel.state.entity || loading}
 				aria-label="Refresh comments"
 			>
@@ -182,59 +73,11 @@
 			</Button>
 		</header>
 
-		<div bind:this={scrollEl} class="min-h-0 flex-1 overflow-auto px-4 py-3">
-			{#if !panel.state.entity}
-				<div
-					class="flex h-full items-center justify-center text-center text-xs text-muted-foreground"
-				>
-					Select an item to view its comments.
-				</div>
-			{:else if loading && comments.length === 0}
-				<div class="flex h-full items-center justify-center text-xs text-muted-foreground">
-					Loading…
-				</div>
-			{:else if comments.length === 0}
-				<div
-					class="flex h-full items-center justify-center text-center text-xs text-muted-foreground"
-				>
-					No comments yet. Be the first to leave one.
-				</div>
-			{:else}
-				<Comments
-					{comments}
-					onEdit={editComment}
-					onDelete={deleteComment}
-					selected={editingCommentId}
-				/>
-			{/if}
-		</div>
-
-		{#if panel.state.entity}
-			<footer class="border-t border-border px-4 py-3 dark:border-slate-700">
-				<MarkDownEditor
-					value={commentText}
-					onChange={(v) => (commentText = v)}
-					onSave={saveComment}
-					initialMode="edit"
-				/>
-				<div class="mt-2 flex items-center justify-end gap-2">
-					{#if editingCommentId}
-						<Button
-							size="sm"
-							variant="ghost"
-							onclick={() => {
-								commentText = '';
-								editingCommentId = null;
-							}}
-						>
-							Cancel
-						</Button>
-					{/if}
-					<Button size="sm" onclick={saveComment} disabled={!commentText.trim()}>
-						{editingCommentId ? 'Save' : 'Comment'}
-					</Button>
-				</div>
-			</footer>
-		{/if}
+		<CommentsThread
+			bind:this={thread}
+			bind:loading
+			entity={panel.state.entity}
+			class="min-h-0 flex-1"
+		/>
 	</div>
 {/if}
