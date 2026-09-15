@@ -22,9 +22,15 @@
 	import type { Asset } from '$lib/types/resources/asset';
 	import type { Ioc } from '$lib/types/resources/ioc';
 	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
+	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 	import { AlertClustersService } from '$lib/services/alert-clusters.service';
 	import type { UpdateAlertAssetBody, UpdateAlertIocBody } from '$lib/services/alerts.service';
+	import type { HookOption } from '$lib/services/hooks.service';
+	import { alertHooks } from '$lib/stores/alert-hooks.store.svelte';
+	import { toast } from '$lib/stores/toast.store';
+	import { callAlertHook } from '$lib/utils/hooks';
 	import EnrichmentDialog from '$lib/components/common/EnrichmentDialog.svelte';
+	import { CommentsThread } from '$lib/components/common/Comments';
 	import InvestigationFlowSteps from '$lib/components/common/InvestigationFlow/InvestigationFlowSteps.svelte';
 	import AlertRelatedGraph from '../AlertRelatedGraph/AlertRelatedGraph.svelte';
 	import AlertIocEditDialog from '../alert-ioc-edit-dialog.svelte';
@@ -106,12 +112,24 @@
 		onEscalate: (alert: Alert) => void;
 		onMerge: (alert: Alert) => void;
 		onClose: (alert: Alert) => void;
+		/**
+		 * Optional — the Delete button only appears when the page supplies a
+		 * handler AND the user carries `alerts_delete`. The confirmation
+		 * dialog is the page's, the same one the list view opens.
+		 */
+		onDelete?: (alert: Alert) => void;
+		/**
+		 * Fired after the Comments tab wrote something, so the page can
+		 * refresh the alert and keep the tab's count honest.
+		 */
+		onCommentsChanged?: (alert: Alert) => void;
 		onOpenCluster: (clusterId: number) => void;
 		onPageChange: (page: number) => void;
 		onQueueTabChange: (tab: 'mine' | 'unassigned' | 'escalated' | null) => void;
 	}
 
 	const alertsCtx = getContext<AlertsContext>(ALERTS_CTX);
+	const userCtx = getContext<UserCtx>(USER_CTX);
 
 	let {
 		class: className = '',
@@ -139,6 +157,8 @@
 		onEscalate,
 		onMerge,
 		onClose,
+		onDelete,
+		onCommentsChanged,
 		onOpenCluster,
 		onPageChange,
 		onQueueTabChange
@@ -153,7 +173,13 @@
 		| 'raw'
 		| 'timeline'
 		| 'notes'
+		| 'comments'
 		| 'graph';
+
+	// Deleting is destructive and irreversible, so the button is hidden
+	// rather than disabled when the user can't do it — same reading the
+	// side nav gives a page they have no permission for.
+	const canDelete = $derived(onDelete !== undefined && userCtx?.can('alerts_delete') === true);
 
 	let focusedId = $state<number | null>(null);
 	// Which pane the small-screen layout is showing. Inert above the stacking
@@ -161,9 +187,29 @@
 	// from `focusedId`: the effect below auto-focuses the first alert, so the
 	// detail would open on load and the queue would never be reachable.
 	let narrowPane = $state<'queue' | 'detail'>('queue');
-	let activeTab = $state<Tab>('overview');
+	// What the analyst last picked. Read through `activeTab` below, which
+	// narrows it to a tab the focused alert actually has.
+	let requestedTab = $state<Tab>('overview');
 	let rowEls = $state<Record<number, HTMLElement | undefined>>({});
 	let showAssignMenu = $state<boolean>(false);
+	let showModulesMenu = $state<boolean>(false);
+
+	// Buttons contributed by modules that registered
+	// `on_manual_trigger_alert`. Triggering one writes to the alert, so
+	// the menu follows the same permission as every other write action
+	// here rather than letting the analyst discover a 403 by clicking.
+	const canTriggerHooks = $derived(
+		alertHooks.options.length > 0 && userCtx?.can('alerts_write') === true
+	);
+
+	const triggerHook = async (alert: Alert, hookOption: HookOption) => {
+		showModulesMenu = false;
+		const result = await callAlertHook([alert.alert_id], hookOption);
+		toast({
+			title: result.message,
+			variant: result.status === 'error' ? 'destructive' : 'success'
+		});
+	};
 
 	/**
 	 * `now` is sampled once on mount and ticked every 30s rather than read
@@ -174,12 +220,14 @@
 	let now = $state(0);
 	onMount(() => {
 		now = Date.now();
+		void alertHooks.load();
 		const id = setInterval(() => (now = Date.now()), 30_000);
 		const onDocClick = (e: MouseEvent) => {
-			const target = e.target as HTMLElement | null;
-			if (!target?.closest('.assign-menu-wrap')) {
-				showAssignMenu = false;
-			}
+			// Both header menus close on any click outside *their own*
+			// wrapper, so opening one shuts the other.
+			const wrap = (e.target as HTMLElement | null)?.closest('.menu-wrap');
+			if (wrap?.getAttribute('data-menu') !== 'assign') showAssignMenu = false;
+			if (wrap?.getAttribute('data-menu') !== 'modules') showModulesMenu = false;
 		};
 		document.addEventListener('click', onDocClick, true);
 		return () => {
@@ -379,19 +427,30 @@
 	const techniques = $derived(focused ? techniqueLabels(focused) : []);
 	const notes = $derived((focused?.alert_note ?? '').trim());
 
+	// The entity the Comments tab is bound to. Rebuilt whenever the
+	// focused alert changes, which is what makes the thread re-fetch.
+	const commentsEntity = $derived(
+		focused
+			? {
+					type: 'alerts' as const,
+					id: focused.alert_id,
+					label: focused.alert_title ?? `Alert #${focused.alert_id}`
+				}
+			: null
+	);
+
 	type TabDef = { id: Tab; label: string; count: number | undefined; dot?: boolean };
+
+	// No checklist, no tab. The alert says whether a flow is attached; the
+	// step count behind it would need a round trip per alert, which is not
+	// worth paying on every j/k press just to render a tab label.
+	const hasInvestigationFlow = $derived(focused?.investigation_flow != null);
 
 	const tabs = $derived<TabDef[]>([
 		{ id: 'overview' as Tab, label: 'Overview', count: undefined as number | undefined },
-		{
-			id: 'flow' as Tab,
-			label: 'Investigation',
-			count: undefined,
-			// The step count needs a round trip, so the tab can't carry one.
-			// The alert already says whether a flow is attached, which is the
-			// part worth advertising — there is a checklist waiting here.
-			dot: focused?.investigation_flow != null
-		},
+		...(hasInvestigationFlow
+			? [{ id: 'flow' as Tab, label: 'Investigation', count: undefined as number | undefined }]
+			: []),
 		{
 			id: 'assets' as Tab,
 			label: 'Assets',
@@ -407,8 +466,27 @@
 		{ id: 'raw' as Tab, label: 'Raw event', count: undefined },
 		{ id: 'timeline' as Tab, label: 'Timeline', count: undefined },
 		{ id: 'notes' as Tab, label: 'Notes', count: notes ? 1 : undefined },
+		{
+			id: 'comments' as Tab,
+			label: 'Comments',
+			// Undefined rather than 0 so an empty thread reads like the
+			// tabs that carry no count at all instead of advertising a zero.
+			count: focused?.comments?.length ? focused.comments.length : undefined
+		},
 		{ id: 'graph' as Tab, label: 'Graph', count: undefined }
 	]);
+
+	/**
+	 * Walking the queue can pull the open tab out from under the analyst —
+	 * `j` onto an alert with no flow while Investigation is up. Derived
+	 * rather than corrected in an $effect so the flow pane never gets a
+	 * frame to mount (and fire its request) against an alert that has no
+	 * checklist; the pick itself survives, so stepping back onto an alert
+	 * that does have one puts you straight back on the tab.
+	 */
+	const activeTab = $derived<Tab>(
+		tabs.some((tab) => tab.id === requestedTab) ? requestedTab : 'overview'
+	);
 
 	const allSelected = $derived(
 		alerts.length > 0 && alerts.every((a) => selected[a.alert_id] === true)
@@ -810,7 +888,7 @@
 							>Escalate to case</button
 						>
 						<button type="button" class="btn-outline" onclick={() => onMerge(f)}>Merge…</button>
-						<div class="assign-menu-wrap">
+						<div class="menu-wrap" data-menu="assign">
 							<button
 								type="button"
 								class="btn-outline"
@@ -819,10 +897,10 @@
 								aria-expanded={showAssignMenu}>Assign ▾</button
 							>
 							{#if showAssignMenu}
-								<div class="assign-dropdown" role="menu">
+								<div class="menu-dropdown" role="menu">
 									<button
 										type="button"
-										class="assign-item"
+										class="menu-item"
 										role="menuitem"
 										onclick={() => {
 											onAssignToMe(f);
@@ -831,7 +909,7 @@
 									>
 									<button
 										type="button"
-										class="assign-item"
+										class="menu-item"
 										role="menuitem"
 										onclick={() => {
 											onAssign(f);
@@ -841,9 +919,42 @@
 								</div>
 							{/if}
 						</div>
+						{#if canTriggerHooks}
+							<div class="menu-wrap" data-menu="modules">
+								<button
+									type="button"
+									class="btn-outline"
+									title="Actions contributed by modules"
+									onclick={() => (showModulesMenu = !showModulesMenu)}
+									aria-haspopup="true"
+									aria-expanded={showModulesMenu}>Modules ▾</button
+								>
+								{#if showModulesMenu}
+									<div class="menu-dropdown" role="menu">
+										{#each alertHooks.options as hookOption (hookOption.manual_hook_ui_name)}
+											<button
+												type="button"
+												class="menu-item"
+												role="menuitem"
+												onclick={() => triggerHook(f, hookOption)}
+												>{hookOption.manual_hook_ui_name}</button
+											>
+										{/each}
+									</div>
+								{/if}
+							</div>
+						{/if}
 						<button type="button" class="btn-outline btn-muted" onclick={() => onClose(f)}
 							>Close</button
 						>
+						{#if canDelete}
+							<button
+								type="button"
+								class="btn-outline btn-danger"
+								title="Delete alert"
+								onclick={() => onDelete?.(f)}>Delete</button
+							>
+						{/if}
 					</div>
 				</div>
 
@@ -883,7 +994,7 @@
 						class="tab"
 						class:tab-active={activeTab === tab.id}
 						aria-selected={activeTab === tab.id}
-						onclick={() => (activeTab = tab.id)}
+						onclick={() => (requestedTab = tab.id)}
 					>
 						{tab.label}{#if tab.count !== undefined}<span class="tab-count">{tab.count}</span
 							>{:else if tab.dot}<span
@@ -909,6 +1020,20 @@
 				-->
 				<div class="flow-pane">
 					<InvestigationFlowSteps alertId={f.alert_id} />
+				</div>
+			{:else if activeTab === 'comments'}
+				<!--
+				  Same arrangement as the flow pane, and for the same reason:
+				  the thread carries a markdown composer whose toolbar does not
+				  survive the ~60% `detail-main` column. The shared component
+				  brings the app's own tokens with it.
+				-->
+				<div class="comments-pane">
+					<CommentsThread
+						entity={commentsEntity}
+						onChange={() => onCommentsChanged?.(f)}
+						class="mx-auto w-full max-w-3xl"
+					/>
 				</div>
 			{:else}
 				<div class="detail-body">
@@ -2058,6 +2183,9 @@
 	.detail-actions {
 		display: flex;
 		gap: 7px;
+		/* Delete and Modules make six buttons in this row; on a narrow
+		   detail pane they wrap rather than pushing the head out. */
+		flex-wrap: wrap;
 	}
 	.btn-accent,
 	.btn-outline {
@@ -2089,25 +2217,41 @@
 	.btn-muted {
 		color: var(--t-6);
 	}
+	/* Reads as destructive at rest, not only on hover — it is the one
+	   action in this row that cannot be undone. */
+	.btn-danger {
+		color: var(--crit-t);
+		border-color: var(--b-red);
+	}
+	.btn-danger:hover {
+		color: var(--on-acc);
+		background: var(--crit);
+		border-color: var(--crit);
+	}
 
-	.assign-menu-wrap {
+	/* Shared by the header's two dropdowns (Assign, Modules). */
+	.menu-wrap {
 		position: relative;
 	}
-	.assign-dropdown {
+	.menu-dropdown {
 		position: absolute;
 		top: calc(100% + 5px);
 		right: 0;
 		z-index: 200;
 		min-width: 140px;
+		/* Module hook names are arbitrary text; cap the width and let the
+		   list scroll rather than let a chatty module stretch the header. */
+		max-width: 280px;
+		max-height: 320px;
+		overflow: auto;
 		background: var(--s-card);
 		border: 1px solid var(--b-4);
 		border-radius: 8px;
 		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-		overflow: hidden;
 		display: flex;
 		flex-direction: column;
 	}
-	.assign-item {
+	.menu-item {
 		padding: 9px 13px;
 		font-size: 13px;
 		font-family: inherit;
@@ -2117,12 +2261,14 @@
 		text-align: left;
 		cursor: pointer;
 		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
-	.assign-item:hover {
+	.menu-item:hover {
 		background: var(--s-hover);
 		color: var(--t-1);
 	}
-	.assign-item + .assign-item {
+	.menu-item + .menu-item {
 		border-top: 1px solid var(--b-hair);
 	}
 
@@ -2353,6 +2499,15 @@
 	   flex child — `min-height: 0` is what lets it be shorter than its
 	   content instead of pushing the detail pane past the viewport. */
 	.flow-pane {
+		flex: 1;
+		min-height: 0;
+		overflow: hidden;
+		background: var(--s-card);
+	}
+
+	/* Same bounded-flex-child deal as the flow pane: the thread owns its
+	   own scroll so the composer stays pinned to the bottom. */
+	.comments-pane {
 		flex: 1;
 		min-height: 0;
 		overflow: hidden;

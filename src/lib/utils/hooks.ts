@@ -1,8 +1,16 @@
-import { HooksService, type HookObjectType, type HookOption } from '$lib/services/hooks.service';
+import {
+	HooksService,
+	type HookObjectType,
+	type HookOption,
+	type InvokeHookResult
+} from '$lib/services/hooks.service';
+import type { RequestResponse } from '$lib/services/api.service';
+
+type HookCallOutcome = { status: string; message: string };
 
 /**
- * Fire a manual module hook against `targets` in `case_id`. Returns a
- * `{status, message}` pair the caller can drop straight into a toast.
+ * Turn an invoke response into a `{status, message}` pair the caller can
+ * drop straight into a toast.
  *
  * The v2 backend returns `{queued, logs?}` where a non-empty `logs`
  * means "queued fewer than requested" — every listed line is a target
@@ -10,20 +18,7 @@ import { HooksService, type HookObjectType, type HookOption } from '$lib/service
  * user knows something was skipped; otherwise we report the queued
  * count.
  */
-export const callHook = async (
-	case_id: number,
-	hookType: HookObjectType,
-	targets: Array<number>,
-	hookOption: HookOption
-): Promise<{ status: string; message: string }> => {
-	const response = await HooksService.invoke(case_id, {
-		type: hookType,
-		hook_name: hookOption.hook_name,
-		module_name: hookOption.module_name,
-		hook_ui_name: hookOption.manual_hook_ui_name,
-		targets
-	});
-
+const toOutcome = (response: RequestResponse<InvokeHookResult>): HookCallOutcome => {
 	if (!response.ok || response.error) {
 		return {
 			status: 'error',
@@ -31,7 +26,7 @@ export const callHook = async (
 		};
 	}
 
-	const body = response.data as { queued: number; logs?: string[] } | null;
+	const body = response.data as InvokeHookResult | null;
 	const queued = body?.queued ?? 0;
 	const logs = body?.logs ?? [];
 
@@ -47,3 +42,38 @@ export const callHook = async (
 		message: `Queued task with ${queued} object(s)`
 	};
 };
+
+/** Fire a manual module hook against `targets` in `case_id`. */
+export const callHook = async (
+	case_id: number,
+	hookType: HookObjectType,
+	targets: Array<number>,
+	hookOption: HookOption
+): Promise<HookCallOutcome> =>
+	toOutcome(
+		await HooksService.invoke(case_id, {
+			type: hookType,
+			hook_name: hookOption.hook_name,
+			module_name: hookOption.module_name,
+			hook_ui_name: hookOption.manual_hook_ui_name,
+			targets
+		})
+	);
+
+/**
+ * Fire a manual module hook against alerts. Alerts live outside any
+ * case, so this goes to the alert-scoped invoker rather than
+ * `callHook`'s case one.
+ */
+export const callAlertHook = async (
+	targets: Array<number>,
+	hookOption: HookOption
+): Promise<HookCallOutcome> =>
+	toOutcome(
+		await HooksService.invokeForAlerts({
+			hook_name: hookOption.hook_name,
+			module_name: hookOption.module_name,
+			hook_ui_name: hookOption.manual_hook_ui_name,
+			targets
+		})
+	);

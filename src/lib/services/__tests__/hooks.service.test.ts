@@ -14,7 +14,7 @@ import { HooksService } from '../hooks.service';
 import { ApiService } from '../api.service';
 
 import type { ApiOptions } from '../api.service';
-import type { HookOption, InvokeHookBody } from '../hooks.service';
+import type { HookOption, InvokeAlertHookBody, InvokeHookBody } from '../hooks.service';
 
 describe('HooksService', () => {
 	beforeEach(() => {
@@ -84,6 +84,31 @@ describe('HooksService', () => {
 
 		expect(ApiService.post).toHaveBeenCalledTimes(1);
 		expect(ApiService.post).toHaveBeenCalledWith('/cases/42/dim-hooks/invoke', body, options);
+		expect(res).toBe(mockResponse);
+	});
+
+	it('invokeForAlerts() calls ApiService.post with /alerts/dim-hooks/invoke, body, options', async () => {
+		const body: InvokeAlertHookBody = {
+			hook_name: 'on_manual_trigger_alert',
+			module_name: 'test_module',
+			hook_ui_name: 'Test Hook',
+			targets: [10, 20]
+		};
+
+		const options: ApiOptions = { skipTokenRefresh: true };
+
+		const mockResponse = {
+			ok: true,
+			status: 200,
+			data: { queued: 2 }
+		};
+
+		(ApiService.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+
+		const res = await HooksService.invokeForAlerts(body, options);
+
+		expect(ApiService.post).toHaveBeenCalledTimes(1);
+		expect(ApiService.post).toHaveBeenCalledWith('/alerts/dim-hooks/invoke', body, options);
 		expect(res).toBe(mockResponse);
 	});
 });

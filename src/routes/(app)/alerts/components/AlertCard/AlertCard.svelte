@@ -2,6 +2,7 @@
 	import {
 		CheckSquareIcon,
 		ChevronDownIcon,
+		CircleArrowRightIcon,
 		EllipsisVerticalIcon,
 		FileSymlinkIcon,
 		FlameIcon,
@@ -13,7 +14,12 @@
 		TrashIcon
 	} from 'lucide-svelte';
 	import { Collapsible } from 'bits-ui';
+	import { getContext, onMount } from 'svelte';
 	import { page } from '$app/state';
+	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
+	import { alertHooks } from '$lib/stores/alert-hooks.store.svelte';
+	import { callAlertHook } from '$lib/utils/hooks';
+	import type { HookOption } from '$lib/services/hooks.service';
 	import type { Alert } from '$lib/types/resources/alert';
 	import { toast } from '$lib/stores/toast.store';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
@@ -111,6 +117,26 @@
 	const getAlertUrl = () => {
 		const url = new URL(page.url);
 		return `${url.origin}${url.pathname}/${alert.alert_id}`;
+	};
+
+	// Buttons contributed by modules that registered
+	// `on_manual_trigger_alert`. Shared across every card on the page —
+	// see the store for why it isn't fetched per card. Triggering one
+	// writes to the alert, so the items are hidden without alerts_write
+	// rather than left to fail with a 403 on click.
+	const userCtx = getContext<UserCtx>(USER_CTX);
+	const canTriggerHooks = $derived(
+		alertHooks.options.length > 0 && userCtx?.can('alerts_write') === true
+	);
+
+	onMount(() => void alertHooks.load());
+
+	const triggerHook = async (hookOption: HookOption) => {
+		const result = await callAlertHook([alert.alert_id], hookOption);
+		toast({
+			title: result.message,
+			variant: result.status === 'error' ? 'destructive' : 'success'
+		});
 	};
 </script>
 
@@ -348,6 +374,17 @@
 							<Separator />
 
 							<DropdownMenuItem onclick={onShowHistory}><HistoryIcon /> History</DropdownMenuItem>
+
+							{#if canTriggerHooks}
+								<Separator />
+
+								{#each alertHooks.options as hookOption (hookOption.manual_hook_ui_name)}
+									<DropdownMenuItem onclick={() => triggerHook(hookOption)}>
+										<CircleArrowRightIcon />
+										{hookOption.manual_hook_ui_name}
+									</DropdownMenuItem>
+								{/each}
+							{/if}
 
 							<Separator />
 

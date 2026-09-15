@@ -9,7 +9,8 @@ export type HookObjectType =
 	| 'event'
 	| 'task'
 	| 'evidence'
-	| 'global_task';
+	| 'global_task'
+	| 'alert';
 
 export interface HookOption {
 	hook_name: string;
@@ -24,6 +25,9 @@ export interface InvokeHookBody {
 	type: HookObjectType;
 	targets: number[];
 }
+
+/** Same payload minus `type` — the alert endpoint only knows alerts. */
+export type InvokeAlertHookBody = Omit<InvokeHookBody, 'type'>;
 
 export interface InvokeHookResult {
 	queued: number;
@@ -47,5 +51,16 @@ export class HooksService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<InvokeHookResult>> {
 		return ApiService.post<InvokeHookResult>(`/cases/${caseId}/dim-hooks/invoke`, body, options);
+	}
+
+	/**
+	 * Alerts don't belong to a case, so they have their own invoker
+	 * rather than a `type: 'alert'` target on the case-scoped one.
+	 */
+	static async invokeForAlerts(
+		body: InvokeAlertHookBody,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<InvokeHookResult>> {
+		return ApiService.post<InvokeHookResult>('/alerts/dim-hooks/invoke', body, options);
 	}
 }

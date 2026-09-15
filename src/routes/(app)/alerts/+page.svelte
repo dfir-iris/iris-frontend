@@ -1569,6 +1569,23 @@
 					selected = { ...selected, [alert.alert_id]: true };
 					showClose = true;
 				}}
+				onDelete={(alert) => {
+					// Replaces the selection instead of extending it, unlike the
+					// other single-alert actions here. The split view keeps a
+					// checkbox on every row, so "delete this alert" must not sweep
+					// up whatever else is ticked in the queue — and `selectedAll`
+					// would widen it to the entire page.
+					selectedAll = false;
+					selected = { [alert.alert_id]: true };
+					showConfirmDelete = true;
+				}}
+				onCommentsChanged={async (alert) => {
+					// Keeps the Comments tab's count in step with the thread the
+					// user just wrote in — the alert payload carries the comment
+					// ids, so only a re-fetch can move it.
+					const updated = await alerts.get(alert.alert_id);
+					if (updated) applyUpdatedAlert(updated);
+				}}
 				onOpenCluster={(cluster_id) => goto(`/alert-clusters/${cluster_id}`)}
 				onPageChange={changePage}
 				{queueTab}
