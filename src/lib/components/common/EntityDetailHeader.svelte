@@ -22,7 +22,6 @@
 	import { cn } from '$lib/utils';
 	import { callHook } from '$lib/utils/hooks';
 	import { toast } from '$lib/stores/toast.store';
-	import type { RequestResponse } from '$lib/services/api.service';
 	import { HooksService, type HookObjectType, type HookOption } from '$lib/services/hooks.service';
 	import { Button } from '$lib/components/ui/button';
 	import {
@@ -121,11 +120,11 @@
 	};
 
 	const loadHooks = async () => {
-		const hooksResponse = (await HooksService.list(hookType)).data as unknown as RequestResponse<
-			HookOption[]
-		>;
-
-		hookOptions = (hooksResponse?.data as HookOption[]) ?? [];
+		// v2 returns the bare array — `response.data` IS the list. Reading
+		// a second `.data` off it (as this used to) always yielded
+		// undefined, which is why no module ever contributed a button here.
+		const response = await HooksService.list(hookType);
+		hookOptions = Array.isArray(response.data) ? response.data : [];
 	};
 
 	$effect(() => {
