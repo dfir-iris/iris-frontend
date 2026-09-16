@@ -153,12 +153,16 @@
 		>
 			<div class="flex min-w-0 flex-1 items-center gap-3">
 				<div class="relative flex h-10 w-12 shrink-0">
-					<Collapsible.Trigger>
-						<button
-							class={`absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-full text-white ${alwaysExpanded ? 'cursor-default' : 'hover:z-50 hover:brightness-110'} ${getBackgroundBySeverity(alert.severity.severity_name)}`}
-						>
-							<FlameIcon size="20" />
-						</button>
+					<!--
+					  Collapsible.Trigger is itself a <button> — it carries the
+					  class rather than wrapping one, since a nested <button> gets
+					  flattened into a sibling by the parser and the trigger ends
+					  up with nothing clickable inside it.
+					-->
+					<Collapsible.Trigger
+						class={`absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-full text-white ${alwaysExpanded ? 'cursor-default' : 'hover:z-50 hover:brightness-110'} ${getBackgroundBySeverity(alert.severity.severity_name)}`}
+					>
+						<FlameIcon size="20" />
 					</Collapsible.Trigger>
 
 					<button
@@ -319,13 +323,11 @@
 					</button>
 
 					<DropdownMenu bind:open={isMenuOpen}>
-						<DropdownMenuTrigger>
-							<button
-								title="menu"
-								class="text-muted-foreground transition-colors hover:text-foreground"
-							>
-								<EllipsisVerticalIcon size="16" />
-							</button>
+						<DropdownMenuTrigger
+							title="menu"
+							class="text-muted-foreground transition-colors hover:text-foreground"
+						>
+							<EllipsisVerticalIcon size="16" />
 						</DropdownMenuTrigger>
 
 						<DropdownMenuContent align="end">

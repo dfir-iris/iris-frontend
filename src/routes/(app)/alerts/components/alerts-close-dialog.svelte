@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import {
 		AlertResolutionService,
 		type AlertResolution
@@ -8,19 +8,26 @@
 	import type { UpdateAlertBody } from '$lib/services/alerts.service';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import Button from '$lib/components/ui/button/button.svelte';
-	import Input from '$lib/components/ui/input/input.svelte';
 	import Label from '$lib/components/ui/label/label.svelte';
 	import Textarea from '$lib/components/ui/textarea/textarea.svelte';
 	import type { SegmentedSelectOption } from '$lib/components/ui/segmented-select';
 	import SegmentedSelect from '$lib/components/ui/segmented-select/segmented-select.svelte';
+	import TagInput from '$lib/components/common/tag/TagInput.svelte';
+	import type { ClosableAlert } from '../helpers/alerts-close';
 
 	type Props = {
 		open: boolean;
-		selectedAlertIds: number[];
+		/**
+		 * The alerts about to be closed — the objects, not just their ids,
+		 * because the tag box is seeded from them. Closing used to send an
+		 * empty `alert_tags` and the API takes that as "replace with
+		 * nothing", so every tag on the alert was lost on close.
+		 */
+		selectedAlerts: ClosableAlert[];
 		onConfirm: (payload: UpdateAlertBody) => void;
 	};
 
-	let { open = $bindable(), selectedAlertIds, onConfirm }: Props = $props();
+	let { open = $bindable(), selectedAlerts, onConfirm }: Props = $props();
 
 	let alertResolutions = $state<AlertResolution[]>([]);
 	let resolutionStatusId = $state<number | null>(null);
@@ -34,21 +41,31 @@
 		}))
 	);
 
-	const getTitle = () => `Close ${selectedAlertIds.length > 1 ? 'multiple alerts' : 'alert'}`;
+	const isBulk = $derived(selectedAlerts.length > 1);
 
-	const getConfirmLabel = () => `Close alert${selectedAlertIds.length > 1 ? 's' : ''}`;
+	const getTitle = () => `Close ${isBulk ? 'multiple alerts' : 'alert'}`;
+
+	const getConfirmLabel = () => `Close alert${isBulk ? 's' : ''}`;
 
 	const resetForm = () => {
 		resolutionStatusId =
 			alertResolutions.length > 0 ? alertResolutions[0].resolution_status_id : null;
 		note = '';
-		tags = '';
+		// Seeded with what the alert already carries so closing it keeps its
+		// tags, and so removing one here is a deliberate act rather than a
+		// side effect of the box having started empty. With several alerts
+		// selected there is no single set to seed with — whatever is typed is
+		// added to each of them instead. See `resolveCloseTags`.
+		tags = selectedAlerts.length === 1 ? (selectedAlerts[0].alert_tags ?? '') : '';
 	};
 
 	$effect(() => {
-		if (open) {
-			resetForm();
-		}
+		if (!open) return;
+
+		// `untrack` so this stays "reset when the dialog opens": resetForm
+		// reads the resolutions and the selection, and without it either one
+		// arriving late would wipe what the analyst has already typed.
+		untrack(() => resetForm());
 	});
 
 	$effect(() => {
@@ -91,7 +108,18 @@
 			<div class="flex flex-col gap-2">
 				<Label for="close-alert-tags" class="text-sm font-medium">Tags</Label>
 
-				<Input id="close-alert-tags" bind:value={tags} />
+				<TagInput
+					bind:tags
+					outputFormat="string"
+					placeholder={isBulk ? 'Tags to add to every selected alert...' : 'Add tags...'}
+					maxTags={20}
+				/>
+
+				{#if isBulk}
+					<p class="text-xs text-muted-foreground">
+						Added to each alert. Tags already on them are kept.
+					</p>
+				{/if}
 			</div>
 		</div>
 

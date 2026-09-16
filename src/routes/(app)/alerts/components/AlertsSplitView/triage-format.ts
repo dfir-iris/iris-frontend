@@ -146,6 +146,52 @@ export const assetLabel = (assets: Asset[] | null | undefined): string => {
 	return `${names.length} hosts`;
 };
 
+/**
+ * A single copyable value and what to call it.
+ *
+ * The detail pane puts a copy button on every field it prints, and the
+ * label is what the button's tooltip and `aria-label` say — "Copy IP",
+ * not "Copy". Built here rather than in the markup so the same field
+ * carries the same name in the overview and in its own tab.
+ */
+export interface CopyField {
+	label: string;
+	value: string;
+}
+
+/**
+ * An asset's meta line, kept as parts rather than pre-joined.
+ *
+ * Rendered it still reads `Server · 10.0.0.5 · corp.local`, but each part
+ * is copied on its own: an analyst pasting into a search wants the
+ * address, not the sentence it sat in.
+ */
+export const assetFields = (
+	asset: Pick<Asset, 'asset_type' | 'asset_ip' | 'asset_domain'>
+): CopyField[] =>
+	[
+		{ label: 'type', value: asset.asset_type?.asset_name ?? '' },
+		{ label: 'IP', value: asset.asset_ip ?? '' },
+		{ label: 'domain', value: asset.asset_domain ?? '' }
+	].filter((field) => field.value.trim() !== '');
+
+/** Same treatment for an observable's `type · TLP` line. */
+export const iocFields = (ioc: Pick<Ioc, 'ioc_type' | 'tlp'>): CopyField[] =>
+	[
+		{ label: 'type', value: ioc.ioc_type?.type_name ?? '' },
+		{ label: 'TLP', value: ioc.tlp?.tlp_name ?? '' }
+	].filter((field) => field.value.trim() !== '');
+
+/**
+ * The whole Context block as `key: value` lines — what the section's
+ * "copy all" button puts on the clipboard, for the times the analyst
+ * wants the lot in a ticket rather than one field at a time.
+ */
+export const contextLines = (context: Record<string, string> | null | undefined): string =>
+	Object.entries(context ?? {})
+		.map(([key, value]) => `${key}: ${value ?? ''}`)
+		.join('\n');
+
 const TECHNIQUE_RE = /^T\d{4}(?:\.\d{3})?$/i;
 
 /**

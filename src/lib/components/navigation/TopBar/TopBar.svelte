@@ -212,18 +212,31 @@
 				open={showGoToCase}
 				onOpenChange={(open: boolean) => (showGoToCase = open)}
 			>
-				<DropdownMenu.Trigger>
-					<button onclick={gotoCase} class="pt-1 transition-colors hover:text-white/80">
-						<TooltipProvider>
-							<Tooltip>
-								<TooltipTrigger>
+				<!--
+				  One <button>, not three. DropdownMenu.Trigger and TooltipTrigger
+				  each render a <button> of their own by default, so nesting them
+				  (and a hand-written <button> between the two) produced markup the
+				  HTML parser flattens into siblings — enough to desync hydration
+				  for the entire page. `child` hands the tooltip's props down
+				  instead of emitting a second element.
+				-->
+				<TooltipProvider>
+					<Tooltip>
+						<TooltipTrigger>
+							{#snippet child({ props })}
+								<DropdownMenu.Trigger
+									{...props}
+									onclick={gotoCase}
+									class="pt-1 transition-colors hover:text-white/80"
+								>
 									<LeafIcon size="16" />
-								</TooltipTrigger>
-								<TooltipContent align="center" side="top">Switch Context</TooltipContent>
-							</Tooltip>
-						</TooltipProvider>
-					</button>
-				</DropdownMenu.Trigger>
+								</DropdownMenu.Trigger>
+							{/snippet}
+						</TooltipTrigger>
+
+						<TooltipContent align="center" side="top">Switch Context</TooltipContent>
+					</Tooltip>
+				</TooltipProvider>
 
 				<DropdownMenu.Content align="start" class="p-4">
 					<input

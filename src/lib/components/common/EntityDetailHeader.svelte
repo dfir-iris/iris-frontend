@@ -206,10 +206,17 @@
 		{/if}
 
 		<DropdownMenu bind:open={isMenuOpen}>
-			<DropdownMenuTrigger>
-				<button title="menu" class="text-muted-foreground transition-colors hover:text-foreground">
-					<EllipsisVerticalIcon size="16" />
-				</button>
+			<!--
+			  The trigger renders its own <button>, so it takes the title and
+			  class directly. Wrapping it in a second <button> is markup the
+			  HTML parser rewrites into two siblings, which leaves the menu
+			  anchored to an empty element.
+			-->
+			<DropdownMenuTrigger
+				title="menu"
+				class="text-muted-foreground transition-colors hover:text-foreground"
+			>
+				<EllipsisVerticalIcon size="16" />
 			</DropdownMenuTrigger>
 
 			<DropdownMenuContent align="end">

@@ -24,6 +24,7 @@
 	} from '$lib/components/common/selects/SearchSelect.svelte';
 	import TagInput from '$lib/components/common/tag/TagInput.svelte';
 	import { alertEventTimeForApi } from '../helpers/alert-event-time';
+	import { canCreateAlert } from '../helpers/alert-create-validation';
 
 	type Props = {
 		open: boolean;
@@ -88,11 +89,13 @@
 		}))
 	);
 
-	// Title, customer and severity are what the API refuses to create an
-	// alert without, so the Create button stays disabled until all three
-	// are answered rather than round-tripping to collect a 400.
+	// The API only refuses title, customer and severity, but an alert
+	// raised by hand is expected to arrive triaged: a status and a
+	// classification are asked for up front rather than left for someone
+	// to notice later in the queue. The rule itself lives in
+	// `canCreateAlert` so it can be tested.
 	const canSubmit = $derived(
-		title.trim().length > 0 && customerId !== '' && severityId !== '' && !saving
+		canCreateAlert({ title, customerId, severityId, statusId, classificationId }) && !saving
 	);
 
 	const reset = () => {
@@ -130,18 +133,16 @@
 	const submit = async () => {
 		if (!canSubmit) return;
 
-		// Classification is typed as required but the column is nullable,
-		// and "not classified yet" is the honest answer for something
-		// phoned in before anyone has looked at it. Omitted entirely
-		// rather than sent as a placeholder id.
+		// Status and classification are gated by `canSubmit`, so both are
+		// answered by the time we get here and go out unconditionally.
 		const body = {
 			alert_title: title.trim(),
 			alert_severity_id: Number(severityId),
 			alert_customer_id: Number(customerId),
-			...(classificationId !== '' && { alert_classification_id: Number(classificationId) })
+			alert_status_id: Number(statusId),
+			alert_classification_id: Number(classificationId)
 		} as CreateAlertBody;
 
-		if (statusId !== '') body.alert_status_id = Number(statusId);
 		if (description.trim() !== '') body.alert_description = description.trim();
 		if (source.trim() !== '') body.alert_source = source.trim();
 		if (sourceRef.trim() !== '') body.alert_source_ref = sourceRef.trim();
@@ -221,7 +222,7 @@
 					</div>
 
 					<div class="space-y-2">
-						<Label class="block text-sm font-medium">Status</Label>
+						<Label class="block text-sm font-medium">Status *</Label>
 						<SearchSelect
 							value={statusId}
 							options={statusOptions}
@@ -232,7 +233,7 @@
 					</div>
 
 					<div class="space-y-2">
-						<Label class="block text-sm font-medium">Classification</Label>
+						<Label class="block text-sm font-medium">Classification *</Label>
 						<SearchSelect
 							value={classificationId}
 							options={classificationOptions}

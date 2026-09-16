@@ -140,7 +140,9 @@
 	};
 
 	const closeWithNote = async (changes: UpdateAlertBody) => {
-		const [updated] = await closeAlerts({ updateAlert }, [alert_id], alertStatuses, changes);
+		if (!alert) return;
+
+		const [updated] = await closeAlerts({ updateAlert }, [alert], alertStatuses, changes);
 
 		await refreshConditionally(updated ?? null);
 
@@ -255,7 +257,7 @@
 
 <AlertsCloseDialog
 	bind:open={showAlertClose}
-	selectedAlertIds={[alert_id]}
+	selectedAlerts={alert ? [alert] : []}
 	onConfirm={closeWithNote}
 />
 

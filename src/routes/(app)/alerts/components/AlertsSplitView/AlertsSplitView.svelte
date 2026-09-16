@@ -15,7 +15,8 @@
 	 * mockup's scale is the thing being reproduced. The tokens are scoped
 	 * to `.iris-triage` so nothing leaks into the rest of the app.
 	 */
-	import { getContext, onMount } from 'svelte';
+	import { getContext, onDestroy, onMount } from 'svelte';
+	import { Check, Copy } from 'lucide-svelte';
 	import type { Alert } from '$lib/types/resources/alert';
 	import type { AlertCluster } from '$lib/types/resources/alert-cluster';
 	import type { AlertQueueUnit } from '$lib/types/resources/alert-queue-unit';
@@ -47,10 +48,14 @@
 		activityEntries,
 		ageLabel,
 		ageVar,
+		assetFields,
 		assetLabel,
 		clockTime,
+		contextLines,
+		type CopyField,
 		relativeDate,
 		formatRawEvent,
+		iocFields,
 		observableFlag,
 		primaryTechnique,
 		rangeLabel,
@@ -113,6 +118,13 @@
 		onMerge: (alert: Alert) => void;
 		onClose: (alert: Alert) => void;
 		/**
+		 * Optional — opens the page's alert edit dialog, the same one the
+		 * list view's pencil opens. Without it the split view is read-only,
+		 * which is what it was before: an analyst had to leave the view to
+		 * correct a title, severity or set of tags.
+		 */
+		onEdit?: (alert: Alert) => void;
+		/**
 		 * Optional — the Delete button only appears when the page supplies a
 		 * handler AND the user carries `alerts_delete`. The confirmation
 		 * dialog is the page's, the same one the list view opens.
@@ -157,6 +169,7 @@
 		onEscalate,
 		onMerge,
 		onClose,
+		onEdit,
 		onDelete,
 		onCommentsChanged,
 		onOpenCluster,
@@ -180,6 +193,11 @@
 	// rather than disabled when the user can't do it — same reading the
 	// side nav gives a page they have no permission for.
 	const canDelete = $derived(onDelete !== undefined && userCtx?.can('alerts_delete') === true);
+
+	// Gated where Delete is gated, and for the same reason: the API rejects
+	// the write without `alerts_write`, so an always-visible Edit button just
+	// hands the analyst a 403 after they have typed out their changes.
+	const canEdit = $derived(onEdit !== undefined && userCtx?.can('alerts_write') === true);
 
 	let focusedId = $state<number | null>(null);
 	// Which pane the small-screen layout is showing. Inert above the stacking
@@ -210,6 +228,42 @@
 			variant: result.status === 'error' ? 'destructive' : 'success'
 		});
 	};
+
+	// ---- copy to clipboard -------------------------------------------
+
+	/**
+	 * Which copy button last fired, so exactly one of them shows the tick.
+	 * Keyed by a string the call site builds (`ioc-12`, `ctx-src_ip`, …)
+	 * rather than by the value itself: the same address can appear as an
+	 * asset and as an observable, and only the button that was pressed
+	 * should acknowledge.
+	 */
+	let copiedKey = $state<string | null>(null);
+	let copiedTimer: ReturnType<typeof setTimeout> | undefined;
+
+	const copyValue = async (value: string, key: string) => {
+		if (!value) return;
+
+		try {
+			await navigator.clipboard.writeText(value);
+		} catch {
+			// Permission denied, or an insecure origin. Say so — a tick that
+			// claims the value is on the clipboard when it isn't costs the
+			// analyst the paste *and* the knowledge that it failed.
+			toast({
+				title: 'Could not copy to the clipboard',
+				description: 'Your browser refused the request. Select the text and copy it manually.',
+				variant: 'destructive'
+			});
+			return;
+		}
+
+		copiedKey = key;
+		clearTimeout(copiedTimer);
+		copiedTimer = setTimeout(() => (copiedKey = null), 1500);
+	};
+
+	onDestroy(() => clearTimeout(copiedTimer));
 
 	/**
 	 * `now` is sampled once on mount and ticked every 30s rather than read
@@ -558,6 +612,59 @@
 
 <svelte:window on:keydown={onKeydown} />
 
+<!--
+  The copy affordance every printed field in the detail pane carries.
+
+  Declared once at the root so both panes can reach it. It renders
+  nothing for an empty value, which is what keeps the call sites free of
+  `{#if}` around each one. The button is invisible until its `.copy-row`
+  is hovered (see the CSS) so the dense grids stay readable, but it is
+  always in the tab order.
+-->
+{#snippet copyBtn(key: string, label: string, value: string)}
+	{#if value.trim() !== ''}
+		<button
+			type="button"
+			class="copy-btn"
+			class:copy-btn-done={copiedKey === key}
+			title={copiedKey === key ? 'Copied' : `Copy ${label}`}
+			aria-label={copiedKey === key ? `${label} copied` : `Copy ${label}`}
+			onclick={(event) => {
+				// The queue rows and several chips are themselves clickable;
+				// copying a value must not also move the focus or open a cluster.
+				event.stopPropagation();
+				void copyValue(value, key);
+			}}
+		>
+			{#if copiedKey === key}
+				<Check size="12" aria-hidden="true" />
+			{:else}
+				<Copy size="12" aria-hidden="true" />
+			{/if}
+		</button>
+	{/if}
+{/snippet}
+
+<!--
+  An observable's meta line — `Server · 10.0.0.5 · corp.local` for an
+  asset, `ip-src · clear` for an IOC. Reads as one sentence but copies as
+  separate values: pasting an address into a search is the whole point,
+  and `Server · 10.0.0.5 · corp.local` is not an address.
+-->
+{#snippet metaLine(fields: CopyField[], keyPrefix: string)}
+	{#if fields.length > 0}
+		<div class="meta-line">
+			{#each fields as field, i (field.label)}
+				{#if i > 0}<span class="meta-sep" aria-hidden="true">·</span>{/if}
+				<span class="meta-field copy-row">
+					<span>{field.value}</span>
+					{@render copyBtn(`${keyPrefix}-${field.label}`, field.label, field.value)}
+				</span>
+			{/each}
+		</div>
+	{/if}
+{/snippet}
+
 <!-- Both panes sit side by side on wide screens. Narrow ones show one at a
      time and use `show-detail` to pick which — see the media query. -->
 <div
@@ -875,12 +982,21 @@
 						<span class="sev-dot" style="color:{sev}">●</span>
 						<span class="sev-pill-label">{f.severity?.severity_name ?? 'Unspecified'}</span>
 					</span>
-					<span class="detail-ref">#A-{f.alert_id}</span>
+					<span class="detail-ref copy-row">
+						#A-{f.alert_id}
+						{@render copyBtn(`ref-${f.alert_id}`, 'alert id', String(f.alert_id))}
+					</span>
 					<span class="vrule"></span>
-					<span class="detail-sub">{f.customer?.customer_name ?? ''}</span>
+					<span class="detail-sub copy-row">
+						{f.customer?.customer_name ?? ''}
+						{@render copyBtn(`customer-${f.alert_id}`, 'customer', f.customer?.customer_name ?? '')}
+					</span>
 					{#if f.alert_source}
 						<span class="vrule"></span>
-						<span class="detail-sub">{f.alert_source}</span>
+						<span class="detail-sub copy-row">
+							{f.alert_source}
+							{@render copyBtn(`source-${f.alert_id}`, 'source', f.alert_source)}
+						</span>
 					{/if}
 					<div class="spacer"></div>
 					<div class="detail-actions">
@@ -888,6 +1004,14 @@
 							>Escalate to case</button
 						>
 						<button type="button" class="btn-outline" onclick={() => onMerge(f)}>Merge…</button>
+						{#if canEdit}
+							<button
+								type="button"
+								class="btn-outline"
+								title="Edit alert"
+								onclick={() => onEdit?.(f)}>Edit</button
+							>
+						{/if}
 						<div class="menu-wrap" data-menu="assign">
 							<button
 								type="button"
@@ -958,7 +1082,10 @@
 					</div>
 				</div>
 
-				<h2 class="detail-title">{f.alert_title}</h2>
+				<div class="detail-title-row copy-row">
+					<h2 class="detail-title">{f.alert_title}</h2>
+					{@render copyBtn(`title-${f.alert_id}`, 'title', f.alert_title ?? '')}
+				</div>
 
 				<div class="detail-chips">
 					{#if cluster}
@@ -1041,18 +1168,40 @@
 						{#if activeTab === 'overview'}
 							{#if f.alert_description}
 								<section class="section">
-									<h3 class="section-title">Description</h3>
+									<div class="section-head copy-row">
+										<h3 class="section-title">Description</h3>
+										{@render copyBtn(
+											`desc-${f.alert_id}`,
+											'description',
+											f.alert_description ?? ''
+										)}
+									</div>
 									<div class="detail-prose">{f.alert_description}</div>
 								</section>
 							{/if}
 
 							{#if f.alert_context && Object.keys(f.alert_context).length > 0}
 								<section class="section">
-									<h3 class="section-title">Context</h3>
+									<div class="section-head copy-row">
+										<h3 class="section-title">Context</h3>
+										<!-- The whole block as `key: value` lines, for pasting a
+										     summary somewhere rather than chasing one field. -->
+										{@render copyBtn(
+											`ctx-all-${f.alert_id}`,
+											'the whole context block',
+											contextLines(f.alert_context)
+										)}
+									</div>
 									<div class="context-grid">
 										{#each Object.entries(f.alert_context) as [k, v] (k)}
-											<span class="context-key">{k}</span>
-											<span class="context-val">{v}</span>
+											<span class="context-key copy-row">
+												<span class="context-text">{k}</span>
+												{@render copyBtn(`ctx-key-${f.alert_id}-${k}`, `field name "${k}"`, k)}
+											</span>
+											<span class="context-val copy-row">
+												<span class="context-text">{v}</span>
+												{@render copyBtn(`ctx-val-${f.alert_id}-${k}`, k, v ?? '')}
+											</span>
 										{/each}
 									</div>
 								</section>
@@ -1064,14 +1213,15 @@
 									<div class="asset-list">
 										{#each f.assets as a (a.asset_id)}
 											<div class="asset-row">
-												<div class="asset-name">{a.asset_name}</div>
-												{#if a.asset_type?.asset_name || a.asset_ip || a.asset_domain}
-													<div class="asset-meta">
-														{[a.asset_type?.asset_name, a.asset_ip, a.asset_domain]
-															.filter(Boolean)
-															.join(' · ')}
-													</div>
-												{/if}
+												<div class="asset-name copy-row">
+													<span class="asset-name-text">{a.asset_name}</span>
+													{@render copyBtn(
+														`ov-asset-${a.asset_id}`,
+														'asset name',
+														a.asset_name ?? ''
+													)}
+												</div>
+												{@render metaLine(assetFields(a), `ov-asset-${a.asset_id}`)}
 											</div>
 										{/each}
 									</div>
@@ -1084,12 +1234,13 @@
 									<div class="ioc-chips">
 										{#each iocs as ioc (ioc.ioc_id)}
 											{@const flag = observableFlag(ioc)}
-											<span class="ioc-chip">
+											<span class="ioc-chip copy-row">
 												<span class="ioc-kind">{ioc.ioc_type?.type_name ?? 'ioc'}</span>
 												<span class="ioc-val">{ioc.ioc_value}</span>
 												{#if flag.text}
 													<span class="ioc-flag" style="color:{flag.color}">{flag.text}</span>
 												{/if}
+												{@render copyBtn(`ov-ioc-${ioc.ioc_id}`, 'observable', ioc.ioc_value ?? '')}
 											</span>
 										{/each}
 									</div>
@@ -1112,12 +1263,15 @@
 											<div class="asset-row">
 												<div class="obs-head">
 													<div class="obs-main">
-														<div class="asset-name">{a.asset_name}</div>
-														<div class="asset-meta">
-															{[a.asset_type?.asset_name, a.asset_ip, a.asset_domain]
-																.filter(Boolean)
-																.join(' · ')}
+														<div class="asset-name copy-row">
+															<span class="asset-name-text">{a.asset_name}</span>
+															{@render copyBtn(
+																`asset-${a.asset_id}`,
+																'asset name',
+																a.asset_name ?? ''
+															)}
 														</div>
+														{@render metaLine(assetFields(a), `asset-${a.asset_id}`)}
 													</div>
 
 													<div class="obs-actions">
@@ -1139,7 +1293,14 @@
 												</div>
 
 												{#if a.asset_description}
-													<div class="obs-desc">{a.asset_description}</div>
+													<div class="obs-desc copy-row">
+														<span class="obs-desc-text">{a.asset_description}</span>
+														{@render copyBtn(
+															`asset-desc-${a.asset_id}`,
+															'asset description',
+															a.asset_description ?? ''
+														)}
+													</div>
 												{/if}
 
 												{#if a.asset_tags}
@@ -1179,11 +1340,18 @@
 															.join(' · ')}</span
 													>
 												</span>
-												<span class="cluster-link"
-													>{member.alert_id === f.alert_id
-														? 'this alert'
-														: `#A-${member.alert_id}`}</span
-												>
+												<span class="cluster-link copy-row">
+													<span
+														>{member.alert_id === f.alert_id
+															? 'this alert'
+															: `#A-${member.alert_id}`}</span
+													>
+													{@render copyBtn(
+														`cluster-member-${member.alert_id}`,
+														'alert id',
+														String(member.alert_id)
+													)}
+												</span>
 											</div>
 										{/each}
 										{#if cluster}
@@ -1217,17 +1385,18 @@
 											<div class="asset-row">
 												<div class="obs-head">
 													<div class="obs-main">
-														<div class="asset-name">
-															{ioc.ioc_value}
+														<div class="asset-name copy-row">
+															<span class="asset-name-text">{ioc.ioc_value}</span>
 															{#if flag.text}
 																<span class="ioc-flag" style="color:{flag.color}">{flag.text}</span>
 															{/if}
+															{@render copyBtn(
+																`ioc-${ioc.ioc_id}`,
+																'observable',
+																ioc.ioc_value ?? ''
+															)}
 														</div>
-														<div class="asset-meta">
-															{[ioc.ioc_type?.type_name, ioc.tlp?.tlp_name]
-																.filter(Boolean)
-																.join(' · ')}
-														</div>
+														{@render metaLine(iocFields(ioc), `ioc-${ioc.ioc_id}`)}
 													</div>
 
 													<div class="obs-actions">
@@ -1249,7 +1418,14 @@
 												</div>
 
 												{#if ioc.ioc_description}
-													<div class="obs-desc">{ioc.ioc_description}</div>
+													<div class="obs-desc copy-row">
+														<span class="obs-desc-text">{ioc.ioc_description}</span>
+														{@render copyBtn(
+															`ioc-desc-${ioc.ioc_id}`,
+															'observable description',
+															ioc.ioc_description ?? ''
+														)}
+													</div>
 												{/if}
 
 												{#if ioc.ioc_tags}
@@ -1268,7 +1444,10 @@
 
 						{#if activeTab === 'raw'}
 							<section class="section">
-								<h3 class="section-title">Raw event</h3>
+								<div class="section-head copy-row">
+									<h3 class="section-title">Raw event</h3>
+									{@render copyBtn(`raw-${f.alert_id}`, 'the raw event', rawEvent)}
+								</div>
 								{#if rawEvent}
 									<pre class="raw">{rawEvent}</pre>
 								{:else}
@@ -1322,7 +1501,10 @@
 
 						{#if activeTab === 'notes'}
 							<section class="section">
-								<h3 class="section-title">Notes</h3>
+								<div class="section-head copy-row">
+									<h3 class="section-title">Notes</h3>
+									{@render copyBtn(`note-${f.alert_id}`, 'the note', notes)}
+								</div>
 								{#if notes}
 									<div class="note">{notes}</div>
 								{:else}
@@ -1556,6 +1738,89 @@
 	.spacer {
 		flex: 1;
 	}
+
+	/* ---------------- per-field copy ---------------- */
+
+	/*
+	 * Every printed field in the detail pane carries a copy button. There
+	 * are dozens of them, so they are invisible until the field they belong
+	 * to (`.copy-row`) is hovered — otherwise the context grid and the
+	 * observable lists turn into a wall of icons.
+	 *
+	 * Hover is not the only way in: the button keeps its place in the tab
+	 * order and `:focus-visible` brings it back, and a pointer with no hover
+	 * (touch) gets them permanently. `opacity` rather than `display: none`
+	 * so the layout does not shift under the cursor on hover.
+	 */
+	.copy-row {
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		min-width: 0;
+	}
+	.copy-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		padding: 2px;
+		color: var(--t-9);
+		background: none;
+		border: 0;
+		border-radius: 4px;
+		cursor: pointer;
+		opacity: 0;
+		transition:
+			opacity 0.12s ease,
+			color 0.12s ease;
+	}
+	.copy-btn:hover {
+		color: var(--acc);
+		background: var(--s-hover);
+	}
+	.copy-row:hover > .copy-btn,
+	.copy-btn:focus-visible,
+	.copy-btn-done {
+		opacity: 1;
+	}
+	.copy-btn-done {
+		color: var(--acc);
+	}
+	@media (hover: none) {
+		.copy-btn {
+			opacity: 1;
+		}
+	}
+
+	/* Section headings that carry a "copy the whole block" button. */
+	.section-head {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	/*
+	 * `type · IP · domain` read as one line, copied as three. The parts are
+	 * separate elements so each gets its own hover target and button.
+	 */
+	.meta-line {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 5px;
+		font-size: 12px;
+		color: var(--t-8);
+	}
+	.meta-field {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		min-width: 0;
+	}
+	.meta-sep {
+		color: var(--t-10);
+	}
+
 	.vrule {
 		width: 1px;
 		height: 11px;
@@ -2183,8 +2448,8 @@
 	.detail-actions {
 		display: flex;
 		gap: 7px;
-		/* Delete and Modules make six buttons in this row; on a narrow
-		   detail pane they wrap rather than pushing the head out. */
+		/* Edit, Modules and Delete make seven buttons in this row; on a
+		   narrow detail pane they wrap rather than pushing the head out. */
 		flex-wrap: wrap;
 	}
 	.btn-accent,
@@ -2272,6 +2537,13 @@
 		border-top: 1px solid var(--b-hair);
 	}
 
+	/* The copy button sits beside the heading, not inside it — a <button>
+	   in an <h2> is still in the heading's accessible name. */
+	.detail-title-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
 	.detail-title {
 		font-size: 22px;
 		font-weight: 600;
@@ -2423,6 +2695,9 @@
 		font-size: 11.5px;
 		color: var(--t-8);
 		text-align: right;
+		/* Blockified into a flex grid item by `.copy-row`; keep it on the
+		   right-hand edge of its 96px column as it was. */
+		justify-content: flex-end;
 	}
 	.cluster-promote {
 		padding: 10px 13px;
@@ -2528,16 +2803,26 @@
 		padding: 7px 12px;
 		font-size: 12.5px;
 		border-bottom: 1px solid var(--b-hair);
+		/* Overrides `.copy-row`'s inline-flex: these are grid cells, and an
+		   inline box would stop the row stretching to the column width.
+		   `flex-start` keeps the button on the first line of a wrapped
+		   value rather than floating in the middle of it. */
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 6px;
 	}
 	.context-key {
 		font-family: var(--mono);
 		color: var(--t-8);
 		background: var(--s-deep);
 		border-right: 1px solid var(--b-hair);
-		word-break: break-all;
 	}
 	.context-val {
 		color: var(--t-2);
+	}
+	.context-text {
+		min-width: 0;
 		word-break: break-all;
 	}
 	.context-key:last-of-type,
@@ -2577,9 +2862,11 @@
 		color: var(--t-2);
 		font-family: var(--mono);
 	}
-	.asset-meta {
-		font-size: 12px;
-		color: var(--t-8);
+	/* Hashes and URLs turn up here; they wrap rather than run past the
+	   edge of the pane. */
+	.asset-name-text {
+		min-width: 0;
+		overflow-wrap: anywhere;
 	}
 
 	/* Observable detail rows — IOC and asset tabs. */
@@ -2618,6 +2905,14 @@
 		font-size: 12.5px;
 		line-height: 1.55;
 		color: var(--t-6);
+		/* Overrides `.copy-row`'s inline-flex so the description still fills
+		   the row, with the copy button pinned to its first line. */
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+	}
+	.obs-desc-text {
+		min-width: 0;
 		white-space: pre-wrap;
 	}
 	.obs-tags {

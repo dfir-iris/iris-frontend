@@ -752,6 +752,17 @@
 
 	const getSelectedCount = (): number => getSelectedAlertIds().length;
 
+	/**
+	 * The selected alerts themselves, for actions that need more than an id —
+	 * closing reads each one's tags so it can keep them. Falls back to the
+	 * context cache for ids selected via "whole page" that are no longer in
+	 * `alertsData`, and drops any that resolve to nothing.
+	 */
+	const getSelectedAlerts = (): Alert[] =>
+		getSelectedAlertIds()
+			.map((id) => getAlertFromPage(id) ?? alerts.byId[id] ?? null)
+			.filter((alert): alert is Alert => alert !== null);
+
 	const applySavedFilter = async (id: number) => {
 		const saved = await alerts.getSavedFilter(id);
 		if (!saved) return;
@@ -977,12 +988,7 @@
 	};
 
 	const closeWithNote = async (changes: UpdateAlertBody) => {
-		const updates = await closeAlerts(
-			{ updateAlert },
-			getSelectedAlertIds(),
-			alertStatuses,
-			changes
-		);
+		const updates = await closeAlerts({ updateAlert }, getSelectedAlerts(), alertStatuses, changes);
 
 		if (updates.some((updated) => !updated)) {
 			await refreshAlerts();
@@ -1204,11 +1210,18 @@
 	>
 
 	<DropdownMenu>
+		<!--
+		  `child` so <Button> is the trigger rather than a second <button>
+		  nested inside the one the trigger renders — the parser splits that
+		  pair into siblings and the menu loses its anchor.
+		-->
 		<DropdownMenuTrigger>
-			<Button variant="outline" size="xs">
-				Assign
-				<ChevronDownIcon size="14" />
-			</Button>
+			{#snippet child({ props })}
+				<Button {...props} variant="outline" size="xs">
+					Assign
+					<ChevronDownIcon size="14" />
+				</Button>
+			{/snippet}
 		</DropdownMenuTrigger>
 
 		<DropdownMenuContent align="end">
@@ -1242,10 +1255,12 @@
 
 	<DropdownMenu>
 		<DropdownMenuTrigger>
-			<Button variant="outline" size="xs">
-				Set status
-				<ChevronDownIcon size="14" />
-			</Button>
+			{#snippet child({ props })}
+				<Button {...props} variant="outline" size="xs">
+					Set status
+					<ChevronDownIcon size="14" />
+				</Button>
+			{/snippet}
 		</DropdownMenuTrigger>
 
 		<DropdownMenuContent align="end">
@@ -1569,6 +1584,15 @@
 					selected = { ...selected, [alert.alert_id]: true };
 					showClose = true;
 				}}
+				onEdit={(alert) => {
+					// Replaces the selection rather than extending it, like
+					// Delete below: the edit dialog writes to whichever alert is
+					// first in the selection, so "edit this one" must not depend
+					// on what else happens to be ticked in the queue.
+					selectedAll = false;
+					selected = { [alert.alert_id]: true };
+					showAlertEdit = true;
+				}}
 				onDelete={(alert) => {
 					// Replaces the selection instead of extending it, unlike the
 					// other single-alert actions here. The split view keeps a
@@ -1803,7 +1827,7 @@
 
 <AlertsCloseDialog
 	bind:open={showClose}
-	selectedAlertIds={getSelectedAlertIds()}
+	selectedAlerts={getSelectedAlerts()}
 	onConfirm={closeWithNote}
 />
 

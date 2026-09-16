@@ -82,33 +82,43 @@
 </script>
 
 <Popover.Root {open} {onOpenChange}>
-	<Popover.Trigger
-		class="relative rounded-lg p-2 text-white/80 backdrop-blur-md transition-all duration-150 hover:bg-white/15 hover:text-white hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.18)]"
-		aria-label="Notifications"
-	>
-		<TooltipProvider>
-			<Tooltip>
-				<TooltipTrigger>
-					<BellIcon size="16" />
-					{#if totalBadgeCount > 0}
-						<!--
-							Badge is absolutely positioned so the button box
-							stays the same size as the other topbar action
-							buttons. Two-digit cap: 99+ for anything larger
-							so it never wraps the badge or breaks alignment.
-						-->
-						<span
-							class="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white shadow"
-							aria-live="polite"
-						>
-							{totalBadgeCount > 99 ? '99+' : totalBadgeCount}
-						</span>
-					{/if}
-				</TooltipTrigger>
-				<TooltipContent align="center" side="top">Notifications</TooltipContent>
-			</Tooltip>
-		</TooltipProvider>
-	</Popover.Trigger>
+	<!--
+	  Popover.Trigger renders the only <button> here; the tooltip hands its
+	  props down through `child` rather than rendering a <button> of its own
+	  inside it. Nested buttons don't survive the HTML parser — it closes the
+	  outer one and emits siblings, which desyncs hydration page-wide.
+	-->
+	<TooltipProvider>
+		<Tooltip>
+			<TooltipTrigger>
+				{#snippet child({ props })}
+					<Popover.Trigger
+						{...props}
+						class="relative rounded-lg p-2 text-white/80 backdrop-blur-md transition-all duration-150 hover:bg-white/15 hover:text-white hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.18)]"
+						aria-label="Notifications"
+					>
+						<BellIcon size="16" />
+						{#if totalBadgeCount > 0}
+							<!--
+								Badge is absolutely positioned so the button box
+								stays the same size as the other topbar action
+								buttons. Two-digit cap: 99+ for anything larger
+								so it never wraps the badge or breaks alignment.
+							-->
+							<span
+								class="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white shadow"
+								aria-live="polite"
+							>
+								{totalBadgeCount > 99 ? '99+' : totalBadgeCount}
+							</span>
+						{/if}
+					</Popover.Trigger>
+				{/snippet}
+			</TooltipTrigger>
+
+			<TooltipContent align="center" side="top">Notifications</TooltipContent>
+		</Tooltip>
+	</TooltipProvider>
 
 	<!--
 	  `max-h-[70vh]` caps the whole popover to a sensible fraction of
