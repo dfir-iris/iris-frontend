@@ -13,6 +13,7 @@
 	import CaseModificationHistory from './CaseModificationHistory.svelte';
 	import CaseAccess from './CaseAccess.svelte';
 	import CaseEditor from './CaseEditor.svelte';
+	import CaseCloseDialog from './CaseCloseDialog.svelte';
 	import CaseCustomAttributes from './CaseCustomAttributes.svelte';
 	import {
 		ensureHasCustomAttributes,
@@ -166,12 +167,12 @@
 	onCancel={() => (showConfirmDelete = false)}
 />
 
-<ConfirmationDialog
+<CaseCloseDialog
 	bind:open={showConfirmClose}
-	title="Are you sure?"
-	message={`Case ID ${case_id} will be closed and will not appear in contexts anymore.`}
-	onConfirm={async () => {
-		if (!(await cases.close(case_id))) {
+	caseId={case_id}
+	initialNote={currentCase?.closing_note}
+	onConfirm={async (closingNote) => {
+		if (!(await cases.close(case_id, closingNote))) {
 			toast({
 				title: 'Failed to close case',
 				description: `Case ${case_id} is still open.`,

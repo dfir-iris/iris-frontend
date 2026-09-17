@@ -24,17 +24,12 @@
 	on:keydown
 >
 	<!--
-	  Light mode uses the brand `--primary` (deep blue) which reads well on
-	  white. In dark mode `--primary` is still that deep blue (22% L) so
-	  it disappears against the dark table background — switch to a
-	  lighter blue (blue-400) for dark to keep contrast above 4.5:1.
-	  Touching this one component is preferable to flipping `--primary`
-	  globally, which would knock buttons / focus rings out of brand.
+	  `text-primary` is correct in both themes now: `--primary` is defined
+	  per-theme in app.css (deep blue on white, 60%-lightness blue on dark).
+	  This used to carry a `dark:text-blue-400` override because the dark
+	  theme reused the light navy — don't re-add one here, fix the token.
 	-->
-	<a
-		{href}
-		class="w-fit text-left text-primary underline hover:no-underline dark:text-blue-400 dark:hover:text-blue-300"
-	>
+	<a {href} class="w-fit text-left text-primary underline hover:no-underline">
 		{label}
 	</a>
 </td>

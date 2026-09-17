@@ -73,8 +73,21 @@
 
 		--input: 225 18% 18%;
 
-		--primary: 214 91% 22%;
-		--primary-foreground: 210 40% 98%;
+		/*
+		 * Dark mode inverts the primary pair: a light brand blue that can
+		 * carry text, with near-black on top of it. The light-mode value
+		 * (214 91% 22%) is a deep navy — fine as `text-primary` on white,
+		 * invisible on the 228 25% 7% dark background, and it was being
+		 * reused verbatim here. 60% lightness matches --accent-foreground
+		 * below and clears 4.5:1 against --background; --primary-foreground
+		 * then has to go dark so `bg-primary text-primary-foreground`
+		 * buttons stay readable.
+		 *
+		 * `text-primary-foreground` is only ever used on top of
+		 * `bg-primary` — don't reach for it as a generic bright-text token.
+		 */
+		--primary: 214 91% 60%;
+		--primary-foreground: 222 47% 11%;
 
 		--secondary: 225 20% 16%;
 		--secondary-foreground: 220 16% 93%;
@@ -85,7 +98,9 @@
 		--destructive: 0 63% 31%;
 		--destructive-foreground: 210 40% 98%;
 
-		--ring: 214 91% 22%;
+		/* Same story as --primary: the focus ring has to be visible against
+		 * the dark background, and a 22%-lightness navy is not. */
+		--ring: 214 91% 60%;
 
 		/*
 		 * Top bar background in dark mode. The saturated brand blue clashed

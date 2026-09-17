@@ -10,7 +10,7 @@ vi.mock('../api.service', () => ({
 	}
 }));
 
-import { CaseStatesService } from '../case-states.service';
+import { CaseStatesService, findStateIdByName } from '../case-states.service';
 import { ApiService } from '../api.service';
 
 import type { ApiOptions } from '../api.service';
@@ -155,5 +155,31 @@ describe('CaseStatesService', () => {
 		expect(ApiService.delete).toHaveBeenCalledTimes(1);
 		expect(ApiService.delete).toHaveBeenCalledWith('/manage/case-objects/case-states/7', options);
 		expect(res).toBe(mockResponse);
+	});
+});
+
+describe('findStateIdByName', () => {
+	const states = [
+		{ state_id: 1, state_name: 'Open' },
+		{ state_id: 4, state_name: 'Closed' },
+		{ state_id: 9, state_name: 'Closed - pending review' }
+	] as CaseState[];
+
+	it('returns the id of the matching state', () => {
+		expect(findStateIdByName(states, 'Closed')).toBe(4);
+		expect(findStateIdByName(states, 'Open')).toBe(1);
+	});
+
+	it('matches exactly, not by prefix', () => {
+		// 'Closed' must not resolve to 'Closed - pending review' or vice
+		// versa — closing a case into the wrong seeded state is silent and
+		// only visible much later.
+		expect(findStateIdByName(states, 'Closed - pending review')).toBe(9);
+		expect(findStateIdByName(states, 'Clos')).toBeNull();
+	});
+
+	it('returns null for an unknown name or an empty list', () => {
+		expect(findStateIdByName(states, 'Archived')).toBeNull();
+		expect(findStateIdByName([], 'Closed')).toBeNull();
 	});
 });

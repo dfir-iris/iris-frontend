@@ -20,4 +20,20 @@ export class CaseActivityService {
 	): Promise<RequestResponse<CaseActivityRow[]>> {
 		return ApiService.get<CaseActivityRow[]>(`/api/v2/cases/${caseId}/activities`, options);
 	}
+
+	// Manual log entry — the analyst records something they did outside
+	// IRIS. Returns the created row in the same shape `list()` yields, so
+	// callers can prepend it instead of re-listing. Needs full access on
+	// the case.
+	static async create(
+		caseId: number,
+		logContent: string,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<CaseActivityRow>> {
+		return ApiService.post<CaseActivityRow>(
+			`/api/v2/cases/${caseId}/activities`,
+			{ log_content: logContent },
+			options
+		);
+	}
 }

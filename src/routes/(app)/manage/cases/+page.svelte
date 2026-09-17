@@ -41,6 +41,9 @@
 	import { toast } from '$lib/components/ui/toast';
 	import { mediumDateTimeFormatter } from '$lib/utils/time-formatter';
 	import { CaseService } from '$lib/services/case.service';
+	import { CaseStatesService, findStateIdByName } from '$lib/services/case-states.service';
+	import type { CaseState } from '$lib/services/case-states.service';
+	import { CaseCloseDialog } from '../../[components]/CaseModals';
 	import { CustomersService, type Customer } from '$lib/services/customers.service';
 	import { UsersService, type User } from '$lib/services/users.service';
 	import type { Case } from '$lib/types/resources/case';
@@ -111,6 +114,11 @@
 	let dialogConfirmText = $state('Confirm');
 	let dialogConfirmVariant = $state<'destructive' | 'default'>('default');
 	let pendingAction: (() => Promise<void>) | null = null;
+
+	// Closing is the one action here that collects input, so it gets its own
+	// dialog rather than the shared confirm-only one above.
+	let closeDialogOpen = $state(false);
+	let pendingCloseCase = $state<Case | null>(null);
 
 	const snapshot = (): QuerySnapshot => ({
 		search: searchValue.trim(),
@@ -330,26 +338,58 @@
 		if (fn) void fn();
 	};
 
-	const closeCase = (c: Case) =>
-		confirmThen(
-			'Close case',
-			`Close case #${c.case_id} "${c.case_name}"? Related alerts will be closed too.`,
-			'Close case',
-			'default',
-			async () => {
-				const res = await CaseService.close(c.case_id);
-				if (res.ok) {
-					toast({ title: `Case #${c.case_id} closed`, variant: 'success' });
-					await refreshAfterMutation();
-				} else {
-					toast({
-						title: 'Failed to close case',
-						description: res.error?.message ?? 'Unknown error',
-						variant: 'destructive'
-					});
-				}
-			}
-		);
+	const closeCase = (c: Case) => {
+		pendingCloseCase = c;
+		closeDialogOpen = true;
+	};
+
+	// Closes via `PUT /api/v2/cases/{id}` (state_id + closing_note in one
+	// request) rather than `POST /cases/{id}/close`, which has no way to
+	// carry a note. The PUT path runs the same server-side side effects —
+	// close_date, the linked-alert cascade and the on_postload_case_update
+	// hook — and is what the case-detail UI already closes through.
+	// `reopenCase` below stays on POST /reopen: it has nothing to carry.
+	const confirmCloseCase = async (closingNote: string) => {
+		// Left set on purpose: `closeCase` overwrites it on every open, and
+		// clearing it here would blank the dialog's title/body mid-exit-animation.
+		const c = pendingCloseCase;
+		if (!c) return;
+
+		// `data` is `CaseState[] | string | null` — an error body comes back as
+		// a string — and the legacy /manage shape wraps the list in
+		// `{ status, message, data }`. Same normalisation the cases context does.
+		const statesRes = await CaseStatesService.list();
+		const body = statesRes.data as unknown;
+		const states = Array.isArray(body)
+			? (body as CaseState[])
+			: ((body as { data?: CaseState[] } | null)?.data ?? []);
+		const closedStateId = statesRes.ok ? findStateIdByName(states, 'Closed') : null;
+
+		if (closedStateId === null) {
+			toast({
+				title: 'Failed to close case',
+				description: 'Could not resolve the "Closed" case state.',
+				variant: 'destructive'
+			});
+			return;
+		}
+
+		const res = await CaseService.update(c.case_id, {
+			state_id: closedStateId,
+			closing_note: closingNote || null
+		});
+
+		if (res.ok) {
+			toast({ title: `Case #${c.case_id} closed`, variant: 'success' });
+			await refreshAfterMutation();
+		} else {
+			toast({
+				title: 'Failed to close case',
+				description: res.error?.message ?? 'Unknown error',
+				variant: 'destructive'
+			});
+		}
+	};
 
 	const reopenCase = (c: Case) =>
 		confirmThen(
@@ -875,4 +915,14 @@
 	confirmButtonVariant={dialogConfirmVariant}
 	onConfirm={runPendingAction}
 	onCancel={() => (pendingAction = null)}
+/>
+
+<CaseCloseDialog
+	bind:open={closeDialogOpen}
+	caseId={pendingCloseCase?.case_id ?? 0}
+	initialNote={pendingCloseCase?.closing_note}
+	message={pendingCloseCase
+		? `Close case #${pendingCloseCase.case_id} "${pendingCloseCase.case_name}"? Related alerts will be closed too.`
+		: undefined}
+	onConfirm={confirmCloseCase}
 />

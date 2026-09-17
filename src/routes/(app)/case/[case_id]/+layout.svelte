@@ -84,7 +84,7 @@
 	import type { UserInfo } from '$lib/services/auth.service';
 	import type { UpdateCaseBody } from '$lib/services/case.service';
 	import { HooksService, type HookOption } from '$lib/services/hooks.service';
-	import { CaseManageModal } from '../../[components]/CaseModals';
+	import { CaseManageModal, CaseCloseDialog } from '../../[components]/CaseModals';
 	import AssetAddDialog from './assets/components/asset-add-dialog.svelte';
 	import IocAddDialog from './iocs/components/ioc-add-dialog.svelte';
 	import TaskAddDialog from './tasks/components/task-add-dialog.svelte';
@@ -130,6 +130,54 @@
 	const refresh = async () => {
 		const id = cases.currentCaseId();
 		await cases.load({ case_ids: [id] });
+	};
+
+	// Closing note. The dialog is mounted once here because four surfaces open
+	// it — the topbar chip, the overflow menu, the state picker and the block
+	// on the summary page — and they all need the same submit behaviour.
+	const closingNote = $derived(currentCase?.closing_note?.trim() ?? '');
+	const closingNoteMode = $derived(cases.ui.closingNoteDialog);
+
+	const submitClosingNote = async (note: string) => {
+		const id = cases.currentCaseId();
+		if (id == null) return;
+
+		// Read while the dialog is still mounted: `CaseCloseDialog` fires
+		// `onOpenChange` — which nulls `cases.ui.closingNoteDialog` below — only
+		// once this handler has resolved, precisely so this read is the intent
+		// the analyst picked rather than a cleared `null`.
+		const closing = closingNoteMode === 'close';
+		// Empty → `null` so clearing the box actually clears the column.
+		// `cases.close` already applies the same mapping to its argument.
+		const expected = note || null;
+
+		try {
+			const res = closing
+				? await cases.close(id, note)
+				: await cases.patch(id, { closing_note: expected });
+
+			// `patch`/`close` fall back to a fresh GET when the write fails, so
+			// the returned case reflects the server — comparing against what we
+			// submitted is a real check, not just a non-null one.
+			if (res == null || (res.closing_note ?? null) !== expected) {
+				toast({
+					title: closing ? 'Failed to close case' : 'Failed to save closing note',
+					variant: 'destructive'
+				});
+				return;
+			}
+
+			toast({
+				title: closing ? `Case #${id} closed` : 'Closing note saved',
+				variant: 'success'
+			});
+		} catch (err) {
+			toast({
+				title: closing ? 'Failed to close case' : 'Failed to save closing note',
+				description: (err as Error).message,
+				variant: 'destructive'
+			});
+		}
 	};
 
 	const callModule = async (hookOption: HookOption) => {
@@ -427,6 +475,24 @@
 		}
 	}}
 />
+
+{#if closingNoteMode}
+	<CaseCloseDialog
+		open
+		caseId={cases.currentCaseId()}
+		initialNote={closingNote}
+		title={closingNoteMode === 'close' ? 'Close case' : 'Closing note'}
+		confirmText={closingNoteMode === 'close' ? 'Close case' : 'Save note'}
+		showIcon={closingNoteMode === 'close'}
+		message={closingNoteMode === 'close'
+			? `Case ID ${cases.currentCaseId()} will be closed and will not appear in contexts anymore. Related alerts will be closed too.`
+			: `Record why case ID ${cases.currentCaseId()} was closed. Leave it empty to remove the note.`}
+		onConfirm={submitClosingNote}
+		onOpenChange={(open) => {
+			if (!open) cases.ui.closingNoteDialog = null;
+		}}
+	/>
+{/if}
 
 <AssetAddDialog
 	open={caseAssets.ui.showAddModal}

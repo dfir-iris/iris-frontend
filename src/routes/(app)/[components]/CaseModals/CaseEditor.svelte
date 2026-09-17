@@ -17,6 +17,7 @@
 	} from '$lib/components/common/selects/SearchSelect.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import { TagInput } from '$lib/components/common/tag';
 	import type { Tag } from '$lib/types/resources/tag';
 	import { normalizeTags as normalizeTagsArray, tagsToString } from '$lib/utils/tags';
@@ -51,6 +52,7 @@
 	let socId = $state('');
 	let currentTags = $state<Tag[]>([]);
 	let description = $state('');
+	let closingNote = $state('');
 
 	let ownerId = $state('');
 	let caseClassificationId = $state('');
@@ -133,6 +135,7 @@
 				.join(',')
 		);
 		description = currentCase.case_description ?? '';
+		closingNote = currentCase.closing_note ?? '';
 
 		caseClassificationId = String(currentCase.classification_id);
 		ownerId = String(currentCase.owner?.id);
@@ -149,6 +152,10 @@
 			case_soc_id: socId,
 			case_tags: tagsToString(currentTags),
 			case_description: description,
+			// `null` rather than `''` so emptying the box actually clears the
+			// column — an empty string would keep every "has a closing note?"
+			// check truthy and render a blank section.
+			closing_note: closingNote.trim() === '' ? null : closingNote,
 
 			...(caseClassificationId !== '' ? { classification_id: Number(caseClassificationId) } : {}),
 			...(ownerId !== '' ? { owner_id: Number(ownerId) } : {}),
@@ -176,6 +183,7 @@
 				.join(',')
 		);
 		description = currentCase.case_description ?? '';
+		closingNote = currentCase.closing_note ?? '';
 
 		caseClassificationId = String(currentCase.classification_id);
 		ownerId = String(currentCase.owner?.id);
@@ -310,6 +318,19 @@
 				onchange={(tags) => (currentTags = tags as Tag[])}
 			/>
 		</div>
+
+		<label class="flex flex-col gap-1 sm:col-span-2">
+			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+				Closing note
+			</span>
+			<Textarea
+				bind:value={closingNote}
+				rows={4}
+				class="text-xs"
+				placeholder="Why was this case closed? Outcome, impact, follow-up actions…"
+			/>
+			<span class="text-2xs text-muted-foreground">Supports markdown.</span>
+		</label>
 
 		<label class="flex flex-col gap-1">
 			<span class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Case ID</span

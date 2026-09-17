@@ -265,14 +265,53 @@
 		if (open && !states) void cases.loadStates();
 	};
 
-	const setCaseState = async (stateId: number) => {
+	const setCaseState = async (stateId: number, stateName: string) => {
 		const id = caseData?.case_id;
 		if (!id) return;
+
+		// Closing always goes through the dialog so the analyst is offered the
+		// chance to record why. Picking "Closed" straight off this menu would
+		// otherwise be the one close path that silently skips the note.
+		if (stateName === 'Closed') {
+			openCloseDialog();
+			return;
+		}
+
 		try {
 			await cases.patch(id, { state_id: stateId });
 		} catch (err) {
 			toast({
 				title: 'Failed to update case state',
+				description: (err as Error).message,
+				variant: 'destructive'
+			});
+		}
+	};
+
+	// Only used to label the overflow-menu entry (Add vs Edit); the note is
+	// displayed on the case summary page, not here.
+	const closingNote = $derived(caseData?.closing_note?.trim() ?? '');
+
+	// The dialog itself is mounted once in the case layout — see
+	// `cases.ui.closingNoteDialog`.
+	const openCloseDialog = () => (cases.ui.closingNoteDialog = 'close');
+	const openEditNoteDialog = () => (cases.ui.closingNoteDialog = 'edit');
+
+	const reopenCase = async () => {
+		const id = caseData?.case_id;
+		if (id == null) return;
+		try {
+			// The note is deliberately left in place — it records why the case
+			// was closed at the time, and reopening is reversible.
+			const res = await cases.reopen(id);
+			if (!res) {
+				toast({ title: 'Failed to reopen case', variant: 'destructive' });
+				return;
+			}
+			toast({ title: `Case #${id} reopened`, variant: 'success' });
+		} catch (err) {
+			toast({
+				title: 'Failed to reopen case',
 				description: (err as Error).message,
 				variant: 'destructive'
 			});
@@ -594,6 +633,11 @@
 				{caseData?.case_name?.split(' - ')[1] ?? caseData?.case_name}
 			</h2>
 
+			<!--
+			  Stays a bare badge: the closing note itself is rendered as a
+			  full-width block on the case summary page, so duplicating a
+			  teaser here only crowded the header.
+			-->
 			{#if isClosed}
 				<span
 					class="inline-flex shrink-0 items-center gap-1 rounded-md border border-red-500/40 bg-red-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-red-700 dark:border-red-400/40 dark:bg-red-500/20 dark:text-red-300"
@@ -839,7 +883,7 @@
 								{@const isCurrent = caseData?.state?.state_id === s.state_id}
 								<DropdownMenuItem
 									disabled={isCurrent}
-									onclick={() => !isCurrent && setCaseState(s.state_id)}
+									onclick={() => !isCurrent && setCaseState(s.state_id, s.state_name)}
 								>
 									<span class="flex w-full items-center justify-between gap-2">
 										<span class="truncate">{s.state_name}</span>
@@ -1240,6 +1284,16 @@
 					<DropdownMenuItem onclick={() => (cases.ui.showManageModal = true)}>
 						Edit Case Details
 					</DropdownMenuItem>
+
+					<DropdownMenuSeparator />
+					{#if isClosed}
+						<DropdownMenuItem onclick={openEditNoteDialog}>
+							{closingNote ? 'Edit Closing Note' : 'Add Closing Note'}
+						</DropdownMenuItem>
+						<DropdownMenuItem onclick={reopenCase}>Reopen Case</DropdownMenuItem>
+					{:else}
+						<DropdownMenuItem onclick={openCloseDialog}>Close Case…</DropdownMenuItem>
+					{/if}
 				{/if}
 
 				{#if menuItems}

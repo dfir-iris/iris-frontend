@@ -5,6 +5,7 @@
 	import { type User, UsersService } from '$lib/services/users.service';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import { TagDisplay } from '$lib/components/common/tag';
+	import MarkDownPreview from '$lib/components/common/MarkDown/MarkDownPreview.svelte';
 
 	const cases = getContext<CasesContext>(CASES_CTX);
 	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
@@ -30,6 +31,8 @@
 			.join(',')
 	);
 	const hasTags = $derived(tagsCsv.length > 0);
+
+	const closingNote = $derived(currentCase?.closing_note?.trim() ?? '');
 </script>
 
 <dl class="grid grid-cols-1 gap-x-6 gap-y-2 text-xs sm:grid-cols-2">
@@ -61,6 +64,21 @@
 			<dt class="w-28 shrink-0 text-muted-foreground">Tags</dt>
 			<dd class="min-w-0 flex-1">
 				<TagDisplay tags={tagsCsv} size="small" />
+			</dd>
+		</div>
+	{/if}
+
+	<!--
+	  Deliberately not the `row` snippet above: that one is single-line and
+	  `truncate`d, which would swallow all but the first line of a note that
+	  is routinely a multi-line post-mortem. Rendered as markdown to match
+	  how the cases-list overview already renders this same field.
+	-->
+	{#if closingNote}
+		<div class="flex flex-col gap-1 border-b border-border/40 py-1.5 sm:col-span-2">
+			<dt class="text-muted-foreground">Closing note</dt>
+			<dd class="min-w-0">
+				<MarkDownPreview markdown={closingNote} />
 			</dd>
 		</div>
 	{/if}

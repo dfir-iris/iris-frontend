@@ -1360,11 +1360,11 @@
 											{#if block.type === 'text' && typeof block.text === 'string'}
 												{block.text}
 											{:else if block.type === 'tool_use'}
-												<span class="text-blue-600">
+												<span class="text-blue-600 dark:text-blue-400">
 													[tool_use {block.name}({JSON.stringify(block.input)})]
 												</span>
 											{:else if block.type === 'tool_result'}
-												<span class="text-green-700">
+												<span class="text-green-700 dark:text-green-400">
 													[tool_result {typeof block.content === 'string'
 														? block.content
 														: JSON.stringify(block.content)}]
@@ -1442,7 +1442,9 @@
 													<div class="mt-1 flex flex-col gap-1">
 														{#each snap.tools as tool (tool.name)}
 															<div class="rounded bg-background p-2">
-																<div class="font-mono text-blue-600">{tool.name}</div>
+																<div class="font-mono text-blue-600 dark:text-blue-400">
+																	{tool.name}
+																</div>
 																{#if tool.description}
 																	<div class="text-2xs text-muted-foreground">
 																		{tool.description}

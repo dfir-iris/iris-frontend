@@ -64,6 +64,11 @@ export interface UpdateCaseBody {
 	case_tags?: string;
 	custom_attributes?: Record<string, unknown>;
 	case_description?: string;
+
+	// Post-mortem / outcome note, rendered as markdown wherever it's shown.
+	// `null` clears the column — an empty string would persist as `''` and
+	// keep the field rendering as present-but-blank.
+	closing_note?: string | null;
 }
 
 export type CaseAccessLevel = 1 | 2 | 4;

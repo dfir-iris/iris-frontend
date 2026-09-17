@@ -40,6 +40,7 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import { MarkDownEditor } from '$lib/components/common/MarkDown';
+	import MarkDownPreview from '$lib/components/common/MarkDown/MarkDownPreview.svelte';
 	import CaseWorkspace from './components/CaseWorkspace.svelte';
 
 	const cases = getContext<CasesContext>(CASES_CTX);
@@ -57,6 +58,10 @@
 	// "N people on case" avatars would all keep pointing at case #1.
 	const case_id = $derived(cases.currentCaseId());
 	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
+
+	// Closing note block — see the markup between the tools bar and the editor.
+	const closingNote = $derived(currentCase?.closing_note?.trim() ?? '');
+	const isClosed = $derived(currentCase?.state?.state_name === 'Closed');
 
 	let caseDescription = $state('');
 	let baseDescription = $state('');
@@ -532,6 +537,70 @@
 					>
 						{lastError}
 					</div>
+				{/if}
+
+				<!--
+				  Closing note, full-width between the tools bar and the summary
+				  editor. The topbar chip only carries a one-line teaser; a
+				  post-mortem is the thing you most want to read first on a
+				  closed case, so it gets real estate here rather than a popover.
+
+				  Rendered whenever a note exists, not only when closed: reopening
+				  preserves the note, and an open case carrying one still needs to
+				  explain itself — the heading and palette shift to say so.
+				-->
+				{#if closingNote || (isClosed && canEdit)}
+					<section
+						class="shrink-0 border-b px-5 py-4 {isClosed
+							? 'border-red-500/30 bg-red-50/70 dark:bg-red-950/20'
+							: 'border-border/60 bg-muted/30'}"
+					>
+						<div class="mb-2 flex items-center justify-between gap-3">
+							<h3
+								class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide {isClosed
+									? 'text-red-700 dark:text-red-300'
+									: 'text-muted-foreground'}"
+							>
+								<FileLock2Icon size={13} />
+								{isClosed ? 'Closing note' : 'Closing note (from a previous closure)'}
+							</h3>
+
+							{#if canEdit}
+								<Button
+									variant="ghost"
+									size="xs"
+									onclick={() => (cases.ui.closingNoteDialog = 'edit')}
+								>
+									{closingNote ? 'Edit' : 'Add'}
+								</Button>
+							{/if}
+						</div>
+
+						{#if closingNote}
+							<!--
+							  This section sits outside the editor's scroll container,
+							  so an unbounded note would push the summary off screen.
+							  Cap it and let the note scroll within itself instead.
+							-->
+							<div class="max-h-[40vh] overflow-y-auto">
+								<!--
+								  Type scale mirrors MarkDownEditor's ProseMirror class
+								  (MarkDownEditor.svelte) so the note reads at the same
+								  size as the summary directly beneath it. Left to its
+								  own `prose prose-sm` defaults it renders noticeably
+								  larger than everything around it.
+								-->
+								<MarkDownPreview
+									markdown={closingNote}
+									class="text-sm leading-normal [&>:first-child]:mt-0 [&_code]:text-xs [&_h1]:text-lg [&_h2]:text-base [&_h3]:text-sm [&_li]:text-sm [&_p]:text-sm [&_pre]:text-xs"
+								/>
+							</div>
+						{:else}
+							<p class="text-xs text-muted-foreground">
+								This case was closed without recording why.
+							</p>
+						{/if}
+					</section>
 				{/if}
 
 				<!--

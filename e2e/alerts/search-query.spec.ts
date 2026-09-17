@@ -1,6 +1,6 @@
 import { test, expect } from '../helpers/fixtures';
 import { login } from '../helpers/auth';
-import { adminApi, apiJson, seed, cleanup } from '../helpers/api';
+import { adminApi, seed, cleanup } from '../helpers/api';
 import type { APIRequestContext, Page } from '@playwright/test';
 
 /**
@@ -96,7 +96,11 @@ test.describe('Alerts · search expression · API', () => {
 				const res = await api.get(`${path}?query=${encodeURIComponent(expression)}`);
 				expect(res.ok(), `${path}: ${await res.text()}`).toBeTruthy();
 
-				const body = await apiJson<{ data: (Alertish | GroupedUnit)[] }>(res);
+				// Read raw rather than through `apiJson`. Both listings answer
+				// with the paginated envelope `{total, data, last_page, …}`, and
+				// `apiJson` unwraps a `data` key — which here is the row array
+				// itself, leaving nothing to take `.data` off.
+				const body = (await res.json()) as { data: (Alertish | GroupedUnit)[] };
 				const titles = titlesIn(body.data);
 
 				expect(titles, path).toContain(pair.matching);
@@ -115,7 +119,10 @@ test.describe('Alerts · search expression · API', () => {
 			const res = await api.get('/api/v2/alerts?query=' + encodeURIComponent('status:(New'));
 			expect(res.status()).toBe(400);
 
-			const body = await apiJson<{ data?: { position?: number } }>(res);
+			// `{message, data: {position}}`, and the offset is what the bar
+			// underlines. Raw again — `apiJson` would unwrap `data` and hand
+			// back the offset object with the key already spent.
+			const body = (await res.json()) as { message?: string; data?: { position?: number } };
 			expect(body.data?.position, 'the bar underlines from this').toBeGreaterThanOrEqual(0);
 		} finally {
 			await api.dispose();
@@ -236,7 +243,12 @@ test.describe('Alerts · search expression · UI', () => {
 		const typed = `${pair.tag} source:crowdstrike OR source:sentinel`;
 
 		try {
-			await page.goto('/alerts?view=list');
+			// `query=` empty rather than absent. With no filter named at all the
+			// page applies the stored default view — `is:open` out of the box —
+			// and an alternation committed onto a bar that already holds a
+			// condition is bracketed on the way in, which is the *other* test.
+			// A loose `OR` only stays loose when it is the whole expression.
+			await page.goto('/alerts?view=list&query=');
 			await typeQuery(page, typed);
 
 			// One chip, because that genuinely is one condition.

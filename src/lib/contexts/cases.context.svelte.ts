@@ -5,7 +5,11 @@ import type {
 	UpdateCaseBody,
 	CreateCaseBody
 } from '$lib/services/case.service';
-import { CaseStatesService, type CaseState } from '$lib/services/case-states.service';
+import {
+	CaseStatesService,
+	findStateIdByName,
+	type CaseState
+} from '$lib/services/case-states.service';
 import {
 	CasesFiltersService,
 	type CasesSavedFilter,
@@ -51,9 +55,14 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 		error: null
 	});
 
+	// `closingNoteDialog` is driven from several places on the case detail
+	// screen (topbar chip, overflow menu, state picker, the summary block), so
+	// the mode lives here and the dialog itself is mounted once in the case
+	// layout. `close` also flips the state; `edit` only rewrites the note.
 	const ui = $state({
 		showAddModal: false,
-		showManageModal: false
+		showManageModal: false,
+		closingNoteDialog: null as 'close' | 'edit' | null
 	});
 
 	const mutation = $state<{ error: string | null }>({ error: null });
@@ -348,27 +357,48 @@ export const createCasesContext = (getId: (c: Case) => number, app: AppContext) 
 	const resolveStateId = async (name: string, options: ApiOptions): Promise<number | null> => {
 		const list = await loadStates(options);
 		if (!list) return null;
-		const match = list.find((s) => s.state_name === name);
-		if (!match) console.error(`[cases] state "${name}" not found in`, list);
-		return match?.state_id ?? null;
+		const stateId = findStateIdByName(list, name);
+		if (stateId == null) console.error(`[cases] state "${name}" not found in`, list);
+		return stateId;
 	};
 
+	// `extra` is merged into the same PUT that flips the state, so a state
+	// transition and the fields that explain it land in one request. Closing
+	// a case with a note must not be two calls: a failed second write would
+	// leave the case closed with no explanation.
 	const setStateByName = async (
 		id: CaseIdentifier,
 		targetName: string,
-		options: ApiOptions
+		options: ApiOptions,
+		extra?: UpdateCaseBody
 	): Promise<Case | null> => {
 		const stateId = await resolveStateId(targetName, options);
 		if (stateId == null) {
 			console.error(`[cases] cannot resolve state id for "${targetName}"; skipping update`);
 			return await get(id, options);
 		}
-		return await patch(id, { state_id: stateId }, options);
+		return await patch(id, { state_id: stateId, ...extra }, options);
 	};
 
-	const close = async (id: CaseIdentifier, options: ApiOptions = {}): Promise<Case | null> =>
-		setStateByName(id, 'Closed', options);
+	// `closingNote` is optional at every layer. Left undefined the body is
+	// byte-identical to what this sent before closing notes existed, so
+	// callers that don't collect one (and the API-driven e2e suite) are
+	// unaffected. An empty/whitespace note is sent as `null` to clear the
+	// column rather than persisting `''`.
+	const close = async (
+		id: CaseIdentifier,
+		closingNote?: string | null,
+		options: ApiOptions = {}
+	): Promise<Case | null> =>
+		setStateByName(
+			id,
+			'Closed',
+			options,
+			closingNote === undefined ? undefined : { closing_note: closingNote?.trim() || null }
+		);
 
+	// Reopening deliberately leaves `closing_note` alone: it's a record of
+	// why the case was closed at the time, and reopening is reversible.
 	const reopen = async (id: CaseIdentifier, options: ApiOptions = {}): Promise<Case | null> =>
 		setStateByName(id, 'Open', options);
 

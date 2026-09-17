@@ -148,6 +148,49 @@ describe('CaseService', () => {
 		expect(res).toBe(mockResponse);
 	});
 
+	it('update() should forward closing_note alongside state_id in a single PUT', async () => {
+		// Closing a case and recording why must be one request: a second
+		// write that failed would leave the case closed with no explanation.
+		const body: UpdateCaseBody = {
+			state_id: 3,
+			closing_note: 'Confirmed false positive — vendor scanner.'
+		};
+
+		const mockResponse = {
+			ok: true,
+			status: 200,
+			data: { case_id: 73, closing_note: body.closing_note } as unknown as Case
+		};
+
+		(ApiService.put as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+
+		const res = await CaseService.update(73, body);
+
+		expect(ApiService.put).toHaveBeenCalledTimes(1);
+		expect(ApiService.put).toHaveBeenCalledWith('/api/v2/cases/73', body as unknown as Case, {});
+		expect(res).toBe(mockResponse);
+	});
+
+	it('update() should forward a null closing_note so the column can be cleared', async () => {
+		const body: UpdateCaseBody = { closing_note: null };
+
+		const mockResponse = {
+			ok: true,
+			status: 200,
+			data: { case_id: 73, closing_note: null } as unknown as Case
+		};
+
+		(ApiService.put as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse);
+
+		await CaseService.update(73, body);
+
+		expect(ApiService.put).toHaveBeenCalledWith(
+			'/api/v2/cases/73',
+			expect.objectContaining({ closing_note: null }),
+			{}
+		);
+	});
+
 	it('remove() should call ApiService.delete with /api/v2/cases/{id} + options', async () => {
 		const options: ApiOptions = { skipTokenRefresh: true };
 

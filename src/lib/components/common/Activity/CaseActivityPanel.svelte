@@ -7,21 +7,34 @@
   Activity is pulled from `/api/v2/cases/{id}/activities` (see
   `CaseActivityService`). The endpoint already caps the response at the 40
   most recent rows, so a simple polling refresh is cheap.
+
+  The composer at the bottom is the case task log — an analyst records
+  something they did outside IRIS and it lands in the same feed. Needs
+  full access on the case, so it's hidden for read-only members.
 -->
 <script lang="ts">
-	import { getContext, onDestroy } from 'svelte';
-	import { ActivityIcon, RefreshCwIcon, XIcon } from 'lucide-svelte';
+	import { getContext, onDestroy, tick } from 'svelte';
+	import { ActivityIcon, PlusIcon, RefreshCwIcon, XIcon } from 'lucide-svelte';
 	import {
 		ACTIVITY_PANEL_CTX,
 		type ActivityPanelContext
 	} from '$lib/contexts/activity-panel.context.svelte';
 	import { CaseActivityService, type CaseActivityRow } from '$lib/services/case-activity.service';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
+	import {
+		CASE_ACCESS_CTX,
+		type CaseAccessContext
+	} from '$lib/contexts/case-access.context.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
+	import { Textarea } from '$lib/components/ui/textarea';
+	import { toast } from '$lib/components/ui/toast';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 
 	const panel = getContext<ActivityPanelContext>(ACTIVITY_PANEL_CTX);
 	const cases = getContext<CasesContext>(CASES_CTX);
+	// Optional: the panel is only ever mounted inside the case workspace,
+	// which provides the context — but don't hard-fail if that changes.
+	const caseAccess = getContext<CaseAccessContext | undefined>(CASE_ACCESS_CTX);
 
 	const POLL_INTERVAL_MS = 15_000;
 
@@ -29,6 +42,13 @@
 	let loading = $state(false);
 	let lastLoadedAt = $state<Date | null>(null);
 	let now = $state(new Date());
+
+	let composerOpen = $state(false);
+	let entryText = $state('');
+	let submitting = $state(false);
+	let composerEl = $state<HTMLTextAreaElement | null>(null);
+
+	const canAddEntry = $derived(caseAccess?.canEdit() ?? false);
 
 	let pollHandle: ReturnType<typeof setInterval> | null = null;
 	let tickHandle: ReturnType<typeof setInterval> | null = null;
@@ -45,6 +65,54 @@
 			lastLoadedAt = new Date();
 		} finally {
 			loading = false;
+		}
+	};
+
+	const openComposer = async () => {
+		composerOpen = true;
+		await tick();
+		composerEl?.focus();
+	};
+
+	const closeComposer = () => {
+		composerOpen = false;
+		entryText = '';
+	};
+
+	const submitEntry = async () => {
+		const caseId = cases.currentCaseId();
+		const content = entryText.trim();
+		if (!caseId || !content || submitting) return;
+
+		submitting = true;
+		try {
+			const res = await CaseActivityService.create(caseId, content, { fetch });
+			const created = res?.data;
+			if (!res?.ok || !created || typeof created !== 'object') {
+				// 403 already toasts from ApiService; anything else is on us.
+				if (res?.status !== 403) {
+					toast({
+						title: 'Could not add the log entry',
+						description: res?.error?.message,
+						variant: 'destructive'
+					});
+				}
+				return;
+			}
+
+			// Prepend rather than re-list: the feed is ordered newest-first
+			// and the endpoint hands back the row in the same projection.
+			activities = [created, ...activities];
+			closeComposer();
+		} finally {
+			submitting = false;
+		}
+	};
+
+	const onComposerKeydown = (e: KeyboardEvent) => {
+		if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+			e.preventDefault();
+			void submitEntry();
 		}
 	};
 
@@ -105,6 +173,7 @@
 
 		if (caseId !== lastCaseId) {
 			activities = [];
+			closeComposer();
 			lastCaseId = caseId;
 		}
 
@@ -115,7 +184,11 @@
 		if (!panel.state.open) return;
 
 		const handler = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') panel.close();
+			if (e.key !== 'Escape') return;
+			// Escape backs out of the composer first — closing the whole
+			// panel would throw away a half-written entry.
+			if (composerOpen) closeComposer();
+			else panel.close();
 		};
 		document.addEventListener('keydown', handler);
 		return () => document.removeEventListener('keydown', handler);
@@ -138,6 +211,19 @@
 				<span class="hidden text-2xs text-muted-foreground sm:inline">
 					Synced {lastSyncedRelative}
 				</span>
+			{/if}
+			{#if canAddEntry}
+				<Button
+					variant="ghost"
+					size="icon"
+					class="size-7"
+					onclick={() => (composerOpen ? closeComposer() : openComposer())}
+					aria-label="Add a log entry"
+					aria-expanded={composerOpen}
+					title="Add a log entry"
+				>
+					<PlusIcon class="size-4" />
+				</Button>
 			{/if}
 			<Button
 				variant="ghost"
@@ -231,5 +317,28 @@
 				</ol>
 			{/if}
 		</div>
+
+		{#if canAddEntry && composerOpen}
+			<footer class="border-t border-border px-4 py-3 dark:border-slate-700">
+				<Textarea
+					bind:ref={composerEl}
+					bind:value={entryText}
+					rows={3}
+					class="text-xs"
+					placeholder="What did you do? e.g. pulled the memory image off the host"
+					disabled={submitting}
+					onkeydown={onComposerKeydown}
+					aria-label="Log entry"
+				/>
+				<div class="mt-2 flex items-center justify-end gap-2">
+					<Button size="sm" variant="ghost" onclick={closeComposer} disabled={submitting}>
+						Cancel
+					</Button>
+					<Button size="sm" onclick={submitEntry} disabled={submitting || !entryText.trim()}>
+						{submitting ? 'Adding…' : 'Add entry'}
+					</Button>
+				</div>
+			</footer>
+		{/if}
 	</div>
 {/if}

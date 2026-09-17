@@ -1172,10 +1172,10 @@
 											<span
 												class="rounded-full px-2 py-0.5 text-2xs uppercase tracking-wide {entry.kind ===
 												'alert'
-													? 'bg-red-500/10 text-red-600'
+													? 'bg-red-500/10 text-red-600 dark:text-red-400'
 													: entry.kind === 'history'
-														? 'bg-blue-500/10 text-blue-600'
-														: 'bg-green-500/10 text-green-600'}"
+														? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+														: 'bg-green-500/10 text-green-600 dark:text-green-400'}"
 											>
 												{entry.kind}
 											</span>
