@@ -138,6 +138,7 @@
 						placeholder="What triggered this alert?"
 						bind:value={description}
 					></textarea>
+					<p class="text-xs text-muted-foreground">Supports markdown.</p>
 				</div>
 
 				<div class="space-y-2">
@@ -159,6 +160,7 @@
 						class="min-h-28 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-ring"
 						bind:value={note}
 					></textarea>
+					<p class="text-xs text-muted-foreground">Supports markdown.</p>
 				</div>
 
 				<div class="space-y-2">

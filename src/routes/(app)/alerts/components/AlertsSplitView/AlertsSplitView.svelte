@@ -31,6 +31,7 @@
 	import { toast } from '$lib/stores/toast.store';
 	import { callAlertHook } from '$lib/utils/hooks';
 	import EnrichmentDialog from '$lib/components/common/EnrichmentDialog.svelte';
+	import { MarkDownPreview } from '$lib/components/common/MarkDown';
 	import { CommentsThread } from '$lib/components/common/Comments';
 	import InvestigationFlowSteps from '$lib/components/common/InvestigationFlow/InvestigationFlowSteps.svelte';
 	import AlertRelatedGraph from '../AlertRelatedGraph/AlertRelatedGraph.svelte';
@@ -1176,7 +1177,16 @@
 											f.alert_description ?? ''
 										)}
 									</div>
-									<div class="detail-prose">{f.alert_description}</div>
+									<!--
+									  Markdown, like the card in list view renders it —
+									  descriptions arrive from detection rules and mail
+									  ingestion already carrying headings, tables and
+									  code fences, and the two views disagreeing on that
+									  made the same alert look like two different alerts.
+									-->
+									<div class="detail-prose">
+										<MarkDownPreview markdown={f.alert_description} class="text-[length:inherit]" />
+									</div>
 								</section>
 							{/if}
 
@@ -1506,7 +1516,18 @@
 									{@render copyBtn(`note-${f.alert_id}`, 'the note', notes)}
 								</div>
 								{#if notes}
-									<div class="note">{notes}</div>
+									<!--
+									  The closing note is written in the close dialog and
+									  routinely holds triage steps, host lists and pasted
+									  command output — the same content as a case closing
+									  note, so it gets the same sanitized-markdown
+									  treatment. `text-[length:inherit]` keeps the
+									  cockpit's 13px scale, which `prose-sm` would
+									  otherwise pin to 14px.
+									-->
+									<div class="note">
+										<MarkDownPreview markdown={notes} class="text-[length:inherit]" />
+									</div>
 								{:else}
 									<p class="section-empty">No notes on this alert yet.</p>
 								{/if}
@@ -2834,7 +2855,11 @@
 		font-size: 14px;
 		color: var(--t-6);
 		line-height: 1.65;
-		white-space: pre-wrap;
+		/* No `white-space: pre-wrap` — the description renders as markdown,
+		   and pre-wrap would show the newlines between block elements as
+		   blank lines. Typed newlines survive regardless: the shared
+		   converter runs with `simpleLineBreaks`, so plain text that was
+		   never meant as markdown looks exactly as it did. */
 		text-wrap: pretty;
 	}
 
@@ -2934,7 +2959,7 @@
 		font-size: 13px;
 		color: var(--t-6);
 		line-height: 1.6;
-		white-space: pre-wrap;
+		/* No `white-space: pre-wrap` — same reason as `.detail-prose`. */
 		padding: 12px;
 		background: var(--s-sunken);
 		border: 1px solid var(--b-1);

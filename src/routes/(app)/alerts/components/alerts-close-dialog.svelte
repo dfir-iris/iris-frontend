@@ -103,6 +103,10 @@
 				<Label for="close-alert-note" class="text-sm font-medium">Note</Label>
 
 				<Textarea id="close-alert-note" bind:value={note} class="min-h-24 resize-none" />
+
+				<p class="text-xs text-muted-foreground">
+					Supports markdown — rendered on the alert's Notes tab.
+				</p>
 			</div>
 
 			<div class="flex flex-col gap-2">
