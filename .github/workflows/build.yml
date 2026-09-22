@@ -109,27 +109,27 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ci-${{ github.sha }}-amd64 \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ci-${{ github.sha }}-arm64
 
-      - name: Best-effort cleanup scratch tags
-        if: always()
-        continue-on-error: true
-        run: |
-          refs=(
-            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ci-${{ github.sha }}-amd64"
-            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ci-${{ github.sha }}-arm64"
-          )
-
-          if command -v oras >/dev/null 2>&1; then
-            for ref in "${refs[@]}"; do
-              oras manifest delete --force "$ref"
-            done
-          elif command -v crane >/dev/null 2>&1; then
-            for ref in "${refs[@]}"; do
-              crane delete "$ref"
-            done
-          else
-            echo "No registry cleanup CLI available; leaving scratch tags in place."
-          fi
-
+      # There is deliberately no scratch-tag cleanup step here.
+      #
+      # `imagetools create` above builds an index whose children are the exact
+      # manifests behind ci-<sha>-amd64 and ci-<sha>-arm64. Those two
+      # tags are the only handles on manifests the release tags now depend on,
+      # and `oras manifest delete` / `crane delete` remove the *manifest*, not
+      # just the tag — ORAS even prompts "delete the manifest and all tags
+      # associated with it". So the step that used to sit here would, the first
+      # time a runner happened to ship one of those binaries, have deleted the
+      # platform children out from under the image it had just published:
+      # `docker pull` on the tag resolves, then 404s on the arch manifest. It
+      # only ever looked harmless because ubuntu-24.04 has neither binary, so it
+      # printed "No registry cleanup CLI available" and exited 0 on every run.
+      #
+      # These tags cannot be cleaned up at this point in time by anything. They
+      # are collected by the ghcr-retention workflow in iris-web, which deletes
+      # a platform child only once its last parent index is gone — see the
+      # reference-count gate in dataaxiom/ghcr-cleanup-action's
+      # image-deleter.ts. Eliminating them entirely means switching this
+      # workflow to the push-by-digest pattern so no scratch tag is ever
+      # created; that is a change to the publish path, not a cleanup.
       - name: Inspect image
         run: |
           docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
