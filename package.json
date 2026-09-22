@@ -1,6 +1,7 @@
 {
 	"name": "iris-ui",
 	"version": "3.0.0-beta.1",
+	"license": "AGPL-3.0-or-later",
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
