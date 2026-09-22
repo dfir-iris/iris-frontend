@@ -41,6 +41,7 @@
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import { MarkDownEditor } from '$lib/components/common/MarkDown';
 	import MarkDownPreview from '$lib/components/common/MarkDown/MarkDownPreview.svelte';
+	import ChipHoverHost from '$lib/components/common/MarkDown/ChipHoverHost.svelte';
 	import CaseWorkspace from './components/CaseWorkspace.svelte';
 
 	const cases = getContext<CasesContext>(CASES_CTX);
@@ -589,11 +590,20 @@
 								  size as the summary directly beneath it. Left to its
 								  own `prose prose-sm` defaults it renders noticeably
 								  larger than everything around it.
+
+								  ChipHoverHost because MarkDownPreview now decorates
+								  mention chips the backend wrote: without a host they
+								  would style themselves as clickable and then do
+								  nothing. The summary below needs no equivalent — it
+								  is a MarkDownEditor, which carries its own chip hover
+								  and detail-dialog wiring even when read-only.
 								-->
-								<MarkDownPreview
-									markdown={closingNote}
-									class="text-sm leading-normal [&>:first-child]:mt-0 [&_code]:text-xs [&_h1]:text-lg [&_h2]:text-base [&_h3]:text-sm [&_li]:text-sm [&_p]:text-sm [&_pre]:text-xs"
-								/>
+								<ChipHoverHost caseId={case_id}>
+									<MarkDownPreview
+										markdown={closingNote}
+										class="text-sm leading-normal [&>:first-child]:mt-0 [&_code]:text-xs [&_h1]:text-lg [&_h2]:text-base [&_h3]:text-sm [&_li]:text-sm [&_p]:text-sm [&_pre]:text-xs"
+									/>
+								</ChipHoverHost>
 							</div>
 						{:else}
 							<p class="text-xs text-muted-foreground">

@@ -331,3 +331,49 @@
 		@apply list-disc pl-4;
 	}
 }
+
+/*
+ * Mention chip layout — the `<span data-mention>` rendered by tiptap
+ * (`mention-node.ts`), by `Chip.svelte`, and by the post-render sweep in
+ * `decorate-mention-chips.ts`.
+ *
+ * These used to be `:global()` rules inside `MarkDownEditor.svelte`, so they
+ * only reached pages that imported the editor. That held while chips could
+ * only be authored in an editor, but the backend now writes alert chips into
+ * case descriptions and the preview sweep surfaces them anywhere
+ * `MarkDownPreview` renders — the cases list, comments and alert cards have
+ * no editor on the page. Global stylesheet is the only place they're
+ * reliably present.
+ *
+ * `display: inline-flex` with a tiny gap keeps the chip glued to the
+ * surrounding text without inheriting the prose plugin's heading sizes.
+ * Declared after `@tailwind utilities` so the explicit padding/font-size
+ * here beats the `px-1 py-0 text-xs` utilities the chip also carries.
+ */
+.mention-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.15rem;
+	line-height: 1.1;
+	padding: 0.05rem 0.3rem;
+	margin: 0 0.05rem;
+	border-radius: 0.25rem;
+	font-size: 0.7rem;
+	font-weight: 500;
+	white-space: nowrap;
+}
+
+.mention-chip-icon {
+	flex-shrink: 0;
+	width: 0.7rem;
+	height: 0.7rem;
+}
+
+.mention-chip-clickable {
+	cursor: pointer;
+	transition: filter 120ms ease;
+}
+
+.mention-chip-clickable:hover {
+	filter: brightness(0.92);
+}

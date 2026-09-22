@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick, untrack } from 'svelte';
+	import { goto } from '$app/navigation';
 	import DOMPurify from 'dompurify';
 	import { converter } from './converter';
 	import {
@@ -28,6 +29,7 @@
 	import Image from '@tiptap/extension-image';
 	import { normalizeLegacyContent } from './legacy-content';
 	import { authenticateDatastoreImages } from './authenticate-datastore-images';
+	import { decorateMentionChips } from './decorate-mention-chips';
 	import { ResizableImageNodeView } from './resizable-image';
 	import Placeholder from '@tiptap/extension-placeholder';
 	import { Table } from '@tiptap/extension-table';
@@ -68,6 +70,8 @@
 		type CaseDatastoreContext
 	} from '$lib/contexts/case-datastore.context.svelte';
 	import { CaseDatastoreService } from '$lib/services/case-datastore.service';
+	import { AlertService } from '$lib/services/alerts.service';
+	import type { Alert } from '$lib/types/resources/alert';
 	import { toast } from '$lib/stores/toast.store';
 	import { getContext, mount, unmount } from 'svelte';
 	import MentionPopover, { type MentionPopoverPayload } from './MentionPopover.svelte';
@@ -154,6 +158,11 @@
 		void viewMode;
 		if (viewMode !== 'view' && viewMode !== 'edit-preview') return;
 		if (!previewContainerEl) return;
+		// Non-collab callers build `viewHtml` with showdown rather than from
+		// tiptap's snapshot, so a chip the backend wrote — data attributes,
+		// no classes — arrives here undecorated. Chips that came back out of
+		// tiptap already carry their classes and the sweep skips them.
+		decorateMentionChips(previewContainerEl);
 		const dispose = authenticateDatastoreImages(previewContainerEl);
 		return dispose;
 	});
@@ -744,6 +753,45 @@
 		() => caseDatastore?.loadTree({ fetch })
 	);
 
+	// Alerts are the odd bucket out: assets/IOCs/notes/tasks/datastore all
+	// have a CASE_*_CTX the whole page shares, but there is no alerts
+	// context on a case page. The list is small (the alerts linked to this
+	// one case) so we hold it locally for the life of the editor instance —
+	// the same one-fetch-then-reuse contract makeLazyLoader gives the
+	// others, just with the cache here instead of in a store.
+	let caseAlerts: Alert[] | null = null;
+
+	const ensureAlertsLoaded = makeLazyLoader(
+		() => caseAlerts !== null,
+		async () => {
+			const numericCaseId = Number(caseId);
+			if (!Number.isFinite(numericCaseId)) {
+				// War-room notes and other case-less mounts: record the empty
+				// result so we don't retry on every keystroke.
+				caseAlerts = [];
+				return caseAlerts;
+			}
+			const res = await AlertService.list({ case_id: numericCaseId, per_page: 100 }, { fetch });
+			caseAlerts =
+				res.ok && res.data && typeof res.data !== 'string' ? (res.data.data?.alerts ?? []) : [];
+			return caseAlerts;
+		}
+	);
+
+	// Per-id detail fetch behind the alert chip's hover card. Separate from
+	// `caseAlerts` above because a chip can reference an alert the `#`
+	// picker never listed — an older escalation, or one whose case link was
+	// since removed.
+	const cachedAlerts = new Map<number, Alert | null>();
+	const loadAlert = async (alertId: number): Promise<Alert | null> => {
+		const cached = cachedAlerts.get(alertId);
+		if (cached !== undefined) return cached;
+		const res = await AlertService.get(alertId, { fetch });
+		const alert = res.ok && res.data && typeof res.data !== 'string' ? res.data : null;
+		cachedAlerts.set(alertId, alert);
+		return alert;
+	};
+
 	// Unified case-object fetcher. A single `#` trigger surfaces assets,
 	// IOCs, notes, and tasks together — the suggestion list shows their kind
 	// icon next to each match so users can pick the right reference. We cap
@@ -756,7 +804,8 @@
 			ensureIocsLoaded(),
 			ensureNotesLoaded(),
 			ensureTasksLoaded(),
-			ensureDatastoreLoaded()
+			ensureDatastoreLoaded(),
+			ensureAlertsLoaded()
 		]);
 
 		const out: MentionItem[] = [];
@@ -831,6 +880,25 @@
 					label: f.file_original_name,
 					sublabel: f.file_tags || undefined,
 					kind: 'datastore'
+				});
+			}
+		}
+
+		if (caseAlerts) {
+			// Matched on id as well as title: the chip's label is `Alert #N`,
+			// so "the number" is how operators refer to an alert and is what
+			// they'll type after the `#` trigger.
+			const filtered = q
+				? caseAlerts.filter((a) => fuzzy(a.alert_title ?? '', q) || fuzzy(String(a.alert_id), q))
+				: caseAlerts;
+			for (const a of filtered.slice(0, PER_KIND)) {
+				out.push({
+					// Short and stable — the title is long and mutable, so it
+					// goes in the sublabel here and in the hover card later.
+					id: a.alert_id,
+					label: `Alert #${a.alert_id}`,
+					sublabel: a.alert_title,
+					kind: 'alert'
 				});
 			}
 		}
@@ -972,6 +1040,27 @@
 							}
 						}
 					: undefined
+			};
+		} else if (kind === 'alert') {
+			// Unlike every other kind here there is no context cache to read
+			// from — the alert is fetched on hover and memoised for the life
+			// of the editor. Misses are cached too, so a chip pointing at a
+			// deleted alert doesn't re-request on every hover.
+			const alert = Number.isFinite(numericId) ? await loadAlert(numericId) : null;
+			payload = {
+				kind: 'alert',
+				id,
+				label,
+				title: alert?.alert_title ?? null,
+				severity: alert?.severity?.severity_name ?? null,
+				status: alert?.status?.status_name ?? null,
+				customer: alert?.customer?.customer_name ?? null,
+				// Navigate instead of mounting AlertDetailDialog the way the
+				// case-object kinds above do: that dialog needs ALERTS_CTX,
+				// CASES_CTX, COMMENTS_PANEL_CTX and
+				// INVESTIGATION_FLOW_PANEL_CTX, none of which a case page
+				// provides. `/alerts/[alert_id]` sets all four up itself.
+				onOpen: Number.isFinite(numericId) ? () => goto(`/alerts/${numericId}`) : undefined
 			};
 		} else {
 			const users = await loadUsers();
@@ -1288,14 +1377,17 @@
 					buildSuggestion('@', { nodeName: 'userMention', fetchItems: fetchUserItems }),
 					['user', 'team']
 				),
-				// # case objects (assets / iocs / notes / tasks) all share one
-				// trigger. The suggestion item's `kind` drives chip rendering
-				// and which detail panel/route opens on click.
+				// # case objects (assets / iocs / notes / tasks / datastore /
+				// alerts) all share one trigger. The suggestion item's `kind`
+				// drives chip rendering and which detail panel/route opens on
+				// click. `alert` rides this node rather than getting its own:
+				// a second suggestion plugin bound to `#` would double-fire on
+				// every keystroke.
 				createMentionNode(
 					'caseMention',
 					'asset',
 					buildSuggestion('#', { nodeName: 'caseMention', fetchItems: fetchCaseItems }),
-					['asset', 'ioc', 'note', 'task', 'datastore']
+					['asset', 'ioc', 'note', 'task', 'datastore', 'alert']
 				)
 			],
 			// In collab mode (docName set) the initial content is seeded
@@ -1895,36 +1987,12 @@
 		cursor: col-resize;
 	}
 
-	/* Mention chip rendered both inside tiptap and in the read-only preview.
-	   `display: inline-flex` with a tiny gap keeps the chip glued to surrounding
-	   text without inheriting the prose plugin's heading sizes. */
-	:global(.mention-chip) {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.15rem;
-		line-height: 1.1;
-		padding: 0.05rem 0.3rem;
-		margin: 0 0.05rem;
-		border-radius: 0.25rem;
-		font-size: 0.7rem;
-		font-weight: 500;
-		white-space: nowrap;
-	}
-
-	:global(.mention-chip-icon) {
-		flex-shrink: 0;
-		width: 0.7rem;
-		height: 0.7rem;
-	}
-
-	:global(.mention-chip-clickable) {
-		cursor: pointer;
-		transition: filter 120ms ease;
-	}
-
-	:global(.mention-chip-clickable:hover) {
-		filter: brightness(0.92);
-	}
+	/* NOTE: the `.mention-chip` layout rules used to live here as `:global()`
+	   declarations, which meant they only shipped on pages that imported this
+	   component. Chips now also appear in read-only previews on pages with no
+	   editor at all (the cases list, comments, alert cards — anywhere
+	   `MarkDownPreview` decorates a backend-written chip), so they moved to
+	   `src/app.css`. */
 
 	/*
 	 * Containment for content wider than the available container.

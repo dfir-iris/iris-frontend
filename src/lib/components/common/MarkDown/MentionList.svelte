@@ -1,31 +1,17 @@
 <script lang="ts">
-	import {
-		UserIcon,
-		BoxIcon,
-		ShieldAlertIcon,
-		FileTextIcon,
-		ClipboardListIcon,
-		DatabaseIcon,
-		UsersIcon
-	} from 'lucide-svelte';
+	import { mentionKindIcon } from './mention-icons';
+	import type { MentionKind as SharedMentionKind } from './mention-kinds';
 
-	export type MentionKind = 'user' | 'team' | 'asset' | 'ioc' | 'note' | 'task' | 'datastore';
+	// Re-exported rather than declared here so the many `import type
+	// { MentionKind } from './MentionList.svelte'` call sites keep working
+	// while `./mention-kinds` stays the single definition.
+	export type MentionKind = SharedMentionKind;
 
 	export type MentionItem = {
 		id: number | string;
 		label: string;
 		sublabel?: string;
 		kind: MentionKind;
-	};
-
-	const iconFor = (kind: MentionKind) => {
-		if (kind === 'team') return UsersIcon;
-		if (kind === 'asset') return BoxIcon;
-		if (kind === 'ioc') return ShieldAlertIcon;
-		if (kind === 'note') return FileTextIcon;
-		if (kind === 'task') return ClipboardListIcon;
-		if (kind === 'datastore') return DatabaseIcon;
-		return UserIcon;
 	};
 
 	let { items, selectedIndex, onSelect } = $props<{
@@ -42,7 +28,7 @@
 		<div class="px-2 py-1.5 text-xs text-muted-foreground">No matches</div>
 	{:else}
 		{#each items as item, i (item.kind + ':' + item.id)}
-			{@const Icon = iconFor(item.kind)}
+			{@const Icon = mentionKindIcon(item.kind)}
 			<button
 				type="button"
 				class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs transition-colors {i ===

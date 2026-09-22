@@ -1,17 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import {
-		UserIcon,
-		BoxIcon,
-		ShieldAlertIcon,
-		FileTextIcon,
-		ClipboardListIcon,
-		DatabaseIcon,
-		DownloadIcon,
-		ExternalLinkIcon,
-		CopyIcon
-	} from 'lucide-svelte';
-	import type { MentionKind } from './MentionList.svelte';
+	import { DownloadIcon, ExternalLinkIcon, CopyIcon } from 'lucide-svelte';
+	import { mentionKindIcon } from './mention-icons';
+	import { mentionKindStyle, type MentionKind } from './mention-kinds';
 
 	type UserPayload = {
 		kind: 'user';
@@ -67,13 +58,32 @@
 		onCopyMarkdown?: () => void;
 	};
 
+	/**
+	 * Alerts are the one kind with no case context backing them — the chip
+	 * is written into the case description by escalate/merge and the details
+	 * are fetched on hover. `label` is only ever `Alert #<id>` (see the
+	 * markup contract), so `title` carries the human-readable name and is
+	 * the row operators actually read.
+	 */
+	type AlertPayload = {
+		kind: 'alert';
+		id: string;
+		label: string;
+		title?: string | null;
+		severity?: string | null;
+		status?: string | null;
+		customer?: string | null;
+		onOpen?: () => void;
+	};
+
 	export type MentionPopoverPayload =
 		| UserPayload
 		| AssetPayload
 		| IocPayload
 		| NotePayload
 		| TaskPayload
-		| DatastorePayload;
+		| DatastorePayload
+		| AlertPayload;
 
 	let {
 		payload,
@@ -84,31 +94,15 @@
 	} = $props();
 
 	const styleFor = (kind: MentionKind) => {
-		if (kind === 'asset')
-			return { Icon: BoxIcon, bg: 'bg-amber-500/15', fg: 'text-amber-600 dark:text-amber-300' };
-		if (kind === 'ioc')
-			return { Icon: ShieldAlertIcon, bg: 'bg-red-500/15', fg: 'text-red-600 dark:text-red-300' };
-		if (kind === 'note')
-			return {
-				Icon: FileTextIcon,
-				bg: 'bg-emerald-500/15',
-				fg: 'text-emerald-600 dark:text-emerald-300'
-			};
-		if (kind === 'task')
-			return {
-				Icon: ClipboardListIcon,
-				bg: 'bg-violet-500/15',
-				fg: 'text-violet-600 dark:text-violet-300'
-			};
-		if (kind === 'datastore')
-			return { Icon: DatabaseIcon, bg: 'bg-cyan-500/15', fg: 'text-cyan-600 dark:text-cyan-300' };
-		return { Icon: UserIcon, bg: 'bg-blue-500/15', fg: 'text-blue-600 dark:text-blue-300' };
+		const { popoverBgClass, popoverFgClass } = mentionKindStyle(kind);
+		return { Icon: mentionKindIcon(kind), bg: popoverBgClass, fg: popoverFgClass };
 	};
 
 	const openLabel = (kind: MentionKind) => {
 		if (kind === 'ioc') return 'Open IOC';
 		if (kind === 'note') return 'Open note';
 		if (kind === 'task') return 'Open task';
+		if (kind === 'alert') return 'Open alert';
 		return 'Open asset';
 	};
 
@@ -235,6 +229,31 @@
 				</div>
 			{/if}
 			{#if !payload.status && !payload.assignees}
+				<div class="italic text-muted-foreground">No additional details loaded.</div>
+			{/if}
+		{:else if payload.kind === 'alert'}
+			{#if payload.title}
+				<div class="line-clamp-2 font-medium">{payload.title}</div>
+			{/if}
+			{#if payload.severity}
+				<div class="flex items-baseline gap-2">
+					<span class="text-2xs text-muted-foreground">severity</span>
+					<span class="truncate">{payload.severity}</span>
+				</div>
+			{/if}
+			{#if payload.status}
+				<div class="flex items-baseline gap-2">
+					<span class="text-2xs text-muted-foreground">status</span>
+					<span class="truncate">{payload.status}</span>
+				</div>
+			{/if}
+			{#if payload.customer}
+				<div class="flex items-baseline gap-2">
+					<span class="text-2xs text-muted-foreground">customer</span>
+					<span class="truncate">{payload.customer}</span>
+				</div>
+			{/if}
+			{#if !payload.title && !payload.severity && !payload.status && !payload.customer}
 				<div class="italic text-muted-foreground">No additional details loaded.</div>
 			{/if}
 		{:else if payload.kind === 'datastore'}

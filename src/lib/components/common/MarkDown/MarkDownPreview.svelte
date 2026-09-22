@@ -3,6 +3,7 @@
 	import { cn } from '$lib/utils';
 	import { converter } from './converter';
 	import { authenticateDatastoreImages } from './authenticate-datastore-images';
+	import { decorateMentionChips } from './decorate-mention-chips';
 	import { normalizeLegacyContent } from './legacy-content';
 
 	// `class` tunes the prose container for a caller whose surroundings
@@ -25,6 +26,16 @@
 		if (!containerEl) return;
 		const dispose = authenticateDatastoreImages(containerEl);
 		return dispose;
+	});
+
+	// Chips the backend wrote (alert links appended by escalate/merge) carry
+	// the data attributes but none of the utility classes tiptap bakes in,
+	// so they'd render as bare text here. Decorate them post-render, which
+	// also makes them visible to any enclosing ChipHoverHost.
+	$effect(() => {
+		void safeHtml;
+		if (!containerEl) return;
+		decorateMentionChips(containerEl);
 	});
 </script>
 

@@ -11,6 +11,7 @@
 -->
 <script lang="ts">
 	import { getContext, mount, unmount, type Snippet } from 'svelte';
+	import { goto } from '$app/navigation';
 	import {
 		CASE_ASSETS_CTX,
 		type CaseAssetsContext
@@ -19,6 +20,8 @@
 	import { CASE_NOTES_CTX, type CaseNotesContext } from '$lib/contexts/case-notes.context.svelte';
 	import { CASE_TASKS_CTX, type CaseTasksContext } from '$lib/contexts/case-tasks.context.svelte';
 	import { UsersService, type User } from '$lib/services/users.service';
+	import { AlertService } from '$lib/services/alerts.service';
+	import type { Alert } from '$lib/types/resources/alert';
 	import MentionPopover, { type MentionPopoverPayload } from './MentionPopover.svelte';
 	import AssetDetailDialog from '../../../../routes/(app)/case/[case_id]/assets/[asset_id]/AssetDetailDialog.svelte';
 	import IocDetailDialog from '../../../../routes/(app)/case/[case_id]/iocs/[ioc_id]/IocDetailDialog.svelte';
@@ -47,6 +50,21 @@
 		const raw = (res?.data as unknown as { data?: User[] })?.data;
 		cachedUsers = Array.isArray(raw) ? raw : Array.isArray(res?.data) ? (res.data as User[]) : [];
 		return cachedUsers;
+	};
+
+	// Alert chips are the one kind with no case context to read from: the
+	// backend writes them into a case description on escalate/merge, and the
+	// referenced alert may not be in any store this page loaded. Fetch on
+	// first hover and memoise per id — including the misses, so a chip
+	// pointing at a deleted alert doesn't re-request on every hover.
+	const cachedAlerts = new Map<number, Alert | null>();
+	const loadAlert = async (alertId: number): Promise<Alert | null> => {
+		const cached = cachedAlerts.get(alertId);
+		if (cached !== undefined) return cached;
+		const res = await AlertService.get(alertId);
+		const alert = res.ok && res.data && typeof res.data !== 'string' ? res.data : null;
+		cachedAlerts.set(alertId, alert);
+		return alert;
 	};
 
 	let assetDialogId = $state<number | null>(null);
@@ -134,6 +152,22 @@
 				status: task?.status?.status_name ?? null,
 				assignees: task?.task_assignees?.map((a) => a.name || a.user).join(', ') || null,
 				onOpen: Number.isFinite(numericId) ? () => openTaskDialog(numericId) : undefined
+			};
+		} else if (kind === 'alert') {
+			const alert = Number.isFinite(numericId) ? await loadAlert(numericId) : null;
+			payload = {
+				kind: 'alert',
+				id,
+				label,
+				title: alert?.alert_title ?? null,
+				severity: alert?.severity?.severity_name ?? null,
+				status: alert?.status?.status_name ?? null,
+				customer: alert?.customer?.customer_name ?? null,
+				// Navigate rather than mounting AlertDetailDialog: that dialog
+				// reads ALERTS_CTX / CASES_CTX / COMMENTS_PANEL_CTX /
+				// INVESTIGATION_FLOW_PANEL_CTX, none of which exist on a case
+				// page. The dedicated route provides all four itself.
+				onOpen: Number.isFinite(numericId) ? () => goto(`/alerts/${numericId}`) : undefined
 			};
 		} else {
 			const users = await loadUsers();
