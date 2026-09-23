@@ -345,7 +345,6 @@ test.describe('Alerts · search expression · UI', () => {
 		const expression = `${pair.tag} source:crowdstrike`;
 
 		try {
-			await page.goto(`/alerts?view=split&query=${encodeURIComponent(expression)}`);
 
 			for (const view of ['split', 'list', 'board']) {
 				await page.goto(`/alerts?view=${view}&query=${encodeURIComponent(expression)}`);
