@@ -28,7 +28,7 @@ test.describe('Cases · detail page', () => {
 			await login(page);
 			const subroutes = ['', '/assets', '/iocs', '/notes', '/tasks', '/evidence', '/timeline'];
 			for (const sub of subroutes) {
-				await page.goto(`/case/${caseId}${sub}`);
+				await page.goto(`/case/${caseId}${sub}`, { waitUntil: 'networkidle' });
 				await expect(page).toHaveURL(new RegExp(`/case/${caseId}${sub}(?:$|/|\\?)`));
 				await expect(page.getByRole('main')).toBeVisible();
 			}
