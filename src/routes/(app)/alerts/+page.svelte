@@ -1546,6 +1546,7 @@
 			<AlertsSplitView
 				class="-mx-6 min-h-0 grow"
 				alerts={alertsData.data}
+				{alertStatuses}
 				groups={alertGroups}
 				loading={status === 'loading'}
 				total={groupTotal}
@@ -1583,6 +1584,18 @@
 				onClose={(alert) => {
 					selected = { ...selected, [alert.alert_id]: true };
 					showClose = true;
+				}}
+				onSetStatus={async (alert, alert_status_id) => {
+					// Writes straight to the one alert rather than going through
+					// `setStatus`, which works off the selection and clears it
+					// afterwards: the split view keeps a checkbox on every row, so
+					// "set the status of the alert I am reading" must neither sweep
+					// up what else is ticked nor throw the selection away.
+					const updated = await updateAlert(alert.alert_id, { alert_status_id });
+
+					if (!updated) {
+						await refreshAlerts();
+					}
 				}}
 				onEdit={(alert) => {
 					// Replaces the selection rather than extending it, like

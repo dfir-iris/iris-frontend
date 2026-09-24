@@ -25,6 +25,7 @@
 	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
 	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 	import { AlertClustersService } from '$lib/services/alert-clusters.service';
+	import type { AlertStatus } from '$lib/services/alert-status.service';
 	import type { UpdateAlertAssetBody, UpdateAlertIocBody } from '$lib/services/alerts.service';
 	import type { HookOption } from '$lib/services/hooks.service';
 	import { alertHooks } from '$lib/stores/alert-hooks.store.svelte';
@@ -76,6 +77,12 @@
 		 */
 		alerts: Alert[];
 		/**
+		 * Every status an alert can carry, in the order the API returned them.
+		 * Feeds the detail pane's status menu — the same list the list view's
+		 * "Set status" dropdown offers.
+		 */
+		alertStatuses: AlertStatus[];
+		/**
 		 * Queue rows with clustered alerts collapsed into their cluster. When
 		 * omitted the queue falls back to one row per alert.
 		 */
@@ -120,6 +127,13 @@
 		onMerge: (alert: Alert) => void;
 		onClose: (alert: Alert) => void;
 		/**
+		 * Moves one alert to another status — the split view's counterpart of
+		 * the list view's "Set status" dropdown. Single-alert on purpose: the
+		 * queue keeps a checkbox on every row, so the status of the alert being
+		 * read must not depend on what else happens to be ticked.
+		 */
+		onSetStatus: (alert: Alert, statusId: number) => void;
+		/**
 		 * Optional — opens the page's alert edit dialog, the same one the
 		 * list view's pencil opens. Without it the split view is read-only,
 		 * which is what it was before: an analyst had to leave the view to
@@ -148,6 +162,7 @@
 	let {
 		class: className = '',
 		alerts,
+		alertStatuses,
 		groups = null,
 		loading = false,
 		total,
@@ -171,6 +186,7 @@
 		onEscalate,
 		onMerge,
 		onClose,
+		onSetStatus,
 		onEdit,
 		onDelete,
 		onCommentsChanged,
@@ -201,6 +217,12 @@
 	// hands the analyst a 403 after they have typed out their changes.
 	const canEdit = $derived(onEdit !== undefined && userCtx?.can('alerts_write') === true);
 
+	// Same gate as Edit — the status menu writes straight through, so without
+	// `alerts_write` every item in it is a 403 waiting to be clicked. Also
+	// hidden when the API returned no statuses, which would leave an empty
+	// dropdown behind the button.
+	const canSetStatus = $derived(alertStatuses.length > 0 && userCtx?.can('alerts_write') === true);
+
 	let focusedId = $state<number | null>(null);
 	// Which pane the small-screen layout is showing. Inert above the stacking
 	// breakpoint, where both panes are on screen at once. It can't be derived
@@ -212,6 +234,7 @@
 	let requestedTab = $state<Tab>('overview');
 	let rowEls = $state<Record<number, HTMLElement | undefined>>({});
 	let showAssignMenu = $state<boolean>(false);
+	let showStatusMenu = $state<boolean>(false);
 	let showModulesMenu = $state<boolean>(false);
 
 	// Buttons contributed by modules that registered
@@ -279,10 +302,11 @@
 		void alertHooks.load();
 		const id = setInterval(() => (now = Date.now()), 30_000);
 		const onDocClick = (e: MouseEvent) => {
-			// Both header menus close on any click outside *their own*
-			// wrapper, so opening one shuts the other.
+			// Every header menu closes on any click outside *its own*
+			// wrapper, so opening one shuts the others.
 			const wrap = (e.target as HTMLElement | null)?.closest('.menu-wrap');
 			if (wrap?.getAttribute('data-menu') !== 'assign') showAssignMenu = false;
+			if (wrap?.getAttribute('data-menu') !== 'status') showStatusMenu = false;
 			if (wrap?.getAttribute('data-menu') !== 'modules') showModulesMenu = false;
 		};
 		document.addEventListener('click', onDocClick, true);
@@ -1054,6 +1078,47 @@
 								</div>
 							{/if}
 						</div>
+						{#if canSetStatus}
+							<!--
+							  The list view's "Set status" dropdown, minus the
+							  selection detour: it writes to the alert on screen.
+							  The trigger doubles as the status read-out, which the
+							  detail head otherwise only carried in the queue row.
+							-->
+							<div class="menu-wrap" data-menu="status">
+								<button
+									type="button"
+									class="btn-outline btn-status"
+									title="Set the alert status"
+									onclick={() => (showStatusMenu = !showStatusMenu)}
+									aria-haspopup="true"
+									aria-expanded={showStatusMenu}
+								>
+									<span
+										class="btn-status-dot"
+										style="color:{statusVar(f.status?.status_name)}"
+										aria-hidden="true">●</span
+									>
+									{f.status?.status_name ?? 'Unspecified'} ▾
+								</button>
+								{#if showStatusMenu}
+									<div class="menu-dropdown" role="menu">
+										{#each alertStatuses as alertStatus (alertStatus.status_id)}
+											<button
+												type="button"
+												class="menu-item"
+												class:menu-item-current={alertStatus.status_id === f.status?.status_id}
+												role="menuitem"
+												onclick={() => {
+													showStatusMenu = false;
+													onSetStatus(f, alertStatus.status_id);
+												}}>{alertStatus.status_name}</button
+											>
+										{/each}
+									</div>
+								{/if}
+							</div>
+						{/if}
 						{#if canTriggerHooks}
 							<div class="menu-wrap" data-menu="modules">
 								<button
@@ -2482,8 +2547,8 @@
 	.detail-actions {
 		display: flex;
 		gap: 7px;
-		/* Edit, Modules and Delete make seven buttons in this row; on a
-		   narrow detail pane they wrap rather than pushing the head out. */
+		/* Edit, Status, Modules and Delete make eight buttons in this row; on
+		   a narrow detail pane they wrap rather than pushing the head out. */
 		flex-wrap: wrap;
 	}
 	.btn-accent,
@@ -2516,6 +2581,17 @@
 	.btn-muted {
 		color: var(--t-6);
 	}
+	/* Carries the current status name, so it needs the dot on the same
+	   baseline as the label rather than the plain text box the other
+	   buttons in this row are. */
+	.btn-status {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+	}
+	.btn-status-dot {
+		font-size: 9px;
+	}
 	/* Reads as destructive at rest, not only on hover — it is the one
 	   action in this row that cannot be undone. */
 	.btn-danger {
@@ -2528,7 +2604,7 @@
 		border-color: var(--crit);
 	}
 
-	/* Shared by the header's two dropdowns (Assign, Modules). */
+	/* Shared by the header's three dropdowns (Assign, Status, Modules). */
 	.menu-wrap {
 		position: relative;
 	}
@@ -2569,6 +2645,12 @@
 	}
 	.menu-item + .menu-item {
 		border-top: 1px solid var(--b-hair);
+	}
+	/* The status the alert already carries. Picking it again is a no-op the
+	   API would happily accept, so it is marked rather than disabled. */
+	.menu-item-current {
+		font-weight: 600;
+		color: var(--t-max);
 	}
 
 	/* The copy button sits beside the heading, not inside it — a <button>
