@@ -54,6 +54,7 @@
 		clockTime,
 		contextLines,
 		type CopyField,
+		copyText,
 		relativeDate,
 		formatRawEvent,
 		iocFields,
@@ -621,9 +622,18 @@
   `{#if}` around each one. The button is invisible until its `.copy-row`
   is hovered (see the CSS) so the dense grids stay readable, but it is
   always in the tab order.
+
+  `value` is deliberately `unknown`. Most call sites hand over a string
+  column, but the alert context is free-form JSON and its values are
+  whatever the ingesting pipeline wrote — numbers, booleans, nested
+  objects. This used to take a `string` and call `.trim()` on it, so a
+  single integer in one alert's context threw `value.trim is not a
+  function` and blanked the entire pane. Coerce here, once, rather than
+  trusting nineteen call sites to remember.
 -->
-{#snippet copyBtn(key: string, label: string, value: string)}
-	{#if value.trim() !== ''}
+{#snippet copyBtn(key: string, label: string, value: unknown)}
+	{@const text = copyText(value)}
+	{#if text.trim() !== ''}
 		<button
 			type="button"
 			class="copy-btn"
@@ -634,7 +644,7 @@
 				// The queue rows and several chips are themselves clickable;
 				// copying a value must not also move the focus or open a cluster.
 				event.stopPropagation();
-				void copyValue(value, key);
+				void copyValue(text, key);
 			}}
 		>
 			{#if copiedKey === key}
@@ -1209,8 +1219,11 @@
 												{@render copyBtn(`ctx-key-${f.alert_id}-${k}`, `field name "${k}"`, k)}
 											</span>
 											<span class="context-val copy-row">
-												<span class="context-text">{v}</span>
-												{@render copyBtn(`ctx-val-${f.alert_id}-${k}`, k, v ?? '')}
+												<!-- Printed through the same coercion the copy button uses, so
+												     what the analyst reads is what they get on the clipboard.
+												     A bare `{v}` renders a nested object as `[object Object]`. -->
+												<span class="context-text">{copyText(v)}</span>
+												{@render copyBtn(`ctx-val-${f.alert_id}-${k}`, k, v)}
 											</span>
 										{/each}
 									</div>

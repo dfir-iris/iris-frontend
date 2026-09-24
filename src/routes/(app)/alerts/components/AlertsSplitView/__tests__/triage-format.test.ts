@@ -9,6 +9,8 @@ import {
 	assetLabel,
 	censusLabel,
 	clockTime,
+	contextLines,
+	copyText,
 	formatRawEvent,
 	initials,
 	isSpentStatus,
@@ -344,5 +346,73 @@ describe('activityEntries', () => {
 				user: ''
 			}
 		]);
+	});
+});
+
+describe('copyText', () => {
+	// The alerts pane called `.trim()` on every context value it printed,
+	// which threw `value.trim is not a function` and rendered nothing at all
+	// the moment an alert carried a non-string. `alert_context` is a JSON
+	// column, so that is ordinary data, not a malformed alert.
+	it('coerces the non-string JSON values that crashed the pane', () => {
+		expect(copyText(0)).toBe('0');
+		expect(copyText(443)).toBe('443');
+		expect(copyText(false)).toBe('false');
+		expect(copyText(true)).toBe('true');
+	});
+
+	it('returns strings untouched, including whitespace-only ones', () => {
+		expect(copyText('cmd.exe')).toBe('cmd.exe');
+		expect(copyText('')).toBe('');
+		// The caller decides what an empty value means; trimming here would
+		// silently alter a value the analyst asked to copy.
+		expect(copyText('  ')).toBe('  ');
+	});
+
+	it('is empty for null and undefined', () => {
+		expect(copyText(null)).toBe('');
+		expect(copyText(undefined)).toBe('');
+	});
+
+	it('serialises objects and arrays rather than pasting [object Object]', () => {
+		expect(copyText({ pid: 4321 })).toBe('{"pid":4321}');
+		expect(copyText(['a', 'b'])).toBe('["a","b"]');
+	});
+
+	it('is empty rather than throwing on a value JSON cannot represent', () => {
+		const circular: Record<string, unknown> = {};
+		circular.self = circular;
+		expect(copyText(circular)).toBe('');
+		expect(copyText(() => 'nope')).toBe('');
+	});
+
+	it('produces something trimmable for every case', () => {
+		// The guard the pane actually runs. Each of these reached `.trim()`.
+		const values: unknown[] = [0, false, null, undefined, { a: 1 }, [], 'x', () => {}];
+		for (const value of values) {
+			expect(() => copyText(value).trim()).not.toThrow();
+		}
+	});
+});
+
+describe('contextLines', () => {
+	it('renders mixed-type context as key: value lines', () => {
+		expect(contextLines({ host: 'srv01', port: 443, enabled: true })).toBe(
+			'host: srv01\nport: 443\nenabled: true'
+		);
+	});
+
+	it('is empty for a missing context', () => {
+		expect(contextLines(null)).toBe('');
+		expect(contextLines(undefined)).toBe('');
+		expect(contextLines({})).toBe('');
+	});
+
+	it('keeps a null value as an empty string rather than printing null', () => {
+		expect(contextLines({ user: null })).toBe('user: ');
+	});
+
+	it('serialises a nested object', () => {
+		expect(contextLines({ proc: { pid: 12 } })).toBe('proc: {"pid":12}');
 	});
 });

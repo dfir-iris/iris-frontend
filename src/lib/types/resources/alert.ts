@@ -40,7 +40,13 @@ export interface Alert {
 	alert_investigation_flow_id: number | null;
 	investigation_flow: { flow_id: number; flow_name: string } | null;
 
-	alert_context: Record<string, string> | null;
+	/**
+	 * Free-form context from the ingesting pipeline. A JSON column on the
+	 * backend, so a value is whatever was written there — not necessarily a
+	 * string. Typing it `Record<string, string>` let a `.trim()` past the
+	 * compiler and crashed the alerts pane on any alert carrying a number.
+	 */
+	alert_context: Record<string, unknown> | null;
 
 	alert_source: string;
 	alert_source_ref: string;

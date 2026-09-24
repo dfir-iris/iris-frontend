@@ -183,13 +183,43 @@ export const iocFields = (ioc: Pick<Ioc, 'ioc_type' | 'tlp'>): CopyField[] =>
 	].filter((field) => field.value.trim() !== '');
 
 /**
+ * Anything an alert can carry, rendered as text you could paste.
+ *
+ * `alert_context` is a JSON column, so a value is whatever the ingesting
+ * pipeline put there: a port number, an `enabled` boolean, a list of
+ * hashes, a nested object. The detail pane used to assume every one of
+ * them was a string and called `.trim()` on it, which threw
+ * `value.trim is not a function` and took the whole alerts pane down —
+ * one integer anywhere in the context was enough.
+ *
+ * Objects and arrays go through `JSON.stringify` rather than `String`,
+ * which would paste the useless `[object Object]`.
+ */
+export const copyText = (value: unknown): string => {
+	if (value === null || value === undefined) return '';
+	if (typeof value === 'string') return value;
+	if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+		return String(value);
+	}
+
+	try {
+		// `undefined` for a function or a symbol — nothing worth copying.
+		return JSON.stringify(value) ?? '';
+	} catch {
+		// Circular, or a `toJSON` that throws. Copying nothing beats
+		// breaking the pane the analyst is reading.
+		return '';
+	}
+};
+
+/**
  * The whole Context block as `key: value` lines — what the section's
  * "copy all" button puts on the clipboard, for the times the analyst
  * wants the lot in a ticket rather than one field at a time.
  */
-export const contextLines = (context: Record<string, string> | null | undefined): string =>
+export const contextLines = (context: Record<string, unknown> | null | undefined): string =>
 	Object.entries(context ?? {})
-		.map(([key, value]) => `${key}: ${value ?? ''}`)
+		.map(([key, value]) => `${key}: ${copyText(value)}`)
 		.join('\n');
 
 const TECHNIQUE_RE = /^T\d{4}(?:\.\d{3})?$/i;
