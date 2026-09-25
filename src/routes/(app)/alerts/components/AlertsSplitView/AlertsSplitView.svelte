@@ -39,6 +39,7 @@
 	import AlertIocEditDialog from '../alert-ioc-edit-dialog.svelte';
 	import AlertAssetEditDialog from '../alert-asset-edit-dialog.svelte';
 	import { hasChanges, saveAlertAsset, saveAlertIoc } from '../../helpers/alert-observables';
+	import { getClosedAlertStatusId } from '../../helpers/alert-status';
 	import { clusterSelectionState, flattenAlertQueueUnits } from '$lib/utils/alert-queue';
 	import {
 		ALERT_QUEUE_COLUMNS,
@@ -131,6 +132,10 @@
 		 * the list view's "Set status" dropdown. Single-alert on purpose: the
 		 * queue keeps a checkbox on every row, so the status of the alert being
 		 * read must not depend on what else happens to be ticked.
+		 *
+		 * Never fired for the closed status: that entry routes to `onClose`,
+		 * so closing always goes through the dialog that captures the
+		 * resolution status and the closing note.
 		 */
 		onSetStatus: (alert: Alert, statusId: number) => void;
 		/**
@@ -222,6 +227,13 @@
 	// hidden when the API returned no statuses, which would leave an empty
 	// dropdown behind the button.
 	const canSetStatus = $derived(alertStatuses.length > 0 && userCtx?.can('alerts_write') === true);
+
+	// Closing is not just another status. The Close dialog is what captures
+	// the resolution status, the closing note and the tags, and a bare
+	// `alert_status_id` write would set none of them — so the menu's Closed
+	// entry hands over to `onClose` instead. Same id the dialog itself
+	// writes, via the helper `closeAlerts` uses.
+	const closedStatusId = $derived(getClosedAlertStatusId(alertStatuses));
 
 	let focusedId = $state<number | null>(null);
 	// Which pane the small-screen layout is showing. Inert above the stacking
@@ -1104,6 +1116,7 @@
 								{#if showStatusMenu}
 									<div class="menu-dropdown" role="menu">
 										{#each alertStatuses as alertStatus (alertStatus.status_id)}
+											{@const closes = alertStatus.status_id === closedStatusId}
 											<button
 												type="button"
 												class="menu-item"
@@ -1111,8 +1124,12 @@
 												role="menuitem"
 												onclick={() => {
 													showStatusMenu = false;
-													onSetStatus(f, alertStatus.status_id);
-												}}>{alertStatus.status_name}</button
+													// The ellipsis is this pane's mark for "opens a dialog",
+													// the way `Merge…` and `Assign to…` already carry it.
+													if (closes) onClose(f);
+													else onSetStatus(f, alertStatus.status_id);
+												}}
+												>{alertStatus.status_name}{#if closes}…{/if}</button
 											>
 										{/each}
 									</div>
