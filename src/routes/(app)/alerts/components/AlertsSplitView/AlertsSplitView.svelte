@@ -1045,6 +1045,28 @@
 							{@render copyBtn(`source-${f.alert_id}`, 'source', f.alert_source)}
 						</span>
 					{/if}
+					{#if f.alert_source_link}
+						<!--
+						  The way back to the detection that raised the alert, which
+						  the list view's General Info grid already carried. The URL
+						  itself stays in the tooltip rather than in the head: source
+						  links are routinely 200+ characters of query string, and
+						  this row also holds the action buttons.
+						-->
+						<span class="vrule"></span>
+						<span class="detail-sub copy-row">
+							<a
+								class="detail-link"
+								href={f.alert_source_link}
+								target="_blank"
+								rel="noreferrer"
+								title={f.alert_source_link}
+							>
+								Source link<span class="chip-go" aria-hidden="true">↗</span>
+							</a>
+							{@render copyBtn(`source-link-${f.alert_id}`, 'source link', f.alert_source_link)}
+						</span>
+					{/if}
 					<div class="spacer"></div>
 					<div class="detail-actions">
 						<button type="button" class="btn-accent" onclick={() => onEscalate(f)}
@@ -2559,6 +2581,17 @@
 	.detail-sub {
 		font-size: 12.5px;
 		color: var(--t-7);
+	}
+	/* Reads as the one thing in this row that leaves IRIS, so it takes the
+	   accent the cluster chip uses rather than the head's muted grey. */
+	.detail-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 3px;
+		color: var(--acc);
+	}
+	.detail-link:hover {
+		text-decoration: underline;
 	}
 
 	.detail-actions {
