@@ -36,6 +36,7 @@
 	import { CommentsThread } from '$lib/components/common/Comments';
 	import InvestigationFlowSteps from '$lib/components/common/InvestigationFlow/InvestigationFlowSteps.svelte';
 	import AlertRelatedGraph from '../AlertRelatedGraph/AlertRelatedGraph.svelte';
+	import { defaultAlertRelationshipsFilters } from '../AlertRelatedGraph';
 	import AlertIocEditDialog from '../alert-ioc-edit-dialog.svelte';
 	import AlertAssetEditDialog from '../alert-asset-edit-dialog.svelte';
 	import { hasChanges, saveAlertAsset, saveAlertIoc } from '../../helpers/alert-observables';
@@ -59,10 +60,15 @@
 		copyText,
 		relativeDate,
 		formatRawEvent,
+		hasRelations,
 		iocFields,
+		isUntriagedStatus,
 		observableFlag,
 		primaryTechnique,
 		rangeLabel,
+		type RelationsSummary,
+		relationsLabel,
+		relationsSummary,
 		severityVar,
 		statusVar,
 		techniqueLabels,
@@ -430,6 +436,112 @@
 	const clusterLabel = $derived(
 		cluster ? `${cluster.cluster_title} · ${cluster.alert_ids?.length ?? 0} alerts` : ''
 	);
+
+	// ---- relationships for the focused alert -------------------------
+
+	/**
+	 * "Seen before" used to know about clusters only, so an alert sharing
+	 * three observables with a live case still read "No correlation
+	 * history". The relationships graph already knows better — this is the
+	 * same query it runs, reduced to a sentence.
+	 *
+	 * The query waits for the cursor to settle rather than firing on the
+	 * spot: walking the queue with j/k would otherwise put one relations
+	 * lookup per keypress on the API, the same cost the investigation-flow
+	 * tab count refuses to pay.
+	 */
+	const RELATIONS_SETTLE_MS = 350;
+
+	type RelationsState =
+		| { status: 'idle' }
+		| { status: 'loading' }
+		| { status: 'ready'; summary: RelationsSummary };
+
+	let relations = $state<RelationsState>({ status: 'idle' });
+
+	// The id, not the alert: a derived that comes back to the same number
+	// does not propagate, so the query is not restarted every time the
+	// alert object itself is replaced (a status PUT, a list refresh).
+	const focusedAlertId = $derived(focused?.alert_id);
+
+	$effect(() => {
+		const alertId = focusedAlertId;
+
+		if (alertId === undefined) {
+			relations = { status: 'idle' };
+			return;
+		}
+
+		relations = { status: 'loading' };
+
+		let stale = false;
+
+		const timer = setTimeout(() => {
+			void (async () => {
+				const filters = defaultAlertRelationshipsFilters();
+				const graph = await alertsCtx.getRelatedAlerts(alertId, {
+					open_alerts: filters.openAlerts,
+					closed_alerts: filters.closedAlerts,
+					open_cases: filters.openCases,
+					closed_cases: filters.closedCases,
+					number_of_nodes: filters.numberOfNodes,
+					days_back: filters.daysBack
+				});
+				if (stale) return;
+
+				// A failed lookup reads as "nothing found" rather than as an
+				// error: the sidebar is a hint, and the Graph tab is where an
+				// analyst goes when they want the lookup to answer for itself.
+				relations = { status: 'ready', summary: relationsSummary(graph, alertId) };
+			})();
+		}, RELATIONS_SETTLE_MS);
+
+		return () => {
+			stale = true;
+			clearTimeout(timer);
+		};
+	});
+
+	const relationsSentence = $derived(
+		relations.status === 'ready' ? relationsLabel(relations.summary) : ''
+	);
+	const relationsFound = $derived(relations.status === 'ready' && hasRelations(relations.summary));
+
+	/**
+	 * Which alerts have had their overview graph brought on screen.
+	 *
+	 * The graph is a second relations query plus a physics simulation, so
+	 * it is built when the analyst actually scrolls down to it rather than
+	 * on every focus change. Keyed by alert id rather than reset per alert
+	 * so coming back to one already looked at does not re-draw it.
+	 */
+	let graphRevealed = $state<Record<number, boolean>>({});
+
+	const revealGraph = (node: HTMLElement, alertId: number) => {
+		// No observer (SSR, jsdom, ancient browser) means no way to tell
+		// when the placeholder is on screen — show the graph rather than
+		// leave a permanently empty box.
+		if (typeof IntersectionObserver === 'undefined') {
+			graphRevealed = { ...graphRevealed, [alertId]: true };
+			return;
+		}
+
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (!entries.some((entry) => entry.isIntersecting)) return;
+				graphRevealed = { ...graphRevealed, [alertId]: true };
+				observer.disconnect();
+			},
+			// A little ahead of the fold, so scrolling down to it finds it
+			// drawn rather than watches it appear.
+			{ rootMargin: '150px' }
+		);
+		observer.observe(node);
+
+		return {
+			destroy: () => observer.disconnect()
+		};
+	};
 
 	// ---- derived detail data -----------------------------------------
 
@@ -837,7 +949,12 @@
 		{#snippet queueRow(alert: Alert, inCluster: boolean)}
 			{@const isFocused = alert.alert_id === focusedId}
 			{@const sev = severityVar(alert.severity?.severity_name)}
-			<div class="row" class:row-focused={isFocused} bind:this={rowEls[alert.alert_id]}>
+			<div
+				class="row"
+				class:row-new={isUntriagedStatus(alert.status?.status_name)}
+				class:row-focused={isFocused}
+				bind:this={rowEls[alert.alert_id]}
+			>
 				<button
 					type="button"
 					class="checkbox"
@@ -1377,6 +1494,35 @@
 							{#if !f.alert_description && (!f.alert_context || Object.keys(f.alert_context).length === 0) && (f.assets?.length ?? 0) === 0 && iocs.length === 0}
 								<p class="section-empty">No overview data for this alert.</p>
 							{/if}
+
+							<!--
+							  The relationships graph, the way the list view's expanded
+							  card carries it — "what else has touched this?" is part of
+							  reading an alert, not a separate errand. Last in the
+							  column, and only built once scrolled to (`revealGraph`),
+							  so walking the queue with j/k does not fire a relations
+							  query and a physics simulation per keypress. The Graph tab
+							  is still there for the full-width version.
+							-->
+							<section class="section">
+								<h3 class="section-title">Relationships</h3>
+								<!--
+								  Keyed on the alert: `revealGraph` closes over the id it
+								  was mounted with and has no `update`, so without this
+								  the observer left over from the previous alert would
+								  keep flipping that alert's flag and this one's
+								  placeholder would never resolve.
+								-->
+								{#key f.alert_id}
+									{#if graphRevealed[f.alert_id]}
+										<AlertRelatedGraph alertId={f.alert_id} />
+									{:else}
+										<div class="graph-placeholder" use:revealGraph={f.alert_id}>
+											Loading relationships…
+										</div>
+									{/if}
+								{/key}
+							</section>
 						{/if}
 
 						{#if activeTab === 'assets'}
@@ -1709,7 +1855,25 @@
 									onclick={() => cluster && onOpenCluster(cluster.cluster_id)}
 									>View cluster →</button
 								>
-							{:else}
+							{/if}
+
+							<!--
+							  A cluster is one way an alert can have been seen before;
+							  the relationships graph is the other, and the one that
+							  catches a shared observable no correlation rule was
+							  written for. Both can be true, so this sits alongside the
+							  cluster paragraph rather than in its `:else`.
+							-->
+							{#if relations.status === 'loading'}
+								<p class="side-prose side-muted">Checking relationships…</p>
+							{:else if relationsFound}
+								<p class="side-prose">
+									Shares observables with <span class="side-strong">{relationsSentence}</span>.
+								</p>
+								<button type="button" class="side-link" onclick={() => (requestedTab = 'graph')}
+									>View the graph →</button
+								>
+							{:else if !cluster}
 								<p class="side-prose">No correlation history for this alert.</p>
 							{/if}
 						</div>
@@ -2360,6 +2524,16 @@
 		padding: 13px 16px;
 		border-bottom: 1px solid var(--b-hair);
 	}
+	/*
+	 * Untriaged alerts sit on the card surface while everything already
+	 * dealt with stays on the queue's sunken background — the queue's
+	 * version of the list view fading every processed card to 60% opacity.
+	 * Declared before `.row-focused`, which carries the same specificity,
+	 * so the selection tint still wins on the row the cursor is on.
+	 */
+	.row-new {
+		background: var(--s-card);
+	}
 	.row:hover {
 		background: var(--s-hover);
 	}
@@ -2936,6 +3110,21 @@
 		background: var(--s-sunken);
 	}
 
+	/* Stands in for the overview's graph until it is scrolled to. Holds
+	   the height the graph will take (filter bar + 32rem canvas) so the
+	   column does not jump under the cursor when it swaps in. */
+	.graph-placeholder {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 34rem;
+		border: 1px solid var(--b-sub);
+		border-radius: 6px;
+		background: var(--s-sunken);
+		color: var(--t-9);
+		font-size: 12.5px;
+	}
+
 	/* The checklist scrolls internally, so the pane must be a bounded
 	   flex child — `min-height: 0` is what lets it be shorter than its
 	   content instead of pushing the detail pane past the viewport. */
@@ -3159,6 +3348,11 @@
 	}
 	.side-strong {
 		color: var(--t-2);
+	}
+	/* The in-flight line, pitched below the prose it will be replaced by
+	   so it reads as a placeholder rather than as an answer. */
+	.side-muted {
+		color: var(--t-9);
 	}
 	.side-link {
 		font-size: 12.5px;

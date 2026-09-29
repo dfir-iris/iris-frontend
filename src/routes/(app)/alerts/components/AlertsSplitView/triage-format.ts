@@ -65,6 +65,20 @@ export const isSpentStatus = (name: string | null | undefined): boolean =>
 	SPENT_STATUSES.has(norm(name));
 
 /**
+ * Statuses that mean "nobody has looked at this yet".
+ *
+ * The list view keeps these cards at full strength and fades every other
+ * one to `opacity-60` (`isProcessed` in AlertCard.svelte), which is what
+ * makes an untriaged alert findable in a long page. The queue rows use
+ * the same split to lift those rows onto the card surface while the rest
+ * stay on the sunken queue background.
+ */
+const UNTRIAGED_STATUSES = new Set(['new', 'unspecified']);
+
+export const isUntriagedStatus = (name: string | null | undefined): boolean =>
+	UNTRIAGED_STATUSES.has(norm(name));
+
+/**
  * Queue-row title colour. The focused row gets the brightest ink, a
  * finished alert is dimmed to `--t-5` (the mockup does this to its
  * auto-closed row), everything else sits at `--t-1`.
@@ -434,4 +448,73 @@ export const activityEntries = (history: unknown, limit = 3): ActivityEntry[] =>
 		.filter((e) => !Number.isNaN(e.at))
 		.sort((a, b) => b.at - a.at)
 		.slice(0, limit);
+};
+
+// ---- relationships ---------------------------------------------------
+
+/**
+ * What the relationships graph found around an alert, counted by kind.
+ *
+ * The graph itself is a canvas the analyst has to look at; the sidebar
+ * only needs the headline, so the node list is reduced to three numbers
+ * and a sentence is built from them.
+ */
+export type RelationsSummary = {
+	alerts: number;
+	cases: number;
+	observables: number;
+};
+
+export const EMPTY_RELATIONS: RelationsSummary = { alerts: 0, cases: 0, observables: 0 };
+
+/**
+ * Count the graph's nodes by group, leaving out the alert the graph was
+ * drawn for — it is always present, and "related to 1 alert" meaning
+ * itself is worse than saying nothing.
+ *
+ * IOCs and assets are counted together as "observables": they are the
+ * *reason* two alerts are related rather than a relation of their own,
+ * and the sidebar sentence reads better for it.
+ */
+export const relationsSummary = (
+	graph: { nodes?: { id?: string; group?: string }[] } | null | undefined,
+	alertId: number
+): RelationsSummary => {
+	const nodes = graph?.nodes;
+	if (!Array.isArray(nodes)) return EMPTY_RELATIONS;
+
+	const self = `alert_${alertId}`;
+	const summary: RelationsSummary = { alerts: 0, cases: 0, observables: 0 };
+
+	for (const node of nodes) {
+		if (node?.group === 'alert') {
+			if (node.id !== self) summary.alerts += 1;
+		} else if (node?.group === 'case') {
+			summary.cases += 1;
+		} else if (node?.group === 'ioc' || node?.group === 'asset') {
+			summary.observables += 1;
+		}
+	}
+
+	return summary;
+};
+
+export const hasRelations = (summary: RelationsSummary | null | undefined): boolean =>
+	(summary?.alerts ?? 0) > 0 || (summary?.cases ?? 0) > 0;
+
+const plural = (count: number, noun: string): string => `${count} ${noun}${count === 1 ? '' : 's'}`;
+
+/**
+ * "2 other alerts and 1 case" — the subject of the sidebar sentence.
+ * Returns an empty string when there is nothing to say, which is what
+ * `hasRelations` gates on.
+ */
+export const relationsLabel = (summary: RelationsSummary | null | undefined): string => {
+	if (!hasRelations(summary)) return '';
+
+	const parts: string[] = [];
+	if (summary && summary.alerts > 0) parts.push(plural(summary.alerts, 'other alert'));
+	if (summary && summary.cases > 0) parts.push(plural(summary.cases, 'case'));
+
+	return parts.join(' and ');
 };

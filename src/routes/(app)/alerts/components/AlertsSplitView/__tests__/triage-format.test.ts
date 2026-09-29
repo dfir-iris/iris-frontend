@@ -12,11 +12,15 @@ import {
 	contextLines,
 	copyText,
 	formatRawEvent,
+	hasRelations,
 	initials,
 	isSpentStatus,
+	isUntriagedStatus,
 	observableFlag,
 	primaryTechnique,
 	rangeLabel,
+	relationsLabel,
+	relationsSummary,
 	severityVar,
 	statusVar,
 	techniqueLabels,
@@ -414,5 +418,88 @@ describe('contextLines', () => {
 
 	it('serialises a nested object', () => {
 		expect(contextLines({ proc: { pid: 12 } })).toBe('proc: {"pid":12}');
+	});
+});
+
+describe('isUntriagedStatus', () => {
+	it('treats new and unspecified as untriaged', () => {
+		expect(isUntriagedStatus('New')).toBe(true);
+		expect(isUntriagedStatus('  unspecified ')).toBe(true);
+	});
+
+	it('treats everything an analyst has touched as triaged', () => {
+		expect(isUntriagedStatus('In progress')).toBe(false);
+		expect(isUntriagedStatus('Assigned')).toBe(false);
+		expect(isUntriagedStatus('Closed')).toBe(false);
+		expect(isUntriagedStatus('Escalated')).toBe(false);
+	});
+
+	it('treats a missing or unknown status as triaged', () => {
+		expect(isUntriagedStatus(null)).toBe(false);
+		expect(isUntriagedStatus(undefined)).toBe(false);
+		expect(isUntriagedStatus('Awaiting client')).toBe(false);
+	});
+});
+
+describe('relationsSummary', () => {
+	const graph = {
+		nodes: [
+			{ id: 'alert_7', group: 'alert' },
+			{ id: 'alert_8', group: 'alert' },
+			{ id: 'alert_9', group: 'alert' },
+			{ id: 'case_3', group: 'case' },
+			{ id: 'ioc_evil.com', group: 'ioc' },
+			{ id: 'asset_SRV01', group: 'asset' }
+		]
+	};
+
+	it('counts nodes by group', () => {
+		expect(relationsSummary(graph, 7)).toEqual({ alerts: 2, cases: 1, observables: 2 });
+	});
+
+	it('leaves out the alert the graph was drawn for', () => {
+		// Alert 99 is not in the graph, so all three alert nodes count.
+		expect(relationsSummary(graph, 99).alerts).toBe(3);
+	});
+
+	it('is empty for a missing or malformed graph', () => {
+		expect(relationsSummary(null, 7)).toEqual({ alerts: 0, cases: 0, observables: 0 });
+		expect(relationsSummary(undefined, 7)).toEqual({ alerts: 0, cases: 0, observables: 0 });
+		expect(relationsSummary({}, 7)).toEqual({ alerts: 0, cases: 0, observables: 0 });
+	});
+
+	it('ignores node groups it does not know', () => {
+		expect(relationsSummary({ nodes: [{ id: 'x_1', group: 'mystery' }] }, 7)).toEqual({
+			alerts: 0,
+			cases: 0,
+			observables: 0
+		});
+	});
+});
+
+describe('hasRelations / relationsLabel', () => {
+	it('an observable on its own is not a relation', () => {
+		const summary = { alerts: 0, cases: 0, observables: 4 };
+		expect(hasRelations(summary)).toBe(false);
+		expect(relationsLabel(summary)).toBe('');
+	});
+
+	it('names alerts and cases together', () => {
+		expect(relationsLabel({ alerts: 2, cases: 1, observables: 3 })).toBe(
+			'2 other alerts and 1 case'
+		);
+	});
+
+	it('singularises a lone alert', () => {
+		expect(relationsLabel({ alerts: 1, cases: 0, observables: 1 })).toBe('1 other alert');
+	});
+
+	it('drops the side that is empty', () => {
+		expect(relationsLabel({ alerts: 0, cases: 2, observables: 1 })).toBe('2 cases');
+	});
+
+	it('is empty for nothing at all', () => {
+		expect(hasRelations(null)).toBe(false);
+		expect(relationsLabel(undefined)).toBe('');
 	});
 });

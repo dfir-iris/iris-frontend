@@ -1605,12 +1605,24 @@
 		border: 1px solid hsl(var(--border));
 		border-radius: 0.625rem;
 		background: hsl(var(--muted) / 0.35);
+		/*
+		 * `.ov-root` is a fixed-height column that hides its own overflow, so
+		 * a panel left free to grow simply ran off the bottom of the page: a
+		 * dozen conditions pushed the queue to nothing and took Apply with
+		 * them, with no scrollbar anywhere to get back to it. Capped at a
+		 * share of the column instead — `CaseFilters` scrolls the conditions
+		 * inside it and keeps the action bar in view.
+		 */
+		max-height: 60%;
+		overflow: hidden;
 	}
 	.ov-fp-head {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 0.5rem 0.75rem;
+		/* Never squeezed — the conditions below are what gives. */
+		flex-shrink: 0;
 	}
 	.ov-fp-title {
 		margin-right: auto;

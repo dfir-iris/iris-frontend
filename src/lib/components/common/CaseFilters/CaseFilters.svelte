@@ -38,11 +38,24 @@
 	const hasActive = $derived(treeHasActiveCondition(group));
 </script>
 
-<div class="flex flex-col gap-3">
-	<CaseFilterGroup {defs} {group} {onChange} {onApply} isRoot depth={0} />
+<!--
+  `min-h-0` so this can be shorter than its conditions when the host
+  bounds it (the cases overview caps the panel at a share of the page);
+  without it a flex parent has no way to squeeze this and the tree just
+  overflows. Unbounded hosts are unaffected — nothing here asks to grow.
+-->
+<div class="flex min-h-0 flex-col gap-3">
+	<!--
+	  The conditions scroll, the action bar does not. Eleven conditions
+	  outgrow any panel this sits in, and an Apply button that has been
+	  pushed off the bottom of the page is worse than a scrollbar.
+	-->
+	<div class="min-h-0 flex-1 overflow-y-auto">
+		<CaseFilterGroup {defs} {group} {onChange} {onApply} isRoot depth={0} />
+	</div>
 
 	{#if footerStart || onClear || onApply}
-		<div class="flex items-center gap-2">
+		<div class="flex shrink-0 items-center gap-2">
 			{#if footerStart}{@render footerStart()}{/if}
 
 			<div class="ml-auto flex items-center gap-2">
