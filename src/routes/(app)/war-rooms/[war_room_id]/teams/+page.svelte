@@ -22,13 +22,13 @@
 	import { toast } from '$lib/components/ui/toast';
 	import { WarRoomTeamsService, type WarRoomTeam } from '$lib/services/war-room-teams.service';
 	import { WarRoomsService, type WarRoomMember } from '$lib/services/war-rooms.service';
-	import { UsersService, type User } from '$lib/services/users.service';
+	import { UsersService, type MentionableUser } from '$lib/services/users.service';
 
 	const warRoomId = $derived(Number(page.params.war_room_id));
 
 	let teams = $state<WarRoomTeam[]>([]);
 	let members = $state<WarRoomMember[]>([]);
-	let allUsers = $state<User[]>([]);
+	let allUsers = $state<MentionableUser[]>([]);
 	let loading = $state(true);
 
 	// Create-team dialog
@@ -53,7 +53,10 @@
 		const [teamsRes, membersRes, usersRes] = await Promise.all([
 			WarRoomTeamsService.list(warRoomId),
 			WarRoomsService.listMembers(warRoomId),
-			UsersService.list()
+			// `/users/mentionable`, not `/manage/users` — the latter is
+			// server_administrator-only and would 403 for the non-admins who
+			// can otherwise manage war-room teams.
+			UsersService.listMentionable()
 		]);
 		if (teamsRes.ok && Array.isArray(teamsRes.data)) {
 			teams = teamsRes.data;
@@ -62,7 +65,7 @@
 			members = membersRes.data;
 		}
 		if (usersRes.ok && usersRes.data && typeof usersRes.data !== 'string') {
-			const payload = usersRes.data as { data?: User[] };
+			const payload = usersRes.data as { data?: MentionableUser[] };
 			allUsers = Array.isArray(payload.data) ? payload.data : [];
 		}
 		loading = false;

@@ -69,7 +69,7 @@
 		type AlertClusterStatus
 	} from '$lib/services/alert-cluster-status.service';
 	import { SeveritiesService, type Severity } from '$lib/services/severities.service';
-	import { UsersService, type User } from '$lib/services/users.service';
+	import { UsersService, type MentionableUser } from '$lib/services/users.service';
 	import type { AlertCluster } from '$lib/types/resources/alert-cluster';
 	import type { Alert } from '$lib/types/resources/alert';
 	import type { Asset } from '$lib/types/resources/asset';
@@ -84,7 +84,7 @@
 	let comments = $state<Comment[]>([]);
 	let statuses = $state<AlertClusterStatus[]>([]);
 	let severities = $state<Severity[]>([]);
-	let users = $state<User[]>([]);
+	let users = $state<MentionableUser[]>([]);
 	let loading = $state(true);
 	let flowPanelOpen = $state(false);
 	let commentDraft = $state('');
@@ -432,9 +432,13 @@
 				severities = (r.data as { data?: Severity[] }).data ?? [];
 			}
 		});
-		void UsersService.list().then((r) => {
+		// `/users/mentionable` is auth-gated but not admin-gated, and already
+		// filters to active users — `/manage/users` is server_administrator-only,
+		// so analysts with `alert_clusters_write` would get a 403 and an empty
+		// owner list. Same endpoint the alert reassign dialog uses.
+		void UsersService.listMentionable().then((r) => {
 			if (r.data && typeof r.data === 'object') {
-				users = ((r.data as { data?: User[] }).data ?? []).filter((u) => u.user_active !== false);
+				users = (r.data as { data?: MentionableUser[] }).data ?? [];
 			}
 		});
 		// Tick a "now" state every 30s so the "Synced X ago" chip in the

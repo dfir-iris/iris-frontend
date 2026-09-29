@@ -17,7 +17,7 @@
 	import MentionList, {
 		type MentionItem
 	} from '$lib/components/common/MarkDown/MentionList.svelte';
-	import { UsersService, type User } from '$lib/services/users.service';
+	import { UsersService, type MentionableUser } from '$lib/services/users.service';
 	import { CaseIocsService } from '$lib/services/case-iocs.service';
 	import { CaseAssetsService } from '$lib/services/case-assets.service';
 	import { CaseTimelineService } from '$lib/services/case-timeline.service';
@@ -109,8 +109,8 @@
 
 	// --- Resource cache. We pre-cache once the attached cases land so the
 	// popup doesn't show empty / loading state when the user hits `#`.
-	let userCache: User[] | null = null;
-	let userCachePromise: Promise<User[]> | null = null;
+	let userCache: MentionableUser[] | null = null;
+	let userCachePromise: Promise<MentionableUser[]> | null = null;
 	let teamCache: WarRoomTeam[] | null = null;
 	let teamCachePromise: Promise<WarRoomTeam[]> | null = null;
 
@@ -130,17 +130,20 @@
 		return teamCachePromise;
 	};
 
-	const loadUsers = async (): Promise<User[]> => {
+	const loadUsers = async (): Promise<MentionableUser[]> => {
 		if (userCache) return userCache;
 		if (!userCachePromise) {
 			userCachePromise = (async () => {
-				const res = await UsersService.list();
+				// `/users/mentionable` is the endpoint built for exactly this —
+				// auth-gated, not admin-gated. `/manage/users` 403s for
+				// non-admins, so @-mentions silently resolved to nobody.
+				const res = await UsersService.listMentionable();
 				if (res.ok && res.data && typeof res.data !== 'string') {
-					const payload = res.data as unknown as { data?: User[] } | User[];
+					const payload = res.data as unknown as { data?: MentionableUser[] } | MentionableUser[];
 					const arr = Array.isArray(payload)
 						? payload
-						: Array.isArray((payload as { data?: User[] }).data)
-							? (payload as { data: User[] }).data
+						: Array.isArray((payload as { data?: MentionableUser[] }).data)
+							? (payload as { data: MentionableUser[] }).data
 							: [];
 					userCache = arr;
 					return arr;

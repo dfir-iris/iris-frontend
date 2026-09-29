@@ -17,7 +17,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
-	import { UsersService, type User } from '$lib/services/users.service';
+	import { UsersService, type MentionableUser } from '$lib/services/users.service';
 
 	type Props = {
 		// Stringified user ids currently in scope; `[]` ≡ "all".
@@ -33,7 +33,7 @@
 	let { values, labels = {}, onChange, triggerClass = '' }: Props = $props();
 
 	let open = $state(false);
-	let users = $state<User[]>([]);
+	let users = $state<MentionableUser[]>([]);
 	let loading = $state(false);
 	let error = $state<string | null>(null);
 	let searchText = $state('');
@@ -45,18 +45,19 @@
 		loading = true;
 		error = null;
 		try {
-			// The `/manage/users/list` endpoint returns the legacy IRIS
-			// wrapper `{ status, message, data: User[] }`. The mention-list
-			// loader in MarkDownEditor does the same unwrap dance —
-			// mirror it here so a workspace-admin layout change doesn't
-			// silently break both call sites in different ways.
-			const res = await UsersService.list();
+			// `/users/mentionable`, not `/manage/users`: this picker is used
+			// on the activities page, which any holder of `activities_read`
+			// can reach — the admin-only user list 403s for them and the
+			// filter comes up empty. The response wraps its payload as
+			// `{ data: MentionableUser[] }`; the mention-list loader in
+			// MarkDownEditor does the same unwrap dance.
+			const res = await UsersService.listMentionable();
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const inner = (res?.data as any)?.data;
 			if (Array.isArray(inner)) {
-				users = inner as User[];
+				users = inner as MentionableUser[];
 			} else if (Array.isArray(res?.data)) {
-				users = res.data as User[];
+				users = res.data as unknown as MentionableUser[];
 			} else {
 				users = [];
 			}
@@ -82,7 +83,7 @@
 
 	const isSelected = (id: number) => values.includes(String(id));
 
-	const toggle = (u: User) => {
+	const toggle = (u: MentionableUser) => {
 		const key = String(u.user_id);
 		let nextIds: string[];
 		const nextLabels = { ...labels, [key]: u.user_name };

@@ -9,7 +9,7 @@
 	import { CaseStatesService, type CaseState } from '$lib/services/case-states.service';
 	import { CustomersService, type Customer } from '$lib/services/customers.service';
 	import { SeveritiesService, type Severity } from '$lib/services/severities.service';
-	import { UsersService, type User } from '$lib/services/users.service';
+	import { CaseService, type CaseAccessUserRow } from '$lib/services/case.service';
 	import type { UpdateCaseBody } from '$lib/services/case.service';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import SearchSelect, {
@@ -66,15 +66,32 @@
 	let caseStates = $state<CaseState[]>([]);
 	let severities = $state<Severity[]>([]);
 	let customers = $state<Customer[]>([]);
-	let users = $state<User[]>([]);
+	// Candidates for the Owner / Reviewer pickers. Sourced from
+	// `GET /cases/{id}/access/users` (auth-gated + per-case check) rather
+	// than `/manage/users`, which is server_administrator-only — otherwise
+	// a non-admin analyst gets a 403 and both dropdowns render empty, so
+	// they can't reassign a case they otherwise have full access to.
+	// `CaseService.listUsers` already narrows to full_access (4), which is
+	// the right set here: an owner/reviewer has to be able to work the case.
+	let users = $state<CaseAccessUserRow[]>([]);
 
 	const classificationOptions = $derived.by<SelectOption[]>(() =>
 		caseClassifications.map((c) => ({ value: String(c.id), label: c.name_expanded }))
 	);
 
-	const ownerOptions = $derived.by<SelectOption[]>(() =>
-		users.map((u) => ({ value: String(u.user_id), label: u.user_name }))
-	);
+	// The current owner may have lost case access since being assigned; keep
+	// them in the list so the select still renders a name instead of going
+	// blank (and so saving doesn't silently drop the value).
+	const userOptions = $derived.by<SelectOption[]>(() => {
+		const options = users.map((u) => ({ value: String(u.user_id), label: u.user_name }));
+		for (const current of [currentCase?.owner, currentCase?.reviewer]) {
+			if (!current?.id) continue;
+			const key = String(current.id);
+			if (options.some((o) => o.value === key)) continue;
+			options.push({ value: key, label: current.user_name ?? `User #${key}` });
+		}
+		return options;
+	});
 
 	const stateOptions = $derived.by<SelectOption[]>(() =>
 		caseStates.map((s) => ({ value: String(s.state_id), label: s.state_name }))
@@ -86,10 +103,6 @@
 
 	const customerOptions = $derived.by<SelectOption[]>(() =>
 		customers.map((c) => ({ value: String(c.customer_id), label: c.customer_name }))
-	);
-
-	const reviewerOptions = $derived.by<SelectOption[]>(() =>
-		users.map((u) => ({ value: String(u.user_id), label: u.user_name }))
 	);
 
 	const severityOptions = $derived.by<SelectOption[]>(() =>
@@ -115,10 +128,17 @@
 		>;
 
 		severities = severitiesResponse.data as Severity[];
+	});
 
-		const usersResponse = (await UsersService.list()).data as unknown as RequestResponse<User[]>;
-
-		users = usersResponse.data as User[];
+	// Keyed on the case id rather than folded into `onMount` — the modal is
+	// kept mounted while the user switches case from the context, so the
+	// candidate list has to follow.
+	$effect(() => {
+		const caseId = currentCase?.case_id;
+		if (!caseId) return;
+		void CaseService.listUsers(caseId).then((rows) => {
+			users = rows;
+		});
 	});
 
 	$effect(() => {
@@ -235,7 +255,7 @@
 			<SearchSelect
 				size="sm"
 				value={ownerId}
-				options={ownerOptions}
+				options={userOptions}
 				placeholder="Owner"
 				searchPlaceholder="Search owner..."
 				onChange={(value) => (ownerId = value as string)}
@@ -288,7 +308,7 @@
 			<SearchSelect
 				size="sm"
 				value={reviewerId}
-				options={reviewerOptions}
+				options={userOptions}
 				placeholder="Reviewer"
 				searchPlaceholder="Search reviewer..."
 				onChange={(value) => (reviewerId = value as string)}

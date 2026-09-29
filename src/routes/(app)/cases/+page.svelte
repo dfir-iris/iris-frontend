@@ -29,7 +29,7 @@
 		type FilterLogic,
 		type FilterRow
 	} from '$lib/components/common/CaseFilters';
-	import { UsersService, type User } from '$lib/services/users.service';
+	import { UsersService, type MentionableUser } from '$lib/services/users.service';
 	import { CustomersService } from '$lib/services/customers.service';
 	import { CaseStatesService, type CaseState } from '$lib/services/case-states.service';
 	import { SeveritiesService, type Severity } from '$lib/services/severities.service';
@@ -532,7 +532,7 @@
 	const loadLookups = async () => {
 		const [usersRes, customersRes, statesRes, severitiesRes, classificationsRes] =
 			await Promise.all([
-				UsersService.list(),
+				UsersService.listMentionable(),
 				CustomersService.list(),
 				CaseStatesService.list(),
 				SeveritiesService.list(),
@@ -543,8 +543,8 @@
 			? (classificationsRes.data as CaseClassification[])
 			: [];
 
-		const usersData = usersRes.data as { data?: User[] } | User[] | null;
-		const users: User[] = Array.isArray(usersData) ? usersData : (usersData?.data ?? []);
+		const usersData = usersRes.data as { data?: MentionableUser[] } | MentionableUser[] | null;
+		const users: MentionableUser[] = Array.isArray(usersData) ? usersData : (usersData?.data ?? []);
 		userOptions = users.map((u) => ({
 			value: u.user_login,
 			label: u.user_name ? `${u.user_name} (${u.user_login})` : u.user_login

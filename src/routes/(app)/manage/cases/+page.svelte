@@ -45,7 +45,7 @@
 	import type { CaseState } from '$lib/services/case-states.service';
 	import { CaseCloseDialog } from '../../[components]/CaseModals';
 	import { CustomersService, type Customer } from '$lib/services/customers.service';
-	import { UsersService, type User } from '$lib/services/users.service';
+	import { UsersService, type MentionableUser } from '$lib/services/users.service';
 	import type { Case } from '$lib/types/resources/case';
 	import type { Paginated } from '$lib/services/api.service';
 
@@ -76,7 +76,7 @@
 	let closeToDate = $state('');
 
 	let customers = $state<Customer[]>([]);
-	let users = $state<User[]>([]);
+	let users = $state<MentionableUser[]>([]);
 
 	let loading = $state(false);
 	let envelope = $state<Paginated<Case> | null>(null);
@@ -473,18 +473,20 @@
 				customers = res.data.slice().sort((a, b) => a.customer_name.localeCompare(b.customer_name));
 			}
 		});
-		void UsersService.list().then((res) => {
-			// `/manage/users/list` returns the legacy wrapper
-			// `{ status, message, data: User[] }` — same shape the
-			// UserPicker handles. Reproduce that unwrap here so a future
-			// migration of the endpoint doesn't silently break the
-			// owner filter.
+		// `/users/mentionable` rather than `/manage/users`: this page is
+		// reachable with `manage_customers` / `manage_case_templates`, neither
+		// of which implies server_administrator, so the admin endpoint 403s and
+		// the owner filter renders with "Any" as its only option.
+		void UsersService.listMentionable().then((res) => {
+			// The endpoint wraps its payload as `{ data: MentionableUser[] }`;
+			// keep the array fallback so a future envelope change doesn't
+			// silently break the owner filter.
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const inner = (res?.data as any)?.data;
 			const list = Array.isArray(inner)
-				? (inner as User[])
+				? (inner as MentionableUser[])
 				: Array.isArray(res?.data)
-					? (res.data as User[])
+					? (res.data as MentionableUser[])
 					: [];
 			users = list.slice().sort((a, b) => a.user_name.localeCompare(b.user_name));
 		});

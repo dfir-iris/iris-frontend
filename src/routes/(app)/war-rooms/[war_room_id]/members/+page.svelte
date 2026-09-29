@@ -19,7 +19,7 @@
 		type WarRoomMember,
 		type WarRoomMemberRole
 	} from '$lib/services/war-rooms.service';
-	import { UsersService, type User } from '$lib/services/users.service';
+	import { UsersService, type MentionableUser } from '$lib/services/users.service';
 
 	const warRoomId = $derived(Number(page.params.war_room_id));
 
@@ -29,7 +29,7 @@
 	let addOpen = $state(false);
 	let adding = $state(false);
 	let userSearch = $state('');
-	let allUsers = $state<User[]>([]);
+	let allUsers = $state<MentionableUser[]>([]);
 	let selectedUserId = $state<number | null>(null);
 	let selectedRole = $state<WarRoomMemberRole>('responder');
 	// Access level: 2 = read_only, 4 = full_access.
@@ -44,10 +44,13 @@
 		loading = false;
 	};
 
+	// `/users/mentionable`, not `/manage/users` — war rooms are open to any
+	// authenticated user, so gating the "add member" candidate list behind
+	// server_administrator meant non-admins couldn't add anyone.
 	const loadUsers = async () => {
-		const res = await UsersService.list();
+		const res = await UsersService.listMentionable();
 		if (res.ok && res.data && typeof res.data !== 'string') {
-			const payload = res.data as { data?: User[] };
+			const payload = res.data as { data?: MentionableUser[] };
 			allUsers = Array.isArray(payload.data) ? payload.data : [];
 		}
 	};

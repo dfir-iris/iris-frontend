@@ -34,7 +34,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { toast } from '$lib/components/ui/toast';
 	import { WarRoomTasksService, type WarRoomTask } from '$lib/services/war-room-tasks.service';
-	import { UsersService, type User } from '$lib/services/users.service';
+	import { UsersService, type MentionableUser } from '$lib/services/users.service';
 	import { TaskStatusService } from '$lib/services/task-status.service';
 	import type { TaskStatus } from '$lib/types/resources/task';
 	import TaskKanbanBoard from '$lib/components/common/tasks/TaskKanbanBoard.svelte';
@@ -50,7 +50,7 @@
 	let childrenByParent = $state<Record<number, WarRoomTask[]>>({});
 	let loading = $state(true);
 	let loadingMore = $state(false);
-	let users = $state<User[]>([]);
+	let users = $state<MentionableUser[]>([]);
 	let statuses = $state<TaskStatus[]>([]);
 	let usedTags = $state<string[]>([]);
 
@@ -199,10 +199,13 @@
 		boardLoading = false;
 	};
 
+	// `/users/mentionable`, not `/manage/users` — war rooms are open to any
+	// authenticated user (`@ac_api_requires()` throughout), but the admin
+	// user list 403s for non-admins, which left the assignee picker empty.
 	const loadUsers = async () => {
-		const res = await UsersService.list();
+		const res = await UsersService.listMentionable();
 		if (res.ok && res.data && typeof res.data !== 'string') {
-			const payload = res.data as { data?: User[] };
+			const payload = res.data as { data?: MentionableUser[] };
 			users = Array.isArray(payload.data) ? payload.data : [];
 		}
 	};

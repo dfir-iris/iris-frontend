@@ -5,9 +5,9 @@
 		type SelectOption
 	} from '$lib/components/common/selects/SearchSelect.svelte';
 	import type { UserInfo } from '$lib/services/auth.service';
-	import { onMount } from 'svelte';
-	import { UsersService, type User } from '$lib/services/users.service';
-	import type { RequestResponse } from '$lib/services/api.service';
+	import { getContext } from 'svelte';
+	import { CaseService, type CaseAccessUserRow } from '$lib/services/case.service';
+	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 
 	export type MergeMode = 'new' | 'existing';
 
@@ -18,20 +18,28 @@
 
 	let { open = $bindable(), onConfirm }: Props = $props();
 
-	let users = $state<User[]>([]);
+	const cases = getContext<CasesContext>(CASES_CTX);
+
+	let users = $state<CaseAccessUserRow[]>([]);
 	let userId = $state('');
-	let selectedUser = $derived.by<User>(
-		() => users.find((user) => user.user_id === Number(userId)) as User
+	let selectedUser = $derived.by<CaseAccessUserRow>(
+		() => users.find((user) => user.user_id === Number(userId)) as CaseAccessUserRow
 	);
 
 	const reviewerOptions = $derived.by<SelectOption[]>(() =>
 		users.map((u) => ({ value: String(u.user_id), label: u.user_name }))
 	);
 
-	onMount(async () => {
-		const usersResponse = (await UsersService.list()).data as unknown as RequestResponse<User[]>;
-
-		users = usersResponse.data as User[];
+	// `/cases/{id}/access/users` rather than `/manage/users`: the latter is
+	// server_administrator-only, so an analyst with full access to the case
+	// would get a 403 and an empty reviewer list. Narrowed to full_access (4)
+	// by `listUsers` — a reviewer needs to be able to open the case.
+	$effect(() => {
+		const caseId = cases.currentCaseId();
+		if (!caseId) return;
+		void CaseService.listUsers(caseId).then((rows) => {
+			users = rows;
+		});
 	});
 
 	$effect(() => {
