@@ -371,8 +371,7 @@
 		const raw = alert.alert_source_event_time ?? alert.alert_creation_time;
 		if (!raw) return '';
 
-		const parsed = new Date(raw);
-		return Number.isNaN(parsed.getTime()) ? '' : mediumDateTimeFormatter(parsed);
+		return mediumDateTimeFormatter(raw);
 	};
 
 	const truncated = $derived(items.length < total);

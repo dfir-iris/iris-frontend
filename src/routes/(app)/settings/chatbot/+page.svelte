@@ -14,6 +14,7 @@
   a low-traffic surface; density beats polish here.
 -->
 <script lang="ts">
+	import { formatDateTime } from '$lib/utils/time-formatter';
 	import { onMount } from 'svelte';
 	import {
 		SparklesIcon,
@@ -1045,7 +1046,7 @@
 										</span>
 									</td>
 									<td class="px-3 py-2 text-muted-foreground">
-										{new Date(s.updated_at).toLocaleString()}
+										{formatDateTime(s.updated_at)}
 									</td>
 									<td class="px-3 py-2 text-right">
 										<button
@@ -1395,7 +1396,7 @@
 											<span>·</span>
 											<span>{turn.provider}/{turn.model}</span>
 											<span>·</span>
-											<span>{new Date(turn.created_at).toLocaleString()}</span>
+											<span>{formatDateTime(turn.created_at)}</span>
 											{#if turn.prompt_tokens != null}
 												<span>·</span>
 												<span>{turn.prompt_tokens.toLocaleString()} prompt tok</span>

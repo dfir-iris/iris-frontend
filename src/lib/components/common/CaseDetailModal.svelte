@@ -55,9 +55,7 @@
 
 	const formatDate = (value: string | null | undefined): string => {
 		if (!value) return '—';
-		const d = new Date(value);
-		if (Number.isNaN(d.getTime())) return value;
-		return mediumDateTimeFormatter(d);
+		return mediumDateTimeFormatter(value) || value;
 	};
 
 	const statusName = (state: string | null | undefined) =>

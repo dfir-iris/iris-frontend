@@ -16,6 +16,7 @@
   sufficient for tree rendering.
 -->
 <script lang="ts">
+	import { formatDayHeading } from '$lib/utils/time-formatter';
 	import type { WarRoomTimelineEvent } from '$lib/services/war-room-timelines.service';
 	import TimelineEventCard from './timeline-event-card.svelte';
 
@@ -65,28 +66,6 @@
 		onDelete,
 		canEdit = true
 	}: Props = $props();
-
-	const formatGroupDate = (raw: string) => {
-		const d = new Date(raw);
-		if (isNaN(d.getTime())) return raw;
-
-		const today = new Date();
-		const yesterday = new Date(today);
-		yesterday.setDate(today.getDate() - 1);
-
-		const isSameDay = (a: Date, b: Date) =>
-			a.getFullYear() === b.getFullYear() &&
-			a.getMonth() === b.getMonth() &&
-			a.getDate() === b.getDate();
-
-		const weekday = d.toLocaleDateString(undefined, { weekday: 'short' });
-		const monthDay = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-		const year = d.getFullYear() !== today.getFullYear() ? `, ${d.getFullYear()}` : '';
-
-		if (isSameDay(d, today)) return `Today · ${monthDay}${year}`;
-		if (isSameDay(d, yesterday)) return `Yesterday · ${monthDay}${year}`;
-		return `${weekday}, ${monthDay}${year}`;
-	};
 
 	// Tree mode: roots alternate sides of a central spine. Each root
 	// carries a stable side index across the full timeline (not per-group)
@@ -288,7 +267,7 @@
 				<div
 					class="sticky top-0 z-10 mx-auto mb-3 flex w-fit items-center gap-2 rounded-full border border-border bg-background/95 px-3 py-1 text-xs font-semibold backdrop-blur supports-[backdrop-filter]:bg-background/70"
 				>
-					{formatGroupDate(group.date)}
+					{formatDayHeading(group.date)}
 				</div>
 
 				<div class="space-y-3">
@@ -310,7 +289,7 @@
 					<div
 						class="rounded-full border border-border bg-muted px-3 py-0.5 text-xs font-semibold text-foreground"
 					>
-						{formatGroupDate(group.date)}
+						{formatDayHeading(group.date)}
 					</div>
 					<div class="h-px flex-1 bg-border dark:bg-slate-700"></div>
 				</div>

@@ -10,6 +10,7 @@
   to the full timeline (the topbar still routes there).
 -->
 <script lang="ts">
+	import { dayKey } from '$lib/utils/time-formatter';
 	import { setContext, getContext } from 'svelte';
 	import { page } from '$app/state';
 	import { ClockIcon, ArrowRightIcon, PlusIcon } from 'lucide-svelte';
@@ -134,7 +135,7 @@
 	const groups = $derived.by<TimelineGroup[]>(() => {
 		const m = new Map<string, CaseTimelineEvent[]>();
 		for (const e of rootEvents) {
-			const d = new Date(e.event_date).toLocaleDateString();
+			const d = dayKey(e.event_date);
 			m.set(d, [...(m.get(d) ?? []), e]);
 		}
 		return [...m.entries()].map(([date, evs]) => ({ date, events: evs }));

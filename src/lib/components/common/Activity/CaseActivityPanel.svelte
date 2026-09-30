@@ -13,6 +13,7 @@
   full access on the case, so it's hidden for read-only members.
 -->
 <script lang="ts">
+	import { formatDate, formatDateTime, parseServerDate } from '$lib/utils/time-formatter';
 	import { getContext, onDestroy, tick } from 'svelte';
 	import { ActivityIcon, PlusIcon, RefreshCwIcon, XIcon } from 'lucide-svelte';
 	import {
@@ -142,21 +143,18 @@
 		if (diff < 60) return `${diff}s ago`;
 		if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
 		if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-		return from.toLocaleDateString();
+		return formatDate(from);
 	};
 
 	const formatActivityDate = (raw: string | undefined): string => {
 		if (!raw) return '';
-		const d = new Date(raw);
-		if (Number.isNaN(d.getTime())) return raw;
-		return relativeTime(d, now);
+		const d = parseServerDate(raw);
+		return d ? relativeTime(d, now) : raw;
 	};
 
 	const absoluteTime = (raw: string | undefined): string => {
 		if (!raw) return '';
-		const d = new Date(raw);
-		if (Number.isNaN(d.getTime())) return raw;
-		return d.toLocaleString();
+		return formatDateTime(raw) || raw;
 	};
 
 	// React to panel open/close and case change. We poll while open and on

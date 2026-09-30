@@ -7,6 +7,7 @@
   APIs (no new backend) and inserts a markdown stub the chat renders.
 -->
 <script lang="ts">
+	import { formatDate, formatDateTime, parseServerDate } from '$lib/utils/time-formatter';
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { page } from '$app/state';
 	import {
@@ -1675,7 +1676,7 @@
 							`Event #${(e as { event_id: number }).event_id}`,
 						sub:
 							typeof (e as { event_date?: string }).event_date === 'string'
-								? new Date((e as { event_date: string }).event_date).toLocaleString()
+								? formatDateTime((e as { event_date: string }).event_date)
 								: undefined,
 						caseId
 					}));
@@ -1756,7 +1757,7 @@
 	const fmtTime = (iso: string | null) => {
 		if (!iso) return '';
 		try {
-			return new Date(iso).toLocaleString(undefined, {
+			return formatDateTime(iso, {
 				month: 'short',
 				day: '2-digit',
 				hour: '2-digit',
@@ -1828,8 +1829,8 @@
 		let _lastTs = 0;
 		let lastDate = '';
 		for (const m of visibleMessages) {
-			const ts = m.created_at ? new Date(m.created_at).getTime() : 0;
-			const date = m.created_at ? new Date(m.created_at).toLocaleDateString() : 'Unknown';
+			const ts = parseServerDate(m.created_at)?.getTime() ?? 0;
+			const date = m.created_at ? formatDate(m.created_at) : 'Unknown';
 			if (date !== lastDate) {
 				out.push({ key: `date-${date}-${m.message_id}`, date, rows: [] });
 				lastDate = date;

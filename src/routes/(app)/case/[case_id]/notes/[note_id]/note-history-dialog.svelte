@@ -271,7 +271,7 @@
 											{rev.user_name}
 										</div>
 										<div class="text-2xs text-muted-foreground">
-											{mediumDateTimeFormatter(new Date(rev.revision_timestamp))}
+											{mediumDateTimeFormatter(rev.revision_timestamp)}
 										</div>
 									</div>
 								</li>
@@ -297,7 +297,7 @@
 							<div class="text-sm font-semibold">{selectedRevision.note_title || 'Untitled'}</div>
 							<div class="text-2xs text-muted-foreground">
 								Revision {selectedRevision.revision_number} ·
-								{mediumDateTimeFormatter(new Date(selectedRevision.revision_timestamp))}
+								{mediumDateTimeFormatter(selectedRevision.revision_timestamp)}
 								· {selectedRevision.user_name}
 							</div>
 						{:else}

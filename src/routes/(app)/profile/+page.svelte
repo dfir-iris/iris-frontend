@@ -24,7 +24,8 @@
 		LockIcon,
 		MessageSquareOffIcon,
 		MessageSquareIcon,
-		ListFilterIcon
+		ListFilterIcon,
+		GlobeIcon
 	} from 'lucide-svelte';
 	import { setMode } from 'mode-watcher';
 	import { Button } from '$lib/components/ui/button';
@@ -51,6 +52,12 @@
 	import ChangePasswordDialog from './components/ChangePasswordDialog.svelte';
 	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 	import { demoLocksCredentials } from '$lib/services/user-context.service';
+	import {
+		TIMEZONE_BROWSER,
+		browserTimeZone,
+		timezone as displayTimezone
+	} from '$lib/stores/timezone.store.svelte';
+	import { formatDateTime, timeZoneLabel } from '$lib/utils/time-formatter';
 
 	const userCtx = getContext<UserCtx>(USER_CTX);
 	// Demo accounts are shared and their passwords are published, so a
@@ -328,6 +335,35 @@
 		}
 	};
 
+	// Every zone the browser's ICU knows, behind "Browser" and "UTC" —
+	// the two choices most people want.
+	const timezoneItems = [
+		{ value: TIMEZONE_BROWSER, label: `Browser (${browserTimeZone()})` },
+		{ value: 'UTC', label: 'UTC' },
+		...Intl.supportedValuesOf('timeZone')
+			.filter((zone) => zone !== 'UTC')
+			.map((zone) => ({ value: zone, label: zone.replaceAll('_', ' ') }))
+	];
+	let timezoneValue = $state(displayTimezone.preference);
+	// The user context may land after this page mounts.
+	$effect(() => {
+		timezoneValue = displayTimezone.preference;
+	});
+
+	const setTimezone = async (value: string) => {
+		// Picking the current entry again clears the select; put it back.
+		if (value === '' || value === displayTimezone.preference) {
+			timezoneValue = displayTimezone.preference;
+			return;
+		}
+		const previous = displayTimezone.preference;
+		await userCtx.setPreference('timezone', value);
+		if (displayTimezone.preference === previous) {
+			timezoneValue = previous;
+			toast({ title: 'Unsupported timezone', variant: 'destructive' });
+		}
+	};
+
 	const themeOptions = [
 		{ value: 'false', label: '☼ Light' },
 		{ value: 'true', label: '☾ Dark' }
@@ -556,6 +592,27 @@
 					<p class="text-2xs text-muted-foreground">
 						Applied when you open Alerts from the side bar. Links that already carry filters — a
 						bookmark, a shared URL, or the filter bar after you clear it — are left alone.
+					</p>
+				</div>
+
+				<div class="flex flex-col gap-2 md:col-span-2">
+					<Label class="flex items-center gap-1.5">
+						<GlobeIcon size={14} />
+						Timezone
+					</Label>
+					<SearchableSelect
+						items={timezoneItems}
+						bind:value={timezoneValue}
+						placeholder="Select a timezone"
+						searchPlaceholder="Search timezones..."
+						emptyMessage="No timezones found."
+						aria-label="Timezone"
+						onValueChange={setTimezone}
+					/>
+					<p class="text-2xs text-muted-foreground">
+						Every date and time in IRIS is shown in this timezone, and times you type are read in
+						it. Now: {formatDateTime(Date.now(), { dateStyle: 'medium', timeStyle: 'short' })}
+						({timeZoneLabel()}).
 					</p>
 				</div>
 			</Card.Content>

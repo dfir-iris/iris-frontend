@@ -20,7 +20,10 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import CompromiseStatusBadge from '$lib/components/ui/badge/compromise-status-badge.svelte';
-	import { mediumDateTimeFormatter } from '$lib/utils/time-formatter';
+	import {
+		formatDate as formatCalendarDay,
+		mediumDateTimeFormatter
+	} from '$lib/utils/time-formatter';
 	import type { AssetCriticality, ManagedAsset } from '$lib/types/resources/managed-asset';
 
 	type SortDir = 'asc' | 'desc';
@@ -80,17 +83,12 @@
 
 	const formatDate = (iso: string | null | undefined) => {
 		if (!iso) return '—';
-		const parsed = new Date(iso);
-		return Number.isNaN(parsed.getTime()) ? iso : mediumDateTimeFormatter(parsed);
+		return mediumDateTimeFormatter(iso) || iso;
 	};
 
 	// The compromise column is narrow, so the "since" line is date-only;
 	// the full timestamp stays in the tooltip.
-	const dayFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
-	const formatDay = (iso: string) => {
-		const parsed = new Date(iso);
-		return Number.isNaN(parsed.getTime()) ? iso : dayFormat.format(parsed);
-	};
+	const formatDay = (iso: string) => formatCalendarDay(iso, { dateStyle: 'medium' }) || iso;
 </script>
 
 <div class="rounded-md border">

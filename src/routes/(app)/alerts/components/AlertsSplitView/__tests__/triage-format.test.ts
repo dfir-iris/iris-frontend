@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
+import { timezone, TIMEZONE_BROWSER } from '$lib/stores/timezone.store.svelte';
 import type { Alert } from '$lib/types/resources/alert';
 import type { Asset } from '$lib/types/resources/asset';
 import type { Ioc } from '$lib/types/resources/ioc';
@@ -19,6 +20,7 @@ import {
 	observableFlag,
 	primaryTechnique,
 	rangeLabel,
+	relativeDate,
 	relationsLabel,
 	relationsSummary,
 	severityVar,
@@ -101,9 +103,18 @@ describe('isSpentStatus / titleVar', () => {
 });
 
 describe('clockTime', () => {
-	it('renders zero-padded local hours and minutes', () => {
-		const d = new Date(2026, 7, 31, 9, 4);
-		expect(clockTime(d.toISOString())).toBe('09:04');
+	afterEach(() => timezone.set(TIMEZONE_BROWSER));
+
+	it('renders zero-padded hours and minutes in the display timezone', () => {
+		timezone.set('UTC');
+		expect(clockTime('2026-08-31T09:04:00Z')).toBe('09:04');
+		timezone.set('Asia/Tokyo');
+		expect(clockTime('2026-08-31T09:04:00Z')).toBe('18:04');
+	});
+
+	it('reads offset-less backend times as UTC', () => {
+		timezone.set('Asia/Tokyo');
+		expect(clockTime('2026-08-31T09:04:00')).toBe('18:04');
 	});
 
 	it('is empty for missing or unparseable input', () => {
@@ -135,6 +146,35 @@ describe('ageLabel', () => {
 
 	it('is empty for missing input', () => {
 		expect(ageLabel(null, now)).toBe('');
+	});
+
+	it('reads offset-less backend times as UTC', () => {
+		expect(ageLabel('2026-08-31T09:45:00', now)).toBe('15m');
+	});
+});
+
+describe('relativeDate', () => {
+	const now = new Date('2026-08-31T10:00:00Z').getTime();
+
+	afterEach(() => timezone.set(TIMEZONE_BROWSER));
+
+	it('labels today and yesterday in the display timezone', () => {
+		timezone.set('UTC');
+		expect(relativeDate('2026-08-31T09:12:00Z', now)).toBe('Today 09:12');
+		expect(relativeDate('2026-08-30T23:30:00Z', now)).toBe('Yesterday 23:30');
+		// 23:30Z on the 30th is already the 31st in Tokyo.
+		timezone.set('Asia/Tokyo');
+		expect(relativeDate('2026-08-30T23:30:00Z', now)).toBe('Today 08:30');
+	});
+
+	it('counts days up to a week, then shows the date', () => {
+		timezone.set('UTC');
+		expect(relativeDate('2026-08-28T09:00:00Z', now)).toBe('3 days ago');
+		expect(relativeDate('2026-08-01T09:00:00Z', now)).toMatch(/09:00$/);
+	});
+
+	it('is empty for missing input', () => {
+		expect(relativeDate(null, now)).toBe('');
 	});
 });
 
@@ -330,7 +370,7 @@ describe('activityEntries', () => {
 
 	it('converts the unix-second key into a clock time', () => {
 		const [newest] = activityEntries(history, 1);
-		expect(newest.time).toBe(clockTime(new Date(1756633920 * 1000).toISOString()));
+		expect(newest.time).toBe(clockTime(1756633920 * 1000));
 	});
 
 	it('is empty for a missing or non-object history', () => {
@@ -343,7 +383,7 @@ describe('activityEntries', () => {
 		expect(activityEntries({ '1756633920': {} }, 1)).toEqual([
 			{
 				at: 1756633920000,
-				time: clockTime(new Date(1756633920 * 1000).toISOString()),
+				time: clockTime(1756633920 * 1000),
 				action: '',
 				verb: '',
 				changes: [],

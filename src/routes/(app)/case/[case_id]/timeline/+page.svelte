@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { dayKey } from '$lib/utils/time-formatter';
 	import { setContext, getContext } from 'svelte';
 	import { page } from '$app/state';
 	import type {
@@ -249,7 +250,7 @@
 		const groups = new Map<string, CaseTimelineEvent[]>();
 
 		for (const event of rootEvents) {
-			const date = new Date(event.event_date).toLocaleDateString();
+			const date = dayKey(event.event_date);
 
 			groups.set(date, [...(groups.get(date) ?? []), event]);
 		}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { mediumDateTimeFormatter } from '$lib/utils/time-formatter';
 	import type { Evidence, EvidenceType } from '$lib/types/resources/evidence';
 	import { EvidenceTypesService } from '$lib/services/evidence-types.service';
 	import MarkDownPreview from '$lib/components/common/MarkDown/MarkDownPreview.svelte';
@@ -72,7 +73,10 @@
 	<FactBar>
 		<Fact label="Type" value={evidence.type?.name} />
 		<Fact label="Size" value={formatSize(evidence.file_size)} />
-		<Fact label="Acquired" value={evidence.acquisition_date} />
+		<Fact
+			label="Acquired"
+			value={mediumDateTimeFormatter(evidence.acquisition_date) || undefined}
+		/>
 		<Fact label="Hash" value={evidence.file_hash} mono copyable />
 	</FactBar>
 

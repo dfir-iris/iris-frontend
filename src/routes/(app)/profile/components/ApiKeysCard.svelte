@@ -12,6 +12,7 @@
   We accept both raw integer input (for scripts) and the CSV form.
 -->
 <script lang="ts">
+	import { formatDateTime } from '$lib/utils/time-formatter';
 	import { onMount } from 'svelte';
 	import { KeyRoundIcon, PlusIcon, ShieldAlertIcon, Trash2Icon } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -182,7 +183,7 @@
 	const fmtDate = (iso: string | null): string => {
 		if (!iso) return '—';
 		try {
-			return new Date(iso).toLocaleString();
+			return formatDateTime(iso);
 		} catch {
 			return iso;
 		}

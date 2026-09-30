@@ -18,6 +18,7 @@
   past). We disable inputs + hide the vote/close buttons.
 -->
 <script lang="ts">
+	import { parseServerDate } from '$lib/utils/time-formatter';
 	import { onDestroy } from 'svelte';
 	import { BarChart3, Check, Clock, EyeOff, Loader2, Lock, Users } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -122,7 +123,7 @@
 		(): { label: string; tone: 'live' | 'warn' | 'closed' } | null => {
 			if (poll.is_closed) return { label: 'Closed', tone: 'closed' };
 			if (!poll.closes_at) return null;
-			const closesAt = new Date(poll.closes_at).getTime();
+			const closesAt = parseServerDate(poll.closes_at)?.getTime() ?? 0;
 			const diff = closesAt - now;
 			if (diff <= 0) return { label: 'Closing…', tone: 'warn' };
 			const mins = Math.floor(diff / 60_000);

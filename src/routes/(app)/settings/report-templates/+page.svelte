@@ -28,6 +28,7 @@
       report for a case they don't have access to.
 -->
 <script lang="ts">
+	import { formatDateTime } from '$lib/utils/time-formatter';
 	import { onMount } from 'svelte';
 	import {
 		DownloadIcon,
@@ -491,7 +492,7 @@
 
 	// ---------- Derived ----------
 	const editableFields = $derived<ReportTemplateField[]>(schema?.fields ?? []);
-	const formatDate = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '—');
+	const formatDate = (iso: string | null) => (iso ? formatDateTime(iso) : '—');
 </script>
 
 <svelte:head>

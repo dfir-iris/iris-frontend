@@ -21,6 +21,7 @@
   the top of the panel.
 -->
 <script lang="ts">
+	import { formatDateTime } from '$lib/utils/time-formatter';
 	import { getContext } from 'svelte';
 	import {
 		DatabaseIcon,
@@ -430,7 +431,7 @@
 								<p class="text-2xs text-muted-foreground">
 									{humanSize(f.size_bytes)}
 									{#if f.uploaded_at}
-										· {new Date(f.uploaded_at).toLocaleString()}
+										· {formatDateTime(f.uploaded_at)}
 									{/if}
 								</p>
 							</div>

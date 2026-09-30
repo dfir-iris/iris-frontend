@@ -15,6 +15,12 @@
 import type { Alert } from '$lib/types/resources/alert';
 import type { Asset } from '$lib/types/resources/asset';
 import type { Ioc } from '$lib/types/resources/ioc';
+import {
+	calendarDaysBetween,
+	formatDate,
+	formatTime,
+	parseServerDate
+} from '$lib/utils/time-formatter';
 
 const norm = (value: string | null | undefined): string => (value ?? '').toLowerCase().trim();
 
@@ -90,40 +96,29 @@ export const titleVar = (statusName: string | null | undefined, focused: boolean
 };
 
 /** `09:12` — clock time only (used in cluster rows, timeline keys). */
-export const clockTime = (iso: string | null | undefined): string => {
-	if (!iso) return '';
-	const d = new Date(iso);
-	if (Number.isNaN(d.getTime())) return '';
-	return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-};
+export const clockTime = (iso: string | number | null | undefined): string =>
+	formatTime(iso, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 
 /**
  * Relative date label for the queue row timestamp.
  * Returns "Today 09:12", "Yesterday 14:30", "2 days ago", "Apr 16 09:12", etc.
  * `now` is passed in (sampled on mount) so all rows stay consistent.
+ * Days are counted in the user's display timezone.
  */
 export const relativeDate = (iso: string | null | undefined, now: number = Date.now()): string => {
-	if (!iso) return '';
-	const d = new Date(iso);
-	if (Number.isNaN(d.getTime())) return '';
-	const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-	const todayStart = new Date(now);
-	todayStart.setHours(0, 0, 0, 0);
-	const diffDays = Math.floor(
-		(todayStart.getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) /
-			86_400_000
-	);
+	const time = clockTime(iso);
+	if (!time) return '';
+	const diffDays = calendarDaysBetween(iso, now);
 	if (diffDays === 0) return `Today ${time}`;
 	if (diffDays === 1) return `Yesterday ${time}`;
-	if (diffDays <= 6) return `${diffDays} days ago`;
-	return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + time;
+	if (diffDays > 1 && diffDays <= 6) return `${diffDays} days ago`;
+	return `${formatDate(iso, { month: 'short', day: 'numeric' })} ${time}`;
 };
 
 /** `4m` / `1h 12m` / `2d` — how long the alert has been waiting. */
 export const ageLabel = (iso: string | null | undefined, now: number = Date.now()): string => {
-	if (!iso) return '';
-	const t = new Date(iso).getTime();
-	if (Number.isNaN(t)) return '';
+	const t = parseServerDate(iso)?.getTime();
+	if (t === undefined) return '';
 	const minutes = Math.max(0, Math.floor((now - t) / 60_000));
 	if (minutes < 60) return `${minutes}m`;
 	const hours = Math.floor(minutes / 60);
@@ -140,9 +135,8 @@ export const AGE_CRITICAL_MINUTES = 15;
 export const AGE_WARNING_MINUTES = 45;
 
 export const ageVar = (iso: string | null | undefined, now: number = Date.now()): string => {
-	if (!iso) return 'var(--t-8)';
-	const t = new Date(iso).getTime();
-	if (Number.isNaN(t)) return 'var(--t-8)';
+	const t = parseServerDate(iso)?.getTime();
+	if (t === undefined) return 'var(--t-8)';
 	const minutes = Math.max(0, Math.floor((now - t) / 60_000));
 	if (minutes < AGE_CRITICAL_MINUTES) return 'var(--crit-t)';
 	if (minutes < AGE_WARNING_MINUTES) return 'var(--warn)';
@@ -438,7 +432,7 @@ export const activityEntries = (history: unknown, limit = 3): ActivityEntry[] =>
 			const { verb, changes } = parseAction(raw);
 			return {
 				at,
-				time: Number.isNaN(at) ? '' : clockTime(new Date(at).toISOString()),
+				time: clockTime(at),
 				action: raw,
 				verb,
 				changes,

@@ -5,6 +5,7 @@
   so it doesn't eat editor screen space when not needed.
 -->
 <script lang="ts">
+	import { formatTime } from '$lib/utils/time-formatter';
 	import { ChevronDownIcon, ChevronUpIcon, RefreshCwIcon } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
@@ -53,7 +54,7 @@
 			if (response.ok && response.data && typeof response.data !== 'string') {
 				widgets = response.data.widgets ?? [];
 				sections = response.data.sections ?? [];
-				lastRenderedAt = new Date().toLocaleTimeString();
+				lastRenderedAt = formatTime(Date.now());
 			} else {
 				error = response.error?.message ?? 'Render failed.';
 			}

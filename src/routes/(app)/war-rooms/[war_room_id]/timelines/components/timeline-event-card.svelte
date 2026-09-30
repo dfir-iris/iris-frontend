@@ -22,6 +22,7 @@
   back to the source case.
 -->
 <script lang="ts">
+	import { formatDateTime, formatTime } from '$lib/utils/time-formatter';
 	import {
 		ChevronDownIcon,
 		ChevronRightIcon,
@@ -102,18 +103,15 @@
 	const isProjected = $derived(event.war_room_source === 'case');
 	const editable = $derived(canEdit && !isProjected);
 
-	const eventDateObj = $derived(event.event_date ? new Date(event.event_date) : new Date(0));
 	const timeLabel = $derived(
-		event.event_date
-			? eventDateObj.toLocaleTimeString(undefined, {
-					hour: '2-digit',
-					minute: '2-digit',
-					second: '2-digit',
-					hour12: false
-				})
-			: '--:--:--'
+		formatTime(event.event_date, {
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit',
+			hourCycle: 'h23'
+		}) || '--:--:--'
 	);
-	const fullDateLabel = $derived(event.event_date ? eventDateObj.toLocaleString() : 'No date');
+	const fullDateLabel = $derived(formatDateTime(event.event_date) || 'No date');
 	const hasChildren = $derived(childCount > 0);
 	// Shared-event highlighting: numeric id match. Projected events
 	// use string ids and won't collide.

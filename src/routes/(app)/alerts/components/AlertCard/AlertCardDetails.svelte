@@ -144,7 +144,7 @@
 
 				<div class="text-muted-foreground">Source Event Time</div>
 				<div class="flex items-center gap-1">
-					{mediumDateTimeFormatter(new Date(alert.alert_source_event_time))}
+					{mediumDateTimeFormatter(alert.alert_source_event_time)}
 					<ClipboardCopy
 						value={alert.alert_source_event_time}
 						tooltipText="Copy"
@@ -155,7 +155,7 @@
 
 				<div class="text-muted-foreground">IRIS Creation Time</div>
 				<div class="flex items-center gap-1">
-					{mediumDateTimeFormatter(new Date(alert.alert_creation_time))}
+					{mediumDateTimeFormatter(alert.alert_creation_time)}
 					<ClipboardCopy
 						value={alert.alert_creation_time}
 						tooltipText="Copy"

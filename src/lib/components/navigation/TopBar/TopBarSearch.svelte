@@ -17,6 +17,7 @@
     • Press Ctrl/Cmd+/ to focus the input from anywhere, Esc to dismiss.
 -->
 <script lang="ts">
+	import { formatDateTime } from '$lib/utils/time-formatter';
 	import { getContext, onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page as pageStore } from '$app/state';
@@ -368,7 +369,7 @@
 				const r = row as EventRow;
 				return {
 					primary: r.event_title,
-					secondary: r.event_date ? new Date(r.event_date).toLocaleString() : null,
+					secondary: r.event_date ? formatDateTime(r.event_date) : null,
 					href: `/case/${r.case_id}/timeline?event_id=${r.event_id}`
 				};
 			}

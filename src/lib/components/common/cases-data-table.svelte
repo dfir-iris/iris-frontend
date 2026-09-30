@@ -97,9 +97,7 @@
 
 	const fmtDate = (raw: string | null | undefined): string => {
 		if (!raw) return '—';
-		const d = new Date(raw);
-		if (Number.isNaN(d.getTime())) return String(raw);
-		return mediumDateTimeFormatter(d);
+		return mediumDateTimeFormatter(raw) || String(raw);
 	};
 
 	const columns: ColumnDef<Case>[] = [

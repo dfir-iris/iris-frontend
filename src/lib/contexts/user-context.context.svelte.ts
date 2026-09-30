@@ -18,6 +18,7 @@ import {
 	type UserContext,
 	type UserPreferences
 } from '$lib/services/user-context.service';
+import { timezone } from '$lib/stores/timezone.store.svelte';
 
 export const USER_CTX = Symbol('user-context');
 
@@ -56,6 +57,7 @@ export const createUserContext = (): UserCtx => {
 					fresh.preferences = { has_mini_sidebar: false };
 				}
 				ctx = fresh;
+				timezone.set(fresh.preferences.timezone);
 			}
 			ready = true;
 			inflight = null;
@@ -67,6 +69,7 @@ export const createUserContext = (): UserCtx => {
 		key: K,
 		value: UserContext['preferences'][K]
 	): Promise<void> => {
+		if (key === 'timezone') timezone.set(value as string);
 		if (!ctx) {
 			// First-paint click before the bootstrap finished. Stash the
 			// requested value in a minimal stub so the UI flips

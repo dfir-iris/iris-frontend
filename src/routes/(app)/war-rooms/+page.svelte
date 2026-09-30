@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatDate } from '$lib/utils/time-formatter';
 	import { onMount, getContext } from 'svelte';
 	import { goto } from '$app/navigation';
 	import {
@@ -260,9 +261,9 @@
 				<div class="mt-auto flex items-center justify-between gap-3 text-2xs text-muted-foreground">
 					<span>
 						{#if isArchived && room.archived_at}
-							Archived {new Date(room.archived_at).toLocaleDateString()}
+							Archived {formatDate(room.archived_at)}
 						{:else if room.created_at}
-							Created {new Date(room.created_at).toLocaleDateString()}
+							Created {formatDate(room.created_at)}
 						{/if}
 					</span>
 					<!--

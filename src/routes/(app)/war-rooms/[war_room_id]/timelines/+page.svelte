@@ -1,4 +1,12 @@
 <script lang="ts">
+	import {
+		dayKey,
+		formatDateTime,
+		fromDateTimeInputValue,
+		parseServerDate,
+		toDateTimeInputValue,
+		toNaiveUtc
+	} from '$lib/utils/time-formatter';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { ListIcon, ListTreeIcon, Pencil, Plus, Search, Trash2, X } from 'lucide-svelte';
@@ -284,7 +292,7 @@
 		entryParentId = null;
 		entryTitle = '';
 		entryContent = '';
-		entryDate = new Date().toISOString().slice(0, 16);
+		entryDate = toDateTimeInputValue(Date.now());
 		entryCategory = '';
 		entryColor = '';
 		entryOpen = true;
@@ -309,7 +317,7 @@
 		entryParentId = parentEventId;
 		entryTitle = '';
 		entryContent = '';
-		entryDate = new Date().toISOString().slice(0, 16);
+		entryDate = toDateTimeInputValue(Date.now());
 		entryCategory = '';
 		entryColor = '';
 		entryOpen = true;
@@ -359,7 +367,7 @@
 		entryParentId = e.parent_id ?? null;
 		entryTitle = e.title ?? '';
 		entryContent = e.content ?? '';
-		entryDate = e.event_date ? e.event_date.slice(0, 16) : '';
+		entryDate = toDateTimeInputValue(e.event_date);
 		entryCategory = e.category ?? '';
 		entryColor = e.color ?? '';
 		entryOpen = true;
@@ -377,7 +385,7 @@
 			const res = await WarRoomTimelinesService.addEvent(warRoomId, entryTimelineId, {
 				title,
 				content: entryContent.trim() || null,
-				event_date: entryDate || null,
+				event_date: toNaiveUtc(fromDateTimeInputValue(entryDate)) ?? null,
 				category: entryCategory.trim() || null,
 				color: entryColor || null,
 				parent_id: entryParentId
@@ -397,7 +405,7 @@
 			const res = await WarRoomTimelinesService.updateEvent(warRoomId, entryEventId, {
 				title,
 				content: entryContent.trim() || null,
-				event_date: entryDate || null,
+				event_date: toNaiveUtc(fromDateTimeInputValue(entryDate)) ?? null,
 				category: entryCategory.trim() || null,
 				color: entryColor || null,
 				parent_id: entryParentId
@@ -552,7 +560,7 @@
 	const fmtDate = (iso: string | null) => {
 		if (!iso) return '';
 		try {
-			return new Date(iso).toLocaleString();
+			return formatDateTime(iso);
 		} catch {
 			return iso;
 		}
@@ -587,8 +595,8 @@
 	const filteredEvents = $derived.by(() => {
 		const needle = filterText.trim().toLowerCase();
 		const cat = filterCategory.trim().toLowerCase();
-		const from = filterFrom ? new Date(filterFrom).getTime() : null;
-		const to = filterTo ? new Date(filterTo).getTime() : null;
+		const from = fromDateTimeInputValue(filterFrom)?.getTime() ?? null;
+		const to = fromDateTimeInputValue(filterTo)?.getTime() ?? null;
 		return events.filter((e) => {
 			if (needle) {
 				const hay = (
@@ -604,7 +612,7 @@
 				if (!e.category || !e.category.toLowerCase().includes(cat)) return false;
 			}
 			if (from != null || to != null) {
-				const ts = e.event_date ? new Date(e.event_date).getTime() : NaN;
+				const ts = parseServerDate(e.event_date)?.getTime() ?? NaN;
 				if (Number.isNaN(ts)) return false;
 				if (from != null && ts < from) return false;
 				if (to != null && ts > to) return false;
@@ -632,7 +640,7 @@
 		);
 		const groups = new Map<string, WarRoomTimelineEvent[]>();
 		for (const e of roots) {
-			const day = e.event_date ? e.event_date.slice(0, 10) : '';
+			const day = e.event_date ? dayKey(e.event_date) : '';
 			const bucket = groups.get(day);
 			if (bucket) bucket.push(e);
 			else groups.set(day, [e]);

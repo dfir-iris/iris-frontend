@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatDate } from '$lib/utils/time-formatter';
 	import { onMount, untrack } from 'svelte';
 	import { page } from '$app/state';
 	import {
@@ -1143,7 +1144,7 @@
 		</div>
 		{#if t.due_at}
 			<span class="shrink-0 text-2xs text-muted-foreground">
-				Due {new Date(t.due_at).toLocaleDateString()}
+				Due {formatDate(t.due_at.slice(0, 10))}
 			</span>
 		{/if}
 		{#if !t.closed_at}
@@ -1238,7 +1239,7 @@
 		</div>
 		{#if t.due_at}
 			<span class="shrink-0 text-2xs text-muted-foreground">
-				Due {new Date(t.due_at).toLocaleDateString()}
+				Due {formatDate(t.due_at.slice(0, 10))}
 			</span>
 		{/if}
 		<Button
@@ -1298,7 +1299,7 @@
 			<span class="italic">Unassigned</span>
 		{/if}
 		{#if t.due_at}
-			<span class="ml-auto shrink-0">Due {new Date(t.due_at).toLocaleDateString()}</span>
+			<span class="ml-auto shrink-0">Due {formatDate(t.due_at.slice(0, 10))}</span>
 		{/if}
 	</div>
 {/snippet}

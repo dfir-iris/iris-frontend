@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatDateTime } from '$lib/utils/time-formatter';
 	/**
 	 * Split triage cockpit — the central workspace of design 1a.
 	 *
@@ -1739,7 +1740,7 @@
 										<div class="tl-row">
 											<div class="tl-left">
 												<span class="tl-time"
-													>{new Date(entry.at).toLocaleString(undefined, {
+													>{formatDateTime(entry.at, {
 														month: 'short',
 														day: 'numeric',
 														hour: '2-digit',

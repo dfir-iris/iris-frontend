@@ -13,6 +13,7 @@
   container. This is a self-contained, tiny surface.
 -->
 <script lang="ts">
+	import { formatDateTime } from '$lib/utils/time-formatter';
 	import { onMount } from 'svelte';
 	import { CheckIcon, PencilIcon, Trash2Icon, XIcon } from 'lucide-svelte';
 	import type { ChatConversation } from '$lib/services/chat.service';
@@ -114,12 +115,7 @@
 	}
 
 	function formatDate(iso: string): string {
-		try {
-			const d = new Date(iso);
-			return d.toLocaleString();
-		} catch {
-			return iso;
-		}
+		return formatDateTime(iso) || iso;
 	}
 </script>
 

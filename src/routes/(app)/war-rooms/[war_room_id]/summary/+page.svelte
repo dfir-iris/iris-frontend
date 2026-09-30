@@ -7,6 +7,7 @@
   `business/collab.flush_to_source`).
 -->
 <script lang="ts">
+	import { formatDate, formatTime } from '$lib/utils/time-formatter';
 	import { getContext, onDestroy, onMount } from 'svelte';
 	import {
 		CheckCircle2Icon,
@@ -114,11 +115,11 @@
 		if (diff < 60) return `${diff}s ago`;
 		if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
 		if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-		return from.toLocaleDateString();
+		return formatDate(from);
 	};
 
 	const lastSyncedRelative = $derived(relativeTime(loadedTime, now));
-	const lastSyncedAbsolute = $derived(loadedTime.toLocaleTimeString());
+	const lastSyncedAbsolute = $derived(formatTime(loadedTime));
 
 	let tickHandle: ReturnType<typeof setInterval> | null = null;
 	onMount(() => {

@@ -12,6 +12,7 @@
   from the parent so it can render immediately without an extra fetch.
 -->
 <script lang="ts">
+	import { formatDateTime } from '$lib/utils/time-formatter';
 	import { tick } from 'svelte';
 	import {
 		AlertCircle,
@@ -324,7 +325,7 @@
 							`Event #${(e as { event_id: number }).event_id}`,
 						sub:
 							typeof (e as { event_date?: string }).event_date === 'string'
-								? new Date((e as { event_date: string }).event_date).toLocaleString()
+								? formatDateTime((e as { event_date: string }).event_date)
 								: undefined,
 						caseId
 					}));
@@ -434,7 +435,7 @@
 	const fmtTime = (iso: string | null) => {
 		if (!iso) return '';
 		try {
-			return new Date(iso).toLocaleString(undefined, {
+			return formatDateTime(iso, {
 				month: 'short',
 				day: '2-digit',
 				hour: '2-digit',

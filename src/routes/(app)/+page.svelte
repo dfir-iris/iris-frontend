@@ -12,6 +12,7 @@
   immediately, no tab switching required.
 -->
 <script lang="ts">
+	import { formatDate, parseServerDate, zonedDateTime } from '$lib/utils/time-formatter';
 	import { getContext } from 'svelte';
 	import {
 		ActivityIcon,
@@ -158,7 +159,7 @@
 	const firstName = $derived(($current_user?.user_name ?? '').split(/[\s,]/)[0] || 'investigator');
 
 	const greeting = (): string => {
-		const h = new Date().getHours();
+		const h = zonedDateTime(Date.now())?.hour ?? 12;
 		if (h < 5) return 'Working late';
 		if (h < 12) return 'Good morning';
 		if (h < 18) return 'Good afternoon';
@@ -559,8 +560,8 @@
 
 	const formatRelative = (iso: string | null | undefined): string => {
 		if (!iso) return '—';
-		const d = new Date(iso);
-		if (Number.isNaN(d.getTime())) return '—';
+		const d = parseServerDate(iso);
+		if (!d) return '—';
 		const diff = Math.max(0, Date.now() - d.getTime());
 		const mins = Math.floor(diff / 60_000);
 		if (mins < 1) return 'just now';
@@ -569,7 +570,7 @@
 		if (hours < 24) return `${hours}h ago`;
 		const days = Math.floor(hours / 24);
 		if (days < 7) return `${days}d ago`;
-		return d.toLocaleDateString();
+		return formatDate(d);
 	};
 
 	const stripCaseIdPrefix = (name: string): string => {

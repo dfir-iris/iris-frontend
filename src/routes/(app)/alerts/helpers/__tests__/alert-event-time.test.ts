@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { alertEventTimeForApi } from '../alert-event-time';
+import { timezone, TIMEZONE_BROWSER } from '$lib/stores/timezone.store.svelte';
 
 describe('alertEventTimeForApi', () => {
 	it('omits the value when the field is left empty', () => {
@@ -37,4 +38,11 @@ describe('alertEventTimeForApi', () => {
 		// The server reads it as UTC, which is how it was written.
 		expect(new Date(`${sent}Z`).getTime()).toBe(new Date(local).getTime());
 	});
+
+	it('reads the picked wall clock in the display timezone', () => {
+		timezone.set('Asia/Tokyo');
+		expect(alertEventTimeForApi('2026-09-03T14:30')).toBe('2026-09-03T05:30:00');
+	});
+
+	afterEach(() => timezone.set(TIMEZONE_BROWSER));
 });

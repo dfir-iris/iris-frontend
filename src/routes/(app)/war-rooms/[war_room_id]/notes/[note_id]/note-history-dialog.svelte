@@ -240,7 +240,7 @@
 										</div>
 										{#if rev.revised_at}
 											<div class="text-2xs text-muted-foreground">
-												{mediumDateTimeFormatter(new Date(rev.revised_at))}
+												{mediumDateTimeFormatter(rev.revised_at)}
 											</div>
 										{/if}
 									</div>
@@ -265,7 +265,7 @@
 							<div class="text-2xs text-muted-foreground">
 								Revision {selectedRevision.revision_number}
 								{#if selectedRevision.revised_at}
-									· {mediumDateTimeFormatter(new Date(selectedRevision.revised_at))}
+									· {mediumDateTimeFormatter(selectedRevision.revised_at)}
 								{/if}
 							</div>
 						{:else}

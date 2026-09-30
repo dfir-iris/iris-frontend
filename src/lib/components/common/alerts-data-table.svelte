@@ -79,10 +79,7 @@
 		{
 			accessorKey: 'alert_source_event_time',
 			header: () => 'Event Time',
-			cell: (cell) => {
-				const asDate = new Date(`${cell.getValue()}`);
-				return mediumDateTimeFormatter(asDate);
-			}
+			cell: (cell) => mediumDateTimeFormatter(cell.getValue() as string)
 		},
 		{
 			accessorKey: 'customer.customer_name',

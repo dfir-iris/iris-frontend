@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatDate } from '$lib/utils/time-formatter';
 	import { getContext } from 'svelte';
 	import {
 		Activity,
@@ -217,7 +218,7 @@
 		status = stateName as CaseStatus;
 		isClosed = stateName === 'Closed';
 
-		formattedDate = new Date(caseData?.open_date as string).toLocaleDateString();
+		formattedDate = formatDate(caseData?.open_date as string);
 
 		if (isClosed) {
 			icon = CLOSED_ICON;

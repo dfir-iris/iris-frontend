@@ -8,7 +8,7 @@
 	import { isLoadingTasksStore } from '$lib/stores/tasks.store';
 	import { cellRendererFactory } from '$lib/components/ui/data-table/cell-renderer-factory';
 	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
-	import { TimeFormatter } from '$lib/utils/time-formatter';
+	import { mediumDateTimeFormatter } from '$lib/utils/time-formatter';
 	import CellTitle from '$lib/components/ui/data-table/cell-title.svelte';
 	let columnDefs = [
 		{
@@ -38,13 +38,7 @@
 			headerName: 'Opening Date',
 			sortable: true,
 			filter: true,
-			valueFormatter: (params: any) => {
-				return TimeFormatter.format(params.value, {
-					timezone: 'Europe/Paris',
-					format: 'medium',
-					locale: 'fr-FR'
-				});
-			}
+			valueFormatter: (params: any) => mediumDateTimeFormatter(params.value)
 		},
 		{
 			field: 'case.case_name',

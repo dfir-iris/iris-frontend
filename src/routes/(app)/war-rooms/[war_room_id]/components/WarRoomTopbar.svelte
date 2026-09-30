@@ -16,6 +16,7 @@
   multiple alert clusters can tell at a glance which workspace they're in.
 -->
 <script lang="ts">
+	import { formatDate } from '$lib/utils/time-formatter';
 	import { getContext, tick } from 'svelte';
 	import {
 		AlertOctagon,
@@ -109,7 +110,7 @@
 	const fmtDate = (iso: string | null | undefined) => {
 		if (!iso) return null;
 		try {
-			return new Date(iso).toLocaleDateString(undefined, {
+			return formatDate(iso, {
 				month: 'short',
 				day: '2-digit',
 				year: 'numeric'

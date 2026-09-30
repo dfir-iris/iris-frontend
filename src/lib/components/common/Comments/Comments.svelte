@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatDate, formatTime } from '$lib/utils/time-formatter';
 	import { SquarePenIcon, Trash2Icon } from 'lucide-svelte';
 	import type { Comment } from '$lib/services/comments.service';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
@@ -36,8 +37,8 @@
 					<span class="text-2xs font-medium text-foreground">{comment.user.user_name}</span>
 
 					<span class="text-2xs text-muted-foreground">
-						{new Date(comment.comment_date).toLocaleDateString()}
-						{new Date(comment.comment_date).toLocaleTimeString([], {
+						{formatDate(comment.comment_date)}
+						{formatTime(comment.comment_date, {
 							hour: '2-digit',
 							minute: '2-digit'
 						})}

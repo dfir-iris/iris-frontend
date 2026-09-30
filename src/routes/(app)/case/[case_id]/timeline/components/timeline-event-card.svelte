@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatDateTime, formatTime } from '$lib/utils/time-formatter';
 	import {
 		ChevronDownIcon,
 		ChevronRightIcon,
@@ -79,16 +80,15 @@
 		canEdit = true
 	}: Props = $props();
 
-	const eventDateObj = $derived(new Date(event.event_date));
 	const timeLabel = $derived(
-		eventDateObj.toLocaleTimeString(undefined, {
+		formatTime(event.event_date, {
 			hour: '2-digit',
 			minute: '2-digit',
 			second: '2-digit',
-			hour12: false
+			hourCycle: 'h23'
 		})
 	);
-	const fullDateLabel = $derived(eventDateObj.toLocaleString());
+	const fullDateLabel = $derived(formatDateTime(event.event_date));
 	const hasChildren = $derived(childCount > 0);
 	const isShared = $derived(event.event_id === getSharedEventId());
 

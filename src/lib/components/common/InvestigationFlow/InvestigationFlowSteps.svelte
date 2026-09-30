@@ -16,6 +16,7 @@
   metadata we don't want to fabricate.
 -->
 <script lang="ts">
+	import { formatDateTime } from '$lib/utils/time-formatter';
 	import { CheckCircle2Icon, CircleIcon, PencilLineIcon } from 'lucide-svelte';
 	import { InvestigationFlowsService } from '$lib/services/investigation-flows.service';
 	import type { AlertInvestigationOverview } from '$lib/types/resources/investigation-flow';
@@ -243,7 +244,7 @@
 											{progress?.completed_by?.user_name ?? 'unknown'}
 										</span>
 										·
-										{new Date(progress?.completed_at ?? '').toLocaleString()}
+										{formatDateTime(progress?.completed_at ?? '')}
 									</span>
 									{#if !editingNote}
 										<Button

@@ -9,6 +9,11 @@
   shared modal.
 -->
 <script lang="ts">
+	import {
+		formatDateTime,
+		fromDateTimeInputValue,
+		toDateTimeInputValue
+	} from '$lib/utils/time-formatter';
 	import { onMount } from 'svelte';
 	import {
 		AlertTriangleIcon,
@@ -89,25 +94,14 @@
 
 	onMount(() => refresh());
 
-	// ISO → `datetime-local` value. `datetime-local` wants YYYY-MM-DDTHH:mm
-	// in local time, no timezone suffix. Slicing the toISOString would be
-	// UTC, which is misleading — use the browser's local offset instead.
+	// ISO ↔ `datetime-local` value, read and written in the user's
+	// display timezone like every other date in the UI.
 	function isoToLocalInput(iso: string | null): string {
-		if (!iso) return '';
-		const d = new Date(iso);
-		if (Number.isNaN(d.getTime())) return '';
-		const pad = (n: number) => String(n).padStart(2, '0');
-		return (
-			`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
-			`T${pad(d.getHours())}:${pad(d.getMinutes())}`
-		);
+		return toDateTimeInputValue(iso);
 	}
 
 	function localInputToIso(v: string): string | null {
-		if (!v) return null;
-		const d = new Date(v);
-		if (Number.isNaN(d.getTime())) return null;
-		return d.toISOString();
+		return fromDateTimeInputValue(v)?.toISOString() ?? null;
 	}
 
 	function openAdd() {
@@ -196,7 +190,7 @@
 	}
 
 	function formatTimespan(b: Banner): string {
-		const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '—');
+		const fmt = (iso: string | null) => (iso ? formatDateTime(iso) : '—');
 		if (!b.start_at && !b.end_at) return 'Always active';
 		return `${fmt(b.start_at)} → ${fmt(b.end_at)}`;
 	}

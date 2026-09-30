@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatDateTime, parseServerDate } from '$lib/utils/time-formatter';
 	import * as Icons from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
@@ -116,7 +117,7 @@
 									<Tooltip.Root delayDuration={0}>
 										<Tooltip.Trigger class="flex items-center gap-1">
 											<Icons.AlarmClock size="16" />
-											<span>{new Date(alert.alert_source_event_time).toLocaleString()}</span>
+											<span>{formatDateTime(alert.alert_source_event_time)}</span>
 										</Tooltip.Trigger>
 										<Tooltip.Content>Alert source event date</Tooltip.Content>
 									</Tooltip.Root>
@@ -124,7 +125,7 @@
 									<Tooltip.Root delayDuration={0}>
 										<Tooltip.Trigger class="flex items-center gap-1">
 											<Icons.Calendar size="16" />
-											<span>{new Date(alert.alert_creation_time).toLocaleString()}</span>
+											<span>{formatDateTime(alert.alert_creation_time)}</span>
 										</Tooltip.Trigger>
 										<Tooltip.Content>Alert creation date</Tooltip.Content>
 									</Tooltip.Root>
@@ -197,8 +198,8 @@
 					</div>
 					<div class="flex flex-row items-center border-t bg-muted/50 px-6 py-3">
 						<div class="text-xs text-muted-foreground">
-							Updated <time dateTime={new Date(alert.alert_creation_time).toISOString()}
-								>{new Date(alert.alert_creation_time).toLocaleString()}</time
+							Updated <time dateTime={parseServerDate(alert.alert_creation_time)?.toISOString()}
+								>{formatDateTime(alert.alert_creation_time)}</time
 							>
 						</div>
 						<div class="ml-auto flex items-center gap-2">

@@ -148,7 +148,7 @@
 					<div class="flex items-center gap-1 text-xs text-muted-foreground">
 						<CalendarIcon size="12" />
 
-						{mediumDateTimeFormatter(new Date(alert.alert_source_event_time))}
+						{mediumDateTimeFormatter(alert.alert_source_event_time)}
 					</div>
 				</TooltipTrigger>
 

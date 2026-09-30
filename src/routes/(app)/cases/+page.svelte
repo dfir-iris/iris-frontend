@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { dayKey, formatDateTime, parseServerDate } from '$lib/utils/time-formatter';
 	import {
 		CheckIcon,
 		ChevronLeftIcon,
@@ -165,10 +166,7 @@
 
 	// `open_date <= cutoff` is a plain SQL comparison server-side, so a
 	// YYYY-MM-DD bound is enough to mean "opened more than 7 days ago".
-	const staleCutoff = (): string => {
-		const d = new Date(Date.now() - STALE_DAYS * 86_400_000);
-		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-	};
+	const staleCutoff = (): string => dayKey(Date.now() - STALE_DAYS * 86_400_000);
 
 	const loadKpis = async () => {
 		const criticalId = severitiesRaw.find(
@@ -670,9 +668,8 @@
 	};
 
 	const ageDays = (iso: string | null | undefined): number => {
-		if (!iso) return 0;
-		const t = new Date(iso).getTime();
-		if (Number.isNaN(t)) return 0;
+		const t = parseServerDate(iso)?.getTime();
+		if (t === undefined) return 0;
 		return Math.floor((Date.now() - t) / 86_400_000);
 	};
 
@@ -731,9 +728,7 @@
 				.filter((n) => Number.isFinite(n) && n > 0);
 			if (stamps.length > 0) return Math.max(...stamps) * 1000;
 		}
-		if (!c?.open_date) return null;
-		const t = new Date(c.open_date).getTime();
-		return Number.isNaN(t) ? null : t;
+		return parseServerDate(c?.open_date)?.getTime() ?? null;
 	};
 
 	const idleDays = (c: Case | null): number | null => {
@@ -749,16 +744,15 @@
 	};
 
 	const formatDate = (iso: string | null | undefined): string => {
-		if (!iso) return '—';
-		const d = new Date(iso);
-		if (Number.isNaN(d.getTime())) return '—';
-		return d.toLocaleString(undefined, {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
+		return (
+			formatDateTime(iso, {
+				year: 'numeric',
+				month: 'short',
+				day: 'numeric',
+				hour: '2-digit',
+				minute: '2-digit'
+			}) || '—'
+		);
 	};
 
 	const stripCaseIdPrefix = (name: string | null | undefined): string => {

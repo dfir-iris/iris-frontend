@@ -313,8 +313,7 @@
 
 	const formatDate = (iso: string | null) => {
 		if (!iso) return '—';
-		const d = new Date(iso);
-		return Number.isNaN(d.getTime()) ? iso : mediumDateTimeFormatter(d);
+		return mediumDateTimeFormatter(iso) || iso;
 	};
 
 	const range = $derived.by(() => {

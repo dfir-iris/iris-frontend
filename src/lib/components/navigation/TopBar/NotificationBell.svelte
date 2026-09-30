@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { parseServerDate } from '$lib/utils/time-formatter';
 	// Top-bar bell dropdown.
 	//
 	// Renders a bell icon with an unread count badge, and a popover
@@ -72,8 +73,8 @@
 	}
 
 	function relTime(iso: string | null): string {
-		if (!iso) return '';
-		const then = new Date(iso).getTime();
+		const then = parseServerDate(iso)?.getTime();
+		if (then === undefined) return '';
 		const diff = Math.max(0, Date.now() - then);
 		const s = Math.floor(diff / 1000);
 		if (s < 60) return 'just now';

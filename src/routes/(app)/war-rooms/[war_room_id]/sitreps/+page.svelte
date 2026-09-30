@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatDate, formatDateTime } from '$lib/utils/time-formatter';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { Plus, Trash2, Download, Send, FileText, FileLock } from 'lucide-svelte';
@@ -253,7 +254,7 @@
 									<p class="text-2xs text-muted-foreground">
 										v{s.version} · {s.published ? 'Published' : 'Draft'}
 										{#if s.authored_at}
-											· {new Date(s.authored_at).toLocaleDateString()}
+											· {formatDate(s.authored_at)}
 										{/if}
 									</p>
 								</div>
@@ -298,7 +299,7 @@
 						v{detail.version} ·
 						{detail.published ? 'Published' : 'Draft'}
 						{#if detail.authored_at}
-							· {new Date(detail.authored_at).toLocaleString()}
+							· {formatDateTime(detail.authored_at)}
 						{/if}
 					</p>
 				</div>

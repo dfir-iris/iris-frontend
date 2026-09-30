@@ -12,6 +12,7 @@
       workspace-level provider.
 -->
 <script lang="ts">
+	import { formatDateTime } from '$lib/utils/time-formatter';
 	import {
 		CheckCircle2Icon,
 		CheckSquareIcon,
@@ -215,7 +216,7 @@
 											{progress?.completed_by?.user_name ?? 'unknown'}
 										</span>
 										·
-										{new Date(progress?.completed_at ?? '').toLocaleString()}
+										{formatDateTime(progress?.completed_at ?? '')}
 									</span>
 									{#if !editingNote}
 										<Button

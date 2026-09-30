@@ -52,8 +52,7 @@
 
 	const formatDate = (iso: string | null | undefined) => {
 		if (!iso) return '—';
-		const parsed = new Date(iso);
-		return Number.isNaN(parsed.getTime()) ? iso : mediumDateTimeFormatter(parsed);
+		return mediumDateTimeFormatter(iso) || iso;
 	};
 
 	// `event_color` is operator-supplied (it comes straight from the case

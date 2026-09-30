@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatDateTime, timeZoneLabel } from '$lib/utils/time-formatter';
 	import { page } from '$app/state';
 	import { current_user, username } from '$lib/stores/auth.store';
 	import { mode, toggleMode } from 'mode-watcher';
@@ -42,7 +43,7 @@
 			<div class="flex w-full flex-col items-start justify-center">
 				<span class="text-[13px] font-semibold text-foreground">{$username}</span>
 				<span class="whitespace-nowrap text-2xs font-normal text-muted-foreground"
-					>{new Date().toLocaleString()}</span
+					>{formatDateTime(Date.now())} {timeZoneLabel()}</span
 				>
 			</div>
 		</div>

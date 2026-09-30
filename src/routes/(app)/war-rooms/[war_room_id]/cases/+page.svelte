@@ -10,6 +10,7 @@
       inspect a case without leaving the war-room workspace.
 -->
 <script lang="ts">
+	import { formatDate } from '$lib/utils/time-formatter';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import {
@@ -203,7 +204,7 @@
 	const fmtDate = (iso: string | null) => {
 		if (!iso) return null;
 		try {
-			return new Date(iso).toLocaleDateString(undefined, {
+			return formatDate(iso, {
 				month: 'short',
 				day: '2-digit',
 				year: 'numeric'

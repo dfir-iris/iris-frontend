@@ -6,6 +6,7 @@
   as a toast.
 -->
 <script lang="ts">
+	import { mediumDateTimeFormatter } from '$lib/utils/time-formatter';
 	import { goto } from '$app/navigation';
 	import {
 		PlusIcon,
@@ -118,17 +119,7 @@
 	}
 
 	function formatUpdated(iso: string | null | undefined): string {
-		if (!iso) return '—';
-		try {
-			const d = new Date(iso);
-			if (Number.isNaN(d.getTime())) return '—';
-			return d.toLocaleString(undefined, {
-				dateStyle: 'medium',
-				timeStyle: 'short'
-			});
-		} catch {
-			return '—';
-		}
+		return mediumDateTimeFormatter(iso) || '—';
 	}
 
 	// Deterministic pastel accent per dashboard so the grid gets some

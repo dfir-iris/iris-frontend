@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatDateTime } from '$lib/utils/time-formatter';
 	import { alertsStore } from '$lib/stores/alerts.store';
 	import { cn } from '$lib/utils.js';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
@@ -37,7 +38,7 @@
 									: 'text-muted-foreground'
 							)}
 						>
-							{new Date(item.alert_source_event_time).toLocaleString()}
+							{formatDateTime(item.alert_source_event_time)}
 						</div>
 					</div>
 					<div class="text-xs font-medium">{item.alert_description}</div>

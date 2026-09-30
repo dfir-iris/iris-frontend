@@ -441,7 +441,7 @@
 									</td>
 
 									<td class="px-4 py-3 text-xs text-muted-foreground">
-										{mediumDateTimeFormatter(new Date(inc.cluster_creation_time))}
+										{mediumDateTimeFormatter(inc.cluster_creation_time)}
 									</td>
 								</tr>
 							{/each}

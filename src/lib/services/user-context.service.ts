@@ -57,6 +57,8 @@ export type PermissionName = keyof typeof Permission;
 
 export interface UserPreferences {
 	has_mini_sidebar: boolean;
+	/** Display timezone: `browser` or an IANA name. Absent on older backends. */
+	timezone?: string;
 }
 
 export interface UserContext {

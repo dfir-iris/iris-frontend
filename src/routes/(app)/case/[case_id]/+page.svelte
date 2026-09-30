@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatDate, formatTime, parseServerDate } from '$lib/utils/time-formatter';
 	import { getContext, onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import {
@@ -118,11 +119,11 @@
 		if (diff < 60) return `${diff}s ago`;
 		if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
 		if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-		return from.toLocaleDateString();
+		return formatDate(from);
 	};
 
 	const lastSyncedRelative = $derived(relativeTime(loadedTime, now));
-	const lastSyncedAbsolute = $derived(loadedTime.toLocaleTimeString());
+	const lastSyncedAbsolute = $derived(formatTime(loadedTime));
 
 	// People who have done something in this case, sourced from
 	// `GET /api/v2/cases/{id}/activities` (40 most recent rows).
@@ -234,7 +235,7 @@
 			const name = (row.user_name ?? row.name ?? '').trim();
 			if (!name) continue;
 
-			const seenAt = row.activity_date ? new Date(row.activity_date) : null;
+			const seenAt = parseServerDate(row.activity_date);
 			const userId = row.user_id ?? null;
 			const existing = map.get(name);
 			if (existing) {

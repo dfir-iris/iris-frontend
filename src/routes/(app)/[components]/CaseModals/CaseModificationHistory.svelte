@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatDateTime } from '$lib/utils/time-formatter';
 	import { HistoryIcon } from 'lucide-svelte';
 	import { getContext } from 'svelte';
 	import type { Case } from '$lib/types/resources/case';
@@ -26,7 +27,7 @@
 				{#each Object.keys(currentCase.modification_history as object) as modification}
 					<li class="text-nowrap text-xs">
 						<span class="text-pink-500">
-							{new Date(parseInt(modification) * 1000).toLocaleString()}
+							{formatDateTime(parseInt(modification) * 1000)}
 						</span>
 
 						-

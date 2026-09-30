@@ -1,5 +1,10 @@
 <script lang="ts">
 	import {
+		fromDateTimeInputValue,
+		toDateTimeInputValue,
+		toNaiveUtc
+	} from '$lib/utils/time-formatter';
+	import {
 		FileLock2Icon,
 		FileTextIcon,
 		HashIcon,
@@ -129,9 +134,13 @@
 
 						<Input
 							type="datetime-local"
-							value={formData.acquisition_date ?? ''}
+							value={toDateTimeInputValue(formData.acquisition_date, true)}
 							oninput={(e) =>
-								updateField('acquisition_date', (e.currentTarget as HTMLInputElement).value)}
+								updateField(
+									'acquisition_date',
+									toNaiveUtc(fromDateTimeInputValue((e.currentTarget as HTMLInputElement).value)) ??
+										''
+								)}
 							class="mt-1"
 						/>
 					</div>

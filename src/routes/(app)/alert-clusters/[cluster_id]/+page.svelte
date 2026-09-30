@@ -74,7 +74,12 @@
 	import type { Alert } from '$lib/types/resources/alert';
 	import type { Asset } from '$lib/types/resources/asset';
 	import type { Ioc } from '$lib/types/resources/ioc';
-	import { mediumDateTimeFormatter } from '$lib/utils/time-formatter';
+	import {
+		formatDate,
+		formatTime,
+		mediumDateTimeFormatter,
+		parseServerDate
+	} from '$lib/utils/time-formatter';
 
 	const alertClusterId = Number(page.params.cluster_id);
 	const backUrl = page.url.searchParams.get('back') ?? '/alert-clusters';
@@ -251,11 +256,11 @@
 		if (diff < 60) return `${diff}s ago`;
 		if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
 		if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-		return from.toLocaleDateString();
+		return formatDate(from);
 	};
 
 	const summarySyncedRelative = $derived(summaryRelativeTime(summaryLoadedAt, summaryNow));
-	const summarySyncedAbsolute = $derived(summaryLoadedAt.toLocaleTimeString());
+	const summarySyncedAbsolute = $derived(formatTime(summaryLoadedAt));
 
 	const loadComments = async () => {
 		const res = await CommentsService.list('alert_clusters', alertClusterId, { per_page: 200 });
@@ -391,7 +396,7 @@
 		const out: TimelineEntry[] = [];
 		for (const alert of alerts) {
 			out.push({
-				ts: new Date(alert.alert_creation_time).getTime(),
+				ts: parseServerDate(alert.alert_creation_time)?.getTime() ?? Number.NaN,
 				kind: 'alert',
 				title: `Alert #${alert.alert_id} — ${alert.alert_title}`,
 				detail: `${alert.severity?.severity_name ?? '?'} · ${alert.alert_source}`
@@ -412,7 +417,7 @@
 		}
 		for (const c of comments) {
 			out.push({
-				ts: new Date(c.comment_date).getTime(),
+				ts: parseServerDate(c.comment_date)?.getTime() ?? Number.NaN,
 				kind: 'comment',
 				title: c.comment_text,
 				actor: c.user?.user_name
@@ -504,7 +509,7 @@
 							>
 								<span class="inline-flex items-center gap-1">
 									<ClockIcon class="h-3 w-3" />
-									Opened {mediumDateTimeFormatter(new Date(cluster.cluster_creation_time))}
+									Opened {mediumDateTimeFormatter(cluster.cluster_creation_time)}
 								</span>
 								{#if cluster.customer?.customer_name}
 									<span class="inline-flex items-center gap-1">
@@ -1016,7 +1021,7 @@
 												</td>
 												<td class="px-3 py-2 text-xs text-muted-foreground">
 													{alert.alert_source_event_time
-														? mediumDateTimeFormatter(new Date(alert.alert_source_event_time))
+														? mediumDateTimeFormatter(alert.alert_source_event_time)
 														: '—'}
 												</td>
 												<td class="px-3 py-2 text-right">
@@ -1171,7 +1176,7 @@
 										></span>
 										<div class="flex flex-wrap items-baseline gap-2">
 											<span class="text-xs text-muted-foreground">
-												{mediumDateTimeFormatter(new Date(entry.ts))}
+												{mediumDateTimeFormatter(entry.ts)}
 											</span>
 											<span
 												class="rounded-full px-2 py-0.5 text-2xs uppercase tracking-wide {entry.kind ===
@@ -1229,7 +1234,7 @@
 												/>
 												<span class="text-xs font-medium">{c.user?.user_name ?? 'Analyst'}</span>
 												<span class="text-2xs text-muted-foreground">
-													{mediumDateTimeFormatter(new Date(c.comment_date))}
+													{mediumDateTimeFormatter(c.comment_date)}
 												</span>
 											</div>
 											<p class="mt-2 whitespace-pre-wrap text-sm">{c.comment_text}</p>

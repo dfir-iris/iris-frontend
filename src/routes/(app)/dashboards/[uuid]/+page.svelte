@@ -4,6 +4,11 @@
   KPI tiles. System dashboards hide the Edit button.
 -->
 <script lang="ts">
+	import {
+		fromDateTimeInputValue,
+		toDateTimeInputValue,
+		toNaiveUtc
+	} from '$lib/utils/time-formatter';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Edit2Icon, ArrowLeftIcon } from 'lucide-svelte';
@@ -41,13 +46,9 @@
 	// standard "recent" window and matches how analysts read these tiles.
 	// The analyst can widen with the preset chips or clear via Reset.
 	function _initialWindow(): { start: string; end: string } {
-		const now = new Date();
-		const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-		const pad = (n: number) => String(n).padStart(2, '0');
-		const fmt = (d: Date) =>
-			`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
-			`T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-		return { start: fmt(thirtyDaysAgo), end: fmt(now) };
+		const now = Date.now();
+		const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+		return { start: toDateTimeInputValue(thirtyDaysAgo), end: toDateTimeInputValue(now) };
 	}
 	const _defaultWindow = _initialWindow();
 	let filterStart = $state(_defaultWindow.start);
@@ -57,8 +58,8 @@
 
 	// Preset time ranges mirror the old jQuery UI's quick-pick chips.
 	// Each preset writes both start and end as ISO datetime-local strings
-	// (YYYY-MM-DDTHH:mm) so the existing Input bindings pick them up and
-	// the backend receives them verbatim through the render endpoint.
+	// (YYYY-MM-DDTHH:mm, in the user's display timezone) so the existing
+	// Input bindings pick them up; `render` converts them to UTC.
 	const TIME_PRESETS = [
 		{ label: 'Last 15 minutes', minutes: 15 },
 		{ label: 'Last hour', minutes: 60 },
@@ -72,19 +73,11 @@
 		{ label: 'Last 5 years', minutes: 60 * 24 * 365 * 5 }
 	] as const;
 
-	function toLocalInputString(d: Date): string {
-		const pad = (n: number) => String(n).padStart(2, '0');
-		return (
-			`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
-			`T${pad(d.getHours())}:${pad(d.getMinutes())}`
-		);
-	}
-
 	function applyPreset(minutes: number) {
-		const end = new Date();
-		const start = new Date(end.getTime() - minutes * 60 * 1000);
-		filterStart = toLocalInputString(start);
-		filterEnd = toLocalInputString(end);
+		const end = Date.now();
+		const start = end - minutes * 60 * 1000;
+		filterStart = toDateTimeInputValue(start);
+		filterEnd = toDateTimeInputValue(end);
 		render();
 	}
 
@@ -113,8 +106,8 @@
 		const body = {
 			definition: dashboard.definition,
 			timeframe: {
-				start: filterStart || undefined,
-				end: filterEnd || undefined
+				start: toNaiveUtc(fromDateTimeInputValue(filterStart)),
+				end: toNaiveUtc(fromDateTimeInputValue(filterEnd))
 			}
 		};
 		const response = await CustomDashboardsService.render(uuid!, body);

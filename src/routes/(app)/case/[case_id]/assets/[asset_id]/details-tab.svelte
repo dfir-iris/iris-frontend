@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatDateTime } from '$lib/utils/time-formatter';
 	import { page } from '$app/state';
 	import type { Asset } from '$lib/types/resources/asset';
 	import type { Tag } from '$lib/types/resources/tag';
@@ -33,8 +34,7 @@
 
 	const caseId = $derived(Number(page.params.case_id));
 
-	const formatDate = (value: string | null | undefined) =>
-		value ? new Date(value).toLocaleString() : null;
+	const formatDate = (value: string | null | undefined) => (value ? formatDateTime(value) : null);
 
 	const loadOptions = async () => {
 		const [assetTypesRes, analysisStatusesRes] = await Promise.all([

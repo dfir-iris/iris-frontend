@@ -14,6 +14,7 @@
   welcome frame is the default view.
 -->
 <script lang="ts">
+	import { formatDate as formatCalendarDate } from '$lib/utils/time-formatter';
 	import { onMount } from 'svelte';
 	import { PlusIcon, SparklesIcon } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -83,15 +84,7 @@
 	}
 
 	function formatDate(iso: string): string {
-		try {
-			const d = new Date(iso);
-			return d.toLocaleDateString(undefined, {
-				month: 'short',
-				day: 'numeric'
-			});
-		} catch {
-			return '';
-		}
+		return formatCalendarDate(iso, { month: 'short', day: 'numeric' });
 	}
 
 	const scopeLine = $derived.by<string>(() => {

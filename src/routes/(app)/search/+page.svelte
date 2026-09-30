@@ -13,6 +13,7 @@
   toast — so the styling slots straight in with the rest of the app.
 -->
 <script lang="ts">
+	import { formatDateTime } from '$lib/utils/time-formatter';
 	import { getContext, onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { page as pageStore } from '$app/state';
@@ -335,7 +336,7 @@
 				return {
 					primary: r.event_title,
 					secondary: r.event_content ? stripHtml(r.event_content) : null,
-					meta: r.event_date ? new Date(r.event_date).toLocaleString() : 'Event',
+					meta: r.event_date ? formatDateTime(r.event_date) : 'Event',
 					href: `/case/${r.case_id}/timeline?event_id=${r.event_id}`
 				};
 			}

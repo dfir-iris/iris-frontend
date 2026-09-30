@@ -10,6 +10,7 @@
 	a diagnostic for tuning rules against a known-good inbox.
 -->
 <script lang="ts">
+	import { formatDateTime } from '$lib/utils/time-formatter';
 	import { onMount } from 'svelte';
 	import { InboxIcon, MailIcon, PlusIcon, RefreshCwIcon, Trash2Icon } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -323,7 +324,7 @@
 							{#each logRows as row (row.message_id)}
 								<tr class="border-b last:border-b-0">
 									<td class="px-3 py-2 text-2xs text-muted-foreground">
-										{row.received_at ? new Date(row.received_at).toLocaleString() : '—'}
+										{row.received_at ? formatDateTime(row.received_at) : '—'}
 									</td>
 									<td class="px-3 py-2">
 										<span class="rounded bg-muted/60 px-1.5 py-0.5 text-2xs">

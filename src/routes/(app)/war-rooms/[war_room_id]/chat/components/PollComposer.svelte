@@ -15,6 +15,7 @@
   `submit()` so the backend receives an unambiguous instant.
 -->
 <script lang="ts">
+	import { fromDateTimeInputValue } from '$lib/utils/time-formatter';
 	import { BarChart3, Loader2, Plus, X } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
@@ -48,7 +49,7 @@
 	let isMultiSelect = $state(false);
 	let isAnonymous = $state(false);
 	let hasDeadline = $state(false);
-	let deadlineLocal = $state(''); // `datetime-local` string (local TZ)
+	let deadlineLocal = $state(''); // `datetime-local` string (display TZ)
 	let submitting = $state(false);
 	let error = $state<string | null>(null);
 
@@ -96,11 +97,12 @@
 		const trimmedOptions = options.map((o) => o.trim()).filter(Boolean);
 		let closesAtIso: string | null = null;
 		if (hasDeadline && deadlineLocal) {
-			// The native input gives us a local wall-clock time. Convert
-			// to a proper ISO instant so the backend can compare it
-			// against server-side `now()` without TZ ambiguity.
-			const asDate = new Date(deadlineLocal);
-			if (isNaN(asDate.getTime())) {
+			// The native input gives us a wall-clock time in the user's
+			// display timezone. Convert to a proper ISO instant so the
+			// backend can compare it against server-side `now()` without
+			// TZ ambiguity.
+			const asDate = fromDateTimeInputValue(deadlineLocal);
+			if (!asDate) {
 				error = 'Invalid deadline';
 				submitting = false;
 				return;
