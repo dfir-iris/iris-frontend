@@ -3,6 +3,10 @@
 	import type { Case } from '$lib/types/resources/case';
 	import type { RequestResponse } from '$lib/services/api.service';
 	import { type User, UsersService } from '$lib/services/users.service';
+	import {
+		CaseClassificationsService,
+		type CaseClassification
+	} from '$lib/services/case-classifications.service';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import { TagDisplay } from '$lib/components/common/tag';
 	import MarkDownPreview from '$lib/components/common/MarkDown/MarkDownPreview.svelte';
@@ -11,6 +15,7 @@
 	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
 
 	let openingUser = $state<User>();
+	let classifications = $state<CaseClassification[]>([]);
 
 	onMount(async () => {
 		if (currentCase?.user_id) {
@@ -18,6 +23,20 @@
 				.data as unknown as RequestResponse<User>;
 			openingUser = res.data as User;
 		}
+	});
+
+	onMount(async () => {
+		// Paginated v2 list: rows sit under the `{ data: [...] }` envelope.
+		const res = await CaseClassificationsService.list();
+		const envelope = res.data as unknown as RequestResponse<CaseClassification[]> | null;
+		classifications = (envelope?.data ?? []) as CaseClassification[];
+	});
+
+	const classificationName = $derived.by(() => {
+		const id = currentCase?.classification_id;
+		if (id === null || id === undefined) return null;
+		const hit = classifications.find((k) => k.id === id);
+		return hit?.name_expanded || hit?.name || `#${id}`;
 	});
 
 	// The /api/v2/cases response returns tags as objects but without a stable
@@ -52,7 +71,7 @@
 	{@render row('Case ID', currentCase?.case_id)}
 	{@render row('SOC ID', currentCase?.case_soc_id)}
 	{@render row('UUID', currentCase?.case_uuid)}
-	{@render row('Classification', currentCase?.classification_id)}
+	{@render row('Classification', classificationName)}
 	{@render row('State', currentCase?.state?.state_name)}
 	{@render row('Severity', currentCase?.severity?.severity_name)}
 	{@render row('Open date', currentCase?.open_date)}

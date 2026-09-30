@@ -240,7 +240,11 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 
 		if (!res.ok || !res.data || typeof res.data === 'string') return null;
 
+		// Merge over the cached row: the single-event endpoint doesn't carry
+		// the list-only enrichments (`assets` / `iocs` objects), and
+		// replacing the row outright would blank them on the card.
 		const event: CaseTimelineEvent = {
+			...cached,
 			...res.data,
 			event_assets: res.data.event_assets ?? cached?.event_assets,
 			event_iocs: res.data.event_iocs ?? cached?.event_iocs

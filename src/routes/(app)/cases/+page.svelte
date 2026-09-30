@@ -540,9 +540,16 @@
 				CaseClassificationsService.list()
 			]);
 
-		classifications = Array.isArray(classificationsRes.data)
-			? (classificationsRes.data as CaseClassification[])
-			: [];
+		// The v2 list is paginated and wraps the rows in `{ data: [...] }`;
+		// reading it as a bare array left the lookup empty and every case
+		// rendered its classification as `#<id>`.
+		const classificationsData = classificationsRes.data as
+			| { data?: CaseClassification[] }
+			| CaseClassification[]
+			| null;
+		classifications = Array.isArray(classificationsData)
+			? classificationsData
+			: (classificationsData?.data ?? []);
 
 		const usersData = usersRes.data as { data?: MentionableUser[] } | MentionableUser[] | null;
 		const users: MentionableUser[] = Array.isArray(usersData) ? usersData : (usersData?.data ?? []);

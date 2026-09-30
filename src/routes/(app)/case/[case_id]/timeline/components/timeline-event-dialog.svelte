@@ -113,7 +113,7 @@
 			if (event?.event_assets !== undefined) return event.event_assets;
 			if (!event && initialAssetIds.length > 0) return initialAssetIds;
 			return (event?.assets ?? [])
-				.map((a) => assets.find((ca) => ca.asset_name === a.name)?.asset_id)
+				.map((a) => a.id ?? assets.find((ca) => ca.asset_name === a.asset_name)?.asset_id)
 				.filter((id): id is number => id !== undefined);
 		};
 
@@ -121,7 +121,7 @@
 			if (event?.event_iocs !== undefined) return event.event_iocs;
 			if (!event && initialIocIds.length > 0) return initialIocIds;
 			return (event?.iocs ?? [])
-				.map((i) => iocs.find((ci) => ci.ioc_value === i.name)?.ioc_id)
+				.map((i) => i.id ?? iocs.find((ci) => ci.ioc_value === i.name)?.ioc_id)
 				.filter((id): id is number => id !== undefined);
 		};
 
