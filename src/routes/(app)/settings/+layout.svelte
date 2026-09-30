@@ -22,6 +22,7 @@
 	import { page } from '$app/state';
 	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 	import { demoHidesServerSettings } from '$lib/services/user-context.service';
+	import { SETTINGS_PAGE_PERMISSIONS } from '$lib/components/navigation/settings-pages';
 
 	let { data: _data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -47,14 +48,17 @@
 		{ icon: SettingsIcon, label: 'Server Settings', href: '/server' }
 	];
 
-	// Server settings hold SMTP credentials, DSNs and the backup
-	// trigger. A demo instance hands every visitor an admin account, so
-	// the entry only stays for the instance owner. The API enforces the
-	// same rule — this just avoids offering a link that 403s.
+	// Only offer the pages the user's permissions open — someone granted
+	// just case templates sees just that entry. Server settings hold SMTP
+	// credentials, DSNs and the backup trigger; a demo instance hands
+	// every visitor an admin account, so that entry only stays for the
+	// instance owner. The API enforces the same rules — this just avoids
+	// offering links that 403.
 	const items = $derived(
-		demoHidesServerSettings(userCtx.ctx)
-			? allItems.filter((item) => item.href !== '/server')
-			: allItems
+		allItems.filter((item) => {
+			if (!userCtx.can(SETTINGS_PAGE_PERMISSIONS[item.href])) return false;
+			return !(item.href === '/server' && demoHidesServerSettings(userCtx.ctx));
+		})
 	);
 
 	const isActive = (href: string) => {

@@ -23,6 +23,7 @@
 	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 	import type { PermissionName } from '$lib/services/user-context.service';
 	import MenuItem from './MenuItem.svelte';
+	import { SETTINGS_PERMISSIONS } from '../settings-pages';
 
 	type Props = {
 		collapsed: boolean;
@@ -131,13 +132,15 @@
 	const showInvestigationGroup = $derived(visibleInvestigation.length > 0);
 	const canManageCustomers = $derived(userCtx.can('customers_read'));
 	const canManageCaseTemplates = $derived(userCtx.can('case_templates_read'));
-	const canManageServer = $derived(userCtx.can('server_administrator'));
+	// Settings hosts pages gated on different permissions (customers,
+	// case templates, clustering rules, …), not just server admin.
+	const canOpenSettings = $derived(userCtx.canAny(SETTINGS_PERMISSIONS));
 	const canManageAssets = $derived(userCtx.can('asset_manager_read'));
 	const showManageGroup = $derived(
 		canManageCustomers ||
 			canManageCaseTemplates ||
 			canManageAssets ||
-			canManageServer ||
+			canOpenSettings ||
 			!userCtx.ready
 	);
 
@@ -221,7 +224,7 @@
 			/>
 		{/if}
 
-		{#if canManageServer}
+		{#if canOpenSettings}
 			<MenuItem
 				{collapsed}
 				label="Settings"
