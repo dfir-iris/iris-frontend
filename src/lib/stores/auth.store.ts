@@ -89,7 +89,22 @@ function normalizeUser(payload: unknown): LoginResponse | null {
 }
 
 const createAuthStore = () => {
-	const { subscribe, set, update } = writable<AuthState>(loadInitialState());
+	const { subscribe, set: rawSet, update: rawUpdate } = writable<AuthState>(loadInitialState());
+
+	// This store is a module-level singleton. In the browser that means one
+	// instance per tab; on the SSR server it means ONE instance shared by
+	// every request from every user. The login form action runs
+	// `AuthService.login` server-side, which calls `setAuth` — without this
+	// guard the last user to sign in stayed in server memory, so every other
+	// user's SSR HTML rendered their name, and server-side ApiService calls
+	// picked up their bearer token. Auth state is per-browser: never write
+	// it on the server.
+	const set = (value: AuthState) => {
+		if (browser) rawSet(value);
+	};
+	const update = (fn: (state: AuthState) => AuthState) => {
+		if (browser) rawUpdate(fn);
+	};
 
 	// Dedup guard for `loadAuth`. Both the root layout effect and the
 	// sidebar's UserMenu effect used to fire `loadAuth` on mount, racing

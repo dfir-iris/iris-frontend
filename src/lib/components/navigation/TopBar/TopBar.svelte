@@ -44,6 +44,9 @@
 	const pathname = $derived<string>(page.url.pathname);
 
 	let showGoToCase = $state(false);
+	// The go-to-case <button>, handed to DropdownMenu.Content as an explicit
+	// anchor — see the comment on the trigger below.
+	let goToCaseTriggerEl = $state<HTMLElement | null>(null);
 	let showSwitchContext = $state(false);
 	let showBugReport = $state(false);
 
@@ -219,12 +222,22 @@
 				  HTML parser flattens into siblings — enough to desync hydration
 				  for the entire page. `child` hands the tooltip's props down
 				  instead of emitting a second element.
+
+				  The catch: bits-ui resolves a floating layer's anchor through a
+				  *context*, and <Tooltip> opens a floating root of its own. With
+				  the menu trigger rendered inside the tooltip's subtree, its
+				  anchor registers against the tooltip's root and the menu's root
+				  never learns its trigger node — the content then positions
+				  against a null reference and floating-ui parks it at
+				  `translate(0, -200%)`, off screen. Hence `bind:ref` and the
+				  explicit `customAnchor` on the content below.
 				-->
 				<TooltipProvider>
 					<Tooltip>
 						<TooltipTrigger>
 							{#snippet child({ props })}
 								<DropdownMenu.Trigger
+									bind:ref={goToCaseTriggerEl}
 									{...props}
 									onclick={gotoCase}
 									class="pt-1 transition-colors hover:text-white/80"
@@ -238,7 +251,7 @@
 					</Tooltip>
 				</TooltipProvider>
 
-				<DropdownMenu.Content align="start" class="p-4">
+				<DropdownMenu.Content align="start" customAnchor={goToCaseTriggerEl} class="p-4">
 					<input
 						placeholder="Go to case number #"
 						type="number"

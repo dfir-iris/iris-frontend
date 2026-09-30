@@ -22,6 +22,11 @@
 
 	let open = $state(false);
 
+	// The <button> that opens the popover, handed to `Popover.Content` as an
+	// explicit anchor. See the markup below for why the implicit one doesn't
+	// reach us.
+	let triggerEl = $state<HTMLElement | null>(null);
+
 	// Re-fetch every time the dropdown opens so we don't render stale
 	// data if the socket dropped and reconnected without us seeing it.
 	// Cheap: bounded by RECENT_LIMIT and a single query.
@@ -87,12 +92,22 @@
 	  props down through `child` rather than rendering a <button> of its own
 	  inside it. Nested buttons don't survive the HTML parser — it closes the
 	  outer one and emits siblings, which desyncs hydration page-wide.
+
+	  The catch: bits-ui resolves a floating layer's anchor through a *context*,
+	  and <Tooltip> opens a floating root of its own. Rendering Popover.Trigger
+	  inside the tooltip's subtree means its anchor registers against the
+	  tooltip's root, so the popover's root never learns its trigger node —
+	  Popover.Content then positions against a null reference and floating-ui
+	  parks it at `translate(0, -200%)`, i.e. off screen above the viewport.
+	  Hence `bind:ref` + the explicit `customAnchor` on the content below, which
+	  skips the context lookup entirely.
 	-->
 	<TooltipProvider>
 		<Tooltip>
 			<TooltipTrigger>
 				{#snippet child({ props })}
 					<Popover.Trigger
+						bind:ref={triggerEl}
 						{...props}
 						class="relative rounded-lg p-2 text-white/80 backdrop-blur-md transition-all duration-150 hover:bg-white/15 hover:text-white hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.18)]"
 						aria-label="Notifications"
@@ -126,7 +141,7 @@
 	  outer flex column lets the header stay put while the middle
 	  list is the only thing that scrolls.
 	-->
-	<Popover.Content align="end" class="flex max-h-[70vh] w-96 flex-col p-0">
+	<Popover.Content align="end" customAnchor={triggerEl} class="flex max-h-[70vh] w-96 flex-col p-0">
 		<div class="flex flex-shrink-0 items-center justify-between gap-2 border-b px-3 py-2">
 			<div class="text-sm font-semibold text-foreground">Notifications</div>
 			<div class="flex items-center gap-1">
