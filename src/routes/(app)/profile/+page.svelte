@@ -25,7 +25,8 @@
 		MessageSquareOffIcon,
 		MessageSquareIcon,
 		ListFilterIcon,
-		GlobeIcon
+		GlobeIcon,
+		ClockIcon
 	} from 'lucide-svelte';
 	import { setMode } from 'mode-watcher';
 	import { Button } from '$lib/components/ui/button';
@@ -57,7 +58,13 @@
 		browserTimeZone,
 		timezone as displayTimezone
 	} from '$lib/stores/timezone.store.svelte';
-	import { formatDateTime, timeZoneLabel } from '$lib/utils/time-formatter';
+	import {
+		TIME_FORMAT_12H,
+		TIME_FORMAT_24H,
+		TIME_FORMAT_LOCALE,
+		timeFormat
+	} from '$lib/stores/time-format.store.svelte';
+	import { formatDateTime, formatTime, timeZoneLabel } from '$lib/utils/time-formatter';
 
 	const userCtx = getContext<UserCtx>(USER_CTX);
 	// Demo accounts are shared and their passwords are published, so a
@@ -364,6 +371,12 @@
 		}
 	};
 
+	const timeFormatOptions = [
+		{ value: TIME_FORMAT_24H, label: '24-hour' },
+		{ value: TIME_FORMAT_12H, label: '12-hour' },
+		{ value: TIME_FORMAT_LOCALE, label: 'Browser locale' }
+	];
+
 	const themeOptions = [
 		{ value: 'false', label: '☼ Light' },
 		{ value: 'true', label: '☾ Dark' }
@@ -613,6 +626,24 @@
 						Every date and time in IRIS is shown in this timezone, and times you type are read in
 						it. Now: {formatDateTime(Date.now(), { dateStyle: 'medium', timeStyle: 'short' })}
 						({timeZoneLabel()}).
+					</p>
+				</div>
+
+				<div class="flex flex-col gap-2 md:col-span-2">
+					<Label class="flex items-center gap-1.5">
+						<ClockIcon size={14} />
+						Clock
+					</Label>
+					<SegmentedSelect
+						options={timeFormatOptions}
+						value={timeFormat.preference}
+						onChange={(value) => userCtx.setPreference('time_format', String(value))}
+					/>
+					<p class="text-2xs text-muted-foreground">
+						How every time in IRIS is written. Now: {formatTime(Date.now(), {
+							hour: '2-digit',
+							minute: '2-digit'
+						})}.
 					</p>
 				</div>
 			</Card.Content>

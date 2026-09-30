@@ -18,6 +18,7 @@ import type { Ioc } from '$lib/types/resources/ioc';
 import {
 	calendarDaysBetween,
 	formatDate,
+	formatDateTime,
 	formatTime,
 	parseServerDate
 } from '$lib/utils/time-formatter';
@@ -97,7 +98,11 @@ export const titleVar = (statusName: string | null | undefined, focused: boolean
 
 /** `09:12` — clock time only (used in cluster rows, timeline keys). */
 export const clockTime = (iso: string | number | null | undefined): string =>
-	formatTime(iso, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+	formatTime(iso, { hour: '2-digit', minute: '2-digit' });
+
+/** `Sep 29, 14:48` — date and clock time (activity feed, timeline tab). */
+export const shortDateTime = (value: string | number | null | undefined): string =>
+	formatDateTime(value, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 /**
  * Relative date label for the queue row timestamp.
@@ -432,7 +437,7 @@ export const activityEntries = (history: unknown, limit = 3): ActivityEntry[] =>
 			const { verb, changes } = parseAction(raw);
 			return {
 				at,
-				time: clockTime(at),
+				time: shortDateTime(at),
 				action: raw,
 				verb,
 				changes,

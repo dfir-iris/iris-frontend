@@ -59,6 +59,8 @@ export interface UserPreferences {
 	has_mini_sidebar: boolean;
 	/** Display timezone: `browser` or an IANA name. Absent on older backends. */
 	timezone?: string;
+	/** Clock: `24h`, `12h` or `locale`. Absent on older backends. */
+	time_format?: string;
 }
 
 export interface UserContext {

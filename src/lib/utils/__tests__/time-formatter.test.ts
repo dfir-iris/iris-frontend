@@ -15,12 +15,21 @@ import {
 	zonedDateTime
 } from '../time-formatter';
 import { timezone, TIMEZONE_BROWSER, browserTimeZone } from '$lib/stores/timezone.store.svelte';
+import {
+	timeFormat,
+	TIME_FORMAT_12H,
+	TIME_FORMAT_24H,
+	TIME_FORMAT_LOCALE
+} from '$lib/stores/time-format.store.svelte';
 
 // 2024-06-15T12:30:00.000Z
 const ISO_TIMESTAMP = '2024-06-15T12:30:00.000Z';
 const EPOCH_MS = new Date(ISO_TIMESTAMP).getTime();
 
-afterEach(() => timezone.set(TIMEZONE_BROWSER));
+afterEach(() => {
+	timezone.set(TIMEZONE_BROWSER);
+	timeFormat.set(TIME_FORMAT_24H);
+});
 
 // ── timezone store ────────────────────────────────────────────────────────────
 
@@ -207,5 +216,45 @@ describe('formatDayHeading', () => {
 	it('returns unparseable keys as-is', () => {
 		expect(formatDayHeading('')).toBe('');
 		expect(formatDayHeading('nope')).toBe('nope');
+	});
+});
+
+describe('clock format preference', () => {
+	const HM: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
+
+	it('defaults to 24h', () => {
+		timezone.set('UTC');
+		expect(timeFormat.preference).toBe(TIME_FORMAT_24H);
+		expect(formatTime('2024-06-15T14:48:00Z', HM)).toBe('14:48');
+	});
+
+	it('switches every formatter to 12h', () => {
+		timezone.set('UTC');
+		timeFormat.set(TIME_FORMAT_12H);
+		expect(formatTime('2024-06-15T14:48:00Z', HM)).toMatch(/^02:48\s?PM$/i);
+		expect(mediumDateTimeFormatter('2024-06-15T14:48:00Z')).toMatch(/2:48\s?PM/i);
+	});
+
+	it('overrides a caller asking for the other clock', () => {
+		timezone.set('UTC');
+		expect(formatTime('2024-06-15T14:48:00Z', { ...HM, hour12: true })).toBe('14:48');
+		timeFormat.set(TIME_FORMAT_12H);
+		expect(formatTime('2024-06-15T14:48:00Z', { ...HM, hourCycle: 'h23' })).toMatch(/PM/i);
+	});
+
+	it('leaves the choice to the locale when asked to', () => {
+		timeFormat.set(TIME_FORMAT_LOCALE);
+		expect(timeFormat.hourCycle).toBeUndefined();
+	});
+
+	it('falls back to 24h on unknown values', () => {
+		timeFormat.set(TIME_FORMAT_12H);
+		timeFormat.set('13h');
+		expect(timeFormat.preference).toBe(TIME_FORMAT_24H);
+	});
+
+	it('does not touch date-only formats', () => {
+		timeFormat.set(TIME_FORMAT_12H);
+		expect(formatDate('2024-06-15', { day: 'numeric' })).toBe('15');
 	});
 });

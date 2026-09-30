@@ -3,7 +3,8 @@
  *
  * Everything here renders in the user's display timezone (see
  * `$lib/stores/timezone.store.svelte`), never in whatever zone the
- * browser happens to be in. Components must not call
+ * browser happens to be in, and with the user's 12h/24h clock (see
+ * `$lib/stores/time-format.store.svelte`). Components must not call
  * `Date#toLocaleString` / `getHours` & co. directly: those always use
  * the browser zone and silently disagree with the rest of the UI.
  *
@@ -20,6 +21,7 @@ import {
 } from '@internationalized/date';
 import type { ZonedDateTime } from '@internationalized/date';
 import { timezone } from '$lib/stores/timezone.store.svelte';
+import { timeFormat } from '$lib/stores/time-format.store.svelte';
 
 export type DateInput = string | number | Date | null | undefined;
 
@@ -59,9 +61,24 @@ export const parseServerDate = (value: DateInput): Date | null => {
 	return Number.isNaN(date.getTime()) ? null : date;
 };
 
+/**
+ * Put the user's clock on anything that renders an hour. A caller's own
+ * `hour12` / `hourCycle` is dropped on purpose: one screen mixing `14:48`
+ * and `02:48 PM` is exactly what the preference exists to prevent.
+ */
+const withClock = (options: Intl.DateTimeFormatOptions): Intl.DateTimeFormatOptions => {
+	if (options.hour === undefined && options.timeStyle === undefined) return options;
+	const clocked = { ...options };
+	delete clocked.hour12;
+	delete clocked.hourCycle;
+	const hourCycle = timeFormat.hourCycle;
+	return hourCycle ? { ...clocked, hourCycle } : clocked;
+};
+
 const formatters = new Map<string, Intl.DateTimeFormat>();
 
-const formatterFor = (options: Intl.DateTimeFormatOptions, zone: string): Intl.DateTimeFormat => {
+const formatterFor = (requested: Intl.DateTimeFormatOptions, zone: string): Intl.DateTimeFormat => {
+	const options = withClock(requested);
 	const key = `${zone}|${JSON.stringify(options)}`;
 	let formatter = formatters.get(key);
 	if (!formatter) {

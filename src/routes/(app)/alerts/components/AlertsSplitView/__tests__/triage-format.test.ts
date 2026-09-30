@@ -21,6 +21,7 @@ import {
 	primaryTechnique,
 	rangeLabel,
 	relativeDate,
+	shortDateTime,
 	relationsLabel,
 	relationsSummary,
 	severityVar,
@@ -368,9 +369,11 @@ describe('activityEntries', () => {
 		expect(activityEntries(history, 100)).toHaveLength(4);
 	});
 
-	it('converts the unix-second key into a clock time', () => {
+	it('converts the unix-second key into a date and clock time', () => {
+		timezone.set('UTC');
 		const [newest] = activityEntries(history, 1);
-		expect(newest.time).toBe(clockTime(1756633920 * 1000));
+		expect(newest.time).toBe(shortDateTime(1756633920 * 1000));
+		expect(newest.time).toMatch(/Aug 31.*09:52/);
 	});
 
 	it('is empty for a missing or non-object history', () => {
@@ -383,7 +386,7 @@ describe('activityEntries', () => {
 		expect(activityEntries({ '1756633920': {} }, 1)).toEqual([
 			{
 				at: 1756633920000,
-				time: clockTime(1756633920 * 1000),
+				time: shortDateTime(1756633920 * 1000),
 				action: '',
 				verb: '',
 				changes: [],

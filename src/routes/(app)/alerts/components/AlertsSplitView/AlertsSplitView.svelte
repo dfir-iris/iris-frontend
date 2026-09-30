@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { formatDateTime } from '$lib/utils/time-formatter';
 	/**
 	 * Split triage cockpit — the central workspace of design 1a.
 	 *
@@ -60,6 +59,7 @@
 		type CopyField,
 		copyText,
 		relativeDate,
+		shortDateTime,
 		formatRawEvent,
 		hasRelations,
 		iocFields,
@@ -1163,28 +1163,6 @@
 							{@render copyBtn(`source-${f.alert_id}`, 'source', f.alert_source)}
 						</span>
 					{/if}
-					{#if f.alert_source_link}
-						<!--
-						  The way back to the detection that raised the alert, which
-						  the list view's General Info grid already carried. The URL
-						  itself stays in the tooltip rather than in the head: source
-						  links are routinely 200+ characters of query string, and
-						  this row also holds the action buttons.
-						-->
-						<span class="vrule"></span>
-						<span class="detail-sub copy-row">
-							<a
-								class="detail-link"
-								href={f.alert_source_link}
-								target="_blank"
-								rel="noreferrer"
-								title={f.alert_source_link}
-							>
-								Source link<span class="chip-go" aria-hidden="true">↗</span>
-							</a>
-							{@render copyBtn(`source-link-${f.alert_id}`, 'source link', f.alert_source_link)}
-						</span>
-					{/if}
 					<div class="spacer"></div>
 					<div class="detail-actions">
 						<button type="button" class="btn-accent" onclick={() => onEscalate(f)}
@@ -1422,6 +1400,40 @@
 								</section>
 							{/if}
 
+							{#if f.alert_source_link}
+								<!--
+								  The way back to the detection that raised the alert.
+								  Printed in full here rather than behind a tooltip in
+								  the head: source links are routinely 200+ characters of
+								  query string, and the analyst needs to read and select
+								  them. Only http(s) is made clickable — the value comes
+								  from whatever ingested the alert, and a `javascript:`
+								  href would run on click.
+								-->
+								<section class="section">
+									<div class="section-head copy-row">
+										<h3 class="section-title">Source link</h3>
+										{@render copyBtn(
+											`source-link-${f.alert_id}`,
+											'source link',
+											f.alert_source_link
+										)}
+									</div>
+									{#if /^https?:\/\//i.test(f.alert_source_link)}
+										<a
+											class="source-link"
+											href={f.alert_source_link}
+											target="_blank"
+											rel="noreferrer"
+										>
+											{f.alert_source_link}<span class="source-link-go" aria-hidden="true">↗</span>
+										</a>
+									{:else}
+										<span class="source-link source-link-plain">{f.alert_source_link}</span>
+									{/if}
+								</section>
+							{/if}
+
 							{#if f.alert_context && Object.keys(f.alert_context).length > 0}
 								<section class="section">
 									<div class="section-head copy-row">
@@ -1492,7 +1504,7 @@
 								</section>
 							{/if}
 
-							{#if !f.alert_description && (!f.alert_context || Object.keys(f.alert_context).length === 0) && (f.assets?.length ?? 0) === 0 && iocs.length === 0}
+							{#if !f.alert_description && !f.alert_source_link && (!f.alert_context || Object.keys(f.alert_context).length === 0) && (f.assets?.length ?? 0) === 0 && iocs.length === 0}
 								<p class="section-empty">No overview data for this alert.</p>
 							{/if}
 
@@ -1739,14 +1751,7 @@
 									{#each allEntries as entry (entry.at)}
 										<div class="tl-row">
 											<div class="tl-left">
-												<span class="tl-time"
-													>{formatDateTime(entry.at, {
-														month: 'short',
-														day: 'numeric',
-														hour: '2-digit',
-														minute: '2-digit'
-													})}</span
-												>
+												<span class="tl-time">{shortDateTime(entry.at)}</span>
 												<span class="tl-user">{entry.user || '—'}</span>
 											</div>
 											<div class="tl-dot"></div>
@@ -2757,17 +2762,6 @@
 		font-size: 12.5px;
 		color: var(--t-7);
 	}
-	/* Reads as the one thing in this row that leaves IRIS, so it takes the
-	   accent the cluster chip uses rather than the head's muted grey. */
-	.detail-link {
-		display: inline-flex;
-		align-items: center;
-		gap: 3px;
-		color: var(--acc);
-	}
-	.detail-link:hover {
-		text-decoration: underline;
-	}
 
 	.detail-actions {
 		display: flex;
@@ -2982,6 +2976,28 @@
 		text-transform: uppercase;
 		color: var(--t-9);
 		margin: 0;
+	}
+	/* The full URL, wrapped anywhere: query strings have no spaces to break
+	   on. Accent-coloured as the one thing in the overview that leaves IRIS. */
+	.source-link {
+		font-family: var(--mono);
+		font-size: 12.5px;
+		line-height: 1.5;
+		color: var(--acc);
+		overflow-wrap: anywhere;
+		word-break: break-all;
+	}
+	.source-link:hover {
+		text-decoration: underline;
+	}
+	.source-link-plain {
+		color: var(--t-6);
+	}
+	.source-link-plain:hover {
+		text-decoration: none;
+	}
+	.source-link-go {
+		margin-left: 3px;
 	}
 	.section-empty {
 		font-size: 13px;

@@ -19,6 +19,7 @@ import {
 	type UserPreferences
 } from '$lib/services/user-context.service';
 import { timezone } from '$lib/stores/timezone.store.svelte';
+import { timeFormat } from '$lib/stores/time-format.store.svelte';
 
 export const USER_CTX = Symbol('user-context');
 
@@ -58,6 +59,7 @@ export const createUserContext = (): UserCtx => {
 				}
 				ctx = fresh;
 				timezone.set(fresh.preferences.timezone);
+				timeFormat.set(fresh.preferences.time_format);
 			}
 			ready = true;
 			inflight = null;
@@ -70,6 +72,7 @@ export const createUserContext = (): UserCtx => {
 		value: UserContext['preferences'][K]
 	): Promise<void> => {
 		if (key === 'timezone') timezone.set(value as string);
+		if (key === 'time_format') timeFormat.set(value as string);
 		if (!ctx) {
 			// First-paint click before the bootstrap finished. Stash the
 			// requested value in a minimal stub so the UI flips
