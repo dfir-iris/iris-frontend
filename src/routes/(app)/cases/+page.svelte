@@ -41,6 +41,7 @@
 	import { MarkDownPreview } from '$lib/components/common/MarkDown';
 	import SeverityBadge from '$lib/components/ui/badge/severity-badge.svelte';
 	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
+	import OutcomeBadge from '$lib/components/ui/badge/outcome-badge.svelte';
 	import type { CaseStatus, Severity as SeverityName } from '$lib/components/ui/badge/types';
 	import { Button } from '$lib/components/ui/button';
 	import { toast } from '$lib/components/ui/toast';
@@ -199,7 +200,9 @@
 	const filterDefs = $derived<FilterDef<Case>[]>([
 		{ id: 'title', label: 'Title', get: (c) => (c as Case).case_name },
 		{ id: 'case_id', label: 'Case ID', get: (c) => (c as Case).case_id },
-		{ id: 'outcome', label: 'Outcome', get: (c) => (c as Case).closing_note ?? '' },
+		// `outcome` is the id the backend and saved filters know this field by,
+		// but it matches the closing note, not the case outcome enum.
+		{ id: 'outcome', label: 'Closing note', get: (c) => (c as Case).closing_note ?? '' },
 		{
 			id: 'severity',
 			label: 'Severity',
@@ -1312,6 +1315,12 @@
 							<span class="d-meta-val">{classificationName(c)}</span>
 						</div>
 						<div class="d-meta-cell">
+							<span class="d-meta-lbl">Outcome</span>
+							<span class="d-meta-val">
+								<OutcomeBadge outcomeId={c.status_id} />
+							</span>
+						</div>
+						<div class="d-meta-cell d-meta-cell--wide">
 							<span class="d-meta-lbl">Tags</span>
 							<span class="d-meta-val">
 								{#if c.tags?.length}
@@ -1343,7 +1352,7 @@
 
 					{#if c.closing_note?.trim()}
 						<div class="d-section">
-							<h3 class="d-section-title">Outcome</h3>
+							<h3 class="d-section-title">Closing note</h3>
 							<MarkDownPreview markdown={c.closing_note ?? ''} />
 						</div>
 					{/if}
@@ -2177,6 +2186,11 @@
 		min-width: 0;
 		padding: 0.625rem 0.75rem;
 		background: hsl(var(--card));
+	}
+	/* Seven cells in a two-column grid: the last one takes the whole row
+	   rather than leaving a hole. */
+	.d-meta-cell--wide {
+		grid-column: 1 / -1;
 	}
 	.d-meta-lbl {
 		font-size: 0.625rem;

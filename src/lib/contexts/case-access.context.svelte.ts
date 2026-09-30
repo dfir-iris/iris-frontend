@@ -22,11 +22,16 @@ export const createCaseAccessContext = (getCaseId: () => number | null) => {
 		status: Status;
 		ready: boolean;
 		error: string | null;
+		// HTTP status of the last lookup, so the case layout can tell "no
+		// such case" (404) and "not yours" (200 + deny_all, or 403) apart
+		// from a failed request, which also lands on deny_all above.
+		httpStatus: number | null;
 	}>({
 		level: null,
 		status: 'idle',
 		ready: false,
-		error: null
+		error: null,
+		httpStatus: null
 	});
 
 	let inflight: Promise<void> | null = null;
@@ -43,6 +48,7 @@ export const createCaseAccessContext = (getCaseId: () => number | null) => {
 		inflight = (async () => {
 			try {
 				const res = await CaseService.getMyAccess(id, options);
+				state.httpStatus = res.status;
 				if (res.ok && res.data && typeof res.data === 'object') {
 					state.level = res.data.access_level;
 				} else {
@@ -54,6 +60,7 @@ export const createCaseAccessContext = (getCaseId: () => number | null) => {
 				}
 				state.status = 'idle';
 			} catch (e) {
+				state.httpStatus = null;
 				state.level = AccessLevel.DENY_ALL as CaseAccessLevel;
 				state.status = 'error';
 				state.error = e instanceof Error ? e.message : 'Failed to load case access';
@@ -72,6 +79,7 @@ export const createCaseAccessContext = (getCaseId: () => number | null) => {
 		state.status = 'idle';
 		state.ready = false;
 		state.error = null;
+		state.httpStatus = null;
 		inflight = null;
 		lastLoadedCaseId = null;
 	};
@@ -84,6 +92,19 @@ export const createCaseAccessContext = (getCaseId: () => number | null) => {
 	const canEdit = $derived(() => state.level === AccessLevel.FULL_ACCESS);
 	const isReadOnly = $derived(() => state.level === AccessLevel.READ_ONLY);
 	const isDenied = $derived(() => state.level === AccessLevel.DENY_ALL || state.level === null);
+	// Why the case cannot be shown at all, once the lookup has answered:
+	// `null` while loading or when the case is readable. Only an explicit
+	// answer from the backend counts — a network failure or 5xx is
+	// 'error', not a claim that the analyst lacks access.
+	const unavailable = $derived((): 'not-found' | 'denied' | 'error' | null => {
+		if (!state.ready) return null;
+		if (state.httpStatus === 404) return 'not-found';
+		if (state.httpStatus === 403) return 'denied';
+		if (state.httpStatus !== null && state.httpStatus >= 200 && state.httpStatus < 300) {
+			return state.level === AccessLevel.DENY_ALL ? 'denied' : null;
+		}
+		return 'error';
+	});
 
 	return {
 		state,
@@ -93,6 +114,7 @@ export const createCaseAccessContext = (getCaseId: () => number | null) => {
 		canEdit,
 		isReadOnly,
 		isDenied,
+		unavailable,
 		load,
 		reset
 	};

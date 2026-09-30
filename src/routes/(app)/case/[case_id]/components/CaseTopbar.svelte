@@ -50,6 +50,8 @@
 	} from '$lib/components/ui/dropdown-menu';
 	import SeverityBadge from '$lib/components/ui/badge/severity-badge.svelte';
 	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
+	import OutcomeBadge from '$lib/components/ui/badge/outcome-badge.svelte';
+	import { CASE_OUTCOMES, CASE_OUTCOME_UNKNOWN } from '$lib/utils/case-outcomes';
 	import { Button } from '$lib/components/ui/button';
 	import {
 		Tooltip,
@@ -347,6 +349,29 @@
 		} catch (err) {
 			toast({
 				title: 'Failed to update case severity',
+				description: (err as Error).message,
+				variant: 'destructive'
+			});
+		}
+	};
+
+	// Outcome picker. The list is a fixed backend enum, so unlike state and
+	// severity there is nothing to fetch.
+	const outcomeId = $derived(caseData?.status_id ?? CASE_OUTCOME_UNKNOWN);
+
+	const setCaseOutcome = async (statusId: number) => {
+		const id = caseData?.case_id;
+		if (!id) return;
+		try {
+			const res = await cases.patch(id, { status_id: statusId });
+			// `patch` falls back to a fresh GET when the write fails, so a
+			// case that comes back with its old outcome is a failed save.
+			if (res == null || res.status_id !== statusId) {
+				toast({ title: 'Failed to update case outcome', variant: 'destructive' });
+			}
+		} catch (err) {
+			toast({
+				title: 'Failed to update case outcome',
 				description: (err as Error).message,
 				variant: 'destructive'
 			});
@@ -930,17 +955,53 @@
 						{/if}
 					</DropdownMenuContent>
 				</DropdownMenu>
+
+				<DropdownMenu>
+					<DropdownMenuTrigger>
+						<div class="hidden transition-colors sm:block" title="Change case outcome">
+							<OutcomeBadge {outcomeId} />
+						</div>
+						<div class="sm:hidden">
+							<OutcomeBadge {outcomeId} icon_only />
+						</div>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="end" class="min-w-[220px]">
+						<DropdownMenuLabel>Change case outcome</DropdownMenuLabel>
+						<DropdownMenuSeparator />
+						{#each CASE_OUTCOMES as o (o.id)}
+							{@const isCurrent = outcomeId === o.id}
+							<DropdownMenuItem
+								disabled={isCurrent}
+								onclick={() => !isCurrent && setCaseOutcome(o.id)}
+							>
+								<span class="flex w-full items-center justify-between gap-2">
+									<span class="truncate">{o.label}</span>
+									{#if isCurrent}
+										<CheckCircle2Icon size={12} class="shrink-0 text-emerald-500" />
+									{/if}
+								</span>
+							</DropdownMenuItem>
+						{/each}
+					</DropdownMenuContent>
+				</DropdownMenu>
 			</div>
 		{:else}
 			<!-- Read-only users still see the status + severity chips, just
-				 not as a dropdown trigger. -->
+				 not as a dropdown trigger. The outcome only once one is set:
+				 "Outcome unknown" is an invitation to act they cannot take. -->
 			<div class="hidden items-center gap-1.5 sm:flex" title="Case state">
 				<StatusBadge {status} />
 				<SeverityBadge {severity} />
+				{#if outcomeId !== CASE_OUTCOME_UNKNOWN}
+					<OutcomeBadge {outcomeId} />
+				{/if}
 			</div>
 			<div class="flex items-center gap-1 sm:hidden">
 				<StatusBadge {status} icon_only />
 				<SeverityBadge {severity} icon_only />
+				{#if outcomeId !== CASE_OUTCOME_UNKNOWN}
+					<OutcomeBadge {outcomeId} icon_only />
+				{/if}
 			</div>
 		{/if}
 

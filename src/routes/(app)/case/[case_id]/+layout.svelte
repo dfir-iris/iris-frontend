@@ -77,6 +77,7 @@
 	import CaseTopbar from './components/CaseTopbar.svelte';
 	import ReadOnlyBanner from './components/ReadOnlyBanner.svelte';
 	import ReviewBanner from './components/ReviewBanner.svelte';
+	import CaseUnavailable from './components/CaseUnavailable.svelte';
 	import RequestReviewDialog from './components/RequestReviewDialog.svelte';
 	import { callHook } from '$lib/utils/hooks';
 	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
@@ -123,6 +124,23 @@
 	setContext<DatastorePanelContext>(DATASTORE_PANEL_CTX, datastorePanel);
 
 	const currentCase = $derived<Case | null>(cases.currentCase() ?? null);
+
+	// A case the analyst cannot open — missing, not theirs, or not
+	// answerable — gets a page saying so. Without this the skeleton below
+	// stays up forever, because the case list simply omits such a case.
+	// Checked ahead of `currentCase`: a case cached in `cases.byId` from an
+	// earlier view must not render once access to it has been revoked.
+	const unavailable = $derived.by(() => {
+		if (!Number.isInteger(Number(page.params.case_id))) return 'not-found' as const;
+		return caseAccess.unavailable();
+	});
+
+	const retryUnavailable = () => {
+		const case_id = Number(page.params.case_id);
+		caseAccess.reset();
+		caseAccess.load();
+		cases.load({ case_ids: [case_id] });
+	};
 
 	let hookOptions = $state<HookOption[]>([]);
 	let showRequestReview = $state(false);
@@ -408,7 +426,13 @@
 	{/if}
 {/snippet}
 
-{#if !currentCase}
+{#if unavailable}
+	<CaseUnavailable
+		reason={unavailable}
+		caseId={page.params.case_id ?? ''}
+		onRetry={retryUnavailable}
+	/>
+{:else if !currentCase}
 	<div class="flex flex-col overflow-hidden">
 		<div class="flex items-start gap-y-1 overflow-y-auto border-b p-4 shadow">
 			<div class="mb-2 flex w-full flex-col items-start">

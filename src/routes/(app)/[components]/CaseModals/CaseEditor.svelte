@@ -21,20 +21,7 @@
 	import { TagInput } from '$lib/components/common/tag';
 	import type { Tag } from '$lib/types/resources/tag';
 	import { normalizeTags as normalizeTagsArray, tagsToString } from '$lib/utils/tags';
-
-	type Outcome = {
-		id: number;
-		label: string;
-	};
-
-	const OUTCOMES: Outcome[] = [
-		{ id: 0, label: 'Unknown' },
-		{ id: 1, label: 'False Positive' },
-		{ id: 2, label: 'True Positive with impact' },
-		{ id: 4, label: 'True Positive without impact' },
-		{ id: 5, label: 'Legitimate' },
-		{ id: 3, label: 'Not applicable' }
-	];
+	import { CASE_OUTCOMES } from '$lib/utils/case-outcomes';
 
 	type CaseEditorProps = {
 		onDelete?: () => void;
@@ -98,7 +85,7 @@
 	);
 
 	const outcomeOptions = $derived.by<SelectOption[]>(() =>
-		OUTCOMES.map((o) => ({ value: String(o.id), label: o.label }))
+		CASE_OUTCOMES.map((o) => ({ value: String(o.id), label: o.label }))
 	);
 
 	const customerOptions = $derived.by<SelectOption[]>(() =>
