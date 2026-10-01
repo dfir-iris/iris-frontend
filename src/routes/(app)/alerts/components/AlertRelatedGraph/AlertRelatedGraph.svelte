@@ -2,7 +2,7 @@
 	import { getContext } from 'svelte';
 	import { mode } from 'mode-watcher';
 	import DOMPurify from 'dompurify';
-	import type { IdType, Options } from 'vis-network';
+	import type { IdType, Network, Options } from 'vis-network';
 	import { EyeIcon, ExternalLinkIcon } from 'lucide-svelte';
 	import alertSvg from 'lucide-static/icons/bell.svg?raw';
 	import iocSvg from 'lucide-static/icons/link.svg?raw';
@@ -75,6 +75,15 @@
 		y: 0
 	});
 
+	// Remount the network for every new data set and theme. Freezing is
+	// tied to `stabilizationIterationsDone`, which only fires for the
+	// stabilization run at construction — fresh data fed into a live,
+	// frozen network would never be laid out, and a theme change rebuilds
+	// every node (see `VisNetwork`), dropping their positions.
+	const layoutKey = $derived({ graph, isDark });
+	// The `layoutKey` whose layout has settled; see `options.physics`.
+	let frozenKey = $state<object | null>(null);
+
 	const options = $derived({
 		autoResize: true,
 		layout: {
@@ -91,8 +100,15 @@
 			zoomView: true,
 			hover: true
 		},
+		// Physics only computes the initial layout: `handleReady` freezes it
+		// once stabilization ends. Left running, forceAtlas2 never quite
+		// settles and the graph keeps drifting and spinning on its own, and
+		// dragging a node drags the whole graph along with it. Keyed on the
+		// layout rather than a plain flag so the next mount starts unfrozen,
+		// and so an `alertId` change (which re-applies these options to the
+		// still-mounted graph while the new one loads) can't wake it up.
 		physics: {
-			enabled: true,
+			enabled: frozenKey !== layoutKey,
 			solver: 'forceAtlas2Based',
 			forceAtlas2Based: {
 				avoidOverlap: 1
@@ -198,6 +214,11 @@
 
 	const edges = $derived(graph.edges as VisEdge[]);
 
+	const handleReady = (network: Network | null) => {
+		const key = layoutKey;
+		network?.once('stabilizationIterationsDone', () => (frozenKey = key));
+	};
+
 	const closeContextMenu = () => (contextMenu = { open: false, x: 0, y: 0 });
 
 	const openContextMenu = (detail: { x: number; y: number; nodeId?: IdType }) => {
@@ -257,14 +278,17 @@
 
 <div class="relative h-[32rem] w-full rounded-md border bg-muted/20">
 	{#if graph.nodes.length}
-		<VisNetwork
-			{nodes}
-			{edges}
-			{options}
-			className="h-full w-full"
-			onClick={closeContextMenu}
-			onContextMenu={openContextMenu}
-		/>
+		{#key layoutKey}
+			<VisNetwork
+				{nodes}
+				{edges}
+				{options}
+				className="h-full w-full"
+				onClick={closeContextMenu}
+				onContextMenu={openContextMenu}
+				onReady={handleReady}
+			/>
+		{/key}
 	{/if}
 
 	{#if contextMenu.open && contextMenu.node}
