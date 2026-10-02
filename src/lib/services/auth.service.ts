@@ -67,6 +67,12 @@ export interface AuthSettings {
 	local_fallback_enabled: boolean;
 	demo_mode: boolean;
 	demo_accounts: DemoAccount[];
+	/** `IRIS_ORGANISATION_NAME`. Empty when unset or on older backends. */
+	organisation_name?: string;
+	/** `IRIS_LOGIN_BANNER_TEXT` — plain text, newlines kept. */
+	login_banner?: string;
+	/** `IRIS_LOGIN_PTFM_CONTACT` — who to ask for an account. */
+	login_contact?: string;
 }
 
 class AuthenticationService {

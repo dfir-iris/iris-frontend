@@ -41,6 +41,14 @@
 	let username = '';
 	let password = '';
 
+	// Branding set by the operator (`IRIS_ORGANISATION_NAME`,
+	// `IRIS_LOGIN_BANNER_TEXT`, `IRIS_LOGIN_PTFM_CONTACT`). The banner is
+	// rendered as text with its line breaks kept — the v2 page injected it
+	// as raw HTML, which is not something an unauthenticated page should do.
+	const organisationName = authSettings.organisation_name?.trim() ?? '';
+	const loginBanner = authSettings.login_banner?.trim() ?? '';
+	const loginContact = authSettings.login_contact?.trim() ?? '';
+
 	const demoAccounts = authSettings.demo_accounts ?? [];
 	let selectedDemoAccount = demoAccounts[0]?.username ?? '';
 
@@ -124,7 +132,7 @@
 </script>
 
 <svelte:head>
-	<title>Log In</title>
+	<title>{organisationName ? `${organisationName} Login` : 'Log In'}</title>
 	{#if authSettings.demo_mode && env.PUBLIC_PLAUSIBLE_DOMAIN}
 		<script
 			defer
@@ -141,17 +149,41 @@
 	<div
 		class="relative hidden h-full flex-col bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#013479] to-[#011d40] p-10 text-white dark:border-r lg:flex"
 	>
-		<div class="hidden h-full flex-col items-center justify-center lg:flex">
+		<div class="hidden h-full flex-col items-center justify-center gap-6 lg:flex">
 			<div class="w-80">
 				<img src="/img/logo/logo-white.png" alt="IRIS Logo" class="w-full" />
 			</div>
+
+			{#if organisationName}
+				<h2 class="text-center text-2xl font-semibold">{organisationName}</h2>
+			{/if}
+
+			{#if loginBanner}
+				<p class="max-w-md whitespace-pre-line text-center text-sm text-white/80">
+					{loginBanner}
+				</p>
+			{/if}
 		</div>
 	</div>
 
 	<!-- Sign in form -->
 	<div class="mx-auto flex flex-col items-center space-y-6 sm:w-[350px] lg:p-8">
+		<!-- The branding panel is hidden below `lg`; repeat what it says here
+		     so a phone-sized screen still shows whose platform this is. -->
+		{#if organisationName}
+			<p class="text-center text-sm font-medium text-muted-foreground lg:hidden">
+				{organisationName}
+			</p>
+		{/if}
+
 		<h1 class="text-2xl font-semibold tracking-tight">Welcome back</h1>
 		<p class="text-sm text-muted-foreground">Please login to continue using DFIR-IRIS.</p>
+
+		{#if loginBanner}
+			<p class="whitespace-pre-line text-center text-xs text-muted-foreground lg:hidden">
+				{loginBanner}
+			</p>
+		{/if}
 
 		<!-- Server status indicator -->
 		{#if serverStatus === 'offline'}
@@ -327,6 +359,13 @@
 					{isLoading ? 'Logging in...' : 'Log in'}
 				</button>
 			</form>
+
+			{#if loginContact}
+				<p class="text-center text-xs text-muted-foreground">
+					Don't have an account yet?<br />
+					{loginContact}
+				</p>
+			{/if}
 		{/if}
 	</div>
 </div>

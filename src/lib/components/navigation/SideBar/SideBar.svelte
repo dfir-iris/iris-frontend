@@ -16,6 +16,7 @@
 	const collapsed = $derived<boolean>(userCtx.ctx?.preferences?.has_mini_sidebar ?? false);
 	const isCollapsed = () => (collapsed ? !hovered : collapsed);
 	const irisVersion = $derived(userCtx.ctx?.iris_version ?? '');
+	const organisationName = $derived(userCtx.ctx?.organisation_name?.trim() ?? '');
 
 	const toggleCollapsed = () => {
 		// Optimistically flip via the context; it persists in the
@@ -45,34 +46,43 @@
 	</div>
 
 	<div
-		class="flex flex-1 flex-col overflow-y-auto border-r border-[hsl(var(--sidebar-border))] px-3"
+		class="flex min-h-0 flex-1 flex-col border-r border-[hsl(var(--sidebar-border))] px-3"
 		onmouseenter={() => (hovered = true)}
 		onmouseleave={() => (hovered = false)}
 		role="button"
 		tabindex="0"
 	>
-		<div class="border-b border-[hsl(var(--sidebar-border))] py-3">
-			<UserMenu collapsed={isCollapsed()} />
-		</div>
+		<div class="min-h-0 flex-1 overflow-y-auto">
+			<div class="border-b border-[hsl(var(--sidebar-border))] py-3">
+				<UserMenu collapsed={isCollapsed()} />
+			</div>
 
-		<div class="flex w-full py-3">
-			<SideNav collapsed={isCollapsed()} />
+			<div class="flex w-full py-3">
+				<SideNav collapsed={isCollapsed()} />
+			</div>
 		</div>
 
 		<!--
-		  Running IRIS version. Pinned to the bottom of the scroll
-		  viewport so it sits under the menu when content is short,
-		  and stays accessible (still scrolls into view) when the nav
-		  is taller than the viewport. Hidden in collapsed mode — the
-		  rail is too narrow for a legible version string and the
-		  user can already hover to expand.
+		  Organisation and running IRIS version. Outside the nav's scroll
+		  area so they stay on screen on every page, however tall the menu
+		  gets. Hidden in collapsed mode — the rail is too narrow for
+		  legible text and the user can already hover to expand.
 		-->
-		{#if !isCollapsed() && irisVersion}
+		{#if !isCollapsed() && (organisationName || irisVersion)}
 			<div
-				class="mt-auto border-t border-[hsl(var(--sidebar-border))] py-2 text-center text-2xs text-sidebar-foreground/50"
-				title={`Running IRIS ${irisVersion}`}
+				class="shrink-0 border-t border-[hsl(var(--sidebar-border))] py-2 text-center text-2xs text-sidebar-foreground/50"
 			>
-				IRIS {irisVersion}
+				{#if organisationName}
+					<div
+						class="truncate text-xs font-medium text-sidebar-foreground/70"
+						title={organisationName}
+					>
+						{organisationName}
+					</div>
+				{/if}
+				{#if irisVersion}
+					<div title={`Running IRIS ${irisVersion}`}>IRIS {irisVersion}</div>
+				{/if}
 			</div>
 		{/if}
 	</div>

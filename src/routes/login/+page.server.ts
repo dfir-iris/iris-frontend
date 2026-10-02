@@ -17,8 +17,13 @@ const DEFAULT_AUTH_SETTINGS: AuthSettings = {
 	mfa_enabled: false,
 	local_fallback_enabled: true,
 	demo_mode: false,
-	demo_accounts: []
+	demo_accounts: [],
+	organisation_name: '',
+	login_banner: '',
+	login_contact: ''
 };
+
+const asText = (value: unknown): string => (typeof value === 'string' ? value : '');
 
 /**
  * Validate a `?redirect=` target before sending a freshly-authenticated user
@@ -61,7 +66,10 @@ export const load: PageServerLoad = async () => {
 						? true
 						: Boolean(fetched.local_fallback_enabled),
 				demo_mode: Boolean(fetched.demo_mode),
-				demo_accounts: Array.isArray(fetched.demo_accounts) ? fetched.demo_accounts : []
+				demo_accounts: Array.isArray(fetched.demo_accounts) ? fetched.demo_accounts : [],
+				organisation_name: asText(fetched.organisation_name),
+				login_banner: asText(fetched.login_banner),
+				login_contact: asText(fetched.login_contact)
 			};
 		} else {
 			console.warn(

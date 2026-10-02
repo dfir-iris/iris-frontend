@@ -3,6 +3,7 @@
  * onto `GET /api/v2/me/context` — exposes:
  *
  *   * `iris_version` — surfaced under the IRIS logo in the side bar.
+ *   * `organisation_name` — shown above the version in the side bar.
  *   * `demo_mode`    — gates pages that only make sense on the demo
  *                      instance (e.g. the public Welcome page), and
  *                      hides what a demo instance locks down.
@@ -65,6 +66,8 @@ export interface UserPreferences {
 
 export interface UserContext {
 	iris_version: string;
+	/** `IRIS_ORGANISATION_NAME`; empty when unset, absent on older backends. */
+	organisation_name?: string;
 	demo_mode: boolean;
 	user_id: number;
 	permissions: {
