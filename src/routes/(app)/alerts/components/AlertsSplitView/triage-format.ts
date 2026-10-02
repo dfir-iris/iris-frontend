@@ -74,11 +74,11 @@ export const isSpentStatus = (name: string | null | undefined): boolean =>
 /**
  * Statuses that mean "nobody has looked at this yet".
  *
- * The list view keeps these cards at full strength and fades every other
- * one to `opacity-60` (`isProcessed` in AlertCard.svelte), which is what
- * makes an untriaged alert findable in a long page. The queue rows use
- * the same split to lift those rows onto the card surface while the rest
- * stay on the sunken queue background.
+ * The list view gives these cards their own accent (`alertCardTone` in
+ * AlertCard/alert-card-status.ts), which is what makes an untriaged alert
+ * findable in a long page. The queue rows use the same split to lift
+ * those rows onto the card surface while the rest stay on the sunken
+ * queue background.
  */
 const UNTRIAGED_STATUSES = new Set(['new', 'unspecified']);
 

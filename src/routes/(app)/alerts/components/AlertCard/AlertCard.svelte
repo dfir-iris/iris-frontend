@@ -1,5 +1,6 @@
 <script lang="ts">
 	import {
+		CheckCircle2Icon,
 		CheckSquareIcon,
 		ChevronDownIcon,
 		CircleArrowRightIcon,
@@ -11,6 +12,7 @@
 		HistoryIcon,
 		MessagesSquareIcon,
 		PencilIcon,
+		RotateCcwIcon,
 		TrashIcon
 	} from 'lucide-svelte';
 	import { Collapsible } from 'bits-ui';
@@ -37,6 +39,7 @@
 	import AlertCardFooter from './AlertCardFooter.svelte';
 	import AlertCardDetails from './AlertCardDetails.svelte';
 	import type { AlertStatus } from '$lib/services/alert-status.service';
+	import { ALERT_CARD_ACCENT, alertCardTone } from './alert-card-status';
 
 	let {
 		alert,
@@ -107,12 +110,15 @@
 		isAssignMenuOpen || isSetStatusMenuOpen || isMenuOpen || alwaysExpanded
 	);
 
-	const isProcessed = $derived(() => {
-		const name = alert.status?.status_name?.toLowerCase().trim() ?? '';
-		return name !== 'new' && name !== 'unspecified';
-	});
+	const tone = $derived(alertCardTone(alert.status?.status_name));
+	const isSpent = $derived(tone === 'spent');
 
 	const isFocused = $derived(alwaysExpanded || expanded);
+
+	const inProgressStatusId = $derived(
+		alertStatuses.find((s) => s.status_name.toLowerCase().trim() === 'in progress')?.status_id ??
+			alertStatuses.length
+	);
 
 	// Built from the route, not the current path: the card also renders on
 	// `/alerts/<id>` itself, where appending gave `/alerts/<id>/<id>`.
@@ -140,7 +146,7 @@
 </script>
 
 <Card.Root
-	class={`group flex min-w-0 grow overflow-hidden transition-shadow duration-300 ${isFocused ? 'shadow-glow-blue ring-1 ring-iris-blue/30' : ''} ${isProcessed() ? 'border-border/40 opacity-60' : ''}`}
+	class={`group flex min-w-0 grow overflow-hidden border-l-[3px] transition-[box-shadow,background-color,border-color] duration-300 ${ALERT_CARD_ACCENT[tone]} ${isFocused ? 'shadow-glow-blue ring-1 ring-iris-blue/30' : ''} ${isSpent && !isFocused ? 'bg-muted/40 shadow-none' : ''}`}
 >
 	<Collapsible.Root
 		open={alwaysExpanded ? true : expanded}
@@ -196,9 +202,28 @@
 					<Collapsible.Trigger
 						class={`min-w-0 flex-1 text-left transition-colors ${alwaysExpanded ? '' : 'cursor-pointer hover:text-primary'}`}
 					>
-						<h3 class="text-sm font-semibold sm:truncate">{alert.alert_title}</h3>
-						<p class="truncate text-xs text-muted-foreground">
-							#{alert.alert_id} - {alert.alert_uuid}
+						<h3
+							class={`text-sm font-semibold sm:truncate ${isSpent ? 'text-muted-foreground' : ''}`}
+						>
+							{alert.alert_title}
+						</h3>
+						<p class="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+							{#if isSpent}
+								<!--
+								  Finished alerts say so where the eye lands, with the
+								  resolution when there is one — rather than being
+								  faded and left for the reader to work out why.
+								-->
+								<span
+									class="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-2xs font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+								>
+									<CheckCircle2Icon size="12" />
+									{alert.resolution_status
+										? `${alert.status.status_name} · ${alert.resolution_status.resolution_status_name}`
+										: alert.status.status_name}
+								</span>
+							{/if}
+							<span class="truncate">#{alert.alert_id} - {alert.alert_uuid}</span>
 						</p>
 					</Collapsible.Trigger>
 					<ClipboardCopy
@@ -277,21 +302,21 @@
 						</DropdownMenuContent>
 					</DropdownMenu>
 
-					{#if alert.status.status_name.toLowerCase() === 'in progress'}
+					{#if isSpent}
+						<!-- Doubles as the undo for an accidental close. -->
+						<Button variant="outline" size="xs" onclick={() => onSetStatus(inProgressStatusId)}>
+							<RotateCcwIcon size="14" />
+							Reopen
+						</Button>
+					{:else if alert.status.status_name.toLowerCase() === 'in progress'}
 						<Button variant="destructive" size="xs" onclick={() => onShowClose(true)}
 							>Close with note</Button
 						>
 						<Button variant="destructive" size="xs" onclick={() => onShowClose(false)}>Close</Button
 						>
 					{:else}
-						<Button
-							variant="default"
-							size="xs"
-							onclick={() =>
-								onSetStatus(
-									alertStatuses.find((s) => s.status_name.toLowerCase().trim() === 'in progress')
-										?.status_id ?? alertStatuses.length
-								)}>Set In Progress</Button
+						<Button variant="default" size="xs" onclick={() => onSetStatus(inProgressStatusId)}
+							>Set In Progress</Button
 						>
 					{/if}
 				</div>
@@ -398,7 +423,9 @@
 			</div>
 		</Card.Header>
 
-		<Card.Content class="min-w-0 !px-4 !py-3">
+		<!-- No padding while a finished card is collapsed: its description is
+		     hidden, and the empty band would split header from footer. -->
+		<Card.Content class={`min-w-0 !px-4 ${isSpent && !isFocused ? '!py-0' : '!py-3'}`}>
 			<!--
 			  Description is rendered as sanitized markdown so operators
 			  who paste findings from a report (headings, lists, links,
@@ -406,9 +433,17 @@
 			  through DOMPurify, so untrusted alert content is safe.
 			  Plain text still renders as plain text.
 			-->
-			<div class="text-sm text-muted-foreground">
-				<MarkDownPreview markdown={alert.alert_description ?? ''} />
-			</div>
+			<!--
+			  A finished alert keeps to its header and footer until it is
+			  opened: its description is the part nobody needs to re-read,
+			  and dropping it is what lets a closed card step back from the
+			  ones still waiting on someone.
+			-->
+			{#if !isSpent || isFocused}
+				<div class="text-sm text-muted-foreground">
+					<MarkDownPreview markdown={alert.alert_description ?? ''} />
+				</div>
+			{/if}
 
 			<Collapsible.Content
 				class="overflow-hidden pt-4 data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down"
@@ -419,6 +454,6 @@
 			</Collapsible.Content>
 		</Card.Content>
 
-		<AlertCardFooter {alert} {onUnlinkCase} />
+		<AlertCardFooter {alert} {tone} {onUnlinkCase} />
 	</Collapsible.Root>
 </Card.Root>

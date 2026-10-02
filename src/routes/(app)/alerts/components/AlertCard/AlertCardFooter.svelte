@@ -27,12 +27,15 @@
 	import type { Alert } from '$lib/types/resources/alert';
 	import { mediumDateTimeFormatter } from '$lib/utils/time-formatter';
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
+	import { ALERT_CARD_STATUS_PILL, type AlertCardTone } from './alert-card-status';
 
 	let {
 		alert,
+		tone,
 		onUnlinkCase
 	}: {
 		alert: Alert;
+		tone: AlertCardTone;
 		onUnlinkCase: (case_id: number) => void;
 	} = $props();
 
@@ -110,37 +113,45 @@
 	{/if}
 
 	<div class="flex flex-wrap items-center gap-3">
-		{#if alert.resolution_status}
+		<!--
+		  A finished card already names its status and resolution in the
+		  header badge; repeating them here read as the outcome twice.
+		-->
+		{#if tone !== 'spent'}
+			{#if alert.resolution_status}
+				<TooltipProvider>
+					<Tooltip>
+						<TooltipTrigger class="cursor-default">
+							<div
+								class="rounded-full bg-orange-100 px-2.5 py-0.5 text-2xs font-medium text-orange-800 dark:bg-orange-900/30 dark:text-orange-300"
+							>
+								{alert.resolution_status.resolution_status_name}
+							</div>
+						</TooltipTrigger>
+
+						<TooltipContent>
+							<p class="text-xs">Alert resolution status</p>
+						</TooltipContent>
+					</Tooltip>
+				</TooltipProvider>
+			{/if}
+
 			<TooltipProvider>
 				<Tooltip>
 					<TooltipTrigger class="cursor-default">
 						<div
-							class="rounded-full bg-orange-100 px-2.5 py-0.5 text-2xs font-medium text-orange-800 dark:bg-orange-900/30 dark:text-orange-300"
+							class={`rounded-full px-2.5 py-0.5 text-2xs font-medium ${ALERT_CARD_STATUS_PILL[tone]}`}
 						>
-							{alert.resolution_status.resolution_status_name}
+							{alert.status.status_name}
 						</div>
 					</TooltipTrigger>
 
 					<TooltipContent>
-						<p class="text-xs">Alert resolution status</p>
+						<p class="text-xs">Alert status</p>
 					</TooltipContent>
 				</Tooltip>
 			</TooltipProvider>
 		{/if}
-
-		<TooltipProvider>
-			<Tooltip>
-				<TooltipTrigger class="cursor-default">
-					<div class="rounded-full bg-muted px-2.5 py-0.5 text-2xs font-medium text-foreground">
-						{alert.status.status_name}
-					</div>
-				</TooltipTrigger>
-
-				<TooltipContent>
-					<p class="text-xs">Alert status</p>
-				</TooltipContent>
-			</Tooltip>
-		</TooltipProvider>
 
 		<TooltipProvider>
 			<Tooltip>
