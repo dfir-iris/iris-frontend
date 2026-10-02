@@ -1,18 +1,26 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { GroupsService, type Group } from '$lib/services/groups.service';
-	import type { RequestResponse } from '$lib/services/api.service';
+	import {
+		CaseService,
+		type CaseAccessGroupRow,
+		type CaseIdentifier
+	} from '$lib/services/case.service';
 	import SearchSelect from '$lib/components/common/selects/SearchSelect.svelte';
 	import { ACCESS_OPTIONS } from './consts';
 
 	type Props = {
+		caseId: CaseIdentifier;
 		groupIds?: string[];
 		access?: string;
 	};
 
-	let { groupIds = $bindable<string[]>([]), access = $bindable<string>('') }: Props = $props();
+	let {
+		caseId,
+		groupIds = $bindable<string[]>([]),
+		access = $bindable<string>('')
+	}: Props = $props();
 
-	let groups = $state<Group[]>([]);
+	let groups = $state<CaseAccessGroupRow[]>([]);
 	let loading = $state(false);
 
 	const opts = $derived.by(() =>
@@ -22,8 +30,9 @@
 	onMount(async () => {
 		loading = true;
 		try {
-			const res = (await GroupsService.list()).data as unknown as RequestResponse<Group[]>;
-			groups = (res.data as Group[]) ?? [];
+			// Case-scoped list: `/manage/groups` is administrators only.
+			const res = await CaseService.listAccessGroups(caseId);
+			groups = Array.isArray(res?.data) ? res.data : [];
 		} finally {
 			loading = false;
 		}

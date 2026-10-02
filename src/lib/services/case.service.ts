@@ -79,6 +79,17 @@ export interface CaseAccessUserRow extends UserInfo {
 
 export interface CaseAccessMe {
 	access_level: CaseAccessLevel;
+	// Whether the caller may change who can access the case: server
+	// administrators, or holders of `case_access_manage` with full access.
+	can_manage_access?: boolean;
+}
+
+export interface CaseAccessGroupRow {
+	group_id: number;
+	group_name: string;
+	group_description: string | null;
+	// Explicit grant of the group on this case, `null` when it has none.
+	access_level: CaseAccessLevel | null;
 }
 
 // `/cases/filter` shares the same pagination parsing as `/cases`, so it
@@ -209,6 +220,42 @@ export class CaseService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<CaseAccessMe>> {
 		return ApiService.get<CaseAccessMe>(`/api/v2/cases/${caseId}/access/me`, options);
+	}
+
+	// Case-scoped access management, open to `CaseAccessMe.can_manage_access`
+	// callers. The `/manage/...cases-access` routes do the same for
+	// administrators only.
+	static async listAccessGroups(
+		caseId: CaseIdentifier,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<CaseAccessGroupRow[]>> {
+		return ApiService.get<CaseAccessGroupRow[]>(`/api/v2/cases/${caseId}/access/groups`, options);
+	}
+
+	static async setUserAccess(
+		caseId: CaseIdentifier,
+		userId: number,
+		accessLevel: CaseAccessLevel,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<{ user_id: number; access_level: CaseAccessLevel }>> {
+		return ApiService.post(
+			`/api/v2/cases/${caseId}/access/users`,
+			{ user_id: userId, access_level: accessLevel },
+			options
+		);
+	}
+
+	static async setGroupAccess(
+		caseId: CaseIdentifier,
+		groupId: number,
+		accessLevel: CaseAccessLevel,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<{ group_id: number; access_level: CaseAccessLevel }>> {
+		return ApiService.post(
+			`/api/v2/cases/${caseId}/access/groups`,
+			{ group_id: groupId, access_level: accessLevel },
+			options
+		);
 	}
 
 	// Subset of `listAccessUsers` restricted to users with full case access

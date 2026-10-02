@@ -2,8 +2,13 @@
 	import { renderComponent, type ColumnDef } from '@tanstack/svelte-table';
 	import { getContext, onMount } from 'svelte';
 	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
-	import { AccessLevel, AccessControlService } from '$lib/services/access-control.service';
-	import { CaseService, type CaseAccessUserRow } from '$lib/services/case.service';
+	import { AccessLevel } from '$lib/services/access-control.service';
+	import {
+		CaseService,
+		type CaseAccessLevel,
+		type CaseAccessUserRow
+	} from '$lib/services/case.service';
+	import { current_user } from '$lib/stores/auth.store';
 	import DataTable from '$lib/components/ui/data-table-tanstack/data-table.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { toast } from '$lib/components/ui/toast';
@@ -12,6 +17,7 @@
 	} from '$lib/components/common/selects/SearchSelect.svelte';
 	import type { Access } from './types';
 	import { ACCESS_OPTIONS } from './consts';
+	import { CASE_ACCESS_NOT_MANAGER, caseAccessLockReason } from './utils';
 	import CaseAccessGroup from './CaseAccessGroup.svelte';
 
 	const cases = getContext<CasesContext>(CASES_CTX);
@@ -24,6 +30,11 @@
 	let setAccessViaGroup = $state(false);
 	let groupIds = $state<string[]>([]);
 	let groupAccess = $state<string>('');
+	// Until `/access/me` answers, assume read-only rather than offer
+	// controls that would 403.
+	let canManage = $state(false);
+
+	const myUserId = $derived($current_user?.user_id ?? $current_user?.id ?? null);
 
 	const accessFromLevel = (level: number): Access | null => {
 		if (!level || level === AccessLevel.DENY_ALL) return null;
@@ -39,8 +50,13 @@
 	const refresh = async () => {
 		loading = true;
 		try {
-			const res = await CaseService.listAccessUsers(currentCaseId);
+			const [res, me] = await Promise.all([
+				CaseService.listAccessUsers(currentCaseId),
+				CaseService.getMyAccess(currentCaseId)
+			]);
 			const rows: CaseAccessUserRow[] = Array.isArray(res?.data) ? res.data : [];
+			canManage =
+				typeof me?.data === 'object' && me.data !== null && me.data.can_manage_access === true;
 
 			usersAccess = rows.map((user) => ({
 				user,
@@ -67,10 +83,10 @@
 		);
 
 		try {
-			const res = await AccessControlService.setUserCasesAccess(
+			const res = await CaseService.setUserAccess(
+				currentCaseId,
 				userId,
-				[currentCaseId],
-				accessLevel
+				accessLevel as CaseAccessLevel
 			);
 			if (res?.error) throw new Error(res.error.message);
 		} catch (error) {
@@ -106,6 +122,9 @@
 				renderComponent(SearchSelect, {
 					value: String((cell.row?.original as Row).access?.level ?? AccessLevel.DENY_ALL),
 					options: ACCESS_OPTIONS,
+					disabled:
+						caseAccessLockReason(canManage, (cell.row?.original as Row).user.user_id, myUserId) !==
+						null,
 					onChange: (value) => {
 						const userId = (cell.row?.original as Row).user.user_id;
 						if (userId === undefined) return;
@@ -116,14 +135,11 @@
 	];
 
 	const saveAccessViaGroup = async () => {
-		const accessLevel = Number(groupAccess);
+		const accessLevel = Number(groupAccess) as CaseAccessLevel;
 
 		const results = await Promise.allSettled(
 			groupIds.map((groupId) =>
-				AccessControlService.setGroupCasesAccess(Number(groupId), {
-					cases_list: [currentCaseId],
-					access_level: accessLevel
-				})
+				CaseService.setGroupAccess(currentCaseId, Number(groupId), accessLevel)
 			)
 		);
 
@@ -156,7 +172,12 @@
 
 		{#if !setAccessViaGroup}
 			<div class="flex gap-2">
-				<Button size="sm" variant="secondary" onclick={() => (setAccessViaGroup = true)}>
+				<Button
+					size="sm"
+					variant="secondary"
+					disabled={!canManage}
+					onclick={() => (setAccessViaGroup = true)}
+				>
 					Set access via group
 				</Button>
 				<Button size="sm" variant="ghost" onclick={() => refresh()} disabled={loading}>
@@ -167,14 +188,23 @@
 	</div>
 
 	{#if setAccessViaGroup}
-		<CaseAccessGroup bind:groupIds bind:access={groupAccess} />
+		<CaseAccessGroup caseId={currentCaseId} bind:groupIds bind:access={groupAccess} />
 		<div class="mt-4 flex items-center justify-end gap-2">
 			<Button variant="ghost" size="sm" onclick={() => (setAccessViaGroup = false)}>Cancel</Button>
-			<Button size="sm" onclick={() => saveAccessViaGroup()}>Set access via group</Button>
+			<Button
+				size="sm"
+				disabled={groupIds.length === 0 || !groupAccess}
+				onclick={() => saveAccessViaGroup()}
+			>
+				Set access via group
+			</Button>
 		</div>
 	{:else if loading && usersAccess.length === 0}
 		<div class="py-8 text-center text-xs text-muted-foreground">Loading users…</div>
 	{:else}
+		{#if !canManage}
+			<p class="mb-3 text-xs text-muted-foreground">{CASE_ACCESS_NOT_MANAGER}</p>
+		{/if}
 		<DataTable {columns} data={usersAccess} page={1} />
 	{/if}
 </div>

@@ -59,7 +59,10 @@
 		{ name: 'cluster_rules_read', value: 0x200000 },
 		{ name: 'cluster_rules_write', value: 0x400000 },
 		{ name: 'investigation_flows_read', value: 0x800000 },
-		{ name: 'investigation_flows_write', value: 0x1000000 }
+		{ name: 'investigation_flows_write', value: 0x1000000 },
+		{ name: 'asset_manager_read', value: 0x2000000 },
+		{ name: 'asset_manager_write', value: 0x4000000 },
+		{ name: 'case_access_manage', value: 0x8000000 }
 	];
 
 	let keys = $state<UserApiKey[]>([]);

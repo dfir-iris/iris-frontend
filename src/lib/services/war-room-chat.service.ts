@@ -23,10 +23,22 @@ export type ChatMessageKind =
 	| 'priority'
 	| 'poll';
 
+export interface ChatReactionUser {
+	user_id: number;
+	user_login: string | null;
+	user_name: string | null;
+}
+
 export interface ChatReaction {
 	emoji: string;
 	count: number;
 	user_ids: number[];
+	/**
+	 * Who reacted, in reaction order. Absent on a pill the page patched
+	 * locally after the caller's own toggle — `user_ids` is always the
+	 * authoritative list.
+	 */
+	users?: ChatReactionUser[];
 }
 
 export interface ChatPollOptionVoter {

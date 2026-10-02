@@ -31,4 +31,9 @@ test.describe('Settings · shell', () => {
 			await expect(page.getByRole('main').first()).toBeVisible({ timeout: 10_000 });
 		});
 	}
+
+	test('/settings opens the first settings page', async ({ page }) => {
+		await page.goto('/settings');
+		await expect(page).toHaveURL(/\/settings\/modules$/, { timeout: 10_000 });
+	});
 });

@@ -3,6 +3,7 @@
 	import {
 		BellIcon,
 		BookOpenIcon,
+		ChevronDownIcon,
 		ComputerIcon,
 		DoorOpenIcon,
 		FileStackIcon,
@@ -23,7 +24,7 @@
 	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 	import type { PermissionName } from '$lib/services/user-context.service';
 	import MenuItem from './MenuItem.svelte';
-	import { SETTINGS_PERMISSIONS } from '../settings-pages';
+	import { SETTINGS_PERMISSIONS, visibleSettingsPages } from '../settings-pages';
 
 	type Props = {
 		collapsed: boolean;
@@ -136,6 +137,24 @@
 	// case templates, clustering rules, …), not just server admin.
 	const canOpenSettings = $derived(userCtx.canAny(SETTINGS_PERMISSIONS));
 	const canManageAssets = $derived(userCtx.can('asset_manager_read'));
+
+	// Settings is a group: its pages are listed under it rather than in a
+	// second menu inside the page. The entry itself opens the first page
+	// the user can see. The group unfolds whenever a settings page is
+	// open; the chevron folds it away without navigating.
+	const settingsPages = $derived(visibleSettingsPages(userCtx.can, userCtx.ctx));
+	const settingsHref = $derived(
+		settingsPages.length ? `/settings${settingsPages[0].href}` : '/settings'
+	);
+	const inSettings = $derived(pathname === '/settings' || pathname.startsWith('/settings/'));
+	let settingsOpen = $state(false);
+	$effect(() => {
+		if (inSettings) settingsOpen = true;
+	});
+	const isSettingsPageActive = (href: string) => {
+		const target = `/settings${href}`;
+		return pathname === target || pathname.startsWith(`${target}/`);
+	};
 	const showManageGroup = $derived(
 		canManageCustomers ||
 			canManageCaseTemplates ||
@@ -225,13 +244,64 @@
 		{/if}
 
 		{#if canOpenSettings}
-			<MenuItem
-				{collapsed}
-				label="Settings"
-				icon={SettingsIcon}
-				href="/settings"
-				active={pathname === '/settings' || pathname.startsWith('/settings/')}
-			/>
+			{@const expanded = settingsOpen && !collapsed}
+			<li class="relative w-full">
+				<!--
+				  Highlighted like any entry while the group is folded (or the
+				  rail collapsed); once unfolded the active page below carries
+				  the highlight instead.
+				-->
+				<ul>
+					<MenuItem
+						{collapsed}
+						label="Settings"
+						icon={SettingsIcon}
+						href={settingsHref}
+						active={inSettings && !expanded}
+					/>
+				</ul>
+				{#if !collapsed}
+					<button
+						type="button"
+						class="absolute right-1 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-sidebar-foreground/60 hover:bg-[hsl(var(--sidebar-hover))] hover:text-foreground {inSettings &&
+						!expanded
+							? 'text-white/80 hover:text-white'
+							: ''}"
+						onclick={() => (settingsOpen = !settingsOpen)}
+						aria-label={settingsOpen ? 'Hide settings pages' : 'Show settings pages'}
+						aria-expanded={settingsOpen}
+					>
+						<ChevronDownIcon
+							size={14}
+							class="transition-transform {settingsOpen ? 'rotate-180' : ''}"
+						/>
+					</button>
+				{/if}
+			</li>
+
+			{#if expanded}
+				<li class="w-full">
+					<ul
+						class="ml-5 flex flex-col gap-0.5 border-l border-[hsl(var(--sidebar-border))] py-1 pl-2"
+					>
+						{#each settingsPages as item (item.href)}
+							{@const active = isSettingsPageActive(item.href)}
+							<li>
+								<a
+									href={`/settings${item.href}`}
+									class="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors {active
+										? 'bg-iris-blue font-medium text-white shadow-sm'
+										: 'text-sidebar-foreground hover:bg-[hsl(var(--sidebar-hover))] hover:text-foreground'}"
+									aria-current={active ? 'page' : undefined}
+								>
+									<item.icon size={14} class="shrink-0" />
+									<span class="truncate">{item.label}</span>
+								</a>
+							</li>
+						{/each}
+					</ul>
+				</li>
+			{/if}
 		{/if}
 	{/if}
 

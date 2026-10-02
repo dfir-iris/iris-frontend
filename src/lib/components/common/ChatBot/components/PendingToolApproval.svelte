@@ -56,8 +56,18 @@
 				const p = (a.payload as Record<string, unknown>) ?? {};
 				return `Create a note${p.note_title ? ` titled "${p.note_title}"` : ''} on case #${a.case_identifier}.`;
 			}
-			case 'iris_case_notes_update':
-				return `Update note #${a.note_identifier} on case #${a.case_identifier}.`;
+			case 'iris_case_notes_update': {
+				const p = (a.payload as Record<string, unknown>) ?? {};
+				return describeNoteEdit(
+					`note #${a.note_identifier} on case #${a.case_identifier}`,
+					p.note_title,
+					p.note_content
+				);
+			}
+			case 'iris_war_room_notes_create':
+				return `Create a note${a.title ? ` titled "${a.title}"` : ''} in this war room.`;
+			case 'iris_war_room_notes_update':
+				return describeNoteEdit(`war-room note #${a.note_id}`, a.title, a.content);
 			case 'iris_case_notes_directories_create':
 				return `Create a note folder${a.name ? ` named "${a.name}"` : ''} on case #${
 					a.case_identifier
@@ -90,7 +100,30 @@
 		}
 	}
 
+	function describeNoteEdit(target: string, title: unknown, content: unknown): string {
+		const rename = typeof title === 'string';
+		const rewrite = typeof content === 'string';
+		if (rename && rewrite) return `Rewrite ${target} and rename it to "${title}".`;
+		if (rename) return `Rename ${target} to "${title}".`;
+		if (rewrite) return `Rewrite the content of ${target}.`;
+		return `Update ${target}.`;
+	}
+
+	// A note edit replaces the whole body, so the analyst has to see what
+	// would be written — the one-line summary isn't enough to approve it.
+	function proposedNoteBody(pc: PendingToolCall): string | null {
+		const a = pc.arguments as Record<string, unknown>;
+		const body =
+			pc.tool_name === 'iris_case_notes_update'
+				? ((a.payload as Record<string, unknown>) ?? {}).note_content
+				: pc.tool_name === 'iris_war_room_notes_update'
+					? a.content
+					: undefined;
+		return typeof body === 'string' ? body : null;
+	}
+
 	const description = $derived(describeAction(pending));
+	const noteBody = $derived(proposedNoteBody(pending));
 </script>
 
 <div class="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
@@ -105,6 +138,12 @@
 			</div>
 			{#if description}
 				<div class="text-xs">{description}</div>
+				{#if noteBody !== null}
+					<div class="text-2xs uppercase tracking-wide text-muted-foreground">New content</div>
+					<pre
+						class="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 font-mono text-2xs">{noteBody ||
+							'(empty)'}</pre>
+				{/if}
 			{:else}
 				<pre
 					class="max-h-32 overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-2 font-mono text-2xs">{JSON.stringify(
