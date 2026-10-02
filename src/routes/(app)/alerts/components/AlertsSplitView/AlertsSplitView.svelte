@@ -41,6 +41,7 @@
 	import AlertAssetEditDialog from '../alert-asset-edit-dialog.svelte';
 	import { hasChanges, saveAlertAsset, saveAlertIoc } from '../../helpers/alert-observables';
 	import { getClosedAlertStatusId } from '../../helpers/alert-status';
+	import { clampSplitQueueWidth, SPLIT_QUEUE_KEY_STEP } from './split-resize';
 	import { clusterSelectionState, flattenAlertQueueUnits } from '$lib/utils/alert-queue';
 	import {
 		ALERT_QUEUE_COLUMNS,
@@ -166,6 +167,10 @@
 		onOpenCluster: (clusterId: number) => void;
 		onPageChange: (page: number) => void;
 		onQueueTabChange: (tab: 'mine' | 'unassigned' | 'escalated' | null) => void;
+		/** Width of the queue pane in px, as the user last dragged it. `null` = the default. */
+		queueWidth?: number | null;
+		/** Fired once a drag (or keyboard resize) ends, and with `null` on reset. */
+		onQueueWidthChange?: (width: number | null) => void;
 	}
 
 	const alertsCtx = getContext<AlertsContext>(ALERTS_CTX);
@@ -204,7 +209,9 @@
 		onCommentsChanged,
 		onOpenCluster,
 		onPageChange,
-		onQueueTabChange
+		onQueueTabChange,
+		queueWidth = null,
+		onQueueWidthChange
 	}: Props = $props();
 
 	type Tab =
@@ -308,6 +315,76 @@
 	};
 
 	onDestroy(() => clearTimeout(copiedTimer));
+
+	// ---- resizable divider between queue and detail ----
+	//
+	// The width lives in a CSS custom property that `.iris-triage` clamps
+	// again, so a width saved on a wide screen degrades gracefully on a
+	// narrower one instead of crushing the detail. `dragWidth` only exists
+	// while the handle is held; the saved value comes back down through
+	// `queueWidth` once the parent has remembered it.
+	let triageEl = $state<HTMLDivElement | null>(null);
+	let queueEl = $state<HTMLDivElement | null>(null);
+	let dragWidth = $state<number | null>(null);
+	let dragging = $state(false);
+
+	const effectiveQueueWidth = $derived(dragWidth ?? queueWidth);
+
+	const queueWidthFromPointer = (clientX: number): number | null => {
+		if (!triageEl) return null;
+		const rect = triageEl.getBoundingClientRect();
+		return clampSplitQueueWidth(clientX - rect.left, rect.width);
+	};
+
+	const commitQueueWidth = (width: number | null) => {
+		onQueueWidthChange?.(width);
+		dragWidth = null;
+	};
+
+	const startResize = (event: PointerEvent) => {
+		if (event.button !== 0) return;
+		event.preventDefault();
+		(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+		dragging = true;
+		dragWidth = queueWidthFromPointer(event.clientX);
+	};
+
+	const moveResize = (event: PointerEvent) => {
+		if (!dragging) return;
+		dragWidth = queueWidthFromPointer(event.clientX);
+	};
+
+	const endResize = () => {
+		if (!dragging) return;
+		dragging = false;
+		if (dragWidth != null) commitQueueWidth(dragWidth);
+	};
+
+	const keyResize = (event: KeyboardEvent) => {
+		if (!triageEl || !queueEl) return;
+
+		if (event.key === 'Home') {
+			event.preventDefault();
+			commitQueueWidth(null);
+			return;
+		}
+
+		const step =
+			event.key === 'ArrowLeft'
+				? -SPLIT_QUEUE_KEY_STEP
+				: event.key === 'ArrowRight'
+					? SPLIT_QUEUE_KEY_STEP
+					: 0;
+		if (step === 0) return;
+
+		event.preventDefault();
+		commitQueueWidth(
+			clampSplitQueueWidth(
+				queueEl.getBoundingClientRect().width + step,
+				triageEl.getBoundingClientRect().width
+			)
+		);
+	};
 
 	/**
 	 * `now` is sampled once on mount and ticked every 30s rather than read
@@ -828,13 +905,31 @@
 <!-- Both panes sit side by side on wide screens. Narrow ones show one at a
      time and use `show-detail` to pick which — see the media query. -->
 <div
+	bind:this={triageEl}
 	class="iris-triage {className}"
 	class:show-detail={narrowPane === 'detail'}
+	class:resizing={dragging}
+	style:--queue-w={effectiveQueueWidth != null ? `${effectiveQueueWidth}px` : null}
 	role="region"
 	aria-label="Alert triage cockpit"
 >
 	<!-- ============ queue ============ -->
-	<div class="queue">
+	<div class="queue" bind:this={queueEl}>
+		<!-- Divider: drag to resize, arrow keys to nudge, double-click or
+		     Home to go back to the default width. A button rather than a
+		     `role="separator"` div, which would have to fake being focusable. -->
+		<button
+			type="button"
+			class="queue-resize"
+			aria-label="Resize alert queue — arrow keys to resize, Home to reset"
+			title="Drag to resize · double-click to reset"
+			onpointerdown={startResize}
+			onpointermove={moveResize}
+			onpointerup={endResize}
+			onpointercancel={endResize}
+			ondblclick={() => commitQueueWidth(null)}
+			onkeydown={keyResize}
+		></button>
 		<!-- Quick-filter tabs: My queue / Unassigned / Escalated / All open -->
 		<div class="queue-tabs" role="tablist" aria-label="Alert queue filter">
 			<button
@@ -1989,7 +2084,9 @@
 		--mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
 		display: grid;
-		grid-template-columns: 640px 1fr;
+		/* `--queue-w` is the user's dragged width; the clamp mirrors
+		   split-resize.ts so a saved width never crushes the detail. */
+		grid-template-columns: clamp(420px, var(--queue-w, 640px), calc(100% - 480px)) 1fr;
 		min-height: 0;
 		min-width: 0;
 		flex: 1;
@@ -2143,12 +2240,59 @@
 	/* ---------------- queue ---------------- */
 
 	.queue {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		min-height: 0;
 		min-width: 0;
 		border-right: 1px solid var(--b-2);
 		background: var(--s-sunken);
+	}
+
+	/* Straddles the queue's right border; wider than it looks so it is
+	   easy to grab. Positioned + z-indexed so the detail pane, which comes
+	   later in the DOM, does not paint over its right half. */
+	.queue-resize {
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		right: -4px;
+		z-index: 5;
+		width: 8px;
+		padding: 0;
+		border: 0;
+		background: none;
+		cursor: col-resize;
+		touch-action: none;
+	}
+	.queue-resize::after {
+		content: '';
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: 3px;
+		width: 2px;
+		background: transparent;
+		transition: background-color 0.15s;
+	}
+	.queue-resize:hover::after,
+	.queue-resize:focus-visible::after,
+	.iris-triage.resizing .queue-resize::after {
+		background: var(--acc-soft);
+	}
+	.queue-resize:focus-visible {
+		outline: none;
+	}
+	/* No text selection or stray hover states while dragging. */
+	.iris-triage.resizing {
+		cursor: col-resize;
+		user-select: none;
+	}
+	.iris-triage.resizing > * {
+		pointer-events: none;
+	}
+	.iris-triage.resizing .queue-resize {
+		pointer-events: auto;
 	}
 
 	/* Quick-filter tab strip — the mockup's segmented "My queue / Unassigned / …" bar */
@@ -3519,7 +3663,7 @@
 	}
 	@media (max-width: 1100px) {
 		.iris-triage {
-			grid-template-columns: 420px 1fr;
+			grid-template-columns: clamp(420px, var(--queue-w, 420px), calc(100% - 480px)) 1fr;
 		}
 	}
 
@@ -3562,6 +3706,9 @@
 		/* No pane beside it to divide from once stacked. */
 		.queue {
 			border-right: none;
+		}
+		.queue-resize {
+			display: none;
 		}
 		.detail-back {
 			display: inline-flex;

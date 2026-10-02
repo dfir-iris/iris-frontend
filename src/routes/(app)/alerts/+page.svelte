@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext, onMount } from 'svelte';
+	import { getContext, onMount, untrack } from 'svelte';
 	import {
 		ArrowDownNarrowWide,
 		ArrowUpNarrowWide,
@@ -104,6 +104,13 @@
 		type QueueTab
 	} from './helpers/alert-query';
 	import { buildDefaultAlertFilters } from './helpers/alerts-default-view';
+	import {
+		ALERTS_LAYOUT,
+		loadAlertsLayout,
+		sameAlertsLayout,
+		saveAlertsLayout,
+		type AlertsLayout
+	} from './helpers/alerts-layout';
 	import { mergeAlerts } from './helpers/alerts-merge';
 	import { closeAlerts } from './helpers/alerts-close';
 	import { assignAlertsToOwner, reassignAlertOwner } from './helpers/alerts-assign';
@@ -180,6 +187,11 @@
 	let defaultView = $state<AlertsDefaultView>(ALERTS_DEFAULT_VIEW);
 	let defaultViewPreset = $state<SavedFilter | null>(null);
 	let defaultViewResolved = $state(false);
+
+	// The user's remembered layout (view, board grouping, page size,
+	// expansion). Resolved behind the same gate as the default view, and
+	// only consulted for whatever the URL leaves out — see `readQueryFromUrl`.
+	let layout = $state<AlertsLayout>(ALERTS_LAYOUT);
 
 	let filtersOpen = $state(false);
 	let selectedSavedFilterId = $state<string>('');
@@ -431,19 +443,24 @@
 			(filters as Record<FilterKey, unknown>)[key] = raw;
 		}
 
+		// Untracked: the effect that calls this must re-run on navigation,
+		// not when a layout change is remembered — that one is followed by
+		// its own navigation anyway.
+		const fallback = untrack(() => layout);
+
 		const pageRaw = Number(url.searchParams.get('page') ?? '1');
-		const perPageRaw = Number(url.searchParams.get('per_page') ?? String(DEFAULT_ITEMS_PER_PAGE));
+		const perPageRaw = Number(url.searchParams.get('per_page') ?? String(fallback.per_page));
 
 		const viewRaw = url.searchParams.get('view');
 		const groupRaw = url.searchParams.get('board_group');
+		const expandedRaw = url.searchParams.get('expanded');
 
 		return {
 			page: Number.isFinite(pageRaw) && pageRaw >= 1 ? pageRaw : 1,
-			per_page:
-				Number.isFinite(perPageRaw) && perPageRaw >= 1 ? perPageRaw : DEFAULT_ITEMS_PER_PAGE,
-			expanded: url.searchParams.get('expanded') === '1',
-			view: isAlertViewMode(viewRaw) ? viewRaw : 'split',
-			board_group: isAlertBoardGroup(groupRaw) ? groupRaw : 'severity',
+			per_page: Number.isFinite(perPageRaw) && perPageRaw >= 1 ? perPageRaw : fallback.per_page,
+			expanded: expandedRaw === null ? fallback.expanded : expandedRaw === '1',
+			view: isAlertViewMode(viewRaw) ? viewRaw : fallback.view,
+			board_group: isAlertBoardGroup(groupRaw) ? groupRaw : fallback.board_group,
 			filters
 		};
 	};
@@ -462,24 +479,40 @@
 	/** Resolves to whether a navigation was actually issued. */
 	const writeQueryToUrl = async (queryState: QueryState): Promise<boolean> => {
 		const url = new URL(window.location.href);
+		// Untracked for the same reason as in `readQueryFromUrl`: the
+		// default-view branch of the URL effect calls this synchronously.
+		const remembered = untrack(() => layout);
 
 		if (queryState.page <= 1) url.searchParams.delete('page');
 		else url.searchParams.set('page', String(queryState.page));
 
-		if (queryState.per_page === DEFAULT_ITEMS_PER_PAGE) url.searchParams.delete('per_page');
+		// Same reasoning as `expanded` below: the default page size may only
+		// go unsaid while the remembered one agrees with it.
+		if (
+			queryState.per_page === DEFAULT_ITEMS_PER_PAGE &&
+			remembered.per_page === DEFAULT_ITEMS_PER_PAGE
+		)
+			url.searchParams.delete('per_page');
 		else url.searchParams.set('per_page', String(queryState.per_page));
 
+		// Absent means "use the remembered layout", so collapsing has to be
+		// spelled out once a user's layout opens cards expanded.
 		if (queryState.expanded) url.searchParams.set('expanded', '1');
+		else if (remembered.expanded) url.searchParams.set('expanded', '0');
 		else url.searchParams.delete('expanded');
 
-		if (queryState.view === 'board') url.searchParams.set('view', 'board');
-		else if (queryState.view === 'list') url.searchParams.set('view', 'list');
-		else url.searchParams.delete('view'); // 'split' is the default — no param needed
+		// Always written, even for the split view: a URL without `view`
+		// opens on the reader's remembered view, so a link that should land
+		// on a specific one has to say which.
+		url.searchParams.set('view', queryState.view);
 
 		// Only meaningful alongside `view=board`; keeping it out of the URL
 		// otherwise stops a stale grouping from riding along on a shared
 		// list-view link.
-		if (queryState.view === 'board' && queryState.board_group !== 'severity') {
+		if (
+			queryState.view === 'board' &&
+			(queryState.board_group !== 'severity' || remembered.board_group !== 'severity')
+		) {
 			url.searchParams.set('board_group', queryState.board_group);
 		} else {
 			url.searchParams.delete('board_group');
@@ -631,6 +664,37 @@
 		void refreshAlerts();
 	};
 
+	/**
+	 * Remember the layout part of `next` in the user's profile.
+	 *
+	 * Only called from the toolbar controls — the user picking a layout —
+	 * and never from navigation, so opening a colleague's list-view link
+	 * does not quietly change the view the side-bar entry opens on. The
+	 * local copy is updated first and synchronously: the URL write that
+	 * follows re-reads the query, and any param it drops falls back to
+	 * this value.
+	 */
+	const rememberLayout = (next: QueryState) => {
+		// `commitQuery` drops the change while a load is in flight; the
+		// profile must not remember a layout the page never switched to.
+		if (status === 'loading') return;
+
+		saveLayout({
+			...layout,
+			view: next.view,
+			board_group: next.board_group,
+			per_page: next.per_page,
+			expanded: next.expanded
+		});
+	};
+
+	const saveLayout = (nextLayout: AlertsLayout) => {
+		if (sameAlertsLayout(nextLayout, layout)) return;
+
+		layout = nextLayout;
+		void saveAlertsLayout(nextLayout);
+	};
+
 	const changeView = (view: AlertViewMode) => {
 		if (view === query.view) return;
 
@@ -638,20 +702,17 @@
 		// board or split view would leave the action bar orphaned.
 		cancelSelect();
 
-		void commitQuery({
-			...query,
-			page: 1,
-			view
-		});
+		const next = { ...query, page: 1, view };
+		rememberLayout(next);
+		void commitQuery(next);
 	};
 
 	const changeBoardGroup = (board_group: AlertBoardGroup) => {
 		if (board_group === query.board_group) return;
 
-		void commitQuery({
-			...query,
-			board_group
-		});
+		const next = { ...query, board_group };
+		rememberLayout(next);
+		void commitQuery(next);
 	};
 
 	const changePage = (page: number) => {
@@ -1107,14 +1168,17 @@
 	});
 
 	onMount(async () => {
-		// The status lookup and the default-view preference gate the
-		// first alerts query, so they are fetched together and up front;
-		// every other lookup only feeds the filter panel and can follow.
+		// The status lookup and the default-view and layout preferences
+		// gate the first alerts query, so they are fetched together and up
+		// front; every other lookup only feeds the filter panel and can follow.
 		try {
-			const [alertStatusResult, storedView] = await Promise.all([
+			const [alertStatusResult, storedView, storedLayout] = await Promise.all([
 				AlertStatusService.list(),
-				loadAlertsDefaultView()
+				loadAlertsDefaultView(),
+				loadAlertsLayout()
 			]);
+
+			layout = storedLayout;
 
 			const alertStatusResponse = alertStatusResult.data as unknown as RequestResponse<
 				AlertStatus[]
@@ -1374,10 +1438,9 @@
 					onclick={() => {
 						expanded = {};
 
-						commitQuery({
-							...query,
-							expanded: !query.expanded
-						});
+						const next = { ...query, expanded: !query.expanded };
+						rememberLayout(next);
+						commitQuery(next);
 					}}
 				>
 					{query.expanded ? 'Collapse All' : 'Expand All'}
@@ -1414,13 +1477,9 @@
 				<Select
 					value={String(query.per_page)}
 					onValueChange={(value) => {
-						const nextPerPage = Number(value);
-
-						commitQuery({
-							...query,
-							page: 1,
-							per_page: nextPerPage
-						});
+						const next = { ...query, page: 1, per_page: Number(value) };
+						rememberLayout(next);
+						commitQuery(next);
 					}}
 					type="single"
 				>
@@ -1627,6 +1686,8 @@
 				onPageChange={changePage}
 				{queueTab}
 				onQueueTabChange={changeQueueTab}
+				queueWidth={layout.split_queue_width}
+				onQueueWidthChange={(split_queue_width) => saveLayout({ ...layout, split_queue_width })}
 				onAssignToMe={assignToCurrentUser}
 				onAssign={openReassignDialog}
 			>

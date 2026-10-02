@@ -37,11 +37,12 @@ test.describe('Alerts · split view · markdown', () => {
 			const noted = await api.put(`/api/v2/alerts/${alertId}`, { data: { alert_note: NOTE } });
 			expect(noted.ok(), await noted.text()).toBeTruthy();
 
-			// Split is the default view at /alerts, so no `view=`. `query=` does
-			// name a filter, which is what keeps the stored default view from
-			// also applying; the queue then auto-focuses its first row — this
-			// alert, since the tag is unique to it.
-			await page.goto(`/alerts?query=${encodeURIComponent(tag)}`);
+			// `view=split` is spelled out: without it the page opens on the
+			// user's remembered layout. `query=` names a filter, which is what
+			// keeps the stored default view from also applying; the queue then
+			// auto-focuses its first row — this alert, since the tag is unique
+			// to it.
+			await page.goto(`/alerts?view=split&query=${encodeURIComponent(tag)}`);
 			await expect(page.getByText(title, { exact: true }).first()).toBeVisible({
 				timeout: 15_000
 			});
