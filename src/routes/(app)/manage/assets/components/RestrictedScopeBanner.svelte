@@ -24,7 +24,8 @@
 		<InfoIcon size={14} class="mt-0.5 shrink-0" />
 		<p>
 			Sighting counts, timestamps and compromise status cover only the cases and alerts you have
-			access to. Assets may have been seen elsewhere.
+			access to, and assets recorded only in cases you cannot open are not listed. Assets may have
+			been seen elsewhere.
 		</p>
 	</div>
 {/if}

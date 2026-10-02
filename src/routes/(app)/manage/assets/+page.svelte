@@ -10,7 +10,9 @@
 
   * Which rows come back is entirely the server's decision — the list is
     intersected with the customers the caller belongs to, so `client_id`
-    here is a filter, never a grant.
+    here is a filter, never a grant. Rows the registry only learnt of
+    from a case (`source = 'observed'`) additionally need one sighting
+    the caller can open.
   * Every sighting-derived number on a row (case / alert counts, first
     and last seen, compromise) is computed over the cases and alerts the
     caller can open, never the true total. `scope.restricted` says the

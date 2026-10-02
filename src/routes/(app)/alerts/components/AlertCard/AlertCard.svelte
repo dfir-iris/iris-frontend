@@ -114,10 +114,9 @@
 
 	const isFocused = $derived(alwaysExpanded || expanded);
 
-	const getAlertUrl = () => {
-		const url = new URL(page.url);
-		return `${url.origin}${url.pathname}/${alert.alert_id}`;
-	};
+	// Built from the route, not the current path: the card also renders on
+	// `/alerts/<id>` itself, where appending gave `/alerts/<id>/<id>`.
+	const getAlertUrl = () => `${page.url.origin}/alerts/${alert.alert_id}`;
 
 	// Buttons contributed by modules that registered
 	// `on_manual_trigger_alert`. Shared across every card on the page —
