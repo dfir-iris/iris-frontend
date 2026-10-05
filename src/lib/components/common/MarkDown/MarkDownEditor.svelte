@@ -170,13 +170,15 @@
 	// Same problem in the editable surface: TipTap renders inline images
 	// as raw `<img>` and the browser hits the v2 endpoint unauthenticated.
 	// We re-sweep on every value change and on edit-mode entry; the
-	// helper is idempotent so already-swapped `<img>` are skipped.
+	// helper is idempotent so already-swapped `<img>` are skipped. Links
+	// are left alone: ProseMirror would read the chip rewrite back into
+	// the link mark (images are safe, they render through a NodeView).
 	$effect(() => {
 		void value;
 		void viewMode;
 		if (viewMode !== 'edit') return;
 		if (!editorElement) return;
-		const dispose = authenticateDatastoreImages(editorElement);
+		const dispose = authenticateDatastoreImages(editorElement, { links: false });
 		return dispose;
 	});
 

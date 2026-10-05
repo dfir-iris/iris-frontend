@@ -13,7 +13,8 @@ import {
 	ServerIcon,
 	SettingsIcon,
 	SparklesIcon,
-	WaypointsIcon
+	WaypointsIcon,
+	WebhookIcon
 } from 'lucide-svelte';
 import type { Icon } from 'lucide-svelte';
 import {
@@ -39,6 +40,7 @@ export const SETTINGS_PAGES: SettingsPage[] = [
 	{ icon: LockKeyholeIcon, label: 'Access Control', href: '/access-control' },
 	{ icon: BellIcon, label: 'Notifications', href: '/notifications' },
 	{ icon: MailIcon, label: 'Mail rules', href: '/mail' },
+	{ icon: WebhookIcon, label: 'Webhooks', href: '/webhooks' },
 	{ icon: FilterIcon, label: 'Clustering Rules', href: '/cluster-rules' },
 	{ icon: CheckSquareIcon, label: 'Investigation flows', href: '/investigation-flows' },
 	{ icon: PlugIcon, label: 'MCP Server', href: '/mcp' },
@@ -83,6 +85,7 @@ export const SETTINGS_PAGE_PERMISSIONS: Record<string, PermissionName> = {
 	'/access-control': 'server_administrator',
 	'/notifications': 'server_administrator',
 	'/mail': 'server_administrator',
+	'/webhooks': 'server_administrator',
 	'/cluster-rules': 'cluster_rules_read',
 	'/investigation-flows': 'investigation_flows_read',
 	'/mcp': 'server_administrator',

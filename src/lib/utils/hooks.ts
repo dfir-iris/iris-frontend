@@ -43,7 +43,19 @@ const toOutcome = (response: RequestResponse<InvokeHookResult>): HookCallOutcome
 	};
 };
 
-/** Fire a manual module hook against `targets` in `case_id`. */
+/**
+ * Stable `{#each}` key of a menu entry. Labels alone collide: a module
+ * can register one hook under several labels, and two webhooks can
+ * share a label.
+ */
+export const hookOptionKey = (hookOption: HookOption): string =>
+	`${hookOption.module_name}|${hookOption.hook_name}|${hookOption.webhook_id ?? ''}|${hookOption.manual_hook_ui_name}`;
+
+/** Only webhook entries carry it; module entries leave it out. */
+const webhookTarget = (hookOption: HookOption) =>
+	hookOption.webhook_id !== undefined ? { webhook_id: hookOption.webhook_id } : {};
+
+/** Fire a manual module hook (or webhook) against `targets` in `case_id`. */
 export const callHook = async (
 	case_id: number,
 	hookType: HookObjectType,
@@ -56,7 +68,8 @@ export const callHook = async (
 			hook_name: hookOption.hook_name,
 			module_name: hookOption.module_name,
 			hook_ui_name: hookOption.manual_hook_ui_name,
-			targets
+			targets,
+			...webhookTarget(hookOption)
 		})
 	);
 
@@ -74,6 +87,7 @@ export const callAlertHook = async (
 			hook_name: hookOption.hook_name,
 			module_name: hookOption.module_name,
 			hook_ui_name: hookOption.manual_hook_ui_name,
-			targets
+			targets,
+			...webhookTarget(hookOption)
 		})
 	);

@@ -20,7 +20,7 @@
 		type ServerIcon
 	} from 'lucide-svelte';
 	import { cn } from '$lib/utils';
-	import { callHook } from '$lib/utils/hooks';
+	import { callHook, hookOptionKey } from '$lib/utils/hooks';
 	import { toast } from '$lib/stores/toast.store';
 	import { HooksService, type HookObjectType, type HookOption } from '$lib/services/hooks.service';
 	import { Button } from '$lib/components/ui/button';
@@ -234,7 +234,7 @@
 				{#if canEdit && hookOptions.length}
 					<Separator />
 
-					{#each hookOptions as hookOption}
+					{#each hookOptions as hookOption (hookOptionKey(hookOption))}
 						<DropdownMenuItem onclick={() => callModule(hookOption)}>
 							{hookOption.manual_hook_ui_name}
 						</DropdownMenuItem>

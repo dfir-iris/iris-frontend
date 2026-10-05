@@ -30,7 +30,7 @@
 	import type { HookOption } from '$lib/services/hooks.service';
 	import { alertHooks } from '$lib/stores/alert-hooks.store.svelte';
 	import { toast } from '$lib/stores/toast.store';
-	import { callAlertHook } from '$lib/utils/hooks';
+	import { callAlertHook, hookOptionKey } from '$lib/utils/hooks';
 	import EnrichmentDialog from '$lib/components/common/EnrichmentDialog.svelte';
 	import { MarkDownPreview } from '$lib/components/common/MarkDown';
 	import { CommentsThread } from '$lib/components/common/Comments';
@@ -1361,7 +1361,7 @@
 								>
 								{#if showModulesMenu}
 									<div class="menu-dropdown" role="menu">
-										{#each alertHooks.options as hookOption (hookOption.manual_hook_ui_name)}
+										{#each alertHooks.options as hookOption (hookOptionKey(hookOption))}
 											<button
 												type="button"
 												class="menu-item"

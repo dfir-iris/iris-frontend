@@ -23,6 +23,11 @@
  *     (when the user holds Alt / Option). The original href stays put
  *     so right-click → copy-link still produces the canonical URL.
  *
+ * Pass `{ links: false }` for a ProseMirror surface: it observes its own
+ * DOM, so restyling an `<a>` there is read back as an edit and the chip
+ * classes, the `title` and the rewritten children land in the link mark
+ * — and from there in the shared document.
+ *
  * Both sweeps are idempotent (rewritten nodes carry a data-flag and
  * are skipped on subsequent runs) and revoke their blob URLs when the
  * container is torn down or re-rendered.
@@ -74,7 +79,8 @@ const CHIP_CLASSES = [
 ].join(' ');
 
 export const authenticateDatastoreImages = (
-	container: HTMLElement | null | undefined
+	container: HTMLElement | null | undefined,
+	{ links = true }: { links?: boolean } = {}
 ): (() => void) => {
 	if (!container) return () => {};
 
@@ -111,8 +117,8 @@ export const authenticateDatastoreImages = (
 		});
 	});
 
-	const links = container.querySelectorAll<HTMLAnchorElement>('a[href]');
-	links.forEach((a) => {
+	const anchors = links ? container.querySelectorAll<HTMLAnchorElement>('a[href]') : [];
+	anchors.forEach((a) => {
 		if (a.hasAttribute(LINK_PROCESSED_ATTR)) return;
 		const href = a.getAttribute('href');
 		if (!href) return;

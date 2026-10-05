@@ -20,7 +20,7 @@
 	import { page } from '$app/state';
 	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 	import { alertHooks } from '$lib/stores/alert-hooks.store.svelte';
-	import { callAlertHook } from '$lib/utils/hooks';
+	import { callAlertHook, hookOptionKey } from '$lib/utils/hooks';
 	import type { HookOption } from '$lib/services/hooks.service';
 	import type { Alert } from '$lib/types/resources/alert';
 	import { toast } from '$lib/stores/toast.store';
@@ -404,7 +404,7 @@
 							{#if canTriggerHooks}
 								<Separator />
 
-								{#each alertHooks.options as hookOption (hookOption.manual_hook_ui_name)}
+								{#each alertHooks.options as hookOption (hookOptionKey(hookOption))}
 									<DropdownMenuItem onclick={() => triggerHook(hookOption)}>
 										<CircleArrowRightIcon />
 										{hookOption.manual_hook_ui_name}

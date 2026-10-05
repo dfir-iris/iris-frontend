@@ -79,7 +79,7 @@
 	import ReviewBanner from './components/ReviewBanner.svelte';
 	import CaseUnavailable from './components/CaseUnavailable.svelte';
 	import RequestReviewDialog from './components/RequestReviewDialog.svelte';
-	import { callHook } from '$lib/utils/hooks';
+	import { callHook, hookOptionKey } from '$lib/utils/hooks';
 	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
 	import type { Case } from '$lib/types/resources/case';
 	import type { UserInfo } from '$lib/services/auth.service';
@@ -384,7 +384,7 @@
 					<ZapIcon class="mr-2 size-4" /> Processors
 				</DropdownMenuSubTrigger>
 				<DropdownMenuSubContent>
-					{#each hookOptions as hookOption}
+					{#each hookOptions as hookOption (hookOptionKey(hookOption))}
 						<DropdownMenuItem onclick={() => callModule(hookOption)}>
 							{hookOption.manual_hook_ui_name}
 						</DropdownMenuItem>

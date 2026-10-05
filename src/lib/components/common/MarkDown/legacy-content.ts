@@ -2,7 +2,9 @@
  * Normalizes legacy note/summary content so it renders correctly under the
  * new v2 API and the new icon system.
  *
- * Three classes of legacy artifacts exist in stored content:
+ * Four classes of legacy artifacts exist in stored content (the fourth,
+ * mark pseudo-XML flushed by the collab renderer, is documented at
+ * `repairFlushedMarkMarkup`):
  *
  * 1. Datastore file URLs — previously written as
  *      /datastore/file/view/{id}?cid={X}
@@ -140,9 +142,73 @@ const unescapeLegacyMarkdownLinks = (text: string): string => {
 		.replace(/(!\[[^\]]*\]\()([^)\s]+)\s+=\d+%?x\d+%?(\))/g, '$1$2$3');
 };
 
+/**
+ * Until the backend renderer read marks from Yjs formatting
+ * (`iris_engine/collab/render.py`), every bold / italic / link typed in a
+ * collaborative note was flushed to the source column as escaped
+ * pseudo-XML — `\<bold>x\</bold>`, `\<link href="…" title="…">x\</link>` —
+ * which then rendered as literal markup. Turn it back into markdown.
+ *
+ * Mirrors `_repair_flushed_mark_markup` in `render.py`. The regex matches one
+ * innermost mark tag, so nested marks are peeled one level per pass. A link
+ * that lost its text (datastore file chips did) takes its `title`, the file
+ * name, as label.
+ */
+const FLUSHED_MARK_TAGS = 'bold|italic|strike|code|link|underline';
+const FLUSHED_MARK_RE = new RegExp(
+	String.raw`\\?<(${FLUSHED_MARK_TAGS})((?:\s+[\w-]+="[^"]*")*)>((?:(?!\\?</?(?:${FLUSHED_MARK_TAGS})\b).)*?)\\?</\1>`,
+	'g'
+);
+const FLUSHED_MARK_ATTR_RE = /([\w-]+)="([^"]*)"/g;
+const FLUSHED_EMPHASIS_MARKERS: Record<string, string> = {
+	bold: '**',
+	italic: '*',
+	strike: '~~',
+	underline: ''
+};
+
+const unescapeMarkdown = (text: string): string => text.replace(/\\([\\`*_[\]<])/g, '$1');
+const escapeMarkdown = (text: string): string => text.replace(/([\\`*_[\]<])/g, '\\$1');
+
+// `** bold**` is not bold in CommonMark: keep surrounding whitespace outside.
+const emphasize = (text: string, marker: string): string => {
+	const core = text.trim();
+	if (!core || !marker) return text;
+	const lead = text.slice(0, text.length - text.trimStart().length);
+	const trail = text.slice(text.trimEnd().length);
+	return `${lead}${marker}${core}${marker}${trail}`;
+};
+
+const repairFlushedMarkMarkup = (text: string): string => {
+	if (!text.includes('</')) return text;
+	const repair = (_match: string, tag: string, rawAttrs: string, body: string): string => {
+		if (tag === 'code') return `\`${unescapeMarkdown(body)}\``;
+		if (tag !== 'link') return emphasize(body, FLUSHED_EMPHASIS_MARKERS[tag]);
+		const attrs: Record<string, string> = {};
+		for (const [, name, value] of rawAttrs.matchAll(FLUSHED_MARK_ATTR_RE)) {
+			attrs[name] = unescapeMarkdown(value);
+		}
+		const href = attrs.href ?? '';
+		const title = attrs.title && attrs.title !== 'null' ? attrs.title : null;
+		const label = body.trim() ? body : escapeMarkdown(title ?? href);
+		if (!href) return label;
+		const titlePart = title ? ` "${title.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"` : '';
+		return `[${label}](${href}${titlePart})`;
+	};
+	let previous: string;
+	let out = text;
+	do {
+		previous = out;
+		out = out.replace(FLUSHED_MARK_RE, repair);
+	} while (out !== previous);
+	return out;
+};
+
 export const normalizeLegacyContent = (text: string): string => {
 	if (!text) return text;
 	return stripFontAwesomeTags(
-		rewriteLegacyCaseUrls(rewriteDatastoreUrls(unescapeLegacyMarkdownLinks(text)))
+		rewriteLegacyCaseUrls(
+			rewriteDatastoreUrls(unescapeLegacyMarkdownLinks(repairFlushedMarkMarkup(text)))
+		)
 	);
 };

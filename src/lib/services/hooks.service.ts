@@ -16,6 +16,8 @@ export interface HookOption {
 	hook_name: string;
 	manual_hook_ui_name: string;
 	module_name: string;
+	/** Set on entries of native webhooks subscribed to the manual trigger. */
+	webhook_id?: number;
 }
 
 export interface InvokeHookBody {
@@ -24,6 +26,8 @@ export interface InvokeHookBody {
 	hook_ui_name: string;
 	type: HookObjectType;
 	targets: number[];
+	/** Sends to this webhook instead of the modules. */
+	webhook_id?: number;
 }
 
 /** Same payload minus `type` — the alert endpoint only knows alerts. */
