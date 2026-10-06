@@ -15,6 +15,7 @@
 		ForwardIcon,
 		HistoryIcon,
 		SaveIcon,
+		Share2Icon,
 		TrashIcon
 	} from 'lucide-svelte';
 	import type { WarRoomNote } from '$lib/services/war-room-notes.service';
@@ -47,6 +48,8 @@
 		 *  the revisions dialog. The detail view uses this to reset
 		 *  the markdown editor draft to the freshly-restored content. */
 		onRestoreRevision?: (note: WarRoomNote) => void;
+		/** Opens the share-with-cases dialog. Omitted = button hidden. */
+		onShare?: () => void;
 	};
 
 	let {
@@ -58,7 +61,8 @@
 		canEdit = true,
 		onSaveNote,
 		onDeleteNote,
-		onRestoreRevision
+		onRestoreRevision,
+		onShare
 	}: Props = $props();
 
 	let showNoteRename = $state(false);
@@ -144,6 +148,20 @@
 					</TooltipTrigger>
 
 					<TooltipContent align="center" side="bottom">Save note</TooltipContent>
+				</Tooltip>
+			</TooltipProvider>
+		{/if}
+
+		{#if onShare}
+			<TooltipProvider>
+				<Tooltip>
+					<TooltipTrigger>
+						<Button variant="link" size="xs" aria-label="Share with cases" onclick={onShare}>
+							<Share2Icon />
+						</Button>
+					</TooltipTrigger>
+
+					<TooltipContent align="center" side="bottom">Share with cases</TooltipContent>
 				</Tooltip>
 			</TooltipProvider>
 		{/if}

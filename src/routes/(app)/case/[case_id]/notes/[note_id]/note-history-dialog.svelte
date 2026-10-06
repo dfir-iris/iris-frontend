@@ -42,9 +42,12 @@
 		onRestored?: (note: Note) => void;
 		caseId: number;
 		note?: Note;
+		/** False hides restore / delete-revision (read-only access or a
+		 *  war-room mirror). Defaults to true for existing callers. */
+		canEdit?: boolean;
 	};
 
-	let { open = $bindable(), onClose, onRestored, caseId, note }: Props = $props();
+	let { open = $bindable(), onClose, onRestored, caseId, note, canEdit = true }: Props = $props();
 
 	const notes = getContext<CaseNotesContext>(CASE_NOTES_CTX);
 
@@ -254,18 +257,20 @@
 									<div class="min-w-0 flex-1">
 										<div class="flex items-center justify-between gap-1">
 											<span class="text-xs font-semibold">v{rev.revision_number}</span>
-											<button
-												type="button"
-												class="rounded p-0.5 text-muted-foreground hover:bg-destructive/15 hover:text-destructive disabled:opacity-50"
-												disabled={deletingNumber === rev.revision_number}
-												onclick={(e) => {
-													e.stopPropagation();
-													void remove(rev.revision_number);
-												}}
-												aria-label={`Delete revision ${rev.revision_number}`}
-											>
-												<Trash2Icon class="size-3" />
-											</button>
+											{#if canEdit}
+												<button
+													type="button"
+													class="rounded p-0.5 text-muted-foreground hover:bg-destructive/15 hover:text-destructive disabled:opacity-50"
+													disabled={deletingNumber === rev.revision_number}
+													onclick={(e) => {
+														e.stopPropagation();
+														void remove(rev.revision_number);
+													}}
+													aria-label={`Delete revision ${rev.revision_number}`}
+												>
+													<Trash2Icon class="size-3" />
+												</button>
+											{/if}
 										</div>
 										<div class="truncate text-2xs text-muted-foreground">
 											{rev.user_name}
@@ -307,7 +312,7 @@
 						{/if}
 					</div>
 
-					{#if selectedRevision}
+					{#if selectedRevision && canEdit}
 						<Button onclick={restore} disabled={restoring} class="gap-1">
 							<RotateCcwIcon class="size-3.5" />
 							{restoring ? 'Restoring…' : 'Restore this revision'}

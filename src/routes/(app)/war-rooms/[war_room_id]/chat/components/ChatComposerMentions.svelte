@@ -30,6 +30,7 @@
 	import { WarRoomDatastoreService } from '$lib/services/war-room-datastore.service';
 	import type { WarRoomCaseAttachment } from '$lib/services/war-rooms.service';
 	import type { Emoji, NativeEmoji } from 'emoji-picker-element/shared';
+	import { caseTargetItems, isScopeSlashCommand } from './slash-targets';
 
 	type Props = {
 		textarea: HTMLTextAreaElement | null;
@@ -52,11 +53,15 @@
 		desc: string;
 	}[] = [
 		{ cmd: '/note', usage: '/note <text>', desc: 'Pin a quick note in the stream' },
-		{ cmd: '/pin', usage: '/pin <text>', desc: 'Highlight a message' },
+		{
+			cmd: '/pin',
+			usage: '/pin [text]',
+			desc: 'Pin the last message, or post a highlighted one'
+		},
 		{
 			cmd: '/decision',
-			usage: '/decision <what we decided>',
-			desc: 'Log a command decision (lifted into SitReps)'
+			usage: '/decision [@approver ...] <title>',
+			desc: 'Propose decision D-n and notify its approvers (room leads by default)'
 		},
 		{
 			cmd: '/attach',
@@ -68,13 +73,13 @@
 			usage: '/detach <case_id>',
 			desc: 'Detach a case from the war room'
 		},
-		{ cmd: '/task', usage: '/task [@user] <title>', desc: 'Create a war-room task' },
+		{ cmd: '/task', usage: '/task [@user|@team] <title>', desc: 'Create a war-room task' },
 		{
 			cmd: '/assign',
-			usage: '/assign @user <title>',
-			desc: 'Create a task and assign it to a user'
+			usage: '/assign @user|@team <title>',
+			desc: 'Create a task and assign it to a user or a team'
 		},
-		{ cmd: '/sitrep', usage: '/sitrep <title>', desc: 'Start a SitRep draft' },
+		{ cmd: '/sitrep', usage: '/sitrep [title]', desc: 'Start a SitRep draft and open it' },
 		{
 			cmd: '/summary',
 			usage: '/summary [headline]',
@@ -99,6 +104,36 @@
 			cmd: '/topic',
 			usage: '/topic <name>',
 			desc: 'Create a top-level topic (Slack-channel style) and switch the view to it'
+		},
+		{
+			cmd: '/asset',
+			usage: '/asset <name> [type:"<type>"] [#case ...|all]',
+			desc: 'Add an asset to cases, or stage it in the war room when no case is given'
+		},
+		{
+			cmd: '/ioc',
+			usage: '/ioc <value> [type:<type>] [#case ...|all]',
+			desc: 'Add an IOC (type auto-detected) to cases, or stage it in the war room'
+		},
+		{
+			cmd: '/stage',
+			usage: '/stage <asset> <stage|none> [reason] [D-n] [#case ...]',
+			desc: 'Set the asset stage in every attached case holding that asset'
+		},
+		{
+			cmd: '/push',
+			usage: '/push <asset|ioc> <#case ...|all>',
+			desc: 'Push a staged or existing asset / IOC into cases (staging wins)'
+		},
+		{
+			cmd: '/share-note',
+			usage: '/share-note <note title|note:<id>> <#case ...|all> [mirror|copy]',
+			desc: 'Share a war-room note with cases'
+		},
+		{
+			cmd: '/vuln',
+			usage: '/vuln <identifier> [note]',
+			desc: 'Track a vulnerability on the war room, found on an asset or not yet'
 		},
 		{ cmd: '/help', usage: '/help', desc: 'List all available slash commands' }
 	];
@@ -161,7 +196,7 @@
 	};
 
 	type ResourceItem = MentionItem & {
-		resourceKind: 'event' | 'ioc' | 'asset' | 'task' | 'note' | 'datastore';
+		resourceKind: 'event' | 'ioc' | 'asset' | 'task' | 'note' | 'datastore' | 'case';
 		// `caseId` scopes case-attached resources; datastore files live on
 		// the war room, not a case, so this is 0 for them.
 		caseId: number;
@@ -497,7 +532,20 @@
 			const all = await loadResources();
 			const q = t.query.trim();
 			const filtered = q ? all.filter((r) => fuzzy(r.label, q) || fuzzy(r.sublabel ?? '', q)) : all;
-			items = filtered.slice(0, 10);
+			// Scope commands take `#<case_id>` targets: offer the attached
+			// cases first, then the usual resources (asset / IOC markup is a
+			// valid subject for /stage and /push).
+			const targets: ResourceItem[] = isScopeSlashCommand(body)
+				? caseTargetItems(attachedCases, q).map((c) => ({
+						id: c.insertion,
+						label: c.label,
+						sublabel: c.sublabel,
+						kind: 'note',
+						resourceKind: 'case',
+						caseId: c.caseId
+					}))
+				: [];
+			items = [...targets, ...filtered].slice(0, 10);
 		}
 
 		selectedIndex = 0;
@@ -539,7 +587,9 @@
 			}
 		} else {
 			const r = item as ResourceItem;
-			if (r.resourceKind === 'datastore' && r.fileId != null) {
+			if (r.resourceKind === 'case') {
+				insertion = `#${r.caseId}`;
+			} else if (r.resourceKind === 'datastore' && r.fileId != null) {
 				// Datastore file: emit `[Image "…"]` when the mime type
 				// starts with `image/` (so ChatMessageBody renders it
 				// inline), otherwise `[File "…"]` (which renders as a

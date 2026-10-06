@@ -14,6 +14,7 @@ test.describe('Settings · shell', () => {
 		'/settings/modules',
 		'/settings/customers',
 		'/settings/case-objects',
+		'/settings/asset-stages',
 		'/settings/custom-attributes',
 		'/settings/case-templates',
 		'/settings/report-templates',

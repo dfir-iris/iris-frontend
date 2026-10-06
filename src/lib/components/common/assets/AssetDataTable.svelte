@@ -6,6 +6,9 @@
 	import RowCheckbox from '$lib/components/common/RowCheckbox.svelte';
 	import RowActionsCell from '$lib/components/common/table/RowActionsCell.svelte';
 	import TruncatedTextCell from '$lib/components/common/table/TruncatedTextCell.svelte';
+	import AssetStageChip from './AssetStageChip.svelte';
+	import AssetVulnCell from '$lib/components/vulnerabilities/AssetVulnCell.svelte';
+	import type { AssetVulnCounts } from '$lib/components/vulnerabilities/asset-vuln-counts';
 
 	export let assets: Asset[] = [];
 	export let caseId: string | number | null = null;
@@ -20,6 +23,10 @@
 	// Opt-in detail columns and row actions — see IocDataTable for why
 	// they default to off.
 	export let showDescription: boolean = false;
+	// Stage column — case-scoped lists only; other tables have no use for it.
+	export let showStage: boolean = false;
+	// Open vulnerability findings per asset id — the column shows only when set.
+	export let vulnCounts: Map<number, AssetVulnCounts> | null = null;
 	export let onShowEnrichment: ((asset: Asset) => void) | undefined = undefined;
 	export let onEdit: ((asset: Asset) => void) | undefined = undefined;
 
@@ -89,6 +96,33 @@
 			accessorKey: 'asset_type.asset_name',
 			header: () => 'Type'
 		},
+		...(showStage
+			? [
+					{
+						id: 'stage',
+						accessorFn: (row: Asset) => row.stage?.name ?? '',
+						header: () => 'Stage',
+						cell: (cell) => renderComponent(AssetStageChip, { stage: cell.row.original.stage })
+					} as ColumnDef<Asset>
+				]
+			: []),
+		...(vulnCounts
+			? [
+					{
+						id: 'vulnerabilities',
+						accessorFn: (row: Asset) => vulnCounts?.get(row.asset_id)?.open ?? 0,
+						header: () => 'Vulns',
+						cell: (cell) =>
+							renderComponent(AssetVulnCell, {
+								counts: vulnCounts?.get(cell.row.original.asset_id),
+								href:
+									caseId != null
+										? `/case/${caseId}/assets/${cell.row.original.asset_id}?tab=vulnerabilities`
+										: null
+							})
+					} as ColumnDef<Asset>
+				]
+			: []),
 		{
 			accessorKey: 'asset_ip',
 			header: () => 'IP'

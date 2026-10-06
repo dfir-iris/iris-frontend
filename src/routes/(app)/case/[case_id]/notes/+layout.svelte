@@ -27,6 +27,7 @@
 	import { getNoteUrl, newNote } from './helpers';
 	import NotesNewFolderDialog from './components/notes-new-folder-dialog.svelte';
 	import CaseWorkspace from '../components/CaseWorkspace.svelte';
+	import { collectLockedFolderIds, isMirroredNote } from '$lib/utils/note-mirror';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -36,6 +37,16 @@
 	setContext<CaseNotesContext>(CASE_NOTES_CTX, notes);
 
 	const canEdit = $derived(caseAccess?.canEdit() ?? false);
+
+	// Folders holding war-room mirrors (and everything under them) are
+	// read-only: no rename / move / delete, nothing dropped or created
+	// inside. The backend enforces the same rules; this only keeps the
+	// UI from offering actions that would be refused.
+	const lockedFolderIds = $derived(collectLockedFolderIds(notes.list.tree));
+	const isFolderLocked = (folderId?: number | null): boolean =>
+		folderId != null && lockedFolderIds.has(folderId);
+	const isNoteLocked = (noteId?: number, folderId?: number | null): boolean =>
+		isFolderLocked(folderId) || (noteId != null && isMirroredNote(notes.byId[noteId]));
 
 	let showNewFolder = $state<boolean>(false);
 	let showConfirmDelete = $state<boolean>(false);
@@ -143,6 +154,9 @@
 	) => {
 		event.preventDefault();
 
+		// Nothing to offer on a locked mirror folder.
+		if (source === 'folder' && isFolderLocked(folderId)) return;
+
 		if (source === 'note') {
 			notes.selectNote(noteId);
 			contextMenu.noteId = noteId;
@@ -153,6 +167,8 @@
 
 		notes.selectFolder(folderId);
 
+		contextMenu.locked =
+			source === 'folder' ? isFolderLocked(folderId) : isNoteLocked(noteId, folderId);
 		contextMenu.open = true;
 		contextMenu.x = event.clientX;
 		contextMenu.y = event.clientY;
@@ -166,13 +182,18 @@
 
 		closeContextMenu();
 
+		const selected = notes.ui.selectedFolderId;
 		await notes.createFolder({
 			name,
-			parent_id: notes.ui.selectedFolderId
+			parent_id: isFolderLocked(selected) ? undefined : selected
 		});
 	};
 
 	const renameItem = (name: string) => {
+		if (contextMenu.locked) {
+			showRename = false;
+			return;
+		}
 		if (contextMenu.source === 'folder' && contextMenu.folderId) {
 			notes.patchFolder(contextMenu.folderId, { name });
 		}
@@ -185,6 +206,10 @@
 	};
 
 	const moveItem = (folderId: number | null) => {
+		if (contextMenu.locked || isFolderLocked(folderId)) {
+			showMove = false;
+			return;
+		}
 		if (contextMenu.source === 'folder' && contextMenu.folderId) {
 			notes.patchFolder(contextMenu.folderId, { parent_id: folderId ?? undefined });
 		}
@@ -197,6 +222,7 @@
 	};
 
 	const deleteItem = async () => {
+		if (contextMenu.locked) return;
 		if (contextMenu.source === 'folder' && contextMenu.folderId) {
 			if (await notes.removeFolder(contextMenu.folderId)) {
 				toast({ title: 'Folder deleted', variant: 'success' });
@@ -249,6 +275,14 @@
 
 	const dropOnFolder = async (targetFolderId: number) => {
 		if (!dragItem) {
+			return;
+		}
+
+		const draggedLocked =
+			dragItem.type === 'note' ? isNoteLocked(dragItem.id) : isFolderLocked(dragItem.id);
+		if (isFolderLocked(targetFolderId) || draggedLocked) {
+			clearDrag();
+
 			return;
 		}
 
@@ -421,7 +455,7 @@
 			{#if contextMenu.open}
 				<NotesContextMenu
 					{contextMenu}
-					{canEdit}
+					canEdit={canEdit && !contextMenu.locked}
 					onNewNote={() => {
 						closeContextMenu();
 

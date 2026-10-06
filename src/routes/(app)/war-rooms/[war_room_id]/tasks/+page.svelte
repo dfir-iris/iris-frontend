@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { formatDate } from '$lib/utils/time-formatter';
-	import { onMount, untrack } from 'svelte';
+	import { getContext, onMount, untrack } from 'svelte';
 	import { page } from '$app/state';
 	import {
 		Plus,
@@ -19,7 +19,10 @@
 		ArrowUpFromLine,
 		Columns3,
 		Rows3,
-		CornerUpRight
+		CornerUpRight,
+		Network,
+		UserCheck,
+		Users as UsersIcon
 	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -34,7 +37,17 @@
 	import { Popover, PopoverContent, PopoverTrigger } from '$lib/components/ui/popover';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { toast } from '$lib/components/ui/toast';
-	import { WarRoomTasksService, type WarRoomTask } from '$lib/services/war-room-tasks.service';
+	import {
+		WarRoomTasksService,
+		type WarRoomTask,
+		type WarRoomTaskFanOutSummary
+	} from '$lib/services/war-room-tasks.service';
+	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
+	import FanOutDialog from './components/FanOutDialog.svelte';
+	import FanOutPanel from './components/FanOutPanel.svelte';
+	import TaskTeamChips from './components/TaskTeamChips.svelte';
+	import { matchTeams, sameTeamIds, teamDotStyle, teamFilterParam } from './task-teams';
+	import { WarRoomTeamsService, type WarRoomTeam } from '$lib/services/war-room-teams.service';
 	import { UsersService, type MentionableUser } from '$lib/services/users.service';
 	import { TaskStatusService } from '$lib/services/task-status.service';
 	import type { TaskStatus } from '$lib/types/resources/task';
@@ -42,6 +55,18 @@
 	import type { KanbanColumn } from '$lib/components/common/tasks/kanban-types';
 
 	const warRoomId = $derived(Number(page.params.war_room_id));
+	const userCtx = getContext<UserCtx>(USER_CTX);
+	// Fan-out mutations are gated on war_rooms_write; the backend still
+	// checks full access on every target case.
+	const canWrite = $derived(userCtx?.can('war_rooms_write') === true);
+
+	// Fan-out roll-up keyed by task id, loaded once per page and
+	// refreshed after a fan-out / unlink.
+	let fanOutSummary = $state<WarRoomTaskFanOutSummary>({});
+	let fanOutExpanded = $state<Set<number>>(new Set());
+	let fanOutReload = $state<Record<number, number>>({});
+	let fanOutDialogOpen = $state(false);
+	let fanOutTask = $state<WarRoomTask | null>(null);
 
 	// Top-level tasks (parent_task_id IS NULL), paginated server-side.
 	let parents = $state<WarRoomTask[]>([]);
@@ -52,6 +77,7 @@
 	let loading = $state(true);
 	let loadingMore = $state(false);
 	let users = $state<MentionableUser[]>([]);
+	let teams = $state<WarRoomTeam[]>([]);
 	let statuses = $state<TaskStatus[]>([]);
 	let usedTags = $state<string[]>([]);
 
@@ -69,6 +95,10 @@
 	let selectedTags = $state<string[]>([]);
 	// `null` in selectedAssignees means "Unassigned"; numbers are user ids.
 	let selectedAssignees = $state<(number | null)[]>([]);
+	// `null` in selectedTeams means "No team"; numbers are team ids.
+	let selectedTeams = $state<(number | null)[]>([]);
+	// "Mine" = assigned to me, or to a team I'm a member of (server-side).
+	let mine = $state(false);
 	let dueFrom = $state('');
 	let dueTo = $state('');
 	let includeNoDue = $state(true);
@@ -93,6 +123,7 @@
 		description: string;
 		due: string;
 		assigneeId: number | null;
+		teamIds: number[];
 		statusId: number | null;
 		tags: string[];
 		parentTaskId: number | null;
@@ -103,6 +134,7 @@
 		description: '',
 		due: '',
 		assigneeId: null,
+		teamIds: [],
 		statusId: null,
 		tags: [],
 		parentTaskId: null
@@ -116,6 +148,8 @@
 
 	let assigneeOpen = $state(false);
 	let assigneeSearch = $state('');
+	let teamsOpen = $state(false);
+	let teamSearch = $state('');
 	let statusOpen = $state(false);
 	let tagInput = $state('');
 
@@ -133,6 +167,8 @@
 			status_id: selectedStatusIds.length ? selectedStatusIds : undefined,
 			tag: selectedTags.length ? selectedTags : undefined,
 			assignee_id: assignee_id.length ? assignee_id : undefined,
+			team_id: teamFilterParam(selectedTeams),
+			mine: mine || undefined,
 			...(scope === 'top' ? { parent_task_id: 'top' as const } : {}),
 			due_from: dueFrom || undefined,
 			due_to: dueTo || undefined,
@@ -211,6 +247,11 @@
 		}
 	};
 
+	const loadTeams = async () => {
+		const res = await WarRoomTeamsService.list(warRoomId);
+		if (res.ok && Array.isArray(res.data)) teams = res.data;
+	};
+
 	const loadStatuses = async () => {
 		const res = await TaskStatusService.list();
 		if (res.ok && Array.isArray(res.data)) statuses = res.data;
@@ -221,12 +262,43 @@
 		if (res.ok && Array.isArray(res.data)) usedTags = res.data;
 	};
 
+	const loadFanOutSummary = async () => {
+		const res = await WarRoomTasksService.fanOutSummary(warRoomId);
+		if (res.ok && res.data && typeof res.data === 'object') {
+			fanOutSummary = res.data as WarRoomTaskFanOutSummary;
+		}
+	};
+
 	onMount(() => {
 		loadFirstPage();
 		loadUsers();
+		loadTeams();
 		loadStatuses();
 		loadUsedTags();
+		loadFanOutSummary();
 	});
+
+	// -------- Fan-out --------
+	const openFanOut = (t: WarRoomTask) => {
+		fanOutTask = t;
+		fanOutDialogOpen = true;
+	};
+
+	const toggleFanOutPanel = (taskId: number) => {
+		const next = new Set(fanOutExpanded);
+		if (next.has(taskId)) next.delete(taskId);
+		else next.add(taskId);
+		fanOutExpanded = next;
+	};
+
+	const onFanOutDone = () => {
+		const id = fanOutTask?.task_id;
+		void loadFanOutSummary();
+		if (id == null) return;
+		// Show the per-case list right away, reloading it if it was open.
+		fanOutReload = { ...fanOutReload, [id]: (fanOutReload[id] ?? 0) + 1 };
+		if (!fanOutExpanded.has(id)) toggleFanOutPanel(id);
+	};
 
 	// Debounce free-text search: keystrokes update `search` immediately
 	// (so the input stays snappy), but only settle into `searchDebounced`
@@ -253,6 +325,8 @@
 		void selectedStatusIds;
 		void selectedTags;
 		void selectedAssignees;
+		void selectedTeams;
+		void mine;
 		void dueFrom;
 		void dueTo;
 		void includeNoDue;
@@ -281,6 +355,7 @@
 			description: t.description ?? '',
 			due: t.due_at ? t.due_at.slice(0, 10) : '',
 			assigneeId: t.assignee_id,
+			teamIds: (t.teams ?? []).map((x) => x.team_id),
 			statusId: t.status_id ?? null,
 			tags: parseTags(t.tags),
 			parentTaskId: t.parent_task_id ?? null
@@ -340,11 +415,16 @@
 		const title = form.title.trim();
 		if (!title) return;
 		saving = true;
+		// team_ids replaces the whole set on PATCH, so only send it on
+		// edit when it actually changed — saves a pointless re-notify.
+		const originalTeamIds = (editing?.teams ?? []).map((x) => x.team_id);
+		const teamsChanged = dialogMode === 'create' || !sameTeamIds(originalTeamIds, form.teamIds);
 		const body = {
 			title,
 			description: form.description.trim() || null,
 			due_at: form.due || null,
 			assignee_id: form.assigneeId,
+			...(teamsChanged ? { team_ids: form.teamIds } : {}),
 			status_id: form.statusId,
 			tags: form.tags.length ? form.tags.join(',') : null,
 			parent_task_id: form.parentTaskId
@@ -621,6 +701,8 @@
 			selectedStatusIds.length +
 			selectedTags.length +
 			selectedAssignees.length +
+			selectedTeams.length +
+			(mine ? 1 : 0) +
 			(dueFrom || dueTo ? 1 : 0)
 	);
 
@@ -630,6 +712,8 @@
 		selectedStatusIds = [];
 		selectedTags = [];
 		selectedAssignees = [];
+		selectedTeams = [];
+		mine = false;
 		dueFrom = '';
 		dueTo = '';
 		includeNoDue = true;
@@ -664,6 +748,35 @@
 			.filter((u) => (u.user_login + ' ' + u.user_name).toLowerCase().includes(needle))
 			.slice(0, 50);
 	});
+
+	// -------- Teams multi-select --------
+	const teamMatches = $derived(matchTeams(teams, teamSearch));
+
+	// Selected teams in the form, resolved against the room's teams. A
+	// team deleted since the task was loaded falls back to its id.
+	const formTeams = $derived(
+		form.teamIds.map(
+			(id) =>
+				teams.find((x) => x.team_id === id) ??
+				editing?.teams?.find((x) => x.team_id === id) ?? {
+					team_id: id,
+					name: `team #${id}`,
+					color: null
+				}
+		)
+	);
+
+	function toggleFormTeam(id: number) {
+		form.teamIds = form.teamIds.includes(id)
+			? form.teamIds.filter((x) => x !== id)
+			: [...form.teamIds, id];
+	}
+
+	function teamDisplay(id: number | null): string {
+		if (id == null) return 'No team';
+		const t = teams.find((x) => x.team_id === id);
+		return t ? `@${t.name}` : `Team #${id}`;
+	}
 
 	const statusLabel = $derived.by(() => {
 		if (form.statusId == null) return 'No status';
@@ -751,6 +864,18 @@
 				</button>
 			{/if}
 		</div>
+
+		<Button
+			variant={mine ? 'secondary' : 'outline'}
+			size="sm"
+			class="gap-1"
+			onclick={() => (mine = !mine)}
+			aria-pressed={mine}
+			title="Only tasks assigned to me or to one of my teams"
+		>
+			<UserCheck class="h-3.5 w-3.5" />
+			Mine
+		</Button>
 
 		<Popover bind:open={filtersOpen}>
 			<PopoverTrigger>
@@ -847,6 +972,47 @@
 
 					<div>
 						<p class="mb-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+							Team
+						</p>
+						<div class="flex max-h-40 flex-col gap-0.5 overflow-y-auto">
+							<button
+								type="button"
+								class="flex items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-muted"
+								onclick={() => (selectedTeams = toggleFilterInSet(selectedTeams, null))}
+							>
+								<span class="italic">No team</span>
+								{#if selectedTeams.includes(null)}
+									<Check class="h-3.5 w-3.5" />
+								{/if}
+							</button>
+							{#each teams as tm (tm.team_id)}
+								{@const on = selectedTeams.includes(tm.team_id)}
+								<button
+									type="button"
+									class="flex items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-muted"
+									onclick={() => (selectedTeams = toggleFilterInSet(selectedTeams, tm.team_id))}
+								>
+									<span class="flex min-w-0 items-center gap-1.5">
+										<span
+											class="inline-block h-2 w-2 shrink-0 rounded-full bg-muted-foreground"
+											style={teamDotStyle(tm.color)}
+											aria-hidden="true"
+										></span>
+										<span class="truncate">@{tm.name}</span>
+									</span>
+									{#if on}
+										<Check class="h-3.5 w-3.5" />
+									{/if}
+								</button>
+							{/each}
+							{#if teams.length === 0}
+								<span class="px-2 text-2xs text-muted-foreground">No teams in this war room.</span>
+							{/if}
+						</div>
+					</div>
+
+					<div>
+						<p class="mb-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
 							<CalendarIcon class="mr-0.5 inline h-3 w-3" /> Due date
 						</p>
 						<div class="flex items-center gap-2">
@@ -923,6 +1089,28 @@
 					<X class="h-3 w-3" />
 				</button>
 			{/each}
+			{#each selectedTeams as tid}
+				<button
+					type="button"
+					class="inline-flex items-center gap-1 rounded-full border bg-muted/60 px-2 py-0.5 hover:bg-muted"
+					onclick={() => (selectedTeams = selectedTeams.filter((x) => x !== tid))}
+				>
+					<UsersIcon class="h-3 w-3" />
+					{teamDisplay(tid)}
+					<X class="h-3 w-3" />
+				</button>
+			{/each}
+			{#if mine}
+				<button
+					type="button"
+					class="inline-flex items-center gap-1 rounded-full border bg-muted/60 px-2 py-0.5 hover:bg-muted"
+					onclick={() => (mine = false)}
+				>
+					<UserCheck class="h-3 w-3" />
+					Mine (me + my teams)
+					<X class="h-3 w-3" />
+				</button>
+			{/if}
 			{#if dueFrom || dueTo}
 				<button
 					type="button"
@@ -1001,6 +1189,9 @@
 						{#each openFamilies as fam (fam.parent.task_id)}
 							{@const isExpanded = expanded.has(fam.parent.task_id)}
 							{@render taskRow(fam.parent, fam.children, isExpanded)}
+							{#if fanOutExpanded.has(fam.parent.task_id)}
+								{@render fanOutRow(fam.parent)}
+							{/if}
 							{#if isExpanded && fam.children.length}
 								{#each fam.children as child (child.task_id)}
 									{@render subtaskRow(child)}
@@ -1020,6 +1211,9 @@
 						{#each closedFamilies as fam (fam.parent.task_id)}
 							{@const isExpanded = expanded.has(fam.parent.task_id)}
 							{@render taskRow(fam.parent, fam.children, isExpanded, true)}
+							{#if fanOutExpanded.has(fam.parent.task_id)}
+								{@render fanOutRow(fam.parent)}
+							{/if}
 							{#if isExpanded && fam.children.length}
 								{#each fam.children as child (child.task_id)}
 									{@render subtaskRow(child)}
@@ -1116,6 +1310,9 @@
 						{children.filter((c) => !c.closed_at).length}/{children.length}
 					</span>
 				{/if}
+				{#if fanOutSummary[String(t.task_id)]}
+					{@render fanOutPill(t.task_id)}
+				{/if}
 				{#each parseTags(t.tags) as tag}
 					<span class="rounded bg-muted px-1.5 py-0 text-2xs text-muted-foreground">
 						#{tag}
@@ -1123,11 +1320,7 @@
 				{/each}
 			</div>
 			<p class="line-clamp-1 text-2xs text-muted-foreground">
-				{#if t.assignee_name}
-					<span class="font-medium text-foreground">{t.assignee_name}</span>
-				{:else}
-					<span class="italic">Unassigned</span>
-				{/if}
+				{@render assignees(t)}
 				{#if t.created_by_name}
 					<span class="opacity-60">·</span>
 					created by {t.created_by_name}
@@ -1146,6 +1339,18 @@
 			<span class="shrink-0 text-2xs text-muted-foreground">
 				Due {formatDate(t.due_at.slice(0, 10))}
 			</span>
+		{/if}
+		{#if !t.closed_at && canWrite}
+			<Button
+				variant="ghost"
+				size="icon"
+				class="h-6 w-6"
+				onclick={() => openFanOut(t)}
+				aria-label="Fan out to cases"
+				title="Fan out to cases"
+			>
+				<Network class="h-3.5 w-3.5" />
+			</Button>
 		{/if}
 		{#if !t.closed_at}
 			<Button
@@ -1176,6 +1381,61 @@
 		>
 			<Trash2 class="h-3.5 w-3.5" />
 		</Button>
+	</li>
+{/snippet}
+
+<!--
+  Person assignee and team chips: a task can have both. "Unassigned"
+  only when it has neither.
+-->
+{#snippet assignees(t: WarRoomTask)}
+	{#if t.assignee_name}
+		<span class="font-medium text-foreground">{t.assignee_name}</span>
+	{:else if !t.teams?.length}
+		<span class="italic">Unassigned</span>
+	{/if}
+	<TaskTeamChips teams={t.teams} />
+{/snippet}
+
+<!--
+  Fan-out roll-up: done/total over every linked case (restricted ones
+  included in the count, never named). Clicking it toggles the per-case
+  list under the row.
+-->
+{#snippet fanOutPill(taskId: number)}
+	{@const sum = fanOutSummary[String(taskId)]}
+	{@const pct = sum.total ? Math.round((sum.done / sum.total) * 100) : 0}
+	{@const open = fanOutExpanded.has(taskId)}
+	<button
+		type="button"
+		class="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-1.5 py-0 text-2xs tabular-nums transition-colors {sum.total &&
+		sum.done === sum.total
+			? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+			: 'text-muted-foreground hover:bg-muted'}"
+		onclick={() => toggleFanOutPanel(taskId)}
+		aria-expanded={open}
+		aria-label={`${sum.done} of ${sum.total} cases done — ${open ? 'hide' : 'show'} case tasks`}
+		title={sum.accessible_total < sum.total
+			? `${sum.total - sum.accessible_total} case(s) you cannot access`
+			: 'Show case tasks'}
+	>
+		<span class="h-1.5 w-8 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+			<span class="block h-full rounded-full bg-emerald-500" style="width: {pct}%"></span>
+		</span>
+		{sum.done}/{sum.total} cases done
+	</button>
+{/snippet}
+
+{#snippet fanOutRow(t: WarRoomTask)}
+	<li>
+		<FanOutPanel
+			{warRoomId}
+			taskId={t.task_id}
+			{canWrite}
+			reloadKey={fanOutReload[t.task_id] ?? 0}
+			onChanged={() => void loadFanOutSummary()}
+			onAddCases={t.closed_at ? undefined : () => openFanOut(t)}
+		/>
 	</li>
 {/snippet}
 
@@ -1226,11 +1486,7 @@
 				{/each}
 			</div>
 			<p class="line-clamp-1 text-2xs text-muted-foreground">
-				{#if t.assignee_name}
-					<span class="font-medium text-foreground">{t.assignee_name}</span>
-				{:else}
-					<span class="italic">Unassigned</span>
-				{/if}
+				{@render assignees(t)}
 				{#if t.description}
 					<span class="opacity-60">·</span>
 					{t.description}
@@ -1293,11 +1549,14 @@
 	</div>
 
 	<div class="mt-1.5 flex items-center gap-2 text-2xs text-muted-foreground">
-		{#if t.assignee_name}
-			<span class="truncate font-medium text-foreground">{t.assignee_name}</span>
-		{:else}
-			<span class="italic">Unassigned</span>
-		{/if}
+		<span class="flex min-w-0 items-center gap-1">
+			{#if t.assignee_name}
+				<span class="truncate font-medium text-foreground">{t.assignee_name}</span>
+			{:else if !t.teams?.length}
+				<span class="italic">Unassigned</span>
+			{/if}
+			<TaskTeamChips teams={t.teams} />
+		</span>
 		{#if t.due_at}
 			<span class="ml-auto shrink-0">Due {formatDate(t.due_at.slice(0, 10))}</span>
 		{/if}
@@ -1466,6 +1725,97 @@
 
 			<div>
 				<span class="text-xs font-medium text-muted-foreground">
+					<UsersIcon class="mr-1 inline h-3 w-3" /> Teams
+				</span>
+				<Popover bind:open={teamsOpen}>
+					<PopoverTrigger class="mt-1 w-full">
+						<span
+							class="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 text-left text-sm font-normal hover:bg-accent hover:text-accent-foreground"
+						>
+							<span class="truncate {form.teamIds.length ? '' : 'text-muted-foreground'}">
+								{form.teamIds.length
+									? `${form.teamIds.length} team${form.teamIds.length === 1 ? '' : 's'} selected`
+									: 'No team'}
+							</span>
+							<ChevronDown class="h-4 w-4 shrink-0 opacity-50" />
+						</span>
+					</PopoverTrigger>
+					<PopoverContent class="w-[--bits-popover-anchor-width] p-0">
+						<div class="flex items-center border-b px-2">
+							<Search class="h-3.5 w-3.5 text-muted-foreground" />
+							<Input
+								value={teamSearch}
+								oninput={(e) => (teamSearch = (e.target as HTMLInputElement).value)}
+								placeholder="Search teams…"
+								class="h-9 border-0 shadow-none focus-visible:ring-0"
+							/>
+						</div>
+						<div class="max-h-64 overflow-y-auto py-1">
+							{#each teamMatches as tm (tm.team_id)}
+								{@const on = form.teamIds.includes(tm.team_id)}
+								<button
+									type="button"
+									class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-muted"
+									aria-pressed={on}
+									onclick={() => toggleFormTeam(tm.team_id)}
+								>
+									<span
+										class="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border {on
+											? 'border-primary bg-primary text-primary-foreground'
+											: 'border-input'}"
+									>
+										{#if on}
+											<Check class="h-3 w-3" />
+										{/if}
+									</span>
+									<span
+										class="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-muted-foreground"
+										style={teamDotStyle(tm.color)}
+										aria-hidden="true"
+									></span>
+									<span class="truncate">@{tm.name}</span>
+									{#if tm.member_ids}
+										<span class="ml-auto shrink-0 text-2xs text-muted-foreground">
+											{tm.member_ids.length} member{tm.member_ids.length === 1 ? '' : 's'}
+										</span>
+									{/if}
+								</button>
+							{:else}
+								<p class="px-3 py-2 text-xs text-muted-foreground">
+									{teams.length ? 'No teams match.' : 'No teams in this war room yet.'}
+								</p>
+							{/each}
+						</div>
+					</PopoverContent>
+				</Popover>
+				{#if formTeams.length}
+					<div class="mt-1.5 flex flex-wrap gap-1">
+						{#each formTeams as tm (tm.team_id)}
+							<span
+								class="inline-flex items-center gap-1 rounded-full border bg-muted/60 px-2 py-0.5 text-xs"
+							>
+								<span
+									class="inline-block h-2 w-2 shrink-0 rounded-full bg-muted-foreground"
+									style={teamDotStyle(tm.color)}
+									aria-hidden="true"
+								></span>
+								@{tm.name}
+								<button
+									type="button"
+									class="text-muted-foreground hover:text-foreground"
+									onclick={() => toggleFormTeam(tm.team_id)}
+									aria-label={`Remove team ${tm.name}`}
+								>
+									<X class="h-3 w-3" />
+								</button>
+							</span>
+						{/each}
+					</div>
+				{/if}
+			</div>
+
+			<div>
+				<span class="text-xs font-medium text-muted-foreground">
 					<TagIcon class="mr-1 inline h-3 w-3" /> Tags
 				</span>
 				<div
@@ -1525,3 +1875,5 @@
 		</DialogFooter>
 	</DialogContent>
 </Dialog>
+
+<FanOutDialog bind:open={fanOutDialogOpen} {warRoomId} task={fanOutTask} onDone={onFanOutDone} />

@@ -10,6 +10,7 @@
 	import { formatDate, formatDateTime, parseServerDate } from '$lib/utils/time-formatter';
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
 	import {
 		AlertCircle,
 		AlertOctagon,
@@ -1108,10 +1109,21 @@
 			// `/topic <name>` returns the newly-created topic — merge it
 			// into `topics` and switch the view straight away so the
 			// operator lands on the new lane.
-			const created =
+			const payload =
 				res.data && typeof res.data !== 'string'
-					? (res.data as { topic?: ChatTopic }).topic
+					? (res.data as { topic?: ChatTopic; ref_type?: string | null; ref_id?: number | null })
 					: undefined;
+			// `/sitrep` (and `/summary`) open a draft: take the operator
+			// straight to it in edit mode.
+			if (
+				/^\/(sitrep|summary)\b/.test(text) &&
+				payload?.ref_type === 'sitrep' &&
+				payload.ref_id != null
+			) {
+				await goto(`/war-rooms/${warRoomId}/sitreps?sitrep=${payload.ref_id}&edit=1`);
+				return;
+			}
+			const created = payload?.topic;
 			if (created) {
 				const idx = topics.findIndex((t) => t.topic_id === created.topic_id);
 				topics =
@@ -1187,18 +1199,24 @@
 
 	const SLASH_COMMANDS = [
 		{ cmd: '/note', desc: 'Create a war-room note' },
-		{ cmd: '/pin', desc: 'Highlight a message' },
-		{ cmd: '/decision', desc: 'Log a command decision' },
+		{ cmd: '/pin [text]', desc: 'Pin the last message' },
+		{ cmd: '/decision [@approver] <title>', desc: 'Propose decision D-n' },
 		{ cmd: '/attach <case_id>', desc: 'Attach a case' },
 		{ cmd: '/detach <case_id>', desc: 'Detach a case' },
-		{ cmd: '/task [@user] <title>', desc: 'Create a task' },
-		{ cmd: '/assign @user <title>', desc: 'Create + assign a task' },
-		{ cmd: '/sitrep <title>', desc: 'Start a SitRep draft' },
+		{ cmd: '/task [@user|@team] <title>', desc: 'Create a task' },
+		{ cmd: '/assign @user|@team <title>', desc: 'Create + assign a task' },
+		{ cmd: '/sitrep [title]', desc: 'Open a SitRep draft' },
 		{ cmd: '/summary', desc: 'Auto-fill SitRep from snapshot' },
 		{ cmd: '/state <…>', desc: 'Flip war-room state' },
 		{ cmd: '/priority <…>', desc: 'Stamp a priority banner' },
 		{ cmd: '/thread <title>', desc: 'Open a named thread' },
-		{ cmd: '/topic <name>', desc: 'Create + switch to a topic' }
+		{ cmd: '/topic <name>', desc: 'Create + switch to a topic' },
+		{ cmd: '/asset <name> [#case|all]', desc: 'Add to cases, or stage' },
+		{ cmd: '/ioc <value> [#case|all]', desc: 'Add IOC (type detected)' },
+		{ cmd: '/stage <asset> <stage>', desc: 'Set stage in every case' },
+		{ cmd: '/push <asset|ioc> <#case|all>', desc: 'Push into cases' },
+		{ cmd: '/share-note <note> <#case|all>', desc: 'Share a note' },
+		{ cmd: '/vuln <identifier> [note]', desc: 'Track a vulnerability' }
 	];
 
 	// --- Threads ---------------------------------------------------------

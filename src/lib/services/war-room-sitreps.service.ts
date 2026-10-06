@@ -14,6 +14,59 @@ export interface WarRoomSitRep {
 	snapshot_json: Record<string, unknown> | null;
 }
 
+export interface WarRoomSitRepAutoDraft {
+	title: string;
+	body_md: string;
+	since: string | null;
+	generated_at: string | null;
+	sections: {
+		changes: unknown[];
+		cases: unknown[];
+		decisions: unknown[];
+		exceptions: unknown[];
+		next_actions: unknown[];
+	};
+}
+
+export interface WarRoomSitRepCadence {
+	cadence_minutes: number | null;
+	reminder_minutes: number | null;
+	last_published_at: string | null;
+	next_due_at: string | null;
+	is_overdue: boolean;
+}
+
+export interface WarRoomSitRepCadenceBody {
+	/** 15..10080, or null to switch the cadence off. */
+	cadence_minutes: number | null;
+	/** 0..cadence_minutes, or null for no reminder. */
+	reminder_minutes?: number | null;
+}
+
+export interface WarRoomSitRepPublishBody {
+	/** Copy the published SitRep into these cases, or every attached case. */
+	share_to_case_ids?: number[] | 'all';
+}
+
+export interface WarRoomSitRepShareResult {
+	case_id: number;
+	/** 'copied' on success ('created' accepted too); 'denied' when the caller lacks full access. */
+	status: 'copied' | 'created' | 'denied' | 'error' | string;
+	note_id?: number;
+	message?: string;
+}
+
+/** True when a share result means the case received its copy. */
+export function isSitRepShareSuccess(r: Pick<WarRoomSitRepShareResult, 'status'>): boolean {
+	return r.status === 'copied' || r.status === 'created';
+}
+
+export type WarRoomSitRepPublished = WarRoomSitRep & { shared?: WarRoomSitRepShareResult[] };
+
+function isPublishBody(v: WarRoomSitRepPublishBody | ApiOptions | undefined): boolean {
+	return !!v && typeof v === 'object' && 'share_to_case_ids' in v;
+}
+
 export class WarRoomSitRepsService {
 	static list(
 		warRoomId: number,
@@ -47,12 +100,48 @@ export class WarRoomSitRepsService {
 		return ApiService.patch(`/war-rooms/${warRoomId}/sitreps/${sitrepId}`, body, options);
 	}
 
+	/**
+	 * Publish a draft. The third argument is either the optional publish
+	 * body (`{share_to_case_ids}`) or, for older callers, the ApiOptions.
+	 */
 	static publish(
 		warRoomId: number,
 		sitrepId: number,
+		bodyOrOptions?: WarRoomSitRepPublishBody | ApiOptions,
 		options: ApiOptions = {}
-	): Promise<RequestResponse<WarRoomSitRep>> {
-		return ApiService.post(`/war-rooms/${warRoomId}/sitreps/${sitrepId}/publish`, {}, options);
+	): Promise<RequestResponse<WarRoomSitRepPublished>> {
+		let body: WarRoomSitRepPublishBody = {};
+		let opts: ApiOptions = options;
+		if (isPublishBody(bodyOrOptions)) {
+			const share = (bodyOrOptions as WarRoomSitRepPublishBody).share_to_case_ids;
+			if (share !== undefined) body = { share_to_case_ids: share };
+		} else if (bodyOrOptions) {
+			opts = bodyOrOptions as ApiOptions;
+		}
+		return ApiService.post(`/war-rooms/${warRoomId}/sitreps/${sitrepId}/publish`, body, opts);
+	}
+
+	/** Draft body generated from the live war-room state (readable cases only). */
+	static autoDraft(
+		warRoomId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<WarRoomSitRepAutoDraft>> {
+		return ApiService.get(`/war-rooms/${warRoomId}/sitreps/auto-draft`, options);
+	}
+
+	static getCadence(
+		warRoomId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<WarRoomSitRepCadence>> {
+		return ApiService.get(`/war-rooms/${warRoomId}/sitreps/cadence`, options);
+	}
+
+	static setCadence(
+		warRoomId: number,
+		body: WarRoomSitRepCadenceBody,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<WarRoomSitRepCadence>> {
+		return ApiService.put(`/war-rooms/${warRoomId}/sitreps/cadence`, body, options);
 	}
 
 	static remove(

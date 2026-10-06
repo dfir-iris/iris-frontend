@@ -3,13 +3,24 @@
 </script>
 
 <script lang="ts">
-	import { FileTextIcon, FolderIcon, FolderOpenIcon } from 'lucide-svelte';
+	import {
+		FileTextIcon,
+		FolderIcon,
+		FolderOpenIcon,
+		RefreshCwIcon,
+		Share2Icon
+	} from 'lucide-svelte';
 	import { page } from '$app/state';
 	import { Button } from '$lib/components/ui/button';
 	import type { WarRoomNote } from '$lib/services/war-room-notes.service';
 	import type { WarRoomNoteFolderTreeNode } from '$lib/contexts/war-room-notes.context.svelte';
 	import Self from './notes-tree.svelte';
 	import type { ContextMenuSource } from '../types';
+	import { useWarRoomNoteShares } from '../note-shares.svelte';
+	import {
+		noteShareBadgeLabel,
+		type NoteShareIndicator
+	} from '$lib/services/war-room-note-shares.service';
 
 	type Props = {
 		folder: WarRoomNoteFolderTreeNode;
@@ -63,7 +74,33 @@
 
 	const getNoteId = (note: WarRoomNote): number => note.note_id;
 	const getNoteTitle = (note: WarRoomNote): string => note.title;
+
+	// Optional: absent when the tree is rendered outside the notes layout.
+	const shares = useWarRoomNoteShares();
+	const folderShare = $derived(selectable ? undefined : shares?.index.folders[folder.id]);
+	const noteShare = (noteId: number) => (selectable ? undefined : shares?.index.notes[noteId]);
 </script>
+
+{#snippet shareBadge(indicator: NoteShareIndicator)}
+	<span
+		class="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-2xs font-medium {indicator.pending
+			? 'text-amber-600 dark:text-amber-400'
+			: 'text-primary'}"
+		title={indicator.pending
+			? 'Shared with cases — sync pending'
+			: indicator.all
+				? 'Shared with all attached cases'
+				: `Shared with ${indicator.cases} case${indicator.cases === 1 ? '' : 's'}`}
+		data-testid="note-share-badge"
+	>
+		{#if indicator.pending}
+			<RefreshCwIcon class="size-3" aria-hidden="true" />
+		{:else}
+			<Share2Icon class="size-3" aria-hidden="true" />
+		{/if}
+		{noteShareBadgeLabel(indicator)}
+	</span>
+{/snippet}
 
 {#if !isRootBucket}
 	<Button
@@ -116,6 +153,9 @@
 		{@const Icon = open ? FolderOpenIcon : FolderIcon}
 		<Icon class="h-4 w-4 shrink-0 text-muted-foreground" />
 		<span class="truncate">{folder.name}</span>
+		{#if folderShare}
+			{@render shareBadge(folderShare)}
+		{/if}
 	</Button>
 {/if}
 
@@ -143,6 +183,7 @@
 		{#if !selectable}
 			{#each notes as note (getNoteId(note))}
 				{@const isActive = Number(page.params.note_id) === getNoteId(note)}
+				{@const indicator = noteShare(getNoteId(note))}
 				<Button
 					draggable={true}
 					ondragstart={() => onDragStartNote?.(getNoteId(note))}
@@ -159,6 +200,9 @@
 				>
 					<FileTextIcon class="h-4 w-4 shrink-0 text-muted-foreground" />
 					<span class="truncate">{getNoteTitle(note)}</span>
+					{#if indicator}
+						{@render shareBadge(indicator)}
+					{/if}
 				</Button>
 			{/each}
 		{/if}

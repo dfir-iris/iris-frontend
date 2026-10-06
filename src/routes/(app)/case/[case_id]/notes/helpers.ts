@@ -1,6 +1,7 @@
 import { goto } from '$app/navigation';
 import { page } from '$app/state';
 import type { CaseNotesContext } from '$lib/contexts/case-notes.context.svelte';
+import { collectLockedFolderIds } from '$lib/utils/note-mirror';
 
 export const getNoteUrl = (noteId?: number) => {
 	const url = new URL(page.url);
@@ -13,7 +14,16 @@ export const newNote = async (notes: CaseNotesContext, folderId?: number) => {
 		await notes.loadTree();
 	}
 
-	const targetFolderId = folderId ?? notes.ui.selectedFolderId ?? notes.list.tree[0]?.id ?? null;
+	// Never create inside a locked war-room mirror folder (the backend
+	// refuses it): skip locked candidates, falling back to the first
+	// unlocked top-level folder.
+	const locked = collectLockedFolderIds(notes.list.tree);
+	const usable = (id: number | null | undefined) => (id != null && !locked.has(id) ? id : null);
+	const targetFolderId =
+		usable(folderId) ??
+		usable(notes.ui.selectedFolderId) ??
+		notes.list.tree.find((f) => !locked.has(f.id))?.id ??
+		null;
 
 	if (targetFolderId === null) return;
 

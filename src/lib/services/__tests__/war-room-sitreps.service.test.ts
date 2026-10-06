@@ -11,7 +11,7 @@ vi.mock('../api.service', () => ({
 	}
 }));
 
-import { WarRoomSitRepsService } from '../war-room-sitreps.service';
+import { WarRoomSitRepsService, isSitRepShareSuccess } from '../war-room-sitreps.service';
 import { ApiService } from '../api.service';
 
 describe('WarRoomSitRepsService', () => {
@@ -217,6 +217,120 @@ describe('WarRoomSitRepsService', () => {
 			const [, , opts] = (ApiService.post as ReturnType<typeof vi.fn>).mock.calls[0];
 			expect(opts).toEqual({ skipTokenRefresh: true });
 		});
+
+		it('sends share_to_case_ids when given a publish body', async () => {
+			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: { sitrep_id: 3, published: true, shared: [] }
+			});
+
+			await WarRoomSitRepsService.publish(10, 3, { share_to_case_ids: [4, 5] });
+
+			expect(ApiService.post).toHaveBeenCalledWith(
+				'/war-rooms/10/sitreps/3/publish',
+				{ share_to_case_ids: [4, 5] },
+				{}
+			);
+		});
+
+		it("accepts 'all' and forwards options as the fourth argument", async () => {
+			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
+
+			await WarRoomSitRepsService.publish(
+				10,
+				3,
+				{ share_to_case_ids: 'all' },
+				{ skipTokenRefresh: true }
+			);
+
+			expect(ApiService.post).toHaveBeenCalledWith(
+				'/war-rooms/10/sitreps/3/publish',
+				{ share_to_case_ids: 'all' },
+				{ skipTokenRefresh: true }
+			);
+		});
+
+		it('sends an empty body when share_to_case_ids is undefined', async () => {
+			(ApiService.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
+
+			await WarRoomSitRepsService.publish(10, 3, { share_to_case_ids: undefined });
+
+			expect(ApiService.post).toHaveBeenCalledWith('/war-rooms/10/sitreps/3/publish', {}, {});
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// autoDraft()
+	// -----------------------------------------------------------------------
+
+	describe('autoDraft()', () => {
+		it('calls GET /war-rooms/{warRoomId}/sitreps/auto-draft', async () => {
+			const mock = {
+				ok: true,
+				status: 200,
+				data: { title: 'SitRep', body_md: '# x', since: null, generated_at: null, sections: {} }
+			};
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mock);
+
+			const res = await WarRoomSitRepsService.autoDraft(10);
+
+			expect(ApiService.get).toHaveBeenCalledWith('/war-rooms/10/sitreps/auto-draft', {});
+			expect(res).toBe(mock);
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// getCadence() / setCadence()
+	// -----------------------------------------------------------------------
+
+	describe('getCadence()', () => {
+		it('calls GET /war-rooms/{warRoomId}/sitreps/cadence', async () => {
+			const mock = { ok: true, status: 200, data: { cadence_minutes: null } };
+			(ApiService.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mock);
+
+			const res = await WarRoomSitRepsService.getCadence(10);
+
+			expect(ApiService.get).toHaveBeenCalledWith('/war-rooms/10/sitreps/cadence', {});
+			expect(res).toBe(mock);
+		});
+	});
+
+	describe('setCadence()', () => {
+		it('calls PUT /war-rooms/{warRoomId}/sitreps/cadence with the body', async () => {
+			const mock = { ok: true, status: 200, data: { cadence_minutes: 60 } };
+			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mock);
+
+			const body = { cadence_minutes: 60, reminder_minutes: 15 };
+			const res = await WarRoomSitRepsService.setCadence(10, body);
+
+			expect(ApiService.put).toHaveBeenCalledWith('/war-rooms/10/sitreps/cadence', body, {});
+			expect(res).toBe(mock);
+		});
+
+		it('allows switching the cadence off', async () => {
+			(ApiService.put as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				data: {}
+			});
+
+			await WarRoomSitRepsService.setCadence(10, { cadence_minutes: null });
+
+			expect(ApiService.put).toHaveBeenCalledWith(
+				'/war-rooms/10/sitreps/cadence',
+				{ cadence_minutes: null },
+				{}
+			);
+		});
 	});
 
 	// -----------------------------------------------------------------------
@@ -277,5 +391,14 @@ describe('WarRoomSitRepsService', () => {
 			expect(url).toContain('/war-rooms/99/');
 			expect(url).toContain('/sitreps/42/');
 		});
+	});
+});
+
+describe('isSitRepShareSuccess()', () => {
+	it('treats copied/created as success and denied/error as failure', () => {
+		expect(isSitRepShareSuccess({ status: 'copied' })).toBe(true);
+		expect(isSitRepShareSuccess({ status: 'created' })).toBe(true);
+		expect(isSitRepShareSuccess({ status: 'denied' })).toBe(false);
+		expect(isSitRepShareSuccess({ status: 'error' })).toBe(false);
 	});
 });

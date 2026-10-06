@@ -13,6 +13,7 @@
   never shows another asset's rows while a request is in flight.
 -->
 <script lang="ts">
+	import { getContext } from 'svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { Button } from '$lib/components/ui/button';
@@ -25,6 +26,13 @@
 	import AssetSightingsTab from './AssetSightingsTab.svelte';
 	import AssetTimelineTab from './AssetTimelineTab.svelte';
 	import AssetAuditTab from './AssetAuditTab.svelte';
+	import AssetVulnerabilitiesTab from './AssetVulnerabilitiesTab.svelte';
+	import {
+		canReadVulnerabilities,
+		canWriteFindings,
+		vulnerabilityTabFallback
+	} from '$lib/components/vulnerabilities/permissions';
+	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 	import type { ManagedAssetDetail } from '$lib/types/resources/managed-asset';
 
 	type Props = {
@@ -51,6 +59,16 @@
 	}: Props = $props();
 
 	let tab = $state('overview');
+
+	// Registry findings need `vulnerabilities_read` on top of the asset
+	// manager access; writing them needs `asset_manager_write` and create.
+	const userCtx = getContext<UserCtx>(USER_CTX);
+	const canReadVulns = $derived(canReadVulnerabilities(userCtx));
+	const canWriteVulns = $derived(canWriteFindings(userCtx, canWrite));
+	$effect(() => {
+		const next = vulnerabilityTabFallback(tab, canReadVulns, userCtx.ready, 'overview');
+		if (next !== tab) tab = next;
+	});
 
 	// A different asset means the tabs must remount, and the panel should
 	// open where it always opens rather than on whatever tab was last read.
@@ -178,6 +196,9 @@
 							<Tabs.Trigger value="overview">Overview</Tabs.Trigger>
 							<Tabs.Trigger value="sightings">Sightings ({sightingTotal})</Tabs.Trigger>
 							<Tabs.Trigger value="timeline">Timeline</Tabs.Trigger>
+							{#if canReadVulns}
+								<Tabs.Trigger value="vulnerabilities">Vulnerabilities</Tabs.Trigger>
+							{/if}
 							<Tabs.Trigger value="audit">Changes</Tabs.Trigger>
 							<Tabs.Trigger value="attributes">Attributes</Tabs.Trigger>
 						</Tabs.List>
@@ -274,6 +295,18 @@
 								{#if tab === 'timeline'}
 									{#key asset.managed_asset_id}
 										<AssetTimelineTab assetId={asset.managed_asset_id} />
+									{/key}
+								{/if}
+							</Tabs.Content>
+
+							<Tabs.Content value="vulnerabilities" class="mt-0">
+								{#if tab === 'vulnerabilities' && canReadVulns}
+									{#key asset.managed_asset_id}
+										<AssetVulnerabilitiesTab
+											assetId={asset.managed_asset_id}
+											assetName={asset.name}
+											canWrite={canWriteVulns}
+										/>
 									{/key}
 								{/if}
 							</Tabs.Content>

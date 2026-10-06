@@ -62,7 +62,10 @@
 		{ name: 'investigation_flows_write', value: 0x1000000 },
 		{ name: 'asset_manager_read', value: 0x2000000 },
 		{ name: 'asset_manager_write', value: 0x4000000 },
-		{ name: 'case_access_manage', value: 0x8000000 }
+		{ name: 'case_access_manage', value: 0x8000000 },
+		{ name: 'vulnerabilities_write', value: 0x10000000 },
+		{ name: 'vulnerabilities_read', value: 0x20000000 },
+		{ name: 'vulnerabilities_create', value: 0x40000000 }
 	];
 
 	let keys = $state<UserApiKey[]>([]);

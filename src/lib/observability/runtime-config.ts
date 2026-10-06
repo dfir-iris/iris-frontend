@@ -33,10 +33,16 @@ export interface RuntimeChatbot {
 	model: string;
 }
 
+export interface RuntimeVulnerabilities {
+	/** cve.org lookup / sync of catalogue entries (`IRIS_CVE_SYNC_ENABLED`). */
+	cve_sync_enabled: boolean;
+}
+
 export interface RuntimeConfig {
 	error_reporting: RuntimeErrorReporting;
 	mcp: RuntimeMcp;
 	chatbot: RuntimeChatbot;
+	vulnerabilities: RuntimeVulnerabilities;
 }
 
 const DISABLED: RuntimeConfig = {
@@ -48,7 +54,9 @@ const DISABLED: RuntimeConfig = {
 		release: 'iris@unknown'
 	},
 	mcp: { enabled: false, endpoint: '/api/v2/mcp' },
-	chatbot: { enabled: false, provider_available: false, model: '' }
+	chatbot: { enabled: false, provider_available: false, model: '' },
+	// Off when absent so an older backend never shows a sync button.
+	vulnerabilities: { cve_sync_enabled: false }
 };
 
 export async function fetchRuntimeConfig(
@@ -72,7 +80,8 @@ export async function fetchRuntimeConfig(
 				...(body.error_reporting ?? {})
 			},
 			mcp: { ...DISABLED.mcp, ...(body.mcp ?? {}) },
-			chatbot: { ...DISABLED.chatbot, ...(body.chatbot ?? {}) }
+			chatbot: { ...DISABLED.chatbot, ...(body.chatbot ?? {}) },
+			vulnerabilities: { ...DISABLED.vulnerabilities, ...(body.vulnerabilities ?? {}) }
 		};
 	} catch {
 		// Network error — reporting stays off for this boot; the next

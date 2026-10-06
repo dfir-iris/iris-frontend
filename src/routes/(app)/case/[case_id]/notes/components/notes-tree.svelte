@@ -3,12 +3,13 @@
 </script>
 
 <script lang="ts">
-	import { FileTextIcon, FolderIcon, FolderOpenIcon } from 'lucide-svelte';
+	import { FileLockIcon, FileTextIcon, FolderIcon, FolderOpenIcon, LockIcon } from 'lucide-svelte';
 	import { page } from '$app/state';
 	import { Button } from '$lib/components/ui/button';
 	import type { Note, NoteFolder } from '$lib/types/resources/note';
 	import Self from './notes-tree.svelte';
 	import type { ContextMenuSource } from '../types';
+	import { isLockedNoteFolder, isMirroredNote } from '$lib/utils/note-mirror';
 
 	type Props = {
 		folder: NoteFolder;
@@ -31,6 +32,8 @@
 		onDragEnterFolder?: (folderId: number) => void;
 		onDragLeaveFolder?: (folderId: number) => void;
 		onDropOnFolder?: (folderId: number) => void;
+		/** Set by the parent when an ancestor is a locked mirror folder. */
+		inLockedFolder?: boolean;
 	};
 
 	let {
@@ -47,7 +50,8 @@
 		onDragEnd,
 		onDragEnterFolder,
 		onDragLeaveFolder,
-		onDropOnFolder
+		onDropOnFolder,
+		inLockedFolder = false
 	}: Props = $props();
 
 	let open = $state(true);
@@ -59,34 +63,41 @@
 
 	const getNoteId = (note: Note): number => note.note_id;
 	const getNoteTitle = (note: Note): string => note.note_title;
+
+	// "War room · <name>" directories hold read-only mirrors: no drag,
+	// no drop, no rename/delete. Everything under them is locked too.
+	const locked = $derived(inLockedFolder || isLockedNoteFolder(folder));
+	const isNoteLocked = (note: Note): boolean => locked || isMirroredNote(note);
 </script>
 
 <Button
-	draggable={!selectable}
-	ondragstart={() => onDragStartFolder?.(folder.id)}
+	draggable={!selectable && !locked}
+	ondragstart={() => {
+		if (!locked) onDragStartFolder?.(folder.id);
+	}}
 	ondragend={() => onDragEnd?.()}
 	ondragenter={(event) => {
-		if (selectable) return;
+		if (selectable || locked) return;
 
 		event.preventDefault();
 		event.stopPropagation();
 		onDragEnterFolder?.(folder.id);
 	}}
 	ondragover={(event) => {
-		if (selectable) return;
+		if (selectable || locked) return;
 
 		event.preventDefault();
 		event.stopPropagation();
 		onDragEnterFolder?.(folder.id);
 	}}
 	ondragleave={(event) => {
-		if (selectable) return;
+		if (selectable || locked) return;
 
 		event.stopPropagation();
 		onDragLeaveFolder?.(folder.id);
 	}}
 	ondrop={(event) => {
-		if (selectable) return;
+		if (selectable || locked) return;
 
 		event.preventDefault();
 		event.stopPropagation();
@@ -94,7 +105,8 @@
 	}}
 	onclick={() => {
 		if (selectable) {
-			onSelectFolder?.(folder.id);
+			// A locked mirror folder is never a valid move destination.
+			if (!locked) onSelectFolder?.(folder.id);
 			return;
 		}
 
@@ -108,14 +120,18 @@
 	}}
 	variant="ghost"
 	size="sm"
-	title={folder.name}
+	title={locked ? `${folder.name} (read-only, mirrored from a war room)` : folder.name}
+	data-locked={locked ? 'true' : undefined}
 	class="h-8 w-full justify-start gap-x-1.5 px-2 text-sm font-medium {selectedFolderId === folder.id
 		? 'bg-accent'
 		: ''} {!isDraggedFolder && isDropTarget ? 'bg-accent/50 ring-1 ring-primary' : ''}"
 >
 	{@const Icon = open ? FolderOpenIcon : FolderIcon}
-	<Icon class="h-4 w-4 shrink-0 text-muted-foreground" />
+	<Icon class="h-4 w-4 shrink-0 {locked ? 'text-red-600' : 'text-muted-foreground'}" />
 	<span class="truncate">{folder.name}</span>
+	{#if isLockedNoteFolder(folder)}
+		<LockIcon class="ml-auto size-3 shrink-0 text-muted-foreground" aria-label="Locked" />
+	{/if}
 </Button>
 
 {#if open}
@@ -135,6 +151,7 @@
 				{onDragEnterFolder}
 				{onDragLeaveFolder}
 				{onDropOnFolder}
+				inLockedFolder={locked}
 				folder={subfolder}
 			/>
 		{/each}
@@ -142,9 +159,12 @@
 		{#if !selectable}
 			{#each notes as note (getNoteId(note))}
 				{@const isActive = Number(page.params.note_id) === getNoteId(note)}
+				{@const noteLocked = isNoteLocked(note)}
 				<Button
-					draggable={true}
-					ondragstart={() => onDragStartNote?.(getNoteId(note))}
+					draggable={!noteLocked}
+					ondragstart={() => {
+						if (!noteLocked) onDragStartNote?.(getNoteId(note));
+					}}
 					ondragend={() => onDragEnd?.()}
 					variant="ghost"
 					size="sm"
@@ -156,7 +176,14 @@
 					oncontextmenu={(event) =>
 						onContextMenu(event, 'note', note.note_title, folder.id, getNoteId(note))}
 				>
-					<FileTextIcon class="h-4 w-4 shrink-0 text-muted-foreground" />
+					{#if noteLocked}
+						<FileLockIcon
+							class="h-4 w-4 shrink-0 text-muted-foreground"
+							aria-label="Read-only mirror"
+						/>
+					{:else}
+						<FileTextIcon class="h-4 w-4 shrink-0 text-muted-foreground" />
+					{/if}
 					<span class="truncate">{getNoteTitle(note)}</span>
 				</Button>
 			{/each}

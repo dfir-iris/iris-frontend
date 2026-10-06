@@ -12,6 +12,8 @@
 	import { CompromiseStatus } from '$lib/components/common/compromise-status';
 	import { Fact, FactBar, FactRecord, FactTags } from '$lib/components/common/fact-bar';
 	import AssetEditForm, { type AssetEditData } from '../components/asset-edit-form.svelte';
+	import AssetStageChip from '$lib/components/common/assets/AssetStageChip.svelte';
+	import AssetStageCard from './asset-stage-card.svelte';
 
 	type Props = {
 		asset: Asset;
@@ -77,6 +79,9 @@
 			<CompromiseStatus status={asset.asset_compromise_status_id || 3} />
 		</Fact>
 
+		<Fact label="Stage">
+			<AssetStageChip stage={asset.stage ?? null} />
+		</Fact>
 		<Fact label="Type" value={asset.asset_type?.asset_name} />
 		<Fact label="Analysis" value={asset.analysis_status?.name} />
 		<Fact label="IP" value={asset.asset_ip} mono copyable />
@@ -84,6 +89,8 @@
 	</FactBar>
 
 	<FactTags tags={asset.asset_tags} />
+
+	<AssetStageCard {asset} />
 
 	<div class="p-4">
 		{#if asset.asset_description}

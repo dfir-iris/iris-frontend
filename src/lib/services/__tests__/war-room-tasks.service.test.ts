@@ -154,6 +154,32 @@ describe('WarRoomTasksService', () => {
 			expect(ApiService.get).toHaveBeenCalledWith('/war-rooms/7/tasks', {});
 		});
 
+		// team_id — multi-value, supports 'none'
+		it('repeats team_id= for each element, including "none"', async () => {
+			mock('get').mockResolvedValueOnce({ ok: true, data: [] });
+			await WarRoomTasksService.list(7, { team_id: [3, 'none'] });
+			expect(ApiService.get).toHaveBeenCalledWith('/war-rooms/7/tasks?team_id=3&team_id=none', {});
+		});
+
+		it('omits team_id entirely when the array is empty', async () => {
+			mock('get').mockResolvedValueOnce({ ok: true, data: [] });
+			await WarRoomTasksService.list(7, { team_id: [] });
+			expect(ApiService.get).toHaveBeenCalledWith('/war-rooms/7/tasks', {});
+		});
+
+		// mine
+		it('sets mine=1 when mine is true', async () => {
+			mock('get').mockResolvedValueOnce({ ok: true, data: [] });
+			await WarRoomTasksService.list(7, { mine: true });
+			expect(ApiService.get).toHaveBeenCalledWith('/war-rooms/7/tasks?mine=1', {});
+		});
+
+		it('omits mine when it is false', async () => {
+			mock('get').mockResolvedValueOnce({ ok: true, data: [] });
+			await WarRoomTasksService.list(7, { mine: false });
+			expect(ApiService.get).toHaveBeenCalledWith('/war-rooms/7/tasks', {});
+		});
+
 		// parent_task_id
 		it('sets parent_task_id=top when parent_task_id is null', async () => {
 			mock('get').mockResolvedValueOnce({ ok: true, data: [] });
@@ -234,6 +260,8 @@ describe('WarRoomTasksService', () => {
 				status_id: [1, 3],
 				tag: ['urgent'],
 				assignee_id: [5, 'unassigned'],
+				team_id: [4],
+				mine: true,
 				parent_task_id: null,
 				include_closed: false,
 				due_from: '2024-06-01',
@@ -246,6 +274,8 @@ describe('WarRoomTasksService', () => {
 			expect(calledWith).toContain('tag=urgent');
 			expect(calledWith).toContain('assignee_id=5');
 			expect(calledWith).toContain('assignee_id=unassigned');
+			expect(calledWith).toContain('team_id=4');
+			expect(calledWith).toContain('mine=1');
 			expect(calledWith).toContain('parent_task_id=top');
 			expect(calledWith).toContain('include_closed=false');
 			expect(calledWith).toContain('due_from=2024-06-01');
@@ -275,6 +305,13 @@ describe('WarRoomTasksService', () => {
 			expect(result).toEqual({ ok: true, data: { task_id: 1 } });
 		});
 
+		it('passes team_ids through in the body', async () => {
+			mock('post').mockResolvedValueOnce({ ok: true, data: { task_id: 3 } });
+			const body = { title: 'Contain', team_ids: [1, 2] };
+			await WarRoomTasksService.create(7, body);
+			expect(ApiService.post).toHaveBeenCalledWith('/war-rooms/7/tasks', body, {});
+		});
+
 		it('accepts a minimal body with only a title', async () => {
 			mock('post').mockResolvedValueOnce({ ok: true, data: { task_id: 2 } });
 			await WarRoomTasksService.create(7, { title: 'Quick task' });
@@ -295,6 +332,12 @@ describe('WarRoomTasksService', () => {
 			const result = await WarRoomTasksService.update(7, 1, body);
 			expect(ApiService.patch).toHaveBeenCalledWith('/war-rooms/7/tasks/1', body, {});
 			expect(result).toEqual({ ok: true, data: { task_id: 1 } });
+		});
+
+		it('sends an empty team_ids array as-is so the backend clears the set', async () => {
+			mock('patch').mockResolvedValueOnce({ ok: true, data: { task_id: 1 } });
+			await WarRoomTasksService.update(7, 1, { team_ids: [] });
+			expect(ApiService.patch).toHaveBeenCalledWith('/war-rooms/7/tasks/1', { team_ids: [] }, {});
 		});
 
 		it('does NOT call ApiService.put', async () => {
@@ -333,6 +376,61 @@ describe('WarRoomTasksService', () => {
 			mock('delete').mockResolvedValueOnce({ ok: true, data: null });
 			const result = await WarRoomTasksService.remove(7, 1);
 			expect(ApiService.delete).toHaveBeenCalledWith('/war-rooms/7/tasks/1', {});
+			expect(result).toEqual({ ok: true, data: null });
+		});
+	});
+
+	// ---- fanOut() ----------------------------------------------------------
+
+	describe('fanOut()', () => {
+		it('POSTs the body to /war-rooms/:warRoomId/tasks/:taskId/fan-out', async () => {
+			const data = { results: [{ case_id: 3, status: 'created', case_task_id: 99 }] };
+			mock('post').mockResolvedValueOnce({ ok: true, data });
+			const body = { case_ids: [3, 4], assign_to_case_owner: false };
+			const result = await WarRoomTasksService.fanOut(7, 1, body);
+			expect(ApiService.post).toHaveBeenCalledWith('/war-rooms/7/tasks/1/fan-out', body, {});
+			expect(result).toEqual({ ok: true, data });
+		});
+
+		it('forwards options', async () => {
+			mock('post').mockResolvedValueOnce({ ok: true, data: { results: [] } });
+			await WarRoomTasksService.fanOut(7, 1, { case_ids: [3] }, { skipTokenRefresh: true });
+			const [, , opts] = mock('post').mock.calls[0];
+			expect(opts).toEqual({ skipTokenRefresh: true });
+		});
+	});
+
+	// ---- fanOutStatus() ----------------------------------------------------
+
+	describe('fanOutStatus()', () => {
+		it('GETs /war-rooms/:warRoomId/tasks/:taskId/fan-out', async () => {
+			const data = [{ case_id: 3, accessible: false, created_at: null }];
+			mock('get').mockResolvedValueOnce({ ok: true, data });
+			const result = await WarRoomTasksService.fanOutStatus(7, 1);
+			expect(ApiService.get).toHaveBeenCalledWith('/war-rooms/7/tasks/1/fan-out', {});
+			expect(result).toEqual({ ok: true, data });
+		});
+	});
+
+	// ---- fanOutSummary() ---------------------------------------------------
+
+	describe('fanOutSummary()', () => {
+		it('GETs /war-rooms/:warRoomId/tasks/fan-out-summary', async () => {
+			const data = { '1': { total: 5, done: 3, accessible_total: 4 } };
+			mock('get').mockResolvedValueOnce({ ok: true, data });
+			const result = await WarRoomTasksService.fanOutSummary(7);
+			expect(ApiService.get).toHaveBeenCalledWith('/war-rooms/7/tasks/fan-out-summary', {});
+			expect(result).toEqual({ ok: true, data });
+		});
+	});
+
+	// ---- unlinkFanOut() ----------------------------------------------------
+
+	describe('unlinkFanOut()', () => {
+		it('DELETEs /war-rooms/:warRoomId/tasks/:taskId/fan-out/:caseId', async () => {
+			mock('delete').mockResolvedValueOnce({ ok: true, data: null });
+			const result = await WarRoomTasksService.unlinkFanOut(7, 1, 3);
+			expect(ApiService.delete).toHaveBeenCalledWith('/war-rooms/7/tasks/1/fan-out/3', {});
 			expect(result).toEqual({ ok: true, data: null });
 		});
 	});

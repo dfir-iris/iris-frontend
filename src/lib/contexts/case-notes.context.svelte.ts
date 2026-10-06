@@ -37,6 +37,7 @@ type FolderNode = {
 	id: number;
 	name: string;
 	parent_id?: number;
+	mirror_war_room_id?: number | null;
 	subdirectoryIds: number[];
 };
 
@@ -62,6 +63,7 @@ const toFolderNode = (folder: RawNoteFolder): FolderNode => ({
 	id: folder.id,
 	name: folder.name,
 	parent_id: folder.parent_id,
+	mirror_war_room_id: folder.mirror_war_room_id ?? null,
 	subdirectoryIds: Array.isArray(folder.subdirectories)
 		? folder.subdirectories
 				.map(parseDirectoryRefId)
@@ -96,6 +98,7 @@ const buildFoldersTree = (rawFolders: RawNoteFolder[], notes: Note[]): Normalize
 			id: folder.id,
 			name: folder.name,
 			parent_id: folder.parent_id,
+			mirror_war_room_id: folder.mirror_war_room_id ?? null,
 			subdirectories: [],
 			notes: notesByDirectory.get(folder.id) ?? []
 		};

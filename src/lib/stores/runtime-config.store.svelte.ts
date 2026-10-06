@@ -12,7 +12,8 @@ import {
 	type RuntimeChatbot,
 	type RuntimeConfig,
 	type RuntimeErrorReporting,
-	type RuntimeMcp
+	type RuntimeMcp,
+	type RuntimeVulnerabilities
 } from '$lib/observability/runtime-config';
 
 const DEFAULT: RuntimeConfig = {
@@ -24,7 +25,8 @@ const DEFAULT: RuntimeConfig = {
 		release: 'iris@unknown'
 	},
 	mcp: { enabled: false, endpoint: '/api/v2/mcp' },
-	chatbot: { enabled: false, provider_available: false, model: '' }
+	chatbot: { enabled: false, provider_available: false, model: '' },
+	vulnerabilities: { cve_sync_enabled: false }
 };
 
 const state = $state<{ config: RuntimeConfig }>({ config: DEFAULT });
@@ -41,6 +43,13 @@ export const runtimeConfig = {
 	},
 	get chatbot(): RuntimeChatbot {
 		return state.config.chatbot;
+	},
+	get vulnerabilities(): RuntimeVulnerabilities {
+		return state.config.vulnerabilities ?? DEFAULT.vulnerabilities;
+	},
+	/** cve.org lookup / sync available on this instance. */
+	get cveSyncEnabled(): boolean {
+		return state.config.vulnerabilities?.cve_sync_enabled === true;
 	},
 	/**
 	 * Called once at boot from `hooks.client.ts` after `fetchRuntimeConfig`

@@ -18,6 +18,7 @@
 		MessagesSquareIcon,
 		SearchIcon,
 		ShieldAlertIcon,
+		ShieldXIcon,
 		WaypointsIcon
 	} from 'lucide-svelte';
 	import CustomAttributesTabWrapper from '$lib/components/common/CustomAttributes/CustomAttributesTab.svelte';
@@ -53,6 +54,13 @@
 	import HistoryTab from './history-tab.svelte';
 	import IOCTab from './ioc-tab.svelte';
 	import TimelineTab from './timeline-tab.svelte';
+	import VulnerabilitiesTab from './vulnerabilities-tab.svelte';
+	import { VulnerabilitiesService } from '$lib/services/vulnerabilities.service';
+	import {
+		canReadVulnerabilities,
+		vulnerabilityTabFallback
+	} from '$lib/components/vulnerabilities/permissions';
+	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 	import SeenElsewhereBadge from '$lib/components/common/SeenElsewhereBadge.svelte';
 	import { CaseAssetsService } from '$lib/services/case-assets.service';
 
@@ -78,6 +86,10 @@
 	const caseAssets = getContext<CaseAssetsContext>(CASE_ASSETS_CTX);
 	const caseAccess = getContext<CaseAccessContext>(CASE_ACCESS_CTX);
 	const canEdit = $derived(caseAccess?.canEdit() ?? false);
+	const userCtx = getContext<UserCtx>(USER_CTX);
+	// Without `vulnerabilities_read` the tab, its precount and its
+	// content are dropped (the API would 403 them).
+	const canReadVulns = $derived(canReadVulnerabilities(userCtx));
 
 	const asset = $derived(caseAssets.byId[assetId]);
 	const AssetTypeIcon = $derived(getAssetTypeIcon(asset?.asset_type?.asset_name));
@@ -88,7 +100,15 @@
 	// `case_id` prop available) and when rendered as a route.
 	const caseId = $derived(Number(page.params.case_id));
 
-	let activeTab = $state('details');
+	// `?tab=<value>` opens the view on that tab (e.g. links to an asset's
+	// vulnerabilities). Mounted as a dialog the URL never carries `tab`.
+	const URL_TABS = ['details', 'ioc', 'timeline', 'vulnerabilities', 'history', 'comments'];
+	const urlTab = page.url.searchParams.get('tab');
+	let activeTab = $state(urlTab !== null && URL_TABS.includes(urlTab) ? urlTab : 'details');
+	$effect(() => {
+		const next = vulnerabilityTabFallback(activeTab, canReadVulns, userCtx.ready);
+		if (next !== activeTab) activeTab = next;
+	});
 	let isEditing = $state(false);
 	let isSaving = $state(false);
 
@@ -112,6 +132,18 @@
 		);
 		if (!res.ok || res.error || res.data === null || typeof res.data === 'string') return;
 		timelineCount = res.data.pagination?.total ?? res.data.timeline?.length ?? 0;
+	};
+
+	// Same precount for the Vulnerabilities tab (findings on this asset).
+	let vulnerabilityCount = $state<number | null>(null);
+
+	const loadVulnerabilityCount = async () => {
+		if (!canReadVulns) return;
+		const caseId = Number(page.params.case_id);
+		if (!Number.isFinite(caseId)) return;
+		const res = await VulnerabilitiesService.listCase(caseId, { asset_id: assetId }, { fetch });
+		if (!res.ok || res.data === null || typeof res.data !== 'object') return;
+		vulnerabilityCount = res.data.findings.length;
 	};
 
 	let editData = $state<EditData>({
@@ -286,6 +318,14 @@
 		void loadTimelineCount();
 	});
 
+	// Separate from the effect above so permissions landing after mount
+	// fetch the precount without reloading the asset.
+	$effect(() => {
+		void assetId;
+		vulnerabilityCount = null;
+		if (canReadVulns) void loadVulnerabilityCount();
+	});
+
 	onMount(() => {
 		void ensureHasCustomAttributes('asset');
 	});
@@ -328,22 +368,28 @@
 					  tab's underline needs a baseline to sit on — but drops the
 					  `bg-muted/20` tint, so this is a rule instead of a band.
 					-->
-					<div class="relative flex shrink-0 items-center border-b">
-						<TabsList class="h-auto w-full rounded-none border-0 bg-transparent p-0">
+					<div class="flex shrink-0 items-center border-b @container">
+						<TabsList
+							class="h-auto min-w-0 flex-1 justify-start rounded-none border-0 bg-transparent p-0"
+						>
 							<TabsTrigger
 								value="details"
-								class="flex items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+								title="Details"
+								aria-label="Details"
+								class="flex items-center gap-2 rounded-none px-3 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80 @5xl:px-4"
 							>
-								<InfoIcon class="mr-1 h-4 w-4" />
-								<span>Details</span>
+								<InfoIcon class="h-4 w-4 shrink-0 @5xl:mr-1" />
+								<span class="hidden @5xl:inline">Details</span>
 							</TabsTrigger>
 
 							<TabsTrigger
 								value="ioc"
-								class="relative flex items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+								title="IOCs"
+								aria-label="IOCs"
+								class="relative flex items-center gap-2 rounded-none px-3 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80 @5xl:px-4"
 							>
-								<ShieldAlertIcon class="mr-1 h-4 w-4" />
-								<span>IOCs</span>
+								<ShieldAlertIcon class="h-4 w-4 shrink-0 @5xl:mr-1" />
+								<span class="hidden @5xl:inline">IOCs</span>
 
 								<!--
 								  Zero renders dimmed rather than hidden: "checked,
@@ -353,7 +399,7 @@
 								-->
 								<span
 									class={cn(
-										'ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors',
+										'inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors @5xl:ml-1.5',
 										!asset.iocs?.length && 'opacity-40'
 									)}
 								>
@@ -363,15 +409,17 @@
 
 							<TabsTrigger
 								value="timeline"
-								class="relative flex items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+								title="Timeline"
+								aria-label="Timeline"
+								class="relative flex items-center gap-2 rounded-none px-3 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80 @5xl:px-4"
 							>
-								<ClockIcon class="mr-1 h-4 w-4" />
-								<span>Timeline</span>
+								<ClockIcon class="h-4 w-4 shrink-0 @5xl:mr-1" />
+								<span class="hidden @5xl:inline">Timeline</span>
 
 								{#if timelineCount !== null}
 									<span
 										class={cn(
-											'ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors',
+											'inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors @5xl:ml-1.5',
 											timelineCount === 0 && 'opacity-40'
 										)}
 									>
@@ -380,24 +428,51 @@
 								{/if}
 							</TabsTrigger>
 
+							{#if canReadVulns}
+								<TabsTrigger
+									value="vulnerabilities"
+									title="Vulnerabilities"
+									aria-label="Vulnerabilities"
+									class="relative flex items-center gap-2 rounded-none px-3 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80 @5xl:px-4"
+								>
+									<ShieldXIcon class="h-4 w-4 shrink-0 @5xl:mr-1" />
+									<span class="hidden @5xl:inline">Vulnerabilities</span>
+
+									{#if vulnerabilityCount !== null}
+										<span
+											class={cn(
+												'inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors @5xl:ml-1.5',
+												vulnerabilityCount === 0 && 'opacity-40'
+											)}
+										>
+											{vulnerabilityCount}
+										</span>
+									{/if}
+								</TabsTrigger>
+							{/if}
+
 							<TabsTrigger
 								value="history"
-								class="flex items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+								title="History"
+								aria-label="History"
+								class="flex items-center gap-2 rounded-none px-3 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80 @5xl:px-4"
 							>
-								<HistoryIcon class="mr-1 h-4 w-4" />
-								<span>History</span>
+								<HistoryIcon class="h-4 w-4 shrink-0 @5xl:mr-1" />
+								<span class="hidden @5xl:inline">History</span>
 							</TabsTrigger>
 
 							<TabsTrigger
 								value="comments"
-								class="relative flex items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+								title="Comments"
+								aria-label="Comments"
+								class="relative flex items-center gap-2 rounded-none px-3 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80 @5xl:px-4"
 							>
-								<MessagesSquareIcon class="mr-1 h-4 w-4" />
-								<span>Comments</span>
+								<MessagesSquareIcon class="h-4 w-4 shrink-0 @5xl:mr-1" />
+								<span class="hidden @5xl:inline">Comments</span>
 
 								<span
 									class={cn(
-										'ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors',
+										'inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors @5xl:ml-1.5',
 										!comments.length && 'opacity-40'
 									)}
 								>
@@ -408,10 +483,12 @@
 							{#if hasCustomAttributes.asset === true}
 								<TabsTrigger
 									value="custom_attributes"
-									class="flex items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
+									title="Custom attributes"
+									aria-label="Custom attributes"
+									class="flex items-center gap-2 rounded-none px-3 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80 @5xl:px-4"
 								>
-									<WaypointsIcon class="mr-1 h-4 w-4" />
-									<span>Custom attributes</span>
+									<WaypointsIcon class="h-4 w-4 shrink-0 @5xl:mr-1" />
+									<span class="hidden @5xl:inline">Custom attributes</span>
 								</TabsTrigger>
 							{/if}
 						</TabsList>
@@ -422,12 +499,12 @@
 						  the analyst can read; clicking the badge opens a
 						  popover with the matching case list.
 
-						  Absolutely positioned so it sits outside the tab row's
-						  flow: the badge appears asynchronously (and only for
-						  some assets), and in flow it would shift the centred
-						  TabsList sideways the moment it loaded.
+						  Beside the tabs, not over them: the tabs are left-aligned,
+						  so the badge appearing asynchronously shifts nothing.
+						  Below 64rem of pane width the tabs collapse to icon +
+						  count (label in the tooltip) so the row never overflows.
 						-->
-						<div class="absolute right-4 top-1/2 -translate-y-1/2">
+						<div class="shrink-0 px-4">
 							<SeenElsewhereBadge
 								objectLabel="asset"
 								objectId={asset.asset_id}
@@ -462,6 +539,12 @@
 						<TabsContent value="timeline" class="mt-0 p-4">
 							<TimelineTab {assetId} onCountChange={(c) => (timelineCount = c)} />
 						</TabsContent>
+
+						{#if canReadVulns}
+							<TabsContent value="vulnerabilities" class="mt-0 p-4">
+								<VulnerabilitiesTab {assetId} onCountChange={(c) => (vulnerabilityCount = c)} />
+							</TabsContent>
+						{/if}
 
 						<TabsContent value="history" class="mt-0 p-4">
 							<HistoryTab {asset} />

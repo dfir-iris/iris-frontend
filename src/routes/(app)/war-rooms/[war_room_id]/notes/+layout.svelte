@@ -14,7 +14,7 @@
       wire the same check used by case-access.context.
 -->
 <script lang="ts">
-	import { setContext, type Snippet, onDestroy } from 'svelte';
+	import { getContext, setContext, type Snippet, onDestroy } from 'svelte';
 	import { FilePlusIcon, FolderPlusIcon, FileText, SearchIcon, XIcon } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -36,6 +36,14 @@
 	import NotesMoveItemDialog from './components/notes-move-item-dialog.svelte';
 	import { getNoteUrl, newNote } from './helpers';
 	import NotesNewFolderDialog from './components/notes-new-folder-dialog.svelte';
+	import NoteShareDialog from './components/note-share-dialog.svelte';
+	import {
+		WAR_ROOM_NOTE_SHARES_CTX,
+		createWarRoomNoteSharesContext,
+		type WarRoomNoteSharesContext
+	} from './note-shares.svelte';
+	import { WAR_ROOM_CTX, type WarRoomContext } from '$lib/contexts/war-room.context.svelte';
+	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -43,6 +51,15 @@
 	setContext<WarRoomNotesContext>(WAR_ROOM_NOTES_CTX, notes);
 
 	const canEdit = true;
+
+	// Note sharing into attached cases. Creating / editing shares is
+	// gated on war_rooms_write; the backend re-checks it plus per-case
+	// access on every call.
+	const shares = createWarRoomNoteSharesContext(() => Number(page.params.war_room_id));
+	setContext<WarRoomNoteSharesContext>(WAR_ROOM_NOTE_SHARES_CTX, shares);
+	const warRoom = getContext<WarRoomContext | undefined>(WAR_ROOM_CTX);
+	const userCtx = getContext<UserCtx | undefined>(USER_CTX);
+	const canShare = $derived(userCtx?.can('war_rooms_write') === true);
 
 	let showNewFolder = $state<boolean>(false);
 	let showConfirmDelete = $state<boolean>(false);
@@ -106,6 +123,7 @@
 
 		if (!Number.isFinite(warRoomId)) {
 			notes.reset();
+			shares.reset();
 			loadedWarRoomId = null;
 			return;
 		}
@@ -121,12 +139,32 @@
 		// in flight. Skip on the initial run — the tree is already empty.
 		if (loadedWarRoomId !== null) {
 			notes.reset();
+			shares.reset();
 		}
 		loadedWarRoomId = warRoomId;
 		notes.loadTree();
+		void shares.load();
 	});
 
-	onDestroy(() => notes.reset());
+	onDestroy(() => {
+		notes.reset();
+		shares.reset();
+	});
+
+	const shareFromContextMenu = () => {
+		closeContextMenu();
+		if (contextMenu.source === 'note' && contextMenu.noteId != null) {
+			const title = notes.byId[contextMenu.noteId]?.title || contextMenu.name || 'Untitled note';
+			shares.openDialog({ kind: 'note', id: contextMenu.noteId, label: title });
+		} else if (contextMenu.source === 'folder' && contextMenu.folderId) {
+			// folderId 0 is the synthetic root bucket — not a shareable folder.
+			shares.openDialog({
+				kind: 'folder',
+				id: contextMenu.folderId,
+				label: contextMenu.name ?? `Folder #${contextMenu.folderId}`
+			});
+		}
+	};
 
 	const clickFolder = (folderId: number) => {
 		notes.selectFolder(folderId);
@@ -421,6 +459,7 @@
 			<NotesContextMenu
 				{contextMenu}
 				{canEdit}
+				onShare={canShare ? shareFromContextMenu : undefined}
 				onNewNote={() => {
 					closeContextMenu();
 					newNote(notes, contextMenu.folderId);
@@ -501,6 +540,17 @@
 	onConfirm={deleteItem}
 	onCancel={() => (showConfirmDelete = false)}
 />
+
+{#if Number.isFinite(Number(page.params.war_room_id))}
+	<NoteShareDialog
+		bind:open={shares.dialogOpen}
+		warRoomId={Number(page.params.war_room_id)}
+		warRoomName={warRoom?.room?.name ?? null}
+		target={shares.dialogTarget}
+		canEdit={canShare}
+		onChanged={() => void shares.load()}
+	/>
+{/if}
 
 <NotesNewFolderDialog
 	bind:open={showNewFolder}

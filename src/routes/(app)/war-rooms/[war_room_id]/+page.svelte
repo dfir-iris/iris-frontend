@@ -3,11 +3,10 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 
-	// War rooms land on the chat tab by default — that's the IR commander's
-	// primary surface and where the action happens. Other tabs are
-	// secondary views.
+	// War rooms land on the Board: the one-glance status of every attached
+	// case, with links into the other sections.
 	onMount(() => {
-		goto(`/war-rooms/${page.params.war_room_id}/chat`, { replaceState: true });
+		goto(`/war-rooms/${page.params.war_room_id}/board`, { replaceState: true });
 	});
 </script>
 

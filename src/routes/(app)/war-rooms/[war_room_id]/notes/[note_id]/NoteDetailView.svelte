@@ -19,6 +19,9 @@
 	import MarkDownEditor from '$lib/components/common/MarkDown/MarkDownEditor.svelte';
 	import { toast } from '$lib/components/ui/toast';
 	import NoteHeader from './note-header.svelte';
+	import NoteShareStrip from './note-share-strip.svelte';
+	import { useWarRoomNoteShares } from '../note-shares.svelte';
+	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 
 	let {
 		warRoomId: _warRoomId,
@@ -37,6 +40,30 @@
 	// cases — every member of a war room can edit its notes. If we
 	// gain a read-only role later, wire it into `canEdit` here.
 	const canEdit = true;
+
+	// Sharing into attached cases (optional: absent outside the layout).
+	const shares = useWarRoomNoteShares();
+	const userCtx = getContext<UserCtx | undefined>(USER_CTX);
+	const canShare = $derived(!!shares && userCtx?.can('war_rooms_write') === true);
+	const directShares = $derived(shares ? shares.forNote(noteId) : []);
+	const folderShares = $derived.by(() => {
+		if (!shares || !note) return [];
+		const out: { share: (typeof directShares)[number]; folderName: string }[] = [];
+		const seen = new Set<number>();
+		let folderId = note.folder_id ?? null;
+		while (folderId != null && !seen.has(folderId)) {
+			seen.add(folderId);
+			const folder = notes.foldersById[folderId];
+			if (!folder) break;
+			for (const share of shares.forFolder(folderId)) out.push({ share, folderName: folder.name });
+			folderId = folder.parent_id;
+		}
+		return out;
+	});
+	const openShare = () => {
+		if (!shares || !note) return;
+		shares.openDialog({ kind: 'note', id: note.note_id, label: note.title || 'Untitled note' });
+	};
 
 	let draftContent = $state('');
 	let baseContent = $state('');
@@ -150,6 +177,12 @@
 				onSaveNote={saveNote}
 				onDeleteNote={handleDelete}
 				onRestoreRevision={handleRestoredRevision}
+				onShare={canShare ? openShare : undefined}
+			/>
+			<NoteShareStrip
+				direct={directShares}
+				viaFolder={folderShares}
+				onManage={canShare ? openShare : undefined}
 			/>
 		</div>
 

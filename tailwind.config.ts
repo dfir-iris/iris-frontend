@@ -1,5 +1,6 @@
 import { fontFamily } from 'tailwindcss/defaultTheme';
 import type { Config } from 'tailwindcss';
+import containerQueries from '@tailwindcss/container-queries';
 
 const config: Config = {
 	darkMode: ['class'],
@@ -116,7 +117,8 @@ const config: Config = {
 					'linear-gradient(-45deg, hsl(var(--gradient-primary-start)), hsl(var(--gradient-primary-end)))'
 			}
 		}
-	}
+	},
+	plugins: [containerQueries]
 };
 
 export default config;

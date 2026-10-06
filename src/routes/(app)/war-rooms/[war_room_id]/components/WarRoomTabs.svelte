@@ -6,7 +6,10 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import {
+		BoxesIcon,
 		ClockIcon,
+		GavelIcon,
+		LayoutDashboardIcon,
 		FileTextIcon,
 		FilesIcon,
 		ListChecksIcon,
@@ -23,7 +26,10 @@
 	};
 
 	const tabs: Tab[] = [
+		{ label: 'Board', path: 'board', icon: LayoutDashboardIcon },
 		{ label: 'Stream', path: 'chat', icon: MessageSquareIcon },
+		{ label: 'Scope', path: 'scope', icon: BoxesIcon },
+		{ label: 'Decisions', path: 'decisions', icon: GavelIcon },
 		{ label: 'Summary', path: 'summary', icon: FileTextIcon },
 		{ label: 'Timelines', path: 'timelines', icon: ClockIcon },
 		{ label: 'Tasks', path: 'tasks', icon: ListChecksIcon },
@@ -42,8 +48,11 @@
 	};
 </script>
 
+<!-- The underline sits inside the bar (bottom-0, not -bottom-px) and the
+     scrollbar is hidden: a 1px vertical overflow used to show a scrollbar.
+     Narrow screens still scroll horizontally by swipe / shift+wheel. -->
 <nav
-	class="flex items-center gap-0.5 overflow-x-auto border-b bg-background px-3"
+	class="flex items-center gap-0.5 overflow-x-auto overflow-y-hidden border-b bg-background px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 	aria-label="War room sections"
 >
 	{#each tabs as tab (tab.path)}
@@ -60,7 +69,7 @@
 			{tab.label}
 			<span
 				class={[
-					'absolute inset-x-2 -bottom-px h-0.5 rounded-full transition-colors',
+					'absolute inset-x-2 bottom-0 h-0.5 rounded-full transition-colors',
 					active ? 'bg-primary' : 'bg-transparent group-hover:bg-border'
 				]}
 				aria-hidden="true"

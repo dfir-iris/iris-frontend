@@ -2,6 +2,13 @@
 import { ApiService } from './api.service';
 import type { ApiOptions, Paginated, RequestResponse } from './api.service';
 
+/** A war-room team a task is assigned to, as embedded in task payloads. */
+export interface WarRoomTaskTeam {
+	team_id: number;
+	name: string;
+	color: string | null;
+}
+
 export interface WarRoomTask {
 	task_id: number;
 	war_room_id: number;
@@ -13,6 +20,11 @@ export interface WarRoomTask {
 	assignee_id: number | null;
 	assignee_login: string | null;
 	assignee_name: string | null;
+	/**
+	 * Teams of the room the task is assigned to, sorted by name. Sits
+	 * alongside the single person assignee — a task can have both.
+	 */
+	teams: WarRoomTaskTeam[];
 	due_at: string | null;
 	source_case_id: number | null;
 	source_case_task_id: number | null;
@@ -33,6 +45,8 @@ export interface CreateWarRoomTaskBody {
 	description?: string | null;
 	status_id?: number | null;
 	assignee_id?: number | null;
+	/** Teams of the room to assign; unknown / foreign teams are a 400. */
+	team_ids?: number[];
 	due_at?: string | null;
 	source_case_id?: number | null;
 	source_case_task_id?: number | null;
@@ -45,6 +59,8 @@ export interface UpdateWarRoomTaskBody {
 	description?: string | null;
 	status_id?: number | null;
 	assignee_id?: number | null;
+	/** Replaces the team set; `[]` clears it, omit to leave it alone. */
+	team_ids?: number[];
 	due_at?: string | null;
 	source_case_id?: number | null;
 	source_case_task_id?: number | null;
@@ -57,6 +73,10 @@ export interface ListWarRoomTasksParams {
 	status_id?: number[];
 	tag?: string[];
 	assignee_id?: (number | 'unassigned')[];
+	/** Team ids; `'none'` keeps tasks with no team. */
+	team_id?: (number | 'none')[];
+	/** Tasks assigned to the caller or to any team the caller is in. */
+	mine?: boolean;
 	parent_task_id?: number | 'top' | null;
 	include_closed?: boolean;
 	/** ISO date/datetime string; keeps only tasks with due_at >= this. */
@@ -73,6 +93,53 @@ export interface ListWarRoomTasksParams {
 	per_page?: number;
 }
 
+/** Per-case outcome of a fan-out request. */
+export type WarRoomTaskFanOutStatus = 'created' | 'exists' | 'denied' | 'error';
+
+export interface WarRoomTaskFanOutBody {
+	case_ids: number[];
+	/** Assign each case task to its case owner (backend default: true). */
+	assign_to_case_owner?: boolean;
+	status_id?: number | null;
+}
+
+export interface WarRoomTaskFanOutResult {
+	case_id: number;
+	status: WarRoomTaskFanOutStatus;
+	case_task_id?: number;
+	message?: string;
+}
+
+export interface WarRoomTaskFanOutResponse {
+	results: WarRoomTaskFanOutResult[];
+}
+
+/**
+ * One case a war-room task was fanned out to. Cases the caller cannot
+ * read come back as `{case_id, accessible: false, created_at}` only.
+ */
+export interface WarRoomTaskFanOutLink {
+	case_id: number;
+	accessible: boolean;
+	case_name?: string | null;
+	case_task_id?: number | null;
+	task_title?: string | null;
+	status_id?: number | null;
+	status_name?: string | null;
+	done?: boolean;
+	assignees?: { id: number; name: string }[];
+	created_at: string | null;
+}
+
+export interface WarRoomTaskFanOutSummaryEntry {
+	total: number;
+	done: number;
+	accessible_total: number;
+}
+
+/** Keyed by war-room task id (as a string — JSON object keys). */
+export type WarRoomTaskFanOutSummary = Record<string, WarRoomTaskFanOutSummaryEntry>;
+
 function buildListQuery(params: ListWarRoomTasksParams = {}): string {
 	const qs = new URLSearchParams();
 	if (params.q) qs.set('q', params.q);
@@ -85,6 +152,10 @@ function buildListQuery(params: ListWarRoomTasksParams = {}): string {
 	if (params.assignee_id?.length) {
 		for (const a of params.assignee_id) qs.append('assignee_id', String(a));
 	}
+	if (params.team_id?.length) {
+		for (const t of params.team_id) qs.append('team_id', String(t));
+	}
+	if (params.mine) qs.set('mine', '1');
 	if (params.parent_task_id !== undefined) {
 		qs.set(
 			'parent_task_id',
@@ -174,5 +245,45 @@ export class WarRoomTasksService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
 		return ApiService.delete<null>(`/war-rooms/${warRoomId}/tasks/${taskId}`, options);
+	}
+
+	/** Create one linked case task per target case. */
+	static fanOut(
+		warRoomId: number,
+		taskId: number,
+		body: WarRoomTaskFanOutBody,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<WarRoomTaskFanOutResponse>> {
+		return ApiService.post(`/war-rooms/${warRoomId}/tasks/${taskId}/fan-out`, body, options);
+	}
+
+	/** Per-case status of a fanned-out task. */
+	static fanOutStatus(
+		warRoomId: number,
+		taskId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<WarRoomTaskFanOutLink[]>> {
+		return ApiService.get(`/war-rooms/${warRoomId}/tasks/${taskId}/fan-out`, options);
+	}
+
+	/** Done/total roll-up for every room task that has case links. */
+	static fanOutSummary(
+		warRoomId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<WarRoomTaskFanOutSummary>> {
+		return ApiService.get(`/war-rooms/${warRoomId}/tasks/fan-out-summary`, options);
+	}
+
+	/** Drop the link to a case; the case task itself stays. */
+	static unlinkFanOut(
+		warRoomId: number,
+		taskId: number,
+		caseId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<null>> {
+		return ApiService.delete<null>(
+			`/war-rooms/${warRoomId}/tasks/${taskId}/fan-out/${caseId}`,
+			options
+		);
 	}
 }

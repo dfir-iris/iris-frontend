@@ -22,6 +22,15 @@
 		hasCustomAttributes
 	} from '$lib/stores/custom-attributes.store.svelte';
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import NoteMirrorBanner from './note-mirror-banner.svelte';
+	import {
+		collectLockedFolderIds,
+		firstUnlockedFolder,
+		isMirroredNote,
+		localCopyTitle,
+		mirrorSourceUrl
+	} from '$lib/utils/note-mirror';
 
 	let {
 		caseId,
@@ -40,7 +49,74 @@
 	const notes = getContext<CaseNotesContext>(CASE_NOTES_CTX);
 	const caseAccess = getContext<CaseAccessContext>(CASE_ACCESS_CTX);
 	const note = $derived(notes.byId[noteId]);
-	const canEdit = $derived(caseAccess.canEdit());
+	// Mirrors of war-room notes are read-only regardless of case access:
+	// flagged on the note itself, or (for tree payloads lacking the
+	// mirror columns) by living inside a locked mirror folder.
+	const lockedFolder = $derived.by(() => {
+		const dirId = note?.directory_id;
+		if (dirId == null || !collectLockedFolderIds(notes.list.tree).has(dirId)) return null;
+		return notes.foldersById[dirId] ?? null;
+	});
+	const mirrored = $derived(isMirroredNote(note) || lockedFolder !== null);
+	const canWriteCase = $derived(caseAccess.canEdit());
+	const canEdit = $derived(canWriteCase && !mirrored);
+
+	const mirrorWarRoomId = $derived(
+		note?.mirror?.war_room_id ??
+			note?.mirror_war_room_id ??
+			lockedFolder?.mirror_war_room_id ??
+			null
+	);
+	const mirrorWarRoomName = $derived(
+		note?.mirror?.war_room_name ||
+			lockedFolder?.name.replace(/^War room · /, '') ||
+			(mirrorWarRoomId != null ? `War room #${mirrorWarRoomId}` : 'unknown')
+	);
+	const mirrorUrl = $derived(
+		mirrorSourceUrl({
+			mirror: note?.mirror ?? null,
+			mirror_source_note_id: note?.mirror_source_note_id ?? null,
+			mirror_war_room_id: mirrorWarRoomId
+		})
+	);
+
+	let copying = $state(false);
+
+	// Fork the mirror into a normal, editable note via the regular
+	// create-note API. Never targets a locked folder (the backend would
+	// refuse); creates a "Local copies" folder when nothing else exists.
+	const makeLocalCopy = async () => {
+		if (!note || copying || !canWriteCase) return;
+		copying = true;
+		try {
+			let directoryId = firstUnlockedFolder(notes.list.tree)?.id;
+			if (directoryId == null) {
+				const folder = await notes.createFolder({ name: 'Local copies' });
+				directoryId = folder?.id;
+			}
+			if (directoryId == null) {
+				toast({ title: 'Could not create a local copy', variant: 'destructive' });
+				return;
+			}
+			const copy = await notes.createNote({
+				note_title: localCopyTitle(note.note_title),
+				note_content: baseContent || note.note_content || '',
+				directory_id: directoryId
+			});
+			if (!copy) {
+				toast({
+					title: 'Could not create a local copy',
+					description: notes.mutation.error ?? undefined,
+					variant: 'destructive'
+				});
+				return;
+			}
+			toast({ title: 'Local copy created', variant: 'success' });
+			await goto(`/case/${caseId}/notes/${copy.note_id}`);
+		} finally {
+			copying = false;
+		}
+	};
 
 	let draftContent = $state('');
 	let baseContent = $state('');
@@ -77,7 +153,7 @@
 	});
 
 	const saveNote = async () => {
-		if (!note) return;
+		if (!note || !canEdit) return;
 
 		saving = true;
 		lastError = null;
@@ -114,7 +190,7 @@
 	};
 
 	const handleDelete = async () => {
-		if (!note) return;
+		if (!note || mirrored) return;
 
 		if (!(await notes.removeNote(note.note_id))) {
 			toast({
@@ -156,6 +232,15 @@
 				onDeleteNote={handleDelete}
 				onRestoreRevision={handleRestoredRevision}
 			/>
+			{#if mirrored}
+				<NoteMirrorBanner
+					warRoomName={mirrorWarRoomName}
+					sourceUrl={mirrorUrl}
+					canCopy={canWriteCase}
+					{copying}
+					onMakeCopy={makeLocalCopy}
+				/>
+			{/if}
 		</div>
 
 		<div class="note-content-scroll min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-4">

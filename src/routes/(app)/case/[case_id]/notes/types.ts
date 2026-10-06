@@ -8,4 +8,6 @@ export interface ContextMenu {
 	source?: ContextMenuSource;
 	noteId?: number;
 	folderId?: number;
+	/** Target is a war-room mirror (or inside a locked mirror folder). */
+	locked?: boolean;
 }

@@ -34,3 +34,18 @@ export function isCorsError(error: any): boolean {
 	const errorMessage = error instanceof Error ? error.message : String(error);
 	return errorMessage.includes('CORS') || (error.cause && String(error.cause).includes('CORS'));
 }
+
+/**
+ * The message of a failed API call. v2 errors put it in the JSON body
+ * (`{message}`); `res.error` is only set for network failures.
+ */
+export function apiErrorMessage(
+	res: { data?: unknown; error?: { message?: string } },
+	fallback: string
+): string {
+	const data = res.data as { message?: unknown } | string | null | undefined;
+	if (data && typeof data === 'object' && typeof data.message === 'string' && data.message) {
+		return data.message;
+	}
+	return res.error?.message || fallback;
+}

@@ -379,6 +379,7 @@
 	bind:open={showNoteHistory}
 	caseId={caseIdFromRoute}
 	{note}
+	{canEdit}
 	onClose={() => (showNoteHistory = false)}
 	onRestored={(fresh) => onRestoreRevision?.(fresh)}
 />

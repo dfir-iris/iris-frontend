@@ -35,8 +35,29 @@
 		AnalysisStatusService,
 		type AnalysisStatusItem
 	} from '$lib/services/analysis-status.service';
+	import { DropdownMenuLabel, DropdownMenuSeparator } from '$lib/components/ui/dropdown-menu';
+	import { toast } from '$lib/components/ui/toast';
+	import {
+		CASE_ACCESS_CTX,
+		type CaseAccessContext
+	} from '$lib/contexts/case-access.context.svelte';
+	import { assetStageDotClass, type AssetStage } from '$lib/services/asset-stages.service';
+	import { assetStages, loadAssetStages } from '$lib/stores/asset-stages.store.svelte';
+	import AssetStageDialog from './asset-stage-dialog.svelte';
+	import { VulnerabilitiesService } from '$lib/services/vulnerabilities.service';
+	import {
+		assetVulnCountsFromFindings,
+		type AssetVulnCounts
+	} from '$lib/components/vulnerabilities/asset-vuln-counts';
+	import { canReadVulnerabilities } from '$lib/components/vulnerabilities/permissions';
+	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
+	import { applyAssetStage, buildStageUpdate, stageNeedsInput } from '../stage-helpers';
 
 	const caseAssets = getContext<CaseAssetsContext>(CASE_ASSETS_CTX);
+	const caseAccess = getContext<CaseAccessContext>(CASE_ACCESS_CTX);
+	const userCtx = getContext<UserCtx>(USER_CTX);
+	const canReadVulns = $derived(canReadVulnerabilities(userCtx));
+	const canEdit = $derived(caseAccess?.canEdit() ?? false);
 
 	let isLoading = $state(false);
 	let isRefreshing = $state(false);
@@ -53,6 +74,20 @@
 
 	// Reference data for bulk-edit dropdowns
 	let analysisStatuses = $state<AnalysisStatusItem[]>([]);
+
+	// Stage filter: 'all' (no condition), 'none' (stage_id IS NULL) or a stage id.
+	let stageFilter = $state<'all' | 'none' | number>('all');
+	const stageFilterLabel = $derived(
+		stageFilter === 'all'
+			? 'All stages'
+			: stageFilter === 'none'
+				? 'No stage'
+				: (assetStages.items.find((s) => s.id === stageFilter)?.name ?? 'Unknown stage')
+	);
+
+	// Bulk stage moves that need a reason/decision go through a dialog.
+	let bulkStage = $state<AssetStage | null>(null);
+	let showStageDialog = $state(false);
 
 	const COMPROMISE_STATUSES = [
 		{ id: 1, name: 'Compromised' },
@@ -104,7 +139,7 @@
 	];
 
 	const buildConditions = () => {
-		const out: Array<{ field: string; operator: string; value: string | number }> = [];
+		const out: Array<{ field: string; operator: string; value: string | number | null }> = [];
 
 		searchConditions.forEach((c) => {
 			if (c.field === '_raw') {
@@ -136,7 +171,29 @@
 			}
 		});
 
+		if (stageFilter === 'none') {
+			// `eq null` compiles to `stage_id IS NULL` on the backend.
+			out.push({ field: 'stage_id', operator: 'eq', value: null });
+		} else if (stageFilter !== 'all') {
+			out.push({ field: 'stage_id', operator: 'eq', value: stageFilter });
+		}
+
 		return out;
+	};
+
+	// Open vulnerability findings per asset, for the table's Vulns column.
+	// One case-wide call; the list is capped server-side, so counts are
+	// best effort on very large cases. Without `vulnerabilities_read`
+	// the column is dropped and the call is never made.
+	let vulnCounts = $state<Map<number, AssetVulnCounts>>(new Map());
+	const refreshVulnCounts = async () => {
+		if (!canReadVulns) return;
+		const caseId = Number(page.params.case_id);
+		if (!Number.isFinite(caseId)) return;
+		const res = await VulnerabilitiesService.listCase(caseId, { status_group: 'open' });
+		if (res.ok && res.data && typeof res.data === 'object') {
+			vulnCounts = assetVulnCountsFromFindings(res.data.findings);
+		}
 	};
 
 	const refreshAssets = async (pageNumber = 1) => {
@@ -154,6 +211,7 @@
 			};
 
 			await caseAssets.listPaginated(params as ListCaseAssetsParams, { fetch });
+			if (viewMode === 'table') void refreshVulnCounts();
 		} finally {
 			isRefreshing = false;
 		}
@@ -302,6 +360,53 @@
 		await refreshAssets(caseAssets.list.currentPage);
 	};
 
+	const setStageFilter = (value: 'all' | 'none' | number) => {
+		if (value === stageFilter) return;
+		stageFilter = value;
+		void refreshAssets(1);
+	};
+
+	const runBulkStage = async (stage: AssetStage | null, reason = '', decisionId = '') => {
+		if (!selectedCount) return;
+		isBulkWorking = true;
+		try {
+			const result = await applyAssetStage(
+				caseAssets,
+				Number(page.params.case_id),
+				[...selectedAssets],
+				buildStageUpdate(stage, reason, decisionId)
+			);
+			if (result.failed.length === 0) {
+				toast({
+					title: stage
+						? `Stage set to ${stage.name} on ${result.updated} asset${result.updated === 1 ? '' : 's'}`
+						: `Stage cleared on ${result.updated} asset${result.updated === 1 ? '' : 's'}`,
+					variant: 'success'
+				});
+			} else {
+				toast({
+					title: `Stage not set on ${result.failed.length} asset${result.failed.length === 1 ? '' : 's'}`,
+					description: result.failed[0]?.message,
+					variant: 'destructive'
+				});
+			}
+			showStageDialog = false;
+			cancelSelect();
+			await refreshAssets(caseAssets.list.currentPage);
+		} finally {
+			isBulkWorking = false;
+		}
+	};
+
+	const pickBulkStage = (stage: AssetStage | null) => {
+		if (stageNeedsInput(stage)) {
+			bulkStage = stage;
+			showStageDialog = true;
+			return;
+		}
+		void runBulkStage(stage);
+	};
+
 	const openAsset = (assetId: number) =>
 		goto(getAssetUrl(Number(page.params.case_id), String(assetId)));
 
@@ -367,6 +472,8 @@
 
 		const res = await AnalysisStatusService.list();
 		if (res.ok && Array.isArray(res.data)) analysisStatuses = res.data;
+
+		void loadAssetStages();
 	});
 
 	onDestroy(() => {
@@ -539,6 +646,30 @@
 				</DropdownMenuContent>
 			</DropdownMenu>
 
+			{#if canEdit}
+				<DropdownMenu>
+					<DropdownMenuTrigger>
+						<Button
+							size="xs"
+							variant="outline"
+							disabled={!selectedCount || isBulkWorking || !assetStages.items.length}
+						>
+							Set stage <ChevronDownIcon size={12} />
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="start">
+						{#each assetStages.items as s (s.id)}
+							<DropdownMenuItem onclick={() => pickBulkStage(s)}>
+								<span class="h-2 w-2 shrink-0 rounded-full {assetStageDotClass(s.color)}"></span>
+								{s.name}
+							</DropdownMenuItem>
+						{/each}
+						<DropdownMenuSeparator />
+						<DropdownMenuItem onclick={() => pickBulkStage(null)}>Clear stage</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
+			{/if}
+
 			<Button
 				size="xs"
 				variant="destructive"
@@ -559,6 +690,54 @@
 		fields={searchFields}
 	/>
 
+	<div class="flex items-center gap-1.5">
+		<DropdownMenu>
+			<DropdownMenuTrigger>
+				{#snippet child({ props })}
+					<Button
+						{...props}
+						size="xs"
+						variant="outline"
+						class="h-6 gap-1 px-2 text-2xs"
+						aria-label={`Filter by stage: ${stageFilterLabel}`}
+						data-testid="asset-stage-filter"
+					>
+						{#if typeof stageFilter === 'number'}
+							{@const current = assetStages.items.find((s) => s.id === stageFilter)}
+							<span class="h-1.5 w-1.5 rounded-full {assetStageDotClass(current?.color)}"></span>
+						{/if}
+						<span class="text-muted-foreground">Stage:</span>
+						{stageFilterLabel}
+						<ChevronDownIcon size={11} />
+					</Button>
+				{/snippet}
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="start">
+				<DropdownMenuLabel class="text-2xs">Filter by stage</DropdownMenuLabel>
+				<DropdownMenuItem onclick={() => setStageFilter('all')}>All stages</DropdownMenuItem>
+				<DropdownMenuItem onclick={() => setStageFilter('none')}>No stage</DropdownMenuItem>
+				{#if assetStages.items.length}
+					<DropdownMenuSeparator />
+				{/if}
+				{#each assetStages.items as s (s.id)}
+					<DropdownMenuItem onclick={() => setStageFilter(s.id)}>
+						<span class="h-2 w-2 shrink-0 rounded-full {assetStageDotClass(s.color)}"></span>
+						{s.name}
+					</DropdownMenuItem>
+				{/each}
+			</DropdownMenuContent>
+		</DropdownMenu>
+		{#if stageFilter !== 'all'}
+			<button
+				type="button"
+				class="rounded px-1.5 py-0.5 text-2xs text-primary hover:underline"
+				onclick={() => setStageFilter('all')}
+			>
+				clear
+			</button>
+		{/if}
+	</div>
+
 	<div class="min-h-0 flex-1">
 		{#if viewMode === 'table'}
 			<AssetDataTable
@@ -570,6 +749,8 @@
 				perPage={caseAssets.list.params.per_page}
 				{selectionMode}
 				{selectedAssets}
+				showStage
+				vulnCounts={canReadVulns ? vulnCounts : null}
 				onToggleSelect={toggleAssetSelection}
 				on:pageChange={(e) => refreshAssets(e.detail.page)}
 				on:pageSizeChange={(e) => {
@@ -651,6 +832,14 @@
 	processingMessage="Fetching all assets…"
 	onConfirm={handleDownloadConfirm}
 	onOpenChange={(v) => (showDownloadModal = v)}
+/>
+
+<AssetStageDialog
+	bind:open={showStageDialog}
+	stage={bulkStage}
+	count={selectedCount}
+	busy={isBulkWorking}
+	onConfirm={(reason, decisionId) => runBulkStage(bulkStage, reason, decisionId)}
 />
 
 <ConfirmationDialog

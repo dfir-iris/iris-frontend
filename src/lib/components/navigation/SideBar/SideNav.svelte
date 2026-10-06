@@ -16,6 +16,7 @@
 		SearchIcon,
 		SettingsIcon,
 		ShieldAlert,
+		ShieldHalfIcon,
 		ViewIcon,
 		WaypointsIcon
 	} from 'lucide-svelte';
@@ -23,6 +24,7 @@
 	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
 	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 	import type { PermissionName } from '$lib/services/user-context.service';
+	import { canReadVulnerabilities as canReadVulnerabilitiesGate } from '$lib/components/vulnerabilities/permissions';
 	import MenuItem from './MenuItem.svelte';
 	import { SETTINGS_PERMISSIONS, visibleSettingsPages } from '../settings-pages';
 
@@ -137,6 +139,7 @@
 	// case templates, clustering rules, …), not just server admin.
 	const canOpenSettings = $derived(userCtx.canAny(SETTINGS_PERMISSIONS));
 	const canManageAssets = $derived(userCtx.can('asset_manager_read'));
+	const canReadVulnerabilities = $derived(canReadVulnerabilitiesGate(userCtx));
 
 	// Settings is a group: its pages are listed under it rather than in a
 	// second menu inside the page. The entry itself opens the first page
@@ -159,6 +162,7 @@
 		canManageCustomers ||
 			canManageCaseTemplates ||
 			canManageAssets ||
+			canReadVulnerabilities ||
 			canOpenSettings ||
 			!userCtx.ready
 	);
@@ -240,6 +244,17 @@
 				icon={ComputerIcon}
 				href="/manage/assets"
 				active={pathname === '/manage/assets' || pathname.startsWith('/manage/assets/')}
+			/>
+		{/if}
+
+		{#if canReadVulnerabilities}
+			<MenuItem
+				{collapsed}
+				label="Vulnerabilities"
+				icon={ShieldHalfIcon}
+				href="/manage/vulnerabilities"
+				active={pathname === '/manage/vulnerabilities' ||
+					pathname.startsWith('/manage/vulnerabilities/')}
 			/>
 		{/if}
 

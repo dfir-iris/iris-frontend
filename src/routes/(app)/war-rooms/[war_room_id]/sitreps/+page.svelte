@@ -1,8 +1,9 @@
 <script lang="ts">
+	import { apiErrorMessage } from '$lib/utils/error-handler';
 	import { formatDate, formatDateTime } from '$lib/utils/time-formatter';
-	import { onMount } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { Plus, Trash2, Download, Send, FileText, FileLock } from 'lucide-svelte';
+	import { Plus, Trash2, Download, Send, FileText, FileLock, Sparkles, Timer } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { MarkDownEditor, MarkDownPreview } from '$lib/components/common/MarkDown';
@@ -18,10 +19,27 @@
 	import { toast } from '$lib/components/ui/toast';
 	import {
 		WarRoomSitRepsService,
-		type WarRoomSitRep
+		type WarRoomSitRep,
+		type WarRoomSitRepCadence,
+		type WarRoomSitRepPublished
 	} from '$lib/services/war-room-sitreps.service';
+	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
+	import SitRepCadenceCard from './components/SitRepCadenceCard.svelte';
+	import PublishSitRepDialog from './components/PublishSitRepDialog.svelte';
+	import { describeDue, formatCadence } from './helpers/cadence';
 
 	const warRoomId = $derived(Number(page.params.war_room_id));
+	const userCtx = getContext<UserCtx>(USER_CTX);
+	// New controls (auto-draft, cadence, share-on-publish) are gated on
+	// war_rooms_write; the backend re-checks, incl. case access per share.
+	const canWrite = $derived(userCtx?.can('war_rooms_write') === true);
+
+	let cadence = $state<WarRoomSitRepCadence | null>(null);
+	// Ticks so the "due in / overdue by" banner stays current.
+	let now = $state(Date.now());
+	const due = $derived(cadence?.cadence_minutes ? describeDue(cadence.next_due_at, now) : null);
+	let drafting = $state(false);
+	let publishOpen = $state(false);
 
 	let sitreps = $state<WarRoomSitRep[]>([]);
 	let loading = $state(true);
@@ -42,6 +60,13 @@
 		const res = await WarRoomSitRepsService.list(warRoomId);
 		if (res.ok && Array.isArray(res.data)) {
 			sitreps = res.data;
+			// `?sitrep=<id>&edit=1` deep-links a draft (the chat `/sitrep`
+			// command lands here with the freshly opened draft).
+			const linked = Number(page.url.searchParams.get('sitrep'));
+			if (selectedId == null && sitreps.some((s) => s.sitrep_id === linked)) {
+				selectedId = linked;
+				editing = page.url.searchParams.get('edit') === '1';
+			}
 			if (selectedId == null && sitreps.length) {
 				selectedId = sitreps[0].sitrep_id;
 			}
@@ -61,7 +86,19 @@
 		}
 	};
 
-	onMount(load);
+	const loadCadence = async () => {
+		const res = await WarRoomSitRepsService.getCadence(warRoomId);
+		if (res.ok && res.data && typeof res.data !== 'string') {
+			cadence = res.data as WarRoomSitRepCadence;
+		}
+	};
+
+	onMount(() => {
+		load();
+		loadCadence();
+		const tick = setInterval(() => (now = Date.now()), 30_000);
+		return () => clearInterval(tick);
+	});
 
 	const select = (id: number) => {
 		selectedId = id;
@@ -79,15 +116,50 @@
 		});
 		saving = false;
 		if (res.ok && res.data && typeof res.data !== 'string') {
-			const next = res.data as WarRoomSitRep;
-			sitreps = [next, ...sitreps];
-			selectedId = next.sitrep_id;
-			detail = next;
-			editTitle = next.title;
-			editBody = next.body_md ?? '';
-			editing = true;
+			adoptCreated(res.data as WarRoomSitRep);
 			createOpen = false;
 			newTitle = '';
+		}
+	};
+
+	// A freshly created draft goes to the top of the list and opens in
+	// edit mode.
+	const adoptCreated = (next: WarRoomSitRep) => {
+		sitreps = [next, ...sitreps];
+		selectedId = next.sitrep_id;
+		detail = next;
+		editTitle = next.title;
+		editBody = next.body_md ?? '';
+		editing = true;
+	};
+
+	// Auto-draft: the backend renders the body from the live war-room
+	// state (only cases the caller can read); we save it as a normal
+	// draft through the existing create endpoint.
+	const autoDraft = async () => {
+		if (drafting) return;
+		drafting = true;
+		try {
+			const gen = await WarRoomSitRepsService.autoDraft(warRoomId);
+			if (!gen.ok || !gen.data || typeof gen.data === 'string') {
+				toast({
+					title: apiErrorMessage(gen, 'Could not generate a draft'),
+					variant: 'destructive'
+				});
+				return;
+			}
+			const res = await WarRoomSitRepsService.create(warRoomId, {
+				title: gen.data.title,
+				body_md: gen.data.body_md
+			});
+			if (res.ok && res.data && typeof res.data !== 'string') {
+				adoptCreated(res.data as WarRoomSitRep);
+				toast({ title: 'Draft generated from the war room' });
+			} else {
+				toast({ title: apiErrorMessage(res, 'Could not save draft'), variant: 'destructive' });
+			}
+		} finally {
+			drafting = false;
 		}
 	};
 
@@ -152,30 +224,20 @@
 		if (action) void action();
 	};
 
-	const doPublish = async () => {
-		if (!detail) return;
-		saving = true;
-		const res = await WarRoomSitRepsService.publish(warRoomId, detail.sitrep_id);
-		saving = false;
-		if (res.ok && res.data && typeof res.data !== 'string') {
-			detail = res.data as WarRoomSitRep;
-			sitreps = sitreps.map((s) => (s.sitrep_id === detail!.sitrep_id ? detail! : s));
-			editing = false;
-			toast({ title: `SitRep v${detail.version} published` });
-		} else {
-			toast({ title: 'Could not publish', variant: 'destructive' });
-		}
+	// Publishing goes through its own dialog (optional share to cases);
+	// it toasts and shows per-case results itself.
+	const onPublished = (published: WarRoomSitRepPublished) => {
+		const { shared: _shared, ...rest } = published;
+		detail = rest as WarRoomSitRep;
+		sitreps = sitreps.map((s) => (s.sitrep_id === detail!.sitrep_id ? detail! : s));
+		editing = false;
+		// Publishing resets the cadence clock.
+		void loadCadence();
 	};
 
 	const publish = () => {
 		if (!detail) return;
-		askConfirm({
-			title: `Publish "${detail.title}"?`,
-			message: 'It stays editable — publishing just marks the state.',
-			actionText: 'Publish',
-			variant: 'default',
-			run: doPublish
-		});
+		publishOpen = true;
 	};
 
 	const doRemove = async (s: WarRoomSitRep) => {
@@ -215,9 +277,31 @@
 	<aside class="flex flex-col border-r bg-card/30">
 		<header class="flex items-center justify-between gap-2 border-b p-3">
 			<h2 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">SitReps</h2>
-			<Button size="icon" variant="ghost" class="h-6 w-6" onclick={() => (createOpen = true)}>
-				<Plus class="h-3.5 w-3.5" />
-			</Button>
+			<div class="flex items-center gap-0.5">
+				{#if canWrite}
+					<Button
+						size="icon"
+						variant="ghost"
+						class="h-6 w-6"
+						onclick={autoDraft}
+						disabled={drafting}
+						aria-label="Auto-draft a SitRep from the war room"
+						title="Auto-draft from the war room"
+					>
+						<Sparkles class="h-3.5 w-3.5" />
+					</Button>
+				{/if}
+				<Button
+					size="icon"
+					variant="ghost"
+					class="h-6 w-6"
+					onclick={() => (createOpen = true)}
+					aria-label="New SitRep draft"
+					title="New blank draft"
+				>
+					<Plus class="h-3.5 w-3.5" />
+				</Button>
+			</div>
 		</header>
 
 		<div class="flex-1 overflow-y-auto">
@@ -272,12 +356,51 @@
 				</ul>
 			{/if}
 		</div>
+
+		<SitRepCadenceCard {warRoomId} {cadence} {canWrite} onChange={(c) => (cadence = c)} />
 	</aside>
 
 	<div class="flex h-full min-h-0 flex-col">
+		{#if due && cadence?.cadence_minutes}
+			<div
+				class="flex shrink-0 items-center gap-2 border-b px-4 py-1.5 text-xs {due.overdue
+					? 'bg-destructive/10 text-destructive'
+					: 'bg-amber-500/10 text-amber-700 dark:text-amber-300'}"
+				role="status"
+			>
+				<Timer class="h-3.5 w-3.5 shrink-0" />
+				<span class="font-medium">{due.label}</span>
+				<span class="text-muted-foreground">
+					· {formatCadence(cadence.cadence_minutes)}
+					{#if cadence.next_due_at}
+						· {formatDateTime(cadence.next_due_at)}
+					{/if}
+				</span>
+				{#if canWrite}
+					<Button
+						size="sm"
+						variant="ghost"
+						class="ml-auto h-6 gap-1 px-2 text-xs"
+						onclick={autoDraft}
+						disabled={drafting}
+					>
+						<Sparkles class="h-3 w-3" />
+						{drafting ? 'Drafting…' : 'Auto-draft'}
+					</Button>
+				{/if}
+			</div>
+		{/if}
 		{#if !detail}
-			<div class="flex h-full items-center justify-center text-sm text-muted-foreground">
+			<div
+				class="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground"
+			>
 				Select a SitRep or create a new draft.
+				{#if canWrite}
+					<Button size="sm" variant="outline" onclick={autoDraft} disabled={drafting}>
+						<Sparkles class="mr-1 h-3.5 w-3.5" />
+						{drafting ? 'Drafting…' : 'Auto-draft from the war room'}
+					</Button>
+				{/if}
 			</div>
 		{:else if detailLoading}
 			<div class="m-4">
@@ -410,6 +533,8 @@
 		</DialogFooter>
 	</DialogContent>
 </Dialog>
+
+<PublishSitRepDialog bind:open={publishOpen} {warRoomId} sitrep={detail} {onPublished} />
 
 <ConfirmationDialog
 	bind:open={confirmOpen}

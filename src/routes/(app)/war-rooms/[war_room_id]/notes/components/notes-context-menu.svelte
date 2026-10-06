@@ -14,6 +14,8 @@
 		onRename: () => void;
 		onMove: () => void;
 		onDelete: () => void;
+		/** Opens the share-with-cases dialog. Omitted = entry hidden. */
+		onShare?: () => void;
 	};
 
 	let {
@@ -25,8 +27,16 @@
 		onCopyMdLink,
 		onRename,
 		onMove,
-		onDelete
+		onDelete,
+		onShare
 	}: Props = $props();
+
+	// The synthetic root bucket (folderId 0) is not a real folder.
+	const shareable = $derived(
+		!!onShare &&
+			((contextMenu.source === 'note' && contextMenu.noteId != null) ||
+				(contextMenu.source === 'folder' && !!contextMenu.folderId))
+	);
 </script>
 
 <div
@@ -67,6 +77,14 @@
 			onclick={() => onCopyMdLink(contextMenu.noteId)}
 		>
 			Copy MD link
+		</Button>
+	{/if}
+
+	{#if shareable}
+		<hr class="my-1" />
+
+		<Button variant="ghost" class="w-full justify-start" onclick={() => onShare?.()}>
+			Share with cases…
 		</Button>
 	{/if}
 

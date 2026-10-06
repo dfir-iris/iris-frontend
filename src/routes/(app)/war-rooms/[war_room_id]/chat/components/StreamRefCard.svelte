@@ -55,7 +55,7 @@
 	const resolved = $derived.by<Resolved | null>(() => {
 		if (refType === 'sitrep' && refId != null) {
 			return {
-				href: `/war-rooms/${warRoomId}/sitreps#${refId}`,
+				href: `/war-rooms/${warRoomId}/sitreps?sitrep=${refId}`,
 				label: `SitRep #${refId}`,
 				Icon: FilesIcon,
 				cls: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:border-amber-400/40 dark:bg-amber-500/15 dark:text-amber-200'
@@ -67,6 +67,14 @@
 				label: `Task #${refId}`,
 				Icon: ClipboardListIcon,
 				cls: 'border-violet-500/40 bg-violet-500/10 text-violet-700 dark:border-violet-400/40 dark:bg-violet-500/15 dark:text-violet-200'
+			};
+		}
+		if (refType === 'war_room_decision' && refId != null) {
+			return {
+				href: `/war-rooms/${warRoomId}/decisions?d=${refId}`,
+				label: 'Decision',
+				Icon: ClipboardListIcon,
+				cls: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/40 dark:bg-emerald-500/15 dark:text-emerald-200'
 			};
 		}
 		if (refType === 'war_room_note' && refId != null) {
