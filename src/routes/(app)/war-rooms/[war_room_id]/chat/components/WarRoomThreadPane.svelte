@@ -52,6 +52,9 @@
 	import ChatMessageEditor from './ChatMessageEditor.svelte';
 	import ChatMessageAttachments from './ChatMessageAttachments.svelte';
 	import ChatComposerMentions from './ChatComposerMentions.svelte';
+	import ComposerEmojiButton from './ComposerEmojiButton.svelte';
+	import ComposerPendingAttachments from './ComposerPendingAttachments.svelte';
+	import { ComposerAttachments } from './composer-attachments.svelte';
 
 	interface Props {
 		warRoomId: number;
@@ -88,6 +91,10 @@
 	let body = $state('');
 	let sending = $state(false);
 	let composerEl: HTMLTextAreaElement | null = $state(null);
+	// Files dropped / pasted on the reply composer, uploaded on Send.
+	const composerFiles = new ComposerAttachments();
+	// Release thumbnail object URLs when the composer goes away.
+	$effect(() => () => composerFiles.clear());
 	let listEl: HTMLDivElement | null = $state(null);
 
 	let editingTitle = $state(false);
@@ -177,6 +184,13 @@
 		}
 	});
 
+	// The replies endpoint keeps soft-deleted rows (body nulled,
+	// `deleted_at` stamped) so other operators' panes learn about a
+	// delete on their next refetch. They stay in `replies` — that's what
+	// stops the silent merge from re-appending them as "fresh" — and are
+	// only dropped here, at render time.
+	const visibleReplies = $derived(replies.filter((r) => !r.deleted_at));
+
 	const currentUserId = $derived(
 		($current_user?.user_id ?? $current_user?.id ?? null) as number | null
 	);
@@ -202,9 +216,13 @@
 		if (id == null) return;
 		const res = await WarRoomChatService.remove(warRoomId, id);
 		if (res.ok) {
-			// Drop locally; the next reply-count refresh comes via the
-			// parent's poll on the next tick.
-			replies = replies.filter((x) => x.message_id !== id);
+			// Mirror the server's soft-delete locally rather than dropping
+			// the row, so the next silent refetch sees it as already known
+			// instead of re-appending it as an empty reply.
+			const stamp = new Date().toISOString();
+			replies = replies.map((x) =>
+				x.message_id === id ? { ...x, body: null, deleted_at: stamp } : x
+			);
 			onChanged();
 		} else {
 			toast({ title: 'Could not delete reply', variant: 'destructive' });
@@ -247,12 +265,23 @@
 
 	const send = async () => {
 		const text = body.trim();
-		if (!text) return;
+		if (!text && composerFiles.pending.length === 0) return;
 		sending = true;
-		const res = await WarRoomChatService.reply(warRoomId, root.message_id, text);
+		const uploaded = await composerFiles.upload(warRoomId);
+		if ('failed' in uploaded) {
+			sending = false;
+			toast({
+				title: 'Attachment upload failed',
+				description: `Could not upload "${uploaded.failed.name}".`,
+				variant: 'destructive'
+			});
+			return;
+		}
+		const res = await WarRoomChatService.reply(warRoomId, root.message_id, text, uploaded.ids);
 		sending = false;
 		if (res.ok) {
 			body = '';
+			composerFiles.clear();
 			// Merge the new reply in without blanking the pane; the parent
 			// poll will refresh reply_count on its own cadence.
 			await refetchSilently();
@@ -578,11 +607,11 @@
 
 		{#if loading}
 			<p class="text-center text-xs text-muted-foreground">Loading replies…</p>
-		{:else if replies.length === 0}
+		{:else if visibleReplies.length === 0}
 			<p class="text-center text-xs text-muted-foreground">No replies yet — be the first.</p>
 		{:else}
 			<ul class="flex flex-col gap-3">
-				{#each replies as r (r.message_id)}
+				{#each visibleReplies as r (r.message_id)}
 					{@const Icon = systemIcon(r.kind)}
 					{#if r.kind !== 'message' && Icon}
 						<!--
@@ -709,16 +738,32 @@
 	<!--
 	  Reply composer. Same feature set as the main chat composer:
 	  attachments picker (events / IOCs / assets / tasks from any
-	  attached case), @mentions autocomplete, and the same
-	  Enter/Shift+Enter contract.
+	  attached case), dropped / pasted files, emoji picker, @mentions
+	  autocomplete, and the same Enter/Shift+Enter contract.
 	-->
 	<form
-		class="shrink-0 border-t bg-background/80 px-3 py-2"
+		class={[
+			'relative shrink-0 border-t bg-background/80 px-3 py-2 transition-colors',
+			composerFiles.isDropTarget && 'bg-primary/5'
+		]}
+		ondragover={composerFiles.onDragOver}
+		ondragleave={composerFiles.onDragLeave}
+		ondrop={composerFiles.onDrop}
 		onsubmit={(e) => {
 			e.preventDefault();
 			void send();
 		}}
 	>
+		{#if composerFiles.isDropTarget}
+			<div
+				class="pointer-events-none absolute inset-2 flex items-center justify-center rounded-md border-2 border-dashed border-primary/60 bg-primary/5 text-xs font-medium text-primary"
+			>
+				Drop files to attach
+			</div>
+		{/if}
+
+		<ComposerPendingAttachments attachments={composerFiles} />
+
 		<div
 			class="flex items-end gap-2 rounded-lg border bg-card px-2 py-1.5 focus-within:ring-1 focus-within:ring-ring"
 		>
@@ -817,11 +862,20 @@
 				</Popover.Content>
 			</Popover.Root>
 
+			<ComposerEmojiButton
+				textarea={composerEl}
+				{body}
+				onChangeBody={(v) => (body = v)}
+				size={13}
+				class="p-1"
+			/>
+
 			<textarea
 				bind:this={composerEl}
 				value={body}
 				oninput={onInput}
 				onkeydown={onKey}
+				onpaste={composerFiles.onPaste}
 				placeholder="Reply in thread… @mentions, /commands, attachments"
 				rows="1"
 				class="flex-1 resize-none bg-transparent text-xs leading-relaxed outline-none placeholder:text-muted-foreground"
@@ -836,7 +890,12 @@
 				onChangeBody={(v) => (body = v)}
 			/>
 
-			<Button type="submit" size="sm" class="h-7 gap-1.5" disabled={sending || !body.trim()}>
+			<Button
+				type="submit"
+				size="sm"
+				class="h-7 gap-1.5"
+				disabled={sending || (!body.trim() && composerFiles.pending.length === 0)}
+			>
 				{#if sending}
 					<Loader2 class="h-3 w-3 animate-spin" />
 				{:else}

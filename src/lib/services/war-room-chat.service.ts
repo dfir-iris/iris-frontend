@@ -360,11 +360,14 @@ export class WarRoomChatService {
 		warRoomId: number,
 		rootMessageId: number,
 		body: string,
+		fileIds: number[] = [],
 		options: ApiOptions = {}
 	): Promise<RequestResponse<{ message_id: number; parent_message_id: number }>> {
+		const payload: { body: string; file_ids?: number[] } = { body };
+		if (fileIds.length) payload.file_ids = fileIds;
 		return ApiService.post(
 			`/war-rooms/${warRoomId}/chat/${rootMessageId}/replies`,
-			{ body },
+			payload,
 			options
 		);
 	}

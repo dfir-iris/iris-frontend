@@ -1,6 +1,7 @@
 import type { AlertsContext } from '$lib/contexts/alerts.context.svelte';
 import type { CasesContext } from '$lib/contexts/cases.context.svelte';
 import type { AlertIdentifier } from '$lib/services/alerts.service';
+import type { Alert } from '$lib/types/resources/alert';
 import type { MergeAlertPayload } from '../components/alerts-merge-dialog.svelte';
 
 type MergeAlertsDeps = {
@@ -14,11 +15,88 @@ export type MergeAlertsResult = {
 	failed: AlertIdentifier[];
 };
 
-const getIocsImportList = (alert: { iocs?: Array<{ ioc_id: number }> }) =>
-	(alert.iocs ?? []).map((ioc) => String(ioc.ioc_id));
+/**
+ * One selectable row in the merge dialog. Alerts carry their own copy of
+ * an IOC/asset, so the same value seen on several alerts has several
+ * UUIDs; it is shown once and selecting it selects every copy.
+ */
+export type ImportGroup = {
+	key: string;
+	label: string;
+	detail: string;
+	uuids: string[];
+};
 
-const getAssetsImportList = (alert: { assets?: Array<{ asset_id: number }> }) =>
-	(alert.assets ?? []).map((asset) => String(asset.asset_id));
+type ImportableAlert = Pick<Alert, 'iocs' | 'assets'>;
+
+const addToGroup = (
+	groups: Map<string, ImportGroup>,
+	key: string,
+	label: string,
+	detail: string,
+	uuid: string
+) => {
+	const group = groups.get(key);
+	if (group) {
+		if (!group.uuids.includes(uuid)) group.uuids.push(uuid);
+		return;
+	}
+	groups.set(key, { key, label, detail, uuids: [uuid] });
+};
+
+// Keyed the way the backend dedupes on merge: (type, value) for IOCs and
+// (type, name) for assets.
+export const groupImportableObservables = (
+	alertsList: ImportableAlert[]
+): { iocs: ImportGroup[]; assets: ImportGroup[] } => {
+	const iocs = new Map<string, ImportGroup>();
+	const assets = new Map<string, ImportGroup>();
+
+	for (const alert of alertsList) {
+		for (const ioc of alert.iocs ?? []) {
+			addToGroup(
+				iocs,
+				`${ioc.ioc_type_id}|${ioc.ioc_value}`,
+				ioc.ioc_value,
+				ioc.ioc_type?.type_name ?? '',
+				ioc.ioc_uuid
+			);
+		}
+		for (const asset of alert.assets ?? []) {
+			addToGroup(
+				assets,
+				`${asset.asset_type_id}|${asset.asset_name}`,
+				asset.asset_name,
+				[asset.asset_type?.asset_name, asset.asset_ip].filter(Boolean).join(' · '),
+				asset.asset_uuid
+			);
+		}
+	}
+
+	return { iocs: [...iocs.values()], assets: [...assets.values()] };
+};
+
+// The backend matches import lists against `ioc_uuid` / `asset_uuid`, not
+// the numeric ids — sending ids silently imports nothing into the case.
+// `selected` is the user's pick from the dialog; when absent, everything
+// on the alert is imported.
+const keepSelected = (uuids: string[], selected?: string[]) => {
+	if (!selected) return uuids;
+	const wanted = new Set(selected);
+	return uuids.filter((uuid) => wanted.has(uuid));
+};
+
+const getIocsImportList = (alert: ImportableAlert, selected?: string[]) =>
+	keepSelected(
+		(alert.iocs ?? []).map((ioc) => ioc.ioc_uuid),
+		selected
+	);
+
+const getAssetsImportList = (alert: ImportableAlert, selected?: string[]) =>
+	keepSelected(
+		(alert.assets ?? []).map((asset) => asset.asset_uuid),
+		selected
+	);
 
 export const mergeAlerts = async (
 	{ alerts, cases }: MergeAlertsDeps,
@@ -40,8 +118,8 @@ export const mergeAlerts = async (
 			target_case_id: targetCaseId,
 			note: payload.note,
 			import_as_event: payload.import_as_event,
-			iocs_import_list: getIocsImportList(alert),
-			assets_import_list: getAssetsImportList(alert)
+			iocs_import_list: getIocsImportList(alert, payload.iocs_import_list),
+			assets_import_list: getAssetsImportList(alert, payload.assets_import_list)
 		});
 
 		if (result) merged.push(alertId);
@@ -85,8 +163,8 @@ export const mergeAlerts = async (
 			case_tags: payload.case_tags,
 			case_template_id: payload.case_template_id ? String(payload.case_template_id) : undefined,
 			import_as_event: payload.import_as_event,
-			iocs_import_list: getIocsImportList(alert),
-			assets_import_list: getAssetsImportList(alert)
+			iocs_import_list: getIocsImportList(alert, payload.iocs_import_list),
+			assets_import_list: getAssetsImportList(alert, payload.assets_import_list)
 		});
 
 		if (!escalated) {

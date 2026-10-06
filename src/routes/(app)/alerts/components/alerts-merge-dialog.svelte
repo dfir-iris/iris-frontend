@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
-	import type { MergeAlertBody } from '$lib/services/alerts.service';
+	import { AlertService, type MergeAlertBody } from '$lib/services/alerts.service';
 	import {
 		CASE_TEMPLATES_CTX,
 		type CaseTemplatesContext
@@ -20,6 +20,7 @@
 	import type { Case } from '$lib/types/resources/case';
 	import type { Paginated } from '$lib/services/api.service';
 	import { CheckIcon, SearchIcon } from 'lucide-svelte';
+	import { groupImportableObservables, type ImportGroup } from '../helpers/alerts-merge';
 
 	export type MergeMode = 'new' | 'existing';
 
@@ -153,6 +154,64 @@
 		}
 	});
 
+	// --- IOCs / assets to import ---
+	type ImportKind = 'iocs' | 'assets';
+
+	let importGroups = $state<Record<ImportKind, ImportGroup[]>>({ iocs: [], assets: [] });
+	let selectedImportKeys = $state<Record<ImportKind, string[]>>({ iocs: [], assets: [] });
+	let importLoading = $state(false);
+	let importError = $state<string | null>(null);
+	let importSeq = 0;
+
+	// The queue rows and `selectedAlert` may be summaries without their
+	// IOCs/assets, so the full alerts are always fetched.
+	const loadImportables = async (alertIds: number[]) => {
+		const seq = ++importSeq;
+		importLoading = true;
+		importError = null;
+		importGroups = { iocs: [], assets: [] };
+		selectedImportKeys = { iocs: [], assets: [] };
+		try {
+			const responses = await Promise.all(alertIds.map((id) => AlertService.get(id)));
+			if (seq !== importSeq) return;
+			const loaded = responses
+				.map((res) => (res.ok ? res.data : null))
+				.filter((data): data is Alert => typeof data === 'object' && data !== null);
+			if (loaded.length !== responses.length) {
+				const failed = responses.find((res) => !res.ok);
+				throw new Error(failed?.error?.message ?? 'Failed to load alerts');
+			}
+			const groups = groupImportableObservables(loaded);
+			importGroups = groups;
+			selectedImportKeys = {
+				iocs: groups.iocs.map((g) => g.key),
+				assets: groups.assets.map((g) => g.key)
+			};
+		} catch (e) {
+			if (seq !== importSeq) return;
+			importError = e instanceof Error ? e.message : String(e);
+		} finally {
+			if (seq === importSeq) importLoading = false;
+		}
+	};
+
+	const toggleImport = (kind: ImportKind, key: string, checked: boolean) => {
+		const current = selectedImportKeys[kind];
+		selectedImportKeys[kind] = checked ? [...current, key] : current.filter((k) => k !== key);
+	};
+
+	const setAllImports = (kind: ImportKind, checked: boolean) => {
+		selectedImportKeys[kind] = checked ? importGroups[kind].map((g) => g.key) : [];
+	};
+
+	// `undefined` when the alerts could not be loaded: the merge helper then
+	// falls back to importing everything, as before the picker existed.
+	const getImportList = (kind: ImportKind): string[] | undefined => {
+		if (importError) return undefined;
+		const selected = new Set(selectedImportKeys[kind]);
+		return importGroups[kind].filter((g) => selected.has(g.key)).flatMap((g) => g.uuids);
+	};
+
 	// ---
 
 	const mergeOptions = $derived.by<SegmentedSelectOption[]>(() => [
@@ -193,9 +252,58 @@
 			// only loads them once at mount. Refresh on open so anything
 			// added since is picked up without a full page reload.
 			void caseTemplates.refresh();
+			void loadImportables(selectedAlertIds);
 		}
 	});
 </script>
+
+{#snippet importList(kind: ImportKind, title: string)}
+	{@const groups = importGroups[kind]}
+	{@const selected = selectedImportKeys[kind]}
+	<div class="flex flex-col gap-1.5">
+		<div class="flex items-center justify-between gap-2">
+			<span class="text-sm text-muted-foreground">
+				{title} ({selected.length}/{groups.length})
+			</span>
+			{#if groups.length > 0}
+				<div class="flex gap-1">
+					<Button variant="ghost" size="xs" onclick={() => setAllImports(kind, true)}>All</Button>
+					<Button variant="ghost" size="xs" onclick={() => setAllImports(kind, false)}>None</Button>
+				</div>
+			{/if}
+		</div>
+
+		<div class="max-h-48 overflow-auto rounded-md border bg-background">
+			{#if groups.length === 0}
+				<div class="p-3 text-sm text-muted-foreground">
+					No {title} on the selected alert{selectedAlertIds.length > 1 ? 's' : ''}.
+				</div>
+			{:else}
+				<ul class="py-1">
+					{#each groups as group, index (group.key)}
+						{@const id = `merge-import-${kind}-${index}`}
+						<li class="flex items-center gap-2 px-3 py-1.5">
+							<Checkbox
+								{id}
+								checked={selected.includes(group.key)}
+								onCheckedChange={(checked) => toggleImport(kind, group.key, checked === true)}
+							/>
+							<Label for={id} class="flex min-w-0 flex-1 flex-col text-sm font-normal">
+								<span class="truncate font-mono" title={group.label}>{group.label}</span>
+								{#if group.detail || group.uuids.length > 1}
+									<span class="truncate text-xs text-muted-foreground">
+										{group.detail}{#if group.uuids.length > 1}{group.detail ? ' · ' : ''}on {group
+												.uuids.length} alerts{/if}
+									</span>
+								{/if}
+							</Label>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
+	</div>
+{/snippet}
 
 <Dialog.Root
 	bind:open
@@ -334,6 +442,23 @@
 				{/if}
 
 				<div class="space-y-2">
+					<Label class="block text-sm font-medium">IOCs and assets to import</Label>
+
+					{#if importLoading}
+						<p class="text-sm text-muted-foreground">Loading IOCs and assets…</p>
+					{:else if importError}
+						<p class="text-sm text-destructive">
+							{importError} — every IOC and asset of the alerts will be imported.
+						</p>
+					{:else}
+						<div class="grid gap-4 md:grid-cols-2">
+							{@render importList('iocs', 'IOCs')}
+							{@render importList('assets', 'Assets')}
+						</div>
+					{/if}
+				</div>
+
+				<div class="space-y-2">
 					<Label for="merge-alert-note" class="block text-sm font-medium">Escalation note</Label>
 					<textarea
 						id="merge-alert-note"
@@ -380,9 +505,12 @@
 						case_template_id: mergeMode === 'new' && caseTemplateId ? Number(caseTemplateId) : null,
 						note: note,
 						case_tags: tags,
-						import_as_event: importAsEvent
+						import_as_event: importAsEvent,
+						iocs_import_list: getImportList('iocs'),
+						assets_import_list: getImportList('assets')
 					})}
-				disabled={(mergeMode === 'new' && caseTitle.trim().length === 0) ||
+				disabled={importLoading ||
+					(mergeMode === 'new' && caseTitle.trim().length === 0) ||
 					(mergeMode === 'existing' && targetCaseId === null)}
 			>
 				Merge

@@ -61,6 +61,9 @@
 	import WarRoomThreadPane from './components/WarRoomThreadPane.svelte';
 	import MessageReactions from './components/MessageReactions.svelte';
 	import EmojiPickerPopover from './components/EmojiPickerPopover.svelte';
+	import ComposerEmojiButton from './components/ComposerEmojiButton.svelte';
+	import ComposerPendingAttachments from './components/ComposerPendingAttachments.svelte';
+	import { ComposerAttachments } from './components/composer-attachments.svelte';
 	import PollCard from './components/PollCard.svelte';
 	import PollComposer from './components/PollComposer.svelte';
 	import {
@@ -90,70 +93,11 @@
 	let composerEl: HTMLTextAreaElement | null = $state(null);
 	let listEl: HTMLDivElement | null = $state(null);
 
-	// --- Composer file attachments (drag-and-drop) ---
-	// Files dropped on the composer are queued as `PendingAttachment`
-	// entries and uploaded to the war-room datastore only when the
-	// operator hits Send. This avoids orphan files if they abandon
-	// the draft (per the "no orphans" UX decision).
-	type PendingAttachment = {
-		id: string;
-		file: File;
-	};
-	let pendingAttachments = $state<PendingAttachment[]>([]);
-	let isDropTarget = $state(false);
-
-	const humanBytes = (n: number): string => {
-		if (n < 1024) return `${n} B`;
-		if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-		if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-		return `${(n / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-	};
-
-	const queueFiles = (files: FileList | File[] | null) => {
-		if (!files) return;
-		const list = Array.from(files as ArrayLike<File>);
-		const additions: PendingAttachment[] = [];
-		for (const f of list) {
-			// Simple id — good enough for a client-side keyed list.
-			additions.push({
-				id: `${f.name}-${f.size}-${f.lastModified ?? 0}-${additions.length}`,
-				file: f
-			});
-		}
-		if (additions.length) {
-			pendingAttachments = [...pendingAttachments, ...additions];
-		}
-	};
-
-	const removePendingAttachment = (id: string) => {
-		pendingAttachments = pendingAttachments.filter((p) => p.id !== id);
-	};
-
-	const onComposerDragOver = (e: DragEvent) => {
-		if (!e.dataTransfer) return;
-		const types = e.dataTransfer.types;
-		if (!types || !Array.from(types).includes('Files')) return;
-		e.preventDefault();
-		isDropTarget = true;
-		e.dataTransfer.dropEffect = 'copy';
-	};
-
-	const onComposerDragLeave = (e: DragEvent) => {
-		// A `dragleave` fires when the pointer crosses a child boundary;
-		// guard by checking the related target is outside the form.
-		if (!e.currentTarget || !(e.currentTarget instanceof HTMLElement)) return;
-		if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget as Node)) return;
-		isDropTarget = false;
-	};
-
-	const onComposerDrop = (e: DragEvent) => {
-		if (!e.dataTransfer) return;
-		e.preventDefault();
-		isDropTarget = false;
-		if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-			queueFiles(e.dataTransfer.files);
-		}
-	};
+	// --- Composer file attachments (drag-and-drop + paste) ---
+	// Queued client-side, uploaded to the war-room datastore on Send.
+	const composerFiles = new ComposerAttachments();
+	// Release thumbnail object URLs when the composer goes away.
+	$effect(() => () => composerFiles.clear());
 
 	// --- Topics ----------------------------------------------------------
 	//
@@ -1127,7 +1071,7 @@
 
 	const send = async () => {
 		const text = body.trim();
-		const hasAttachments = pendingAttachments.length > 0;
+		const hasAttachments = composerFiles.pending.length > 0;
 		// Allow attachment-only posts. Body must still be non-empty OR
 		// there must be at least one queued file.
 		if (!text && !hasAttachments) return;
@@ -1145,39 +1089,22 @@
 		const postingTopicId = effectiveComposerTopic?.topic_id ?? null;
 		sending = true;
 
-		// Upload queued files in sequence — sequential rather than
-		// parallel so a per-file failure clearly identifies the
-		// culprit and we can abort without leaving half the batch
-		// half-uploaded.
-		const uploadedIds: number[] = [];
-		if (hasAttachments) {
-			const { WarRoomDatastoreService } = await import('$lib/services/war-room-datastore.service');
-			for (const item of pendingAttachments) {
-				const up = await WarRoomDatastoreService.upload(warRoomId, item.file);
-				if (
-					up.ok &&
-					up.data &&
-					typeof up.data !== 'string' &&
-					typeof (up.data as { file_id?: number }).file_id === 'number'
-				) {
-					uploadedIds.push((up.data as { file_id: number }).file_id);
-				} else {
-					sending = false;
-					toast({
-						title: 'Attachment upload failed',
-						description: `Could not upload "${item.file.name}".`,
-						variant: 'destructive'
-					});
-					return;
-				}
-			}
+		const uploaded = await composerFiles.upload(warRoomId);
+		if ('failed' in uploaded) {
+			sending = false;
+			toast({
+				title: 'Attachment upload failed',
+				description: `Could not upload "${uploaded.failed.name}".`,
+				variant: 'destructive'
+			});
+			return;
 		}
 
-		const res = await WarRoomChatService.post(warRoomId, text, postingTopicId, uploadedIds);
+		const res = await WarRoomChatService.post(warRoomId, text, postingTopicId, uploaded.ids);
 		sending = false;
 		if (res.ok) {
 			body = '';
-			pendingAttachments = [];
+			composerFiles.clear();
 			// `/topic <name>` returns the newly-created topic — merge it
 			// into `topics` and switch the view straight away so the
 			// operator lands on the new lane.
@@ -3134,17 +3061,17 @@
 			<form
 				class={[
 					'relative border-t bg-background/80 px-4 py-3 transition-colors',
-					isDropTarget && 'bg-primary/5'
+					composerFiles.isDropTarget && 'bg-primary/5'
 				]}
-				ondragover={onComposerDragOver}
-				ondragleave={onComposerDragLeave}
-				ondrop={onComposerDrop}
+				ondragover={composerFiles.onDragOver}
+				ondragleave={composerFiles.onDragLeave}
+				ondrop={composerFiles.onDrop}
 				onsubmit={(e) => {
 					e.preventDefault();
 					void send();
 				}}
 			>
-				{#if isDropTarget}
+				{#if composerFiles.isDropTarget}
 					<div
 						class="pointer-events-none absolute inset-2 flex items-center justify-center rounded-md border-2 border-dashed border-primary/60 bg-primary/5 text-xs font-medium text-primary"
 					>
@@ -3152,27 +3079,7 @@
 					</div>
 				{/if}
 
-				{#if pendingAttachments.length > 0}
-					<div class="mb-2 flex flex-wrap gap-1.5 px-1">
-						{#each pendingAttachments as p (p.id)}
-							<div class="flex items-center gap-1.5 rounded border bg-muted/50 px-2 py-1 text-2xs">
-								<Paperclip class="h-3 w-3 text-muted-foreground" />
-								<span class="max-w-[16rem] truncate">{p.file.name}</span>
-								<span class="text-muted-foreground">
-									{humanBytes(p.file.size)}
-								</span>
-								<button
-									type="button"
-									class="text-muted-foreground hover:text-destructive"
-									onclick={() => removePendingAttachment(p.id)}
-									aria-label="Remove attachment"
-								>
-									<X class="h-3 w-3" />
-								</button>
-							</div>
-						{/each}
-					</div>
-				{/if}
+				<ComposerPendingAttachments attachments={composerFiles} />
 				<!-- Topic chip — shows the operator which topic the composer will
 			     post into. Clickable to open a topic-picker popover; hidden
 			     entirely on backends without topics support. -->
@@ -3348,12 +3255,15 @@
 						</Popover.Content>
 					</Popover.Root>
 
+					<ComposerEmojiButton textarea={composerEl} {body} onChangeBody={(v) => (body = v)} />
+
 					<textarea
 						bind:this={composerEl}
 						value={body}
 						oninput={onInput}
 						onkeydown={onKey}
-						placeholder="Type a message, /command, @user or #resource…"
+						onpaste={composerFiles.onPaste}
+						placeholder="Type a message, /command, @user, #resource or :emoji…"
 						rows="1"
 						class="flex-1 resize-none bg-transparent text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
 					></textarea>
@@ -3372,7 +3282,7 @@
 						size="sm"
 						class="h-8 gap-1.5"
 						disabled={sending ||
-							(!body.trim() && pendingAttachments.length === 0) ||
+							(!body.trim() && composerFiles.pending.length === 0) ||
 							composerLocked}
 					>
 						{#if sending}

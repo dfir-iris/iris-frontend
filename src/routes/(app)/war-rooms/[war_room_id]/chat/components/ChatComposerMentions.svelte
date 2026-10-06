@@ -12,6 +12,10 @@
   string (no link), `#Asset name` becomes the same attachment markdown
   the paperclip picker emits, which `ChatMessageBody` already renders
   as an inline card.
+
+  `:` followed by two or more word characters completes emoji by
+  shortcode / keyword and inserts the unicode glyph; typing a complete
+  `:shortcode:` converts it in place.
 -->
 <script lang="ts">
 	import MentionList, {
@@ -25,6 +29,7 @@
 	import { WarRoomTeamsService, type WarRoomTeam } from '$lib/services/war-room-teams.service';
 	import { WarRoomDatastoreService } from '$lib/services/war-room-datastore.service';
 	import type { WarRoomCaseAttachment } from '$lib/services/war-rooms.service';
+	import type { Emoji, NativeEmoji } from 'emoji-picker-element/shared';
 
 	type Props = {
 		textarea: HTMLTextAreaElement | null;
@@ -35,7 +40,7 @@
 	};
 	let { textarea, body, attachedCases, warRoomId, onChangeBody }: Props = $props();
 
-	type Trigger = 'user' | 'resource' | 'slash';
+	type Trigger = 'user' | 'resource' | 'slash' | 'emoji';
 
 	// Static catalogue of slash commands that get autocompleted in the
 	// composer. The labels are short on purpose — the MentionList row
@@ -310,6 +315,37 @@
 		return resourcePromise;
 	};
 
+	// --- Emoji. Same local dataset + IndexedDB cache as the reaction
+	// picker, loaded lazily the first time an `:emoji` query fires.
+	type EmojiDb = import('emoji-picker-element/database').default;
+	let emojiDbPromise: Promise<EmojiDb> | null = null;
+	const loadEmojiDb = (): Promise<EmojiDb> => {
+		if (!emojiDbPromise) {
+			emojiDbPromise = import('emoji-picker-element/database').then(
+				({ default: Database }) => new Database({ dataSource: '/emoji/data.json' })
+			);
+		}
+		return emojiDbPromise;
+	};
+
+	// A complete `:shortcode:` — swap it for the glyph without waiting
+	// for the operator to pick from the list.
+	const convertShortcode = async (start: number, end: number, shortcode: string) => {
+		const db = await loadEmojiDb();
+		const hit = await db.getEmojiByShortcode(shortcode).catch(() => null);
+		if (!hit || !('unicode' in hit) || !textarea) return;
+		// The operator may have kept typing while the lookup ran.
+		if (body.slice(start, end) !== `:${shortcode}:`) return;
+		const next = `${body.slice(0, start)}${hit.unicode}${body.slice(end)}`;
+		const caret = start + hit.unicode.length;
+		onChangeBody(next);
+		open = false;
+		queueMicrotask(() => {
+			if (!textarea) return;
+			textarea.setSelectionRange(caret, caret);
+		});
+	};
+
 	// Invalidate resource cache when the attached-case set changes — so a
 	// freshly-attached case shows up in #-search without a page reload.
 	$effect(() => {
@@ -341,6 +377,32 @@
 		// stopping at whitespace / newline. Bail if we hit one.
 		for (let i = caret - 1; i >= 0; i--) {
 			const ch = text[i];
+			if (ch === ':') {
+				// `:emoji` — word boundary only, so `12:30` and `https://`
+				// never trigger. A trailing `:` closes a full shortcode.
+				const prev = i > 0 ? text[i - 1] : '';
+				const atWordBoundary = i === 0 || /\s/.test(prev);
+				const query = text.slice(i + 1);
+				if (atWordBoundary && /^[\w+-]{2,}$/.test(query)) {
+					return { start: i, end: caret, trigger: 'emoji' as Trigger, query };
+				}
+				if (query === '' && i > 0) {
+					// Caret sits right after a closing `:` — find the
+					// opening one so `:thumbsup:` can be converted.
+					const opening = text.lastIndexOf(':', i - 1);
+					const shortcode = opening >= 0 ? text.slice(opening + 1, i) : '';
+					const openPrev = opening > 0 ? text[opening - 1] : '';
+					if (/^[\w+-]{2,}$/.test(shortcode) && (opening === 0 || /\s/.test(openPrev))) {
+						return {
+							start: opening,
+							end: caret,
+							trigger: 'emoji' as Trigger,
+							query: `${shortcode}:`
+						};
+					}
+				}
+				return null;
+			}
 			if (ch === '@' || ch === '#') {
 				const prev = i > 0 ? text[i - 1] : '';
 				const atWordBoundary = i === 0 || /\s/.test(prev);
@@ -373,7 +435,28 @@
 		_query = t.query;
 		triggerStart = t.start;
 
-		if (t.trigger === 'slash') {
+		if (t.trigger === 'emoji') {
+			if (t.query.endsWith(':')) {
+				open = false;
+				void convertShortcode(t.start, t.end, t.query.slice(0, -1));
+				return;
+			}
+			const db = await loadEmojiDb();
+			const found: Emoji[] = await db.getEmojiBySearchQuery(t.query).catch(() => []);
+			items = found
+				.filter((e): e is NativeEmoji => 'unicode' in e)
+				.slice(0, 8)
+				.map((e) => {
+					const shortcode = e.shortcodes?.[0] ?? e.annotation;
+					return {
+						id: shortcode,
+						label: `:${shortcode}:`,
+						sublabel: e.annotation,
+						kind: 'note' as const,
+						emoji: e.unicode
+					};
+				});
+		} else if (t.trigger === 'slash') {
 			const q = t.query.trim().toLowerCase();
 			const matching = q
 				? SLASH_COMMANDS_LIST.filter(
@@ -438,7 +521,9 @@
 		const after = body.slice(caret);
 
 		let insertion = '';
-		if (trigger === 'slash') {
+		if (trigger === 'emoji') {
+			insertion = item.emoji ?? '';
+		} else if (trigger === 'slash') {
 			// Pull the command name out of `item.id` (which is the raw
 			// slash command, e.g. `/task`). The trailing space puts the
 			// caret right where the argument starts.

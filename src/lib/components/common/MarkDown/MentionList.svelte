@@ -12,6 +12,8 @@
 		label: string;
 		sublabel?: string;
 		kind: MentionKind;
+		/** Rendered in place of the kind icon (chat `:emoji` completions). */
+		emoji?: string;
 	};
 
 	let { items, selectedIndex, onSelect } = $props<{
@@ -37,7 +39,11 @@
 					: 'hover:bg-accent/60'}"
 				onclick={() => onSelect(item)}
 			>
-				<Icon size="12" class="shrink-0 text-muted-foreground" />
+				{#if item.emoji}
+					<span class="w-4 shrink-0 text-center text-sm leading-none">{item.emoji}</span>
+				{:else}
+					<Icon size="12" class="shrink-0 text-muted-foreground" />
+				{/if}
 				<span class="flex flex-col overflow-hidden">
 					<span class="truncate font-medium">{item.label}</span>
 					{#if item.sublabel}

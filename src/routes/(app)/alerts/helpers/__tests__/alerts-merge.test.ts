@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mergeAlerts } from '../alerts-merge';
+import { groupImportableObservables, mergeAlerts } from '../alerts-merge';
+import type { Alert } from '$lib/types/resources/alert';
 import type { AlertsContext } from '$lib/contexts/alerts.context.svelte';
 import type { CasesContext } from '$lib/contexts/cases.context.svelte';
 import type { MergeAlertPayload } from '../../components/alerts-merge-dialog.svelte';
 
 const alertFixture = (id: number) => ({
 	alert_id: id,
-	iocs: [{ ioc_id: id * 10 }],
-	assets: [{ asset_id: id * 100 }]
+	iocs: [{ ioc_id: id * 10, ioc_uuid: `ioc-uuid-${id}` }],
+	assets: [{ asset_id: id * 100, asset_uuid: `asset-uuid-${id}` }]
 });
 
 const payloadFor = (targetCaseId: number | null): MergeAlertPayload =>
@@ -51,16 +52,35 @@ describe('mergeAlerts into an existing case', () => {
 		expect(alerts.merge).toHaveBeenCalledTimes(3);
 	});
 
-	it('forwards the alert IOCs and assets as import lists', async () => {
+	it('forwards the alert IOC and asset UUIDs as import lists', async () => {
 		await mergeAlerts(deps(), [1], payloadFor(7));
 
 		expect(alerts.merge).toHaveBeenCalledWith(1, {
 			target_case_id: 7,
 			note: 'note',
 			import_as_event: false,
-			iocs_import_list: ['10'],
-			assets_import_list: ['100']
+			iocs_import_list: ['ioc-uuid-1'],
+			assets_import_list: ['asset-uuid-1']
 		});
+	});
+
+	it('only forwards the IOCs and assets selected in the dialog', async () => {
+		alerts.get.mockImplementation(async (id: number) => ({
+			alert_id: id,
+			iocs: [{ ioc_uuid: 'ioc-a' }, { ioc_uuid: 'ioc-b' }],
+			assets: [{ asset_uuid: 'asset-a' }, { asset_uuid: 'asset-b' }]
+		}));
+
+		await mergeAlerts(deps(), [1], {
+			...payloadFor(7),
+			iocs_import_list: ['ioc-b', 'ioc-from-another-alert'],
+			assets_import_list: []
+		});
+
+		expect(alerts.merge).toHaveBeenCalledWith(
+			1,
+			expect.objectContaining({ iocs_import_list: ['ioc-b'], assets_import_list: [] })
+		);
 	});
 
 	it('keeps going after a failure and reports which alerts did not merge', async () => {
@@ -111,6 +131,18 @@ describe('mergeAlerts escalating to a new case', () => {
 		expect(alerts.merge).toHaveBeenCalledWith(2, expect.objectContaining({ target_case_id: 42 }));
 	});
 
+	it('forwards the alert IOC and asset UUIDs as import lists', async () => {
+		await mergeAlerts(deps(), [1], payloadFor(null));
+
+		expect(alerts.escalate).toHaveBeenCalledWith(
+			1,
+			expect.objectContaining({
+				iocs_import_list: ['ioc-uuid-1'],
+				assets_import_list: ['asset-uuid-1']
+			})
+		);
+	});
+
 	it('retries escalation on the next alert when the first one fails', async () => {
 		alerts.escalate.mockImplementationOnce(async () => null);
 
@@ -129,5 +161,51 @@ describe('mergeAlerts escalating to a new case', () => {
 
 		expect(result).toEqual({ caseId: null, merged: [], failed: [1, 2] });
 		expect(alerts.merge).not.toHaveBeenCalled();
+	});
+});
+
+describe('groupImportableObservables', () => {
+	const ioc = (uuid: string, value: string, typeId = 1) => ({
+		ioc_uuid: uuid,
+		ioc_value: value,
+		ioc_type_id: typeId,
+		ioc_type: { type_name: `type-${typeId}` }
+	});
+	const asset = (uuid: string, name: string, typeId = 1) => ({
+		asset_uuid: uuid,
+		asset_name: name,
+		asset_type_id: typeId,
+		asset_type: { asset_name: 'Windows - Computer' },
+		asset_ip: '10.0.0.1'
+	});
+	const alertWith = (iocs: unknown[], assets: unknown[]) =>
+		({ iocs, assets }) as unknown as Pick<Alert, 'iocs' | 'assets'>;
+
+	it('collapses the same IOC/asset seen on several alerts into one row', () => {
+		const groups = groupImportableObservables([
+			alertWith([ioc('i1', 'evil.com')], [asset('a1', 'HOST-1')]),
+			alertWith([ioc('i2', 'evil.com'), ioc('i3', '1.2.3.4')], [asset('a2', 'HOST-1')])
+		]);
+
+		expect(groups.iocs).toEqual([
+			{ key: '1|evil.com', label: 'evil.com', detail: 'type-1', uuids: ['i1', 'i2'] },
+			{ key: '1|1.2.3.4', label: '1.2.3.4', detail: 'type-1', uuids: ['i3'] }
+		]);
+		expect(groups.assets).toEqual([
+			{
+				key: '1|HOST-1',
+				label: 'HOST-1',
+				detail: 'Windows - Computer · 10.0.0.1',
+				uuids: ['a1', 'a2']
+			}
+		]);
+	});
+
+	it('keeps same value with a different type as separate rows', () => {
+		const groups = groupImportableObservables([
+			alertWith([ioc('i1', 'x', 1), ioc('i2', 'x', 2)], [])
+		]);
+
+		expect(groups.iocs.map((g) => g.key)).toEqual(['1|x', '2|x']);
 	});
 });
