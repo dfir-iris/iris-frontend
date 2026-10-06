@@ -62,6 +62,7 @@
 	} from '$lib/components/vulnerabilities/permissions';
 	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 	import SeenElsewhereBadge from '$lib/components/common/SeenElsewhereBadge.svelte';
+	import { collapseTabLabels } from '$lib/actions/collapse-tab-labels';
 	import { CaseAssetsService } from '$lib/services/case-assets.service';
 
 	type EditData = {
@@ -105,6 +106,12 @@
 	const URL_TABS = ['details', 'ioc', 'timeline', 'vulnerabilities', 'history', 'comments'];
 	const urlTab = page.url.searchParams.get('tab');
 	let activeTab = $state(urlTab !== null && URL_TABS.includes(urlTab) ? urlTab : 'details');
+
+	let tabList = $state<HTMLElement | null>(null);
+	$effect(() => {
+		if (!tabList) return;
+		return collapseTabLabels(tabList).destroy;
+	});
 	$effect(() => {
 		const next = vulnerabilityTabFallback(activeTab, canReadVulns, userCtx.ready);
 		if (next !== activeTab) activeTab = next;
@@ -368,7 +375,7 @@
 					  tab's underline needs a baseline to sit on — but drops the
 					  `bg-muted/20` tint, so this is a rule instead of a band.
 					-->
-					<div class="flex shrink-0 items-center border-b @container">
+					<div class="flex shrink-0 items-center border-b">
 						<TabsList
 							class="h-auto min-w-0 flex-1 justify-start rounded-none border-0 bg-transparent p-0"
 						>
@@ -376,20 +383,20 @@
 								value="details"
 								title="Details"
 								aria-label="Details"
-								class="flex items-center gap-2 rounded-none px-3 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80 @5xl:px-4"
+								class="flex shrink-0 items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
 							>
-								<InfoIcon class="h-4 w-4 shrink-0 @5xl:mr-1" />
-								<span class="hidden @5xl:inline">Details</span>
+								<InfoIcon class="h-4 w-4 shrink-0" />
+								<span data-tab-label>Details</span>
 							</TabsTrigger>
 
 							<TabsTrigger
 								value="ioc"
 								title="IOCs"
 								aria-label="IOCs"
-								class="relative flex items-center gap-2 rounded-none px-3 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80 @5xl:px-4"
+								class="relative flex shrink-0 items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
 							>
-								<ShieldAlertIcon class="h-4 w-4 shrink-0 @5xl:mr-1" />
-								<span class="hidden @5xl:inline">IOCs</span>
+								<ShieldAlertIcon class="h-4 w-4 shrink-0" />
+								<span data-tab-label>IOCs</span>
 
 								<!--
 								  Zero renders dimmed rather than hidden: "checked,
@@ -399,7 +406,7 @@
 								-->
 								<span
 									class={cn(
-										'inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors @5xl:ml-1.5',
+										'inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors',
 										!asset.iocs?.length && 'opacity-40'
 									)}
 								>
@@ -411,15 +418,15 @@
 								value="timeline"
 								title="Timeline"
 								aria-label="Timeline"
-								class="relative flex items-center gap-2 rounded-none px-3 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80 @5xl:px-4"
+								class="relative flex shrink-0 items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
 							>
-								<ClockIcon class="h-4 w-4 shrink-0 @5xl:mr-1" />
-								<span class="hidden @5xl:inline">Timeline</span>
+								<ClockIcon class="h-4 w-4 shrink-0" />
+								<span data-tab-label>Timeline</span>
 
 								{#if timelineCount !== null}
 									<span
 										class={cn(
-											'inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors @5xl:ml-1.5',
+											'inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors',
 											timelineCount === 0 && 'opacity-40'
 										)}
 									>
@@ -433,15 +440,15 @@
 									value="vulnerabilities"
 									title="Vulnerabilities"
 									aria-label="Vulnerabilities"
-									class="relative flex items-center gap-2 rounded-none px-3 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80 @5xl:px-4"
+									class="relative flex shrink-0 items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
 								>
-									<ShieldXIcon class="h-4 w-4 shrink-0 @5xl:mr-1" />
-									<span class="hidden @5xl:inline">Vulnerabilities</span>
+									<ShieldXIcon class="h-4 w-4 shrink-0" />
+									<span data-tab-label>Vulnerabilities</span>
 
 									{#if vulnerabilityCount !== null}
 										<span
 											class={cn(
-												'inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors @5xl:ml-1.5',
+												'inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors',
 												vulnerabilityCount === 0 && 'opacity-40'
 											)}
 										>
@@ -455,24 +462,24 @@
 								value="history"
 								title="History"
 								aria-label="History"
-								class="flex items-center gap-2 rounded-none px-3 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80 @5xl:px-4"
+								class="flex shrink-0 items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
 							>
-								<HistoryIcon class="h-4 w-4 shrink-0 @5xl:mr-1" />
-								<span class="hidden @5xl:inline">History</span>
+								<HistoryIcon class="h-4 w-4 shrink-0" />
+								<span data-tab-label>History</span>
 							</TabsTrigger>
 
 							<TabsTrigger
 								value="comments"
 								title="Comments"
 								aria-label="Comments"
-								class="relative flex items-center gap-2 rounded-none px-3 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80 @5xl:px-4"
+								class="relative flex shrink-0 items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
 							>
-								<MessagesSquareIcon class="h-4 w-4 shrink-0 @5xl:mr-1" />
-								<span class="hidden @5xl:inline">Comments</span>
+								<MessagesSquareIcon class="h-4 w-4 shrink-0" />
+								<span data-tab-label>Comments</span>
 
 								<span
 									class={cn(
-										'inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors @5xl:ml-1.5',
+										'inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors',
 										!comments.length && 'opacity-40'
 									)}
 								>
@@ -485,10 +492,10 @@
 									value="custom_attributes"
 									title="Custom attributes"
 									aria-label="Custom attributes"
-									class="flex items-center gap-2 rounded-none px-3 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80 @5xl:px-4"
+									class="flex shrink-0 items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
 								>
-									<WaypointsIcon class="h-4 w-4 shrink-0 @5xl:mr-1" />
-									<span class="hidden @5xl:inline">Custom attributes</span>
+									<WaypointsIcon class="h-4 w-4 shrink-0" />
+									<span data-tab-label>Custom attributes</span>
 								</TabsTrigger>
 							{/if}
 						</TabsList>
@@ -501,8 +508,9 @@
 
 						  Beside the tabs, not over them: the tabs are left-aligned,
 						  so the badge appearing asynchronously shifts nothing.
-						  Below 64rem of pane width the tabs collapse to icon +
-						  count (label in the tooltip) so the row never overflows.
+						  When the row runs short, the tab labels give way one at
+						  a time from the last tab (icon + count, name in the
+						  tooltip), so it never overflows.
 						-->
 						<div class="shrink-0 px-4">
 							<SeenElsewhereBadge
