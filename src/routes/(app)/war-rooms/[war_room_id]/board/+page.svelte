@@ -9,6 +9,7 @@
   while the tab is visible.
 -->
 <script lang="ts">
+	import { AiSuggestionsPanel } from '$lib/components/ai-suggestions';
 	import { getContext, onDestroy, onMount } from 'svelte';
 	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 	import { canReadVulnerabilities } from '$lib/components/vulnerabilities/permissions';
@@ -241,6 +242,8 @@
 				</Button>
 			</div>
 		</div>
+
+		<AiSuggestionsPanel entityType="war_room" entityId={warRoomId} class="bg-card" />
 
 		{#if loading}
 			<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">

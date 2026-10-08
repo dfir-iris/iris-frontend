@@ -2,8 +2,8 @@
   Add/Edit group dialog.
 
   Permission editor uses the schema's permission descriptors as a
-  checklist. Toggling a permission ORs/ANDs the bit into / out of
-  `group_permissions` — the backend stores the resulting bitmask
+  checklist. Toggling a permission sets / clears the bit in
+  `group_permissions` (BigInt-safe, see `permission-mask.ts`) — the backend stores the resulting bitmask
   verbatim.
 
   The `standard_user` permission is shown as a "ground truth" tick
@@ -24,6 +24,7 @@
 		type CreateGroupBody,
 		type UpdateGroupBody
 	} from '$lib/services/access-control.service';
+	import { maskHas, maskToggle } from '$lib/utils/permission-mask';
 
 	type Props = {
 		open: boolean;
@@ -63,11 +64,7 @@
 	});
 
 	const togglePerm = (bit: number) => {
-		if ((form.group_permissions & bit) === bit) {
-			form.group_permissions &= ~bit;
-		} else {
-			form.group_permissions |= bit;
-		}
+		form.group_permissions = maskToggle(form.group_permissions, bit);
 	};
 
 	const submit = async () => {
@@ -144,7 +141,7 @@
 				<div class="max-h-[40vh] overflow-y-auto rounded-md border">
 					<ul class="divide-y">
 						{#each schema.permissions as p (p.value)}
-							{@const ticked = (form.group_permissions & p.value) === p.value}
+							{@const ticked = maskHas(form.group_permissions, p.value)}
 							<li>
 								<label
 									class="flex cursor-pointer items-start gap-2 px-3 py-2 text-2xs hover:bg-muted/30"

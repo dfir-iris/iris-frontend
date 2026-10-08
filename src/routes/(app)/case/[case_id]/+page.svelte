@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { AiSuggestionsPanel } from '$lib/components/ai-suggestions';
 	import { formatDate, formatTime, parseServerDate } from '$lib/utils/time-formatter';
 	import { getContext, onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -551,6 +552,8 @@
 				  preserves the note, and an open case carrying one still needs to
 				  explain itself — the heading and palette shift to say so.
 				-->
+				<AiSuggestionsPanel entityType="case" entityId={case_id} class="mx-5 mt-3 shrink-0" />
+
 				{#if closingNote || (isClosed && canEdit)}
 					<section
 						class="shrink-0 border-b px-5 py-4 {isClosed

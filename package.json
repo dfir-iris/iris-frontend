@@ -84,6 +84,7 @@
 		"@tiptap/starter-kit": "^3.22.3",
 		"@tiptap/suggestion": "^3.22.4",
 		"@tiptap/y-tiptap": "^3.0.2",
+		"@xyflow/svelte": "^1.7.0",
 		"ace-builds": "^1.43.6",
 		"ag-grid-community": "^33.0.3",
 		"dompurify": "^3.3.1",

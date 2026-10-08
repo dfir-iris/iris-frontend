@@ -45,6 +45,33 @@ function createNotificationsStore() {
 	let socket: Socket | null = null;
 	let initialised = false;
 	let unreadPollTimer: ReturnType<typeof setInterval> | null = null;
+	// Extra listeners other features hang on the same `/notifications`
+	// connection (e.g. `ai_suggestion`), so the app keeps one socket.
+	// Kept across reconnects / resets and bound when the socket opens.
+	const extraListeners = new Map<string, Set<(payload: unknown) => void>>();
+
+	function bindExtraListener(event: string, handler: (payload: unknown) => void) {
+		socket?.on(event, handler);
+	}
+
+	/**
+	 * Listen to a server event on the `/notifications` namespace.
+	 * Returns an unsubscribe function.
+	 */
+	function onSocketEvent<T = unknown>(event: string, handler: (payload: T) => void): () => void {
+		const h = handler as (payload: unknown) => void;
+		let set = extraListeners.get(event);
+		if (!set) {
+			set = new Set();
+			extraListeners.set(event, set);
+		}
+		set.add(h);
+		bindExtraListener(event, h);
+		return () => {
+			extraListeners.get(event)?.delete(h);
+			socket?.off?.(event, h);
+		};
+	}
 
 	async function refresh() {
 		update((s) => ({ ...s, loading: true, error: null }));
@@ -169,6 +196,10 @@ function createNotificationsStore() {
 			receive(n);
 		});
 
+		for (const [event, handlers] of extraListeners) {
+			for (const h of handlers) bindExtraListener(event, h);
+		}
+
 		socket.on('connect_error', (err) => {
 			update((s) => ({ ...s, error: err?.message ?? 'socket error' }));
 		});
@@ -242,6 +273,7 @@ function createNotificationsStore() {
 		initialize,
 		refresh,
 		receive,
+		onSocketEvent,
 		markRead,
 		markAllRead,
 		clear,

@@ -10,6 +10,7 @@
   distinct evidence groups: Alerts, Assets, IOCs, Timeline, Activity.
 -->
 <script lang="ts">
+	import { AiSuggestionsPanel } from '$lib/components/ai-suggestions';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -770,6 +771,12 @@
 					</div>
 				</div>
 			</header>
+
+			<AiSuggestionsPanel
+				entityType="alert_cluster"
+				entityId={cluster.cluster_id}
+				class="mx-6 mb-3 shrink-0"
+			/>
 
 			<!-- ============================================================
 				 Tabs — case-style: underline strip, no rounded chrome, sits

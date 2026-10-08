@@ -19,6 +19,7 @@
 	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
 	import { toast } from '$lib/components/ui/toast';
 	import { AlertCard } from '../components/AlertCard';
+	import { AiSuggestionsPanel } from '$lib/components/ai-suggestions';
 	import AlertsReasignDialog from '../components/alerts-reasign-dialog.svelte';
 	import AlertsCloseDialog from '../components/alerts-close-dialog.svelte';
 	import AlertHistoryDialog from '../components/alert-history-dialog.svelte';
@@ -220,6 +221,7 @@
 				onDelete={() => (showConfirmDelete = true)}
 				alwaysExpanded
 			/>
+			<AiSuggestionsPanel entityType="alert" entityId={alert.alert_id} />
 		{/if}
 	{/await}
 </div>

@@ -23,6 +23,12 @@ import {
 	promoteTokens,
 	readCookie
 } from '$lib/server/token-cookies';
+import {
+	declaresOversizeBody,
+	isInboundCappedPath,
+	payloadTooLargeResponse,
+	readBodyCapped
+} from '$lib/server/inbound-body-cap';
 
 // Server-side Sentry init reads its DSN from IRIS_UI_SENTRY_DSN in
 // the process env. Set it in the deployment env for the Node adapter
@@ -373,6 +379,19 @@ const irisHandle: Handle = async ({ event, resolve }) => {
 
 		const apiUrl = `${base.replace(/\/$/, '')}${pathname}${event.url.search}`;
 
+		// The AI workflow inbound endpoints (webhooks, callbacks) take
+		// unauthenticated POSTs, and the body is buffered below. Refuse an
+		// oversize body up front when it is declared, and cap the read
+		// otherwise (chunked uploads carry no content-length) — see
+		// `$lib/server/inbound-body-cap`.
+		const capInbound =
+			event.request.method !== 'GET' &&
+			event.request.method !== 'HEAD' &&
+			isInboundCappedPath(pathname);
+		if (capInbound && declaresOversizeBody(event.request.headers)) {
+			return payloadTooLargeResponse();
+		}
+
 		try {
 			// Public (browser-facing) origin — see publicOrigin(). Using
 			// event.url instead of the env var lets a single container
@@ -422,6 +441,10 @@ const irisHandle: Handle = async ({ event, resolve }) => {
 				if (REFRESH_BODY_PATHS.has(pathname)) {
 					const text = await event.request.text();
 					body = refreshToken ? injectRefreshToken(text, refreshToken) : text;
+				} else if (capInbound) {
+					const capped = await readBodyCapped(event.request);
+					if (capped === null) return payloadTooLargeResponse();
+					body = capped;
 				} else {
 					body = await event.request.arrayBuffer();
 				}

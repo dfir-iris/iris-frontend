@@ -38,11 +38,17 @@ export interface RuntimeVulnerabilities {
 	cve_sync_enabled: boolean;
 }
 
+export interface RuntimeAiWorkflows {
+	/** `AI_WORKFLOWS_ENABLED`: the settings pages, suggestion panels and Run buttons. */
+	enabled: boolean;
+}
+
 export interface RuntimeConfig {
 	error_reporting: RuntimeErrorReporting;
 	mcp: RuntimeMcp;
 	chatbot: RuntimeChatbot;
 	vulnerabilities: RuntimeVulnerabilities;
+	ai_workflows: RuntimeAiWorkflows;
 }
 
 const DISABLED: RuntimeConfig = {
@@ -56,7 +62,8 @@ const DISABLED: RuntimeConfig = {
 	mcp: { enabled: false, endpoint: '/api/v2/mcp' },
 	chatbot: { enabled: false, provider_available: false, model: '' },
 	// Off when absent so an older backend never shows a sync button.
-	vulnerabilities: { cve_sync_enabled: false }
+	vulnerabilities: { cve_sync_enabled: false },
+	ai_workflows: { enabled: false }
 };
 
 export async function fetchRuntimeConfig(
@@ -81,7 +88,8 @@ export async function fetchRuntimeConfig(
 			},
 			mcp: { ...DISABLED.mcp, ...(body.mcp ?? {}) },
 			chatbot: { ...DISABLED.chatbot, ...(body.chatbot ?? {}) },
-			vulnerabilities: { ...DISABLED.vulnerabilities, ...(body.vulnerabilities ?? {}) }
+			vulnerabilities: { ...DISABLED.vulnerabilities, ...(body.vulnerabilities ?? {}) },
+			ai_workflows: { ...DISABLED.ai_workflows, ...(body.ai_workflows ?? {}) }
 		};
 	} catch {
 		// Network error — reporting stays off for this boot; the next

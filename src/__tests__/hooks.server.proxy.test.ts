@@ -126,4 +126,68 @@ describe('hooks.server proxy — cookie to backend credential translation', () =
 		expect(init.body).toBeInstanceOf(ArrayBuffer);
 		expect(Array.from(new Uint8Array(init.body as ArrayBuffer))).toEqual(Array.from(raw));
 	});
+
+	describe('AI workflow inbound body cap', () => {
+		const url =
+			'https://acme.cloud.seito.io/api/v2/ai-workflows/hooks/0b5c0f3e-1111-4222-8333-444455556666';
+
+		it('rejects a declared oversize body with 413 without calling the backend', async () => {
+			const request = new Request(url, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json', 'content-length': '1048577' },
+				body: '{}'
+			});
+
+			const res = (await handle({ event: makeEvent(request), resolve } as never)) as Response;
+
+			expect(res.status).toBe(413);
+			expect(fetchMock).not.toHaveBeenCalled();
+		});
+
+		it('rejects an undeclared body once it passes 1 MiB', async () => {
+			const stream = new ReadableStream<Uint8Array>({
+				start(controller) {
+					controller.enqueue(new Uint8Array(1024 * 1024));
+					controller.enqueue(new Uint8Array(1));
+					controller.close();
+				}
+			});
+			const request = new Request(url.replace('/hooks/', '/callbacks/'), {
+				method: 'POST',
+				body: stream,
+				duplex: 'half'
+			} as RequestInit);
+
+			const res = (await handle({ event: makeEvent(request), resolve } as never)) as Response;
+
+			expect(res.status).toBe(413);
+			expect(fetchMock).not.toHaveBeenCalled();
+		});
+
+		it('forwards a body within the cap unchanged', async () => {
+			const request = new Request(url, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: '{"a":1}'
+			});
+
+			await handle({ event: makeEvent(request), resolve } as never);
+
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+			const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+			expect(new TextDecoder().decode(init.body as ArrayBuffer)).toBe('{"a":1}');
+		});
+
+		it('does not cap other endpoints', async () => {
+			const request = new Request('https://acme.cloud.seito.io/api/v2/datastore/file/add', {
+				method: 'POST',
+				headers: { 'content-length': '5000000' },
+				body: 'x'
+			});
+
+			await handle({ event: makeEvent(request), resolve } as never);
+
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+		});
+	});
 });

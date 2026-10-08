@@ -32,6 +32,7 @@
 		type AccessControlGroup,
 		type AccessControlSchemaInfo
 	} from '$lib/services/access-control.service';
+	import { maskHas } from '$lib/utils/permission-mask';
 	import GroupEditDialog from './GroupEditDialog.svelte';
 	import GroupMembersDialog from './GroupMembersDialog.svelte';
 	import GroupCasesAccessDialog from './GroupCasesAccessDialog.svelte';
@@ -419,7 +420,7 @@
 						{#if selected.group_permissions === 0}
 							<span class="text-muted-foreground">No permissions granted.</span>
 						{:else}
-							{#each schema.permissions.filter((p) => (selected.group_permissions & p.value) === p.value) as p (p.value)}
+							{#each schema.permissions.filter( (p) => maskHas(selected.group_permissions, p.value) ) as p (p.value)}
 								<span class="rounded-sm border bg-muted/40 px-1.5 py-0" title={p.description}>
 									{p.label}
 								</span>

@@ -9,7 +9,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
 
-vi.mock('$app/environment', () => ({ browser: true }));
+vi.mock('$app/environment', () => ({ browser: true, dev: false }));
 vi.mock('$env/dynamic/public', () => ({ env: { PUBLIC_EXTERNAL_API_URL: '' } }));
 
 // Silence the real socket — we don't need it for these tests. `io()`
@@ -38,6 +38,7 @@ vi.mock('$lib/services/notifications.service', () => ({
 
 import { notifications } from '../notifications.store';
 import { NotificationsService } from '$lib/services/notifications.service';
+import { io } from 'socket.io-client';
 
 const makeNotif = (id: number, read = false) => ({
 	id,
@@ -175,5 +176,28 @@ describe('notifications store', () => {
 		const state = get(notifications);
 		expect(state.items).toHaveLength(0);
 		expect(state.unreadCount).toBe(0);
+	});
+
+	it('onSocketEvent() binds extra listeners on the shared socket', async () => {
+		const handler = vi.fn();
+		const off = notifications.onSocketEvent('ai_suggestion', handler);
+		(NotificationsService.list as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+			ok: true,
+			status: 200,
+			data: { data: [], unread_count: 0 }
+		});
+
+		await notifications.initialize();
+
+		const ioMock = io as unknown as ReturnType<typeof vi.fn>;
+		const socket = ioMock.mock.results[ioMock.mock.results.length - 1].value as {
+			on: ReturnType<typeof vi.fn>;
+		};
+		const call = socket.on.mock.calls.find(([event]) => event === 'ai_suggestion');
+		expect(call).toBeDefined();
+		call![1]({ action: 'created' });
+		expect(handler).toHaveBeenCalledWith({ action: 'created' });
+		off();
+		notifications.reset();
 	});
 });

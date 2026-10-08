@@ -5,6 +5,7 @@ import {
 	CircleUserIcon,
 	FilterIcon,
 	FlagIcon,
+	KeyRoundIcon,
 	LayersIcon,
 	LockKeyholeIcon,
 	MailIcon,
@@ -15,7 +16,8 @@ import {
 	SettingsIcon,
 	SparklesIcon,
 	WaypointsIcon,
-	WebhookIcon
+	WebhookIcon,
+	WorkflowIcon
 } from 'lucide-svelte';
 import type { Icon } from 'lucide-svelte';
 import {
@@ -23,6 +25,7 @@ import {
 	type PermissionName,
 	type UserContext
 } from '$lib/services/user-context.service';
+import { runtimeConfig } from '$lib/stores/runtime-config.store.svelte';
 
 export type SettingsPage = { icon: typeof Icon; label: string; href: string };
 
@@ -47,6 +50,8 @@ export const SETTINGS_PAGES: SettingsPage[] = [
 	{ icon: CheckSquareIcon, label: 'Investigation flows', href: '/investigation-flows' },
 	{ icon: PlugIcon, label: 'MCP Server', href: '/mcp' },
 	{ icon: SparklesIcon, label: 'Chatbot', href: '/chatbot' },
+	{ icon: WorkflowIcon, label: 'AI workflows', href: '/ai-workflows' },
+	{ icon: KeyRoundIcon, label: 'Keystore', href: '/keystore' },
 	{ icon: MegaphoneIcon, label: 'Banners', href: '/banners' },
 	{ icon: SettingsIcon, label: 'Server Settings', href: '/server' }
 ];
@@ -65,9 +70,13 @@ export function visibleSettingsPages(
 ): SettingsPage[] {
 	return SETTINGS_PAGES.filter((item) => {
 		if (!can(SETTINGS_PAGE_PERMISSIONS[item.href])) return false;
+		if (AI_WORKFLOW_PAGES.includes(item.href) && !runtimeConfig.aiWorkflowsEnabled) return false;
 		return !(item.href === '/server' && demoHidesServerSettings(ctx));
 	});
 }
+
+/** Pages that only exist when `AI_WORKFLOWS_ENABLED` is on (runtime config). */
+export const AI_WORKFLOW_PAGES = ['/ai-workflows', '/keystore'];
 
 /**
  * Permission each Settings page needs, keyed by its path under
@@ -93,6 +102,8 @@ export const SETTINGS_PAGE_PERMISSIONS: Record<string, PermissionName> = {
 	'/investigation-flows': 'investigation_flows_read',
 	'/mcp': 'server_administrator',
 	'/chatbot': 'server_administrator',
+	'/ai-workflows': 'ai_workflows_read',
+	'/keystore': 'ai_workflows_read',
 	'/banners': 'server_administrator',
 	'/server': 'server_administrator'
 };

@@ -5,14 +5,25 @@
 	import { authenticateDatastoreImages } from './authenticate-datastore-images';
 	import { decorateMentionChips } from './decorate-mention-chips';
 	import { normalizeLegacyContent } from './legacy-content';
+	import { sanitizeUntrustedMarkdown } from './untrusted-markdown';
 
 	// `class` tunes the prose container for a caller whose surroundings
 	// disagree with the defaults below — war-room chat, for one, is denser
 	// than a note pane and needs the inherited font size back.
-	let { markdown = '', class: className = '' }: { markdown?: string; class?: string } = $props();
+	//
+	// `untrusted` switches to the strict profile for machine-generated text
+	// (AI workflow output): no forms / images / styles, only `/`, `#` and
+	// `https:` links, external links show their URL. See untrusted-markdown.ts.
+	let {
+		markdown = '',
+		class: className = '',
+		untrusted = false
+	}: { markdown?: string; class?: string; untrusted?: boolean } = $props();
 
 	const safeHtml = $derived(
-		DOMPurify.sanitize(converter.makeHtml(normalizeLegacyContent(markdown ?? '')))
+		untrusted
+			? sanitizeUntrustedMarkdown(markdown)
+			: DOMPurify.sanitize(converter.makeHtml(normalizeLegacyContent(markdown ?? '')))
 	);
 
 	let containerEl = $state<HTMLDivElement | null>(null);
@@ -23,7 +34,7 @@
 	// datastore image to a bearer-authenticated blob URL.
 	$effect(() => {
 		void safeHtml; // re-run on every render
-		if (!containerEl) return;
+		if (!containerEl || untrusted) return;
 		const dispose = authenticateDatastoreImages(containerEl);
 		return dispose;
 	});
@@ -34,7 +45,7 @@
 	// also makes them visible to any enclosing ChipHoverHost.
 	$effect(() => {
 		void safeHtml;
-		if (!containerEl) return;
+		if (!containerEl || untrusted) return;
 		decorateMentionChips(containerEl);
 	});
 </script>

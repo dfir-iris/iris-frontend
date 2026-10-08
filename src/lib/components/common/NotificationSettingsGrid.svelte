@@ -53,6 +53,7 @@
 		alert_escalated: 'Alert escalated',
 		war_room_message: 'War-room message',
 		war_room_thread_reply: 'War-room thread reply',
+		ai_suggestion: 'AI workflow suggestion',
 		module_custom: 'Custom module notification'
 	};
 

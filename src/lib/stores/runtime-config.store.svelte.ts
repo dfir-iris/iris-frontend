@@ -9,6 +9,7 @@
  * toggles already behave.
  */
 import {
+	type RuntimeAiWorkflows,
 	type RuntimeChatbot,
 	type RuntimeConfig,
 	type RuntimeErrorReporting,
@@ -26,7 +27,8 @@ const DEFAULT: RuntimeConfig = {
 	},
 	mcp: { enabled: false, endpoint: '/api/v2/mcp' },
 	chatbot: { enabled: false, provider_available: false, model: '' },
-	vulnerabilities: { cve_sync_enabled: false }
+	vulnerabilities: { cve_sync_enabled: false },
+	ai_workflows: { enabled: false }
 };
 
 const state = $state<{ config: RuntimeConfig }>({ config: DEFAULT });
@@ -46,6 +48,13 @@ export const runtimeConfig = {
 	},
 	get vulnerabilities(): RuntimeVulnerabilities {
 		return state.config.vulnerabilities ?? DEFAULT.vulnerabilities;
+	},
+	get aiWorkflows(): RuntimeAiWorkflows {
+		return state.config.ai_workflows ?? DEFAULT.ai_workflows;
+	},
+	/** AI workflows (settings pages, suggestions, Run buttons) are on. */
+	get aiWorkflowsEnabled(): boolean {
+		return state.config.ai_workflows?.enabled === true;
 	},
 	/** cve.org lookup / sync available on this instance. */
 	get cveSyncEnabled(): boolean {

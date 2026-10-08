@@ -19,6 +19,7 @@
 	import { page as appPage } from '$app/state';
 	import { Check, Copy, EllipsisIcon, LinkIcon, PencilIcon } from 'lucide-svelte';
 	import type { Alert } from '$lib/types/resources/alert';
+	import { AiSuggestionsPanel } from '$lib/components/ai-suggestions';
 	import type { AlertCluster } from '$lib/types/resources/alert-cluster';
 	import type { AlertQueueUnit } from '$lib/types/resources/alert-queue-unit';
 	import type { Asset } from '$lib/types/resources/asset';
@@ -1551,6 +1552,7 @@
 				<div class="detail-body">
 					<div class="detail-main">
 						{#if activeTab === 'overview'}
+							<AiSuggestionsPanel entityType="alert" entityId={f.alert_id} />
 							{#if f.alert_description}
 								<section class="section">
 									<div class="section-head copy-row">

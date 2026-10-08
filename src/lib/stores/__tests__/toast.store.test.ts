@@ -3,7 +3,7 @@ import { get } from 'svelte/store';
 
 vi.mock('$app/environment', () => ({ browser: false }));
 
-import { toasts, toast } from '../toast.store';
+import { toasts, toast, toastIsSafeHref } from '../toast.store';
 
 describe('toast store', () => {
 	beforeEach(() => {
@@ -96,5 +96,38 @@ describe('toast store', () => {
 		expect(get(toasts)).toHaveLength(1);
 		vi.advanceTimersByTime(1);
 		expect(get(toasts)).toHaveLength(0);
+	});
+
+	it('keeps a same-origin path link', () => {
+		toasts.add({ title: 'Linked', link: { href: '/cases/3', label: 'Open' } });
+		expect(get(toasts)[0].link).toEqual({ href: '/cases/3', label: 'Open' });
+	});
+
+	it.each([
+		'//evil.example/x',
+		'/\\evil.example/x',
+		'/\t/evil.example',
+		'https://evil.example',
+		'javascript:alert(1)',
+		'cases/3',
+		''
+	])('drops an unsafe toast link %j', (href) => {
+		toasts.add({ title: 'Linked', link: { href, label: 'Open' } });
+		const items = get(toasts);
+		expect(items[0].link).toBeUndefined();
+		expect(items[0].title).toBe('Linked');
+	});
+});
+
+describe('toastIsSafeHref', () => {
+	it('accepts path-absolute hrefs', () => {
+		expect(toastIsSafeHref('/')).toBe(true);
+		expect(toastIsSafeHref('/settings/ai-workflows/runs/abc?x=1#y')).toBe(true);
+	});
+
+	it('rejects everything else', () => {
+		for (const href of ['//a', '/\\a', 'http://a', 'data:text/html,x', ' /a', '/a b', null, 3]) {
+			expect(toastIsSafeHref(href)).toBe(false);
+		}
 	});
 });

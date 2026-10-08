@@ -13,6 +13,7 @@
 -->
 <script lang="ts">
 	import { formatDateTime } from '$lib/utils/time-formatter';
+	import { maskAdd, maskHas } from '$lib/utils/permission-mask';
 	import { onMount } from 'svelte';
 	import { KeyRoundIcon, PlusIcon, ShieldAlertIcon, Trash2Icon } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -65,7 +66,9 @@
 		{ name: 'case_access_manage', value: 0x8000000 },
 		{ name: 'vulnerabilities_write', value: 0x10000000 },
 		{ name: 'vulnerabilities_read', value: 0x20000000 },
-		{ name: 'vulnerabilities_create', value: 0x40000000 }
+		{ name: 'vulnerabilities_create', value: 0x40000000 },
+		{ name: 'ai_workflows_read', value: 0x80000000 },
+		{ name: 'ai_workflows_write', value: 0x100000000 }
 	];
 
 	let keys = $state<UserApiKey[]>([]);
@@ -115,7 +118,7 @@
 			.map((t) => t.trim())
 			.filter(Boolean)) {
 			const p = KNOWN_PERMISSIONS.find((k) => k.name === token);
-			if (p) mask |= p.value;
+			if (p) mask = maskAdd(mask, p.value);
 			else unknown.push(token);
 		}
 		if (unknown.length) {
@@ -182,7 +185,7 @@
 
 	const scopeMaskToNames = (mask: number | null): string => {
 		if (mask === null) return '(full permissions)';
-		const names = KNOWN_PERMISSIONS.filter((p) => (mask & p.value) === p.value).map((p) => p.name);
+		const names = KNOWN_PERMISSIONS.filter((p) => maskHas(mask, p.value)).map((p) => p.name);
 		return names.length ? names.join(', ') : `mask 0x${mask.toString(16)}`;
 	};
 

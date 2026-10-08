@@ -8,7 +8,13 @@
 	// fetches the initial feed.
 
 	import { onMount, onDestroy } from 'svelte';
-	import { BellIcon, CheckCheckIcon, ClipboardCheckIcon, Trash2Icon } from 'lucide-svelte';
+	import {
+		BellIcon,
+		CheckCheckIcon,
+		ClipboardCheckIcon,
+		SparklesIcon,
+		Trash2Icon
+	} from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import * as Popover from '$lib/components/ui/popover';
 	import {
@@ -19,6 +25,7 @@
 	} from '$lib/components/ui/tooltip';
 	import { notifications } from '$lib/stores/notifications.store';
 	import { reviews } from '$lib/stores/reviews.store';
+	import { aiSuggestions } from '$lib/stores/ai-suggestions.store.svelte';
 	import type { Notification } from '$lib/services/notifications.service';
 
 	let open = $state(false);
@@ -43,6 +50,9 @@
 	onMount(() => {
 		notifications.initialize();
 		reviews.start();
+		// Live AI suggestions (toasts + mounted panels) ride the same
+		// `/notifications` socket; a no-op when the backend never emits.
+		aiSuggestions.start();
 	});
 
 	onDestroy(() => {
@@ -238,8 +248,17 @@
 									<span class="mt-1.5 h-2 w-2 flex-shrink-0"></span>
 								{/if}
 								<div class="min-w-0 flex-1">
-									<div class="truncate text-sm font-medium text-foreground">
-										{n.title}
+									<div class="flex items-center gap-1.5">
+										{#if n.event_type === 'ai_suggestion'}
+											<SparklesIcon
+												size={11}
+												class="shrink-0 text-violet-600 dark:text-violet-400"
+												aria-label="AI suggestion"
+											/>
+										{/if}
+										<span class="truncate text-sm font-medium text-foreground">
+											{n.title}
+										</span>
 									</div>
 									{#if n.body}
 										<div class="line-clamp-2 text-xs text-muted-foreground">

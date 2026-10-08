@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { toasts } from '$lib/stores/toast.store';
+	import { toasts, toastIsSafeHref } from '$lib/stores/toast.store';
 	import { fly } from 'svelte/transition';
 	import { CheckCircleIcon, XIcon, AlertTriangleIcon, InfoIcon } from 'lucide-svelte';
 	import type { ToastVariant } from '$lib/stores/toast.store';
@@ -60,6 +60,15 @@
 					<p class="text-sm font-medium">{toast.title}</p>
 					{#if toast.description}
 						<p class="mt-1 text-sm opacity-90">{toast.description}</p>
+					{/if}
+					{#if toast.link && toastIsSafeHref(toast.link.href)}
+						<a
+							href={toast.link.href}
+							class="mt-1 inline-block text-sm font-medium underline underline-offset-2"
+							on:click={() => toasts.dismiss(toast.id)}
+						>
+							{toast.link.label}
+						</a>
 					{/if}
 				</div>
 				<div class="ml-4 flex flex-shrink-0">

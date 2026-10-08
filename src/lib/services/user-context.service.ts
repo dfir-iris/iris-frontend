@@ -16,6 +16,7 @@
  */
 import { ApiService } from './api.service';
 import type { ApiOptions, RequestResponse } from './api.service';
+import { maskHas } from '$lib/utils/permission-mask';
 
 /**
  * Mirrors `Permissions` in `source/app/models/authorization.py`. The
@@ -55,7 +56,11 @@ export const Permission = {
 	case_access_manage: 0x8000000,
 	vulnerabilities_write: 0x10000000,
 	vulnerabilities_read: 0x20000000,
-	vulnerabilities_create: 0x40000000
+	vulnerabilities_create: 0x40000000,
+	// Bits >= 0x80000000 don't survive JS bitwise operators (32-bit
+	// signed). Always test masks through `$lib/utils/permission-mask`.
+	ai_workflows_read: 0x80000000,
+	ai_workflows_write: 0x100000000
 } as const;
 
 export type PermissionName = keyof typeof Permission;
@@ -98,8 +103,7 @@ export class UserContextService {
 
 export function hasPermission(ctx: UserContext | null, perm: PermissionName): boolean {
 	if (!ctx) return false;
-	const flag = Permission[perm];
-	return (ctx.permissions.mask & flag) === flag;
+	return maskHas(ctx.permissions.mask, Permission[perm]);
 }
 
 export function hasAnyPermission(ctx: UserContext | null, perms: PermissionName[]): boolean {

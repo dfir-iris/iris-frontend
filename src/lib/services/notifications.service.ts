@@ -16,6 +16,7 @@ export type NotificationEventType =
 	| 'alert_escalated'
 	| 'war_room_message'
 	| 'war_room_thread_reply'
+	| 'ai_suggestion'
 	| 'module_custom'
 	| string; // custom modules can register their own — see backend service.py
 
