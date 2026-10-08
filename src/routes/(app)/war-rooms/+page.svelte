@@ -195,7 +195,7 @@
 				/>
 			</div>
 			{#if canCreate}
-				<Button class="h-9" onclick={() => (createOpen = true)}>
+				<Button class="h-9" onclick={() => (createOpen = true)} data-tour="war-room-new">
 					<Plus class="mr-1 h-4 w-4" /> New war room
 				</Button>
 			{/if}
@@ -307,7 +307,7 @@
 				<ShieldAlert class="h-10 w-10 text-muted-foreground/50" />
 				<p class="text-sm text-muted-foreground">No war rooms yet.</p>
 				{#if canCreate}
-					<Button variant="outline" onclick={() => (createOpen = true)}>
+					<Button variant="outline" onclick={() => (createOpen = true)} data-tour="war-room-new">
 						<Plus class="mr-1 h-4 w-4" /> Create your first war room
 					</Button>
 				{/if}
@@ -369,7 +369,7 @@
 </div>
 
 <Dialog bind:open={createOpen}>
-	<DialogContent>
+	<DialogContent data-tour="war-room-form">
 		<DialogHeader>
 			<DialogTitle>Create a war room</DialogTitle>
 			<DialogDescription>
@@ -383,6 +383,7 @@
 				<label class="text-xs font-medium text-muted-foreground" for="war-room-name"> Name </label>
 				<Input
 					id="war-room-name"
+					data-tour="war-room-name"
 					value={newName}
 					oninput={(e) => (newName = (e.target as HTMLInputElement).value)}
 					placeholder="e.g. Ransomware sweep 2026-06"
@@ -395,6 +396,7 @@
 				</label>
 				<Input
 					id="war-room-description"
+					data-tour="war-room-description"
 					value={newDescription}
 					oninput={(e) => (newDescription = (e.target as HTMLInputElement).value)}
 					placeholder="Short context for responders"

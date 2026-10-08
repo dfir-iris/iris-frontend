@@ -2,9 +2,9 @@
   War-room "Scope" tab.
 
   The assets and IOCs of every attached case the caller can read, in one
-  place: spot the same machine tracked in several cases, move assets
-  through the stage taxonomy in bulk, push objects into the cases that
-  are missing them, and drain the war-room staging inbox. The server only
+  place: spot the same machine tracked in several cases, set or remove
+  status flags in bulk, push objects into the cases that are missing
+  them, and drain the war-room staging inbox. The server only
   ever returns cases the caller can read; writes are re-checked per case
   (full access + attached) and come back as one result per case.
   Assets and IOCs are paged server-side (with per-case totals) so a room
@@ -21,9 +21,9 @@
 		Bug,
 		Columns3,
 		Download,
+		Flag,
 		Inbox,
 		Loader2,
-		Milestone,
 		Pin,
 		Plus,
 		ShieldPlus,
@@ -43,7 +43,8 @@
 	import { SearchableSelect } from '$lib/components/ui/searchable-select';
 	import { toast } from '$lib/components/ui/toast';
 	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
-	import { assetStages, loadAssetStages } from '$lib/stores/asset-stages.store.svelte';
+	import { assetFlags, loadAssetFlags } from '$lib/stores/asset-flags.store.svelte';
+	import type { AssetFlag } from '$lib/services/asset-flags.service';
 	import { AssetTypesService, type AssetType } from '$lib/services/asset-types.service';
 	import {
 		AnalysisStatusService,
@@ -58,14 +59,15 @@
 		type ScopeAssetPage,
 		type ScopeCase,
 		type ScopeExportFormat,
+		type ScopeFlagAction,
 		type ScopeIocPage,
 		type StagedObject
 	} from '$lib/services/war-room-scope.service';
 	import ScopeAssetsTable from './components/scope-assets-table.svelte';
-	import ScopeStageBoard from './components/scope-stage-board.svelte';
+	import ScopeFlagBoard from './components/scope-flag-board.svelte';
 	import ScopeIocsMatrix from './components/scope-iocs-matrix.svelte';
 	import ScopeStaging from './components/scope-staging.svelte';
-	import ScopeStageDialog from './components/scope-stage-dialog.svelte';
+	import ScopeFlagDialog from './components/scope-flag-dialog.svelte';
 	import ScopePushDialog from './components/scope-push-dialog.svelte';
 	import ScopeAddDialog from './components/scope-add-dialog.svelte';
 	import ScopePager from './components/scope-pager.svelte';
@@ -137,19 +139,19 @@
 
 	// --- Filters --------------------------------------------------------
 	// Initial values can come from the URL so the Board can deep-link
-	// (`?compromised=1`, `?vulnerable=open|exploited|none`, `?stage=<id>|none`,
+	// (`?compromised=1`, `?vulnerable=open|exploited|none`, `?flag=<id>|none`,
 	// `?case=<id>`, `?vulnerability=<identifier>`).
 	const positiveIntParam = (name: string): number | null => {
 		const n = Number(page.url.searchParams.get(name));
 		return Number.isInteger(n) && n > 0 ? n : null;
 	};
-	const stageFromUrl = (): number | 'none' | null =>
-		page.url.searchParams.get('stage') === 'none' ? 'none' : positiveIntParam('stage');
+	const flagFromUrl = (): number | 'none' | null =>
+		page.url.searchParams.get('flag') === 'none' ? 'none' : positiveIntParam('flag');
 
 	let search = $state('');
 	let debouncedSearch = $state('');
 	let caseFilter = $state<number | null>(positiveIntParam('case'));
-	let stageFilter = $state<number | 'none' | null>(stageFromUrl());
+	let flagFilter = $state<number | 'none' | null>(flagFromUrl());
 	let compromisedOnly = $state(page.url.searchParams.get('compromised') === '1');
 	let vulnerableFilter = $state<VulnerableFilter | null>(
 		parseVulnerableFilter(page.url.searchParams.get('vulnerable'))
@@ -176,7 +178,7 @@
 	const anyFilterActive = $derived(
 		search.trim() !== '' ||
 			caseFilter !== null ||
-			stageFilter !== null ||
+			flagFilter !== null ||
 			compromisedOnly ||
 			(canReadVulns && (vulnerableFilter !== null || vulnerabilityFilter !== null))
 	);
@@ -185,7 +187,7 @@
 		search = '';
 		debouncedSearch = '';
 		caseFilter = null;
-		stageFilter = null;
+		flagFilter = null;
 		compromisedOnly = false;
 		vulnerableFilter = null;
 		applyVulnerabilityFilter(null);
@@ -212,7 +214,7 @@
 	let iocTypes = $state<IocType[]>([]);
 	let tlps = $state<TlpItem[]>([]);
 
-	const stages = $derived(assetStages.items);
+	const flags = $derived(assetFlags.items);
 
 	/**
 	 * Load the current assets page. `prune` (filters changed) drops the
@@ -226,7 +228,7 @@
 		const res = await WarRoomScopeService.listAssets(warRoomId, {
 			q: debouncedSearch,
 			case_id: caseFilter ?? undefined,
-			stage_id: stageFilter ?? undefined,
+			flag_id: flagFilter ?? undefined,
 			compromised: compromisedOnly,
 			vulnerable: canReadVulns ? (vulnerableFilter ?? undefined) : undefined,
 			vulnerability: canReadVulns ? (vulnerabilityFilter ?? undefined) : undefined,
@@ -353,7 +355,7 @@
 	};
 
 	onMount(() => {
-		void loadAssetStages();
+		void loadAssetFlags();
 		void loadTaxonomies();
 		void loadStaging();
 		return () => {
@@ -370,7 +372,7 @@
 			warRoomId,
 			debouncedSearch,
 			caseFilter,
-			stageFilter,
+			flagFilter,
 			compromisedOnly,
 			vulnerableFilter,
 			vulnerabilityFilter,
@@ -462,9 +464,9 @@
 			? new Map<number, ScopeAssetCaseTotals>(assetsRes.case_totals.map((t) => [t.case_id, t]))
 			: undefined
 	);
-	const stageTotals = $derived(
-		assetsRes?.stage_totals
-			? new Map<number | null, number>(assetsRes.stage_totals.map((t) => [t.stage_id, t.assets]))
+	const flagTotals = $derived(
+		assetsRes?.flag_totals
+			? new Map<number | null, number>(assetsRes.flag_totals.map((t) => [t.flag_id, t.assets]))
 			: undefined
 	);
 	const vulnIdentifiers = $derived(scopeVulnIdentifiers(assets));
@@ -500,37 +502,43 @@
 	);
 	const selectedCaseCount = $derived(new Set(selectedAssetRows.map((a) => a.case_id)).size);
 
-	// --- Stage dialog ---------------------------------------------------
-	let stageOpen = $state(false);
-	let stageTargets = $state<ScopeAsset[]>([]);
-	let stageInitial = $state<number | null | undefined>(undefined);
+	// --- Flag dialog ----------------------------------------------------
+	let flagOpen = $state(false);
+	let flagTargets = $state<ScopeAsset[]>([]);
+	let flagInitialId = $state<number | null | undefined>(undefined);
+	let flagInitialAction = $state<ScopeFlagAction>('set');
 
-	const openStage = (rows: ScopeAsset[], initial?: number | null) => {
-		stageTargets = rows;
-		stageInitial = initial;
-		stageOpen = true;
+	const openFlag = (
+		rows: ScopeAsset[],
+		flagId?: number | null,
+		action: ScopeFlagAction = 'set'
+	) => {
+		flagTargets = rows;
+		flagInitialId = flagId;
+		flagInitialAction = action;
+		flagOpen = true;
 	};
 
-	const afterStage = () => {
+	const afterFlag = () => {
 		selectedAssets = [];
 		void loadAssets();
 	};
 
-	// Kanban drop: apply directly unless the stage needs a reason or a
+	// Board drop: set directly unless the flag needs a reason or a
 	// decision, in which case the dialog collects them first.
-	const moveAsset = async (asset: ScopeAsset, stageId: number | null) => {
-		const target = stages.find((s) => s.id === stageId) ?? null;
-		if (target?.requires_reason || target?.requires_decision) {
-			openStage([asset], stageId);
+	const setFlag = async (asset: ScopeAsset, flag: AssetFlag) => {
+		if (flag.requires_reason || flag.requires_decision) {
+			openFlag([asset], flag.id, 'set');
 			return;
 		}
-		const res = await WarRoomScopeService.setStage(warRoomId, {
+		const res = await WarRoomScopeService.bulkFlag(warRoomId, {
 			asset_ids: [asset.asset_id],
-			stage_id: stageId
+			flag_id: flag.id,
+			action: 'set'
 		});
 		if (!res.ok || !res.data || typeof res.data === 'string') {
 			toast({
-				title: 'Could not set the stage',
+				title: 'Could not set the flag',
 				description: errorMessage(res, 'The server refused the change.'),
 				variant: 'destructive'
 			});
@@ -539,15 +547,12 @@
 		const result = res.data.results[0];
 		if (result && (result.status === 'denied' || result.status === 'error')) {
 			toast({
-				title: 'Could not set the stage',
-				description: result.message ?? `Stage change ${result.status} for ${asset.asset_name}.`,
+				title: 'Could not set the flag',
+				description: result.message ?? `Flag change ${result.status} for ${asset.asset_name}.`,
 				variant: 'destructive'
 			});
 		} else {
-			toast({
-				title: `${asset.asset_name} → ${target?.name ?? 'No stage'}`,
-				variant: 'success'
-			});
+			toast({ title: `${asset.asset_name}: ${flag.name} set`, variant: 'success' });
 		}
 		void loadAssets();
 	};
@@ -574,7 +579,7 @@
 		pushTitle =
 			rows.length === 1 ? `Push ${rows[0].asset_name}` : `Push ${rows.length} assets to cases`;
 		pushDescription =
-			'Copies name, type, description, IP, domain, tags, compromise and analysis status. The stage is not copied.';
+			'Copies name, type, description, IP, domain, tags, compromise and analysis status. The flags are not copied.';
 		pushSources = rows;
 		pushInitial = [];
 		pushDisabled = rows.length === 1 ? [rows[0].case_id] : [];
@@ -792,7 +797,7 @@
 		<div>
 			<h2 class="text-lg font-semibold">Scope</h2>
 			<p class="text-xs text-muted-foreground">
-				Assets and IOCs across every attached case you can access. Set stages in bulk and push
+				Assets and IOCs across every attached case you can access. Set flags in bulk and push
 				objects to the cases missing them.
 			</p>
 		</div>
@@ -858,8 +863,8 @@
 					variant={assetView === 'board' ? 'secondary' : 'ghost'}
 					class="h-7 w-7"
 					onclick={() => (assetView = 'board')}
-					aria-label="Stage board view"
-					title="Stage board — drag cards to change the stage"
+					aria-label="Flag board view"
+					title="Flag board — drag a card onto a flag to set it"
 					data-testid="scope-view-board"
 				>
 					<Columns3 class="h-4 w-4" />
@@ -982,21 +987,21 @@
 			</div>
 
 			{#if tab === 'assets'}
-				<label class="flex shrink-0 items-center gap-1.5 text-2xs" for="scope-filter-stage">
-					<span class="text-muted-foreground">Stage</span>
+				<label class="flex shrink-0 items-center gap-1.5 text-2xs" for="scope-filter-flag">
+					<span class="text-muted-foreground">Flag</span>
 					<select
-						id="scope-filter-stage"
+						id="scope-filter-flag"
 						class="h-8 rounded-md border bg-background px-2 text-xs"
-						value={stageFilter == null ? '' : String(stageFilter)}
+						value={flagFilter == null ? '' : String(flagFilter)}
 						onchange={(e) => {
 							const v = (e.target as HTMLSelectElement).value;
-							stageFilter = v === '' ? null : v === 'none' ? 'none' : Number(v);
+							flagFilter = v === '' ? null : v === 'none' ? 'none' : Number(v);
 						}}
 					>
-						<option value="">All stages</option>
-						<option value="none">No stage</option>
-						{#each stages as s (s.id)}
-							<option value={String(s.id)}>{s.name}</option>
+						<option value="">All flags</option>
+						<option value="none">No flag</option>
+						{#each flags as f (f.id)}
+							<option value={String(f.id)}>{f.name}</option>
 						{/each}
 					</select>
 				</label>
@@ -1119,9 +1124,9 @@
 							variant="outline"
 							size="sm"
 							class="h-7 gap-1.5 text-xs"
-							onclick={() => openStage(selectedAssetRows)}
+							onclick={() => openFlag(selectedAssetRows)}
 						>
-							<Milestone class="h-3.5 w-3.5" /> Set stage
+							<Flag class="h-3.5 w-3.5" /> Set flag
 						</Button>
 						<Button
 							variant="outline"
@@ -1168,26 +1173,26 @@
 				</p>
 			</div>
 		{:else if assetView === 'board'}
-			<ScopeStageBoard
+			<ScopeFlagBoard
 				{assets}
-				{stages}
+				{flags}
 				{canWrite}
-				{stageTotals}
-				onMove={moveAsset}
-				onOpen={(a) => openStage([a])}
+				{flagTotals}
+				onSet={setFlag}
+				onOpen={(a, f) => openFlag([a], f?.id, 'set')}
 			/>
 		{:else}
 			<ScopeAssetsTable
 				{assets}
 				{sightings}
 				{caseTotals}
-				{stages}
+				{flags}
 				{cases}
 				selected={selectedAssets}
 				onSelectionChange={(next) => (selectedAssets = next)}
 				groupByCase={groupByCase && caseFilter === null}
 				{canWrite}
-				onStage={(a) => openStage([a])}
+				onFlag={(a) => openFlag([a])}
 				onPush={(a) => openAssetPush([a])}
 				onRecordVulnerability={canRecord && canReadVulns ? (a) => openRecord([a]) : undefined}
 				onFilterVulnerability={(identifier) =>
@@ -1314,13 +1319,14 @@
 	{/if}
 </div>
 
-<ScopeStageDialog
-	bind:open={stageOpen}
+<ScopeFlagDialog
+	bind:open={flagOpen}
 	{warRoomId}
-	{stages}
-	assets={stageTargets}
-	initialStageId={stageInitial}
-	onDone={afterStage}
+	{flags}
+	assets={flagTargets}
+	initialFlagId={flagInitialId}
+	initialAction={flagInitialAction}
+	onDone={afterFlag}
 />
 
 <ScopePushDialog
@@ -1367,7 +1373,7 @@
 	kind={addKind}
 	{warRoomId}
 	{cases}
-	{stages}
+	{flags}
 	{assetTypes}
 	{analysisStatuses}
 	{iocTypes}

@@ -379,7 +379,9 @@
 							<DropdownMenuItem
 								onclick={() => {
 									navigator.clipboard
-										.writeText(`[<i class="fa-solid fa-bell"></i> #25](${getAlertUrl()})`)
+										.writeText(
+											`[<i class="fa-solid fa-bell"></i> #${alert.alert_id}](${getAlertUrl()})`
+										)
 										.then(() => {
 											toast({
 												title: 'Link copied',

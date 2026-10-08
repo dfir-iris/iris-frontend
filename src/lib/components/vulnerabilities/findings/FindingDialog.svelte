@@ -89,7 +89,10 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+	<Dialog.Content
+		class="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+		data-tour="finding-form"
+	>
 		<Dialog.Header class="shrink-0 border-b px-6 py-4">
 			<Dialog.Title class="text-base font-medium">{title}</Dialog.Title>
 			{#if description}

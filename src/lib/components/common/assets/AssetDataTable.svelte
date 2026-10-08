@@ -6,7 +6,7 @@
 	import RowCheckbox from '$lib/components/common/RowCheckbox.svelte';
 	import RowActionsCell from '$lib/components/common/table/RowActionsCell.svelte';
 	import TruncatedTextCell from '$lib/components/common/table/TruncatedTextCell.svelte';
-	import AssetStageChip from './AssetStageChip.svelte';
+	import AssetFlagChips from './AssetFlagChips.svelte';
 	import AssetVulnCell from '$lib/components/vulnerabilities/AssetVulnCell.svelte';
 	import type { AssetVulnCounts } from '$lib/components/vulnerabilities/asset-vuln-counts';
 
@@ -23,8 +23,8 @@
 	// Opt-in detail columns and row actions — see IocDataTable for why
 	// they default to off.
 	export let showDescription: boolean = false;
-	// Stage column — case-scoped lists only; other tables have no use for it.
-	export let showStage: boolean = false;
+	// Flags column — case-scoped lists only; other tables have no use for it.
+	export let showFlags: boolean = false;
 	// Open vulnerability findings per asset id — the column shows only when set.
 	export let vulnCounts: Map<number, AssetVulnCounts> | null = null;
 	export let onShowEnrichment: ((asset: Asset) => void) | undefined = undefined;
@@ -96,13 +96,14 @@
 			accessorKey: 'asset_type.asset_name',
 			header: () => 'Type'
 		},
-		...(showStage
+		...(showFlags
 			? [
 					{
-						id: 'stage',
-						accessorFn: (row: Asset) => row.stage?.name ?? '',
-						header: () => 'Stage',
-						cell: (cell) => renderComponent(AssetStageChip, { stage: cell.row.original.stage })
+						id: 'flags',
+						accessorFn: (row: Asset) =>
+							(row.flags ?? []).map((entry) => entry.flag?.name ?? '').join(', '),
+						header: () => 'Flags',
+						cell: (cell) => renderComponent(AssetFlagChips, { flags: cell.row.original.flags })
 					} as ColumnDef<Asset>
 				]
 			: []),

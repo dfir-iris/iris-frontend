@@ -44,6 +44,14 @@ export interface ScopeAssetVulnerability {
 	exploitation_status: ExploitationStatus;
 }
 
+/** A status flag set on a scope asset; resolve the flag itself by id. */
+export interface ScopeAssetFlag {
+	flag_id: number;
+	reason: string | null;
+	decision_id: number | null;
+	set_at: string | null;
+}
+
 export interface ScopeAsset {
 	asset_id: number;
 	asset_uuid: string | null;
@@ -57,10 +65,8 @@ export interface ScopeAsset {
 	asset_compromise_status_id: number | null;
 	analysis_status_id: number | null;
 	analysis_status_name: string | null;
-	stage_id: number | null;
-	stage_reason: string | null;
-	stage_decision_id: number | null;
-	stage_updated_at: string | null;
+	/** Status flags set on the asset, in no particular order. */
+	flags: ScopeAssetFlag[];
 	case_id: number;
 	case_name: string;
 	customer_id: number | null;
@@ -124,16 +130,20 @@ export interface ScopeAssetCaseTotals {
 	vuln_exploited_open: number;
 }
 
-export interface ScopeAssetStageTotals {
-	/** null = assets without a stage. */
-	stage_id: number | null;
+/**
+ * Assets carrying one flag. An asset with several flags counts under each,
+ * so the entries do not add up to the total.
+ */
+export interface ScopeAssetFlagTotals {
+	/** null = assets without any flag. */
+	flag_id: number | null;
 	assets: number;
 }
 
 export interface ScopeAssetPage extends ScopeList<ScopeAsset> {
 	total?: number;
 	case_totals?: ScopeAssetCaseTotals[];
-	stage_totals?: ScopeAssetStageTotals[];
+	flag_totals?: ScopeAssetFlagTotals[];
 }
 
 export interface ScopeIocPage extends ScopeList<ScopeIoc> {
@@ -149,8 +159,10 @@ export interface ScopePageQuery {
 
 export interface ScopeAssetsQuery extends ScopePageQuery {
 	q?: string;
-	/** A stage id, or `'none'` for assets without a stage. */
-	stage_id?: number | 'none';
+	/** Assets carrying this flag, or `'none'` for assets without any flag. */
+	flag_id?: number | 'none';
+	/** Assets not carrying this flag. */
+	without_flag_id?: number;
 	case_id?: number;
 	compromised?: boolean;
 	/** Open findings, exploited findings, or no open finding. */
@@ -220,8 +232,9 @@ export interface ScopePushResponse {
 export interface ScopeCreateAssetBody {
 	asset: ScopeAssetInput;
 	case_ids: number[];
-	stage_id?: number;
-	stage_reason?: string;
+	/** Flags set on every created asset. */
+	flag_ids?: number[];
+	flag_reason?: string;
 }
 
 export interface ScopeCreateIocBody {
@@ -229,25 +242,29 @@ export interface ScopeCreateIocBody {
 	case_ids: number[];
 }
 
-export interface ScopeSetStageBody {
+export type ScopeFlagAction = 'set' | 'clear';
+
+export interface ScopeBulkFlagBody {
 	asset_ids: number[];
-	stage_id: number | null;
+	flag_id: number;
+	action: ScopeFlagAction;
 	reason?: string;
+	/** Ignored when removing. */
 	decision_id?: number | null;
 }
 
-export type ScopeStageResultStatus = 'updated' | 'unchanged' | 'denied' | 'error';
+export type ScopeFlagResultStatus = 'updated' | 'unchanged' | 'denied' | 'error';
 
-export interface ScopeStageResult {
+export interface ScopeFlagResult {
 	asset_id: number;
 	/** null when the asset does not exist. */
 	case_id: number | null;
-	status: ScopeStageResultStatus;
+	status: ScopeFlagResultStatus;
 	message?: string;
 }
 
-export interface ScopeSetStageResponse {
-	results: ScopeStageResult[];
+export interface ScopeBulkFlagResponse {
+	results: ScopeFlagResult[];
 }
 
 export type StagedObjectType = 'asset' | 'ioc';
@@ -278,7 +295,7 @@ export interface StagedObjectUpdateBody {
 	note?: string | null;
 }
 
-/** Minimal decision reference, used to link a stage change to a decision. */
+/** Minimal decision reference, used to link a flag change to a decision. */
 export interface ScopeDecisionRef {
 	decision_id: number;
 	ref: string;
@@ -403,7 +420,8 @@ export class WarRoomScopeService {
 		return ApiService.get(
 			ApiService.withQuery(`${base(warRoomId)}/assets`, {
 				q: q ? q : undefined,
-				stage_id: query.stage_id,
+				flag_id: query.flag_id,
+				without_flag_id: query.without_flag_id,
 				case_id: query.case_id,
 				compromised: query.compromised ? 1 : undefined,
 				vulnerable: query.vulnerable,
@@ -493,12 +511,13 @@ export class WarRoomScopeService {
 		);
 	}
 
-	static setStage(
+	/** Set or remove one flag on many assets; one result row per asset. */
+	static bulkFlag(
 		warRoomId: number,
-		body: ScopeSetStageBody,
+		body: ScopeBulkFlagBody,
 		options: ApiOptions = {}
-	): Promise<RequestResponse<ScopeSetStageResponse>> {
-		return ApiService.post(`${base(warRoomId)}/assets/stage`, body, options);
+	): Promise<RequestResponse<ScopeBulkFlagResponse>> {
+		return ApiService.post(`${base(warRoomId)}/assets/flags`, body, options);
 	}
 
 	static listStaging(
@@ -547,7 +566,7 @@ export class WarRoomScopeService {
 		);
 	}
 
-	/** Decisions of the room, to link a stage change to one. */
+	/** Decisions of the room, to link a flag change to one. */
 	static listDecisionRefs(
 		warRoomId: number,
 		options: ApiOptions = {}

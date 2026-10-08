@@ -20,10 +20,10 @@
 	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
-	import AssetStageChip from '$lib/components/common/assets/AssetStageChip.svelte';
+	import AssetFlagChips from '$lib/components/common/assets/AssetFlagChips.svelte';
 	import { COMPROMISE_STATUS } from '$lib/constants/compromise_status';
 	import { formatDateTime } from '$lib/utils/time-formatter';
-	import type { AssetStage } from '$lib/services/asset-stages.service';
+	import type { AssetFlag } from '$lib/services/asset-flags.service';
 	import type {
 		ScopeAsset,
 		ScopeAssetCaseTotals,
@@ -47,13 +47,13 @@
 		sightings: Map<string, ScopeAsset[]>;
 		/** Per-case totals over every page (paginated lists only). */
 		caseTotals?: Map<number, ScopeAssetCaseTotals>;
-		stages: AssetStage[];
+		flags: AssetFlag[];
 		cases: ScopeCase[];
 		selected: number[];
 		onSelectionChange: (next: number[]) => void;
 		groupByCase: boolean;
 		canWrite: boolean;
-		onStage: (asset: ScopeAsset) => void;
+		onFlag: (asset: ScopeAsset) => void;
 		onPush: (asset: ScopeAsset) => void;
 		/** Record a finding on this asset; the "+" is hidden when unset. */
 		onRecordVulnerability?: (asset: ScopeAsset) => void;
@@ -69,13 +69,13 @@
 		assets,
 		sightings,
 		caseTotals,
-		stages,
+		flags,
 		cases,
 		selected,
 		onSelectionChange,
 		groupByCase,
 		canWrite,
-		onStage,
+		onFlag,
 		onPush,
 		onRecordVulnerability,
 		onFilterVulnerability,
@@ -86,7 +86,7 @@
 	const TH = 'h-10 px-2 text-left align-middle text-xs font-medium text-muted-foreground';
 	const TD = 'px-2 py-1.5 align-middle';
 
-	const stageById = $derived(new Map(stages.map((s) => [s.id, s])));
+	const flagById = $derived(new Map(flags.map((f) => [f.id, f])));
 	const selectedSet = $derived(new Set(selected));
 	const allSelected = $derived(
 		assets.length > 0 && assets.every((a) => selectedSet.has(a.asset_id))
@@ -179,7 +179,16 @@
 			: '—';
 
 	const doneCount = (rows: ScopeAsset[]): number =>
-		rows.filter((r) => r.stage_id != null && stageById.get(r.stage_id)?.kind === 'done').length;
+		rows.filter((r) => (r.flags ?? []).some((f) => flagById.get(f.flag_id)?.kind === 'done'))
+			.length;
+
+	const flagsTitle = (a: ScopeAsset): string => {
+		const lines = (a.flags ?? []).map((f) => {
+			const name = flagById.get(f.flag_id)?.name ?? `Flag #${f.flag_id}`;
+			return f.reason ? `${name}: ${f.reason}` : name;
+		});
+		return lines.length ? lines.join('\n') : 'No flag';
+	};
 </script>
 
 <div class="max-h-[70vh] overflow-auto rounded-md border">
@@ -204,7 +213,7 @@
 				<th class={TH}>Customer</th>
 				<th class={TH}>Compromise</th>
 				<th class={TH} title="Investigation progress (case analysis status)">Analysis</th>
-				<th class={TH} title="Response progress (containment and recovery)">Stage</th>
+				<th class={TH} title="Status flags (isolated, patched…)">Flags</th>
 				<th class={`${TH} text-right`}>IOCs</th>
 				{#if showVulnerabilities}
 					<th class={TH} title="Vulnerability findings, open first">Vulns</th>
@@ -265,7 +274,6 @@
 				{#each g.rows as a (a.asset_id)}
 					{@const others = otherCases(a)}
 					{@const checked = selectedSet.has(a.asset_id)}
-					{@const stage = a.stage_id != null ? (stageById.get(a.stage_id) ?? null) : null}
 					{@const vulnTags = assetVulnTags(a.vulnerabilities)}
 					<tr
 						class={['border-b transition-colors hover:bg-muted/50', checked && 'bg-primary/5']}
@@ -326,23 +334,23 @@
 							{a.analysis_status_name ?? '—'}
 						</td>
 						<td class={TD}>
-							<div class="flex items-center gap-1">
+							<div class="flex items-center gap-1" data-testid="scope-asset-flags">
 								{#if canWrite}
 									<button
 										type="button"
-										class="rounded-md transition-opacity hover:opacity-80"
-										onclick={() => onStage(a)}
-										aria-label={`Change stage of ${a.asset_name} (currently ${stage?.name ?? 'no stage'})`}
-										title={a.stage_reason ?? 'Change stage'}
+										class="rounded-md text-left transition-opacity hover:opacity-80"
+										onclick={() => onFlag(a)}
+										aria-label={`Change flags of ${a.asset_name}`}
+										title={flagsTitle(a)}
 									>
-										<AssetStageChip {stage} size="xs" />
+										<AssetFlagChips flags={a.flags} max={3} />
 									</button>
 								{:else}
-									<span title={a.stage_reason ?? undefined}>
-										<AssetStageChip {stage} size="xs" />
+									<span title={flagsTitle(a)}>
+										<AssetFlagChips flags={a.flags} max={3} />
 									</span>
 								{/if}
-								{#if a.stage_decision_id != null}
+								{#if (a.flags ?? []).some((f) => f.decision_id != null)}
 									<Gavel class="h-3 w-3 text-muted-foreground" aria-label="Linked to a decision" />
 								{/if}
 							</div>

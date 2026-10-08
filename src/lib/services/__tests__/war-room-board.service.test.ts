@@ -13,29 +13,28 @@ vi.mock('../api.service', () => ({
 
 import {
 	WarRoomBoardService,
-	boardStageSegments,
+	boardFlagCounts,
 	boardVulnerabilityHref,
 	boardVulnerabilityHrefFor,
 	boardVulnerabilityKpis,
 	type WarRoomBoardKpis
 } from '../war-room-board.service';
-import type { AssetStage } from '../asset-stages.service';
+import type { AssetFlag } from '../asset-flags.service';
 import { ApiService } from '../api.service';
 
 const mock = (method: keyof typeof ApiService) =>
 	ApiService[method] as unknown as ReturnType<typeof vi.fn>;
 
-const stage = (id: number, name: string, color: string, sort_order: number): AssetStage => ({
+const flag = (id: number, name: string, color: string, sort_order: number): AssetFlag => ({
 	id,
 	name,
 	description: null,
 	color,
-	icon: null,
-	kind: 'progress',
+	icon: 'unplug',
+	kind: 'status',
 	sort_order,
 	requires_reason: false,
-	requires_decision: false,
-	is_optional: false
+	requires_decision: false
 });
 
 describe('WarRoomBoardService', () => {
@@ -62,28 +61,28 @@ describe('WarRoomBoardService', () => {
 	});
 });
 
-describe('boardStageSegments()', () => {
-	const stages = [stage(1, 'Identified', 'slate', 0), stage(2, 'Isolated', 'orange', 1)];
+describe('boardFlagCounts()', () => {
+	const flags = [flag(1, 'Isolated', 'blue', 0), flag(2, 'Patched', 'violet', 1)];
 
-	it('returns nothing for an empty or missing map', () => {
-		expect(boardStageSegments(undefined, stages)).toEqual([]);
-		expect(boardStageSegments({}, stages)).toEqual([]);
-		expect(boardStageSegments({ '1': 0, none: 0 }, stages)).toEqual([]);
+	it('returns nothing for an empty or missing map, or without assets', () => {
+		expect(boardFlagCounts(undefined, flags, 5)).toEqual([]);
+		expect(boardFlagCounts({}, flags, 5)).toEqual([]);
+		expect(boardFlagCounts({ '1': 0, none: 0 }, flags, 5)).toEqual([]);
+		expect(boardFlagCounts({ '1': 2 }, flags, 0)).toEqual([]);
 	});
 
-	it('orders segments by stage, then unknown, then unstaged', () => {
-		const out = boardStageSegments({ none: 2, '2': 1, '1': 3, '99': 2 }, stages);
+	it('orders rows by flag, then unknown, then unflagged', () => {
+		const out = boardFlagCounts({ none: 2, '2': 1, '1': 3, '99': 2 }, flags, 8);
 		expect(out.map((s) => s.key)).toEqual(['1', '2', 'other', 'none']);
 		expect(out.map((s) => s.count)).toEqual([3, 1, 2, 2]);
-		expect(out[0]).toMatchObject({ label: 'Identified', color: 'slate' });
-		expect(out[3]).toMatchObject({ label: 'No stage', color: null });
-		expect(out.reduce((acc, s) => acc + s.pct, 0)).toBeCloseTo(100);
+		expect(out[0]).toMatchObject({ label: 'Isolated', color: 'blue', icon: 'unplug' });
+		expect(out[3]).toMatchObject({ label: 'No flag', color: null });
 	});
 
-	it('drops zero-count stages', () => {
-		const out = boardStageSegments({ '1': 0, '2': 4 }, stages);
-		expect(out).toHaveLength(1);
-		expect(out[0]).toMatchObject({ key: '2', pct: 100 });
+	it('gives each flag its share of the assets, overlaps included', () => {
+		// 4 assets: 3 isolated, 2 patched (some carry both).
+		const out = boardFlagCounts({ '1': 3, '2': 2 }, flags, 4);
+		expect(out.map((s) => s.pct)).toEqual([75, 50]);
 	});
 });
 
@@ -109,7 +108,7 @@ describe('boardVulnerabilityHref()', () => {
 	});
 
 	it('ignores other item types and items without a case', () => {
-		expect(boardVulnerabilityHref({ type: 'compromised_unstaged', case_id: 4 })).toBeNull();
+		expect(boardVulnerabilityHref({ type: 'compromised_unflagged', case_id: 4 })).toBeNull();
 		expect(boardVulnerabilityHref({ type: 'vulnerability_overdue', case_id: null })).toBeNull();
 	});
 });
@@ -128,10 +127,10 @@ describe('boardVulnerabilityKpis()', () => {
 		cases_accessible: 1,
 		assets: 3,
 		compromised: 0,
-		staged: 0,
+		flagged: 0,
 		done: 0,
 		exceptions: 0,
-		unstaged: 0,
+		unflagged: 0,
 		decisions_open: 0,
 		decisions_overdue: 0,
 		decisions_due_24h: 0,

@@ -1,9 +1,9 @@
 <!--
   War-room "Board" tab: one-glance status of every attached case.
 
-  KPIs (each a link into its section), the stage funnel over every
-  asset the caller can see, one card per attached case with its stage
-  distribution, the open decisions and the computed "Needs attention"
+  KPIs (each a link into its section), the status flags over every
+  asset the caller can see, one card per attached case with its flag
+  counts, the open decisions and the computed "Needs attention"
   list. Cases the caller cannot read are shown as
   locked cards (the backend only sends their id). Refreshes every 60 s
   while the tab is visible.
@@ -37,10 +37,11 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { toast } from '$lib/components/ui/toast';
 	import { formatDateTime, formatTime } from '$lib/utils/time-formatter';
-	import { assetStageDotClass, sortAssetStages } from '$lib/services/asset-stages.service';
+	import { assetFlagDotClass, sortAssetFlags } from '$lib/services/asset-flags.service';
 	import {
 		WarRoomBoardService,
-		boardStageSegments,
+		boardFlagCounts,
+		type BoardFlagCount,
 		boardVulnerabilityHrefFor,
 		boardVulnerabilityKpis,
 		type WarRoomBoard,
@@ -99,20 +100,19 @@
 		}
 	});
 
-	const stages = $derived(sortAssetStages(board?.stages ?? []));
-	const stageById = $derived(new Map(stages.map((s) => [String(s.id), s])));
+	const flags = $derived(sortAssetFlags(board?.flags ?? []));
 
-	// Stage funnel over every visible asset: sum of the per-case maps.
-	const totalByStage = $derived.by(() => {
+	// Flags over every visible asset: sum of the per-case maps.
+	const totalByFlag = $derived.by(() => {
 		const out: Record<string, number> = {};
 		for (const c of board?.cases ?? []) {
-			if (!c.accessible || !c.by_stage) continue;
-			for (const [k, v] of Object.entries(c.by_stage)) out[k] = (out[k] ?? 0) + (Number(v) || 0);
+			if (!c.accessible || !c.by_flag) continue;
+			for (const [k, v] of Object.entries(c.by_flag)) out[k] = (out[k] ?? 0) + (Number(v) || 0);
 		}
 		return out;
 	});
-	const funnel = $derived(boardStageSegments(totalByStage, stages));
 	const kpis = $derived(board?.kpis ?? null);
+	const flagTotals = $derived(boardFlagCounts(totalByFlag, flags, kpis?.assets ?? 0));
 	// The backend omits the vulnerability KPIs and attention items without
 	// `vulnerabilities_read`; the UI gate also keeps the links to the scope
 	// Vulnerabilities tab away from those users.
@@ -143,7 +143,7 @@
 
 	const attentionIcon = (type: string) => {
 		switch (type) {
-			case 'compromised_unstaged':
+			case 'compromised_unflagged':
 				return Unplug;
 			case 'exception_without_decision':
 				return ShieldOff;
@@ -180,8 +180,11 @@
 	const section = (path: string, query = '') =>
 		`/war-rooms/${warRoomId}/${path}${query ? `?${query}` : ''}`;
 
-	const segmentHref = (key: string): string | null =>
-		key === 'other' ? null : section('scope', `stage=${key}`);
+	const flagHref = (key: string): string | null =>
+		key === 'other' ? null : section('scope', `flag=${key}`);
+
+	const flagDot = (f: BoardFlagCount): string =>
+		f.key === 'none' ? 'bg-muted-foreground/25' : assetFlagDotClass(f.color);
 
 	const decisionStatusCls = (status: string): string =>
 		status === 'approved'
@@ -194,24 +197,14 @@
 			: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200';
 </script>
 
-{#snippet stageBar(segments: ReturnType<typeof boardStageSegments>, height: string)}
+{#snippet doneBar(done: number, total: number, height: string)}
+	{@const pct = total > 0 ? Math.min(100, (done / total) * 100) : 0}
 	<div
 		class={['flex w-full overflow-hidden rounded-full bg-muted', height]}
 		role="img"
-		aria-label={segments.length
-			? segments.map((s) => `${s.label}: ${s.count}`).join(', ')
-			: 'No assets'}
+		aria-label={total > 0 ? `${done} of ${total} assets done` : 'No assets'}
 	>
-		{#each segments as s (s.key)}
-			<span
-				class={[
-					'h-full',
-					s.key === 'none' ? 'bg-muted-foreground/25' : assetStageDotClass(s.color)
-				]}
-				style:width={`${s.pct}%`}
-				title={`${s.label}: ${s.count}`}
-			></span>
-		{/each}
+		<span class="h-full bg-emerald-500" style:width={`${pct}%`}></span>
 	</div>
 {/snippet}
 
@@ -270,7 +263,7 @@
 				{@render kpi(
 					'Compromised',
 					kpis.compromised,
-					`${kpis.unstaged} ${kpis.unstaged === 1 ? 'asset' : 'assets'} without a stage`,
+					`${kpis.unflagged} ${kpis.unflagged === 1 ? 'asset' : 'assets'} without a flag`,
 					Unplug,
 					kpis.compromised > 0 ? 'text-red-600 dark:text-red-400' : '',
 					section('scope', 'compromised=1')
@@ -292,7 +285,7 @@
 				{@render kpi(
 					'Exceptions',
 					kpis.exceptions,
-					kpis.exceptions > 0 ? 'Assets in an exception stage' : 'None',
+					kpis.exceptions > 0 ? 'Assets with an exception flag' : 'None',
 					ShieldOff,
 					kpis.exceptions > 0 ? 'text-amber-600 dark:text-amber-400' : '',
 					section('scope', 'view=board')
@@ -309,7 +302,7 @@
 					class="shadow-elevation-1 rounded-xl border border-border/60 bg-card p-4 sm:col-span-2 xl:col-span-1"
 				>
 					<div class="flex items-center justify-between text-xs font-medium text-muted-foreground">
-						Stages · {kpis.assets}
+						Flags · {kpis.assets}
 						{kpis.assets === 1 ? 'asset' : 'assets'}
 						<a
 							href={section('scope', 'view=board')}
@@ -322,11 +315,14 @@
 						<span class="text-2xl font-semibold tabular-nums">{donePct}%</span>
 						<span class="text-2xs text-muted-foreground">done</span>
 					</div>
-					<div class="mt-2">{@render stageBar(funnel, 'h-2')}</div>
-					{#if funnel.length}
-						<ul class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-2xs text-muted-foreground">
-							{#each funnel as s (s.key)}
-								{@const href = segmentHref(s.key)}
+					<div class="mt-2">{@render doneBar(kpis.done, kpis.assets, 'h-2')}</div>
+					{#if flagTotals.length}
+						<ul
+							class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-2xs text-muted-foreground"
+							data-testid="board-flag-totals"
+						>
+							{#each flagTotals as s (s.key)}
+								{@const href = flagHref(s.key)}
 								<li>
 									<svelte:element
 										this={href ? 'a' : 'span'}
@@ -335,13 +331,9 @@
 											'inline-flex items-center gap-1 rounded',
 											href && 'hover:text-foreground hover:underline'
 										]}
+										title={`${s.label}: ${s.count} (${Math.round(s.pct)}% of the assets)`}
 									>
-										<span
-											class={[
-												'h-2 w-2 rounded-full',
-												s.key === 'none' ? 'bg-muted-foreground/25' : assetStageDotClass(s.color)
-											]}
-										></span>
+										<span class={['h-2 w-2 rounded-full', flagDot(s)]}></span>
 										{s.label}
 										<span class="tabular-nums text-foreground">{s.count}</span>
 									</svelte:element>
@@ -413,7 +405,7 @@
 					<header class="flex items-center gap-2 border-b px-4 py-2.5">
 						<LayoutDashboard class="h-4 w-4 text-muted-foreground" />
 						<h3 id="board-cases-title" class="text-sm font-semibold">Cases</h3>
-						<span class="ml-auto text-2xs text-muted-foreground">Assets by stage</span>
+						<span class="ml-auto text-2xs text-muted-foreground">Assets by flag</span>
 					</header>
 					{#if sortedCases.length === 0}
 						<p class="py-8 text-center text-xs text-muted-foreground">
@@ -432,7 +424,7 @@
 										<span class="truncate">Restricted case — you don't have access</span>
 									</article>
 								{:else}
-									{@const segments = boardStageSegments(c.by_stage, stages)}
+									{@const caseFlags = boardFlagCounts(c.by_flag, flags, c.assets_total ?? 0)}
 									<article
 										class="hover:shadow-elevation-2 rounded-lg border bg-card p-3 shadow-sm transition-shadow"
 										data-testid="board-case"
@@ -474,7 +466,7 @@
 											</div>
 										</div>
 										<div class="mt-3">
-											{@render stageBar(segments, 'h-1.5')}
+											{@render doneBar(c.by_kind?.done ?? 0, c.assets_total ?? 0, 'h-1.5')}
 											<div class="mt-1 flex justify-between text-2xs text-muted-foreground">
 												<span>
 													<span class="font-medium tabular-nums text-foreground"
@@ -499,26 +491,19 @@
 											{#if (c.by_kind?.exception ?? 0) > 0}
 												<span
 													class="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300"
-													title="Assets in an exception stage"
+													title="Assets with an exception flag"
 												>
 													<ShieldOff class="h-3 w-3" />{c.by_kind?.exception}
 												</span>
 											{/if}
 										</div>
-										{#if segments.length}
+										{#if caseFlags.length}
 											<ul
 												class="mt-2 flex flex-wrap gap-x-2.5 gap-y-0.5 text-2xs text-muted-foreground"
 											>
-												{#each segments as s (s.key)}
+												{#each caseFlags as s (s.key)}
 													<li class="inline-flex items-center gap-1">
-														<span
-															class={[
-																'h-1.5 w-1.5 rounded-full',
-																s.key === 'none'
-																	? 'bg-muted-foreground/25'
-																	: assetStageDotClass(stageById.get(s.key)?.color ?? s.color)
-															]}
-														></span>
+														<span class={['h-1.5 w-1.5 rounded-full', flagDot(s)]}></span>
 														{s.label}
 														{s.count}
 													</li>

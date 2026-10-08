@@ -57,17 +57,17 @@ describe('WarRoomScopeService', () => {
 			expect(out).toBe(res);
 		});
 
-		it('serialises every filter, compromised as 1 and "none" stage verbatim', async () => {
+		it('serialises every filter, compromised as 1 and "none" flag verbatim', async () => {
 			mock('get').mockResolvedValueOnce({ ok: true, status: 200 });
 
 			await WarRoomScopeService.listAssets(
 				7,
-				{ q: '  dc01 ', stage_id: 'none', case_id: 3, compromised: true },
+				{ q: '  dc01 ', flag_id: 'none', case_id: 3, compromised: true },
 				{ skipTokenRefresh: true }
 			);
 
 			expect(ApiService.get).toHaveBeenCalledWith(
-				'/war-rooms/7/scope/assets?q=dc01&stage_id=none&case_id=3&compromised=1',
+				'/war-rooms/7/scope/assets?q=dc01&flag_id=none&case_id=3&compromised=1',
 				{ skipTokenRefresh: true }
 			);
 		});
@@ -75,9 +75,17 @@ describe('WarRoomScopeService', () => {
 		it('drops a blank search and a false compromised flag', async () => {
 			mock('get').mockResolvedValueOnce({ ok: true, status: 200 });
 
-			await WarRoomScopeService.listAssets(7, { q: '   ', compromised: false, stage_id: 4 });
+			await WarRoomScopeService.listAssets(7, {
+				q: '   ',
+				compromised: false,
+				flag_id: 4,
+				without_flag_id: 2
+			});
 
-			expect(ApiService.get).toHaveBeenCalledWith('/war-rooms/7/scope/assets?stage_id=4', {});
+			expect(ApiService.get).toHaveBeenCalledWith(
+				'/war-rooms/7/scope/assets?flag_id=4&without_flag_id=2',
+				{}
+			);
 		});
 	});
 
@@ -96,8 +104,8 @@ describe('WarRoomScopeService', () => {
 			const body = {
 				asset: { asset_name: 'DC01', asset_type_id: 9 },
 				case_ids: [1, 2],
-				stage_id: 3,
-				stage_reason: 'why'
+				flag_ids: [3, 4],
+				flag_reason: 'why'
 			};
 			mock('post').mockResolvedValueOnce({ ok: true, status: 200 });
 
@@ -147,14 +155,19 @@ describe('WarRoomScopeService', () => {
 		});
 	});
 
-	describe('setStage', () => {
-		it('POSTs the bulk stage change, null stage included', async () => {
-			const body = { asset_ids: [1, 2], stage_id: null, reason: 'reset', decision_id: null };
+	describe('bulkFlag', () => {
+		it('POSTs the bulk flag change', async () => {
+			const body = {
+				asset_ids: [1, 2],
+				flag_id: 3,
+				action: 'clear' as const,
+				reason: 'reconnected'
+			};
 			mock('post').mockResolvedValueOnce({ ok: true, status: 200 });
 
-			await WarRoomScopeService.setStage(7, body);
+			await WarRoomScopeService.bulkFlag(7, body);
 
-			expect(ApiService.post).toHaveBeenCalledWith('/war-rooms/7/scope/assets/stage', body, {});
+			expect(ApiService.post).toHaveBeenCalledWith('/war-rooms/7/scope/assets/flags', body, {});
 		});
 	});
 

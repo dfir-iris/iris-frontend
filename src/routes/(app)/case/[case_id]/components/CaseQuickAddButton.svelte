@@ -120,6 +120,7 @@
 		variant="default"
 		size="sm"
 		class="h-8 gap-x-1 rounded-sm"
+		data-tour="case-quick-add"
 		onclick={() => void action.run()}
 	>
 		<action.Icon size={16} />

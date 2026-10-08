@@ -273,7 +273,7 @@
 				details.
 			</p>
 		</div>
-		<Button onclick={openAttach}>
+		<Button onclick={openAttach} data-tour="war-room-attach">
 			<Plus class="mr-1 h-4 w-4" /> Attach cases
 		</Button>
 	</div>
@@ -289,7 +289,7 @@
 			<p class="text-sm text-muted-foreground">
 				No cases attached yet. Attach cases to start coordinating them from this war room.
 			</p>
-			<Button variant="outline" onclick={openAttach}>
+			<Button variant="outline" onclick={openAttach} data-tour="war-room-attach">
 				<Plus class="mr-1 h-4 w-4" /> Attach cases
 			</Button>
 		</div>
@@ -494,7 +494,10 @@
   case names; the candidates list owns the scroll inside that frame.
 -->
 <Dialog bind:open={attachOpen}>
-	<DialogContent class="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+	<DialogContent
+		class="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+		data-tour="war-room-attach-form"
+	>
 		<DialogHeader class="border-b px-6 py-4">
 			<DialogTitle>Attach cases</DialogTitle>
 			<DialogDescription>
@@ -509,6 +512,7 @@
 					class="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
 				/>
 				<Input
+					data-tour="war-room-attach-search"
 					value={caseSearch}
 					oninput={(e) => onSearchCandidates((e.target as HTMLInputElement).value)}
 					placeholder="Search by case name, customer, or id"

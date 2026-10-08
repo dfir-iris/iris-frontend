@@ -290,7 +290,6 @@
 				onCancelEditing={cancelEditing}
 				onSaveChanges={saveChanges}
 				onDelete={handleIocDeleted}
-				deleteUrl={`/api/v2/cases/${caseId}/iocs/${ioc.ioc_id}`}
 				deletePrompt={`Are you sure you want to delete the IOC "${ioc.ioc_value}"? This action cannot be undone.`}
 				shareUrl={getIocUrl(caseId, String(ioc.ioc_id))}
 				hookType="ioc"

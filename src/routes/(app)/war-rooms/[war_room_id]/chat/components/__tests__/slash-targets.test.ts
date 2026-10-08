@@ -6,6 +6,12 @@ describe('isScopeSlashCommand', () => {
 		expect(isScopeSlashCommand('/asset WS-042 #')).toBe(true);
 		expect(isScopeSlashCommand('/share-note Plan ')).toBe(true);
 		expect(isScopeSlashCommand('/push\tx')).toBe(true);
+		expect(isScopeSlashCommand('/flag WS-042 Isolated #')).toBe(true);
+		expect(isScopeSlashCommand('/unflag WS-042 Isolated ')).toBe(true);
+	});
+
+	it('no longer matches the removed /stage command', () => {
+		expect(isScopeSlashCommand('/stage WS-042 Isolated #')).toBe(false);
 	});
 
 	it('ignores other commands, bare commands and plain text', () => {

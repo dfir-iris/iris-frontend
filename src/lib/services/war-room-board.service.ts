@@ -1,22 +1,23 @@
 /**
  * War-room board: one aggregated read of every attached case's asset
- * stages, open decisions and tasks, plus a computed "needs attention"
+ * status flags, open decisions and tasks, plus a computed "needs attention"
  * list. Cases the caller cannot read only appear as
  * `{case_id, accessible: false}`.
  */
 import { ApiService } from './api.service';
 import type { ApiOptions, RequestResponse } from './api.service';
-import type { AssetStage, AssetStageKind } from './asset-stages.service';
+import type { AssetFlag, AssetFlagKind } from './asset-flags.service';
 
 export interface WarRoomBoardKpis {
 	cases: number;
 	cases_accessible: number;
 	assets: number;
 	compromised: number;
-	staged: number;
+	/** Assets carrying at least one flag. */
+	flagged: number;
 	done: number;
 	exceptions: number;
-	unstaged: number;
+	unflagged: number;
 	decisions_open: number;
 	decisions_overdue: number;
 	decisions_due_24h: number;
@@ -56,14 +57,17 @@ export interface WarRoomBoardCase {
 	severity_name?: string | null;
 	assets_total?: number;
 	assets_compromised?: number;
-	/** Keyed by stage id (as a string) or `"none"` for unstaged assets. */
-	by_stage?: Record<string, number>;
-	by_kind?: Record<AssetStageKind | 'none', number>;
+	/**
+	 * Keyed by flag id (as a string), plus `"none"` for assets without any
+	 * flag. An asset carrying several flags counts under each.
+	 */
+	by_flag?: Record<string, number>;
+	by_kind?: Record<AssetFlagKind | 'none', number>;
 	tasks_open?: number;
 }
 
 export type WarRoomBoardAttentionType =
-	| 'compromised_unstaged'
+	| 'compromised_unflagged'
 	| 'exception_without_decision'
 	| 'decision_overdue'
 	| 'decision_due_soon'
@@ -105,74 +109,81 @@ export interface WarRoomBoardDecision {
 export interface WarRoomBoard {
 	generated_at: string | null;
 	kpis: WarRoomBoardKpis;
-	stages: AssetStage[];
+	flags: AssetFlag[];
 	cases: WarRoomBoardCase[];
 	attention: WarRoomBoardAttention[];
 	/** Absent on servers that predate the field. */
 	decisions?: WarRoomBoardDecision[];
 }
 
-export interface StageSegment {
+export interface BoardFlagCount {
+	/** Flag id as a string, `'other'` (flags deleted since) or `'none'`. */
 	key: string;
 	label: string;
 	color: string | null;
+	icon: string | null;
 	count: number;
-	/** Percentage of the bar width, 0-100. */
+	/** Share of the assets carrying it, 0-100. */
 	pct: number;
 }
 
 /**
- * Turn a `by_stage` map into ordered bar segments: the configured stages
- * in board order, then the unstaged bucket. Zero-count buckets are
- * dropped; unknown stage ids (deleted since) are folded into "Other".
+ * Turn a `by_flag` map into one row per flag: the configured flags in
+ * display order, then flags deleted since folded into "Other", then the
+ * assets without any flag. An asset carrying several flags counts under
+ * each, so the rows are shares of `assetsTotal` and do not add up to
+ * 100. Zero-count rows are dropped.
  */
-export const boardStageSegments = (
-	byStage: Record<string, number> | null | undefined,
-	stages: AssetStage[]
-): StageSegment[] => {
-	if (!byStage) return [];
-	const total = Object.values(byStage).reduce((acc, n) => acc + (Number(n) || 0), 0);
-	if (total <= 0) return [];
-	const segments: StageSegment[] = [];
+export const boardFlagCounts = (
+	byFlag: Record<string, number> | null | undefined,
+	flags: AssetFlag[],
+	assetsTotal: number
+): BoardFlagCount[] => {
+	if (!byFlag || assetsTotal <= 0) return [];
+	const pct = (count: number) => Math.min(100, (count / assetsTotal) * 100);
+	const rows: BoardFlagCount[] = [];
 	const known = new Set<string>();
-	for (const stage of stages) {
-		const key = String(stage.id);
+	for (const flag of flags) {
+		const key = String(flag.id);
 		known.add(key);
-		const count = Number(byStage[key]) || 0;
+		const count = Number(byFlag[key]) || 0;
 		if (count > 0) {
-			segments.push({
+			rows.push({
 				key,
-				label: stage.name,
-				color: stage.color,
+				label: flag.name,
+				color: flag.color,
+				icon: flag.icon,
 				count,
-				pct: (count / total) * 100
+				pct: pct(count)
 			});
 		}
 	}
 	let other = 0;
-	for (const [key, value] of Object.entries(byStage)) {
+	for (const [key, value] of Object.entries(byFlag)) {
 		if (key !== 'none' && !known.has(key)) other += Number(value) || 0;
 	}
 	if (other > 0) {
-		segments.push({
+		rows.push({
 			key: 'other',
 			label: 'Other',
 			color: 'gray',
+			icon: null,
 			count: other,
-			pct: (other / total) * 100
+			pct: pct(other)
 		});
 	}
-	const none = Number(byStage.none) || 0;
+	const none = Number(byFlag.none) || 0;
 	if (none > 0) {
-		segments.push({
+		rows.push({
 			key: 'none',
-			label: 'No stage',
+			label: 'No flag',
 			color: null,
+			icon: null,
 			count: none,
-			pct: (none / total) * 100
+			pct: pct(none)
 		});
 	}
-	return segments;
+	return rows;
 };
 
 const VULNERABILITY_ATTENTION_TYPES: ReadonlySet<string> = new Set([

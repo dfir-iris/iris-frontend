@@ -5,6 +5,7 @@ import { apiOrigin } from '$lib/config/api.config';
 import { ApiLogger } from '$lib/utils/api-logger';
 import { setLastRequestId } from '$lib/observability/request-id-store';
 import { toast } from '$lib/stores/toast.store';
+import { apiEventPath, emitApiEvent, hasApiEventListeners } from './api-events';
 
 export type ResponseData<T> = T | string | null;
 
@@ -294,6 +295,16 @@ export class ApiService {
 					} else {
 						responseData = await response.text();
 					}
+				}
+
+				if (browser && hasApiEventListeners()) {
+					emitApiEvent({
+						method: method.toUpperCase(),
+						path: apiEventPath(fullUrl),
+						status: response.status,
+						ok: response.ok,
+						data: responseData
+					});
 				}
 
 				// Return the response data, status, and headers

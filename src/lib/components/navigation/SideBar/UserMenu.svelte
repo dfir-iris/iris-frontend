@@ -3,7 +3,14 @@
 	import { page } from '$app/state';
 	import { current_user, username } from '$lib/stores/auth.store';
 	import { mode, toggleMode } from 'mode-watcher';
-	import { BellIcon, LogOutIcon, MoonIcon, SlidersHorizontalIcon, SunIcon } from 'lucide-svelte';
+	import {
+		BellIcon,
+		GraduationCapIcon,
+		LogOutIcon,
+		MoonIcon,
+		SlidersHorizontalIcon,
+		SunIcon
+	} from 'lucide-svelte';
 	import { AuthService } from '$lib/services/auth.service';
 	import UserAvatar from '$lib/components/common/UserAvatar.svelte';
 	import MenuItem from './MenuItem.svelte';
@@ -65,6 +72,14 @@
 			icon={BellIcon}
 			href="/profile/notifications"
 			active={pathname === '/profile/notifications'}
+		/>
+
+		<MenuItem
+			{collapsed}
+			label="Tutorials"
+			icon={GraduationCapIcon}
+			href="/tutorials"
+			active={pathname === '/tutorials'}
 		/>
 
 		{#if $mode === 'light'}

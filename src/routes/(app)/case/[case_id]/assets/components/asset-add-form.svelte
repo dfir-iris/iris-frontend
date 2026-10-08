@@ -85,6 +85,7 @@
 						</div>
 
 						<Textarea
+							data-tour="asset-name"
 							value={addData.asset_names}
 							onchange={(e) => updateField('asset_names', (e.target as HTMLTextAreaElement).value)}
 							placeholder={addData.one_per_line ? 'One asset per line' : 'Asset name'}

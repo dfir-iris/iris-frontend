@@ -918,7 +918,7 @@
 				Import
 			</Button>
 
-			<Button size="sm" onclick={() => (cases.ui.showAddModal = true)}>
+			<Button size="sm" onclick={() => (cases.ui.showAddModal = true)} data-tour="case-new">
 				<PlusIcon />
 				Open a case
 			</Button>

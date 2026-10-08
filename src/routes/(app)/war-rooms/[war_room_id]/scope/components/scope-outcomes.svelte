@@ -1,5 +1,5 @@
 <!--
-  Per-case outcome of a fan-out write (create / push / set stage).
+  Per-case outcome of a fan-out write (create / push / set flag).
 -->
 <script lang="ts">
 	import { OUTCOME_CLASS, OUTCOME_LABEL, summariseOutcomes, type ScopeOutcome } from './helpers';

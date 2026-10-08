@@ -16,7 +16,8 @@
 	 * to `.iris-triage` so nothing leaks into the rest of the app.
 	 */
 	import { getContext, onDestroy, onMount } from 'svelte';
-	import { Check, Copy } from 'lucide-svelte';
+	import { page as appPage } from '$app/state';
+	import { Check, Copy, EllipsisIcon, LinkIcon, PencilIcon } from 'lucide-svelte';
 	import type { Alert } from '$lib/types/resources/alert';
 	import type { AlertCluster } from '$lib/types/resources/alert-cluster';
 	import type { AlertQueueUnit } from '$lib/types/resources/alert-queue-unit';
@@ -261,7 +262,8 @@
 	let rowEls = $state<Record<number, HTMLElement | undefined>>({});
 	let showAssignMenu = $state<boolean>(false);
 	let showStatusMenu = $state<boolean>(false);
-	let showModulesMenu = $state<boolean>(false);
+	let showMoreMenu = $state<boolean>(false);
+	let showShareMenu = $state<boolean>(false);
 
 	// Buttons contributed by modules that registered
 	// `on_manual_trigger_alert`. Triggering one writes to the alert, so
@@ -272,7 +274,7 @@
 	);
 
 	const triggerHook = async (alert: Alert, hookOption: HookOption) => {
-		showModulesMenu = false;
+		showMoreMenu = false;
 		const result = await callAlertHook([alert.alert_id], hookOption);
 		toast({
 			title: result.message,
@@ -315,6 +317,20 @@
 	};
 
 	onDestroy(() => clearTimeout(copiedTimer));
+
+	// The list card's "Share" and "Markdown Link" items: a link to the
+	// alert's own page, raw or wrapped for a note or comment.
+	const alertUrl = (alert: Alert) => `${appPage.url.origin}/alerts/${alert.alert_id}`;
+
+	const shareAlert = async (alert: Alert, markdown: boolean) => {
+		showShareMenu = false;
+		const url = alertUrl(alert);
+		const text = markdown ? `[<i class="fa-solid fa-bell"></i> #${alert.alert_id}](${url})` : url;
+		await copyValue(text, `share-${alert.alert_id}`);
+		if (copiedKey === `share-${alert.alert_id}`) {
+			toast({ title: 'Link copied', variant: 'success' });
+		}
+	};
 
 	// ---- resizable divider between queue and detail ----
 	//
@@ -403,7 +419,8 @@
 			const wrap = (e.target as HTMLElement | null)?.closest('.menu-wrap');
 			if (wrap?.getAttribute('data-menu') !== 'assign') showAssignMenu = false;
 			if (wrap?.getAttribute('data-menu') !== 'status') showStatusMenu = false;
-			if (wrap?.getAttribute('data-menu') !== 'modules') showModulesMenu = false;
+			if (wrap?.getAttribute('data-menu') !== 'more') showMoreMenu = false;
+			if (wrap?.getAttribute('data-menu') !== 'share') showShareMenu = false;
 		};
 		document.addEventListener('click', onDocClick, true);
 		return () => {
@@ -1263,46 +1280,6 @@
 						<button type="button" class="btn-accent" onclick={() => onEscalate(f)}
 							>Escalate to case</button
 						>
-						<button type="button" class="btn-outline" onclick={() => onMerge(f)}>Merge…</button>
-						{#if canEdit}
-							<button
-								type="button"
-								class="btn-outline"
-								title="Edit alert"
-								onclick={() => onEdit?.(f)}>Edit</button
-							>
-						{/if}
-						<div class="menu-wrap" data-menu="assign">
-							<button
-								type="button"
-								class="btn-outline"
-								onclick={() => (showAssignMenu = !showAssignMenu)}
-								aria-haspopup="true"
-								aria-expanded={showAssignMenu}>Assign ▾</button
-							>
-							{#if showAssignMenu}
-								<div class="menu-dropdown" role="menu">
-									<button
-										type="button"
-										class="menu-item"
-										role="menuitem"
-										onclick={() => {
-											onAssignToMe(f);
-											showAssignMenu = false;
-										}}>Assign to me</button
-									>
-									<button
-										type="button"
-										class="menu-item"
-										role="menuitem"
-										onclick={() => {
-											onAssign(f);
-											showAssignMenu = false;
-										}}>Assign to…</button
-									>
-								</div>
-							{/if}
-						</div>
 						{#if canSetStatus}
 							<!--
 							  The list view's "Set status" dropdown, minus the
@@ -1349,18 +1326,120 @@
 								{/if}
 							</div>
 						{/if}
-						{#if canTriggerHooks}
-							<div class="menu-wrap" data-menu="modules">
-								<button
-									type="button"
-									class="btn-outline"
-									title="Actions contributed by modules"
-									onclick={() => (showModulesMenu = !showModulesMenu)}
-									aria-haspopup="true"
-									aria-expanded={showModulesMenu}>Modules ▾</button
-								>
-								{#if showModulesMenu}
-									<div class="menu-dropdown" role="menu">
+						<div class="menu-wrap" data-menu="assign">
+							<button
+								type="button"
+								class="btn-outline"
+								onclick={() => (showAssignMenu = !showAssignMenu)}
+								aria-haspopup="true"
+								aria-expanded={showAssignMenu}>Assign ▾</button
+							>
+							{#if showAssignMenu}
+								<div class="menu-dropdown" role="menu">
+									<button
+										type="button"
+										class="menu-item"
+										role="menuitem"
+										onclick={() => {
+											onAssignToMe(f);
+											showAssignMenu = false;
+										}}>Assign to me</button
+									>
+									<button
+										type="button"
+										class="menu-item"
+										role="menuitem"
+										onclick={() => {
+											onAssign(f);
+											showAssignMenu = false;
+										}}>Assign to…</button
+									>
+								</div>
+							{/if}
+						</div>
+
+						<!--
+						  The triage decisions above stay labelled; the rest goes
+						  icon-only after the rule, the rarer and destructive ones
+						  behind "More" so the row stays on one line.
+						-->
+						<span class="actions-sep" aria-hidden="true"></span>
+
+						{#if canEdit}
+							<button
+								type="button"
+								class="btn-outline btn-icon"
+								title="Edit alert"
+								aria-label="Edit alert"
+								onclick={() => onEdit?.(f)}
+							>
+								<PencilIcon size="15" aria-hidden="true" />
+							</button>
+						{/if}
+						<div class="menu-wrap" data-menu="share">
+							<button
+								type="button"
+								class="btn-outline btn-icon"
+								title="Share — copy a link to this alert"
+								aria-label="Share"
+								onclick={() => (showShareMenu = !showShareMenu)}
+								aria-haspopup="true"
+								aria-expanded={showShareMenu}
+							>
+								<LinkIcon size="15" aria-hidden="true" />
+							</button>
+							{#if showShareMenu}
+								<div class="menu-dropdown" role="menu">
+									<button
+										type="button"
+										class="menu-item"
+										role="menuitem"
+										onclick={() => shareAlert(f, false)}>Copy link</button
+									>
+									<button
+										type="button"
+										class="menu-item"
+										role="menuitem"
+										onclick={() => shareAlert(f, true)}>Copy Markdown link</button
+									>
+								</div>
+							{/if}
+						</div>
+						<div class="menu-wrap" data-menu="more">
+							<button
+								type="button"
+								class="btn-outline btn-icon"
+								title="More actions"
+								aria-label="More actions"
+								onclick={() => (showMoreMenu = !showMoreMenu)}
+								aria-haspopup="true"
+								aria-expanded={showMoreMenu}
+							>
+								<EllipsisIcon size="15" aria-hidden="true" />
+							</button>
+							{#if showMoreMenu}
+								<div class="menu-dropdown" role="menu">
+									<button
+										type="button"
+										class="menu-item"
+										role="menuitem"
+										onclick={() => {
+											showMoreMenu = false;
+											onMerge(f);
+										}}>Merge…</button
+									>
+									<button
+										type="button"
+										class="menu-item"
+										role="menuitem"
+										onclick={() => {
+											showMoreMenu = false;
+											onClose(f);
+										}}>Close…</button
+									>
+									{#if canTriggerHooks}
+										<!-- Actions contributed by modules. -->
+										<div class="menu-section" role="presentation">Modules</div>
 										{#each alertHooks.options as hookOption (hookOptionKey(hookOption))}
 											<button
 												type="button"
@@ -1370,21 +1449,21 @@
 												>{hookOption.manual_hook_ui_name}</button
 											>
 										{/each}
-									</div>
-								{/if}
-							</div>
-						{/if}
-						<button type="button" class="btn-outline btn-muted" onclick={() => onClose(f)}
-							>Close</button
-						>
-						{#if canDelete}
-							<button
-								type="button"
-								class="btn-outline btn-danger"
-								title="Delete alert"
-								onclick={() => onDelete?.(f)}>Delete</button
-							>
-						{/if}
+									{/if}
+									{#if canDelete}
+										<button
+											type="button"
+											class="menu-item menu-item-danger"
+											role="menuitem"
+											onclick={() => {
+												showMoreMenu = false;
+												onDelete?.(f);
+											}}>Delete alert</button
+										>
+									{/if}
+								</div>
+							{/if}
+						</div>
 					</div>
 				</div>
 
@@ -2909,10 +2988,17 @@
 
 	.detail-actions {
 		display: flex;
+		align-items: center;
 		gap: 7px;
-		/* Edit, Status, Modules and Delete make eight buttons in this row; on
-		   a narrow detail pane they wrap rather than pushing the head out. */
+		/* Still wraps on a very narrow pane rather than pushing the head out. */
 		flex-wrap: wrap;
+	}
+	/* Splits the labelled triage decisions from the icon-only tools. */
+	.actions-sep {
+		width: 1px;
+		height: 20px;
+		margin: 0 3px;
+		background: var(--b-6);
 	}
 	.btn-accent,
 	.btn-outline {
@@ -2941,8 +3027,17 @@
 	.btn-outline:hover {
 		background: var(--s-hover);
 	}
-	.btn-muted {
+	/* Icon-only, square-ish; the name is in `title` and `aria-label`. */
+	.btn-icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 7px 9px;
 		color: var(--t-6);
+	}
+	.btn-icon:hover,
+	.btn-icon[aria-expanded='true'] {
+		color: var(--t-1);
 	}
 	/* Carries the current status name, so it needs the dot on the same
 	   baseline as the label rather than the plain text box the other
@@ -2955,19 +3050,7 @@
 	.btn-status-dot {
 		font-size: 9px;
 	}
-	/* Reads as destructive at rest, not only on hover — it is the one
-	   action in this row that cannot be undone. */
-	.btn-danger {
-		color: var(--crit-t);
-		border-color: var(--b-red);
-	}
-	.btn-danger:hover {
-		color: var(--on-acc);
-		background: var(--crit);
-		border-color: var(--crit);
-	}
-
-	/* Shared by the header's three dropdowns (Assign, Status, Modules). */
+	/* Shared by the header's dropdowns (Status, Assign, Share, More). */
 	.menu-wrap {
 		position: relative;
 	}
@@ -3014,6 +3097,24 @@
 	.menu-item-current {
 		font-weight: 600;
 		color: var(--t-max);
+	}
+	/* Heads the module actions inside "More". */
+	.menu-section {
+		padding: 9px 13px 4px;
+		font-size: 10.5px;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--t-9);
+		border-top: 1px solid var(--b-4);
+	}
+	/* Reads as destructive at rest, not only on hover, and sits apart at
+	   the bottom of "More": the one action here that cannot be undone. */
+	.menu-item-danger,
+	.menu-item-danger:hover {
+		color: var(--crit-t);
+	}
+	.menu-item.menu-item-danger {
+		border-top: 1px solid var(--b-4);
 	}
 
 	/* The copy button sits beside the heading, not inside it — a <button>

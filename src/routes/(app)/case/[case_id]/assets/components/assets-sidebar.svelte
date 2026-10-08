@@ -35,15 +35,21 @@
 		AnalysisStatusService,
 		type AnalysisStatusItem
 	} from '$lib/services/analysis-status.service';
-	import { DropdownMenuLabel, DropdownMenuSeparator } from '$lib/components/ui/dropdown-menu';
+	import {
+		DropdownMenuLabel,
+		DropdownMenuSeparator,
+		DropdownMenuSub,
+		DropdownMenuSubContent,
+		DropdownMenuSubTrigger
+	} from '$lib/components/ui/dropdown-menu';
 	import { toast } from '$lib/components/ui/toast';
 	import {
 		CASE_ACCESS_CTX,
 		type CaseAccessContext
 	} from '$lib/contexts/case-access.context.svelte';
-	import { assetStageDotClass, type AssetStage } from '$lib/services/asset-stages.service';
-	import { assetStages, loadAssetStages } from '$lib/stores/asset-stages.store.svelte';
-	import AssetStageDialog from './asset-stage-dialog.svelte';
+	import { assetFlagDotClass, type AssetFlag } from '$lib/services/asset-flags.service';
+	import { assetFlags, loadAssetFlags } from '$lib/stores/asset-flags.store.svelte';
+	import AssetFlagDialog from './asset-flag-dialog.svelte';
 	import { VulnerabilitiesService } from '$lib/services/vulnerabilities.service';
 	import {
 		assetVulnCountsFromFindings,
@@ -51,7 +57,12 @@
 	} from '$lib/components/vulnerabilities/asset-vuln-counts';
 	import { canReadVulnerabilities } from '$lib/components/vulnerabilities/permissions';
 	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
-	import { applyAssetStage, buildStageUpdate, stageNeedsInput } from '../stage-helpers';
+	import {
+		applyAssetFlag,
+		buildFlagChange,
+		flagNeedsInput,
+		type FlagApplyAction
+	} from '../flag-helpers';
 
 	const caseAssets = getContext<CaseAssetsContext>(CASE_ASSETS_CTX);
 	const caseAccess = getContext<CaseAccessContext>(CASE_ACCESS_CTX);
@@ -75,19 +86,18 @@
 	// Reference data for bulk-edit dropdowns
 	let analysisStatuses = $state<AnalysisStatusItem[]>([]);
 
-	// Stage filter: 'all' (no condition), 'none' (stage_id IS NULL) or a stage id.
-	let stageFilter = $state<'all' | 'none' | number>('all');
-	const stageFilterLabel = $derived(
-		stageFilter === 'all'
-			? 'All stages'
-			: stageFilter === 'none'
-				? 'No stage'
-				: (assetStages.items.find((s) => s.id === stageFilter)?.name ?? 'Unknown stage')
+	// Flag filter: 'all' (no condition) or the id of a flag the asset carries.
+	let flagFilter = $state<'all' | number>('all');
+	const flagFilterLabel = $derived(
+		flagFilter === 'all'
+			? 'Any'
+			: (assetFlags.items.find((f) => f.id === flagFilter)?.name ?? 'Unknown flag')
 	);
 
-	// Bulk stage moves that need a reason/decision go through a dialog.
-	let bulkStage = $state<AssetStage | null>(null);
-	let showStageDialog = $state(false);
+	// Bulk removals, and flags that need a reason/decision, go through a dialog.
+	let bulkFlag = $state<AssetFlag | null>(null);
+	let bulkFlagAction = $state<FlagApplyAction>('set');
+	let showFlagDialog = $state(false);
 
 	const COMPROMISE_STATUSES = [
 		{ id: 1, name: 'Compromised' },
@@ -171,11 +181,8 @@
 			}
 		});
 
-		if (stageFilter === 'none') {
-			// `eq null` compiles to `stage_id IS NULL` on the backend.
-			out.push({ field: 'stage_id', operator: 'eq', value: null });
-		} else if (stageFilter !== 'all') {
-			out.push({ field: 'stage_id', operator: 'eq', value: stageFilter });
+		if (flagFilter !== 'all') {
+			out.push({ field: 'flags.flag_id', operator: 'eq', value: flagFilter });
 		}
 
 		return out;
@@ -360,37 +367,48 @@
 		await refreshAssets(caseAssets.list.currentPage);
 	};
 
-	const setStageFilter = (value: 'all' | 'none' | number) => {
-		if (value === stageFilter) return;
-		stageFilter = value;
+	const setFlagFilter = (value: 'all' | number) => {
+		if (value === flagFilter) return;
+		flagFilter = value;
 		void refreshAssets(1);
 	};
 
-	const runBulkStage = async (stage: AssetStage | null, reason = '', decisionId = '') => {
+	const plural = (n: number) => `${n} asset${n === 1 ? '' : 's'}`;
+
+	const runBulkFlag = async (
+		flag: AssetFlag,
+		action: FlagApplyAction,
+		reason = '',
+		decisionId = '',
+		date = ''
+	) => {
 		if (!selectedCount) return;
 		isBulkWorking = true;
 		try {
-			const result = await applyAssetStage(
+			const result = await applyAssetFlag(
 				caseAssets,
 				Number(page.params.case_id),
 				[...selectedAssets],
-				buildStageUpdate(stage, reason, decisionId)
+				flag.id,
+				action,
+				buildFlagChange(reason, decisionId, date, action)
 			);
 			if (result.failed.length === 0) {
 				toast({
-					title: stage
-						? `Stage set to ${stage.name} on ${result.updated} asset${result.updated === 1 ? '' : 's'}`
-						: `Stage cleared on ${result.updated} asset${result.updated === 1 ? '' : 's'}`,
+					title:
+						action === 'set'
+							? `${flag.name} set on ${plural(result.updated)}`
+							: `${flag.name} removed from ${plural(result.updated)}`,
 					variant: 'success'
 				});
 			} else {
 				toast({
-					title: `Stage not set on ${result.failed.length} asset${result.failed.length === 1 ? '' : 's'}`,
+					title: `Flag not changed on ${plural(result.failed.length)}`,
 					description: result.failed[0]?.message,
 					variant: 'destructive'
 				});
 			}
-			showStageDialog = false;
+			showFlagDialog = false;
 			cancelSelect();
 			await refreshAssets(caseAssets.list.currentPage);
 		} finally {
@@ -398,13 +416,15 @@
 		}
 	};
 
-	const pickBulkStage = (stage: AssetStage | null) => {
-		if (stageNeedsInput(stage)) {
-			bulkStage = stage;
-			showStageDialog = true;
+	// A bulk removal always confirms (and takes an optional reason).
+	const pickBulkFlag = (flag: AssetFlag, action: FlagApplyAction) => {
+		if (action === 'clear' || flagNeedsInput(flag)) {
+			bulkFlag = flag;
+			bulkFlagAction = action;
+			showFlagDialog = true;
 			return;
 		}
-		void runBulkStage(stage);
+		void runBulkFlag(flag, action);
 	};
 
 	const openAsset = (assetId: number) =>
@@ -473,7 +493,7 @@
 		const res = await AnalysisStatusService.list();
 		if (res.ok && Array.isArray(res.data)) analysisStatuses = res.data;
 
-		void loadAssetStages();
+		void loadAssetFlags();
 	});
 
 	onDestroy(() => {
@@ -652,20 +672,34 @@
 						<Button
 							size="xs"
 							variant="outline"
-							disabled={!selectedCount || isBulkWorking || !assetStages.items.length}
+							disabled={!selectedCount || isBulkWorking || !assetFlags.items.length}
 						>
-							Set stage <ChevronDownIcon size={12} />
+							Flags <ChevronDownIcon size={12} />
 						</Button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="start">
-						{#each assetStages.items as s (s.id)}
-							<DropdownMenuItem onclick={() => pickBulkStage(s)}>
-								<span class="h-2 w-2 shrink-0 rounded-full {assetStageDotClass(s.color)}"></span>
-								{s.name}
-							</DropdownMenuItem>
-						{/each}
-						<DropdownMenuSeparator />
-						<DropdownMenuItem onclick={() => pickBulkStage(null)}>Clear stage</DropdownMenuItem>
+						<DropdownMenuSub>
+							<DropdownMenuSubTrigger>Set flag</DropdownMenuSubTrigger>
+							<DropdownMenuSubContent>
+								{#each assetFlags.items as f (f.id)}
+									<DropdownMenuItem onclick={() => pickBulkFlag(f, 'set')}>
+										<span class="h-2 w-2 shrink-0 rounded-full {assetFlagDotClass(f.color)}"></span>
+										{f.name}
+									</DropdownMenuItem>
+								{/each}
+							</DropdownMenuSubContent>
+						</DropdownMenuSub>
+						<DropdownMenuSub>
+							<DropdownMenuSubTrigger>Remove flag</DropdownMenuSubTrigger>
+							<DropdownMenuSubContent>
+								{#each assetFlags.items as f (f.id)}
+									<DropdownMenuItem onclick={() => pickBulkFlag(f, 'clear')}>
+										<span class="h-2 w-2 shrink-0 rounded-full {assetFlagDotClass(f.color)}"></span>
+										{f.name}
+									</DropdownMenuItem>
+								{/each}
+							</DropdownMenuSubContent>
+						</DropdownMenuSub>
 					</DropdownMenuContent>
 				</DropdownMenu>
 			{/if}
@@ -699,39 +733,38 @@
 						size="xs"
 						variant="outline"
 						class="h-6 gap-1 px-2 text-2xs"
-						aria-label={`Filter by stage: ${stageFilterLabel}`}
-						data-testid="asset-stage-filter"
+						aria-label={`Filter by flag: ${flagFilterLabel}`}
+						data-testid="asset-flag-filter"
 					>
-						{#if typeof stageFilter === 'number'}
-							{@const current = assetStages.items.find((s) => s.id === stageFilter)}
-							<span class="h-1.5 w-1.5 rounded-full {assetStageDotClass(current?.color)}"></span>
+						{#if typeof flagFilter === 'number'}
+							{@const current = assetFlags.items.find((f) => f.id === flagFilter)}
+							<span class="h-1.5 w-1.5 rounded-full {assetFlagDotClass(current?.color)}"></span>
 						{/if}
-						<span class="text-muted-foreground">Stage:</span>
-						{stageFilterLabel}
+						<span class="text-muted-foreground">Flag:</span>
+						{flagFilterLabel}
 						<ChevronDownIcon size={11} />
 					</Button>
 				{/snippet}
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start">
-				<DropdownMenuLabel class="text-2xs">Filter by stage</DropdownMenuLabel>
-				<DropdownMenuItem onclick={() => setStageFilter('all')}>All stages</DropdownMenuItem>
-				<DropdownMenuItem onclick={() => setStageFilter('none')}>No stage</DropdownMenuItem>
-				{#if assetStages.items.length}
+				<DropdownMenuLabel class="text-2xs">Filter by flag</DropdownMenuLabel>
+				<DropdownMenuItem onclick={() => setFlagFilter('all')}>Any</DropdownMenuItem>
+				{#if assetFlags.items.length}
 					<DropdownMenuSeparator />
 				{/if}
-				{#each assetStages.items as s (s.id)}
-					<DropdownMenuItem onclick={() => setStageFilter(s.id)}>
-						<span class="h-2 w-2 shrink-0 rounded-full {assetStageDotClass(s.color)}"></span>
-						{s.name}
+				{#each assetFlags.items as f (f.id)}
+					<DropdownMenuItem onclick={() => setFlagFilter(f.id)}>
+						<span class="h-2 w-2 shrink-0 rounded-full {assetFlagDotClass(f.color)}"></span>
+						{f.name}
 					</DropdownMenuItem>
 				{/each}
 			</DropdownMenuContent>
 		</DropdownMenu>
-		{#if stageFilter !== 'all'}
+		{#if flagFilter !== 'all'}
 			<button
 				type="button"
 				class="rounded px-1.5 py-0.5 text-2xs text-primary hover:underline"
-				onclick={() => setStageFilter('all')}
+				onclick={() => setFlagFilter('all')}
 			>
 				clear
 			</button>
@@ -749,7 +782,7 @@
 				perPage={caseAssets.list.params.per_page}
 				{selectionMode}
 				{selectedAssets}
-				showStage
+				showFlags
 				vulnCounts={canReadVulns ? vulnCounts : null}
 				onToggleSelect={toggleAssetSelection}
 				on:pageChange={(e) => refreshAssets(e.detail.page)}
@@ -834,12 +867,14 @@
 	onOpenChange={(v) => (showDownloadModal = v)}
 />
 
-<AssetStageDialog
-	bind:open={showStageDialog}
-	stage={bulkStage}
+<AssetFlagDialog
+	bind:open={showFlagDialog}
+	flag={bulkFlag}
+	action={bulkFlagAction}
 	count={selectedCount}
 	busy={isBulkWorking}
-	onConfirm={(reason, decisionId) => runBulkStage(bulkStage, reason, decisionId)}
+	onConfirm={(reason, decisionId, date) =>
+		bulkFlag ? runBulkFlag(bulkFlag, bulkFlagAction, reason, decisionId, date) : undefined}
 />
 
 <ConfirmationDialog

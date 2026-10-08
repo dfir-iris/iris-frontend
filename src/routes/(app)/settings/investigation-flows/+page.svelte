@@ -769,7 +769,7 @@
 	bind:open={deleteOpen}
 	title="Delete flow?"
 	message={selected
-		? `Delete "${selected.flow_name}" and all its steps? This cannot be undone.`
+		? `Delete "${selected.flow_name}" and all its steps? Alerts and clusters using it lose their checklist and its progress. This cannot be undone.`
 		: 'Delete this flow?'}
 	confirmText="Delete"
 	confirmButtonVariant="destructive"

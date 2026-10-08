@@ -66,6 +66,8 @@ export interface UserPreferences {
 	timezone?: string;
 	/** Clock: `24h`, `12h` or `locale`. Absent on older backends. */
 	time_format?: string;
+	/** War-room section tab keys in the user's order; empty = default. Absent on older backends. */
+	war_room_tab_order?: string[];
 }
 
 export interface UserContext {

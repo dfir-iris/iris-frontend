@@ -1213,7 +1213,8 @@
 		{ cmd: '/topic <name>', desc: 'Create + switch to a topic' },
 		{ cmd: '/asset <name> [#case|all]', desc: 'Add to cases, or stage' },
 		{ cmd: '/ioc <value> [#case|all]', desc: 'Add IOC (type detected)' },
-		{ cmd: '/stage <asset> <stage>', desc: 'Set stage in every case' },
+		{ cmd: '/flag <asset> <flag>', desc: 'Set a flag in every case' },
+		{ cmd: '/unflag <asset> <flag>', desc: 'Remove a flag in every case' },
 		{ cmd: '/push <asset|ioc> <#case|all>', desc: 'Push into cases' },
 		{ cmd: '/share-note <note> <#case|all>', desc: 'Share a note' },
 		{ cmd: '/vuln <identifier> [note]', desc: 'Track a vulnerability' }

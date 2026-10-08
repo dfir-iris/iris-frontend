@@ -4,21 +4,21 @@ import { adminApi, apiJson, seed, cleanup } from '../helpers/api';
 import { expectToast } from '../helpers/ui';
 
 // War room · Scope: an asset living in one attached case is pushed into a
-// second attached case from the Scope tab, then staged from the same view.
+// second attached case from the Scope tab, then flagged from the same view.
 
 const rand = (p: string) => `${p}-${Math.random().toString(36).slice(2, 8)}`;
 
 test.describe('War room · scope', () => {
-	test('push an asset to another attached case and set its stage', async ({ page }) => {
+	test('push an asset to another attached case and set a flag on it', async ({ page }) => {
 		const api = await adminApi();
-		const stageName = rand('E2E contained');
+		const flagName = rand('E2E isolated');
 		const assetName = rand('scope-asset');
 
-		const stageRes = await api.post('/api/v2/manage/asset-stages', {
-			data: { name: stageName, color: 'teal', icon: 'unplug', kind: 'progress' }
+		const flagRes = await api.post('/api/v2/manage/asset-flags', {
+			data: { name: flagName, color: 'teal', icon: 'unplug', kind: 'status' }
 		});
-		expect(stageRes.status(), await stageRes.text()).toBe(201);
-		const stageId = (await apiJson<{ id: number }>(stageRes)).id;
+		expect(flagRes.status(), await flagRes.text()).toBe(201);
+		const flagId = (await apiJson<{ id: number }>(flagRes)).id;
 
 		const wrId = await seed.warRoom(api);
 		const caseA = await seed.case(api, { case_name: rand('e2e scope A') });
@@ -69,31 +69,41 @@ test.describe('War room · scope', () => {
 			await expect(copyRow).toBeVisible({ timeout: 10_000 });
 			await expect(sourceRow).toContainText('+1 case');
 
-			// --- Set the stage of the source asset ------------------------------
+			// --- Set a flag on the source asset -------------------------------
 			await sourceRow.getByLabel(`Select ${assetName} in case #${caseA}`, { exact: true }).click();
 			const bulkbar = page.getByTestId('scope-assets-bulkbar');
 			await expect(bulkbar).toContainText('1 selected');
-			await bulkbar.getByRole('button', { name: 'Set stage' }).click();
+			await bulkbar.getByRole('button', { name: 'Set flag' }).click();
 
-			const stageDialog = page.getByRole('dialog', { name: 'Set stage' });
-			await expect(stageDialog).toBeVisible();
-			await stageDialog.getByRole('radio', { name: stageName }).click();
-			await stageDialog.getByRole('button', { name: 'Apply to 1 asset' }).click();
-			await expectToast(page, `Stage set to ${stageName}`);
+			const flagDialog = page.getByRole('dialog', { name: 'Set flag' });
+			await expect(flagDialog).toBeVisible();
+			await flagDialog.getByRole('radio', { name: flagName }).click();
+			await flagDialog.getByRole('button', { name: 'Apply to 1 asset' }).click();
+			await expectToast(page, `${flagName} set`);
 
 			await expect(
-				sourceRow.getByTestId('asset-stage-chip').filter({ hasText: stageName })
+				sourceRow.getByTestId('asset-flag-chip').filter({ hasText: flagName })
 			).toBeVisible({ timeout: 10_000 });
 
-			const asset = await apiJson<{ stage_id: number | null }>(
+			const asset = await apiJson<{ flags: { flag_id: number }[] }>(
 				await api.get(`/api/v2/cases/${caseA}/assets/${assetId}`)
 			);
-			expect(asset.stage_id).toBe(stageId);
+			expect(asset.flags.map((f) => f.flag_id)).toContain(flagId);
+			// The copy in case B is untouched: flags are per case.
+			type Listed = { asset_name: string; flags?: unknown[] };
+			const copies = await apiJson<Listed[] | { data: Listed[] }>(
+				await api.get(`/api/v2/cases/${caseB}/assets?per_page=100`)
+			);
+			const copy = (Array.isArray(copies) ? copies : copies.data).find(
+				(a) => a.asset_name === assetName
+			);
+			expect(copy).toBeDefined();
+			expect(copy?.flags ?? []).toHaveLength(0);
 		} finally {
 			await cleanup.warRoom(api, wrId);
 			await cleanup.case(api, caseA);
 			await cleanup.case(api, caseB);
-			await api.delete(`/api/v2/manage/asset-stages/${stageId}`).catch(() => {});
+			await api.delete(`/api/v2/manage/asset-flags/${flagId}`).catch(() => {});
 			await api.dispose();
 		}
 	});

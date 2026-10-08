@@ -7,6 +7,7 @@
 	import TopBanners from '$lib/components/common/TopBanners/TopBanners.svelte';
 	import { dismissedBanners } from '$lib/stores/dismissed-banners.store.svelte';
 	import { CaseAddModal } from './[components]/CaseModals';
+	import TutorialOverlay from '$lib/components/tutorials/TutorialOverlay.svelte';
 	import { APP_CTX, createAppContext, type AppContext } from '$lib/contexts/app.context.svelte';
 	import {
 		CASES_CTX,
@@ -155,3 +156,6 @@
 {#if chatbotEnabled}
 	<ChatBotPanel />
 {/if}
+
+<!-- Guided tutorials (Help → Tutorials, or `?tutorial=<id>`). -->
+<TutorialOverlay />

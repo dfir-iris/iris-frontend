@@ -115,7 +115,13 @@
 <div class="flex flex-col gap-3">
 	{#if canEdit}
 		<div class="flex items-center gap-2">
-			<Button size="sm" variant="outline" class="ml-auto" onclick={() => (addOpen = true)}>
+			<Button
+				size="sm"
+				variant="outline"
+				class="ml-auto"
+				data-tour="asset-vuln-add"
+				onclick={() => (addOpen = true)}
+			>
 				<PlusIcon /> Add vulnerability
 			</Button>
 		</div>

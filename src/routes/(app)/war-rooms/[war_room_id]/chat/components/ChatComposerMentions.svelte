@@ -116,9 +116,14 @@
 			desc: 'Add an IOC (type auto-detected) to cases, or stage it in the war room'
 		},
 		{
-			cmd: '/stage',
-			usage: '/stage <asset> <stage|none> [reason] [D-n] [#case ...]',
-			desc: 'Set the asset stage in every attached case holding that asset'
+			cmd: '/flag',
+			usage: '/flag <asset> <flag> [reason] [D-n] [#case ...]',
+			desc: 'Set a status flag on the asset in every attached case holding it'
+		},
+		{
+			cmd: '/unflag',
+			usage: '/unflag <asset> <flag> [reason] [#case ...]',
+			desc: 'Remove a status flag from the asset in every attached case holding it'
 		},
 		{
 			cmd: '/push',
@@ -534,7 +539,7 @@
 			const filtered = q ? all.filter((r) => fuzzy(r.label, q) || fuzzy(r.sublabel ?? '', q)) : all;
 			// Scope commands take `#<case_id>` targets: offer the attached
 			// cases first, then the usual resources (asset / IOC markup is a
-			// valid subject for /stage and /push).
+			// valid subject for /flag, /unflag and /push).
 			const targets: ResourceItem[] = isScopeSlashCommand(body)
 				? caseTargetItems(attachedCases, q).map((c) => ({
 						id: c.insertion,

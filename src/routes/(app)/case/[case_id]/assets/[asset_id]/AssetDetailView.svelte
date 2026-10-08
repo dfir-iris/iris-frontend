@@ -12,10 +12,12 @@
 	import { getContext } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import {
+		ChevronDownIcon,
 		ClockIcon,
 		HistoryIcon,
 		InfoIcon,
 		MessagesSquareIcon,
+		MoreHorizontalIcon,
 		SearchIcon,
 		ShieldAlertIcon,
 		ShieldXIcon,
@@ -42,6 +44,7 @@
 	import { cn } from '$lib/utils';
 	import { normalizeTags, stringToTags, tagsToString } from '$lib/utils/tags';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { toast } from '$lib/components/ui/toast';
 	import { page } from '$app/state';
 	import { CaseTimelineService } from '$lib/services/case-timeline.service';
@@ -107,10 +110,47 @@
 	const urlTab = page.url.searchParams.get('tab');
 	let activeTab = $state(urlTab !== null && URL_TABS.includes(urlTab) ? urlTab : 'details');
 
+	type TabDef = {
+		value: string;
+		label: string;
+		icon: typeof InfoIcon;
+		/** Undefined: no counter; null: not loaded yet (hidden too). */
+		count?: number | null;
+		tour?: string;
+	};
+	const tabs = $derived.by<TabDef[]>(() => [
+		{ value: 'details', label: 'Details', icon: InfoIcon },
+		// Zero renders dimmed rather than hidden: "checked, none" and "not
+		// loaded yet" have to look different, and these counts are the only
+		// place the link totals appear.
+		{ value: 'ioc', label: 'IOCs', icon: ShieldAlertIcon, count: asset?.iocs?.length ?? 0 },
+		{ value: 'timeline', label: 'Timeline', icon: ClockIcon, count: timelineCount },
+		...(canReadVulns
+			? [
+					{
+						value: 'vulnerabilities',
+						label: 'Vulnerabilities',
+						icon: ShieldXIcon,
+						count: vulnerabilityCount,
+						tour: 'asset-tab-vulnerabilities'
+					}
+				]
+			: []),
+		{ value: 'history', label: 'History', icon: HistoryIcon },
+		{ value: 'comments', label: 'Comments', icon: MessagesSquareIcon, count: comments.length },
+		...(hasCustomAttributes.asset === true
+			? [{ value: 'custom_attributes', label: 'Custom attributes', icon: WaypointsIcon }]
+			: [])
+	]);
+
+	// Labels give way first, then the trailing tabs move into "More".
 	let tabList = $state<HTMLElement | null>(null);
+	let overflowCount = $state(0);
+	const overflowTabs = $derived(overflowCount > 0 ? tabs.slice(tabs.length - overflowCount) : []);
+	const activeInOverflow = $derived(overflowTabs.some((t) => t.value === activeTab));
 	$effect(() => {
 		if (!tabList) return;
-		return collapseTabLabels(tabList).destroy;
+		return collapseTabLabels(tabList, { onOverflow: (n) => (overflowCount = n) }).destroy;
 	});
 	$effect(() => {
 		const next = vulnerabilityTabFallback(activeTab, canReadVulns, userCtx.ready);
@@ -354,7 +394,6 @@
 				onCancelEditing={cancelEditing}
 				onSaveChanges={saveChanges}
 				onDelete={handleAssetDeleted}
-				deleteUrl={`/api/v2/cases/${caseId}/assets/${asset.asset_id}`}
 				deletePrompt={`Are you sure you want to delete the asset "${asset.asset_name}"? This action cannot be undone.`}
 				shareUrl={getAssetUrl(asset.case_id, String(asset.asset_id))}
 				hookType="asset"
@@ -377,128 +416,78 @@
 					-->
 					<div class="flex shrink-0 items-center border-b">
 						<TabsList
-							class="h-auto min-w-0 flex-1 justify-start rounded-none border-0 bg-transparent p-0"
+							bind:ref={tabList}
+							class="h-auto min-w-0 flex-1 justify-start overflow-hidden rounded-none border-0 bg-transparent p-0"
 						>
-							<TabsTrigger
-								value="details"
-								title="Details"
-								aria-label="Details"
-								class="flex shrink-0 items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
-							>
-								<InfoIcon class="h-4 w-4 shrink-0" />
-								<span data-tab-label>Details</span>
-							</TabsTrigger>
-
-							<TabsTrigger
-								value="ioc"
-								title="IOCs"
-								aria-label="IOCs"
-								class="relative flex shrink-0 items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
-							>
-								<ShieldAlertIcon class="h-4 w-4 shrink-0" />
-								<span data-tab-label>IOCs</span>
-
-								<!--
-								  Zero renders dimmed rather than hidden: "checked,
-								  none" and "not loaded yet" have to look different,
-								  and these counts are now the only place the link
-								  totals appear.
-								-->
-								<span
-									class={cn(
-										'inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors',
-										!asset.iocs?.length && 'opacity-40'
-									)}
-								>
-									{asset.iocs?.length ?? 0}
-								</span>
-							</TabsTrigger>
-
-							<TabsTrigger
-								value="timeline"
-								title="Timeline"
-								aria-label="Timeline"
-								class="relative flex shrink-0 items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
-							>
-								<ClockIcon class="h-4 w-4 shrink-0" />
-								<span data-tab-label>Timeline</span>
-
-								{#if timelineCount !== null}
-									<span
-										class={cn(
-											'inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors',
-											timelineCount === 0 && 'opacity-40'
-										)}
-									>
-										{timelineCount}
-									</span>
-								{/if}
-							</TabsTrigger>
-
-							{#if canReadVulns}
+							{#each tabs as t (t.value)}
+								{@const Icon = t.icon}
 								<TabsTrigger
-									value="vulnerabilities"
-									title="Vulnerabilities"
-									aria-label="Vulnerabilities"
+									value={t.value}
+									title={t.label}
+									aria-label={t.label}
+									data-tour={t.tour}
 									class="relative flex shrink-0 items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
 								>
-									<ShieldXIcon class="h-4 w-4 shrink-0" />
-									<span data-tab-label>Vulnerabilities</span>
-
-									{#if vulnerabilityCount !== null}
+									<Icon class="h-4 w-4 shrink-0" />
+									<span data-tab-label>{t.label}</span>
+									{#if t.count !== undefined && t.count !== null}
 										<span
 											class={cn(
 												'inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors',
-												vulnerabilityCount === 0 && 'opacity-40'
+												t.count === 0 && 'opacity-40'
 											)}
 										>
-											{vulnerabilityCount}
+											{t.count}
 										</span>
 									{/if}
 								</TabsTrigger>
-							{/if}
-
-							<TabsTrigger
-								value="history"
-								title="History"
-								aria-label="History"
-								class="flex shrink-0 items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
-							>
-								<HistoryIcon class="h-4 w-4 shrink-0" />
-								<span data-tab-label>History</span>
-							</TabsTrigger>
-
-							<TabsTrigger
-								value="comments"
-								title="Comments"
-								aria-label="Comments"
-								class="relative flex shrink-0 items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
-							>
-								<MessagesSquareIcon class="h-4 w-4 shrink-0" />
-								<span data-tab-label>Comments</span>
-
-								<span
-									class={cn(
-										'inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] leading-none text-muted-foreground transition-colors',
-										!comments.length && 'opacity-40'
-									)}
-								>
-									{comments.length}
-								</span>
-							</TabsTrigger>
-
-							{#if hasCustomAttributes.asset === true}
-								<TabsTrigger
-									value="custom_attributes"
-									title="Custom attributes"
-									aria-label="Custom attributes"
-									class="flex shrink-0 items-center gap-2 rounded-none px-4 py-3 transition-colors hover:bg-muted/40 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-background/80"
-								>
-									<WaypointsIcon class="h-4 w-4 shrink-0" />
-									<span data-tab-label>Custom attributes</span>
-								</TabsTrigger>
-							{/if}
+							{/each}
 						</TabsList>
+
+						<!--
+						  Tabs that no longer fit even as icons. While the active
+						  tab sits in the menu, the trigger shows its icon and the
+						  active underline, so the current view stays visible.
+						-->
+						{#if overflowTabs.length}
+							<DropdownMenu.Root>
+								<DropdownMenu.Trigger
+									class={cn(
+										'flex shrink-0 items-center gap-1 self-stretch px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground',
+										activeInOverflow && 'border-b-2 border-primary text-foreground'
+									)}
+									aria-label="More tabs"
+									title="More tabs"
+									data-testid="asset-tabs-more"
+								>
+									{#if activeInOverflow}
+										{@const current = overflowTabs.find((t) => t.value === activeTab)}
+										{#if current}
+											{@const CurrentIcon = current.icon}
+											<CurrentIcon class="h-4 w-4 shrink-0" />
+										{/if}
+									{:else}
+										<MoreHorizontalIcon class="h-4 w-4" />
+									{/if}
+									<ChevronDownIcon class="h-3 w-3" />
+								</DropdownMenu.Trigger>
+								<DropdownMenu.Content align="end" class="min-w-[180px]">
+									{#each overflowTabs as t (t.value)}
+										{@const Icon = t.icon}
+										<DropdownMenu.Item
+											onclick={() => (activeTab = t.value)}
+											class={cn('gap-2', activeTab === t.value && 'bg-accent font-medium')}
+										>
+											<Icon class="h-4 w-4 shrink-0" />
+											<span class="flex-1">{t.label}</span>
+											{#if t.count !== undefined && t.count !== null}
+												<span class="text-2xs tabular-nums text-muted-foreground">{t.count}</span>
+											{/if}
+										</DropdownMenu.Item>
+									{/each}
+								</DropdownMenu.Content>
+							</DropdownMenu.Root>
+						{/if}
 
 						<!--
 						  Cross-case pivot. Lights up when this asset (name +
@@ -510,7 +499,8 @@
 						  so the badge appearing asynchronously shifts nothing.
 						  When the row runs short, the tab labels give way one at
 						  a time from the last tab (icon + count, name in the
-						  tooltip), so it never overflows.
+						  tooltip), then the trailing tabs move into "More", so
+						  it never clips.
 						-->
 						<div class="shrink-0 px-4">
 							<SeenElsewhereBadge

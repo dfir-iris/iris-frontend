@@ -277,7 +277,6 @@
 				onCancelEditing={cancelEditing}
 				onSaveChanges={saveChanges}
 				onDelete={handleEvidenceDeleted}
-				deleteUrl={`/api/v2/cases/${caseId}/evidences/${evidence.id}`}
 				deletePrompt={`Are you sure you want to delete the evidence "${evidence.filename}"? This action cannot be undone.`}
 				shareUrl={getEvidenceUrl(caseId, String(evidence.id))}
 				markdownIcon="fa-file-shield"

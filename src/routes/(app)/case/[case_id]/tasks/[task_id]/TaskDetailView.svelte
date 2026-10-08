@@ -280,7 +280,6 @@
 				onCancelEditing={cancelEditing}
 				onSaveChanges={saveChanges}
 				onDelete={handleTaskDeleted}
-				deleteUrl={`/api/v2/cases/${caseId}/tasks/${task.id}`}
 				deletePrompt={`Are you sure you want to delete the task "${task.task_title}"? This action cannot be undone.`}
 				shareUrl={getTaskUrl(caseId, String(task.id))}
 				markdownIcon="fa-list-check"

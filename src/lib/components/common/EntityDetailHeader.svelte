@@ -16,6 +16,7 @@
 		FileSymlinkIcon,
 		ForwardIcon,
 		SaveIcon,
+		Trash2Icon,
 		XIcon,
 		type ServerIcon
 	} from 'lucide-svelte';
@@ -31,7 +32,7 @@
 		DropdownMenuTrigger,
 		Separator
 	} from '$lib/components/ui/dropdown-menu';
-	import DeleteButton from '$lib/components/common/DeleteButton.svelte';
+	import ConfirmationDialog from '$lib/components/ui/dialog/ConfirmationDialog.svelte';
 
 	type IconComponent = typeof ServerIcon;
 
@@ -55,8 +56,13 @@
 		onStartEditing?: () => void;
 		onCancelEditing?: () => void;
 		onSaveChanges?: () => void;
-		onDelete?: () => void;
-		deleteUrl: string;
+		/**
+		 * Runs after the user confirms. The host owns the DELETE call (through
+		 * its case store) — this strip only asks. It used to fire the request
+		 * itself and then call this, so every delete hit the API twice and the
+		 * second 404 made the store roll the entity back into the pane.
+		 */
+		onDelete?: () => void | Promise<void>;
 		deletePrompt: string;
 
 		/** Absolute URL copied by both Share and Markdown Link. */
@@ -85,7 +91,6 @@
 		onCancelEditing = () => {},
 		onSaveChanges = () => {},
 		onDelete = () => {},
-		deleteUrl,
 		deletePrompt,
 		shareUrl,
 		markdownIcon = 'fa-bell',
@@ -95,6 +100,17 @@
 	}: Props = $props();
 
 	let isMenuOpen = $state<boolean>(false);
+	let isConfirmingDelete = $state<boolean>(false);
+	let isDeleting = $state<boolean>(false);
+
+	const confirmDelete = async () => {
+		isDeleting = true;
+		try {
+			await onDelete();
+		} finally {
+			isDeleting = false;
+		}
+	};
 	let hookOptions = $state<HookOption[]>([]);
 
 	const copyToClipboard = (value: string) => {
@@ -196,12 +212,20 @@
 					{editLabel}
 				</Button>
 
-				<DeleteButton
-					url={deleteUrl}
-					onrefresh={onDelete}
-					buttonText="Delete"
-					deletion_prompt_message={deletePrompt}
-				/>
+				<Button
+					variant="destructive"
+					size="sm"
+					onclick={() => (isConfirmingDelete = true)}
+					disabled={isDeleting}
+				>
+					{#if isDeleting}
+						<span class="animate-spin">⟳</span>
+						Deleting...
+					{:else}
+						<Trash2Icon class="h-4 w-4" />
+						Delete
+					{/if}
+				</Button>
 			{/if}
 		{/if}
 
@@ -244,3 +268,13 @@
 		</DropdownMenu>
 	</div>
 </div>
+
+{#if isConfirmingDelete}
+	<ConfirmationDialog
+		bind:open={isConfirmingDelete}
+		title="Confirm Deletion"
+		message={deletePrompt}
+		onConfirm={confirmDelete}
+		onCancel={() => (isConfirmingDelete = false)}
+	/>
+{/if}

@@ -17,8 +17,8 @@
 		DialogTitle
 	} from '$lib/components/ui/dialog';
 	import { toast } from '$lib/components/ui/toast';
-	import AssetStageChip from '$lib/components/common/assets/AssetStageChip.svelte';
-	import type { AssetStage } from '$lib/services/asset-stages.service';
+	import AssetFlagChip from '$lib/components/common/assets/AssetFlagChip.svelte';
+	import type { AssetFlag } from '$lib/services/asset-flags.service';
 	import type { AssetType } from '$lib/services/asset-types.service';
 	import type { AnalysisStatusItem } from '$lib/services/analysis-status.service';
 	import type { IocType } from '$lib/services/ioc-types.service';
@@ -51,7 +51,7 @@
 		kind: 'asset' | 'ioc';
 		warRoomId: number;
 		cases: ScopeCase[];
-		stages: AssetStage[];
+		flags: AssetFlag[];
 		assetTypes: AssetType[];
 		analysisStatuses: AnalysisStatusItem[];
 		iocTypes: IocType[];
@@ -65,7 +65,7 @@
 		kind,
 		warRoomId,
 		cases,
-		stages,
+		flags,
 		assetTypes,
 		analysisStatuses,
 		iocTypes,
@@ -79,8 +79,8 @@
 	let assetForm = $state<AssetForm>(emptyAssetForm());
 	let iocForm = $state<IocForm>(emptyIocForm());
 	let selected = $state<number[]>([]);
-	let stageId = $state<number | null>(null);
-	let stageReason = $state('');
+	let flagIds = $state<number[]>([]);
+	let flagReason = $state('');
 	let submitting = $state(false);
 	let outcomes = $state<ScopeOutcome[] | null>(null);
 
@@ -90,8 +90,8 @@
 				assetForm = emptyAssetForm();
 				iocForm = emptyIocForm();
 				selected = cases.length === 1 ? [cases[0].case_id] : [];
-				stageId = null;
-				stageReason = '';
+				flagIds = [];
+				flagReason = '';
 				outcomes = null;
 				submitting = false;
 			});
@@ -99,12 +99,17 @@
 	});
 
 	const isAsset = $derived(kind === 'asset');
-	const stage = $derived(stages.find((s) => s.id === stageId) ?? null);
+	const pickedFlags = $derived(flags.filter((f) => flagIds.includes(f.id)));
+	const reasonRequired = $derived(pickedFlags.some((f) => f.requires_reason));
 	const formValid = $derived(isAsset ? assetFormValid(assetForm) : iocFormValid(iocForm));
-	const reasonMissing = $derived(isAsset && !!stage?.requires_reason && !stageReason.trim());
-	// A stage that needs a decision cannot be picked at creation time:
+	const reasonMissing = $derived(isAsset && reasonRequired && !flagReason.trim());
+	// A flag that needs a decision cannot be picked at creation time:
 	// set it afterwards from the table, where a decision can be linked.
-	const pickableStages = $derived(stages.filter((s) => !s.requires_decision));
+	const pickableFlags = $derived(flags.filter((f) => !f.requires_decision));
+
+	const toggleFlag = (id: number) => {
+		flagIds = flagIds.includes(id) ? flagIds.filter((x) => x !== id) : [...flagIds, id];
+	};
 	const customers = $derived.by(() => {
 		const picked = new Set(selected);
 		return distinctCustomers(cases.filter((c) => picked.has(c.case_id)));
@@ -121,13 +126,13 @@
 	const submit = async () => {
 		if (!canSubmit || submitting) return;
 		submitting = true;
-		const reason = stageReason.trim();
+		const reason = flagReason.trim();
 		const res = isAsset
 			? await WarRoomScopeService.createAsset(warRoomId, {
 					asset: assetFormToInput(assetForm),
 					case_ids: [...selected],
-					...(stageId != null ? { stage_id: stageId } : {}),
-					...(stageId != null && reason ? { stage_reason: reason } : {})
+					...(flagIds.length ? { flag_ids: [...flagIds] } : {}),
+					...(flagIds.length && reason ? { flag_reason: reason } : {})
 				})
 			: await WarRoomScopeService.createIoc(warRoomId, {
 					ioc: iocFormToInput(iocForm),
@@ -224,48 +229,54 @@
 				{#if isAsset}
 					<ScopeAssetFields bind:form={assetForm} {assetTypes} {analysisStatuses} />
 
-					<fieldset>
-						<legend class="text-xs font-medium text-muted-foreground">
-							Initial stage (optional)
-						</legend>
-						<div class="mt-1.5 flex flex-wrap gap-1.5" role="radiogroup" aria-label="Initial stage">
-							{#each [null, ...pickableStages] as s (s?.id ?? 'none')}
-								{@const active = (s?.id ?? null) === stageId}
-								<button
-									type="button"
-									role="radio"
-									aria-checked={active}
-									class={[
-										'inline-flex items-center rounded-lg border p-1 transition-colors',
-										active
-											? 'border-primary bg-primary/10 ring-1 ring-primary/40'
-											: 'border-transparent hover:bg-muted'
-									]}
-									onclick={() => (stageId = s?.id ?? null)}
-								>
-									<AssetStageChip stage={s} size="sm" />
-								</button>
-							{/each}
-						</div>
-					</fieldset>
+					{#if pickableFlags.length}
+						<fieldset>
+							<legend class="text-xs font-medium text-muted-foreground">
+								Initial flags (optional)
+							</legend>
+							<div class="mt-1.5 flex flex-wrap gap-1.5" role="group" aria-label="Initial flags">
+								{#each pickableFlags as f (f.id)}
+									{@const active = flagIds.includes(f.id)}
+									<button
+										type="button"
+										aria-pressed={active}
+										class={[
+											'inline-flex items-center rounded-lg border p-1 transition-colors',
+											active
+												? 'border-primary bg-primary/10 ring-1 ring-primary/40'
+												: 'border-transparent hover:bg-muted'
+										]}
+										onclick={() => toggleFlag(f.id)}
+									>
+										<AssetFlagChip flag={f} size="sm" />
+									</button>
+								{/each}
+							</div>
+						</fieldset>
+					{/if}
 
-					{#if stage}
+					{#if pickedFlags.length}
 						<div>
 							<label class="text-xs font-medium text-muted-foreground" for="scope-add-reason">
-								Stage reason {stage.requires_reason ? '(required)' : '(optional)'}
+								Flag reason {reasonRequired ? '(required)' : '(optional)'}
 							</label>
 							<Textarea
 								id="scope-add-reason"
-								value={stageReason}
-								oninput={(e) => (stageReason = (e.target as HTMLTextAreaElement).value)}
+								value={flagReason}
+								oninput={(e) => (flagReason = (e.target as HTMLTextAreaElement).value)}
 								rows={2}
 								maxlength={MAX_REASON}
 								class="mt-1"
 								aria-invalid={reasonMissing}
-								aria-required={stage.requires_reason}
+								aria-required={reasonRequired}
 							/>
 							{#if reasonMissing}
-								<p class="mt-1 text-2xs text-destructive">This stage requires a reason.</p>
+								<p class="mt-1 text-2xs text-destructive">
+									{pickedFlags
+										.filter((f) => f.requires_reason)
+										.map((f) => f.name)
+										.join(', ')} requires a reason.
+								</p>
 							{/if}
 						</div>
 					{/if}

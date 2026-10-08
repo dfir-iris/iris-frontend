@@ -412,7 +412,7 @@
 					Refresh
 				</Button>
 				{#if canCreate}
-					<Button size="sm" onclick={openCreate}>
+					<Button size="sm" onclick={openCreate} data-tour="vuln-new">
 						<PlusIcon size={14} class="mr-1.5" /> New vulnerability
 					</Button>
 				{/if}

@@ -150,6 +150,7 @@
 <Dialog.Root bind:open {onOpenChange}>
 	<Dialog.Content
 		class="flex max-h-[calc(100dvh-2rem)] w-[min(720px,calc(100dvw-2rem))] max-w-none flex-col overflow-auto p-0"
+		data-tour="case-form"
 	>
 		<Dialog.Header class="border-b px-8 py-6">
 			<Dialog.Title class="text-xl font-semibold">Create a new case</Dialog.Title>
@@ -175,7 +176,7 @@
 			<form class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2" onsubmit={onSubmit}>
 				<div class="flex flex-col gap-2">
 					<div class="text-sm font-medium">Case name *</div>
-					<Input class="text-sm" autocomplete="off" bind:value={caseName} />
+					<Input class="text-sm" autocomplete="off" bind:value={caseName} data-tour="case-name" />
 				</div>
 
 				<div class="flex flex-col gap-2">
@@ -216,7 +217,12 @@
 
 				<div class="flex flex-col gap-2">
 					<div class="text-sm font-medium">Short description *</div>
-					<Input class="text-sm" autocomplete="off" bind:value={shortDescription} />
+					<Input
+						class="text-sm"
+						autocomplete="off"
+						bind:value={shortDescription}
+						data-tour="case-description"
+					/>
 				</div>
 
 				{#if error}

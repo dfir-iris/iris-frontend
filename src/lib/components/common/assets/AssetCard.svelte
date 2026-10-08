@@ -8,7 +8,7 @@
 	import StatusBadge from '$lib/components/ui/badge/status-badge.svelte';
 	import EntityRow from '$lib/components/common/EntityRow.svelte';
 	import SeenElsewhereBadge from '$lib/components/common/SeenElsewhereBadge.svelte';
-	import AssetStageChip from './AssetStageChip.svelte';
+	import AssetFlagChips from './AssetFlagChips.svelte';
 	import { getAssetTypeIcon } from './asset-type-icon';
 	import { toPlainSnippet } from '$lib/utils/text';
 	import { CaseAssetsService } from '$lib/services/case-assets.service';
@@ -72,13 +72,8 @@
 			/>
 		{/if}
 
-		{#if asset.stage}
-			<span
-				class="inline-flex"
-				title={asset.stage_reason ? `Stage reason: ${asset.stage_reason}` : undefined}
-			>
-				<AssetStageChip stage={asset.stage} />
-			</span>
+		{#if asset.flags?.length}
+			<AssetFlagChips flags={asset.flags} max={2} emptyLabel={null} />
 		{/if}
 
 		{#if hasIocs}

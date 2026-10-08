@@ -1,5 +1,5 @@
 import type { Ioc } from './ioc';
-import type { AssetStage } from '$lib/services/asset-stages.service';
+import type { CaseAssetFlag } from '$lib/services/asset-flags.service';
 
 export interface Asset {
 	asset_name: string;
@@ -34,10 +34,6 @@ export interface Asset {
 	modification_history: object | null;
 	iocs: number[] | Ioc[] | null;
 	link: object[];
-	stage_id?: number | null;
-	stage_reason?: string | null;
-	stage_decision_id?: number | null;
-	stage_updated_at?: string | null;
-	stage_updated_by_id?: number | null;
-	stage?: AssetStage | null;
+	/** Status flags set on the asset (dump-only: change them through the flag endpoints). */
+	flags?: CaseAssetFlag[];
 }
