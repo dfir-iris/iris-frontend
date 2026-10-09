@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
+	aiSuggestionAge,
 	aiSuggestionAnswerBuild,
 	aiSuggestionAnswerDefaults,
 	aiSuggestionConfidence,
 	aiSuggestionFieldOptions,
-	aiSuggestionKind
+	aiSuggestionKind,
+	aiSuggestionSnippet
 } from '../ai-suggestion-format';
 import type { AiSuggestionFormField } from '$lib/services/ai-suggestions.service';
 
@@ -55,5 +57,24 @@ describe('ai-suggestion-format', () => {
 	it('rejects a non-numeric number', () => {
 		const { errors } = aiSuggestionAnswerBuild(fields, { host: 'x', count: 'abc' });
 		expect(errors.count).toBe('Must be a number');
+	});
+
+	it('previews a markdown body on one line', () => {
+		expect(
+			aiSuggestionSnippet('## Why\n\n- **3/70** engines flag [it](https://x)\n```\ncode\n```\nDone')
+		).toBe('Why 3/70 engines flag it Done');
+		expect(aiSuggestionSnippet(null)).toBe('');
+		expect(aiSuggestionSnippet('x'.repeat(500))).toHaveLength(240);
+	});
+
+	it('gives a compact age', () => {
+		const now = Date.parse('2026-10-08T12:00:00Z');
+		expect(aiSuggestionAge('2026-10-08T11:59:40Z', now)).toBe('now');
+		expect(aiSuggestionAge('2026-10-08T11:55:00Z', now)).toBe('5m');
+		// Offset-less server dates are UTC
+		expect(aiSuggestionAge('2026-10-08T09:00:00', now)).toBe('3h');
+		expect(aiSuggestionAge('2026-10-06T12:00:00Z', now)).toBe('2d');
+		expect(aiSuggestionAge('2026-09-01T12:00:00Z', now)).not.toMatch(/d$/);
+		expect(aiSuggestionAge(null, now)).toBe('');
 	});
 });

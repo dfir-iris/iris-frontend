@@ -2,8 +2,9 @@
   AI suggestions inbox: every suggestion the user can see, across
   alerts, clusters, cases, war rooms and those about no entity, with
   Accept / Dismiss / Answer on each. Dry-run suggestions show here only,
-  for review. `?id=` (the link of a suggestion notification) brings one
-  suggestion forward even when the filters would hide it. New and
+  for review, and are part of the default "To review" list. `?id=`
+  (the link of a suggestion notification) brings one suggestion
+  forward, expanded, even when the filters would hide it. New and
   updated suggestions arrive live.
 -->
 <script lang="ts">
@@ -17,9 +18,11 @@
 	import { AI_SUGGESTION_STATUS_LABELS } from '$lib/components/ai-suggestions/ai-suggestion-format';
 	import {
 		AI_SUGGESTION_INBOX_DEFAULTS,
+		AI_SUGGESTION_INBOX_STATUS_LABELS,
 		AI_SUGGESTION_INBOX_STATUSES,
 		AI_SUGGESTION_SEVERITIES,
 		aiSuggestionInboxApply,
+		aiSuggestionInboxStatusParam,
 		aiSuggestionInboxWorkflows,
 		type AiSuggestionInboxFilters
 	} from '$lib/components/ai-suggestions/ai-suggestion-inbox';
@@ -76,7 +79,7 @@
 		loading = true;
 		loadError = null;
 		const res = await AiSuggestionsService.list({
-			status: filters.status,
+			status: aiSuggestionInboxStatusParam(filters.status),
 			workflow_id: filters.workflowId,
 			entity_type: filters.entityType || null,
 			severity: filters.severity || null,
@@ -135,6 +138,7 @@
 	});
 
 	const openCount = $derived(items.filter((s) => s.status === 'open').length);
+	const dryRunCount = $derived(items.filter((s) => s.status === 'dry_run').length);
 </script>
 
 <svelte:head>
@@ -173,7 +177,9 @@
 					<select class={SELECT_CLASS} bind:value={filters.status} onchange={load}>
 						{#each AI_SUGGESTION_INBOX_STATUSES as s (s)}
 							<option value={s}
-								>{s === 'all' ? 'All' : (AI_SUGGESTION_STATUS_LABELS[s] ?? s)}</option
+								>{AI_SUGGESTION_INBOX_STATUS_LABELS[s] ??
+									AI_SUGGESTION_STATUS_LABELS[s] ??
+									s}</option
 							>
 						{/each}
 					</select>
@@ -221,7 +227,9 @@
 					</label>
 				{/if}
 				<span class="ml-auto text-2xs text-muted-foreground">
-					{items.length} shown{openCount ? ` · ${openCount} open` : ''}
+					{items.length} shown{openCount ? ` · ${openCount} open` : ''}{dryRunCount
+						? ` · ${dryRunCount} from dry runs`
+						: ''}
 				</span>
 			</div>
 
@@ -236,7 +244,7 @@
 					<p class="text-sm">{loading ? 'Loading…' : 'No suggestions match these filters.'}</p>
 				</div>
 			{:else}
-				<div class="flex max-w-4xl flex-col gap-2" data-testid="ai-suggestions-inbox-list">
+				<div class="flex max-w-5xl flex-col gap-1" data-testid="ai-suggestions-inbox-list">
 					{#each items as s (s.id)}
 						<AiSuggestionCard suggestion={s} {onChanged} showEntity highlight={s.id === focusId} />
 					{/each}

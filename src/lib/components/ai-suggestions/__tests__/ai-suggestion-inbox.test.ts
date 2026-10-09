@@ -4,6 +4,7 @@ import {
 	AI_SUGGESTION_INBOX_DEFAULTS,
 	aiSuggestionInboxApply,
 	aiSuggestionInboxMatches,
+	aiSuggestionInboxStatusParam,
 	aiSuggestionInboxWorkflows
 } from '../ai-suggestion-inbox';
 
@@ -40,12 +41,21 @@ function suggestion(over: Partial<AiSuggestion> = {}): AiSuggestion {
 const filters = { ...AI_SUGGESTION_INBOX_DEFAULTS };
 
 describe('aiSuggestionInboxMatches', () => {
-	it('keeps open suggestions by default', () => {
+	it('keeps open and dry-run suggestions by default', () => {
 		expect(aiSuggestionInboxMatches(suggestion(), filters)).toBe(true);
-		expect(aiSuggestionInboxMatches(suggestion({ status: 'dry_run' }), filters)).toBe(false);
+		expect(aiSuggestionInboxMatches(suggestion({ status: 'dry_run' }), filters)).toBe(true);
+		expect(aiSuggestionInboxMatches(suggestion({ status: 'accepted' }), filters)).toBe(false);
+		const open = { ...filters, status: 'open' as const };
+		expect(aiSuggestionInboxMatches(suggestion({ status: 'dry_run' }), open)).toBe(false);
 		expect(
-			aiSuggestionInboxMatches(suggestion({ status: 'dry_run' }), { ...filters, status: 'all' })
+			aiSuggestionInboxMatches(suggestion({ status: 'accepted' }), { ...filters, status: 'all' })
 		).toBe(true);
+	});
+
+	it('asks the server for every status the filter keeps', () => {
+		expect(aiSuggestionInboxStatusParam('review')).toBe('open,dry_run');
+		expect(aiSuggestionInboxStatusParam('dismissed')).toBe('dismissed');
+		expect(aiSuggestionInboxStatusParam('all')).toBe('all');
 	});
 
 	it('filters on workflow, severity and entity type', () => {
@@ -73,10 +83,16 @@ describe('aiSuggestionInboxApply', () => {
 
 	it('ignores a new suggestion the filters drop', () => {
 		const list = [suggestion()];
-		const pushed = suggestion({ id: 2, status: 'dry_run' });
+		const pushed = suggestion({ id: 2, status: 'dismissed' });
 		expect(aiSuggestionInboxApply(list, { action: 'created', suggestion: pushed }, filters)).toBe(
 			list
 		);
+	});
+
+	it('adds a pushed dry-run suggestion to the default list', () => {
+		const pushed = suggestion({ id: 2, status: 'dry_run' });
+		const next = aiSuggestionInboxApply([], { action: 'created', suggestion: pushed }, filters);
+		expect(next.map((s) => s.id)).toEqual([2]);
 	});
 
 	it('updates a listed one in place and keeps its answer', () => {

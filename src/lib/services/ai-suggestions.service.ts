@@ -93,8 +93,8 @@ export interface AiSuggestionFilters {
 	/** `none`: the suggestions about no entity. */
 	entity_type?: AiSuggestionEntityType | 'none' | null;
 	entity_id?: number | null;
-	/** `open` (server default) or `all`, or one explicit status. */
-	status?: AiSuggestionStatus | 'all' | null;
+	/** `open` (server default) or `all`, or statuses, comma-separated. */
+	status?: AiSuggestionStatus | 'all' | string | null;
 	run_uuid?: string | null;
 	workflow_id?: number | null;
 	severity?: string | null;

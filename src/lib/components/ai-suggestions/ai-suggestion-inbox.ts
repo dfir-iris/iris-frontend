@@ -9,9 +9,16 @@ import type {
 	AiSuggestionStatus
 } from '$lib/services/ai-suggestions.service';
 
+/**
+ * `review`, the default: what is left to look at, the open suggestions
+ * and those of dry runs (which never become open).
+ */
+export type AiSuggestionInboxStatus = AiSuggestionStatus | 'all' | 'review';
+
+const REVIEW_STATUSES: AiSuggestionStatus[] = ['open', 'dry_run'];
+
 export interface AiSuggestionInboxFilters {
-	/** `all` or one status; `open` by default. */
-	status: AiSuggestionStatus | 'all';
+	status: AiSuggestionInboxStatus;
 	workflowId: number | null;
 	/** `none`: the suggestions about no entity. */
 	entityType: AiSuggestionEntityType | 'none' | '';
@@ -20,21 +27,32 @@ export interface AiSuggestionInboxFilters {
 }
 
 export const AI_SUGGESTION_INBOX_DEFAULTS: AiSuggestionInboxFilters = {
-	status: 'open',
+	status: 'review',
 	workflowId: null,
 	entityType: '',
 	severity: '',
 	mine: false
 };
 
-export const AI_SUGGESTION_INBOX_STATUSES: Array<AiSuggestionStatus | 'all'> = [
+export const AI_SUGGESTION_INBOX_STATUSES: AiSuggestionInboxStatus[] = [
+	'review',
 	'open',
-	'all',
+	'dry_run',
 	'accepted',
 	'dismissed',
 	'expired',
-	'dry_run'
+	'all'
 ];
+
+export const AI_SUGGESTION_INBOX_STATUS_LABELS: Record<string, string> = {
+	review: 'To review',
+	all: 'All'
+};
+
+/** The `status` query parameter of a filter. */
+export function aiSuggestionInboxStatusParam(status: AiSuggestionInboxStatus): string {
+	return status === 'review' ? REVIEW_STATUSES.join(',') : status;
+}
 
 export const AI_SUGGESTION_SEVERITIES = ['critical', 'high', 'medium', 'low'];
 
@@ -47,7 +65,9 @@ export function aiSuggestionInboxMatches(
 	s: AiSuggestion,
 	filters: AiSuggestionInboxFilters
 ): boolean {
-	if (filters.status !== 'all' && s.status !== filters.status) return false;
+	if (filters.status === 'review') {
+		if (!REVIEW_STATUSES.includes(s.status)) return false;
+	} else if (filters.status !== 'all' && s.status !== filters.status) return false;
 	if (filters.workflowId !== null && s.workflow_id !== filters.workflowId) return false;
 	if (filters.entityType === 'none' && s.entity_type) return false;
 	if (filters.entityType && filters.entityType !== 'none' && s.entity_type !== filters.entityType) {

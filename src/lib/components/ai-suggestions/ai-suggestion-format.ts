@@ -11,6 +11,7 @@ import type {
 	AiSuggestionFormField,
 	AiSuggestionKind
 } from '$lib/services/ai-suggestions.service';
+import { formatDate, parseServerDate } from '$lib/utils/time-formatter';
 
 export const AI_SUGGESTION_KINDS: Record<string, { label: string; icon: typeof SparklesIcon }> = {
 	create_case: { label: 'Create case', icon: FolderPlusIcon },
@@ -125,4 +126,32 @@ export function aiSuggestionAnswerBuild(
 
 export function aiSuggestionIsActionable(s: AiSuggestion): boolean {
 	return s.status === 'open';
+}
+
+const SNIPPET_MAX = 240;
+
+/** A one-line plain-text preview of a markdown body. */
+export function aiSuggestionSnippet(body: string | null | undefined): string {
+	if (!body) return '';
+	const text = body
+		.replace(/```[\s\S]*?(```|$)/g, ' ')
+		.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+		.replace(/^\s{0,3}(#{1,6}|>|[-*+]|\d+\.)\s+/gm, '')
+		.replace(/[*_`~]+/g, '')
+		.replace(/\s+/g, ' ')
+		.trim();
+	return text.length > SNIPPET_MAX ? `${text.slice(0, SNIPPET_MAX - 1)}…` : text;
+}
+
+/** How long ago, compact: `now`, `5m`, `3h`, `2d`, then the date. */
+export function aiSuggestionAge(iso: string | null | undefined, now: number = Date.now()): string {
+	const at = parseServerDate(iso);
+	if (!at) return '';
+	const minutes = Math.floor((now - at.getTime()) / 60_000);
+	if (minutes < 1) return 'now';
+	if (minutes < 60) return `${minutes}m`;
+	const hours = Math.floor(minutes / 60);
+	if (hours < 24) return `${hours}h`;
+	const days = Math.floor(hours / 24);
+	return days < 7 ? `${days}d` : formatDate(at);
 }

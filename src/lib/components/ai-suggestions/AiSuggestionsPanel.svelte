@@ -80,7 +80,7 @@
 		</button>
 
 		{#if isExpanded}
-			<div class="flex flex-col gap-2 px-3 pb-3">
+			<div class="flex flex-col gap-1 px-2 pb-2">
 				{#each open as s (s.id)}
 					<AiSuggestionCard suggestion={s} {onChanged} />
 				{/each}
@@ -101,7 +101,7 @@
 							History ({history.length})
 						</button>
 						{#if historyOpen}
-							<div class="mt-2 flex flex-col gap-2 opacity-90">
+							<div class="mt-1 flex flex-col gap-1 opacity-90">
 								{#each history as s (s.id)}
 									<AiSuggestionCard suggestion={s} {onChanged} />
 								{/each}
