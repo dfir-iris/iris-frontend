@@ -4,11 +4,12 @@
   and its connectors. The input (none for the trigger) and one handle
   per output port sit on the node's default sides (`handles`: input on
   the left and outputs on the right unless changed); the same connectors
-  also exist on the other sides, shown on hover (outputs) or while a
-  link is being drawn (inputs), so a link can leave or enter on any side.
+  also exist on the other sides, shown on hover as small faint dots
+  without labels (outputs, their port in a tooltip) or while a link is
+  being drawn (inputs), so a link can leave or enter on any side.
   Handle ids: the port / `in` on the default side, `<port>@<side>` /
   `in@<side>` elsewhere (see ai-workflow-graph).
-  While a run goes through it, a halo and a chip show its live state.
+  While a run goes through it, a glow and an icon show its live state.
 -->
 <script lang="ts">
 	import { getContext } from 'svelte';
@@ -130,9 +131,14 @@
 		if (side === handles.input || used.has(handleId(INPUT_HANDLE, side, handles.input))) return '';
 		return linking && !linkingFromHere ? 'opacity-60' : hidden;
 	}
+	const extraSide = (side: HandleSide, port: string) =>
+		side !== outputSide && !used.has(handleId(port, side, outputSide));
 	function portClass(side: HandleSide, port: string): string {
-		if (side === outputSide || used.has(handleId(port, side, outputSide))) return '';
-		return linking ? hidden : 'opacity-0 group-hover:opacity-100';
+		if (!extraSide(side, port)) return '!h-2.5 !w-2.5';
+		// Discreet until pointed at: the node stays readable on hover
+		return linking
+			? `!h-2 !w-2 ${hidden}`
+			: '!h-2 !w-2 opacity-0 group-hover:opacity-40 hover:!opacity-100';
 	}
 	const portTone = (port: string) =>
 		port === 'error' || port === 'timeout' || port === 'false' ? '!bg-destructive' : '!bg-primary';
@@ -234,10 +240,9 @@
 
 	{#each HANDLE_SIDES as side (side)}
 		{#each ports as port, index (port)}
-			{@const visibility = portClass(side, port)}
-			{#if side === outputSide || ports.length > 1}
+			{#if side === outputSide && ports.length > 1}
 				<span
-					class={`pointer-events-none absolute text-[9px] uppercase tracking-wide text-muted-foreground transition-opacity ${LABEL_SIDE[side]} ${visibility}`}
+					class={`pointer-events-none absolute text-[9px] uppercase tracking-wide text-muted-foreground ${LABEL_SIDE[side]}`}
 					style={at(side, portAt(side, index))}
 				>
 					{port}
@@ -248,7 +253,8 @@
 				position={POSITIONS[side]}
 				id={handleId(port, side, outputSide)}
 				style={at(side, portAt(side, index))}
-				class={`!h-2.5 !w-2.5 transition-opacity ${portTone(port)} ${visibility}`}
+				class={`transition-opacity ${portTone(port)} ${portClass(side, port)}`}
+				title={side === outputSide ? undefined : port}
 			/>
 		{/each}
 	{/each}
