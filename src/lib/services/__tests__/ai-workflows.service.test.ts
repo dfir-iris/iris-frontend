@@ -55,6 +55,11 @@ describe('AiWorkflowsService', () => {
 		expect(mockDelete).toHaveBeenCalledWith('/ai-workflows/7', {});
 	});
 
+	it('reads the workflow library', async () => {
+		await AiWorkflowsService.library();
+		expect(mockGet).toHaveBeenCalledWith('/ai-workflows/library', {});
+	});
+
 	it('creates and updates', async () => {
 		await AiWorkflowsService.create(body);
 		expect(mockPost).toHaveBeenCalledWith('/ai-workflows', body, {});

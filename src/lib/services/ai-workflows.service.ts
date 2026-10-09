@@ -497,6 +497,23 @@ export interface AiImportResult<T> {
 	block?: T;
 }
 
+/** A workflow shipped with IRIS, added as a copy (`importWorkflow`). */
+export interface AiLibraryEntry {
+	/** The file name without its extensions. */
+	id: string;
+	file: string;
+	name: string;
+	description: string;
+	category: string;
+	trigger_type: AiTriggerType;
+	trigger_config: Record<string, unknown>;
+	uses_ai: boolean;
+	requirements: AiDocumentRequirements;
+	document: AiWorkflowDocument;
+	/** What the caller lacks to run it: keystore entries, disabled tools. */
+	warnings: AiValidationError[];
+}
+
 export interface AiAuthoringGuide {
 	markdown: string;
 	examples: { file: string; kind: string; name: string; document: Record<string, unknown> }[];
@@ -759,6 +776,10 @@ export class AiWorkflowsService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<AiAuthoringGuide>> {
 		return ApiService.get<AiAuthoringGuide>(`${BASE}/authoring-guide`, options);
+	}
+
+	static async library(options: ApiOptions = {}): Promise<RequestResponse<AiLibraryEntry[]>> {
+		return ApiService.get<AiLibraryEntry[]>(`${BASE}/library`, options);
 	}
 
 	// ---- Saved blocks

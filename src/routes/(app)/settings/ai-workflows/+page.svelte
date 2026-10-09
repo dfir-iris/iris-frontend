@@ -1,7 +1,7 @@
 <!--
   AI workflows: list with trigger, active toggle, owner, version and
   last-24h run counts; new / import / edit / export / delete / run
-  actions, and the JSON authoring guide. The editor
+  actions, the workflow library and the JSON authoring guide. The editor
   lives at `./[id]` (`./new` to create), runs at `./runs`.
 -->
 <script lang="ts">
@@ -10,6 +10,7 @@
 	import {
 		BookOpenIcon,
 		DownloadIcon,
+		LibraryIcon,
 		ListIcon,
 		PencilIcon,
 		PlayIcon,
@@ -39,6 +40,7 @@
 	import FeatureGate from './components/FeatureGate.svelte';
 	import RunDialog from './components/RunDialog.svelte';
 	import AuthoringGuideDialog from './components/AuthoringGuideDialog.svelte';
+	import LibraryDialog from './components/LibraryDialog.svelte';
 	import {
 		describeApiError,
 		describeWarnings,
@@ -47,6 +49,7 @@
 		pickJsonFile,
 		RUN_STATUS_TONES,
 		TRIGGER_LABELS,
+		triggerDetail,
 		userLabel
 	} from './helpers/ui';
 
@@ -64,6 +67,7 @@
 	let runTarget = $state<AiWorkflowSummary | null>(null);
 	let runOpen = $state(false);
 	let guideOpen = $state(false);
+	let libraryOpen = $state(false);
 	let importing = $state(false);
 
 	async function importWorkflow() {
@@ -91,6 +95,16 @@
 		const warnings = describeWarnings(result.warnings);
 		toast({
 			title: `Workflow “${created?.name ?? picked.name}” imported (inactive)`,
+			description: warnings || 'Review it, then activate it.',
+			variant: warnings ? 'warning' : 'success'
+		});
+		if (created) goto(`/settings/ai-workflows/${created.id}`);
+		else load();
+	}
+
+	function onLibraryAdded(created: AiWorkflow | undefined, name: string, warnings: string) {
+		toast({
+			title: `Workflow “${name}” added (inactive)`,
 			description: warnings || 'Review it, then activate it.',
 			variant: warnings ? 'warning' : 'success'
 		});
@@ -180,16 +194,6 @@
 		'skipped'
 	] as const;
 
-	function triggerDetail(w: AiWorkflowSummary): string {
-		const c = w.trigger_config ?? {};
-		if (w.trigger_type === 'event') {
-			const hooks = Array.isArray(c.hooks) ? (c.hooks as string[]) : [];
-			return hooks.length === 1 ? hooks[0] : `${hooks.length} hooks`;
-		}
-		if (w.trigger_type === 'cron') return String(c.cron ?? '');
-		return '';
-	}
-
 	function onRunStarted(run: AiRunSummary) {
 		goto(`/settings/ai-workflows/runs/${run.uuid}`);
 	}
@@ -224,6 +228,16 @@
 				data-testid="wf-guide"
 			>
 				<BookOpenIcon size={12} class="mr-1" /> JSON guide
+			</Button>
+			<Button
+				variant="outline"
+				size="sm"
+				class="h-7"
+				onclick={() => (libraryOpen = true)}
+				title="Workflows shipped with IRIS, ready to add and adapt"
+				data-testid="wf-library"
+			>
+				<LibraryIcon size={12} class="mr-1" /> Library
 			</Button>
 			<Button variant="outline" size="sm" class="h-7" onclick={load} disabled={loading}>
 				<RefreshCwIcon size={12} class={`mr-1 ${loading ? 'animate-spin' : ''}`} />
@@ -268,9 +282,14 @@
 						Triage new alerts, enrich cases from external tools, or ask an analyst before acting.
 					</p>
 					{#if canWrite}
-						<Button size="sm" class="mt-2 h-7" href="/settings/ai-workflows/new">
-							<PlusIcon size={12} class="mr-1" /> Create a workflow
-						</Button>
+						<div class="mt-2 flex gap-1.5">
+							<Button variant="outline" size="sm" class="h-7" onclick={() => (libraryOpen = true)}>
+								<LibraryIcon size={12} class="mr-1" /> Start from the library
+							</Button>
+							<Button size="sm" class="h-7" href="/settings/ai-workflows/new">
+								<PlusIcon size={12} class="mr-1" /> Create a workflow
+							</Button>
+						</div>
 					{/if}
 				</div>
 			{:else if workflows.length > 0}
@@ -292,6 +311,7 @@
 						<tbody>
 							{#each workflows as workflow (workflow.id)}
 								{@const counts = workflow.run_counts_24h ?? {}}
+								{@const detail = triggerDetail(workflow.trigger_type, workflow.trigger_config)}
 								<tr class="border-t hover:bg-muted/20" data-testid={`wf-row-${workflow.id}`}>
 									<td class="px-3 py-2">
 										<Switch
@@ -318,12 +338,12 @@
 										<span class="rounded bg-muted px-1.5 py-0.5 text-2xs">
 											{TRIGGER_LABELS[workflow.trigger_type] ?? workflow.trigger_type}
 										</span>
-										{#if triggerDetail(workflow)}
+										{#if detail}
 											<span
 												class="ml-1 truncate font-mono text-2xs text-muted-foreground"
-												title={triggerDetail(workflow)}
+												title={detail}
 											>
-												{triggerDetail(workflow)}
+												{detail}
 											</span>
 										{/if}
 										{#if workflow.last_fired_at}
@@ -445,3 +465,4 @@
 {/if}
 
 <AuthoringGuideDialog bind:open={guideOpen} />
+<LibraryDialog bind:open={libraryOpen} {canWrite} onAdded={onLibraryAdded} />

@@ -69,6 +69,17 @@ export const TRIGGER_LABELS: Record<AiTriggerType, string> = {
 	webhook: 'Inbound webhook'
 };
 
+/** What fires a workflow, in a few words: its hook, or its schedule. */
+export function triggerDetail(type: AiTriggerType, config: Record<string, unknown> | null): string {
+	const c = config ?? {};
+	if (type === 'event') {
+		const hooks = Array.isArray(c.hooks) ? (c.hooks as string[]) : [];
+		return hooks.length === 1 ? hooks[0] : `${hooks.length} hooks`;
+	}
+	if (type === 'cron') return String(c.cron ?? '');
+	return '';
+}
+
 export const ENTITY_LABELS: Record<AiEntityType, string> = {
 	alert: 'Alert',
 	alert_cluster: 'Alert cluster',

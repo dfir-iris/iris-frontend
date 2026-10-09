@@ -124,6 +124,103 @@ export function bodyFromForm(
 	return body;
 }
 
+/** The workflow as edited in the JSON view: everything but the owner. */
+export function workflowJson(form: WorkflowForm, graph: AiWorkflowGraph): string {
+	return JSON.stringify(bodyFromForm(form, graph, { includeOwner: false }), null, 2);
+}
+
+const AUDIENCES: AiSuggestionAudience[] = ['entity', 'owner'];
+
+const isObject = (v: unknown): v is Record<string, unknown> =>
+	v !== null && typeof v === 'object' && !Array.isArray(v);
+
+/**
+ * Reads the JSON view back: a bare definition or an exported document
+ * (`{format, workflow}`). A field left out keeps its value in `base`;
+ * the backend validates the graph itself on save.
+ */
+export function workflowFromJson(
+	text: string,
+	base: WorkflowForm
+): { form: WorkflowForm; graph: AiWorkflowGraph } | { error: string } {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(text);
+	} catch (e) {
+		return { error: `Invalid JSON: ${(e as Error).message}` };
+	}
+	if (!isObject(parsed)) return { error: 'The workflow must be a JSON object' };
+	let doc = parsed;
+	if ('format' in doc) {
+		if (doc.format !== 'iris-ai-workflow')
+			return { error: `Expected a workflow document, got the format "${String(doc.format)}"` };
+		if (!isObject(doc.workflow)) return { error: '"workflow" must be an object' };
+		doc = doc.workflow;
+	}
+
+	const form: WorkflowForm = JSON.parse(JSON.stringify(base));
+	const has = (key: string) => key in doc && doc[key] !== undefined;
+	if (has('name')) {
+		if (typeof doc.name !== 'string') return { error: '"name" must be a string' };
+		form.name = doc.name;
+	}
+	if (has('description')) {
+		if (doc.description !== null && typeof doc.description !== 'string')
+			return { error: '"description" must be a string or null' };
+		form.description = doc.description ?? '';
+	}
+	if (has('is_active')) {
+		if (typeof doc.is_active !== 'boolean') return { error: '"is_active" must be true or false' };
+		form.is_active = doc.is_active;
+	}
+	if (has('trigger_type')) {
+		if (!TRIGGERS.includes(doc.trigger_type as AiTriggerType))
+			return { error: `"trigger_type" must be one of ${TRIGGERS.join(', ')}` };
+		form.trigger_type = doc.trigger_type as AiTriggerType;
+	}
+	if (has('trigger_config')) {
+		if (!isObject(doc.trigger_config)) return { error: '"trigger_config" must be an object' };
+		form.trigger_configs[form.trigger_type] = {
+			...defaultTriggerConfig(form.trigger_type),
+			...doc.trigger_config
+		};
+	}
+	if (has('customer_scope')) {
+		const scope = doc.customer_scope;
+		if (!Array.isArray(scope) || !scope.every((id) => Number.isInteger(id)))
+			return { error: '"customer_scope" must be a list of customer ids' };
+		form.customer_scope = [...scope];
+	}
+	if (has('write_tool_allowlist')) {
+		const tools = doc.write_tool_allowlist;
+		if (!Array.isArray(tools) || !tools.every((t) => typeof t === 'string'))
+			return { error: '"write_tool_allowlist" must be a list of tool names' };
+		form.write_tool_allowlist = [...tools];
+	}
+	for (const key of ['max_runs_per_hour', 'token_budget_per_run'] as const) {
+		if (!has(key)) continue;
+		if (typeof doc[key] !== 'number' || !Number.isFinite(doc[key]))
+			return { error: `"${key}" must be a number` };
+		form[key] = doc[key];
+	}
+	if (has('suggestion_audience')) {
+		if (!AUDIENCES.includes(doc.suggestion_audience as AiSuggestionAudience))
+			return { error: `"suggestion_audience" must be one of ${AUDIENCES.join(', ')}` };
+		form.suggestion_audience = doc.suggestion_audience as AiSuggestionAudience;
+	}
+
+	if (!has('graph')) return { error: 'The workflow needs a "graph"' };
+	const graph = doc.graph;
+	if (!isObject(graph) || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges))
+		return { error: '"graph" must be an object with "nodes" and "edges" lists' };
+	if (
+		!graph.nodes.every((n) => isObject(n) && typeof n.id === 'string' && typeof n.type === 'string')
+	)
+		return { error: 'Every node needs a string "id" and "type"' };
+	if (!graph.edges.every((e) => isObject(e))) return { error: 'Every edge must be an object' };
+	return { form, graph: graph as unknown as AiWorkflowGraph };
+}
+
 /** Shared with the canvas node components through Svelte context. */
 export interface WorkflowEditorCtx {
 	readonly meta: NodeMetaMap;

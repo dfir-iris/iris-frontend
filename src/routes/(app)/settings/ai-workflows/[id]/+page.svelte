@@ -1,8 +1,8 @@
 <!--
   AI workflow editor (`/settings/ai-workflows/new` creates one).
 
-  Header: name, active, validate / save / versions / runs / run /
-  export. Left panel: the workflow settings (trigger, scope, audience,
+  Header: name, active, JSON view, validate / save / versions / runs /
+  run / export. Left panel: the workflow settings (trigger, scope, audience,
   budgets, write allowlist, owner). Centre: the xyflow canvas with its
   palette and saved blocks; each node shows how many events it processed.
   Right drawer: the selected node's config, and its events (browse them
@@ -21,6 +21,7 @@
 	import {
 		ArrowLeftIcon,
 		BookOpenIcon,
+		BracesIcon,
 		CheckCircle2Icon,
 		CircleAlertIcon,
 		DownloadIcon,
@@ -92,12 +93,15 @@
 	import NodeEventsPanel from '../components/NodeEventsPanel.svelte';
 	import NodeTestPanel from '../components/NodeTestPanel.svelte';
 	import AuthoringGuideDialog from '../components/AuthoringGuideDialog.svelte';
+	import WorkflowJsonDialog from '../components/WorkflowJsonDialog.svelte';
 	import PanelResizer from '../components/PanelResizer.svelte';
 	import {
 		bodyFromForm,
 		cleanTriggerConfig,
 		emptyWorkflowForm,
 		formFromWorkflow,
+		workflowFromJson,
+		workflowJson,
 		type WorkflowEditorCtx,
 		type WorkflowForm
 	} from '../helpers/editor';
@@ -146,6 +150,7 @@
 	let versionsOpen = $state(false);
 	let runOpen = $state(false);
 	let guideOpen = $state(false);
+	let jsonOpen = $state(false);
 	let drawerTab = $state<'config' | 'events' | 'test'>('config');
 	const SETTINGS_WIDTH = 320;
 	const DRAWER_WIDTH = 384;
@@ -553,6 +558,23 @@
 		return flowToGraph(nodes, edges, meta);
 	}
 
+	/** The JSON view replaces the settings and the canvas; saving stores them. */
+	function applyJson(text: string): string | null {
+		const read = workflowFromJson(text, form);
+		if ('error' in read) return read.error;
+		form = read.form;
+		loadGraph(read.graph);
+		selectedId = null;
+		applyErrors([]);
+		validated = null;
+		toast({
+			title: 'JSON applied',
+			description: isNew ? 'Create the workflow to keep it.' : 'Save the workflow to keep it.',
+			variant: 'success'
+		});
+		return null;
+	}
+
 	async function validate(): Promise<boolean> {
 		validating = true;
 		const res = await AiWorkflowsService.validate({
@@ -811,6 +833,17 @@
 				title="How to write workflows as JSON (for people and LLMs)"
 			>
 				<BookOpenIcon size={12} class="mr-1" /> JSON guide
+			</Button>
+			<Button
+				variant="ghost"
+				size="sm"
+				class="h-7"
+				onclick={() => (jsonOpen = true)}
+				disabled={loading || !!loadError}
+				title={readOnly ? 'Show the workflow as JSON' : 'Edit the workflow as JSON'}
+				data-testid="wf-json"
+			>
+				<BracesIcon size={12} class="mr-1" /> JSON
 			</Button>
 			{#if workflow}
 				<Button
@@ -1247,6 +1280,12 @@
 </Dialog.Root>
 
 <AuthoringGuideDialog bind:open={guideOpen} />
+<WorkflowJsonDialog
+	bind:open={jsonOpen}
+	source={() => workflowJson(form, currentGraph())}
+	{readOnly}
+	onApply={applyJson}
+/>
 
 {#if workflow}
 	<VersionsDialog
