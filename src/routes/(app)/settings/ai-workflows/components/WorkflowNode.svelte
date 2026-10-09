@@ -20,7 +20,7 @@
 		useUpdateNodeInternals,
 		type NodeProps
 	} from '@xyflow/svelte';
-	import { CircleAlertIcon } from 'lucide-svelte';
+	import { CheckIcon, CircleAlertIcon, HourglassIcon, XIcon } from 'lucide-svelte';
 	import { formatDateTime } from '$lib/utils/time-formatter';
 	import {
 		DEFAULT_HANDLES,
@@ -61,17 +61,21 @@
 	const Icon = $derived(nodeIcon(type));
 
 	const liveState = $derived(editor?.live[id]);
-	const LIVE_HALOS: Record<AiLiveNodeState, string> = {
-		running: 'animate-pulse ring-blue-500',
-		waiting: 'animate-pulse ring-amber-500',
-		succeeded: 'ring-emerald-500/80',
-		failed: 'ring-destructive'
+	// A soft glow around the card (pulsing while it runs or waits) and a
+	// small status icon by the title
+	const LIVE_GLOWS: Record<AiLiveNodeState, string> = {
+		running:
+			'animate-pulse shadow-[0_0_0_1px_rgb(59_130_246/0.45),0_0_14px_2px_rgb(59_130_246/0.35)]',
+		waiting:
+			'animate-pulse shadow-[0_0_0_1px_rgb(245_158_11/0.45),0_0_14px_2px_rgb(245_158_11/0.3)]',
+		succeeded: 'shadow-[0_0_0_1px_rgb(16_185_129/0.4),0_0_10px_1px_rgb(16_185_129/0.25)]',
+		failed: 'shadow-[0_0_0_1px_rgb(239_68_68/0.45),0_0_10px_1px_rgb(239_68_68/0.3)]'
 	};
-	const LIVE_CHIPS: Record<AiLiveNodeState, string> = {
-		running: 'bg-blue-500 text-white',
-		waiting: 'bg-amber-500 text-white',
-		succeeded: 'bg-emerald-600 text-white',
-		failed: 'bg-destructive text-destructive-foreground'
+	const LIVE_TITLES: Record<AiLiveNodeState, string> = {
+		running: 'Running',
+		waiting: 'Waiting',
+		succeeded: 'Done',
+		failed: 'Failed'
 	};
 
 	const POSITIONS: Record<HandleSide, Position> = {
@@ -154,15 +158,9 @@
 >
 	{#if liveState}
 		<span
-			class={`pointer-events-none absolute -inset-1 rounded-lg ring-2 ${LIVE_HALOS[liveState]}`}
+			class={`pointer-events-none absolute inset-0 rounded-md transition-shadow ${LIVE_GLOWS[liveState]}`}
 			aria-hidden="true"
 		></span>
-		<span
-			class={`pointer-events-none absolute -bottom-2 right-2 flex h-4 items-center rounded-full px-1.5 text-[9px] font-medium uppercase tracking-wide ${LIVE_CHIPS[liveState]}`}
-			data-testid={`wf-node-live-${id}`}
-		>
-			{liveState}
-		</span>
 	{/if}
 	{#if hasInput}
 		{#each HANDLE_SIDES as side (side)}
@@ -184,6 +182,31 @@
 			<div class="truncate text-xs font-medium" title={label}>{label}</div>
 			<div class="truncate text-2xs text-muted-foreground">{typeLabel} · {id}</div>
 		</div>
+		{#if liveState}
+			<span
+				class="ml-auto flex size-4 shrink-0 items-center justify-center"
+				title={LIVE_TITLES[liveState]}
+				data-testid={`wf-node-live-${id}`}
+			>
+				{#if liveState === 'running'}
+					<span class="relative flex size-2.5">
+						<span class="absolute inline-flex size-full animate-ping rounded-full bg-blue-500/70"
+						></span>
+						<span class="relative inline-flex size-2.5 rounded-full bg-blue-500"></span>
+					</span>
+				{:else if liveState === 'waiting'}
+					<HourglassIcon size={12} class="animate-pulse text-amber-500" />
+				{:else if liveState === 'succeeded'}
+					<span class="flex size-4 items-center justify-center rounded-full bg-emerald-500/15">
+						<CheckIcon size={11} strokeWidth={3} class="text-emerald-600 dark:text-emerald-400" />
+					</span>
+				{:else}
+					<span class="flex size-4 items-center justify-center rounded-full bg-destructive/15">
+						<XIcon size={11} strokeWidth={3} class="text-destructive" />
+					</span>
+				{/if}
+			</span>
+		{/if}
 	</div>
 
 	{#if errors.length}
