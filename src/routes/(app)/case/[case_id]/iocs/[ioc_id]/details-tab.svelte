@@ -11,6 +11,7 @@
 	import MarkDownPreview from '$lib/components/common/MarkDown/MarkDownPreview.svelte';
 	import { MarkDownEditor } from '$lib/components/common/MarkDown';
 	import { Fact, FactBar, FactRecord, FactTags } from '$lib/components/common/fact-bar';
+	import EnrichmentPanel from '$lib/components/common/enrichment/EnrichmentPanel.svelte';
 	import SearchSelect, {
 		type SelectOption
 	} from '$lib/components/common/selects/SearchSelect.svelte';
@@ -182,6 +183,8 @@
 		{:else}
 			<p class="text-sm italic text-muted-foreground">No description provided</p>
 		{/if}
+
+		<EnrichmentPanel enrichment={ioc.ioc_enrichment} subject={ioc.ioc_value} />
 
 		<FactRecord
 			items={[

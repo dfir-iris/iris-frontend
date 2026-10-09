@@ -11,6 +11,7 @@
 	import MarkDownPreview from '$lib/components/common/MarkDown/MarkDownPreview.svelte';
 	import { CompromiseStatus } from '$lib/components/common/compromise-status';
 	import { Fact, FactBar, FactRecord, FactTags } from '$lib/components/common/fact-bar';
+	import EnrichmentPanel from '$lib/components/common/enrichment/EnrichmentPanel.svelte';
 	import AssetEditForm, { type AssetEditData } from '../components/asset-edit-form.svelte';
 	import AssetFlagsStrip from './asset-flags-strip.svelte';
 
@@ -93,6 +94,8 @@
 		{:else}
 			<p class="text-sm italic text-muted-foreground">No description provided</p>
 		{/if}
+
+		<EnrichmentPanel enrichment={asset.asset_enrichment} subject={asset.asset_name} />
 
 		<FactRecord
 			items={[
