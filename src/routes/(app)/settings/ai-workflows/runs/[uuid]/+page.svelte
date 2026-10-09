@@ -2,8 +2,9 @@
   Run inspector: header (status, workflow version, entity, acting user,
   tokens), the step timeline with each step's tool and LLM calls, waits,
   suggestions, and the trigger payload / context. Cancel, rerun and
-  JSON export (admins and the workflow owner). Polls while the run is
-  running or waiting.
+  JSON export (admins and the workflow owner). Live while the run is
+  running or waiting: each pushed change re-reads it, and it is polled
+  as a fallback.
 -->
 <script lang="ts">
 	import { getContext, onDestroy } from 'svelte';
@@ -25,8 +26,13 @@
 	import { formatDateTime } from '$lib/utils/time-formatter';
 	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 	import { runtimeConfig } from '$lib/stores/runtime-config.store.svelte';
+	import { notifications } from '$lib/stores/notifications.store';
 	import {
+		AI_RUN_LIVE_EVENT,
+		AI_RUN_UNWATCH,
+		AI_RUN_WATCH,
 		AiWorkflowsService,
+		type AiRunLiveEvent,
 		type AiLlmCall,
 		type AiRunDetail,
 		type AiRunSummary,
@@ -129,6 +135,29 @@
 			run = null;
 			load();
 		}
+	});
+
+	// Pushes only say something changed: re-read, at most every 300 ms
+	const PUSH_DEBOUNCE_MS = 300;
+	let pushTimer: ReturnType<typeof setTimeout> | null = null;
+
+	$effect(() => {
+		const id = uuid;
+		if (!runtimeConfig.aiWorkflowsEnabled || !id) return;
+		const offEvent = notifications.onSocketEvent<AiRunLiveEvent>(AI_RUN_LIVE_EVENT, (event) => {
+			if (event?.run_uuid !== id || pushTimer) return;
+			pushTimer = setTimeout(() => {
+				pushTimer = null;
+				if (id === uuid) load(true);
+			}, PUSH_DEBOUNCE_MS);
+		});
+		const offRoom = notifications.watchRoom(AI_RUN_WATCH, AI_RUN_UNWATCH, { run_uuid: id });
+		return () => {
+			offEvent();
+			offRoom();
+			if (pushTimer) clearTimeout(pushTimer);
+			pushTimer = null;
+		};
 	});
 
 	onDestroy(stopPolling);

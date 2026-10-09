@@ -8,6 +8,7 @@ import type {
 	AiWorkflowGraph
 } from '$lib/services/ai-workflows.service';
 import type { NodeMetaMap } from '$lib/utils/ai-workflow-graph';
+import type { AiLiveNodeState } from './live';
 
 /** Editor top-bar state. One config is kept per trigger type so switching back keeps it. */
 export interface WorkflowForm {
@@ -130,4 +131,6 @@ export interface WorkflowEditorCtx {
 	readonly catalogue: AiWorkflowCatalogue | null;
 	/** Events each node processed, per node id (saved workflows only). */
 	readonly stats: Record<string, AiNodeStats>;
+	/** Where the latest run is, per node id, while it goes and shortly after. */
+	readonly live: Record<string, AiLiveNodeState>;
 }

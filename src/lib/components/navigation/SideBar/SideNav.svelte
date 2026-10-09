@@ -12,6 +12,7 @@
 		HouseIcon,
 		LayoutDashboardIcon,
 		LayersIcon,
+		LightbulbIcon,
 		InfoIcon,
 		SearchIcon,
 		SettingsIcon,
@@ -25,6 +26,7 @@
 	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 	import type { PermissionName } from '$lib/services/user-context.service';
 	import { canReadVulnerabilities as canReadVulnerabilitiesGate } from '$lib/components/vulnerabilities/permissions';
+	import { aiSuggestionsEnabled } from '$lib/stores/ai-suggestions.store.svelte';
 	import MenuItem from './MenuItem.svelte';
 	import { SETTINGS_PERMISSIONS, visibleSettingsPages } from '../settings-pages';
 
@@ -56,6 +58,8 @@
 		requires?: PermissionName | PermissionName[];
 		/** When true, only visible while the server runs in demo mode. */
 		demoOnly?: boolean;
+		/** When false, hidden whatever the permissions (a feature turned off). */
+		enabled?: boolean;
 	};
 
 	const mainMenuItems: NavItem[] = [
@@ -111,6 +115,12 @@
 			icon: FileTextIcon,
 			requires: ['activities_read', 'all_activities_read']
 		},
+		{
+			label: 'AI Suggestions',
+			path: '/suggestions',
+			icon: LightbulbIcon,
+			enabled: aiSuggestionsEnabled()
+		},
 		{ label: 'Dim Tasks', path: '/dim-tasks', icon: FileStackIcon }
 	]);
 
@@ -123,6 +133,7 @@
 	function visible(items: NavItem[]): NavItem[] {
 		return items.filter((item) => {
 			if (item.demoOnly && !userCtx.ctx?.demo_mode) return false;
+			if (item.enabled === false) return false;
 			if (!item.requires) return true;
 			if (!userCtx.ready) return false;
 			if (Array.isArray(item.requires)) return userCtx.canAny(item.requires);

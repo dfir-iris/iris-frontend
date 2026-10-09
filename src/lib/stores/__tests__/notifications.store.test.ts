@@ -200,4 +200,39 @@ describe('notifications store', () => {
 		off();
 		notifications.reset();
 	});
+
+	it('watchRoom() joins on every connect and leaves once on unsubscribe', async () => {
+		const off = notifications.watchRoom('room_watch', 'room_unwatch', { run_uuid: 'r1' });
+		(NotificationsService.list as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+			ok: true,
+			status: 200,
+			data: { data: [], unread_count: 0 }
+		});
+
+		await notifications.initialize();
+
+		const ioMock = io as unknown as ReturnType<typeof vi.fn>;
+		const socket = ioMock.mock.results[ioMock.mock.results.length - 1].value as {
+			on: ReturnType<typeof vi.fn>;
+			emit: ReturnType<typeof vi.fn>;
+			connected?: boolean;
+		};
+		const onConnect = socket.on.mock.calls.find(([event]) => event === 'connect')![1];
+		onConnect();
+		onConnect();
+		const joins = socket.emit.mock.calls.filter(([event]) => event === 'room_watch');
+		expect(joins).toEqual([
+			['room_watch', { run_uuid: 'r1' }],
+			['room_watch', { run_uuid: 'r1' }]
+		]);
+
+		socket.connected = true;
+		off();
+		off();
+		const leaves = socket.emit.mock.calls.filter(([event]) => event === 'room_unwatch');
+		expect(leaves).toEqual([['room_unwatch', { run_uuid: 'r1' }]]);
+		onConnect();
+		expect(socket.emit.mock.calls.filter(([event]) => event === 'room_watch')).toHaveLength(2);
+		notifications.reset();
+	});
 });

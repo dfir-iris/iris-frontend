@@ -6,7 +6,7 @@ import type { ApiOptions, RequestResponse } from './api.service';
 export type AiTriggerType = 'event' | 'cron' | 'manual' | 'webhook';
 export type AiEntityType = 'alert' | 'alert_cluster' | 'case' | 'war_room';
 export type AiRunStatus = 'running' | 'waiting' | 'succeeded' | 'failed' | 'cancelled' | 'skipped';
-export type AiStepStatus = 'succeeded' | 'failed' | 'waiting' | 'resumed';
+export type AiStepStatus = 'running' | 'succeeded' | 'failed' | 'waiting' | 'resumed';
 export type AiExecutionMode =
 	| 'auto_read'
 	| 'allowlisted_write'
@@ -532,6 +532,32 @@ export interface AiBlockBody {
 	is_shared?: boolean;
 	definition: AiBlockDefinition;
 }
+
+// ---- Live progress -----------------------------------------------------------------
+
+/**
+ * Socket payload of `ai_workflow_run` on `/notifications`: the state of
+ * a run, and of the step that just started or settled. Sent to whoever
+ * joined the run (`ai_workflow_watch {run_uuid}`) or its workflow
+ * (`ai_workflow_watch {workflow_id}`); the details are read over REST.
+ */
+export interface AiRunLiveEvent {
+	run_uuid: string | null;
+	workflow_id: number | null;
+	status: AiRunStatus;
+	waiting_node_id: string | null;
+	step: {
+		id: number;
+		seq: number;
+		node_id: string;
+		status: AiStepStatus;
+		port: string | null;
+	} | null;
+}
+
+export const AI_RUN_LIVE_EVENT = 'ai_workflow_run';
+export const AI_RUN_WATCH = 'ai_workflow_watch';
+export const AI_RUN_UNWATCH = 'ai_workflow_unwatch';
 
 // ---- Node events --------------------------------------------------------------------
 

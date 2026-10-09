@@ -24,6 +24,7 @@
 		aiSuggestionSeverityClass
 	} from './ai-suggestion-format';
 	import {
+		AI_SUGGESTION_ENTITY_LABELS,
 		aiSuggestionsEntityHref,
 		aiSuggestionsRunHref
 	} from '$lib/stores/ai-suggestions.store.svelte';
@@ -33,9 +34,13 @@
 		suggestion: AiSuggestion;
 		/** Called with the updated suggestion (or null to force a reload). */
 		onChanged: (updated: AiSuggestion | null) => void;
+		/** Name the entity it is about (outside that entity's own page). */
+		showEntity?: boolean;
+		/** Outline it (the one a link pointed at). */
+		highlight?: boolean;
 	}
 
-	let { suggestion, onChanged }: Props = $props();
+	let { suggestion, onChanged, showEntity = false, highlight = false }: Props = $props();
 
 	const kind = $derived(aiSuggestionKind(suggestion.kind));
 	const confidence = $derived(aiSuggestionConfidence(suggestion.confidence));
@@ -57,6 +62,15 @@
 			.filter((r, i, all) => r.href && all.findIndex((o) => o.key === r.key) === i)
 	);
 	const runHref = $derived(aiSuggestionsRunHref(suggestion.run_uuid));
+	const isDryRun = $derived(suggestion.status === 'dry_run');
+	const entityHref = $derived(
+		aiSuggestionsEntityHref(suggestion.entity_type, suggestion.entity_id)
+	);
+	const entityText = $derived(
+		suggestion.entity_type
+			? `${AI_SUGGESTION_ENTITY_LABELS[suggestion.entity_type] ?? suggestion.entity_type} #${suggestion.entity_id}`
+			: null
+	);
 	const actingAs = $derived(
 		$current_user ? `${$current_user.user_name} (${$current_user.user_login})` : 'you'
 	);
@@ -131,7 +145,11 @@
 	const fmt = (iso: string | null) => (iso ? formatDateTime(iso) : '');
 </script>
 
-<article class="rounded-md border bg-card p-3 text-sm" data-testid="ai-suggestion-card">
+<article
+	class={`rounded-md border bg-card p-3 text-sm ${highlight ? 'ring-2 ring-primary' : ''}`}
+	data-testid="ai-suggestion-card"
+	data-suggestion-id={suggestion.id}
+>
 	<header class="flex items-start gap-2">
 		<div
 			class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-violet-500/10 text-violet-600 dark:text-violet-400"
@@ -163,8 +181,32 @@
 				{/if}
 			</div>
 			<h4 class="mt-0.5 font-medium leading-snug">{suggestion.title}</h4>
+			{#if showEntity}
+				<div class="mt-0.5 truncate text-2xs text-muted-foreground">
+					{#if entityText}
+						{#if entityHref}
+							<a href={entityHref} class="font-medium text-primary hover:underline">{entityText}</a>
+						{:else}
+							<span class="font-medium">{entityText}</span>
+						{/if}
+						{#if suggestion.entity_title}
+							<span title={suggestion.entity_title}>· {suggestion.entity_title}</span>
+						{/if}
+					{:else}
+						Not about a specific alert, case or war room
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</header>
+
+	{#if isDryRun}
+		<p
+			class="mt-2 rounded-sm border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-2xs text-amber-800 dark:text-amber-300"
+		>
+			Produced by a dry run: shown for review only, nothing can be accepted.
+		</p>
+	{/if}
 
 	{#if suggestion.body}
 		<div class="mt-2 max-h-64 overflow-y-auto">

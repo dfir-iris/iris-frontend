@@ -50,6 +50,25 @@ function createNotificationsStore() {
 	// Kept across reconnects / resets and bound when the socket opens.
 	const extraListeners = new Map<string, Set<(payload: unknown) => void>>();
 
+	// Rooms other features follow on the same connection (e.g. a run's
+	// live progress): `join` is emitted on every (re)connect, since the
+	// server forgets the rooms of a dropped connection.
+	const watches = new Set<{ join: string; payload: unknown }>();
+
+	/**
+	 * Emit `join` with `payload` now and after every reconnect, until the
+	 * returned function emits `leave`. The server checks access on join.
+	 */
+	function watchRoom(join: string, leave: string, payload: unknown): () => void {
+		const entry = { join, payload };
+		watches.add(entry);
+		if (socket?.connected) socket.emit(join, payload);
+		return () => {
+			if (!watches.delete(entry)) return;
+			if (socket?.connected) socket.emit(leave, payload);
+		};
+	}
+
 	function bindExtraListener(event: string, handler: (payload: unknown) => void) {
 		socket?.on(event, handler);
 	}
@@ -189,6 +208,7 @@ function createNotificationsStore() {
 
 		socket.on('connect', () => {
 			socket?.emit('join');
+			for (const w of watches) socket?.emit(w.join, w.payload);
 			update((s) => ({ ...s, error: null }));
 		});
 
@@ -274,6 +294,7 @@ function createNotificationsStore() {
 		refresh,
 		receive,
 		onSocketEvent,
+		watchRoom,
 		markRead,
 		markAllRead,
 		clear,

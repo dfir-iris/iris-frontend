@@ -14,7 +14,7 @@
   the stored graph for validate / save.
 -->
 <script lang="ts">
-	import { getContext, onMount, setContext } from 'svelte';
+	import { getContext, onDestroy, onMount, setContext, untrack } from 'svelte';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { SvelteFlowProvider } from '@xyflow/svelte';
@@ -40,15 +40,22 @@
 	import ApiError from '$lib/components/ui/api-error.svelte';
 	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 	import { runtimeConfig } from '$lib/stores/runtime-config.store.svelte';
+	import { notifications } from '$lib/stores/notifications.store';
 	import { CustomersService } from '$lib/services/customers.service';
 	import { UsersService } from '$lib/services/users.service';
 	import {
+		AI_RUN_LIVE_EVENT,
+		AI_RUN_UNWATCH,
+		AI_RUN_WATCH,
 		AiWorkflowsService,
+		aiListData,
 		type AiBlock,
 		type AiBlockDefinition,
 		type AiEntityType,
 		type AiImportResult,
 		type AiNodeStats,
+		type AiRunDetail,
+		type AiRunLiveEvent,
 		type AiRunSummary,
 		type AiValidateResult,
 		type AiValidationError,
@@ -93,6 +100,7 @@
 		type WorkflowEditorCtx,
 		type WorkflowForm
 	} from '../helpers/editor';
+	import { aiLiveFromRun, aiLiveIsActive, aiLiveReduce, type AiLiveRun } from '../helpers/live';
 	import {
 		CLASSIFICATION_TONES,
 		describeApiError,
@@ -153,6 +161,7 @@
 		return null;
 	}
 	let stats = $state<Record<string, AiNodeStats>>({});
+	let live = $state<AiLiveRun | null>(null);
 
 	let blocks = $state<AiBlock[]>([]);
 	let blockDialogOpen = $state(false);
@@ -180,6 +189,9 @@
 		},
 		get stats() {
 			return stats;
+		},
+		get live() {
+			return live?.nodes ?? {};
 		}
 	};
 	setContext(WORKFLOW_EDITOR_CTX, ctx);
@@ -601,8 +613,116 @@
 		}
 	}
 
+	// ---- Live progress: the latest run of this workflow, node by node.
+	// Pushed over the socket (owner / admin); polled as a fallback.
+	const LIVE_POLL_MS = 3000;
+	const IDLE_POLL_MS = 15000;
+	const LIVE_FADE_MS = 10000;
+	let liveTimer: ReturnType<typeof setTimeout> | null = null;
+	let fadeTimer: ReturnType<typeof setTimeout> | null = null;
+	let liveOff: (() => void) | null = null;
+
+	function applyLive(next: AiLiveRun | null) {
+		const before = live;
+		if (next === before) return;
+		live = next;
+		if (fadeTimer) clearTimeout(fadeTimer);
+		fadeTimer = null;
+		if (!next || aiLiveIsActive(next.status)) return;
+		// Just over: the event counts moved, and the highlight fades
+		if (!before || before.runUuid !== next.runUuid || aiLiveIsActive(before.status)) loadStats();
+		const uuid = next.runUuid;
+		fadeTimer = setTimeout(() => {
+			if (live?.runUuid === uuid && !aiLiveIsActive(live.status)) live = null;
+		}, LIVE_FADE_MS);
+	}
+
+	function schedulePoll(workflowId: number, ms: number) {
+		if (liveTimer) clearTimeout(liveTimer);
+		liveTimer = setTimeout(() => pollLive(workflowId), ms);
+	}
+
+	async function pollLive(workflowId: number) {
+		liveTimer = null;
+		const current = () => liveWorkflowId === workflowId && liveOff !== null;
+		if (!document.hidden) {
+			if (live && aiLiveIsActive(live.status)) {
+				const uuid = live.runUuid;
+				const res = await AiWorkflowsService.getRun(uuid);
+				// A push may have moved on meanwhile: only the same, still active run is replaced
+				if (res.ok && current() && live?.runUuid === uuid && aiLiveIsActive(live.status)) {
+					applyLive(aiLiveFromRun(res.data as AiRunDetail));
+				}
+			} else {
+				const res = await AiWorkflowsService.runs({
+					workflow_id: workflowId,
+					status: 'running',
+					per_page: 1
+				});
+				const found = res.ok ? aiListData<AiRunSummary>(res.data)[0] : undefined;
+				if (found && current() && found.uuid !== live?.runUuid) {
+					const detail = await AiWorkflowsService.getRun(found.uuid);
+					if (detail.ok && current()) applyLive(aiLiveFromRun(detail.data as AiRunDetail));
+				}
+			}
+		}
+		if (!current() || liveTimer) return;
+		schedulePoll(workflowId, live && aiLiveIsActive(live.status) ? LIVE_POLL_MS : IDLE_POLL_MS);
+	}
+
+	function stopLive() {
+		liveOff?.();
+		liveOff = null;
+		if (liveTimer) clearTimeout(liveTimer);
+		if (fadeTimer) clearTimeout(fadeTimer);
+		liveTimer = null;
+		fadeTimer = null;
+		live = null;
+	}
+
+	function startLive(workflowId: number) {
+		stopLive();
+		const offEvent = notifications.onSocketEvent<AiRunLiveEvent>(AI_RUN_LIVE_EVENT, (event) => {
+			if (event?.workflow_id !== workflowId || liveWorkflowId !== workflowId) return;
+			const wasActive = aiLiveIsActive(live?.status);
+			applyLive(aiLiveReduce(live, event));
+			if (!wasActive && aiLiveIsActive(live?.status)) schedulePoll(workflowId, LIVE_POLL_MS);
+		});
+		const offRoom = notifications.watchRoom(AI_RUN_WATCH, AI_RUN_UNWATCH, {
+			workflow_id: workflowId
+		});
+		liveOff = () => {
+			offEvent();
+			offRoom();
+		};
+		pollLive(workflowId);
+	}
+
+	const liveWorkflowId = $derived(workflow?.id ?? null);
+	$effect(() => {
+		const id = liveWorkflowId;
+		untrack(() => (id ? startLive(id) : stopLive()));
+	});
+	onDestroy(stopLive);
+
 	function onRunStarted(run: AiRunSummary) {
-		goto(`/settings/ai-workflows/runs/${run.uuid}`);
+		// Stay on the canvas and follow it there
+		applyLive(
+			aiLiveReduce(live, {
+				run_uuid: run.uuid,
+				workflow_id: run.workflow_id,
+				status: run.status,
+				waiting_node_id: run.waiting_node_id,
+				step: null
+			})
+		);
+		if (workflow) schedulePoll(workflow.id, LIVE_POLL_MS);
+		toast({
+			title: 'Run started',
+			description: 'Its progress shows on the canvas.',
+			variant: 'success',
+			link: { href: `/settings/ai-workflows/runs/${run.uuid}`, label: 'Open the run' }
+		});
 	}
 
 	const manualEntityTypes = $derived(

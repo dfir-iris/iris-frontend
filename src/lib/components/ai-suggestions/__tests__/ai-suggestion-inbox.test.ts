@@ -1,0 +1,117 @@
+import { describe, expect, it } from 'vitest';
+import type { AiSuggestion } from '$lib/services/ai-suggestions.service';
+import {
+	AI_SUGGESTION_INBOX_DEFAULTS,
+	aiSuggestionInboxApply,
+	aiSuggestionInboxMatches,
+	aiSuggestionInboxWorkflows
+} from '../ai-suggestion-inbox';
+
+function suggestion(over: Partial<AiSuggestion> = {}): AiSuggestion {
+	return {
+		id: 1,
+		uuid: 'u1',
+		run_id: 1,
+		run_uuid: 'r1',
+		workflow_id: 3,
+		workflow_name: 'Triage',
+		entity_type: 'alert',
+		entity_id: 7,
+		entity_title: null,
+		sub_entity: null,
+		kind: 'generic_action',
+		title: 'Do it',
+		body: null,
+		proposed_action: null,
+		form_schema: null,
+		related_refs: null,
+		confidence: null,
+		severity: 'high',
+		status: 'open',
+		created_at: '2026-10-01T10:00:00Z',
+		resolved_at: null,
+		resolved_by: null,
+		resolution_note: null,
+		can_accept: true,
+		...over
+	};
+}
+
+const filters = { ...AI_SUGGESTION_INBOX_DEFAULTS };
+
+describe('aiSuggestionInboxMatches', () => {
+	it('keeps open suggestions by default', () => {
+		expect(aiSuggestionInboxMatches(suggestion(), filters)).toBe(true);
+		expect(aiSuggestionInboxMatches(suggestion({ status: 'dry_run' }), filters)).toBe(false);
+		expect(
+			aiSuggestionInboxMatches(suggestion({ status: 'dry_run' }), { ...filters, status: 'all' })
+		).toBe(true);
+	});
+
+	it('filters on workflow, severity and entity type', () => {
+		expect(aiSuggestionInboxMatches(suggestion(), { ...filters, workflowId: 4 })).toBe(false);
+		expect(aiSuggestionInboxMatches(suggestion(), { ...filters, workflowId: 3 })).toBe(true);
+		expect(aiSuggestionInboxMatches(suggestion(), { ...filters, severity: 'low' })).toBe(false);
+		expect(aiSuggestionInboxMatches(suggestion(), { ...filters, entityType: 'case' })).toBe(false);
+		expect(aiSuggestionInboxMatches(suggestion(), { ...filters, entityType: 'alert' })).toBe(true);
+	});
+
+	it('`none` keeps only the suggestions about no entity', () => {
+		const loose = suggestion({ entity_type: null, entity_id: null });
+		expect(aiSuggestionInboxMatches(loose, { ...filters, entityType: 'none' })).toBe(true);
+		expect(aiSuggestionInboxMatches(suggestion(), { ...filters, entityType: 'none' })).toBe(false);
+	});
+});
+
+describe('aiSuggestionInboxApply', () => {
+	it('adds a matching new suggestion, newest first', () => {
+		const old = suggestion({ id: 1, created_at: '2026-10-01T10:00:00Z' });
+		const fresh = suggestion({ id: 2, created_at: '2026-10-02T10:00:00Z' });
+		const next = aiSuggestionInboxApply([old], { action: 'created', suggestion: fresh }, filters);
+		expect(next.map((s) => s.id)).toEqual([2, 1]);
+	});
+
+	it('ignores a new suggestion the filters drop', () => {
+		const list = [suggestion()];
+		const pushed = suggestion({ id: 2, status: 'dry_run' });
+		expect(aiSuggestionInboxApply(list, { action: 'created', suggestion: pushed }, filters)).toBe(
+			list
+		);
+	});
+
+	it('updates a listed one in place and keeps its answer', () => {
+		const list = [suggestion({ answer: { a: 1 } })];
+		const pushed = suggestion({ status: 'accepted' });
+		const next = aiSuggestionInboxApply(list, { action: 'updated', suggestion: pushed }, filters);
+		expect(next).toHaveLength(1);
+		expect(next[0].status).toBe('accepted');
+		expect(next[0].answer).toEqual({ a: 1 });
+	});
+
+	it('ignores malformed events', () => {
+		const list = [suggestion()];
+		expect(aiSuggestionInboxApply(list, null, filters)).toBe(list);
+		expect(
+			aiSuggestionInboxApply(
+				list,
+				{ action: 'deleted' as 'created', suggestion: suggestion({ id: 9 }) },
+				filters
+			)
+		).toBe(list);
+	});
+});
+
+describe('aiSuggestionInboxWorkflows', () => {
+	it('merges the known workflows with those seen in the list', () => {
+		const list = [
+			suggestion({ workflow_id: 3, workflow_name: 'Triage' }),
+			suggestion({ id: 2, workflow_id: 5, workflow_name: null }),
+			suggestion({ id: 3, workflow_id: null })
+		];
+		expect(aiSuggestionInboxWorkflows(list, [{ id: 8, name: 'Alpha' }])).toEqual([
+			{ id: 8, name: 'Alpha' },
+			{ id: 3, name: 'Triage' },
+			{ id: 5, name: 'Workflow #5' }
+		]);
+	});
+});

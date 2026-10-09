@@ -90,11 +90,18 @@ export interface AiSuggestion {
 }
 
 export interface AiSuggestionFilters {
-	entity_type?: AiSuggestionEntityType | null;
+	/** `none`: the suggestions about no entity. */
+	entity_type?: AiSuggestionEntityType | 'none' | null;
 	entity_id?: number | null;
 	/** `open` (server default) or `all`, or one explicit status. */
 	status?: AiSuggestionStatus | 'all' | null;
 	run_uuid?: string | null;
+	workflow_id?: number | null;
+	severity?: string | null;
+	/** Only those addressed to the current user (what non-admins get anyway). */
+	mine?: boolean;
+	/** 200 by default, 500 at most. */
+	limit?: number | null;
 }
 
 /** Socket payload of the `ai_suggestion` event on `/notifications`. */
@@ -127,6 +134,10 @@ export class AiSuggestionsService {
 		if (filters.entity_id != null) params.entity_id = filters.entity_id;
 		if (filters.status) params.status = filters.status;
 		if (filters.run_uuid) params.run_uuid = filters.run_uuid;
+		if (filters.workflow_id != null) params.workflow_id = filters.workflow_id;
+		if (filters.severity) params.severity = filters.severity;
+		if (filters.mine) params.mine = 'true';
+		if (filters.limit != null) params.limit = filters.limit;
 		const res = await ApiService.get<unknown>(ApiService.withQuery(BASE, params), options);
 		if (!res.ok || res.data == null || typeof res.data === 'string') {
 			return res as RequestResponse<AiSuggestion[]>;

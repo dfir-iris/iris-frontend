@@ -8,6 +8,7 @@
   link is being drawn (inputs), so a link can leave or enter on any side.
   Handle ids: the port / `in` on the default side, `<port>@<side>` /
   `in@<side>` elsewhere (see ai-workflow-graph).
+  While a run goes through it, a halo and a chip show its live state.
 -->
 <script lang="ts">
 	import { getContext } from 'svelte';
@@ -33,6 +34,7 @@
 	} from '$lib/utils/ai-workflow-graph';
 	import { WORKFLOW_EDITOR_CTX, nodeIcon, nodeTone } from '../helpers/ui';
 	import type { WorkflowEditorCtx } from '../helpers/editor';
+	import type { AiLiveNodeState } from '../helpers/live';
 
 	let { id, data, selected }: NodeProps<FlowNode> = $props();
 
@@ -57,6 +59,20 @@
 			: ''
 	);
 	const Icon = $derived(nodeIcon(type));
+
+	const liveState = $derived(editor?.live[id]);
+	const LIVE_HALOS: Record<AiLiveNodeState, string> = {
+		running: 'animate-pulse ring-blue-500',
+		waiting: 'animate-pulse ring-amber-500',
+		succeeded: 'ring-emerald-500/80',
+		failed: 'ring-destructive'
+	};
+	const LIVE_CHIPS: Record<AiLiveNodeState, string> = {
+		running: 'bg-blue-500 text-white',
+		waiting: 'bg-amber-500 text-white',
+		succeeded: 'bg-emerald-600 text-white',
+		failed: 'bg-destructive text-destructive-foreground'
+	};
 
 	const POSITIONS: Record<HandleSide, Position> = {
 		left: Position.Left,
@@ -134,7 +150,20 @@
 	} ${errors.length ? 'border-destructive' : ''}`}
 	style={`min-height: ${minHeight}px`}
 	data-testid={`wf-node-${id}`}
+	data-live={liveState}
 >
+	{#if liveState}
+		<span
+			class={`pointer-events-none absolute -inset-1 rounded-lg ring-2 ${LIVE_HALOS[liveState]}`}
+			aria-hidden="true"
+		></span>
+		<span
+			class={`pointer-events-none absolute -bottom-2 right-2 flex h-4 items-center rounded-full px-1.5 text-[9px] font-medium uppercase tracking-wide ${LIVE_CHIPS[liveState]}`}
+			data-testid={`wf-node-live-${id}`}
+		>
+			{liveState}
+		</span>
+	{/if}
 	{#if hasInput}
 		{#each HANDLE_SIDES as side (side)}
 			<Handle

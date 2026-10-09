@@ -32,6 +32,7 @@ import {
 	aiSuggestionsReduce,
 	aiSuggestionsRunHref,
 	aiSuggestionsToast,
+	aiSuggestionsInboxHref,
 	aiSuggestionsUpsert
 } from '../ai-suggestions.store.svelte';
 import { toast } from '$lib/stores/toast.store';
@@ -165,7 +166,7 @@ describe('ai-suggestions toast + links', () => {
 			suggestion: make(1, { entity_id: '10/../../settings' as unknown as number })
 		});
 		expect(t).not.toBeNull();
-		expect(t?.link).toBeUndefined();
+		expect(t?.link).toEqual({ href: '/suggestions?id=1', label: 'Open in the inbox' });
 	});
 
 	it('builds run routes from well-formed UUIDs only', () => {
@@ -184,12 +185,31 @@ describe('ai-suggestions toast + links', () => {
 		expect(t?.link).toEqual({ href: '/alerts/10', label: 'Open alert' });
 	});
 
-	it('stays quiet for updates and non-open suggestions', () => {
+	it('links suggestions about no entity to the inbox', () => {
+		const t = aiSuggestionsToast({
+			action: 'created',
+			suggestion: make(7, { entity_type: null, entity_id: null })
+		});
+		expect(t?.link).toEqual({ href: '/suggestions?id=7', label: 'Open in the inbox' });
+	});
+
+	it('toasts dry runs with a link to the inbox', () => {
+		const t = aiSuggestionsToast({ action: 'created', suggestion: make(3, { status: 'dry_run' }) });
+		expect(t?.title).toBe('AI suggestion (dry run): s-3');
+		expect(t?.link).toEqual({ href: '/suggestions?id=3', label: 'Open in the inbox' });
+	});
+
+	it('stays quiet for updates and resolved suggestions', () => {
 		expect(aiSuggestionsToast({ action: 'updated', suggestion: make(1) })).toBeNull();
 		expect(
-			aiSuggestionsToast({ action: 'created', suggestion: make(1, { status: 'dry_run' }) })
+			aiSuggestionsToast({ action: 'created', suggestion: make(1, { status: 'expired' }) })
 		).toBeNull();
 		expect(aiSuggestionsToast(null)).toBeNull();
+	});
+
+	it('builds inbox routes from safe ids only', () => {
+		expect(aiSuggestionsInboxHref(4)).toBe('/suggestions?id=4');
+		expect(aiSuggestionsInboxHref('4&x=1')).toBe('/suggestions');
 	});
 
 	it('reads the runtime flag', () => {

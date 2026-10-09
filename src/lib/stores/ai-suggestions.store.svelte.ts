@@ -5,7 +5,8 @@
  * store keeps one list per entity and keeps it fresh from the
  * `ai_suggestion` event on the `/notifications` socket, which the
  * notifications store already holds open. A `created` event also pops
- * a toast linking to the entity, whether or not a panel is mounted.
+ * a toast linking to the entity (or to the suggestions inbox), whether
+ * or not a panel is mounted.
  *
  * The pure helpers (`aiSuggestionsReduce`, `aiSuggestionsToast`, …) are
  * exported for the unit tests.
@@ -60,6 +61,11 @@ export function aiSuggestionsEntityHref(
 		default:
 			return null;
 	}
+}
+
+/** The suggestion in the suggestions inbox. */
+export function aiSuggestionsInboxHref(id: unknown): string {
+	return aiSuggestionsIsSafeId(id) ? `/suggestions?id=${id}` : '/suggestions';
 }
 
 const RUN_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -119,20 +125,27 @@ export function aiSuggestionsToast(
 ): Omit<Toast, 'id'> | null {
 	if (!event) return null;
 	const s = event.suggestion;
-	if (!s || event.action !== 'created' || s.status !== 'open') return null;
-	const href = aiSuggestionsEntityHref(s.entity_type, s.entity_id);
+	if (!s || event.action !== 'created') return null;
+	if (s.status !== 'open' && s.status !== 'dry_run') return null;
+	const dryRun = s.status === 'dry_run';
+	// A dry run is only for the inbox: nothing on the entity to act on
+	const href = dryRun ? null : aiSuggestionsEntityHref(s.entity_type, s.entity_id);
 	const entityLabel = s.entity_type
 		? (AI_SUGGESTION_ENTITY_LABELS[s.entity_type as AiSuggestionEntityType] ?? s.entity_type)
 		: null;
 	const target = entityLabel
 		? `${entityLabel}${s.entity_id != null ? ` #${s.entity_id}` : ''}${s.entity_title ? ` — ${s.entity_title}` : ''}`
 		: null;
+	const inbox = aiSuggestionsIsSafeId(s.id) ? aiSuggestionsInboxHref(s.id) : null;
+	let link: Toast['link'];
+	if (href) link = { href, label: `Open ${entityLabel?.toLowerCase() ?? 'entity'}` };
+	else if (inbox) link = { href: inbox, label: 'Open in the inbox' };
 	return {
-		title: `AI suggestion: ${s.title}`,
+		title: `${dryRun ? 'AI suggestion (dry run)' : 'AI suggestion'}: ${s.title}`,
 		description: target ?? s.workflow_name ?? undefined,
 		variant: 'default',
 		duration: 8000,
-		link: href ? { href, label: `Open ${entityLabel?.toLowerCase() ?? 'entity'}` } : undefined
+		link
 	};
 }
 
