@@ -785,10 +785,20 @@
 			</div>
 		{:else if nodeType === 'notify'}
 			{@render choice('audience', 'Notify', [
-				['entity', 'Users with access to the entity'],
+				['entity', 'People on the entity'],
 				['owner', 'The workflow owner'],
 				['users', 'Specific users']
 			])}
+			<p class="text-2xs text-muted-foreground">
+				{#if (c.audience ?? 'entity') === 'entity'}
+					The owner of the alert, cluster or case (a war room: its members) and the user who
+					triggered the run or whose action fired the event. When none of them can see the entity,
+					the workflow owner is notified instead.
+				{:else}
+					Only active users who can see the entity are notified.
+				{/if}
+				The node's output lists who was notified.
+			</p>
 			{#if c.audience === 'users'}
 				<MultiSelect
 					items={[
