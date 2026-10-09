@@ -151,6 +151,23 @@
 			: null
 	);
 
+	// ---- python inputs: a template string, or {$path} to pass a value as is ----
+	type ScriptInput = { name: string; value: unknown };
+	const isPath = (v: unknown): v is { $path: string } =>
+		v !== null && typeof v === 'object' && '$path' in (v as Record<string, unknown>);
+	const inputText = (v: unknown) => (isPath(v) ? str(v.$path) : str(v));
+	function setInput(index: number, patch: Partial<ScriptInput>) {
+		set(
+			'inputs',
+			list<ScriptInput>(c.inputs).map((r, i) => (i === index ? { ...r, ...patch } : r))
+		);
+	}
+	function setInputMode(index: number, path: boolean) {
+		const current = inputText(list<ScriptInput>(c.inputs)[index]?.value);
+		setInput(index, { value: path ? { $path: current } : current });
+	}
+
+	// ---- sides of the connectors ----
 	const actionTool = $derived(nodeType === 'action' ? toolInfo(c.tool) : undefined);
 	const actionNeedsAllowlist = $derived(
 		actionTool?.classification === 'write' && !writeAllowlist.includes(actionTool.name)
@@ -801,6 +818,94 @@
 					onChange={(v) => set('variables', v)}
 					testId="wf-cfg-variables"
 				/>
+			</div>
+		{:else if nodeType === 'python'}
+			<div class="flex flex-col gap-1">
+				<span class={LABEL_CLASS}>Inputs (available as <code>inputs['NAME']</code>)</span>
+				{#each list<ScriptInput>(c.inputs) as row, index (index)}
+					<div class="flex items-center gap-1" data-testid="wf-cfg-python-input">
+						<Input
+							class="h-8 w-24 font-mono text-xs"
+							placeholder="name"
+							disabled={readOnly}
+							value={str(row.name)}
+							oninput={(e) => setInput(index, { name: inputValue(e) })}
+						/>
+						<select
+							class={`${SELECT_CLASS} w-24`}
+							disabled={readOnly}
+							value={isPath(row.value) ? 'path' : 'template'}
+							onchange={(e) =>
+								setInputMode(index, (e.currentTarget as HTMLSelectElement).value === 'path')}
+							title="A template renders text; a path passes the value (object, list, number) as is"
+						>
+							<option value="template">Template</option>
+							<option value="path">Path</option>
+						</select>
+						<Input
+							class="h-8 flex-1 font-mono text-xs"
+							placeholder={isPath(row.value)
+								? 'nodes.load.output.result'
+								: '{{ trigger.entity_id }}'}
+							disabled={readOnly}
+							value={inputText(row.value)}
+							oninput={(e) =>
+								setInput(index, {
+									value: isPath(row.value) ? { $path: inputValue(e) } : inputValue(e)
+								})}
+						/>
+						{#if !readOnly}
+							<Button
+								variant="ghost"
+								size="icon"
+								class="h-7 w-7"
+								aria-label="Remove input"
+								onclick={() =>
+									set(
+										'inputs',
+										list<ScriptInput>(c.inputs).filter((_, i) => i !== index)
+									)}
+							>
+								<Trash2Icon class="h-3.5 w-3.5" />
+							</Button>
+						{/if}
+					</div>
+				{/each}
+				{#if !readOnly}
+					<Button
+						variant="outline"
+						size="sm"
+						class="h-7 self-start text-xs"
+						onclick={() => set('inputs', [...list<ScriptInput>(c.inputs), { name: '', value: '' }])}
+						data-testid="wf-cfg-python-add-input"
+					>
+						<PlusIcon class="mr-1 h-3.5 w-3.5" /> Add input
+					</Button>
+				{/if}
+			</div>
+			<label class="flex flex-col gap-1">
+				<span class={LABEL_CLASS}>Script</span>
+				<textarea
+					class={`${TEXTAREA_CLASS} font-mono`}
+					rows={18}
+					spellcheck="false"
+					disabled={readOnly}
+					value={str(c.code)}
+					oninput={(e) => set('code', (e.currentTarget as HTMLTextAreaElement).value)}
+					data-testid="wf-cfg-code"
+				></textarea>
+			</label>
+			<p class="text-[11px] text-muted-foreground">
+				A restricted Python subset, interpreted in a sandbox: plain data only, no imports, no
+				classes, no file, network or process access. The script reads <code>inputs</code>,
+				<code>entity</code>,
+				<code>trigger</code>, <code>nodes</code>, <code>vars</code> and <code>run</code>, and
+				assigns its output to <code>result</code> (available as
+				<code>nodes.{nodeId}.output.result</code>). An exception follows the <code>error</code> port.
+			</p>
+			<div class="grid grid-cols-2 gap-2">
+				{@render num('timeout_seconds', 'Timeout (seconds)', 1)}
+				{@render num('max_steps', 'Max steps', 1000)}
 			</div>
 		{:else if nodeType === 'stop'}
 			{@render choice('status', 'End the run as', [

@@ -146,7 +146,7 @@
 				<span>
 					Dry run
 					<span class="block text-2xs text-muted-foreground">
-						Writes become “dry run” suggestions; HTTP requests still go out.
+						Writes become “dry run” suggestions; HTTP requests are only previewed.
 					</span>
 				</span>
 				<Switch

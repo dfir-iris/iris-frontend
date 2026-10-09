@@ -1,4 +1,5 @@
 import type {
+	AiNodeStats,
 	AiSuggestionAudience,
 	AiTriggerType,
 	AiWorkflow,
@@ -127,4 +128,6 @@ export interface WorkflowEditorCtx {
 	readonly meta: NodeMetaMap;
 	readonly errors: Record<string, string[]>;
 	readonly catalogue: AiWorkflowCatalogue | null;
+	/** Events each node processed, per node id (saved workflows only). */
+	readonly stats: Record<string, AiNodeStats>;
 }

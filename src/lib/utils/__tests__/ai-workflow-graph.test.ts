@@ -3,9 +3,12 @@ import type { AiNodeTypeInfo, AiWorkflowGraph } from '$lib/services/ai-workflows
 import {
 	FLOW_NODE_TYPE,
 	addConnection,
+	applyDirection,
 	createFlowNode,
 	defaultConfigFor,
 	emptyGraph,
+	facingSide,
+	flowDirection,
 	flowToGraph,
 	graphToFlow,
 	groupErrors,
@@ -13,7 +16,10 @@ import {
 	labelFor,
 	nextEdgeId,
 	nextNodeId,
-	portsFor
+	parseHandle,
+	portsFor,
+	reattachEdges,
+	readHandles
 } from '../ai-workflow-graph';
 
 const graph: AiWorkflowGraph = {
@@ -195,5 +201,127 @@ describe('groupErrors', () => {
 		]);
 		expect(byNode).toEqual({ n2: ['rules: Required', 'Unreachable'] });
 		expect(global).toEqual(['trigger_config.cron: Bad cron', 'No trigger']);
+	});
+});
+
+describe('node handles', () => {
+	it('should drop default or invalid sides', () => {
+		expect(readHandles(undefined)).toBeUndefined();
+		expect(readHandles({ input: 'left', output: 'right' })).toBeUndefined();
+		expect(readHandles({ input: 'nowhere', output: 42 })).toBeUndefined();
+		expect(readHandles({ output: 'bottom' })).toEqual({ input: 'left', output: 'bottom' });
+	});
+
+	it('should keep non-default sides through a round trip', () => {
+		const withHandles: AiWorkflowGraph = {
+			...graph,
+			nodes: graph.nodes.map((n) =>
+				n.id === 'n2' ? { ...n, handles: { input: 'top', output: 'bottom' } } : n
+			)
+		};
+		const { nodes, edges, meta } = graphToFlow(withHandles);
+		expect(meta.n2.handles).toEqual({ input: 'top', output: 'bottom' });
+		const back = flowToGraph(nodes, edges, meta);
+		expect(back.nodes.find((n) => n.id === 'n2')?.handles).toEqual({
+			input: 'top',
+			output: 'bottom'
+		});
+		expect(back.nodes.find((n) => n.id === 'n1')).not.toHaveProperty('handles');
+	});
+
+	it('should switch every node, or only the given ones, to a direction', () => {
+		const { meta } = graphToFlow(graph);
+		expect(flowDirection(meta)).toBe('horizontal');
+		applyDirection(meta, 'vertical', ['n2']);
+		expect(meta.n2.handles).toEqual({ input: 'top', output: 'bottom' });
+		expect(meta.n1.handles).toBeUndefined();
+		applyDirection(meta, 'vertical');
+		expect(flowDirection(meta)).toBe('vertical');
+		applyDirection(meta, 'horizontal');
+		expect(Object.values(meta).some((m) => 'handles' in m)).toBe(false);
+	});
+});
+
+describe('links on any side', () => {
+	it('should name handles by side, bare on the default one', () => {
+		expect(parseHandle('true', 'out')).toEqual({ name: 'true' });
+		expect(parseHandle('true@bottom', 'out')).toEqual({ name: 'true', side: 'bottom' });
+		expect(parseHandle('in@top', 'in')).toEqual({ name: 'in', side: 'top' });
+		expect(parseHandle(null, 'out')).toEqual({ name: 'out' });
+		expect(parseHandle('weird@middle', 'out')).toEqual({ name: 'weird@middle' });
+	});
+
+	it('should keep the sides a link was drawn on, and only those', () => {
+		const { nodes, meta } = graphToFlow(graph);
+		meta.n3.handles = { input: 'top', output: 'bottom' };
+		let edges = addConnection([], {
+			source: 'n2',
+			target: 'n3',
+			sourceHandle: 'true@bottom',
+			targetHandle: 'in'
+		});
+		edges = addConnection(edges, {
+			source: 'n2',
+			target: 'n3',
+			sourceHandle: 'false',
+			targetHandle: 'in@left'
+		});
+		// Same port to the same node from another side: no second link
+		expect(
+			addConnection(edges, { source: 'n2', target: 'n3', sourceHandle: 'true', targetHandle: 'in' })
+		).toBe(edges);
+		const back = flowToGraph(nodes, edges, meta);
+		expect(back.edges).toEqual([
+			{ id: 'e1', source: 'n2', target: 'n3', source_port: 'true', source_side: 'bottom' },
+			{ id: 'e2', source: 'n2', target: 'n3', source_port: 'false', target_side: 'left' }
+		]);
+		const again = graphToFlow({ ...back, nodes: back.nodes });
+		expect(again.edges.map((e) => [e.sourceHandle, e.targetHandle])).toEqual([
+			['true@bottom', 'in'],
+			['false', 'in@left']
+		]);
+	});
+
+	it('should drop a side equal to the default and resolve against the node defaults', () => {
+		const { edges } = graphToFlow({
+			nodes: [graph.nodes[0], { ...graph.nodes[2], handles: { input: 'top', output: 'bottom' } }],
+			edges: [{ id: 'e1', source: 'n1', target: 'n3', source_port: 'out', target_side: 'top' }]
+		});
+		expect(edges[0]).toMatchObject({ sourceHandle: 'out', targetHandle: 'in' });
+	});
+
+	it('should move the links of re-oriented nodes to their new sides', () => {
+		const { nodes, meta } = graphToFlow(graph);
+		const edges = addConnection([], {
+			source: 'n2',
+			target: 'n3',
+			sourceHandle: 'true@bottom',
+			targetHandle: 'in@top'
+		});
+		const before = flowToGraph(nodes, edges, meta);
+		applyDirection(meta, 'vertical', ['n2']);
+		const moved = reattachEdges(before, meta, ['n2']);
+		// n2 now outputs at the bottom by default; n3 keeps its pinned top input
+		expect(moved[0]).toMatchObject({ sourceHandle: 'true', targetHandle: 'in@top' });
+	});
+
+	it('should enter a node on the side facing the link', () => {
+		const box = { x: 0, y: 0, width: 224, height: 56 };
+		expect(facingSide(box, { x: -50, y: 28 })).toBe('left');
+		expect(facingSide(box, { x: 400, y: 0 })).toBe('right');
+		expect(facingSide(box, { x: 112, y: -200 })).toBe('top');
+		expect(facingSide(box, { x: 150, y: 300 })).toBe('bottom');
+	});
+
+	it('should ignore node ids that reach the object prototype', () => {
+		const { nodes, meta } = graphToFlow({
+			nodes: [
+				...graph.nodes,
+				{ id: '__proto__', type: 'stop', label: 'x', position: { x: 0, y: 0 }, config: {} }
+			],
+			edges: []
+		});
+		expect(nodes.map((n) => n.id)).toEqual(['n1', 'n2', 'n3']);
+		expect(Object.hasOwn(meta, '__proto__')).toBe(false);
 	});
 });

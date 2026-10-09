@@ -34,6 +34,7 @@ export type AiNodeType =
 	| 'notify'
 	| 'delay'
 	| 'set_variables'
+	| 'python'
 	| 'stop';
 
 // ---- Graph -----------------------------------------------------------------
@@ -44,6 +45,11 @@ export interface AiGraphNode {
 	label: string;
 	position: { x: number; y: number };
 	config: Record<string, unknown>;
+	/** Editor only: the sides the connectors are drawn on (default left / right). */
+	handles?: {
+		input?: 'left' | 'top' | 'right' | 'bottom';
+		output?: 'left' | 'top' | 'right' | 'bottom';
+	};
 }
 
 /** `source_port` is xyflow's `sourceHandle`. */
@@ -52,6 +58,9 @@ export interface AiGraphEdge {
 	source: string;
 	target: string;
 	source_port: string;
+	/** The side the edge leaves / enters on when not the node's default (editor only). */
+	source_side?: 'left' | 'top' | 'right' | 'bottom';
+	target_side?: 'left' | 'top' | 'right' | 'bottom';
 }
 
 export interface AiWorkflowGraph {
@@ -260,6 +269,10 @@ export interface AiRunSummary {
 	finished_at: string | null;
 	chain_depth: number;
 	parent_run_id: number | null;
+	/** Set on a run that replays an event a node processed (the step id). */
+	replayed_from_step_id?: number | null;
+	/** Set on a run that tests one node on its own (the node id). */
+	tested_node_id?: string | null;
 }
 
 export interface AiRunStep {
@@ -361,6 +374,22 @@ export interface AiRunSuggestion {
 	resolution_hidden?: boolean;
 }
 
+/**
+ * A node tested on its own: from an earlier event of the node
+ * (`step_id`), or from an entity, a trigger payload and the upstream
+ * outputs (`nodes`: `{node_id: {output, port}}`) / variables supplied.
+ */
+export interface AiTestNodeBody {
+	node: Pick<AiGraphNode, 'id' | 'type' | 'label' | 'config'>;
+	dry_run?: boolean;
+	step_id?: number;
+	entity_type?: AiEntityType | null;
+	entity_id?: number | null;
+	payload?: unknown;
+	nodes?: Record<string, unknown>;
+	vars?: Record<string, unknown>;
+}
+
 export interface AiRunDetail extends AiRunSummary {
 	trigger_payload?: unknown;
 	context?: unknown;
@@ -426,6 +455,104 @@ export interface AiInboundEvent {
 	payload_sha256: string | null;
 	payload_bytes: number;
 	created_at: string | null;
+}
+
+// ---- Portable documents ---------------------------------------------------------
+
+export interface AiDocumentRequirements {
+	/** Keystore entry names the document references with `key("NAME")`. */
+	keystore: string[];
+	tools: string[];
+}
+
+export interface AiWorkflowDocument {
+	format: 'iris-ai-workflow';
+	format_version: number;
+	exported_at: string | null;
+	iris_version: string | null;
+	workflow: Partial<AiWorkflowBody>;
+	requirements: AiDocumentRequirements;
+	warnings: AiValidationError[];
+}
+
+export interface AiBlockDocument {
+	format: 'iris-ai-workflow-block';
+	format_version: number;
+	exported_at: string | null;
+	iris_version: string | null;
+	block: {
+		name: string;
+		description: string | null;
+		category: string | null;
+		nodes: AiGraphNode[];
+		edges: AiGraphEdge[];
+	};
+	requirements: AiDocumentRequirements;
+	warnings: AiValidationError[];
+}
+
+export interface AiImportResult<T> {
+	warnings: AiValidationError[];
+	workflow?: T;
+	block?: T;
+}
+
+export interface AiAuthoringGuide {
+	markdown: string;
+	examples: { file: string; kind: string; name: string; document: Record<string, unknown> }[];
+}
+
+// ---- Saved blocks -------------------------------------------------------------------
+
+export interface AiBlockDefinition {
+	nodes: AiGraphNode[];
+	edges: AiGraphEdge[];
+}
+
+export interface AiBlock {
+	id: number;
+	uuid: string;
+	name: string;
+	description: string | null;
+	category: string | null;
+	is_shared: boolean;
+	owner_id: number;
+	owner: AiUserRef | null;
+	definition: AiBlockDefinition;
+	requirements: AiDocumentRequirements;
+	can_edit: boolean;
+	created_at: string | null;
+	updated_at: string | null;
+}
+
+export interface AiBlockBody {
+	name: string;
+	description?: string | null;
+	category?: string | null;
+	is_shared?: boolean;
+	definition: AiBlockDefinition;
+}
+
+// ---- Node events --------------------------------------------------------------------
+
+export type AiEventStatus = 'succeeded' | 'failed' | 'waiting';
+
+export interface AiNodeStats {
+	total: number;
+	counts: Partial<Record<AiStepStatus, number>>;
+	last_at: string | null;
+}
+
+/** One execution of a node: its step and the run it belongs to. */
+export interface AiNodeEvent extends AiRunStep {
+	run: AiRunSummary;
+	/** Detail only: the context the node saw (what a replay starts with). */
+	context?: unknown;
+}
+
+export interface AiNodeEventsPage extends AiPage<AiNodeEvent> {
+	node_id: string;
+	truncated?: boolean;
 }
 
 const BASE = '/ai-workflows';
@@ -584,5 +711,129 @@ export class AiWorkflowsService {
 			ApiService.withQuery(`${BASE}/inbound-events`, params),
 			options
 		);
+	}
+
+	// ---- Export / import
+
+	static async exportWorkflow(
+		id: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<AiWorkflowDocument>> {
+		return ApiService.get<AiWorkflowDocument>(`${BASE}/${id}/export`, options);
+	}
+
+	static async importWorkflow(
+		document: unknown,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<AiImportResult<AiWorkflow>>> {
+		return ApiService.post<AiImportResult<AiWorkflow>>(`${BASE}/import`, document, options);
+	}
+
+	static async authoringGuide(
+		options: ApiOptions = {}
+	): Promise<RequestResponse<AiAuthoringGuide>> {
+		return ApiService.get<AiAuthoringGuide>(`${BASE}/authoring-guide`, options);
+	}
+
+	// ---- Saved blocks
+
+	static async blocks(options: ApiOptions = {}): Promise<RequestResponse<AiBlock[]>> {
+		return ApiService.get<AiBlock[]>(`${BASE}/blocks`, options);
+	}
+
+	static async createBlock(
+		body: AiBlockBody,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<AiBlock>> {
+		return ApiService.post<AiBlock>(`${BASE}/blocks`, body, options);
+	}
+
+	static async updateBlock(
+		id: number,
+		body: Partial<AiBlockBody>,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<AiBlock>> {
+		return ApiService.put<AiBlock>(`${BASE}/blocks/${id}`, body, options);
+	}
+
+	static async removeBlock(id: number, options: ApiOptions = {}): Promise<RequestResponse<null>> {
+		return ApiService.delete<null>(`${BASE}/blocks/${id}`, options);
+	}
+
+	static async exportBlock(
+		id: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<AiBlockDocument>> {
+		return ApiService.get<AiBlockDocument>(`${BASE}/blocks/${id}/export`, options);
+	}
+
+	static async importBlock(
+		document: unknown,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<AiImportResult<AiBlock>>> {
+		return ApiService.post<AiImportResult<AiBlock>>(`${BASE}/blocks/import`, document, options);
+	}
+
+	// ---- Node events
+
+	static async nodeStats(
+		id: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<{ nodes: Record<string, AiNodeStats> }>> {
+		return ApiService.get<{ nodes: Record<string, AiNodeStats> }>(
+			`${BASE}/${id}/node-stats`,
+			options
+		);
+	}
+
+	static async nodeEvents(
+		id: number,
+		nodeId: string,
+		filters: { status?: AiEventStatus | null; page?: number; per_page?: number } = {},
+		options: ApiOptions = {}
+	): Promise<RequestResponse<AiNodeEventsPage>> {
+		const params: Record<string, unknown> = {
+			page: filters.page ?? 1,
+			per_page: filters.per_page ?? 25
+		};
+		if (filters.status) params.status = filters.status;
+		return ApiService.get<AiNodeEventsPage>(
+			ApiService.withQuery(`${BASE}/${id}/nodes/${encodeURIComponent(nodeId)}/events`, params),
+			options
+		);
+	}
+
+	static async nodeEvent(
+		id: number,
+		nodeId: string,
+		stepId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<AiNodeEvent>> {
+		return ApiService.get<AiNodeEvent>(
+			`${BASE}/${id}/nodes/${encodeURIComponent(nodeId)}/events/${stepId}`,
+			options
+		);
+	}
+
+	static async replayEvent(
+		id: number,
+		nodeId: string,
+		stepId: number,
+		body: { dry_run?: boolean } = {},
+		options: ApiOptions = {}
+	): Promise<RequestResponse<AiRunSummary>> {
+		return ApiService.post<AiRunSummary>(
+			`${BASE}/${id}/nodes/${encodeURIComponent(nodeId)}/events/${stepId}/replay`,
+			body,
+			options
+		);
+	}
+
+	static async testNode(
+		id: number,
+		body: AiTestNodeBody,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<AiRunSummary>> {
+		return ApiService.post<AiRunSummary>(`${BASE}/${id}/test-node`, body, options);
 	}
 }

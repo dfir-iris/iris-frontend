@@ -1,18 +1,22 @@
 <!--
   AI workflows: list with trigger, active toggle, owner, version and
-  last-24h run counts; new / edit / delete / run actions. The editor
+  last-24h run counts; new / import / edit / export / delete / run
+  actions, and the JSON authoring guide. The editor
   lives at `./[id]` (`./new` to create), runs at `./runs`.
 -->
 <script lang="ts">
 	import { getContext, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import {
+		BookOpenIcon,
+		DownloadIcon,
 		ListIcon,
 		PencilIcon,
 		PlayIcon,
 		PlusIcon,
 		RefreshCwIcon,
 		Trash2Icon,
+		UploadIcon,
 		WorkflowIcon
 	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -27,12 +31,24 @@
 		AiWorkflowsService,
 		aiListData,
 		type AiEntityType,
+		type AiImportResult,
 		type AiRunSummary,
+		type AiWorkflow,
 		type AiWorkflowSummary
 	} from '$lib/services/ai-workflows.service';
 	import FeatureGate from './components/FeatureGate.svelte';
 	import RunDialog from './components/RunDialog.svelte';
-	import { describeApiError, RUN_STATUS_TONES, TRIGGER_LABELS, userLabel } from './helpers/ui';
+	import AuthoringGuideDialog from './components/AuthoringGuideDialog.svelte';
+	import {
+		describeApiError,
+		describeWarnings,
+		downloadJson,
+		exportFilename,
+		pickJsonFile,
+		RUN_STATUS_TONES,
+		TRIGGER_LABELS,
+		userLabel
+	} from './helpers/ui';
 
 	const userCtx = getContext<UserCtx>(USER_CTX);
 	const canWrite = $derived(userCtx?.can('ai_workflows_write') ?? false);
@@ -47,6 +63,53 @@
 
 	let runTarget = $state<AiWorkflowSummary | null>(null);
 	let runOpen = $state(false);
+	let guideOpen = $state(false);
+	let importing = $state(false);
+
+	async function importWorkflow() {
+		let picked;
+		try {
+			picked = await pickJsonFile();
+		} catch (e) {
+			toast({ title: 'Import failed', description: (e as Error).message, variant: 'destructive' });
+			return;
+		}
+		if (!picked) return;
+		importing = true;
+		const res = await AiWorkflowsService.importWorkflow(picked.data);
+		importing = false;
+		if (!res.ok) {
+			toast({
+				title: 'Import failed',
+				description: describeApiError(res.data, res.error?.message ?? 'Request failed'),
+				variant: 'destructive'
+			});
+			return;
+		}
+		const result = res.data as AiImportResult<AiWorkflow>;
+		const created = result.workflow;
+		const warnings = describeWarnings(result.warnings);
+		toast({
+			title: `Workflow “${created?.name ?? picked.name}” imported (inactive)`,
+			description: warnings || 'Review it, then activate it.',
+			variant: warnings ? 'warning' : 'success'
+		});
+		if (created) goto(`/settings/ai-workflows/${created.id}`);
+		else load();
+	}
+
+	async function exportWorkflow(workflow: AiWorkflowSummary) {
+		const res = await AiWorkflowsService.exportWorkflow(workflow.id);
+		if (!res.ok) {
+			toast({
+				title: 'Export failed',
+				description: describeApiError(res.data, res.error?.message ?? 'Request failed'),
+				variant: 'destructive'
+			});
+			return;
+		}
+		downloadJson(exportFilename(workflow.name, 'workflow'), res.data);
+	}
 
 	async function load() {
 		loading = true;
@@ -152,11 +215,33 @@
 			<Button variant="outline" size="sm" class="h-7" href="/settings/ai-workflows/runs">
 				<ListIcon size={12} class="mr-1" /> Runs
 			</Button>
+			<Button
+				variant="ghost"
+				size="sm"
+				class="h-7"
+				onclick={() => (guideOpen = true)}
+				title="How to write workflows as JSON (for people and LLMs)"
+				data-testid="wf-guide"
+			>
+				<BookOpenIcon size={12} class="mr-1" /> JSON guide
+			</Button>
 			<Button variant="outline" size="sm" class="h-7" onclick={load} disabled={loading}>
 				<RefreshCwIcon size={12} class={`mr-1 ${loading ? 'animate-spin' : ''}`} />
 				Refresh
 			</Button>
 			{#if canWrite}
+				<Button
+					variant="outline"
+					size="sm"
+					class="h-7"
+					onclick={importWorkflow}
+					disabled={importing}
+					title="Create a workflow from a JSON document"
+					data-testid="wf-import"
+				>
+					<UploadIcon size={12} class="mr-1" />
+					{importing ? 'Importing…' : 'Import'}
+				</Button>
 				<Button size="sm" class="h-7" href="/settings/ai-workflows/new" data-testid="wf-new">
 					<PlusIcon size={12} class="mr-1" /> New workflow
 				</Button>
@@ -304,6 +389,16 @@
 											>
 												<PencilIcon size={13} />
 											</Button>
+											<Button
+												variant="ghost"
+												size="icon"
+												class="h-7 w-7"
+												title="Export (JSON, without secrets)"
+												aria-label={`Export ${workflow.name}`}
+												onclick={() => exportWorkflow(workflow)}
+											>
+												<DownloadIcon size={13} />
+											</Button>
 											{#if canWrite}
 												<Button
 													variant="ghost"
@@ -348,3 +443,5 @@
 		onStarted={onRunStarted}
 	/>
 {/if}
+
+<AuthoringGuideDialog bind:open={guideOpen} />

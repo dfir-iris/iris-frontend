@@ -1,10 +1,12 @@
 <!--
   AI workflow editor (`/settings/ai-workflows/new` creates one).
 
-  Header: name, active, validate / save / versions / run. Left panel:
-  the workflow settings (trigger, scope, audience, budgets, write
-  allowlist, owner). Centre: the xyflow canvas with its palette. Right
-  drawer: the selected node's config.
+  Header: name, active, validate / save / versions / runs / run /
+  export. Left panel: the workflow settings (trigger, scope, audience,
+  budgets, write allowlist, owner). Centre: the xyflow canvas with its
+  palette and saved blocks; each node shows how many events it processed.
+  Right drawer: the selected node's config, and its events (browse them
+  one by one, replay one).
 
   Canvas nodes / edges are raw arrays bound to xyflow; each node's
   label and config live in the deep-reactive `meta` map, shared with the
@@ -18,8 +20,10 @@
 	import { SvelteFlowProvider } from '@xyflow/svelte';
 	import {
 		ArrowLeftIcon,
+		BookOpenIcon,
 		CheckCircle2Icon,
 		CircleAlertIcon,
+		DownloadIcon,
 		HistoryIcon,
 		ListIcon,
 		PanelLeftIcon,
@@ -40,7 +44,11 @@
 	import { UsersService } from '$lib/services/users.service';
 	import {
 		AiWorkflowsService,
+		type AiBlock,
+		type AiBlockDefinition,
 		type AiEntityType,
+		type AiImportResult,
+		type AiNodeStats,
 		type AiRunSummary,
 		type AiValidateResult,
 		type AiValidationError,
@@ -48,12 +56,20 @@
 		type AiWorkflowCatalogue
 	} from '$lib/services/ai-workflows.service';
 	import {
+		applyDirection,
+		reattachEdges,
 		createFlowNode,
+		DIRECTION_HANDLES,
 		emptyGraph,
+		flowDirection,
 		flowToGraph,
 		graphToFlow,
 		groupErrors,
+		insertBlock,
 		labelFor,
+		selectionToBlock,
+		readHandles,
+		type FlowDirection,
 		type FlowEdge,
 		type FlowNode,
 		type NodeMetaMap
@@ -65,6 +81,10 @@
 	import MultiSelect, { type MultiSelectItem } from '../components/MultiSelect.svelte';
 	import RunDialog from '../components/RunDialog.svelte';
 	import VersionsDialog from '../components/VersionsDialog.svelte';
+	import NodeEventsPanel from '../components/NodeEventsPanel.svelte';
+	import NodeTestPanel from '../components/NodeTestPanel.svelte';
+	import AuthoringGuideDialog from '../components/AuthoringGuideDialog.svelte';
+	import PanelResizer from '../components/PanelResizer.svelte';
 	import {
 		bodyFromForm,
 		cleanTriggerConfig,
@@ -76,7 +96,12 @@
 	import {
 		CLASSIFICATION_TONES,
 		describeApiError,
+		describeWarnings,
+		downloadJson,
+		exportFilename,
 		LABEL_CLASS,
+		blockReview,
+		pickJsonFile,
 		SELECT_CLASS,
 		TEXTAREA_CLASS,
 		workflowErrorsFrom,
@@ -109,10 +134,36 @@
 	let saving = $state(false);
 	let validating = $state(false);
 	let settingsOpen = $state(true);
-	let saveDialogOpen = $state(false);
-	let versionNote = $state('');
 	let versionsOpen = $state(false);
 	let runOpen = $state(false);
+	let guideOpen = $state(false);
+	let drawerTab = $state<'config' | 'events' | 'test'>('config');
+	const SETTINGS_WIDTH = 320;
+	const DRAWER_WIDTH = 384;
+	let settingsWidth = $state(SETTINGS_WIDTH);
+	let drawerWidth = $state(DRAWER_WIDTH);
+
+	/** Why a node cannot be tested on its own (it parks or starts the run). */
+	function testBlocked(type: string, config: Record<string, unknown>): string | null {
+		if (type === 'trigger') return 'A trigger is tested by running the workflow.';
+		if (type === 'ask_analyst' || (type === 'http_request' && config.mode === 'async'))
+			return 'A node that waits for an answer is tested by running the workflow.';
+		if (type === 'delay' && Number(config.minutes ?? 5) > 0)
+			return 'A delay that waits is tested by running the workflow.';
+		return null;
+	}
+	let stats = $state<Record<string, AiNodeStats>>({});
+
+	let blocks = $state<AiBlock[]>([]);
+	let blockDialogOpen = $state(false);
+	let blockDraft = $state<{
+		definition: AiBlockDefinition;
+		name: string;
+		description: string;
+		category: string;
+		is_shared: boolean;
+	} | null>(null);
+	let savingBlock = $state(false);
 
 	let customerItems = $state<MultiSelectItem[]>([]);
 	let ownerOptions = $state<{ id: number; label: string }[]>([]);
@@ -126,6 +177,9 @@
 		},
 		get catalogue() {
 			return catalogue;
+		},
+		get stats() {
+			return stats;
 		}
 	};
 	setContext(WORKFLOW_EDITOR_CTX, ctx);
@@ -158,6 +212,7 @@
 				label: meta[n.id]?.label || labelFor(n.data.nodeType, catalogue?.node_types)
 			}))
 	);
+	const direction = $derived(flowDirection(meta));
 	const errorCount = $derived(
 		Object.values(errorsByNode).reduce((sum, list) => sum + list.length, 0) + globalErrors.length
 	);
@@ -204,8 +259,21 @@
 			form = emptyWorkflowForm();
 			loadGraph(emptyGraph());
 		}
+		stats = {};
 		loading = false;
 		savedSnapshot = snapshot;
+		loadStats();
+	}
+
+	async function loadStats() {
+		if (!workflow) return;
+		const res = await AiWorkflowsService.nodeStats(workflow.id);
+		if (res.ok && res.data && typeof res.data === 'object') stats = res.data.nodes ?? {};
+	}
+
+	async function loadBlocks() {
+		const res = await AiWorkflowsService.blocks();
+		if (res.ok && Array.isArray(res.data)) blocks = res.data;
 	}
 
 	async function loadLookups() {
@@ -241,7 +309,10 @@
 	});
 
 	$effect(() => {
-		if (userCtx?.ready && runtimeConfig.aiWorkflowsEnabled) loadLookups();
+		if (userCtx?.ready && runtimeConfig.aiWorkflowsEnabled) {
+			loadLookups();
+			if (canWrite) loadBlocks();
+		}
 	});
 
 	beforeNavigate(({ cancel, to }) => {
@@ -254,9 +325,23 @@
 	function addNode(type: string, position: { x: number; y: number }) {
 		if (readOnly) return;
 		const created = createFlowNode(type, position, nodes, catalogue?.node_types);
+		// A new node follows the way the graph already reads
+		const handles = readHandles(DIRECTION_HANDLES[direction]);
+		if (handles) created.meta.handles = handles;
 		meta[created.node.id] = created.meta;
 		nodes = [...nodes, created.node];
 		selectedId = created.node.id;
+	}
+
+	/** Connectors of the selected nodes, or of every node, left → right or top → bottom. */
+	function setDirection(next: FlowDirection) {
+		if (readOnly) return;
+		const selected = nodes.filter((n) => n.selected).map((n) => n.id);
+		const ids = selected.length ? selected : undefined;
+		const graph = flowToGraph(nodes, edges, meta);
+		applyDirection(meta, next, ids);
+		// Links of the re-oriented nodes follow their new sides, even pinned ones.
+		edges = reattachEdges(graph, meta, ids);
 	}
 
 	function deleteSelected() {
@@ -267,6 +352,166 @@
 		delete meta[id];
 		delete errorsByNode[id];
 		selectedId = null;
+	}
+
+	function insertSavedBlock(block: AiBlock, position: { x: number; y: number }) {
+		if (readOnly) return;
+		// Someone else's shared block: say what it does before it joins the workflow
+		const review = block.can_edit ? [] : blockReview(block);
+		if (
+			review.length &&
+			!confirm(
+				`Insert “${block.name}” by ${block.owner?.name ?? 'another user'}?\n\n${review.join('\n')}`
+			)
+		)
+			return;
+		const inserted = insertBlock(block.definition, position, nodes, edges);
+		if (!inserted.nodes.length) return;
+		for (const [id, m] of Object.entries(inserted.meta)) meta[id] = m;
+		// The inserted nodes come selected, to move them together
+		nodes = [
+			...nodes.map((n) => (n.selected ? { ...n, selected: false } : n)),
+			...inserted.nodes.map((n) => ({ ...n, selected: true }))
+		];
+		edges = [...edges, ...inserted.edges];
+		selectedId = null;
+		const renamed = Object.entries(inserted.renames).filter(([from, to]) => from !== to);
+		const keys = block.requirements?.keystore ?? [];
+		toast({
+			title: `Block “${block.name}” added`,
+			description: [
+				renamed.length
+					? `Renamed to avoid clashes: ${renamed.map(([from, to]) => `${from} → ${to}`).join(', ')}`
+					: '',
+				keys.length ? `Needs keystore entries: ${keys.join(', ')}` : '',
+				'Connect it to the rest of the workflow.'
+			]
+				.filter(Boolean)
+				.join(' · '),
+			variant: 'success'
+		});
+	}
+
+	function startSaveSelection() {
+		const ids = nodes.filter((n) => n.selected && n.data.nodeType !== 'trigger').map((n) => n.id);
+		if (!ids.length) {
+			toast({ title: 'Select the nodes to save first', variant: 'warning' });
+			return;
+		}
+		blockDraft = {
+			definition: selectionToBlock(nodes, edges, meta, ids),
+			name: ids.length === 1 ? (meta[ids[0]]?.label ?? '') : '',
+			description: '',
+			category: '',
+			is_shared: false
+		};
+		blockDialogOpen = true;
+	}
+
+	async function saveBlock() {
+		if (!blockDraft) return;
+		if (!blockDraft.name.trim()) {
+			toast({ title: 'The block needs a name', variant: 'destructive' });
+			return;
+		}
+		savingBlock = true;
+		const res = await AiWorkflowsService.createBlock({
+			name: blockDraft.name.trim(),
+			description: blockDraft.description.trim() || null,
+			category: blockDraft.category.trim() || null,
+			is_shared: blockDraft.is_shared,
+			definition: blockDraft.definition
+		});
+		savingBlock = false;
+		if (!res.ok) {
+			toast({
+				title: 'The block was not saved',
+				description: describeApiError(res.data, res.error?.message ?? 'Request failed'),
+				variant: 'destructive'
+			});
+			return;
+		}
+		blockDialogOpen = false;
+		blockDraft = null;
+		toast({ title: `Block “${(res.data as AiBlock).name}” saved`, variant: 'success' });
+		loadBlocks();
+	}
+
+	async function importBlock() {
+		let picked;
+		try {
+			picked = await pickJsonFile();
+		} catch (e) {
+			toast({ title: 'Import failed', description: (e as Error).message, variant: 'destructive' });
+			return;
+		}
+		if (!picked) return;
+		const res = await AiWorkflowsService.importBlock(picked.data);
+		if (!res.ok) {
+			toast({
+				title: 'Import failed',
+				description: describeApiError(res.data, res.error?.message ?? 'Request failed'),
+				variant: 'destructive'
+			});
+			return;
+		}
+		const result = res.data as AiImportResult<AiBlock>;
+		const warnings = describeWarnings(result.warnings);
+		toast({
+			title: `Block “${result.block?.name ?? picked.name}” imported`,
+			description: warnings || undefined,
+			variant: warnings ? 'warning' : 'success'
+		});
+		loadBlocks();
+	}
+
+	async function exportBlock(block: AiBlock) {
+		const res = await AiWorkflowsService.exportBlock(block.id);
+		if (!res.ok) {
+			toast({
+				title: 'Export failed',
+				description: describeApiError(res.data, res.error?.message ?? 'Request failed'),
+				variant: 'destructive'
+			});
+			return;
+		}
+		downloadJson(exportFilename(block.name, 'block'), res.data);
+	}
+
+	async function deleteBlock(block: AiBlock) {
+		if (!confirm(`Delete the block “${block.name}”? Workflows that use it keep their copy.`))
+			return;
+		const res = await AiWorkflowsService.removeBlock(block.id);
+		if (!res.ok) {
+			toast({
+				title: 'Delete failed',
+				description: describeApiError(res.data, res.error?.message ?? 'Request failed'),
+				variant: 'destructive'
+			});
+			return;
+		}
+		blocks = blocks.filter((b) => b.id !== block.id);
+	}
+
+	async function exportWorkflow() {
+		if (!workflow) return;
+		const res = await AiWorkflowsService.exportWorkflow(workflow.id);
+		if (!res.ok) {
+			toast({
+				title: 'Export failed',
+				description: describeApiError(res.data, res.error?.message ?? 'Request failed'),
+				variant: 'destructive'
+			});
+			return;
+		}
+		downloadJson(exportFilename(workflow.name, 'workflow'), res.data);
+		if (dirty) {
+			toast({
+				title: 'Exported the saved version',
+				description: 'Unsaved changes are not in the file.',
+				variant: 'warning'
+			});
+		}
 	}
 
 	function currentGraph() {
@@ -308,25 +553,13 @@
 		return result.valid;
 	}
 
-	function requestSave() {
+	async function save() {
 		if (!form.name.trim()) {
 			toast({ title: 'The workflow needs a name', variant: 'destructive' });
 			return;
 		}
-		if (isNew) {
-			save();
-		} else {
-			versionNote = '';
-			saveDialogOpen = true;
-		}
-	}
-
-	async function save(note?: string) {
 		saving = true;
-		const body = bodyFromForm(form, currentGraph(), {
-			includeOwner: isAdmin,
-			versionNote: note
-		});
+		const body = bodyFromForm(form, currentGraph(), { includeOwner: isAdmin });
 		const res =
 			isNew || !workflow
 				? await AiWorkflowsService.create(body)
@@ -351,7 +584,6 @@
 			}
 			return;
 		}
-		saveDialogOpen = false;
 		const wasNew = isNew;
 		workflow = res.data as AiWorkflow;
 		form.owner_id = workflow.owner_id ?? form.owner_id;
@@ -428,7 +660,26 @@
 			>
 				<PanelLeftIcon size={12} class="mr-1" /> Settings
 			</Button>
+			<Button
+				variant="ghost"
+				size="sm"
+				class="h-7"
+				onclick={() => (guideOpen = true)}
+				title="How to write workflows as JSON (for people and LLMs)"
+			>
+				<BookOpenIcon size={12} class="mr-1" /> JSON guide
+			</Button>
 			{#if workflow}
+				<Button
+					variant="outline"
+					size="sm"
+					class="h-7"
+					onclick={exportWorkflow}
+					title="Download as JSON: keystore references are kept, secrets are never exported"
+					data-testid="wf-export"
+				>
+					<DownloadIcon size={12} class="mr-1" /> Export
+				</Button>
 				<Button variant="outline" size="sm" class="h-7" onclick={() => (versionsOpen = true)}>
 					<HistoryIcon size={12} class="mr-1" /> Versions
 				</Button>
@@ -473,7 +724,7 @@
 				<Button
 					size="sm"
 					class="h-7"
-					onclick={requestSave}
+					onclick={save}
 					disabled={saving || loading || (!dirty && !isNew)}
 					data-testid="wf-save"
 				>
@@ -509,7 +760,8 @@
 				<div class="flex min-h-0 flex-1">
 					{#if settingsOpen}
 						<aside
-							class="flex w-80 shrink-0 flex-col gap-4 overflow-y-auto border-r p-3"
+							class="flex shrink-0 flex-col gap-4 overflow-y-auto border-r p-3"
+							style={`width: ${settingsWidth}px`}
 							data-testid="wf-settings"
 						>
 							<label class="flex flex-col gap-1">
@@ -651,6 +903,14 @@
 								</p>
 							{/if}
 						</aside>
+						<PanelResizer
+							bind:width={settingsWidth}
+							side="left"
+							storageKey="ai-wf-settings-width"
+							initial={SETTINGS_WIDTH}
+							min={240}
+							label="Resize the settings panel"
+						/>
 					{/if}
 
 					<div class="min-w-0 flex-1">
@@ -662,26 +922,106 @@
 								{readOnly}
 								onAddNode={addNode}
 								onSelect={(id) => (selectedId = id)}
+								blocks={canWrite ? blocks : []}
+								onInsertBlock={canWrite ? insertSavedBlock : undefined}
+								onSaveSelection={startSaveSelection}
+								onImportBlock={importBlock}
+								onExportBlock={exportBlock}
+								onDeleteBlock={deleteBlock}
+								{direction}
+								onSetDirection={setDirection}
 							/>
 						</SvelteFlowProvider>
 					</div>
 
 					{#if selectedId && selectedType && meta[selectedId]}
 						{@const sid = selectedId}
-						<aside class="w-96 shrink-0 border-l" data-testid="wf-drawer">
+						{@const sidStats = stats[sid]}
+						<PanelResizer
+							bind:width={drawerWidth}
+							side="right"
+							storageKey="ai-wf-drawer-width"
+							initial={DRAWER_WIDTH}
+							min={280}
+							label="Resize the node panel"
+						/>
+						<aside
+							class="flex shrink-0 flex-col border-l"
+							style={`width: ${drawerWidth}px`}
+							data-testid="wf-drawer"
+						>
+							{#if workflow}
+								<div class="flex shrink-0 border-b text-xs" role="tablist">
+									<button
+										type="button"
+										role="tab"
+										aria-selected={drawerTab === 'config'}
+										class={`flex-1 px-3 py-1.5 ${drawerTab === 'config' ? 'border-b-2 border-primary font-medium' : 'text-muted-foreground'}`}
+										onclick={() => (drawerTab = 'config')}
+										data-testid="wf-drawer-tab-config"
+									>
+										Configuration
+									</button>
+									<button
+										type="button"
+										role="tab"
+										aria-selected={drawerTab === 'events'}
+										class={`flex-1 px-3 py-1.5 ${drawerTab === 'events' ? 'border-b-2 border-primary font-medium' : 'text-muted-foreground'}`}
+										onclick={() => (drawerTab = 'events')}
+										data-testid="wf-drawer-tab-events"
+									>
+										Events ({sidStats?.total ?? 0})
+									</button>
+									{#if canWrite}
+										<button
+											type="button"
+											role="tab"
+											aria-selected={drawerTab === 'test'}
+											class={`flex-1 px-3 py-1.5 ${drawerTab === 'test' ? 'border-b-2 border-primary font-medium' : 'text-muted-foreground'}`}
+											onclick={() => (drawerTab = 'test')}
+											data-testid="wf-drawer-tab-test"
+										>
+											Test
+										</button>
+									{/if}
+								</div>
+							{/if}
 							{#key sid}
-								<NodeConfigForm
-									nodeId={sid}
-									nodeType={selectedType}
-									bind:node={meta[sid]}
-									{catalogue}
-									writeAllowlist={form.write_tool_allowlist}
-									errors={errorsByNode[sid] ?? []}
-									{otherNodes}
-									{readOnly}
-									onClose={() => (selectedId = null)}
-									onDelete={deleteSelected}
-								/>
+								{#if workflow && drawerTab === 'events'}
+									<NodeEventsPanel
+										workflowId={workflow.id}
+										nodeId={sid}
+										canReplay={canWrite}
+										{dirty}
+										onReplayed={() => setTimeout(loadStats, 1500)}
+									/>
+								{:else if workflow && canWrite && drawerTab === 'test'}
+									<NodeTestPanel
+										workflowId={workflow.id}
+										blocked={testBlocked(selectedType, meta[sid].config)}
+										node={() => ({
+											id: sid,
+											type: selectedType,
+											label: meta[sid].label,
+											config: $state.snapshot(meta[sid].config)
+										})}
+									/>
+								{:else}
+									<div class="min-h-0 flex-1 overflow-y-auto">
+										<NodeConfigForm
+											nodeId={sid}
+											nodeType={selectedType}
+											bind:node={meta[sid]}
+											{catalogue}
+											writeAllowlist={form.write_tool_allowlist}
+											errors={errorsByNode[sid] ?? []}
+											{otherNodes}
+											{readOnly}
+											onClose={() => (selectedId = null)}
+											onDelete={deleteSelected}
+										/>
+									</div>
+								{/if}
 							{/key}
 						</aside>
 					{/if}
@@ -691,42 +1031,78 @@
 	</div>
 </div>
 
-<Dialog.Root bind:open={saveDialogOpen}>
+<Dialog.Root bind:open={blockDialogOpen}>
 	<Dialog.Content class="sm:max-w-[460px]">
 		<Dialog.Header>
-			<Dialog.Title class="text-sm">Save the workflow</Dialog.Title>
+			<Dialog.Title class="text-sm">Save as a block</Dialog.Title>
 			<Dialog.Description class="text-xs">
-				A change to the definition creates a new version. Running and waiting runs keep the version
-				they started with.
+				The selected nodes and the edges between them, reusable from the palette of any workflow.
+				Secrets stay in the keystore: a block only holds <code>key("NAME")</code> references.
 			</Dialog.Description>
 		</Dialog.Header>
-		<form
-			class="flex flex-col gap-3"
-			onsubmit={(e) => {
-				e.preventDefault();
-				save(versionNote);
-			}}
-		>
-			<label class="flex flex-col gap-1">
-				<span class={LABEL_CLASS}>Version note (optional)</span>
-				<Input
-					class="h-8 text-xs"
-					placeholder="What changed?"
-					bind:value={versionNote}
-					data-testid="wf-version-note"
-				/>
-			</label>
-			<Dialog.Footer>
-				<Button type="button" variant="outline" size="sm" onclick={() => (saveDialogOpen = false)}>
-					Cancel
-				</Button>
-				<Button type="submit" size="sm" disabled={saving} data-testid="wf-save-confirm">
-					{saving ? 'Saving…' : 'Save'}
-				</Button>
-			</Dialog.Footer>
-		</form>
+		{#if blockDraft}
+			<form
+				class="flex flex-col gap-3"
+				onsubmit={(e) => {
+					e.preventDefault();
+					saveBlock();
+				}}
+			>
+				<label class="flex flex-col gap-1">
+					<span class={LABEL_CLASS}>Name</span>
+					<Input
+						class="h-8 text-xs"
+						placeholder="Look a hash up on VirusTotal"
+						bind:value={blockDraft.name}
+						data-testid="wf-block-name"
+					/>
+				</label>
+				<label class="flex flex-col gap-1">
+					<span class={LABEL_CLASS}>Category (groups the blocks in the palette)</span>
+					<Input
+						class="h-8 text-xs"
+						placeholder="Enrichment"
+						bind:value={blockDraft.category}
+						data-testid="wf-block-category"
+					/>
+				</label>
+				<label class="flex flex-col gap-1">
+					<span class={LABEL_CLASS}>Description</span>
+					<textarea
+						class={TEXTAREA_CLASS.replace('font-mono ', '')}
+						rows="3"
+						bind:value={blockDraft.description}
+					></textarea>
+				</label>
+				<label class="flex items-center justify-between gap-2 text-xs">
+					<span>Share with every workflow editor</span>
+					<Switch
+						checked={blockDraft.is_shared}
+						onCheckedChange={(v: boolean) => {
+							if (blockDraft) blockDraft.is_shared = v;
+						}}
+						data-testid="wf-block-shared"
+					/>
+				</label>
+				<Dialog.Footer>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						onclick={() => (blockDialogOpen = false)}
+					>
+						Cancel
+					</Button>
+					<Button type="submit" size="sm" disabled={savingBlock} data-testid="wf-block-save">
+						{savingBlock ? 'Saving…' : 'Save the block'}
+					</Button>
+				</Dialog.Footer>
+			</form>
+		{/if}
 	</Dialog.Content>
 </Dialog.Root>
+
+<AuthoringGuideDialog bind:open={guideOpen} />
 
 {#if workflow}
 	<VersionsDialog

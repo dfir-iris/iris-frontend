@@ -1,6 +1,7 @@
 import {
 	BellIcon,
 	BotIcon,
+	BracesIcon,
 	CircleIcon,
 	GitBranchIcon,
 	GlobeIcon,
@@ -16,6 +17,7 @@ import {
 } from 'lucide-svelte';
 import type { Icon } from 'lucide-svelte';
 import type {
+	AiBlock,
 	AiEntityType,
 	AiExecutionMode,
 	AiRunStatus,
@@ -39,6 +41,7 @@ export const NODE_ICONS: Record<string, typeof Icon> = {
 	notify: BellIcon,
 	delay: TimerIcon,
 	set_variables: VariableIcon,
+	python: BracesIcon,
 	stop: OctagonXIcon
 };
 
@@ -53,6 +56,7 @@ export const NODE_TONES: Record<string, string> = {
 	ask_analyst: 'bg-pink-500/15 text-pink-700 dark:text-pink-300',
 	suggest: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
 	action: 'bg-red-500/15 text-red-700 dark:text-red-300',
+	python: 'bg-orange-500/15 text-orange-700 dark:text-orange-300',
 	stop: 'bg-muted text-muted-foreground'
 };
 
@@ -189,6 +193,49 @@ export function downloadJson(filename: string, data: unknown): void {
 	URL.revokeObjectURL(url);
 }
 
+/** Larger than any real workflow or block; the backend caps request bodies too. */
+const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
+
+/** Let the user pick a JSON file and parse it; null when cancelled. */
+export function pickJsonFile(): Promise<{ name: string; data: unknown } | null> {
+	return new Promise((resolve, reject) => {
+		const input = document.createElement('input');
+		input.type = 'file';
+		input.accept = 'application/json,.json';
+		input.onchange = async () => {
+			const file = input.files?.[0];
+			if (!file) return resolve(null);
+			if (file.size > MAX_IMPORT_BYTES) {
+				return reject(new Error(`${file.name} is larger than 2 MB`));
+			}
+			try {
+				resolve({ name: file.name, data: JSON.parse(await file.text()) });
+			} catch {
+				reject(new Error(`${file.name} is not valid JSON`));
+			}
+		};
+		input.oncancel = () => resolve(null);
+		input.click();
+	});
+}
+
+/** File name for an exported document: `Name of it` → `name-of-it.<kind>.json`. */
+export function exportFilename(name: string, kind: 'workflow' | 'block'): string {
+	const slug = name
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-+|-+$/g, '')
+		.slice(0, 80);
+	return `${slug || kind}.${kind}.json`;
+}
+
+/** Import warnings → one line each, for a toast. */
+export function describeWarnings(warnings: AiValidationError[] | undefined): string {
+	return (warnings ?? [])
+		.map((w) => (w.node_id ? `${w.node_id}: ${w.message}` : w.message))
+		.join(' · ');
+}
+
 /** 400 body `{message, data: {field: [msgs]}}` → one line. */
 export function describeApiError(data: unknown, fallback: string): string {
 	if (!data || typeof data !== 'object') return fallback;
@@ -225,3 +272,28 @@ export const SELECT_CLASS = 'h-8 w-full rounded-md border bg-background px-2 tex
 export const LABEL_CLASS = 'text-2xs font-medium text-muted-foreground';
 export const TEXTAREA_CLASS =
 	'min-h-[72px] w-full rounded-md border bg-background px-2 py-1.5 font-mono text-xs outline-none focus:ring-1 focus:ring-ring';
+
+/**
+ * What a block someone else wrote would do once inserted, for a review
+ * before it lands in the workflow: the hosts it calls, the keystore
+ * entries it sends, the tools it runs and its Python scripts.
+ */
+export function blockReview(block: AiBlock): string[] {
+	const nodes = block.definition.nodes ?? [];
+	const hosts = new Set<string>();
+	for (const node of nodes) {
+		if (node.type !== 'http_request') continue;
+		const url = String(node.config?.url ?? '');
+		const host = /^[a-z][a-z0-9+.-]*:\/\/([^/?#]+)/i.exec(url.trim())?.[1];
+		hosts.add(host ? host.replace(/^.*@/, '') : url || '(no URL)');
+	}
+	const python = nodes.filter((n) => n.type === 'python').length;
+	const keys = block.requirements?.keystore ?? [];
+	const tools = block.requirements?.tools ?? [];
+	return [
+		hosts.size ? `Calls: ${[...hosts].join(', ')}` : '',
+		keys.length ? `Sends keystore entries: ${keys.join(', ')}` : '',
+		tools.length ? `Runs tools: ${tools.join(', ')}` : '',
+		python ? `Runs ${python} Python script${python === 1 ? '' : 's'}` : ''
+	].filter(Boolean);
+}
