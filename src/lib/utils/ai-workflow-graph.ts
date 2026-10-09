@@ -173,6 +173,7 @@ export const DEFAULT_CONFIGS: Record<string, Record<string, unknown>> = {
 		output_schema: null,
 		max_turns: 6,
 		max_tool_calls: 10,
+		timeout_minutes: 10,
 		model: null,
 		include_entity: true
 	},

@@ -469,10 +469,14 @@
 					/>
 				{/key}
 			</div>
-			<div class="grid grid-cols-2 gap-2">
+			<div class="grid grid-cols-3 gap-2">
 				{@render num('max_turns', 'Max turns', 1)}
 				{@render num('max_tool_calls', 'Max tool calls', 0)}
+				{@render num('timeout_minutes', 'Timeout (min)', 1)}
 			</div>
+			<p class="-mt-1 text-2xs text-muted-foreground">
+				The agent fails (its error port) past the timeout: 10 minutes by default, 60 at most.
+			</p>
 			<label class="flex flex-col gap-1">
 				<span class={LABEL_CLASS}>Model override (optional)</span>
 				<Input
