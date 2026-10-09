@@ -267,6 +267,7 @@ export function workflowErrorsFrom(data: unknown): AiValidationError[] {
 }
 
 export const WORKFLOW_EDITOR_CTX = Symbol('ai-workflow-editor');
+export const TEMPLATE_FIELD_CTX = Symbol('ai-workflow-template-field');
 
 /** Shared form styling (native selects, like the other settings pages). */
 export const SELECT_CLASS = 'h-8 w-full rounded-md border bg-background px-2 text-xs';

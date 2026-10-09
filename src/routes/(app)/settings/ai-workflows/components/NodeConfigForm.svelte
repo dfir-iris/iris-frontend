@@ -4,25 +4,30 @@
   saved graph see every keystroke.
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { getContext, onMount, setContext } from 'svelte';
 	import { CircleAlertIcon, PlusIcon, Trash2Icon, TriangleAlertIcon, XIcon } from 'lucide-svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { Switch } from '$lib/components/ui/switch';
 	import { Button } from '$lib/components/ui/button';
 	import { UsersService } from '$lib/services/users.service';
 	import type { AiWorkflowCatalogue } from '$lib/services/ai-workflows.service';
-	import { labelFor, type NodeMeta } from '$lib/utils/ai-workflow-graph';
+	import { labelFor, nodeIdError, type NodeMeta } from '$lib/utils/ai-workflow-graph';
 	import MultiSelect, { type MultiSelectItem } from './MultiSelect.svelte';
 	import JsonField from './JsonField.svelte';
 	import PairsEditor from './PairsEditor.svelte';
+	import TemplateField from './TemplateField.svelte';
 	import TemplateHelp from './TemplateHelp.svelte';
+	import type { TemplateFieldCtx, WorkflowEditorCtx } from '../helpers/editor';
+	import type { TemplateMode } from '../helpers/template-complete';
 	import {
 		CLASSIFICATION_TONES,
 		LABEL_CLASS,
 		nodeIcon,
 		nodeTone,
 		SELECT_CLASS,
-		TEXTAREA_CLASS
+		TEMPLATE_FIELD_CTX,
+		TEXTAREA_CLASS,
+		WORKFLOW_EDITOR_CTX
 	} from '../helpers/ui';
 
 	type Props = {
@@ -36,6 +41,8 @@
 		readOnly?: boolean;
 		onClose: () => void;
 		onDelete: () => void;
+		/** Gives the node another id (its edges and references follow). */
+		onRename?: (id: string) => void;
 	};
 
 	let {
@@ -48,10 +55,20 @@
 		otherNodes,
 		readOnly = false,
 		onClose,
-		onDelete
+		onDelete,
+		onRename
 	}: Props = $props();
 
 	const c = $derived(node.config);
+
+	setContext<TemplateFieldCtx>(TEMPLATE_FIELD_CTX, {
+		get nodeId() {
+			return nodeId;
+		},
+		get callback() {
+			return nodeType === 'http_request' && c.mode === 'async';
+		}
+	});
 	const Icon = $derived(nodeIcon(nodeType));
 	const typeInfo = $derived(catalogue?.node_types?.find((t) => t.type === nodeType));
 
@@ -113,6 +130,25 @@
 
 	function set(key: string, value: unknown) {
 		node.config[key] = value;
+	}
+
+	// ---- node id ----
+	let idDraft = $derived(nodeId);
+	const editor = getContext<WorkflowEditorCtx | undefined>(WORKFLOW_EDITOR_CTX);
+	const idError = $derived(
+		nodeIdError(
+			idDraft.trim(),
+			nodeId,
+			Object.keys(editor?.nodeTypes ?? {}).map((id) => ({ id }))
+		)
+	);
+	function commitId() {
+		const next = idDraft.trim();
+		if (next === nodeId || idError || !onRename) {
+			if (!idError) idDraft = nodeId;
+			return;
+		}
+		onRename(next);
 	}
 
 	const str = (v: unknown) => (v === null || v === undefined ? '' : String(v));
@@ -179,16 +215,23 @@
 	);
 </script>
 
-{#snippet text(key: string, label: string, placeholder = '', mono = false)}
+{#snippet text(
+	key: string,
+	label: string,
+	placeholder = '',
+	mono = false,
+	mode: TemplateMode = 'template'
+)}
 	<label class="flex flex-col gap-1">
 		<span class={LABEL_CLASS}>{label}</span>
-		<Input
-			class={`h-8 text-xs ${mono ? 'font-mono' : ''}`}
+		<TemplateField
+			{mode}
+			{mono}
 			{placeholder}
 			disabled={readOnly}
 			value={str(c[key])}
-			oninput={(e) => set(key, inputValue(e))}
-			data-testid={`wf-cfg-${key}`}
+			onInput={(v) => set(key, v)}
+			testId={`wf-cfg-${key}`}
 		/>
 	</label>
 {/snippet}
@@ -196,15 +239,15 @@
 {#snippet area(key: string, label: string, placeholder = '', rows = 4)}
 	<label class="flex flex-col gap-1">
 		<span class={LABEL_CLASS}>{label}</span>
-		<textarea
-			class={TEXTAREA_CLASS}
+		<TemplateField
+			multiline
 			{rows}
 			{placeholder}
 			disabled={readOnly}
 			value={str(c[key])}
-			oninput={(e) => set(key, (e.currentTarget as HTMLTextAreaElement).value)}
-			data-testid={`wf-cfg-${key}`}
-		></textarea>
+			onInput={(v) => set(key, v)}
+			testId={`wf-cfg-${key}`}
+		/>
 	</label>
 {/snippet}
 
@@ -357,6 +400,31 @@
 			/>
 		</label>
 
+		<label class="flex flex-col gap-1">
+			<span class={LABEL_CLASS}>
+				Id, read as <code class="font-mono">nodes.{nodeId}.output</code>
+			</span>
+			<Input
+				class="h-8 font-mono text-xs"
+				disabled={readOnly || !onRename}
+				bind:value={idDraft}
+				onblur={commitId}
+				onkeydown={(e) => {
+					if (e.key === 'Enter') commitId();
+					if (e.key === 'Escape') idDraft = nodeId;
+				}}
+				data-testid="wf-cfg-id"
+			/>
+			{#if idError}
+				<p class="text-2xs text-destructive">{idError}</p>
+			{:else if idDraft.trim() !== nodeId}
+				<p class="text-2xs text-muted-foreground">
+					Press Enter: the links and every <code class="font-mono">nodes.{nodeId}</code>
+					reference follow.
+				</p>
+			{/if}
+		</label>
+
 		{#if nodeType === 'trigger'}
 			<p class="text-2xs text-muted-foreground">
 				The trigger is configured in the top bar. Its output is the trigger payload.
@@ -422,7 +490,13 @@
 				['expression', 'Jinja expression']
 			])}
 			{#if c.mode === 'expression'}
-				{@render text('expression', 'Expression', 'entity.alert_severity_id >= 4', true)}
+				{@render text(
+					'expression',
+					'Expression',
+					'entity.alert_severity_id >= 4',
+					true,
+					'expression'
+				)}
 			{:else}
 				{@render choice('logic', 'Match', [
 					['and', 'All rules (AND)'],
@@ -432,12 +506,14 @@
 					{#each list<Rule>(c.rules) as rule, index (index)}
 						<div class="flex flex-col gap-1 rounded-md border p-1.5">
 							<div class="flex items-center gap-1">
-								<Input
-									class="h-7 flex-1 font-mono text-xs"
+								<TemplateField
+									class="flex-1"
+									mode="path"
+									size="sm"
 									placeholder="nodes.n2.output.score"
 									disabled={readOnly}
 									value={str(rule.path)}
-									oninput={(e) => setRule(index, { path: inputValue(e) })}
+									onInput={(v) => setRule(index, { path: v })}
 								/>
 								<button
 									type="button"
@@ -675,7 +751,8 @@
 				'fields_from',
 				'Fields from context path (optional)',
 				'nodes.n2.output.output.missing_fields',
-				true
+				true,
+				'path'
 			)}
 			{@render num('timeout_minutes', 'Timeout (minutes)', 1)}
 		{:else if nodeType === 'find_related'}
@@ -852,16 +929,17 @@
 							<option value="template">Template</option>
 							<option value="path">Path</option>
 						</select>
-						<Input
-							class="h-8 flex-1 font-mono text-xs"
+						<TemplateField
+							class="flex-1"
+							mode={isPath(row.value) ? 'path' : 'template'}
 							placeholder={isPath(row.value)
 								? 'nodes.load.output.result'
 								: '{{ trigger.entity_id }}'}
 							disabled={readOnly}
 							value={inputText(row.value)}
-							oninput={(e) =>
+							onInput={(v) =>
 								setInput(index, {
-									value: isPath(row.value) ? { $path: inputValue(e) } : inputValue(e)
+									value: isPath(row.value) ? { $path: v } : v
 								})}
 						/>
 						{#if !readOnly}

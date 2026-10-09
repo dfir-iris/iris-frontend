@@ -509,6 +509,53 @@ export function rewriteNodeReferences<T>(value: T, renames: Record<string, strin
 	return walk(value) as T;
 }
 
+/**
+ * Why `id` cannot replace `current`, or null. Stricter than the backend
+ * (which also takes `.`, `:` and `-`): the id must read as
+ * `nodes.<id>` in a template.
+ */
+export function nodeIdError(id: string, current: string, taken: { id: string }[]): string | null {
+	if (id === current) return null;
+	if (!/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(id)) {
+		return 'Letters, digits and _, starting with a letter or _ (64 at most)';
+	}
+	if (RESERVED_IDS.has(id)) return `${id} is reserved`;
+	if (taken.some((n) => n.id === id)) return `Another node is already called ${id}`;
+	return null;
+}
+
+/**
+ * The canvas after node `from` is renamed `to`: its edges follow and
+ * every `nodes.<from>` reference in the configs is rewritten.
+ */
+export function renameFlowNode(
+	nodes: FlowNode[],
+	edges: FlowEdge[],
+	meta: NodeMetaMap,
+	from: string,
+	to: string
+): { nodes: FlowNode[]; edges: FlowEdge[]; meta: NodeMetaMap } {
+	const renames: Record<string, string> = Object.create(null);
+	renames[from] = to;
+	const nextMeta: NodeMetaMap = {};
+	for (const [id, m] of Object.entries(meta)) {
+		nextMeta[id === from ? to : id] = { ...m, config: rewriteNodeReferences(m.config, renames) };
+	}
+	return {
+		nodes: nodes.map((n) => (n.id === from ? { ...n, id: to } : n)),
+		edges: edges.map((e) =>
+			e.source === from || e.target === from
+				? {
+						...e,
+						source: e.source === from ? to : e.source,
+						target: e.target === from ? to : e.target
+					}
+				: e
+		),
+		meta: nextMeta
+	};
+}
+
 /** `id`, or `id_2`, `id_3`… when taken. */
 function freeId(id: string, taken: Set<string>): string {
 	const cleaned = id.replace(/[^A-Za-z0-9_-]/g, '_') || 'node';

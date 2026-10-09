@@ -133,4 +133,16 @@ export interface WorkflowEditorCtx {
 	readonly stats: Record<string, AiNodeStats>;
 	/** Where the latest run is, per node id, while it goes and shortly after. */
 	readonly live: Record<string, AiLiveNodeState>;
+	/** Node type per node id, for the template completion. */
+	readonly nodeTypes: Record<string, string>;
+	/** Null until the workflow is saved (no runs to learn paths from). */
+	readonly workflowId: number | null;
+}
+
+/** Set by the node config form for the template fields it renders. */
+export interface TemplateFieldCtx {
+	/** The node being edited: its own output is not offered. */
+	readonly nodeId: string;
+	/** An async HTTP request: `callback.*` exists. */
+	readonly callback: boolean;
 }

@@ -65,6 +65,7 @@
 	import {
 		applyDirection,
 		reattachEdges,
+		renameFlowNode,
 		createFlowNode,
 		DIRECTION_HANDLES,
 		emptyGraph,
@@ -192,9 +193,17 @@
 		},
 		get live() {
 			return live?.nodes ?? {};
+		},
+		get nodeTypes() {
+			return nodeTypes;
+		},
+		get workflowId() {
+			return workflow?.id ?? null;
 		}
 	};
 	setContext(WORKFLOW_EDITOR_CTX, ctx);
+
+	const nodeTypes = $derived(Object.fromEntries(nodes.map((n) => [n.id, n.data.nodeType])));
 
 	const snapshot = $derived(
 		JSON.stringify(bodyFromForm(form, flowToGraph(nodes, edges, meta), { includeOwner: true }))
@@ -354,6 +363,20 @@
 		applyDirection(meta, next, ids);
 		// Links of the re-oriented nodes follow their new sides, even pinned ones.
 		edges = reattachEdges(graph, meta, ids);
+	}
+
+	/** New id for node `from`: links and `nodes.<id>` references follow. */
+	function renameNode(from: string, to: string) {
+		if (readOnly || from === to) return;
+		const renamed = renameFlowNode(nodes, edges, meta, from, to);
+		meta = renamed.meta;
+		nodes = renamed.nodes;
+		edges = renamed.edges;
+		if (Object.hasOwn(errorsByNode, from)) {
+			errorsByNode[to] = errorsByNode[from];
+			delete errorsByNode[from];
+		}
+		if (selectedId === from) selectedId = to;
 	}
 
 	function deleteSelected() {
@@ -1139,6 +1162,7 @@
 											{readOnly}
 											onClose={() => (selectedId = null)}
 											onDelete={deleteSelected}
+											onRename={(id) => renameNode(sid, id)}
 										/>
 									</div>
 								{/if}

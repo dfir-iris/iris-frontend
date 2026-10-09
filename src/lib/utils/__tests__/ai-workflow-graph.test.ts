@@ -16,10 +16,12 @@ import {
 	labelFor,
 	nextEdgeId,
 	nextNodeId,
+	nodeIdError,
 	parseHandle,
 	portsFor,
 	reattachEdges,
-	readHandles
+	readHandles,
+	renameFlowNode
 } from '../ai-workflow-graph';
 
 const graph: AiWorkflowGraph = {
@@ -323,5 +325,45 @@ describe('links on any side', () => {
 		});
 		expect(nodes.map((n) => n.id)).toEqual(['n1', 'n2', 'n3']);
 		expect(Object.hasOwn(meta, '__proto__')).toBe(false);
+	});
+});
+
+describe('renaming a node', () => {
+	it('validates the new id', () => {
+		const taken = [{ id: 'n1' }, { id: 'n2' }];
+		expect(nodeIdError('n2', 'n2', taken)).toBeNull();
+		expect(nodeIdError('triage', 'n2', taken)).toBeNull();
+		expect(nodeIdError('n1', 'n2', taken)).toMatch(/already/);
+		expect(nodeIdError('my-node', 'n2', taken)).toMatch(/Letters/);
+		expect(nodeIdError('1abc', 'n2', taken)).toMatch(/Letters/);
+		expect(nodeIdError('constructor', 'n2', taken)).toMatch(/reserved/);
+	});
+
+	it('moves the edges, the meta and the references', () => {
+		const flow = graphToFlow({
+			nodes: [
+				{ id: 'n1', type: 'trigger', label: 'T', position: { x: 0, y: 0 }, config: {} },
+				{ id: 'n2', type: 'ai_agent', label: 'A', position: { x: 0, y: 0 }, config: {} },
+				{
+					id: 'n3',
+					type: 'notify',
+					label: 'N',
+					position: { x: 0, y: 0 },
+					config: { body: '{{ nodes.n2.output.text }} {{ nodes.n20.output }}' }
+				}
+			],
+			edges: [
+				{ id: 'e1', source: 'n1', target: 'n2', source_port: 'out' },
+				{ id: 'e2', source: 'n2', target: 'n3', source_port: 'out' }
+			]
+		});
+		const out = renameFlowNode(flow.nodes, flow.edges, flow.meta, 'n2', 'triage');
+		expect(out.nodes.map((n) => n.id)).toEqual(['n1', 'triage', 'n3']);
+		expect(out.edges.map((e) => [e.source, e.target])).toEqual([
+			['n1', 'triage'],
+			['triage', 'n3']
+		]);
+		expect(Object.keys(out.meta)).toEqual(['n1', 'triage', 'n3']);
+		expect(out.meta.n3.config.body).toBe('{{ nodes.triage.output.text }} {{ nodes.n20.output }}');
 	});
 });

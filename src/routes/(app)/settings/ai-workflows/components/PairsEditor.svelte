@@ -8,6 +8,7 @@
 	import { LockIcon, LockOpenIcon, PlusIcon, Trash2Icon } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import TemplateField from './TemplateField.svelte';
 
 	type Pair = { name: string; value: string; secret?: boolean };
 
@@ -68,12 +69,12 @@
 				disabled={readOnly}
 				oninput={(e) => update(index, { name: (e.currentTarget as HTMLInputElement).value })}
 			/>
-			<Input
-				class="h-7 font-mono text-xs"
+			<TemplateField
+				size="sm"
 				placeholder={valuePlaceholder}
 				value={row.value}
 				disabled={readOnly}
-				oninput={(e) => update(index, { value: (e.currentTarget as HTMLInputElement).value })}
+				onInput={(v) => update(index, { value: v })}
 			/>
 			{#if secrets}
 				<button
