@@ -914,16 +914,19 @@
 			<div class="flex flex-col gap-1">
 				<span class={LABEL_CLASS}>Inputs (available as <code>inputs['NAME']</code>)</span>
 				{#each list<ScriptInput>(c.inputs) as row, index (index)}
-					<div class="flex items-center gap-1" data-testid="wf-cfg-python-input">
+					<div
+						class="grid grid-cols-[6rem_6rem_minmax(0,1fr)_auto] items-center gap-1"
+						data-testid="wf-cfg-python-input"
+					>
 						<Input
-							class="h-8 w-24 font-mono text-xs"
+							class="h-8 font-mono text-xs"
 							placeholder="name"
 							disabled={readOnly}
 							value={str(row.name)}
 							oninput={(e) => setInput(index, { name: inputValue(e) })}
 						/>
 						<select
-							class={`${SELECT_CLASS} w-24`}
+							class={SELECT_CLASS}
 							disabled={readOnly}
 							value={isPath(row.value) ? 'path' : 'template'}
 							onchange={(e) =>
@@ -934,7 +937,6 @@
 							<option value="path">Path</option>
 						</select>
 						<TemplateField
-							class="flex-1"
 							mode={isPath(row.value) ? 'path' : 'template'}
 							placeholder={isPath(row.value)
 								? 'nodes.load.output.result'

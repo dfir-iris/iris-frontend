@@ -15,6 +15,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Switch } from '$lib/components/ui/switch';
 	import { toast } from '$lib/components/ui/toast';
+	import { cn } from '$lib/utils';
 	import { formatDateTime } from '$lib/utils/time-formatter';
 	import {
 		AiWorkflowsService,
@@ -160,7 +161,7 @@
 <div class="flex min-h-0 flex-1 flex-col" data-testid="wf-node-events">
 	<div class="flex items-center gap-2 border-b px-3 py-2">
 		<select
-			class={`${SELECT_CLASS} w-32`}
+			class={cn(SELECT_CLASS, 'w-32')}
 			bind:value={status}
 			aria-label="Status"
 			data-testid="wf-events-status"
