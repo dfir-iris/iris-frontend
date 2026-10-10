@@ -9,7 +9,7 @@
   while the tab is visible.
 -->
 <script lang="ts">
-	import { AiSuggestionsPanel } from '$lib/components/ai-suggestions';
+	import { AiSuggestionsChip, AiSuggestionsPanel } from '$lib/components/ai-suggestions';
 	import { getContext, onDestroy, onMount } from 'svelte';
 	import { USER_CTX, type UserCtx } from '$lib/contexts/user-context.context.svelte';
 	import { canReadVulnerabilities } from '$lib/components/vulnerabilities/permissions';
@@ -231,6 +231,7 @@
 				</p>
 			</div>
 			<div class="ml-auto flex items-center gap-2">
+				<AiSuggestionsChip entityType="war_room" entityId={warRoomId} />
 				<Button
 					size="sm"
 					variant="outline"
@@ -243,7 +244,12 @@
 			</div>
 		</div>
 
-		<AiSuggestionsPanel entityType="war_room" entityId={warRoomId} class="bg-card" />
+		<AiSuggestionsPanel
+			entityType="war_room"
+			entityId={warRoomId}
+			class="bg-card"
+			hideWhenNoneOpen
+		/>
 
 		{#if loading}
 			<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">

@@ -24,9 +24,17 @@
 		class?: string;
 		/** Start expanded when there are open suggestions (default true). */
 		autoExpand?: boolean;
+		/** Render nothing when none is open (an `AiSuggestionsChip` holds the history). */
+		hideWhenNoneOpen?: boolean;
 	}
 
-	let { entityType, entityId, class: className = '', autoExpand = true }: Props = $props();
+	let {
+		entityType,
+		entityId,
+		class: className = '',
+		autoExpand = true,
+		hideWhenNoneOpen = false
+	}: Props = $props();
 
 	const enabled = $derived(aiSuggestionsEnabled());
 	const items = $derived(aiSuggestions.list(entityType, entityId));
@@ -50,7 +58,7 @@
 	}
 </script>
 
-{#if enabled && items.length > 0}
+{#if enabled && items.length > 0 && !(hideWhenNoneOpen && openCount === 0)}
 	<section
 		class={cn('rounded-md border border-violet-500/20 bg-violet-500/[0.03]', className)}
 		data-testid="ai-suggestions-panel"

@@ -166,12 +166,41 @@ const state = $state<{
 }>({ byEntity: {}, loading: {}, errors: {} });
 
 let unsubscribe: (() => void) | null = null;
+// One fetch per entity at a time: a panel and a header chip of the same
+// entity both ask for it on mount.
+const inflight = new Map<string, Promise<void>>();
 
 function handleEvent(payload: unknown): void {
 	const event = payload as AiSuggestionSocketEvent;
 	state.byEntity = aiSuggestionsReduce(state.byEntity, event);
 	const t = aiSuggestionsToast(event);
 	if (t) toast(t);
+}
+
+async function fetchEntity(
+	key: string,
+	entityType: AiSuggestionEntityType,
+	entityId: number
+): Promise<void> {
+	state.loading[key] = true;
+	try {
+		const res = await AiSuggestionsService.list({
+			entity_type: entityType,
+			entity_id: entityId,
+			status: 'all'
+		});
+		if (res.ok && Array.isArray(res.data)) {
+			state.byEntity = {
+				...state.byEntity,
+				[key]: res.data.reduce<AiSuggestion[]>((acc, s) => aiSuggestionsUpsert(acc, s), [])
+			};
+			state.errors[key] = null;
+		} else {
+			state.errors[key] = res.error?.message ?? 'Could not load suggestions';
+		}
+	} finally {
+		state.loading[key] = false;
+	}
 }
 
 export const aiSuggestions = {
@@ -192,27 +221,13 @@ export const aiSuggestions = {
 	},
 
 	/** Fetches every suggestion (all statuses) of one entity. */
-	async load(entityType: AiSuggestionEntityType, entityId: number): Promise<void> {
+	load(entityType: AiSuggestionEntityType, entityId: number): Promise<void> {
 		const key = aiSuggestionsKey(entityType, entityId);
-		state.loading[key] = true;
-		try {
-			const res = await AiSuggestionsService.list({
-				entity_type: entityType,
-				entity_id: entityId,
-				status: 'all'
-			});
-			if (res.ok && Array.isArray(res.data)) {
-				state.byEntity = {
-					...state.byEntity,
-					[key]: res.data.reduce<AiSuggestion[]>((acc, s) => aiSuggestionsUpsert(acc, s), [])
-				};
-				state.errors[key] = null;
-			} else {
-				state.errors[key] = res.error?.message ?? 'Could not load suggestions';
-			}
-		} finally {
-			state.loading[key] = false;
-		}
+		const pending = inflight.get(key);
+		if (pending) return pending;
+		const promise = fetchEntity(key, entityType, entityId).finally(() => inflight.delete(key));
+		inflight.set(key, promise);
+		return promise;
 	},
 
 	/** Merges a suggestion returned by accept / dismiss / answer. */

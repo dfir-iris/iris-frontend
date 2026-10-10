@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AiSuggestionsPanel } from '$lib/components/ai-suggestions';
+	import { AiSuggestionsChip, AiSuggestionsPanel } from '$lib/components/ai-suggestions';
 	import { formatDate, formatTime, parseServerDate } from '$lib/utils/time-formatter';
 	import { getContext, onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -469,6 +469,8 @@
 					</div>
 
 					<div class="flex flex-wrap items-center gap-2">
+						<AiSuggestionsChip entityType="case" entityId={case_id} />
+
 						{#if lastError}
 							<span
 								class="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive"
@@ -552,7 +554,12 @@
 				  preserves the note, and an open case carrying one still needs to
 				  explain itself — the heading and palette shift to say so.
 				-->
-				<AiSuggestionsPanel entityType="case" entityId={case_id} class="mx-5 mt-3 shrink-0" />
+				<AiSuggestionsPanel
+					entityType="case"
+					entityId={case_id}
+					class="mx-5 mt-3 shrink-0"
+					hideWhenNoneOpen
+				/>
 
 				{#if closingNote || (isClosed && canEdit)}
 					<section

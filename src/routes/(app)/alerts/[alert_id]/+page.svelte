@@ -220,8 +220,9 @@
 				onUnlinkCase={(case_id) => unlinkCase(case_id)}
 				onDelete={() => (showConfirmDelete = true)}
 				alwaysExpanded
+				showSuggestionsChip
 			/>
-			<AiSuggestionsPanel entityType="alert" entityId={alert.alert_id} />
+			<AiSuggestionsPanel entityType="alert" entityId={alert.alert_id} hideWhenNoneOpen />
 		{/if}
 	{/await}
 </div>

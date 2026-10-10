@@ -38,6 +38,7 @@
 	} from '$lib/components/ui/dropdown-menu';
 	import AlertCardFooter from './AlertCardFooter.svelte';
 	import AlertCardDetails from './AlertCardDetails.svelte';
+	import { AiSuggestionsChip } from '$lib/components/ai-suggestions';
 	import type { AlertStatus } from '$lib/services/alert-status.service';
 	import { ALERT_CARD_ACCENT, alertCardTone } from './alert-card-status';
 
@@ -57,7 +58,8 @@
 		onShowClose,
 		onUnlinkCase,
 		onDelete,
-		onShowInvestigationFlow
+		onShowInvestigationFlow,
+		showSuggestionsChip = false
 	}: {
 		alert: Alert;
 		alertStatuses: AlertStatus[];
@@ -79,6 +81,9 @@
 		// other AlertCard call sites (which don't know about flows) don't
 		// need to be touched.
 		onShowInvestigationFlow?: () => void;
+		// The alert's own page: its resolved AI suggestions fold into a
+		// header chip rather than a strip under the card.
+		showSuggestionsChip?: boolean;
 	} = $props();
 
 	const getBackgroundBySeverity = (severity: string): string => {
@@ -245,6 +250,9 @@
 				  not toggle the card. Handler is optional — call sites
 				  that don't wire it up simply won't see the button.
 				-->
+				{#if showSuggestionsChip}
+					<AiSuggestionsChip entityType="alert" entityId={alert.alert_id} />
+				{/if}
 				{#if alert.investigation_flow && onShowInvestigationFlow}
 					<Button
 						variant="outline"

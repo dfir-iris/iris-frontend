@@ -10,7 +10,7 @@
   distinct evidence groups: Alerts, Assets, IOCs, Timeline, Activity.
 -->
 <script lang="ts">
-	import { AiSuggestionsPanel } from '$lib/components/ai-suggestions';
+	import { AiSuggestionsChip, AiSuggestionsPanel } from '$lib/components/ai-suggestions';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -533,6 +533,7 @@
 					</div>
 
 					<div class="flex flex-wrap items-center gap-2">
+						<AiSuggestionsChip entityType="alert_cluster" entityId={cluster.cluster_id} />
 						{#if cluster.investigation_flow}
 							<Button variant="outline" size="sm" onclick={() => (flowPanelOpen = !flowPanelOpen)}>
 								<CheckSquareIcon class="mr-2 h-4 w-4" />
@@ -776,6 +777,7 @@
 				entityType="alert_cluster"
 				entityId={cluster.cluster_id}
 				class="mx-6 mb-3 shrink-0"
+				hideWhenNoneOpen
 			/>
 
 			<!-- ============================================================
