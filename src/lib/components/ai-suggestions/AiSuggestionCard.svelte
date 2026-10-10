@@ -269,7 +269,7 @@
 				<span class="w-10"></span>
 			{/if}
 			{#if canDismiss || showEntity}
-				<div class={cn('flex items-center justify-end gap-1', showEntity && 'w-[5.5rem]')}>
+				<div class={cn('flex shrink-0 items-center justify-end gap-1', showEntity && 'w-28')}>
 					{#if isOpen && isInfoRequest}
 						<Button size="xs" class="h-6 px-2" onclick={toggleAnswer} disabled={busy}>
 							{showAnswer ? 'Hide form' : 'Answer'}
@@ -460,7 +460,7 @@
 </article>
 
 <Dialog.Root bind:open={acceptOpen}>
-	<Dialog.Content class="sm:max-w-lg">
+	<Dialog.Content class="grid-cols-[minmax(0,1fr)] sm:max-w-2xl">
 		<Dialog.Header>
 			<Dialog.Title>Run this action as you?</Dialog.Title>
 			<Dialog.Description>
@@ -470,15 +470,17 @@
 			</Dialog.Description>
 		</Dialog.Header>
 		{#if suggestion.proposed_action}
-			<div class="flex flex-col gap-2 text-sm">
-				<div>
+			<div class="flex min-w-0 flex-col gap-2 text-sm">
+				<div class="min-w-0">
 					<span class="text-xs text-muted-foreground">Tool</span>
-					<div><code class="font-mono">{suggestion.proposed_action.tool}</code></div>
+					<div class="break-all">
+						<code class="font-mono">{suggestion.proposed_action.tool}</code>
+					</div>
 				</div>
-				<div>
+				<div class="min-w-0">
 					<span class="text-xs text-muted-foreground">Arguments</span>
 					<pre
-						class="max-h-64 overflow-auto rounded-md border bg-muted/30 px-2 py-1.5 font-mono text-xs">{aiSuggestionPretty(
+						class="max-h-64 overflow-auto whitespace-pre-wrap rounded-md border bg-muted/30 px-2 py-1.5 font-mono text-xs [overflow-wrap:anywhere]">{aiSuggestionPretty(
 							suggestion.proposed_action.arguments ?? {}
 						)}</pre>
 				</div>
