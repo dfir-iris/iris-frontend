@@ -131,7 +131,7 @@
 		const res = await AiWorkflowsService.list();
 		loading = false;
 		if (!res.ok) {
-			loadError = res.error?.message ?? describeApiError(res.data, 'Failed to load AI workflows');
+			loadError = res.error?.message ?? describeApiError(res.data, 'Failed to load the workflows');
 			return;
 		}
 		workflows = aiListData<AiWorkflowSummary>(res.data).sort((a, b) =>
@@ -200,7 +200,7 @@
 </script>
 
 <svelte:head>
-	<title>AI workflows</title>
+	<title>Workflows</title>
 </svelte:head>
 
 <div class="flex h-full w-full flex-col overflow-hidden">
@@ -208,7 +208,7 @@
 		<div class="flex items-center gap-2.5">
 			<WorkflowIcon size={18} class="text-muted-foreground" />
 			<div class="leading-tight">
-				<h1 class="text-sm font-semibold">AI workflows</h1>
+				<h1 class="text-sm font-semibold">Workflows</h1>
 				<p class="text-xs text-muted-foreground">
 					Graphs of AI agents, HTTP calls, conditions and analyst questions, fired by events, a
 					schedule, a webhook or by hand.
@@ -277,7 +277,7 @@
 					data-testid="wf-empty"
 				>
 					<WorkflowIcon size={32} class="opacity-40" />
-					<p class="text-sm">No AI workflows yet.</p>
+					<p class="text-sm">No workflows yet.</p>
 					<p class="max-w-md text-xs">
 						Triage new alerts, enrich cases from external tools, or ask an analyst before acting.
 					</p>

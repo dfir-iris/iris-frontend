@@ -778,7 +778,7 @@
 </script>
 
 <svelte:head>
-	<title>{isNew ? 'New AI workflow' : (workflow?.name ?? 'AI workflow')}</title>
+	<title>{isNew ? 'New workflow' : (workflow?.name ?? 'Workflow')}</title>
 </svelte:head>
 
 <div class="flex h-full w-full flex-col overflow-hidden" data-testid="wf-editor">
@@ -930,7 +930,7 @@
 				{/if}
 				{#if readOnly}
 					<p class="border-b bg-muted/30 px-4 py-1.5 text-2xs text-muted-foreground">
-						Read-only: editing needs the “AI workflows write” permission.
+						Read-only: editing needs the “Workflows write” permission.
 					</p>
 				{/if}
 				<div class="flex min-h-0 flex-1">

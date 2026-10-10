@@ -66,7 +66,7 @@
 				class="shrink-0 text-muted-foreground transition-transform {isExpanded ? 'rotate-90' : ''}"
 			/>
 			<SparklesIcon size={13} class="shrink-0 text-violet-600 dark:text-violet-400" />
-			<span class="font-semibold">AI suggestions</span>
+			<span class="font-semibold">Suggestions</span>
 			{#if openCount > 0}
 				<span
 					class="rounded-full bg-violet-600 px-1.5 py-px text-2xs font-semibold tabular-nums text-white"

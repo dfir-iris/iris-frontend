@@ -135,7 +135,7 @@
 			<div class="leading-tight">
 				<h1 class="text-sm font-semibold">Keystore</h1>
 				<p class="text-xs text-muted-foreground">
-					API keys and other values AI workflows use, referenced as
+					API keys and other values workflows use, referenced as
 					<code class="font-mono">{`{{ key('NAME') }}`}</code>. Secret values are never shown again.
 				</p>
 			</div>

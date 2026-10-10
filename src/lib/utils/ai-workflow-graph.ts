@@ -411,7 +411,8 @@ export function emptyGraph(): AiWorkflowGraph {
 /**
  * A connection is acceptable when it does not loop onto its own node
  * and does not enter the trigger. Cycles through other nodes are left
- * to the backend validator (they are allowed through waiting nodes).
+ * to the backend validator (they are allowed; the step limit of a run
+ * stops a loop that never exits).
  */
 export function isConnectionAllowed(
 	connection: { source: string; target: string },

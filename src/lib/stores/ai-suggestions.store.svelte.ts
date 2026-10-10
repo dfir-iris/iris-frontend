@@ -141,7 +141,7 @@ export function aiSuggestionsToast(
 	if (href) link = { href, label: `Open ${entityLabel?.toLowerCase() ?? 'entity'}` };
 	else if (inbox) link = { href: inbox, label: 'Open in the inbox' };
 	return {
-		title: `${dryRun ? 'AI suggestion (dry run)' : 'AI suggestion'}: ${s.title}`,
+		title: `${dryRun ? 'Suggestion (dry run)' : 'Suggestion'}: ${s.title}`,
 		description: target ?? s.workflow_name ?? undefined,
 		variant: 'default',
 		duration: 8000,

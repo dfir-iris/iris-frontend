@@ -128,3 +128,41 @@ export function aiSuggestionInboxWorkflows(
 	}
 	return [...byId].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
 }
+
+export interface AiSuggestionInboxSection {
+	key: 'open' | 'dry_run' | 'resolved';
+	title: string;
+	hint: string;
+	items: AiSuggestion[];
+}
+
+const SECTIONS: Array<Omit<AiSuggestionInboxSection, 'items'>> = [
+	{ key: 'open', title: 'Needs a decision', hint: 'Accept, answer or dismiss them.' },
+	{
+		key: 'dry_run',
+		title: 'From dry runs',
+		hint: 'Shown for review only: nothing can be accepted. Clear them once seen.'
+	},
+	{ key: 'resolved', title: 'Resolved', hint: '' }
+];
+
+/**
+ * The list split by what is left to do: open ones, those of dry runs,
+ * then the resolved ones (accepted, dismissed, expired). Empty sections
+ * are left out; each keeps the list order.
+ */
+export function aiSuggestionInboxSections(list: AiSuggestion[]): AiSuggestionInboxSection[] {
+	const keyOf = (s: AiSuggestion): AiSuggestionInboxSection['key'] =>
+		s.status === 'open' || s.status === 'dry_run' ? s.status : 'resolved';
+	return SECTIONS.map((section) => ({
+		...section,
+		items: list.filter((s) => keyOf(s) === section.key)
+	})).filter((section) => section.items.length > 0);
+}
+
+/** Whether the filters differ from the defaults (the "Reset" control). */
+export function aiSuggestionInboxFiltered(filters: AiSuggestionInboxFilters): boolean {
+	return (Object.keys(AI_SUGGESTION_INBOX_DEFAULTS) as Array<keyof AiSuggestionInboxFilters>).some(
+		(key) => filters[key] !== AI_SUGGESTION_INBOX_DEFAULTS[key]
+	);
+}

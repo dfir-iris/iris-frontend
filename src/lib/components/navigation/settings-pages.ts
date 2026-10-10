@@ -50,7 +50,7 @@ export const SETTINGS_PAGES: SettingsPage[] = [
 	{ icon: CheckSquareIcon, label: 'Investigation flows', href: '/investigation-flows' },
 	{ icon: PlugIcon, label: 'MCP Server', href: '/mcp' },
 	{ icon: SparklesIcon, label: 'Chatbot', href: '/chatbot' },
-	{ icon: WorkflowIcon, label: 'AI workflows', href: '/ai-workflows' },
+	{ icon: WorkflowIcon, label: 'Workflows', href: '/ai-workflows' },
 	{ icon: KeyRoundIcon, label: 'Keystore', href: '/keystore' },
 	{ icon: MegaphoneIcon, label: 'Banners', href: '/banners' },
 	{ icon: SettingsIcon, label: 'Server Settings', href: '/server' }

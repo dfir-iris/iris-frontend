@@ -3,7 +3,9 @@ import type { AiSuggestion } from '$lib/services/ai-suggestions.service';
 import {
 	AI_SUGGESTION_INBOX_DEFAULTS,
 	aiSuggestionInboxApply,
+	aiSuggestionInboxFiltered,
 	aiSuggestionInboxMatches,
+	aiSuggestionInboxSections,
 	aiSuggestionInboxStatusParam,
 	aiSuggestionInboxWorkflows
 } from '../ai-suggestion-inbox';
@@ -129,5 +131,39 @@ describe('aiSuggestionInboxWorkflows', () => {
 			{ id: 3, name: 'Triage' },
 			{ id: 5, name: 'Workflow #5' }
 		]);
+	});
+});
+
+describe('aiSuggestionInboxSections', () => {
+	it('splits open, dry-run and resolved suggestions, in that order, keeping the list order', () => {
+		const list = [
+			suggestion({ id: 1, status: 'dry_run' }),
+			suggestion({ id: 2, status: 'dismissed' }),
+			suggestion({ id: 3, status: 'open' }),
+			suggestion({ id: 4, status: 'dry_run' }),
+			suggestion({ id: 5, status: 'accepted' })
+		];
+		expect(aiSuggestionInboxSections(list).map((s) => [s.key, s.items.map((i) => i.id)])).toEqual([
+			['open', [3]],
+			['dry_run', [1, 4]],
+			['resolved', [2, 5]]
+		]);
+	});
+
+	it('leaves the empty sections out', () => {
+		expect(aiSuggestionInboxSections([suggestion()]).map((s) => s.key)).toEqual(['open']);
+		expect(aiSuggestionInboxSections([])).toEqual([]);
+	});
+});
+
+describe('aiSuggestionInboxFiltered', () => {
+	it('is false only on the defaults', () => {
+		expect(aiSuggestionInboxFiltered({ ...AI_SUGGESTION_INBOX_DEFAULTS })).toBe(false);
+		expect(aiSuggestionInboxFiltered({ ...AI_SUGGESTION_INBOX_DEFAULTS, severity: 'high' })).toBe(
+			true
+		);
+		expect(aiSuggestionInboxFiltered({ ...AI_SUGGESTION_INBOX_DEFAULTS, workflowId: 3 })).toBe(
+			true
+		);
 	});
 });

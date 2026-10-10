@@ -180,7 +180,7 @@ describe('ai-suggestions toast + links', () => {
 
 	it('toasts created open suggestions with a link', () => {
 		const t = aiSuggestionsToast({ action: 'created', suggestion: make(1) });
-		expect(t?.title).toBe('AI suggestion: s-1');
+		expect(t?.title).toBe('Suggestion: s-1');
 		expect(t?.description).toBe('Alert #10 — Phishing');
 		expect(t?.link).toEqual({ href: '/alerts/10', label: 'Open alert' });
 	});
@@ -195,7 +195,7 @@ describe('ai-suggestions toast + links', () => {
 
 	it('toasts dry runs with a link to the inbox', () => {
 		const t = aiSuggestionsToast({ action: 'created', suggestion: make(3, { status: 'dry_run' }) });
-		expect(t?.title).toBe('AI suggestion (dry run): s-3');
+		expect(t?.title).toBe('Suggestion (dry run): s-3');
 		expect(t?.link).toEqual({ href: '/suggestions?id=3', label: 'Open in the inbox' });
 	});
 

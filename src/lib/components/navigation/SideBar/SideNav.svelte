@@ -116,7 +116,7 @@
 			requires: ['activities_read', 'all_activities_read']
 		},
 		{
-			label: 'AI Suggestions',
+			label: 'Suggestions',
 			path: '/suggestions',
 			icon: LightbulbIcon,
 			enabled: aiSuggestionsEnabled()

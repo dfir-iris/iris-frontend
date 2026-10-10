@@ -253,7 +253,7 @@
 											<SparklesIcon
 												size={11}
 												class="shrink-0 text-violet-600 dark:text-violet-400"
-												aria-label="AI suggestion"
+												aria-label="Suggestion"
 											/>
 										{/if}
 										<span class="truncate text-sm font-medium text-foreground">

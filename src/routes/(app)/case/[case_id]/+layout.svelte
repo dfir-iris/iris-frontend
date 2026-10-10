@@ -79,6 +79,8 @@
 	import ReviewBanner from './components/ReviewBanner.svelte';
 	import CaseUnavailable from './components/CaseUnavailable.svelte';
 	import RequestReviewDialog from './components/RequestReviewDialog.svelte';
+	import CaseReportDialog from './components/CaseReportDialog.svelte';
+	import type { CaseReportType } from '$lib/services/case-reports.service';
 	import { callHook, hookOptionKey } from '$lib/utils/hooks';
 	import { APP_CTX, type AppContext } from '$lib/contexts/app.context.svelte';
 	import type { Case } from '$lib/types/resources/case';
@@ -144,6 +146,13 @@
 
 	let hookOptions = $state<HookOption[]>([]);
 	let showRequestReview = $state(false);
+	let showReport = $state(false);
+	let reportType = $state<CaseReportType>('Investigation');
+
+	function openReport(type: CaseReportType) {
+		reportType = type;
+		showReport = true;
+	}
 
 	const refresh = async () => {
 		const id = cases.currentCaseId();
@@ -365,10 +374,16 @@
 
 {#snippet caseMenuItems()}
 	<DropdownMenuLabel>Reports</DropdownMenuLabel>
-	<DropdownMenuItem>
+	<DropdownMenuItem
+		onclick={() => openReport('Investigation')}
+		data-testid="case-menu-generate-report"
+	>
 		<ClipboardPasteIcon class="mr-2 size-4" /> Generate report
 	</DropdownMenuItem>
-	<DropdownMenuItem>
+	<DropdownMenuItem
+		onclick={() => openReport('Activities')}
+		data-testid="case-menu-activity-report"
+	>
 		<ChartLineIcon class="mr-2 size-4" /> Activity report
 	</DropdownMenuItem>
 
@@ -549,3 +564,4 @@
 />
 
 <RequestReviewDialog bind:open={showRequestReview} onConfirm={(admin) => setReviewer(admin)} />
+<CaseReportDialog bind:open={showReport} caseId={Number(page.params.case_id)} {reportType} />

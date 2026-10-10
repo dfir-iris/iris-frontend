@@ -161,7 +161,7 @@
 </script>
 
 <svelte:head>
-	<title>AI workflow runs</title>
+	<title>Workflow runs</title>
 </svelte:head>
 
 <div class="flex h-full w-full flex-col overflow-hidden">
@@ -177,7 +177,7 @@
 				<ArrowLeftIcon size={14} />
 			</Button>
 			<div class="leading-tight">
-				<h1 class="text-sm font-semibold">AI workflow runs</h1>
+				<h1 class="text-sm font-semibold">Workflow runs</h1>
 				<p class="text-xs text-muted-foreground">
 					What each workflow did, step by step, and what reached the webhook endpoint.
 				</p>

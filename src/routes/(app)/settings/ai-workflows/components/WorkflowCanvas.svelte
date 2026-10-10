@@ -19,6 +19,7 @@
 		SvelteFlow,
 		useSvelteFlow,
 		type Connection,
+		type EdgeTypes,
 		type OnConnectEnd,
 		type NodeTypes
 	} from '@xyflow/svelte';
@@ -47,6 +48,7 @@
 	} from '$lib/utils/ai-workflow-graph';
 	import type { AiBlock, AiWorkflowCatalogue } from '$lib/services/ai-workflows.service';
 	import WorkflowNode from './WorkflowNode.svelte';
+	import RoutedEdge from './RoutedEdge.svelte';
 	import PanelResizer from './PanelResizer.svelte';
 	import { WORKFLOW_EDITOR_CTX, nodeIcon, nodeTone } from '../helpers/ui';
 	import type { WorkflowEditorCtx } from '../helpers/editor';
@@ -99,6 +101,8 @@
 	const DRAG_MIME = 'application/x-iris-workflow-node';
 	const DRAG_BLOCK_MIME = 'application/x-iris-workflow-block';
 	const nodeTypes: NodeTypes = { workflow: WorkflowNode };
+	// Every edge goes around the nodes in its way
+	const edgeTypes: EdgeTypes = { default: RoutedEdge };
 	const { screenToFlowPosition, getInternalNode } = useSvelteFlow();
 	const editor = getContext<WorkflowEditorCtx | undefined>(WORKFLOW_EDITOR_CTX);
 
@@ -408,6 +412,7 @@
 			bind:nodes
 			bind:edges
 			{nodeTypes}
+			{edgeTypes}
 			fitView
 			colorMode={$mode === 'dark' ? 'dark' : 'light'}
 			deleteKey={readOnly ? null : ['Backspace', 'Delete']}

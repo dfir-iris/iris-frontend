@@ -217,7 +217,7 @@
 </script>
 
 <svelte:head>
-	<title>{run ? `Run · ${run.workflow_name}` : 'AI workflow run'}</title>
+	<title>{run ? `Run · ${run.workflow_name}` : 'Workflow run'}</title>
 </svelte:head>
 
 {#snippet toolCall(call: AiToolCall)}

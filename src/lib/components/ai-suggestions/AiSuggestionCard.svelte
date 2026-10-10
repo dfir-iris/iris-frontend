@@ -1,7 +1,9 @@
 <!--
   One AI workflow suggestion, as a compact row: kind, title, severity,
   a one-line preview, the entity and the Accept / Dismiss / Answer
-  controls. Clicking the row unfolds the rest: the full rationale, the
+  controls (a dry-run one can only be cleared). In the inbox
+  (`showEntity`) the workflow, entity, age and controls are fixed-width
+  columns, so the rows line up. Clicking the row unfolds the rest: the full rationale, the
   related objects, what it would run, the run trace ("Why?") and how it
   was resolved.
 
@@ -41,7 +43,7 @@
 		suggestion: AiSuggestion;
 		/** Called with the updated suggestion (or null to force a reload). */
 		onChanged: (updated: AiSuggestion | null) => void;
-		/** Name the entity it is about (outside that entity's own page). */
+		/** Inbox row: name the entity and workflow, in aligned columns (outside the entity's page). */
 		showEntity?: boolean;
 		/** Outline and unfold it (the one a link pointed at). */
 		highlight?: boolean;
@@ -70,6 +72,7 @@
 	);
 	const runHref = $derived(aiSuggestionsRunHref(suggestion.run_uuid));
 	const isDryRun = $derived(suggestion.status === 'dry_run');
+	const canDismiss = $derived(isOpen || isDryRun);
 	const entityHref = $derived(
 		aiSuggestionsEntityHref(suggestion.entity_type, suggestion.entity_id)
 	);
@@ -134,7 +137,8 @@
 		busy = true;
 		try {
 			const res = await AiSuggestionsService.dismiss(suggestion.id, note.trim() || null);
-			if (settle(res, 'Suggestion dismissed', 'Could not dismiss the suggestion')) {
+			const done = isDryRun ? 'Dry-run suggestion cleared' : 'Suggestion dismissed';
+			if (settle(res, done, 'Could not dismiss the suggestion')) {
 				dismissOpen = false;
 				note = '';
 			}
@@ -166,14 +170,15 @@
 
 <article
 	class={cn(
-		'rounded-md border bg-card text-sm',
+		'rounded-md border bg-card text-sm transition-colors',
 		!isOpen && 'bg-muted/20',
+		!expanded && 'hover:border-foreground/20',
 		highlight && 'ring-2 ring-primary'
 	)}
 	data-testid="ai-suggestion-card"
 	data-suggestion-id={suggestion.id}
 >
-	<div class="flex items-center gap-2 py-1.5 pl-1.5 pr-2">
+	<div class={cn('flex items-center gap-2 pl-1.5 pr-2', showEntity ? 'gap-3 py-2' : 'py-1.5')}>
 		<button
 			type="button"
 			class="flex min-w-0 flex-1 items-center gap-1.5 text-left"
@@ -233,17 +238,26 @@
 			</span>
 		</button>
 
-		<div class="flex shrink-0 items-center gap-2 text-2xs text-muted-foreground">
+		<div class="flex shrink-0 items-center gap-3 text-2xs text-muted-foreground">
 			{#if showEntity}
-				{#if entityText && entityHref}
-					<a
-						href={entityHref}
-						class="hidden max-w-[12rem] truncate font-medium text-primary hover:underline sm:inline"
-						title={suggestion.entity_title ?? undefined}>{entityText}</a
-					>
-				{:else if entityText}
-					<span class="hidden font-medium sm:inline">{entityText}</span>
-				{/if}
+				<span
+					class="hidden w-44 truncate xl:block"
+					title={suggestion.workflow_name ?? undefined}
+					data-testid="ai-suggestion-workflow">{suggestion.workflow_name ?? ''}</span
+				>
+				<span class="hidden w-32 truncate md:block">
+					{#if entityText && entityHref}
+						<a
+							href={entityHref}
+							class="font-medium text-primary hover:underline"
+							title={suggestion.entity_title ?? undefined}>{entityText}</a
+						>
+					{:else if entityText}
+						<span class="font-medium">{entityText}</span>
+					{:else}
+						<span class="italic opacity-70">No entity</span>
+					{/if}
+				</span>
 			{/if}
 			{#if suggestion.created_at}
 				<time
@@ -251,10 +265,12 @@
 					datetime={suggestion.created_at}
 					title={fmt(suggestion.created_at)}>{aiSuggestionAge(suggestion.created_at)}</time
 				>
+			{:else if showEntity}
+				<span class="w-10"></span>
 			{/if}
-			{#if isOpen}
-				<div class="flex items-center gap-1">
-					{#if isInfoRequest}
+			{#if canDismiss || showEntity}
+				<div class={cn('flex items-center justify-end gap-1', showEntity && 'w-[5.5rem]')}>
+					{#if isOpen && isInfoRequest}
 						<Button size="xs" class="h-6 px-2" onclick={toggleAnswer} disabled={busy}>
 							{showAnswer ? 'Hide form' : 'Answer'}
 						</Button>
@@ -269,24 +285,30 @@
 							Accept
 						</Button>
 					{/if}
-					<Button
-						size="xs"
-						variant="ghost"
-						class="h-6 w-6 p-0"
-						title="Dismiss"
-						aria-label="Dismiss"
-						onclick={() => ((note = ''), (dismissOpen = true))}
-						disabled={busy}
-					>
-						<XIcon />
-					</Button>
+					{#if canDismiss}
+						<Button
+							size="xs"
+							variant="ghost"
+							class="h-6 w-6 p-0"
+							title={isDryRun ? 'Clear this dry-run suggestion' : 'Dismiss'}
+							aria-label={isDryRun ? 'Clear' : 'Dismiss'}
+							onclick={() => ((note = ''), (dismissOpen = true))}
+							disabled={busy}
+							data-testid="ai-suggestion-dismiss"
+						>
+							<XIcon />
+						</Button>
+					{/if}
 				</div>
 			{/if}
 		</div>
 	</div>
 
 	{#if expanded}
-		<div class="flex flex-col gap-2 border-t px-3 py-2" data-testid="ai-suggestion-details">
+		<div
+			class={cn('flex flex-col gap-2 border-t px-3 py-2', showEntity && 'px-9 py-3')}
+			data-testid="ai-suggestion-details"
+		>
 			<div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-muted-foreground">
 				<span class="font-medium uppercase tracking-wide">{kind.label}</span>
 				{#if confidence}<span>{confidence} confidence</span>{/if}
@@ -330,7 +352,7 @@
 			{/if}
 
 			{#if suggestion.body}
-				<div class="max-h-64 overflow-y-auto">
+				<div class={cn('overflow-y-auto', showEntity ? 'max-h-[28rem] max-w-4xl' : 'max-h-64')}>
 					<MarkDownPreview
 						markdown={suggestion.body}
 						untrusted
@@ -476,7 +498,7 @@
 <Dialog.Root bind:open={dismissOpen}>
 	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
-			<Dialog.Title>Dismiss suggestion</Dialog.Title>
+			<Dialog.Title>{isDryRun ? 'Clear dry-run suggestion' : 'Dismiss suggestion'}</Dialog.Title>
 			<Dialog.Description>{suggestion.title}</Dialog.Description>
 		</Dialog.Header>
 		<label class="flex flex-col gap-1 text-sm">
@@ -487,7 +509,7 @@
 			<Button variant="outline" onclick={() => (dismissOpen = false)} disabled={busy}>Cancel</Button
 			>
 			<Button variant="destructive" onclick={dismiss} disabled={busy}>
-				{busy ? 'Dismissing…' : 'Dismiss'}
+				{busy ? 'Dismissing…' : isDryRun ? 'Clear' : 'Dismiss'}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>

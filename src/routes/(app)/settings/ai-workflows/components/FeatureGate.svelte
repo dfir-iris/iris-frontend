@@ -29,7 +29,7 @@
 		data-testid="wf-disabled"
 	>
 		<WorkflowIcon size={32} class="opacity-40" />
-		<p class="text-sm">AI workflows are disabled on this instance.</p>
+		<p class="text-sm">Workflows are disabled on this instance.</p>
 		<p class="max-w-md text-xs">
 			An administrator can enable them with <code class="font-mono">AI_WORKFLOWS_ENABLED</code>.
 		</p>
@@ -40,7 +40,7 @@
 		data-testid="wf-forbidden"
 	>
 		<LockIcon size={32} class="opacity-40" />
-		<p class="text-sm">You need the “AI workflows read” permission to open this page.</p>
+		<p class="text-sm">You need the “Workflows read” permission to open this page.</p>
 	</div>
 {:else}
 	{@render children()}

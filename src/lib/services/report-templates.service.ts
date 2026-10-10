@@ -106,7 +106,10 @@ export interface RenderReportBody {
 }
 
 /** Helper: shared base-URL + auth setup for non-JSON fetches. */
-async function setupBinaryRequest(): Promise<{ headers: Record<string, string>; baseUrl: string }> {
+export async function setupBinaryRequest(): Promise<{
+	headers: Record<string, string>;
+	baseUrl: string;
+}> {
 	const { auth } = await import('$lib/stores/auth.store');
 	const { AuthService } = await import('./auth.service');
 	const { apiOrigin } = await import('$lib/config/api.config');
@@ -127,7 +130,7 @@ async function setupBinaryRequest(): Promise<{ headers: Record<string, string>; 
  * Trigger a browser download of a `Blob`. Used by `downloadAndSave`
  * and `renderAndSave` so the page side stays declarative.
  */
-function downloadBlob(blob: Blob, filename: string): void {
+export function downloadBlob(blob: Blob, filename: string): void {
 	const url = URL.createObjectURL(blob);
 	const a = document.createElement('a');
 	a.href = url;
@@ -144,7 +147,7 @@ function downloadBlob(blob: Blob, filename: string): void {
  * always emits `attachment; filename="X"`, so the regex below is
  * adequate without an RFC-5987 parser.
  */
-function filenameFromHeaders(headers: Headers, fallback: string): string {
+export function filenameFromHeaders(headers: Headers, fallback: string): string {
 	const cd = headers.get('content-disposition');
 	if (!cd) return fallback;
 	const match = /filename\*?=(?:UTF-8'')?["']?([^"';]+)/i.exec(cd);
