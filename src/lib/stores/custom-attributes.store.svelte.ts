@@ -20,6 +20,7 @@
  */
 import {
 	CustomAttributesService,
+	type CustomAttributeField,
 	type CustomAttributeObjectType,
 	type CustomAttributeSchema
 } from '$lib/services/custom-attributes.service';
@@ -74,6 +75,39 @@ export const invalidateCustomAttributeSchema = (objectType?: CustomAttributeObje
 };
 
 /**
+ * Objects persist each attribute as `{type, value, mandatory}` — the shape
+ * written by the backend (`add_tab_attribute_field`, `merge_custom_attributes`)
+ * and returned as-is by the API. The inputs need the bare value.
+ */
+const isStoredAttribute = (stored: unknown): stored is CustomAttributeField =>
+	stored !== null && typeof stored === 'object' && !Array.isArray(stored) && 'value' in stored;
+
+export const unwrapAttributeValue = (stored: unknown): unknown =>
+	isStoredAttribute(stored) ? stored.value : stored;
+
+/**
+ * Add the tabs / fields an object carries but the admin schema doesn't —
+ * typically written by a module (e.g. the VirusTotal module's "VT Report"
+ * html tab on IOCs). The object stores the full field definition, so it can
+ * be rendered like a schema field. Schema definitions always win.
+ */
+export const withObjectFields = (
+	schema: CustomAttributeSchema,
+	existing?: Record<string, Record<string, unknown>> | null
+): CustomAttributeSchema => {
+	const out: CustomAttributeSchema = { ...schema };
+	for (const [tab, fields] of Object.entries(existing ?? {})) {
+		if (!fields || typeof fields !== 'object') continue;
+		for (const [fieldName, stored] of Object.entries(fields)) {
+			if (out[tab]?.[fieldName] || !isStoredAttribute(stored) || typeof stored.type !== 'string')
+				continue;
+			out[tab] = { ...(out[tab] ?? {}), [fieldName]: { ...stored } };
+		}
+	}
+	return out;
+};
+
+/**
  * Analyst-side helper. Given the admin schema and whatever partial
  * values the object row already has, return a values object that has
  * every schema field pre-populated with either the row's current value
@@ -94,7 +128,8 @@ export const seedCustomAttributeValues = (
 		values[tab] = {};
 		for (const [fieldName, field] of Object.entries(fields)) {
 			const previous = existing?.[tab]?.[fieldName];
-			values[tab][fieldName] = previous !== undefined ? previous : field.value;
+			values[tab][fieldName] =
+				previous !== undefined ? unwrapAttributeValue(previous) : field.value;
 		}
 	}
 	return values;

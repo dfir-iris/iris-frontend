@@ -23,7 +23,8 @@
 	import {
 		hasSchemaContent,
 		loadCustomAttributeSchema,
-		seedCustomAttributeValues
+		seedCustomAttributeValues,
+		withObjectFields
 	} from '$lib/stores/custom-attributes.store.svelte';
 	import type {
 		CustomAttributeObjectType,
@@ -78,7 +79,11 @@
 	};
 
 	onMount(async () => {
-		const next = await loadCustomAttributeSchema(objectType);
+		// Module-written tabs live only on the object, not in the admin schema.
+		const next = withObjectFields(
+			await loadCustomAttributeSchema(objectType),
+			untrack(() => existing)
+		);
 		schema = next;
 		loaded = true;
 		if (hasSchemaContent(next)) seed(next);

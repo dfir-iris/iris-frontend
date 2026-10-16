@@ -20,8 +20,9 @@
     • raw              -> field label only (matches legacy behavior; the
                           legacy Jinja template also only rendered the
                           field name for `raw` — see line ~48)
-    • html             -> value rendered as trusted HTML; the backend
-                          sanitises before storing.
+    • html             -> the object's value (falling back to the schema
+                          default) rendered as sanitised HTML; modules
+                          such as VirusTotal write per-object reports here.
 
   If `values` is provided (analyst-side), each input is bound to
   `values[tab][field]` so edits mutate the passed-in object. If it's
@@ -205,7 +206,10 @@
 									-->
 									<div class="prose prose-xs max-w-none text-xs">
 										<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-										{@html DOMPurify.sanitize(stringValue(field), { USE_PROFILES: { html: true } })}
+										{@html DOMPurify.sanitize(
+											String(readValue(tab, fieldName, stringValue(field)) ?? ''),
+											{ USE_PROFILES: { html: true } }
+										)}
 									</div>
 								{:else}
 									<p class="text-2xs text-destructive">
