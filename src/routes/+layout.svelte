@@ -6,8 +6,23 @@
 	import { auth } from '$lib/stores/auth.store';
 	import { Toaster } from '$lib/components/ui/toast';
 	import { handleSessionExpiration } from '$lib/utils/session-handler';
+	import { isLoginPath, loginUrlForDeepLink } from '$lib/utils/redirect';
 
 	const { children } = $props();
+
+	// Send an unauthenticated visitor to /login while remembering the page
+	// they were trying to reach, so a deep link (e.g. a task notification)
+	// survives the login round-trip. Staying put on any /login route is what
+	// keeps an existing `?redirect=` from being stripped and stops
+	// /login -> /login loops.
+	const bounceToLogin = () => {
+		if (typeof window === 'undefined') return;
+
+		const { pathname, search } = window.location;
+		if (isLoginPath(pathname)) return;
+
+		goto(loginUrlForDeepLink(pathname, search));
+	};
 
 	$effect.pre(() => {
 		// `.catch` is load-bearing, not defensive padding. With
@@ -23,13 +38,13 @@
 			.loadAuth(fetch, true)
 			.then((loginResponse) => {
 				if (!loginResponse) {
-					goto('/login');
+					bounceToLogin();
 				}
 			})
 			.catch(() => {
 				// Covers the thrown redirect and any genuine failure alike —
 				// both mean "no session", and both end at the login page.
-				goto('/login');
+				bounceToLogin();
 			});
 
 		// Set UI theme

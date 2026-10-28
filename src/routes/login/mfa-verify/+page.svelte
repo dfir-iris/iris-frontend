@@ -6,6 +6,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { AuthService } from '$lib/services/auth.service';
+	import { redirectTargetFromUrl } from '$lib/utils/redirect';
 
 	let isLoading = false;
 	let error: string | null = null;
@@ -18,8 +19,7 @@
 		try {
 			await AuthService.verifyMfa(token);
 
-			const redirectTo = $page.url.searchParams.get('redirectTo') ?? '/';
-			await goto(redirectTo, { replaceState: true });
+			await goto(redirectTargetFromUrl($page.url), { replaceState: true });
 		} catch (err) {
 			error = err instanceof Error ? err.message : String(err);
 		} finally {

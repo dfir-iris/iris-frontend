@@ -10,6 +10,7 @@
 	import { auth } from '$lib/stores/auth.store';
 	import { page } from '$app/stores';
 	import { AuthService, type LoginResponse } from '$lib/services/auth.service';
+	import { redirectTargetFromUrl, withRedirectParam } from '$lib/utils/redirect';
 
 	import * as OTPAuth from 'otpauth';
 	import * as QRCode from 'qrcode';
@@ -100,13 +101,8 @@
 
 			success = 'MFA setup complete.';
 
-			const redirectTo = $page.url.searchParams.get('redirectTo');
-			await goto(
-				redirectTo
-					? `/login/mfa-verify?redirectTo=${encodeURIComponent(redirectTo)}`
-					: '/login/mfa-verify',
-				{ replaceState: true }
-			);
+			const destination = redirectTargetFromUrl($page.url);
+			await goto(withRedirectParam('/login/mfa-verify', destination), { replaceState: true });
 		} catch (err) {
 			error = err instanceof Error ? err.message : String(err);
 		} finally {
@@ -138,10 +134,10 @@
 			return;
 		}
 
-		const redirectTo = $page.url.searchParams.get('redirectTo');
-		goto(redirectTo ? `/login?redirectTo=${encodeURIComponent(redirectTo)}` : '/login', {
-			replaceState: true
-		});
+		// No usable session here: back to the login page, keeping the
+		// post-login destination so it survives the MFA detour.
+		const destination = redirectTargetFromUrl($page.url);
+		goto(withRedirectParam('/login', destination), { replaceState: true });
 	});
 </script>
 

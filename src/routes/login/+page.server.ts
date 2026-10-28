@@ -4,6 +4,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { isServerReachable } from '$lib/utils/server-health';
 import { AuthService, type AuthSettings } from '$lib/services/auth.service';
 import { COOKIE_ACCESS_TOKEN, COOKIE_REFRESH_TOKEN } from '$lib/server/token-cookies';
+import { safeRedirect } from '$lib/utils/redirect';
 
 // Safe defaults for when `/manage/server/authentication-settings` is
 // unreachable or returns a non-JSON body. Without this, the login page
@@ -24,32 +25,6 @@ const DEFAULT_AUTH_SETTINGS: AuthSettings = {
 };
 
 const asText = (value: unknown): string => (typeof value === 'string' ? value : '');
-
-/**
- * Validate a `?redirect=` target before sending a freshly-authenticated user
- * to it.
- *
- * Two things to reject:
- *  - Anything that isn't a plain same-origin path. A value carrying a scheme
- *    or an authority (`//evil.com`, `https://evil.com`) is an open-redirect,
- *    and browsers treat a leading `//` as protocol-relative.
- *  - Anything pointing back at /login. Bouncing a logged-in user to the login
- *    page restarts the whole cycle; historic nested URLs are exactly this
- *    shape, so honouring them would keep poisoned bookmarks broken forever.
- */
-const safeRedirect = (raw: string | null): string => {
-	if (!raw) return '/';
-	// Reject control characters and backslashes: some browsers normalise `\`
-	// to `/`, which turns `/\evil.com` into a protocol-relative URL.
-	// eslint-disable-next-line no-control-regex
-	if (/[\u0000-\u001f\u007f\\]/.test(raw)) return '/';
-	if (!raw.startsWith('/') || raw.startsWith('//')) return '/';
-
-	const path = raw.split('?')[0].split('#')[0];
-	if (path === '/login' || path.startsWith('/login/')) return '/';
-
-	return raw;
-};
 
 export const load: PageServerLoad = async () => {
 	const isReachable = await isServerReachable();

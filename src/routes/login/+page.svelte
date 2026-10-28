@@ -10,6 +10,7 @@
 	import { enhance } from '$app/forms';
 	import { AuthService, type AuthSettings, type LoginResponse } from '$lib/services/auth.service';
 	import { page } from '$app/stores';
+	import { redirectTargetFromUrl, withRedirectParam } from '$lib/utils/redirect';
 
 	let isLoading = false;
 	let showPassword = false;
@@ -65,9 +66,20 @@
 	}
 
 	const getRedirectTo = (redirectTo?: string) =>
-		redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : '';
+		redirectTo ? `?redirect=${encodeURIComponent(redirectTo)}` : '';
+
+	// Sanitized destination to return to after a successful sign-in — the
+	// deep link that sent the user here, or `/` when there is none. Read from
+	// the URL so the OIDC anchor gets it right during SSR as well.
+	let destination = '/';
+	$: destination = redirectTargetFromUrl($page.url);
 
 	onMount(async () => {
+		// Capture the target before touching the URL: the OIDC exchange below
+		// strips `?oidc=1`, and the post-sign-in routing must not depend on a
+		// later read of the login URL.
+		const postLoginDestination = redirectTargetFromUrl($page.url);
+
 		// When Flask's /oidc-authorize succeeds it redirects the browser
 		// to /login?oidc=1 with a one-time OIDC-authenticated session
 		// cookie. Trade that cookie for JWT access + refresh tokens
@@ -110,20 +122,25 @@
 		if (auth.getMfaEnabled() && hasValidTokens) {
 			if (!auth.getMfaSetupComplete()) {
 				console.log('Redirecting to mfa-setup');
-				await goto('/login/mfa-setup', { replaceState: true });
+				await goto(withRedirectParam('/login/mfa-setup', postLoginDestination), {
+					replaceState: true
+				});
 				return;
 			}
 
 			if (!auth.getMfaVerified()) {
 				console.log('Redirecting to mfa-verify');
-				await goto('/login/mfa-verify', { replaceState: true });
+				await goto(withRedirectParam('/login/mfa-verify', postLoginDestination), {
+					replaceState: true
+				});
 				return;
 			}
 		}
 
-		// If already logged in via existing frontend tokens, leave login
+		// If already logged in via existing frontend tokens, leave login —
+		// but return to the page the user was originally trying to reach.
 		if (!auth.isRefreshTokenExpired() && auth.isAuthenticated()) {
-			await goto('/', { replaceState: true });
+			await goto(postLoginDestination, { replaceState: true });
 			return;
 		}
 
@@ -227,7 +244,7 @@
 		{/if}
 
 		{#if authSettings.oidc_enabled}
-			<a href="/oidc-login" class="w-full">
+			<a href={withRedirectParam('/oidc-login', destination)} class="w-full">
 				<button class="w-full rounded-md bg-primary p-2 text-primary-foreground"
 					>OIDC Sign In
 				</button></a
