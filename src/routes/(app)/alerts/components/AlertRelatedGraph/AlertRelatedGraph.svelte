@@ -1,46 +1,38 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import { mode } from 'mode-watcher';
-	import DOMPurify from 'dompurify';
-	import type { IdType, Network, Options } from 'vis-network';
+	import type { NodeSingular } from 'cytoscape';
 	import { EyeIcon, ExternalLinkIcon } from 'lucide-svelte';
 	import alertSvg from 'lucide-static/icons/bell.svg?raw';
 	import iocSvg from 'lucide-static/icons/link.svg?raw';
 	import caseSvg from 'lucide-static/icons/briefcase-business.svg?raw';
-	import caseClosedSvg from 'lucide-static/icons/briefcase-business.svg?raw';
 	import { goto } from '$app/navigation';
 	import { ALERTS_CTX, type AlertsContext } from '$lib/contexts/alerts.context.svelte';
-	import type { RelatedAlert } from '$lib/services/alerts.service';
-	import VisNetwork, {
-		type VisNode,
-		type VisEdge,
-		svgToDataUrl,
-		withStroke,
-		applyAssetImageTheme
-	} from '$lib/components/common/VisNetwork';
+	import type { RelatedAlert, RelatedAlertNode } from '$lib/services/alerts.service';
+	import {
+		CytoscapeGraph,
+		applyAssetImageTheme,
+		cyTheme,
+		lucideIcon,
+		type CyElementDef,
+		type CyNodeEvent,
+		type CyStylesheet
+	} from '$lib/components/common/CytoscapeGraph';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { openAlertPivot } from '$lib/utils/alert-pivot';
+	import {
+		alertGraphEdges,
+		graphNodeRawId,
+		isHtmlTitle,
+		sanitizeGraphTitle
+	} from '$lib/utils/alert-graph';
 	import { AlertRelationshipsFilters, defaultAlertRelationshipsFilters } from '.';
 
 	type ContextMenuState = {
 		open: boolean;
 		x: number;
 		y: number;
-		node?: VisNode;
-	};
-
-	const createTooltip = (html: string) => {
-		if (typeof document === 'undefined') return html;
-
-		const el = document.createElement('div');
-
-		el.className = 'related-alert-tooltip';
-		el.innerHTML = DOMPurify.sanitize(html, {
-			ALLOWED_TAGS: ['b', 'br', 'i', 'em', 'strong', 'span'],
-			ALLOWED_ATTR: []
-		});
-
-		return el;
+		node?: RelatedAlertNode;
 	};
 
 	let {
@@ -57,18 +49,17 @@
 	const isDark = $derived($mode === 'dark');
 	const strokeColor = $derived(isDark ? '#f9fafb' : '#111827');
 	const caseOpenColor = $derived(isDark ? '#4ade80' : '#16a34a');
-	const caseClosedColor = $derived(isDark ? '#fb923c' : '#c2410c');
-	const alertClosedColor = $derived(isDark ? '#fb923c' : '#c2410c');
+	const closedColor = $derived(isDark ? '#fb923c' : '#c2410c');
 
-	const alertIcon = $derived(svgToDataUrl(withStroke(alertSvg, strokeColor)));
-	const alertClosedIcon = $derived(svgToDataUrl(withStroke(alertSvg, alertClosedColor)));
-	const iocIcon = $derived(svgToDataUrl(withStroke(iocSvg, strokeColor)));
-	const caseOpenIcon = $derived(svgToDataUrl(withStroke(caseSvg, caseOpenColor)));
-	const caseClosedIcon = $derived(svgToDataUrl(withStroke(caseClosedSvg, caseClosedColor)));
+	const alertIcon = $derived(lucideIcon(alertSvg, strokeColor));
+	const alertClosedIcon = $derived(lucideIcon(alertSvg, closedColor));
+	const iocIcon = $derived(lucideIcon(iocSvg, strokeColor));
+	const caseOpenIcon = $derived(lucideIcon(caseSvg, caseOpenColor));
+	const caseClosedIcon = $derived(lucideIcon(caseSvg, closedColor));
 
 	let loading = $state(false);
 	let error = $state<string | null>(null);
-	let graph = $state<RelatedAlert>({ nodes: [], edges: [] });
+	let graph = $state.raw<RelatedAlert>({ nodes: [], edges: [] });
 
 	let filters = $state(defaultAlertRelationshipsFilters());
 
@@ -77,52 +68,6 @@
 		x: 0,
 		y: 0
 	});
-
-	// Remount the network for every new data set and theme. Freezing is
-	// tied to `stabilizationIterationsDone`, which only fires for the
-	// stabilization run at construction — fresh data fed into a live,
-	// frozen network would never be laid out, and a theme change rebuilds
-	// every node (see `VisNetwork`), dropping their positions.
-	const layoutKey = $derived({ graph, isDark });
-	// The `layoutKey` whose layout has settled; see `options.physics`. Raw:
-	// a deep `$state` would proxy the key and never equal `layoutKey` again.
-	let frozenKey = $state.raw<object | null>(null);
-
-	const options = $derived({
-		autoResize: true,
-		layout: {
-			improvedLayout: true,
-			randomSeed: alertId
-		},
-		nodes: {
-			font: {
-				color: strokeColor
-			}
-		},
-		clickToUse: true,
-		interaction: {
-			zoomView: true,
-			hover: true
-		},
-		// Physics only computes the initial layout, off screen: `handleReady`
-		// freezes it as soon as stabilization ends. Left running, forceAtlas2 never quite
-		// settles and the graph keeps drifting and spinning on its own, and
-		// dragging a node drags the whole graph along with it. Keyed on the
-		// layout rather than a plain flag so the next mount starts unfrozen,
-		// and so an `alertId` change (which re-applies these options to the
-		// still-mounted graph while the new one loads) can't wake it up.
-		physics: {
-			enabled: frozenKey !== layoutKey,
-			solver: 'forceAtlas2Based',
-			forceAtlas2Based: {
-				avoidOverlap: 1
-			},
-			stabilization: {
-				enabled: true,
-				fit: true
-			}
-		}
-	} satisfies Options);
 
 	const load = async () => {
 		if (!alertId) return;
@@ -147,6 +92,8 @@
 			return;
 		}
 
+		// Every new data set remounts the canvas (`{#key graph}`) for a fresh
+		// layout; a theme switch only restyles the nodes in place.
 		graph = data;
 		loading = false;
 	};
@@ -157,86 +104,68 @@
 		load();
 	});
 
-	const nodes = $derived(
-		graph.nodes.map((node) => {
-			const font = {
-				color: strokeColor
-			};
+	const isClosed = (node: RelatedAlertNode) =>
+		typeof node.label === 'string' && node.label.startsWith('[Closed]');
 
-			const title = node.title?.includes('<') ? createTooltip(node.title) : node.title;
-
-			if (node.group === 'alert') {
-				const isClosed = typeof node.label === 'string' && node.label.startsWith('[Closed]');
-				return {
-					...node,
-					title,
-					shape: 'image',
-					image: isClosed ? alertClosedIcon : alertIcon,
-					font
-				};
-			}
-
-			if (node.group === 'ioc') {
-				return {
-					...node,
-					title,
-					shape: 'image',
-					image: iocIcon,
-					font
-				};
-			}
-
-			if (node.group === 'case') {
-				return {
-					...node,
-					title,
-					shape: 'image',
-					image:
-						typeof node.label === 'string' && node.label.startsWith('[Closed]')
-							? caseClosedIcon
-							: caseOpenIcon,
-					font
-				};
-			}
-
-			if (node.group === 'asset' && typeof node.image === 'string') {
-				return {
-					...node,
-					title,
-					image: applyAssetImageTheme(node.image, isDark),
-					font
-				};
-			}
-
-			return {
-				...node,
-				title,
-				font
-			};
-		}) as VisNode[]
-	);
-
-	const edges = $derived(graph.edges as VisEdge[]);
-
-	const handleReady = (network: Network | null) => {
-		const key = layoutKey;
-		network?.once('stabilizationIterationsDone', () => {
-			// Synchronously: vis starts the live simulation right after this
-			// event, so waiting for the options effect lets it spin a while.
-			network.setOptions({ physics: { enabled: false } });
-			frozenKey = key;
-		});
+	/** Icon-only nodes (alerts, IOCs, cases, typed assets), as before. */
+	const iconOf = (node: RelatedAlertNode): string | undefined => {
+		if (node.group === 'alert') return isClosed(node) ? alertClosedIcon : alertIcon;
+		if (node.group === 'ioc') return iocIcon;
+		if (node.group === 'case') return isClosed(node) ? caseClosedIcon : caseOpenIcon;
+		if (node.group === 'asset' && typeof node.image === 'string') {
+			return applyAssetImageTheme(node.image, isDark);
+		}
+		return undefined;
 	};
+
+	const elements = $derived.by<CyElementDef[]>(() => [
+		...graph.nodes.map((node): CyElementDef => {
+			const image = iconOf(node);
+			return {
+				group: 'nodes',
+				data: {
+					id: node.id,
+					label: node.label ?? '',
+					group: node.group,
+					...(image ? { image, iconScale: 1, size: 34 } : {})
+				},
+				classes: image ? ['icon-only'] : []
+			};
+		}),
+		...alertGraphEdges(graph.edges)
+	]);
+
+	const stylesheet = $derived.by<CyStylesheet>(() => {
+		const t = cyTheme(isDark);
+		return [
+			{
+				selector: 'node.icon-only',
+				style: {
+					'background-opacity': 0,
+					'border-width': 0,
+					'outline-width': 0,
+					'underlay-shape': 'ellipse',
+					'underlay-padding': 6,
+					'underlay-opacity': 0
+				}
+			},
+			{
+				selector: 'node.icon-only.hover',
+				style: { 'underlay-color': t.hover, 'underlay-opacity': 0.15 }
+			},
+			{
+				selector: 'node.icon-only:selected',
+				style: { 'underlay-color': t.selection, 'underlay-opacity': 0.25, 'font-weight': 'bold' }
+			}
+		];
+	});
+
+	const nodeById = $derived(new Map(graph.nodes.map((n) => [n.id, n])));
 
 	const closeContextMenu = () => (contextMenu = { open: false, x: 0, y: 0 });
 
-	const openContextMenu = (detail: { x: number; y: number; nodeId?: IdType }) => {
-		if (!detail.nodeId) {
-			closeContextMenu();
-			return;
-		}
-
-		const node = nodes.find((n) => n.id === detail.nodeId);
+	const openContextMenu = (e: CyNodeEvent) => {
+		const node = nodeById.get(e.target.id());
 
 		if (!node) {
 			closeContextMenu();
@@ -244,37 +173,32 @@
 		}
 
 		contextMenu = {
-			...detail,
+			x: e.renderedPosition.x,
+			y: e.renderedPosition.y,
 			open: true,
 			node
 		};
 	};
 
-	const getId = (nodeId: string): string => nodeId.split(/_/)[1];
-
 	const handleNodeAction = () => {
 		if (!contextMenu.node) return;
 
 		if (contextMenu.node.group === 'case') {
-			goto(`/case/${getId(contextMenu.node.id as string)}`);
+			goto(`/case/${graphNodeRawId(contextMenu.node.id)}`);
 		} else if (contextMenu.node.group === 'alert') {
-			goto(`/alerts/${getId(contextMenu.node.id as string)}`);
+			goto(`/alerts/${graphNodeRawId(contextMenu.node.id)}`);
 		} else if (contextMenu.node.group === 'asset' || contextMenu.node.group === 'ioc') {
 			// The pivot has to carry the IOC/asset *value* — that is what the alerts
 			// list matches on server-side. This graph's ids do embed the value
-			// (`ioc_<ioc_value>`, `asset_<asset_name>`), but `getId` splits on the
-			// first underscore, so `evil_domain.com` pivoted as `evil` and matched
-			// nothing. The label is the same value, whole.
+			// (`ioc_<ioc_value>`, `asset_<asset_name>`), but `graphNodeRawId` splits
+			// on the first underscore, so `evil_domain.com` pivoted as `evil` and
+			// matched nothing. The label is the same value, whole.
 			//
 			// New tab, unlike the case/alert branches above: the pivot is a lookup
 			// made *while* reading the graph, so keep the graph where it is. A
 			// labelless node is a no-op rather than an early `return` — the menu
 			// below still has to close either way.
-			openAlertPivot(
-				contextMenu.node.group,
-				contextMenu.node.label as string | undefined,
-				window.location.href
-			);
+			openAlertPivot(contextMenu.node.group, contextMenu.node.label, window.location.href);
 		}
 
 		closeContextMenu();
@@ -291,17 +215,30 @@
 			'relative w-full rounded-md border bg-muted/20',
 			fill ? 'min-h-[24rem] flex-1' : 'h-[32rem]'
 		]}
+		data-testid="alert-related-graph"
 	>
 		{#if graph.nodes.length}
-			{#key layoutKey}
-				<VisNetwork
-					{nodes}
-					{edges}
-					{options}
-					className="h-full w-full"
-					onClick={closeContextMenu}
-					onContextMenu={openContextMenu}
-					onReady={handleReady}
+			{#key graph}
+				<!--
+				  Embedded in a scrollable page: wheel zoom only after a click
+				  into the canvas, released when the pointer leaves.
+				-->
+				<CytoscapeGraph
+					{elements}
+					{stylesheet}
+					class="rounded-md"
+					initialLayout="fcose"
+					boxSelectionEnabled={false}
+					selectionType="single"
+					clickToUse
+					onTapNode={closeContextMenu}
+					onTapEdge={closeContextMenu}
+					onTapCanvas={closeContextMenu}
+					onCxtTapNode={openContextMenu}
+					onCxtTapEdge={closeContextMenu}
+					onCxtTapCanvas={closeContextMenu}
+					nodeTooltip={tooltip}
+					nodeTooltipEnabled={(n) => !!nodeById.get(n.id())?.title}
 				/>
 			{/key}
 		{/if}
@@ -310,6 +247,7 @@
 			<div
 				class="absolute z-20 rounded-2xl border bg-background px-2 shadow-xl"
 				style={`left:${contextMenu.x}px;top:${contextMenu.y}px;transform:translate(8px, 8px);`}
+				data-testid="graph-context-menu"
 			>
 				<!--
 			  The icon says where the click lands: the eye for viewing a case or
@@ -320,7 +258,7 @@
 					<Button variant="link" size="xs" onclick={() => handleNodeAction()}>
 						<EyeIcon class="size-4" />
 						View {contextMenu.node.group}
-						#{getId(contextMenu.node.id as string)}
+						#{graphNodeRawId(contextMenu.node.id)}
 					</Button>
 				{:else}
 					<Button
@@ -353,3 +291,15 @@
 		{/if}
 	</div>
 </div>
+
+{#snippet tooltip(node: NodeSingular)}
+	{@const title = nodeById.get(node.id())?.title}
+	{#if isHtmlTitle(title)}
+		<div class="[&_b]:font-semibold">
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+			{@html sanitizeGraphTitle(title)}
+		</div>
+	{:else if title}
+		<div class="line-clamp-[12] whitespace-pre-line break-words">{title}</div>
+	{/if}
+{/snippet}
