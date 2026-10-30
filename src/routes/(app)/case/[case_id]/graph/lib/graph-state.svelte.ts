@@ -214,6 +214,8 @@ export class CaseGraphState {
 	private keyAlias = new Map<string, string>();
 
 	private autosaveTimer: ReturnType<typeof setTimeout> | undefined;
+	/** Bumped on every presentation change (saved-view dirty tracking). */
+	stateVersion = $state(0);
 	private loadSeq = 0;
 
 	constructor(caseId: number) {
@@ -527,6 +529,7 @@ export class CaseGraphState {
 
 	/** Debounced autosave to localStorage. */
 	markDirty() {
+		this.stateVersion = untrack(() => this.stateVersion) + 1;
 		clearTimeout(this.autosaveTimer);
 		this.autosaveTimer = setTimeout(() => this.saveNow(), 800);
 	}

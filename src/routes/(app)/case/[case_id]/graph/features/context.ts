@@ -2,6 +2,7 @@ import { getContext, setContext } from 'svelte';
 import type { GraphActions } from '../lib/actions';
 import type { GraphTimeControl } from './time.svelte';
 import type { GraphDeepLink } from './deep-link.svelte';
+import type { GraphViewsControl } from './views.svelte';
 
 /**
  * What the feature components (toolbar items, rail panels, overlays) need
@@ -11,9 +12,12 @@ import type { GraphDeepLink } from './deep-link.svelte';
 export interface GraphFeatures {
 	caseId: number;
 	canEdit: () => boolean;
+	/** Current user id (null until the session is known). */
+	userId: () => number | null;
 	actions: GraphActions;
 	time: GraphTimeControl;
 	deepLink: GraphDeepLink;
+	views: GraphViewsControl;
 }
 
 const KEY = Symbol('case-graph-features');
