@@ -14,6 +14,8 @@ import TimeButton from './time/TimeButton.svelte';
 import TimeBar from './time/TimeBar.svelte';
 import DeepLinkChip from './links/DeepLinkChip.svelte';
 import ExchangeMenu from './exchange/ExchangeMenu.svelte';
+import ViewModeToggle from './table/ViewModeToggle.svelte';
+import TableView from './table/TableView.svelte';
 
 interface InstallOptions {
 	caseId: number;
@@ -42,6 +44,12 @@ export const installGraphFeatures = (graph: CaseGraphState, opts: InstallOptions
 
 	const cleanups = [
 		time.register(),
+		graph.registerToolbarItem({
+			id: 'view-mode',
+			component: ViewModeToggle,
+			slot: 'start',
+			order: 0
+		}),
 		graph.registerToolbarItem({ id: 'time', component: TimeButton, slot: 'start', order: 10 }),
 		graph.registerToolbarItem({ id: 'views', component: ViewsMenu, slot: 'end', order: 10 }),
 		graph.registerToolbarItem({
@@ -51,7 +59,8 @@ export const installGraphFeatures = (graph: CaseGraphState, opts: InstallOptions
 			order: 20
 		}),
 		graph.registerCanvasOverlay({ id: 'time', component: TimeBar }),
-		graph.registerCanvasOverlay({ id: 'deep-link', component: DeepLinkChip })
+		graph.registerCanvasOverlay({ id: 'deep-link', component: DeepLinkChip }),
+		graph.registerCanvasOverlay({ id: 'table', component: TableView })
 	];
 
 	return () => {

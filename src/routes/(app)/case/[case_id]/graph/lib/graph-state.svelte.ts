@@ -1002,6 +1002,51 @@ export class CaseGraphState {
 		});
 	}
 
+	/**
+	 * Same patch on several stored edges (table bulk edit): one history entry,
+	 * one refetch. Each edge gets back its own previous values on undo.
+	 */
+	async updateEdges(edges: GraphEdge[], patch: UpdateGraphEdgeBody, label = 'Edit relations') {
+		const stored = edges.filter(isStoredEdge);
+		if (!stored.length) return 0;
+		const items = stored.map((e) => {
+			const before: UpdateGraphEdgeBody = {};
+			if ('relation_type_id' in patch || 'relation' in patch) {
+				if (e.relation.id !== null) before.relation_type_id = e.relation.id;
+				else before.relation = e.relation.name;
+			}
+			if ('directed' in patch) before.directed = e.directed;
+			if ('label' in patch) before.label = e.label;
+			if ('description' in patch) before.description = e.description;
+			if ('confidence' in patch) before.confidence = e.confidence;
+			if ('review_state' in patch) before.review_state = e.review_state;
+			return { id: e.id as number, before };
+		});
+		const apply = async (pick: (i: (typeof items)[number]) => UpdateGraphEdgeBody) => {
+			for (const i of items) {
+				unwrap(
+					await CaseGraphService.updateEdge(this.caseId, this.resolveEdgeId(i.id), pick(i)),
+					'Could not update the relation.'
+				);
+			}
+		};
+		await this.run(async () => {
+			await apply(() => patch);
+			this.history.push({
+				label,
+				undo: async () => {
+					await apply((i) => i.before);
+					await this.refresh();
+				},
+				redo: async () => {
+					await apply(() => patch);
+					await this.refresh();
+				}
+			});
+		});
+		return items.length;
+	}
+
 	async deleteEdges(edges: GraphEdge[]) {
 		const stored = edges.filter(isStoredEdge);
 		if (!stored.length) return;
