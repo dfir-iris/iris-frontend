@@ -4,7 +4,7 @@
  * The alerts list resolves `alert_iocs` / `alert_assets` server-side against
  * `Ioc.ioc_value` and `CaseAssets.asset_name` — an exact match on the *value*
  * column, never on a primary key. Both graphs used to derive the param from the
- * vis-network node id instead, and each got it wrong in its own way:
+ * graph node id instead, and each got it wrong in its own way:
  *
  *   - the cluster correlation graph builds ids as `ioc_<ioc_id>` /
  *     `asset_<asset_id>`, so it pivoted on a numeric key and matched nothing;
