@@ -1,16 +1,14 @@
 <script lang="ts">
 	import { mode } from 'mode-watcher';
-	import type { IdType, Network, Options } from 'vis-network';
-	import DOMPurify from 'dompurify';
+	import type { Core, NodeSingular } from 'cytoscape';
 	import {
 		BellIcon,
 		FingerprintIcon,
 		HardDriveIcon,
 		MaximizeIcon,
-		PauseIcon,
-		PlayIcon,
 		RefreshCwIcon,
 		SearchIcon,
+		ShuffleIcon,
 		XIcon,
 		ZoomInIcon,
 		ZoomOutIcon,
@@ -26,16 +24,25 @@
 		type AlertClusterGraph,
 		type AlertClusterGraphNode
 	} from '$lib/services/alert-clusters.service';
-	import VisNetwork, {
-		type VisNode,
-		type VisEdge,
-		svgToDataUrl,
-		withStroke,
-		applyAssetImageTheme
-	} from '$lib/components/common/VisNetwork';
+	import {
+		CytoscapeGraph,
+		applyAssetImageTheme,
+		lucideIcon,
+		runLayout,
+		type CyElementDef,
+		type CyNodeEvent,
+		type CyStylesheet
+	} from '$lib/components/common/CytoscapeGraph';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import { openAlertPivot } from '$lib/utils/alert-pivot';
+	import {
+		alertGraphEdges,
+		graphNodeRawId,
+		isHtmlTitle,
+		sanitizeGraphTitle,
+		shortGraphLabel
+	} from '$lib/utils/alert-graph';
 
 	type Group = 'alert' | 'ioc' | 'asset';
 
@@ -50,13 +57,12 @@
 	let { alertClusterId, active }: Props = $props();
 
 	const isDark = $derived($mode === 'dark');
-	const strokeColor = $derived(isDark ? '#f9fafb' : '#111827');
 
 	// Per-group palette. Matches the filter-chip colors in the toolbar so
 	// analysts read chip -> node the same way. Kept as HEX (not tailwind
-	// classes) because vis-network wants literal colors on node.color and
-	// on the inlined SVG icons. Dark-mode variants tune the icon stroke
-	// so it stays legible on the dark canvas.
+	// classes) because the canvas wants literal colors on the node ring and
+	// on the inlined SVG icons. Dark-mode variants keep the icon stroke
+	// legible on the dark canvas.
 	const palette = $derived({
 		alert: {
 			icon: isDark ? '#fb923c' : '#ea580c',
@@ -75,13 +81,14 @@
 		}
 	});
 
-	const alertIcon = $derived(svgToDataUrl(withStroke(alertSvg, palette.alert.icon)));
-	const iocIcon = $derived(svgToDataUrl(withStroke(iocSvg, palette.ioc.icon)));
+	const alertIcon = $derived(lucideIcon(alertSvg, palette.alert.icon));
+	const iocIcon = $derived(lucideIcon(iocSvg, palette.ioc.icon));
 
 	let loading = $state(false);
 	let error = $state<string | null>(null);
-	let graph = $state<AlertClusterGraph>({ nodes: [], edges: [] });
-	let network = $state<Network | null>(null);
+	let graph = $state.raw<AlertClusterGraph>({ nodes: [], edges: [] });
+	let cy = $state.raw<Core | null>(null);
+	let layoutRunning = $state(false);
 
 	// Cache scope: fetch once per (cluster, active-flip). Analysts can
 	// press the toolbar Refresh button when they want fresh data.
@@ -91,113 +98,25 @@
 	let searchQuery = $state('');
 	let visibleGroups = $state<Record<Group, boolean>>({ alert: true, ioc: true, asset: true });
 	let selectedNodeId = $state<string | null>(null);
-	let physicsEnabled = $state(true);
-	// Set to true whenever we WANT the next stabilization pass to end
-	// with physics turned off. Cleared by the toggle button so a user
-	// who explicitly hits Play doesn't get frozen again a beat later.
-	let autoFreezeArmed = $state(true);
-	let contextMenu = $state<{ open: boolean; x: number; y: number; node?: VisNode }>({
+	let contextMenu = $state<{ open: boolean; x: number; y: number; node?: AlertClusterGraphNode }>({
 		open: false,
 		x: 0,
 		y: 0
 	});
 
-	// Backend tooltip HTML embeds user-controlled fields (ioc_value,
-	// asset_name, ip/domain, tags). Sanitize before assigning innerHTML.
-	const createTooltip = (html: string) => {
-		if (typeof document === 'undefined') return html;
-		const el = document.createElement('div');
-		el.className = 'related-alert-tooltip';
-		el.innerHTML = DOMPurify.sanitize(html, {
-			ALLOWED_TAGS: ['b', 'br', 'i', 'em', 'strong', 'span'],
-			ALLOWED_ATTR: []
-		});
-		return el;
-	};
-
-	const options = $derived({
-		autoResize: true,
-		layout: {
-			improvedLayout: true,
-			randomSeed: alertClusterId
-		},
-		nodes: {
-			// `scaling.label` shrinks labels as the user zooms out so
-			// dense graphs don't drown in overlapping text. The `image`
-			// shape sizing gives every icon the same footprint so the
-			// canvas reads uniformly regardless of group.
-			font: {
-				color: strokeColor,
-				size: 12,
-				strokeWidth: 3,
-				strokeColor: isDark ? 'rgba(15,23,42,0.85)' : 'rgba(255,255,255,0.9)'
-			},
-			borderWidth: 2,
-			shadow: false,
-			size: 22,
-			shapeProperties: { interpolation: false },
-			margin: { top: 8, right: 8, bottom: 8, left: 8 },
-			scaling: {
-				label: { enabled: true, min: 10, max: 18, drawThreshold: 6 }
-			}
-		},
-		edges: {
-			smooth: { enabled: true, type: 'dynamic', roundness: 0.5 },
-			color: {
-				color: isDark ? 'rgba(148,163,184,0.45)' : 'rgba(100,116,139,0.5)',
-				highlight: isDark ? '#60a5fa' : '#2563eb',
-				opacity: 0.9
-			},
-			width: 1,
-			selectionWidth: 2
-		},
-		clickToUse: false,
-		interaction: { zoomView: true, hover: true, tooltipDelay: 120 },
-		// Sparse layout tuning. `barnesHut` gives us predictable long-range
-		// repulsion so nodes push apart quickly instead of clumping in a
-		// tight ball like the previous forceAtlas2 config. `avoidOverlap`
-		// is the key knob for the screenshot the user showed — with 0 it
-		// happily stacks nodes on top of one another. Physics is on only
-		// for the initial layout pass; the `stabilizationIterationsDone`
-		// handler in handleReady freezes it so drags/zooms don't kick off
-		// perpetual jitter.
-		physics: {
-			enabled: physicsEnabled,
-			solver: 'barnesHut',
-			barnesHut: {
-				gravitationalConstant: -12000,
-				centralGravity: 0.15,
-				springLength: 180,
-				springConstant: 0.04,
-				damping: 0.95,
-				avoidOverlap: 0.6
-			},
-			maxVelocity: 30,
-			minVelocity: 0.75,
-			timestep: 0.35,
-			stabilization: {
-				enabled: true,
-				iterations: 400,
-				updateInterval: 50,
-				fit: true
-			}
-		}
-	} satisfies Options);
+	const closeContextMenu = () => (contextMenu = { open: false, x: 0, y: 0 });
 
 	const load = async () => {
 		if (loading) return;
 		loading = true;
 		error = null;
-		contextMenu = { open: false, x: 0, y: 0 };
+		closeContextMenu();
 		selectedNodeId = null;
-		// Fresh data means a fresh layout pass; turn physics back on so
-		// vis-network stabilizes the new node set, then let the
-		// stabilization handler freeze it again.
-		physicsEnabled = true;
-		autoFreezeArmed = true;
 		try {
 			const res = await AlertClustersService.graph(alertClusterId);
 			if (res.ok && res.data && typeof res.data === 'object' && 'nodes' in res.data) {
+				// A new graph object remounts the canvas (see `{#key graph}`),
+				// so fresh data always gets a fresh layout.
 				graph = res.data as AlertClusterGraph;
 				lastFetchedAlertClusterId = alertClusterId;
 			} else {
@@ -267,124 +186,52 @@
 	});
 	let matchCursor = $state(0);
 
-	const dimStroke = $derived(isDark ? '#334155' : '#cbd5e1');
-	const dimFont = $derived(isDark ? '#475569' : '#94a3b8');
+	const displayedCount = $derived(
+		graph.nodes.filter((n) => visibleGroups[n.group as Group]).length
+	);
 
-	// Truncate long labels so a single verbose alert title (or a very
-	// long IP/asset name) can't shove every neighbour off screen. Full
-	// text remains available in the tooltip and the details rail.
-	const shortLabel = (label: string | undefined) => {
-		const v = label ?? '';
-		return v.length > 42 ? `${v.slice(0, 40)}…` : v;
-	};
-
-	// Accent ring for the currently-selected node. Applied via
-	// vis-network's built-in selection highlight (`color.highlight`) so
-	// selection no longer needs to rebuild the node object — the fix for
-	// the "clicking a node collapses the layout" bug. Rebuilding via
-	// `derived` reruns the datasets `.clear()` + `.add()` in the
-	// VisNetwork wrapper, which drops layout positions and re-triggers
-	// stabilization; delegating selection styling to vis-network keeps
-	// positions stable across clicks.
-	const selectedRing = $derived(isDark ? '#60a5fa' : '#2563eb');
-
-	const nodes = $derived(
-		graph.nodes.map((node) => {
-			const isMatch = matches.has(node.id);
+	// Filtered groups are hidden (class `hidden`) and search misses dimmed,
+	// rather than removed from the element list: every node keeps its
+	// position whatever the filters, and edges to a hidden node hide with it.
+	// Theme switches only restyle the elements in place.
+	const elements = $derived.by<CyElementDef[]>(() => {
+		const nodes: CyElementDef[] = graph.nodes.map((node) => {
 			const g = node.group as Group;
-			const groupPalette = palette[g];
-			const title = node.title?.includes('<') ? createTooltip(node.title) : node.title;
-
-			const borderColor = isMatch ? groupPalette.border : dimStroke;
-			const fontColor = isMatch ? groupPalette.label : dimFont;
-
-			const base: VisNode = {
-				...node,
-				label: shortLabel(node.label),
-				title,
-				borderWidth: 2,
-				borderWidthSelected: 4,
-				color: {
-					border: borderColor,
-					background: isDark ? '#0f172a' : '#ffffff',
-					highlight: {
-						border: selectedRing,
-						background: isDark ? '#0f172a' : '#ffffff'
-					},
-					hover: {
-						border: groupPalette.border,
-						background: isDark ? '#111827' : '#f8fafc'
-					}
-				} as unknown as VisNode['color'],
-				font: {
-					color: fontColor,
-					size: 12,
-					strokeWidth: 3,
-					strokeColor: isDark ? 'rgba(15,23,42,0.85)' : 'rgba(255,255,255,0.9)'
-				}
+			const groupPalette = palette[g] ?? palette.alert;
+			const image =
+				g === 'alert'
+					? alertIcon
+					: g === 'ioc'
+						? iocIcon
+						: typeof node.image === 'string'
+							? applyAssetImageTheme(node.image, isDark)
+							: undefined;
+			const classes = !visibleGroups[g] ? ['hidden'] : matches.has(node.id) ? [] : ['dimmed'];
+			return {
+				group: 'nodes',
+				data: {
+					id: node.id,
+					label: shortGraphLabel(node.label),
+					group: g,
+					color: groupPalette.border,
+					labelColor: groupPalette.label,
+					size: g === 'asset' ? 44 : 40,
+					...(image ? { image, iconScale: g === 'asset' ? 0.7 : 0.55 } : {})
+				},
+				classes
 			};
+		});
+		const edges = alertGraphEdges(graph.edges).map((e) => ({
+			...e,
+			classes: matches.has(e.data.source) && matches.has(e.data.target) ? [] : ['dimmed']
+		}));
+		return [...nodes, ...edges];
+	});
 
-			// `circularImage` draws the icon inside a colored ring —
-			// which is the group signal we were missing. Assets keep
-			// their asset-type PNG; alerts/IOCs use the tinted lucide
-			// SVG data URLs we built from the palette above.
-			if (g === 'alert') {
-				return {
-					...base,
-					shape: 'circularImage',
-					image: alertIcon,
-					size: 20
-				} as VisNode;
-			}
-			if (g === 'ioc') {
-				return {
-					...base,
-					shape: 'circularImage',
-					image: iocIcon,
-					size: 20
-				} as VisNode;
-			}
-			if (g === 'asset' && typeof node.image === 'string') {
-				return {
-					...base,
-					shape: 'circularImage',
-					image: applyAssetImageTheme(node.image, isDark),
-					size: 22
-				} as VisNode;
-			}
-			return base;
-		})
-	);
-
-	// Only render edges whose endpoints both survived the group filter.
-	// Otherwise vis-network draws dangling stubs into empty space.
-	const visibleNodeIds = $derived(
-		new Set(graph.nodes.filter((n) => visibleGroups[n.group as Group]).map((n) => n.id))
-	);
-
-	const edges = $derived(
-		graph.edges
-			.filter((e) => visibleNodeIds.has(e.from) && visibleNodeIds.has(e.to))
-			.map((e) => {
-				const bothHit = matches.has(e.from) && matches.has(e.to);
-				return {
-					...e,
-					color: bothHit
-						? undefined
-						: {
-								color: isDark ? 'rgba(51,65,85,0.4)' : 'rgba(203,213,225,0.6)',
-								opacity: 0.5
-							}
-				} as VisEdge;
-			})
-	);
-
-	// Filter the visible nodes down to the group toggle. We do this AFTER
-	// building the styled node list so search dimming still lines up with
-	// the same ids; the filter here just hides whole categories.
-	const displayedNodes = $derived(
-		nodes.filter((n) => visibleGroups[(n.group as Group) ?? 'alert'])
-	);
+	const stylesheet: CyStylesheet = [
+		{ selector: 'node[labelColor]', style: { color: 'data(labelColor)' } },
+		{ selector: 'node', style: { 'font-size': 12, 'text-outline-width': 3 } }
+	];
 
 	const nodeById = $derived.by(() => {
 		const m = new Map<string, AlertClusterGraphNode>();
@@ -418,63 +265,68 @@
 	});
 
 	// ---- Imperative helpers ----------------------------------------
-	// Push the current selection into vis-network. Runs as an effect so
-	// selection changes coming from ANY source (canvas click, details-
-	// rail neighbour click, keyboard search cycling) all land on the
-	// same code path. Crucially this does NOT rebuild the node dataset:
-	// the wrapper's dataset-clear-and-refill happens only when the
-	// derived `nodes` array changes, and selection styling now flows
-	// through vis-network's built-in `color.highlight` — so clicking a
-	// node no longer resets positions or restarts stabilization (which
-	// was the bug where clicking an IOC collapsed the whole graph).
+	// Mirror the selection into the canvas. Runs as an effect so selection
+	// changes coming from ANY source (canvas click, details-rail neighbour
+	// click, keyboard search cycling) land on the same code path. Selection
+	// is styling only: it never touches positions or the viewport — the
+	// canvas only resizes when the rail opens, it never refits.
 	$effect(() => {
-		if (!network) return;
-		try {
-			if (selectedNodeId) {
-				network.selectNodes([selectedNodeId]);
-			} else {
-				network.unselectAll();
-			}
-		} catch {
-			/* vis-network throws if the id isn't in the dataset; ignore */
-		}
+		const c = cy;
+		const id = selectedNodeId;
+		if (!c) return;
+		c.batch(() => {
+			c.nodes(':selected')
+				.filter((n) => n.id() !== id)
+				.unselect();
+			if (id) c.getElementById(id).select();
+		});
 	});
+
+	const ease = 'ease-in-out-quad' as const;
 
 	const focusNode = (nodeId: string) => {
 		selectedNodeId = nodeId;
-		if (!network) return;
-		try {
-			// Selection sync happens in the effect above; here we just
-			// pan/zoom the viewport to bring the target into view.
-			network.focus(nodeId, {
-				scale: 1.2,
-				animation: { duration: 400, easingFunction: 'easeInOutQuad' }
-			});
-		} catch {
-			/* ignore */
-		}
+		const node = cy?.getElementById(nodeId);
+		if (!cy || !node || node.empty() || !node.visible()) return;
+		// Selection sync happens in the effect above; here we just
+		// pan/zoom the viewport to bring the target into view.
+		cy.stop();
+		cy.animate({ zoom: 1.2, center: { eles: node }, duration: 400, easing: ease });
 	};
 
 	const zoomBy = (factor: number) => {
-		if (!network) return;
-		const scale = network.getScale() * factor;
-		network.moveTo({
-			scale,
-			animation: { duration: 200, easingFunction: 'easeInOutQuad' }
+		if (!cy) return;
+		const c = cy;
+		const level = Math.min(c.maxZoom(), Math.max(c.minZoom(), c.zoom() * factor));
+		c.stop();
+		c.animate({
+			zoom: { level, renderedPosition: { x: c.width() / 2, y: c.height() / 2 } },
+			duration: 200,
+			easing: ease
 		});
 	};
 
 	const fit = () => {
-		if (!network) return;
-		network.fit({ animation: { duration: 400, easingFunction: 'easeInOutQuad' } });
+		if (!cy) return;
+		cy.stop();
+		cy.animate({
+			fit: { eles: cy.elements(':visible'), padding: 40 },
+			duration: 400,
+			easing: ease
+		});
 	};
 
-	const togglePhysics = () => {
-		physicsEnabled = !physicsEnabled;
-		// User asked for a manual toggle — cancel any pending auto-freeze
-		// so their choice isn't undone by the stabilization handler that
-		// fires on the next re-layout.
-		autoFreezeArmed = false;
+	// The layout runs once when the graph arrives, then nodes stay where
+	// they are (the equivalent of the old physics auto-freeze). This
+	// re-runs it on demand, on the visible nodes.
+	const relayout = async () => {
+		if (!cy || layoutRunning) return;
+		layoutRunning = true;
+		try {
+			await runLayout(cy, 'fcose', { animate: true });
+		} finally {
+			layoutRunning = false;
+		}
 	};
 
 	const handleSearchKeydown = (e: KeyboardEvent) => {
@@ -493,46 +345,41 @@
 	});
 
 	// ---- Graph interaction handlers --------------------------------
-	const handleClick = (detail: { nodeId?: IdType }) => {
-		contextMenu = { open: false, x: 0, y: 0 };
-		if (typeof detail.nodeId === 'string') {
-			selectedNodeId = detail.nodeId;
-		} else {
-			selectedNodeId = null;
-		}
+	const onTapNode = (e: CyNodeEvent) => {
+		closeContextMenu();
+		selectedNodeId = e.target.id();
 	};
 
-	const openContextMenu = (detail: { x: number; y: number; nodeId?: IdType }) => {
-		if (typeof detail.nodeId !== 'string') {
-			contextMenu = { open: false, x: 0, y: 0 };
-			return;
-		}
-		const node = nodeById.get(detail.nodeId);
+	const onTapCanvas = () => {
+		closeContextMenu();
+		selectedNodeId = null;
+	};
+
+	const onCxtTapNode = (e: CyNodeEvent) => {
+		const node = nodeById.get(e.target.id());
 		if (!node) {
-			contextMenu = { open: false, x: 0, y: 0 };
+			closeContextMenu();
 			return;
 		}
-		contextMenu = { open: true, x: detail.x, y: detail.y, node: node as unknown as VisNode };
+		contextMenu = { open: true, x: e.renderedPosition.x, y: e.renderedPosition.y, node };
 	};
-
-	const getRawId = (nodeId: string): string => nodeId.split(/_/)[1];
 
 	const openOrPivot = (node: AlertClusterGraphNode) => {
 		if (node.group === 'alert') {
 			// Alerts are the one group whose raw id is what we want:
 			// `/alerts/[alert_id]` is keyed on the numeric primary key.
-			goto(`/alerts/${getRawId(node.id)}`);
+			goto(`/alerts/${graphNodeRawId(node.id)}`);
 			return;
 		}
 
 		// ...but the alerts *list* filters on the IOC/asset value, not on a key.
-		// This used to pivot on `getRawId(node.id)`, and the graph builds its ids
-		// as `ioc_<ioc_id>` / `asset_<asset_id>` — so the query ran
+		// This used to pivot on `graphNodeRawId(node.id)`, and the graph builds
+		// its ids as `ioc_<ioc_id>` / `asset_<asset_id>` — so the query ran
 		// `ioc_value IN ('42')` and returned nothing, every time.
 		//
 		// `node.label` is the value the filter wants, and it arrives here
 		// untruncated: `nodeById` is built from the raw `graph.nodes`, not from
-		// the styled array where `shortLabel` clips at 42 characters.
+		// the canvas elements where `shortGraphLabel` clips at 42 characters.
 		//
 		// New tab, unlike the alert branch above: the pivot is a lookup made
 		// *while* reading the graph, and a same-tab navigation would discard the
@@ -543,21 +390,6 @@
 	const toggleGroup = (g: Group) => {
 		visibleGroups = { ...visibleGroups, [g]: !visibleGroups[g] };
 	};
-
-	// Called by the VisNetwork wrapper as soon as it constructs the
-	// Network. We stash the handle so the toolbar / search can drive
-	// imperative APIs. We also hook `stabilizationIterationsDone` here
-	// to auto-freeze physics — otherwise `forceAtlas2Based` keeps
-	// nudging nodes forever on drag/zoom/hover, making the graph
-	// feel visually noisy. The user can hit Play to resume the sim.
-	const handleReady = (n: Network | null) => {
-		network = n;
-		if (!n) return;
-		n.on('stabilizationIterationsDone', () => {
-			if (!autoFreezeArmed) return;
-			physicsEnabled = false;
-		});
-	};
 </script>
 
 <!--
@@ -567,7 +399,7 @@
   selected node's details (collapses when nothing is selected).
 -->
 <div class="flex h-full min-h-0 w-full flex-col">
-	<!-- Toolbar over the canvas — search + refresh + zoom + fit + physics. -->
+	<!-- Toolbar over the canvas — search + refresh + zoom + fit + layout. -->
 	<div class="flex flex-wrap items-center gap-2 border-b bg-muted/20 px-4 py-2">
 		<div class="relative min-w-[16rem] max-w-md flex-1">
 			<SearchIcon
@@ -645,7 +477,7 @@
 				size="xs"
 				onclick={() => zoomBy(1.25)}
 				title="Zoom in"
-				disabled={!network || loading}
+				disabled={!cy || loading}
 			>
 				<ZoomInIcon class="h-3.5 w-3.5" />
 			</Button>
@@ -654,31 +486,21 @@
 				size="xs"
 				onclick={() => zoomBy(0.8)}
 				title="Zoom out"
-				disabled={!network || loading}
+				disabled={!cy || loading}
 			>
 				<ZoomOutIcon class="h-3.5 w-3.5" />
 			</Button>
-			<Button
-				variant="ghost"
-				size="xs"
-				onclick={fit}
-				title="Fit to view"
-				disabled={!network || loading}
-			>
+			<Button variant="ghost" size="xs" onclick={fit} title="Fit to view" disabled={!cy || loading}>
 				<MaximizeIcon class="h-3.5 w-3.5" />
 			</Button>
 			<Button
 				variant="ghost"
 				size="xs"
-				onclick={togglePhysics}
-				title={physicsEnabled ? 'Freeze layout' : 'Resume physics'}
-				disabled={!network || loading}
+				onclick={relayout}
+				title="Re-run layout"
+				disabled={!cy || loading || layoutRunning}
 			>
-				{#if physicsEnabled}
-					<PauseIcon class="h-3.5 w-3.5" />
-				{:else}
-					<PlayIcon class="h-3.5 w-3.5" />
-				{/if}
+				<ShuffleIcon class="h-3.5 w-3.5" />
 			</Button>
 			<Button
 				variant="ghost"
@@ -697,23 +519,32 @@
 
 	<!-- Canvas + right details rail. -->
 	<div class="relative flex min-h-0 flex-1">
-		<div class="relative flex-1 bg-muted/10">
-			{#if graph.nodes.length > 0 && displayedNodes.length > 0}
-				<VisNetwork
-					nodes={displayedNodes}
-					{edges}
-					{options}
-					className="h-full w-full"
-					onClick={handleClick}
-					onContextMenu={openContextMenu}
-					onReady={handleReady}
-				/>
+		<div class="relative min-w-0 flex-1 bg-muted/10" data-testid="alert-cluster-graph">
+			{#if graph.nodes.length > 0}
+				{#key graph}
+					<CytoscapeGraph
+						{elements}
+						{stylesheet}
+						initialLayout="fcose"
+						boxSelectionEnabled={false}
+						selectionType="single"
+						onReady={(c) => (cy = c)}
+						{onTapNode}
+						{onTapCanvas}
+						{onCxtTapNode}
+						onCxtTapCanvas={closeContextMenu}
+						onCxtTapEdge={closeContextMenu}
+						nodeTooltip={tooltip}
+						nodeTooltipEnabled={(n) => !!nodeById.get(n.id())?.title}
+					/>
+				{/key}
 			{/if}
 
 			{#if contextMenu.open && contextMenu.node}
 				<div
 					class="absolute z-20 rounded-md border bg-background p-1 shadow-xl"
 					style={`left:${contextMenu.x}px;top:${contextMenu.y}px;transform:translate(8px, 8px);`}
+					data-testid="graph-context-menu"
 				>
 					<!--
 					  The icon distinguishes where the click lands: an arrow for the
@@ -729,14 +560,13 @@
 							? undefined
 							: 'Opens the filtered alert list in a new tab'}
 						onclick={() => {
-							const node = nodeById.get(contextMenu.node?.id as string);
-							if (node) openOrPivot(node);
-							contextMenu = { open: false, x: 0, y: 0 };
+							if (contextMenu.node) openOrPivot(contextMenu.node);
+							closeContextMenu();
 						}}
 					>
 						{#if contextMenu.node.group === 'alert'}
 							<ArrowRightIcon class="h-3 w-3" />
-							View alert #{getRawId(contextMenu.node.id as string)}
+							View alert #{graphNodeRawId(contextMenu.node.id)}
 						{:else}
 							<ExternalLinkIcon class="h-3 w-3" />
 							Pivot alerts by {contextMenu.node.group}
@@ -766,7 +596,7 @@
 						Add or import indicators on the alerts to see the graph populate.
 					</div>
 				</div>
-			{:else if displayedNodes.length === 0}
+			{:else if displayedCount === 0}
 				<div
 					class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground"
 				>
@@ -818,6 +648,7 @@
 			<aside
 				class="flex w-80 shrink-0 flex-col overflow-hidden border-l bg-card"
 				aria-label="Selected node details"
+				data-testid="graph-detail-rail"
 			>
 				<header class="flex items-center gap-2 border-b px-4 py-3">
 					<div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted">
@@ -855,13 +686,10 @@
 							the same field set to the user.
 						-->
 						<div
-							class="rounded-md border bg-muted/20 px-3 py-2 text-xs leading-relaxed [&_b]:font-semibold"
+							class="whitespace-pre-line rounded-md border bg-muted/20 px-3 py-2 text-xs leading-relaxed [&_b]:font-semibold"
 						>
 							<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-							{@html DOMPurify.sanitize(selectedNode.title, {
-								ALLOWED_TAGS: ['b', 'br', 'i', 'em', 'strong', 'span'],
-								ALLOWED_ATTR: []
-							})}
+							{@html sanitizeGraphTitle(selectedNode.title)}
 						</div>
 					{/if}
 
@@ -914,7 +742,7 @@
 						onclick={() => openOrPivot(selectedNode)}
 					>
 						{#if selectedNode.group === 'alert'}
-							Open alert #{getRawId(selectedNode.id)}
+							Open alert #{graphNodeRawId(selectedNode.id)}
 							<ArrowRightIcon class="h-3 w-3" />
 						{:else}
 							<span>
@@ -929,3 +757,15 @@
 		{/if}
 	</div>
 </div>
+
+{#snippet tooltip(node: NodeSingular)}
+	{@const title = nodeById.get(node.id())?.title}
+	{#if isHtmlTitle(title)}
+		<div class="[&_b]:font-semibold">
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+			{@html sanitizeGraphTitle(title)}
+		</div>
+	{:else if title}
+		<div class="line-clamp-[12] whitespace-pre-line break-words">{title}</div>
+	{/if}
+{/snippet}

@@ -47,6 +47,12 @@ export type CaseTimelineApiResponse<T> = {
 	data: T;
 };
 
+/** How an asset / IOC takes part in an event; drives the graph direction. */
+export type EventLinkRole = 'source' | 'target' | 'involved';
+
+/** `{"<asset or ioc id>": role}`; ids not listed are `involved`. */
+export type EventLinkRoles = Record<string, EventLinkRole>;
+
 export interface CaseTimelineLinkedAsset {
 	id?: number;
 	name: string;
@@ -55,6 +61,7 @@ export interface CaseTimelineLinkedAsset {
 	ip?: string | null;
 	description?: string | null;
 	compromised?: boolean;
+	role?: EventLinkRole;
 }
 
 export interface CaseTimelineLinkedIoc {
@@ -62,6 +69,7 @@ export interface CaseTimelineLinkedIoc {
 	name: string;
 	ioc_value?: string;
 	description?: string | null;
+	role?: EventLinkRole;
 }
 
 export interface CaseTimelineEvent {
@@ -75,6 +83,8 @@ export interface CaseTimelineEvent {
 	category_name?: string;
 	event_assets?: number[];
 	event_iocs?: number[];
+	event_assets_roles?: EventLinkRoles;
+	event_iocs_roles?: EventLinkRoles;
 	assets?: CaseTimelineLinkedAsset[];
 	iocs?: CaseTimelineLinkedIoc[];
 	event_raw?: string;
@@ -102,6 +112,8 @@ export interface CreateCaseTimelineEventBody {
 	event_tz: string;
 	event_assets: number[];
 	event_iocs: number[];
+	event_assets_roles?: EventLinkRoles;
+	event_iocs_roles?: EventLinkRoles;
 	event_raw?: string;
 	event_source?: string;
 	event_in_summary?: boolean;
@@ -122,6 +134,9 @@ export interface UpdateCaseTimelineEventBody {
 	event_tz?: string;
 	event_assets?: number[];
 	event_iocs?: number[];
+	/** Omitted: the linked objects that stay keep their role. */
+	event_assets_roles?: EventLinkRoles;
+	event_iocs_roles?: EventLinkRoles;
 	event_raw?: string;
 	event_source?: string;
 	event_in_summary?: boolean;

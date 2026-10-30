@@ -6,12 +6,14 @@
 		ListTreeIcon,
 		PlusCircleIcon,
 		RefreshCwIcon,
+		SplineIcon,
 		Trash2Icon,
 		ZapIcon
 	} from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import BulkHooksMenu from '$lib/components/common/BulkHooksMenu.svelte';
 	import type { HookOption } from '$lib/services/hooks.service';
+	import { graphUrl } from '$lib/utils/graph-links';
 
 	type Props = {
 		selecting: boolean;
@@ -85,6 +87,17 @@
 						>
 					{/snippet}
 				</BulkHooksMenu>
+
+				<Button
+					variant="ghost"
+					size="icon"
+					class="size-8"
+					href={selectedIds.length ? graphUrl(caseId, { events: selectedIds }) : undefined}
+					disabled={!selectedIds.length}
+					title="Show the selected events in the investigation graph"
+					aria-label="Show the selected events in the investigation graph"
+					><SplineIcon class="size-4" /></Button
+				>
 			{/if}
 
 			<Button

@@ -17,6 +17,7 @@ import {
 	ServerIcon,
 	SettingsIcon,
 	SparklesIcon,
+	SplineIcon,
 	WaypointsIcon,
 	WebhookIcon,
 	WorkflowIcon
@@ -52,6 +53,7 @@ export const SETTINGS_PAGES: SettingsPage[] = [
 	{ icon: LayersIcon, label: 'Case objects', href: '/case-objects', group: 'Cases' },
 	{ icon: WaypointsIcon, label: 'Custom attributes', href: '/custom-attributes', group: 'Cases' },
 	{ icon: FlagIcon, label: 'Asset flags', href: '/asset-flags', group: 'Cases' },
+	{ icon: SplineIcon, label: 'Graph relations', href: '/graph-relations', group: 'Cases' },
 	{ icon: ListChecksIcon, label: 'Tracker templates', href: '/tracker-templates', group: 'Cases' },
 	{ icon: MailIcon, label: 'Mail ingest', href: '/mail', group: 'Alerts' },
 	{ icon: FilterIcon, label: 'Clustering rules', href: '/cluster-rules', group: 'Alerts' },
@@ -121,6 +123,7 @@ export const SETTINGS_PAGE_PERMISSIONS: Record<string, PermissionName> = {
 	'/customers': 'customers_read',
 	'/case-objects': 'server_administrator',
 	'/asset-flags': 'server_administrator',
+	'/graph-relations': 'server_administrator',
 	'/tracker-templates': 'server_administrator',
 	'/custom-attributes': 'server_administrator',
 	'/case-templates': 'case_templates_read',

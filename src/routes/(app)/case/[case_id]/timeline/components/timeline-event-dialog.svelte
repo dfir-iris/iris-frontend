@@ -10,7 +10,12 @@
 		CASE_TIMELINE_CTX,
 		type CaseTimelineContext
 	} from '$lib/contexts/case-timeline.context.svelte';
-	import { CaseTimelineService, type CaseTimelineEvent } from '$lib/services/case-timeline.service';
+	import {
+		CaseTimelineService,
+		type CaseTimelineEvent,
+		type EventLinkRole
+	} from '$lib/services/case-timeline.service';
+	import { eventLinkRoles, eventLinkRolesPayload } from '$lib/utils/event-roles';
 	import type { CaseTimeline } from '$lib/services/case-timelines.service';
 	import TimelineEventForm, { type TimelineEventFormData } from './timeline-event-form.svelte';
 	import { normaliseEventTime } from '../event-datetime';
@@ -49,7 +54,7 @@
 		onOpenChange: (open: boolean) => void;
 	};
 
-	type FieldValue = string | number | boolean | number[] | null;
+	type FieldValue = string | number | boolean | number[] | Record<number, EventLinkRole> | null;
 
 	let {
 		open = $bindable(),
@@ -101,6 +106,8 @@
 		parent_event_id: null,
 		event_assets: [],
 		event_iocs: [],
+		event_assets_roles: {},
+		event_iocs_roles: {},
 		event_in_summary: false,
 		event_in_graph: true,
 		event_sync_iocs_assets: true,
@@ -149,6 +156,8 @@
 			parent_event_id: event?.parent_event_id ?? selectedParent?.event_id ?? null,
 			event_assets: resolveAssetIds(),
 			event_iocs: resolveIocIds(),
+			event_assets_roles: eventLinkRoles(event, 'asset'),
+			event_iocs_roles: eventLinkRoles(event, 'ioc'),
 			event_in_summary: event?.event_in_summary ?? false,
 			event_in_graph: event?.event_in_graph ?? true,
 			event_sync_iocs_assets: false,
@@ -218,6 +227,8 @@
 				event_tz: form.event_tz,
 				event_assets: form.event_assets,
 				event_iocs: form.event_iocs,
+				event_assets_roles: eventLinkRolesPayload(form.event_assets, form.event_assets_roles),
+				event_iocs_roles: eventLinkRolesPayload(form.event_iocs, form.event_iocs_roles),
 				event_raw: form.event_raw,
 				event_source: form.event_source,
 				event_in_summary: form.event_in_summary,
