@@ -107,7 +107,6 @@
 		"turndown-plugin-gfm": "^1.0.2",
 		"uuid": "^11.1.0",
 		"vis-data": "^8.0.3",
-		"vis-network": "^10.1.0",
 		"vis-timeline": "^8.5.1",
 		"y-codemirror.next": "^0.3.6",
 		"y-protocols": "^1.0.6",
