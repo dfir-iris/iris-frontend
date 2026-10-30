@@ -152,6 +152,11 @@ describe('CaseGraphService', () => {
 			expect(mocked.delete).toHaveBeenCalledWith('/api/v2/cases/3/graph/nodes/9', opts);
 		});
 
+		it('getNode() GETs a free node', async () => {
+			await CaseGraphService.getNode(3, 9, opts);
+			expect(mocked.get).toHaveBeenCalledWith('/api/v2/cases/3/graph/nodes/9', opts);
+		});
+
 		it('promoteNode() POSTs kind and creation fields', async () => {
 			const body = { kind: 'ioc' as const, ioc_value: '1.2.3.4', ioc_type_id: 76 };
 			await CaseGraphService.promoteNode(3, 9, body, opts);
@@ -210,6 +215,14 @@ describe('CaseGraphService', () => {
 			expect(mocked.get).toHaveBeenCalledWith('/api/v2/cases/3/graph/export?format=json', {});
 			await CaseGraphService.exportGraph(3, 'graphml', opts);
 			expect(mocked.get).toHaveBeenCalledWith('/api/v2/cases/3/graph/export?format=graphml', opts);
+		});
+
+		it('exportGraph() forwards include as a comma list', async () => {
+			await CaseGraphService.exportGraph(3, 'stix', opts, ['events', 'notes']);
+			expect(mocked.withQuery).toHaveBeenLastCalledWith('/api/v2/cases/3/graph/export', {
+				format: 'stix',
+				include: 'events,notes'
+			});
 		});
 
 		it('importGraph() POSTs format and content', async () => {

@@ -299,7 +299,9 @@ export const createCaseTimelineContext = (getCaseId: () => number | null) => {
 			byId[id] = {
 				...byId[id],
 				event_assets: savedEvent.event_assets ?? byId[id].event_assets,
-				event_iocs: savedEvent.event_iocs ?? byId[id].event_iocs
+				event_iocs: savedEvent.event_iocs ?? byId[id].event_iocs,
+				event_assets_roles: savedEvent.event_assets_roles ?? byId[id].event_assets_roles,
+				event_iocs_roles: savedEvent.event_iocs_roles ?? byId[id].event_iocs_roles
 			};
 		}
 

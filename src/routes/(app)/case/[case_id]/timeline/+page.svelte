@@ -53,6 +53,8 @@
 	import { parseTimelineCsv, timelineCsvDates } from './csv-import';
 	import CaseWorkspace from '../components/CaseWorkspace.svelte';
 	import type { TimelineFilterData, TimelineFilterFieldValue } from './types';
+	import { getHighlightedEventIds } from './helpers';
+	import { eventLinkRoles, eventLinkRolesPayload } from '$lib/utils/event-roles';
 
 	type TimelineGroup = {
 		date: string;
@@ -186,6 +188,19 @@
 		}
 		if (quickSearchMatchIndex >= count) quickSearchMatchIndex = 0;
 		scrollMatchIntoView(quickSearchMatches[quickSearchMatchIndex]);
+	});
+
+	// Events linked from the URL (`sharedEventId`, or `events` from the graph):
+	// scroll the first one into view once it is rendered.
+	let linkedEventScrolled = false;
+	$effect(() => {
+		if (linkedEventScrolled) return;
+		const ids = getHighlightedEventIds();
+		if (!ids.length) return;
+		const first = filteredEvents.find((e) => ids.includes(e.event_id));
+		if (!first) return;
+		linkedEventScrolled = true;
+		scrollMatchIntoView(first.event_id);
 	});
 
 	const scrollMatchIntoView = (eventId: number) => {
@@ -447,6 +462,7 @@
 			event_tags: event.event_tags ?? '',
 			event_content: event.event_content ?? '',
 			parent_event_id: event.parent_event_id ?? null,
+			// No `event_*_roles`: the backend keeps the graph roles of the links.
 			event_is_flagged: !event.event_is_flagged
 		};
 
@@ -463,6 +479,11 @@
 		event_tz: event.event_tz,
 		event_assets: event.event_assets ?? [],
 		event_iocs: event.event_iocs ?? [],
+		event_assets_roles: eventLinkRolesPayload(
+			event.event_assets ?? [],
+			eventLinkRoles(event, 'asset')
+		),
+		event_iocs_roles: eventLinkRolesPayload(event.event_iocs ?? [], eventLinkRoles(event, 'ioc')),
 		event_raw: event.event_raw ?? '',
 		event_source: event.event_source ?? '',
 		event_in_summary: event.event_in_summary ?? false,

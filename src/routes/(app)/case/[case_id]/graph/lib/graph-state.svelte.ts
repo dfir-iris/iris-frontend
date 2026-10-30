@@ -186,6 +186,13 @@ export class CaseGraphState {
 	});
 	selection = $state.raw<string[]>([]);
 	rail = $state<RailTarget | null>(null);
+	/**
+	 * Transient highlight set by features (suggestion hover, gap, deep link);
+	 * wins over the path finder highlight while set.
+	 */
+	preview = $state.raw<{ nodes: Set<string>; edges: Set<string> } | null>(null);
+	/** Canvas, or the nodes / edges table over it (the canvas stays mounted). */
+	viewMode = $state<'canvas' | 'table'>('canvas');
 	/** Neighbourhood expansions to replay on refresh. */
 	expanded = new KeyMap<GraphNodeKey, number>();
 
@@ -207,6 +214,8 @@ export class CaseGraphState {
 	private keyAlias = new Map<string, string>();
 
 	private autosaveTimer: ReturnType<typeof setTimeout> | undefined;
+	/** Bumped on every presentation change (saved-view dirty tracking). */
+	stateVersion = $state(0);
 	private loadSeq = 0;
 
 	constructor(caseId: number) {
@@ -257,6 +266,7 @@ export class CaseGraphState {
 	);
 
 	highlight = $derived.by(() => {
+		if (this.preview) return this.preview;
 		const r = this.path.result;
 		if (!r || !r.paths.length) return null;
 		const p = r.paths[Math.min(this.path.active, r.paths.length - 1)];
@@ -519,6 +529,7 @@ export class CaseGraphState {
 
 	/** Debounced autosave to localStorage. */
 	markDirty() {
+		this.stateVersion = untrack(() => this.stateVersion) + 1;
 		clearTimeout(this.autosaveTimer);
 		this.autosaveTimer = setTimeout(() => this.saveNow(), 800);
 	}
@@ -989,6 +1000,51 @@ export class CaseGraphState {
 			});
 			return updated;
 		});
+	}
+
+	/**
+	 * Same patch on several stored edges (table bulk edit): one history entry,
+	 * one refetch. Each edge gets back its own previous values on undo.
+	 */
+	async updateEdges(edges: GraphEdge[], patch: UpdateGraphEdgeBody, label = 'Edit relations') {
+		const stored = edges.filter(isStoredEdge);
+		if (!stored.length) return 0;
+		const items = stored.map((e) => {
+			const before: UpdateGraphEdgeBody = {};
+			if ('relation_type_id' in patch || 'relation' in patch) {
+				if (e.relation.id !== null) before.relation_type_id = e.relation.id;
+				else before.relation = e.relation.name;
+			}
+			if ('directed' in patch) before.directed = e.directed;
+			if ('label' in patch) before.label = e.label;
+			if ('description' in patch) before.description = e.description;
+			if ('confidence' in patch) before.confidence = e.confidence;
+			if ('review_state' in patch) before.review_state = e.review_state;
+			return { id: e.id as number, before };
+		});
+		const apply = async (pick: (i: (typeof items)[number]) => UpdateGraphEdgeBody) => {
+			for (const i of items) {
+				unwrap(
+					await CaseGraphService.updateEdge(this.caseId, this.resolveEdgeId(i.id), pick(i)),
+					'Could not update the relation.'
+				);
+			}
+		};
+		await this.run(async () => {
+			await apply(() => patch);
+			this.history.push({
+				label,
+				undo: async () => {
+					await apply((i) => i.before);
+					await this.refresh();
+				},
+				redo: async () => {
+					await apply(() => patch);
+					await this.refresh();
+				}
+			});
+		});
+		return items.length;
 	}
 
 	async deleteEdges(edges: GraphEdge[]) {

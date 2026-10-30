@@ -6,14 +6,18 @@ import type {
 	CreateFreeNodeBody,
 	CreateGraphEdgeBody,
 	CreateGraphViewBody,
+	GraphAcceptSuggestionsResult,
 	GraphAiSuggestionsResult,
+	GraphDismissSuggestionsResult,
 	GraphEdge,
 	GraphExplainBody,
 	GraphExplainResult,
 	GraphExportFormat,
+	GraphExportResult,
 	GraphGap,
 	GraphImportBody,
 	GraphImportResult,
+	GraphInclude,
 	GraphNode,
 	GraphNodeKey,
 	GraphPasteBody,
@@ -146,6 +150,14 @@ export class CaseGraphService {
 		return ApiService.post<GraphNode>(`${graphPath(caseId)}/nodes`, body, options);
 	}
 
+	static getNode(
+		caseId: number,
+		nodeId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<GraphNode>> {
+		return ApiService.get<GraphNode>(`${graphPath(caseId)}/nodes/${nodeId}`, options);
+	}
+
 	static updateNode(
 		caseId: number,
 		nodeId: number,
@@ -226,14 +238,19 @@ export class CaseGraphService {
 		return ApiService.delete<null>(`${graphPath(caseId)}/views/${viewId}`, options);
 	}
 
-	// §4.7 — `json` / `stix` come back parsed, `graphml` as text.
+	// §4.7 / §9 — envelope `{format, filename, content}`; `content` is an
+	// object for json / stix and an XML string for graphml.
 	static exportGraph(
 		caseId: number,
 		format: GraphExportFormat = 'json',
-		options: ApiOptions = {}
-	): Promise<RequestResponse<unknown>> {
-		return ApiService.get<unknown>(
-			ApiService.withQuery(`${graphPath(caseId)}/export`, { format }),
+		options: ApiOptions = {},
+		include: GraphInclude[] = []
+	): Promise<RequestResponse<GraphExportResult>> {
+		return ApiService.get<GraphExportResult>(
+			ApiService.withQuery(`${graphPath(caseId)}/export`, {
+				format,
+				include: include.length ? include.join(',') : undefined
+			}),
 			options
 		);
 	}
@@ -258,8 +275,8 @@ export class CaseGraphService {
 		caseId: number,
 		keys: string[],
 		options: ApiOptions = {}
-	): Promise<RequestResponse<GraphEdge[]>> {
-		return ApiService.post<GraphEdge[]>(
+	): Promise<RequestResponse<GraphAcceptSuggestionsResult>> {
+		return ApiService.post<GraphAcceptSuggestionsResult>(
 			`${graphPath(caseId)}/suggestions/accept`,
 			{ keys },
 			options
@@ -270,8 +287,12 @@ export class CaseGraphService {
 		caseId: number,
 		keys: string[],
 		options: ApiOptions = {}
-	): Promise<RequestResponse<unknown>> {
-		return ApiService.post<unknown>(`${graphPath(caseId)}/suggestions/dismiss`, { keys }, options);
+	): Promise<RequestResponse<GraphDismissSuggestionsResult>> {
+		return ApiService.post<GraphDismissSuggestionsResult>(
+			`${graphPath(caseId)}/suggestions/dismiss`,
+			{ keys },
+			options
+		);
 	}
 
 	/** 409 when no LLM is configured. */

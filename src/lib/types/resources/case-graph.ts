@@ -71,6 +71,7 @@ export interface GraphNode {
 	flags?: GraphNodeFlag[] | null;
 	tags?: string[] | null;
 	tlp?: string | null;
+	tlp_id?: number | null;
 	/** From the linked managed asset, null otherwise. */
 	criticality?: string | null;
 	description?: string | null;
@@ -100,7 +101,12 @@ export interface GraphRelationRef {
 }
 
 export type GraphStoredEdgeOrigin = 'manual' | 'ai' | 'module' | 'import' | 'suggestion';
-export type GraphDerivedEdgeOrigin = 'event' | 'ioc_asset_link' | 'parent_event';
+export type GraphDerivedEdgeOrigin =
+	| 'event'
+	| 'ioc_asset_link'
+	| 'parent_event'
+	| 'alert'
+	| 'cross_case';
 export type GraphEdgeOrigin = GraphStoredEdgeOrigin | GraphDerivedEdgeOrigin;
 
 export type GraphReviewState = 'accepted' | 'pending' | 'rejected';
@@ -127,7 +133,11 @@ export interface GraphEdge {
 	count: number;
 	/** False for derived edges. */
 	editable: boolean;
+	tlp_id?: number | null;
+	created_by_id?: number | null;
 	custom_attributes?: Record<string, unknown> | null;
+	/** War-room graph: case the edge belongs to. */
+	case_id?: number | null;
 }
 
 export interface GraphEvent {
@@ -137,6 +147,9 @@ export interface GraphEvent {
 	category: string | null;
 	color: string | null;
 	keys: GraphNodeKey[];
+	parent_event_id?: number | null;
+	/** War-room graph: case the event belongs to. */
+	case_id?: number | null;
 }
 
 /** Row of `case_graph_relation_type` (§3.1). */
@@ -151,7 +164,8 @@ export interface GraphRelationType {
 	stix_relationship: string | null;
 	is_system: boolean;
 	sort_order: number;
-	created_at?: string | null;
+	/** Number of stored edges using the type (catalogue listing only). */
+	edge_count?: number;
 }
 
 export type GraphSuggestionKind =
@@ -171,6 +185,7 @@ export interface GraphSuggestion {
 	directed: boolean;
 	reason: string;
 	event_ids: number[];
+	alert_ids?: number[];
 	score: number;
 }
 
@@ -180,6 +195,10 @@ export interface GraphMeta {
 	generated_at: string;
 	/** Set when the graph exceeds IRIS_CASE_GRAPH_MAX_NODES. */
 	warning?: string | null;
+	/** War-room graph: cases of the war room, and the ones the caller can read. */
+	case_ids?: number[];
+	readable_case_ids?: number[];
+	[key: string]: unknown;
 }
 
 /** `GET /graph` (§4.1). */
@@ -353,7 +372,16 @@ export interface GraphImportBody {
 export interface GraphImportResult {
 	nodes_created: number;
 	edges_created: number;
-	skipped: number | unknown[];
+	skipped: number;
+	/** Human-readable reasons, capped at 200 entries. */
+	skipped_details: string[];
+}
+
+/** `GET /graph/export` envelope: object content for json/stix, XML text for graphml. */
+export interface GraphExportResult {
+	format: GraphExportFormat;
+	filename: string;
+	content: unknown;
 }
 
 /** §4.8 */
@@ -361,8 +389,23 @@ export interface GraphSuggestionKeysBody {
 	keys: string[];
 }
 
-export interface GraphAiSuggestionsResult {
+export interface GraphAcceptSuggestionsResult {
 	edges: GraphEdge[];
+	/** Keys that no longer match a current suggestion. */
+	unknown_keys: string[];
+}
+
+export interface GraphDismissSuggestionsResult {
+	dismissed: number;
+}
+
+export interface GraphAiSuggestionsResult {
+	/** Pending AI edges stored by this run. */
+	edges: GraphEdge[];
+	/** Edges proposed by the model. */
+	proposed: number;
+	/** Proposals dropped by validation (unknown keys, duplicates…). */
+	dropped: number;
 }
 
 export type GraphGapCode =
@@ -372,9 +415,11 @@ export type GraphGapCode =
 	| 'compromised_without_event'
 	| 'unanalysed_compromised';
 
+export type GraphGapSeverity = 'high' | 'medium' | 'low';
+
 export interface GraphGap {
 	code: GraphGapCode | string;
-	severity: 'info' | 'low' | 'medium' | 'high' | string;
+	severity: GraphGapSeverity;
 	node_keys: GraphNodeKey[];
 	edge_keys: string[];
 	message: string;
@@ -401,5 +446,29 @@ export interface GraphRelationTypeInput {
 	sort_order?: number;
 }
 
-/** §4.10 — `GET /api/v2/war-rooms/<id>/graph`. Same shape, keys prefixed with `c<case_id>/`. */
+/**
+ * §4.10 — `GET /api/v2/war-rooms/<id>/graph`. Same shape, keys prefixed with
+ * `c<case_id>/` except the unprefixed `case:<id>` nodes.
+ */
 export type WarRoomGraph = CaseGraph;
+
+/** §9 — Socket.IO payloads of the live graph. */
+export type GraphChangedEntity = 'edge' | 'node' | 'view' | 'case_object' | string;
+
+export interface CaseGraphChangedPayload {
+	case_id: number;
+	entity: GraphChangedEntity;
+	action: string;
+	key?: string | null;
+	by_user_id: number | null;
+}
+
+export interface CaseGraphPresencePayload {
+	case_id: number;
+	user: { id: number; name: string | null; login: string | null };
+	selected_key: string | null;
+}
+
+export interface CaseGraphJoinAck {
+	ok: boolean;
+}
