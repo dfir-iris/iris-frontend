@@ -13,6 +13,7 @@ import ViewsMenu from './views/ViewsMenu.svelte';
 import TimeButton from './time/TimeButton.svelte';
 import TimeBar from './time/TimeBar.svelte';
 import DeepLinkChip from './links/DeepLinkChip.svelte';
+import ExchangeMenu from './exchange/ExchangeMenu.svelte';
 
 interface InstallOptions {
 	caseId: number;
@@ -43,6 +44,12 @@ export const installGraphFeatures = (graph: CaseGraphState, opts: InstallOptions
 		time.register(),
 		graph.registerToolbarItem({ id: 'time', component: TimeButton, slot: 'start', order: 10 }),
 		graph.registerToolbarItem({ id: 'views', component: ViewsMenu, slot: 'end', order: 10 }),
+		graph.registerToolbarItem({
+			id: 'exchange',
+			component: ExchangeMenu,
+			slot: 'end',
+			order: 20
+		}),
 		graph.registerCanvasOverlay({ id: 'time', component: TimeBar }),
 		graph.registerCanvasOverlay({ id: 'deep-link', component: DeepLinkChip })
 	];
