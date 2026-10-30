@@ -18,7 +18,7 @@
 	disabled={!time.bounds && !time.active}
 	onclick={() => (time.open = !time.open)}
 >
-	<HistoryIcon class="mr-1 h-3.5 w-3.5" />Time
+	<HistoryIcon class="h-3.5 w-3.5" /><span class="ml-1 hidden @[100rem]:inline">Time</span>
 	{#if time.active}
 		<span class="ml-1 h-1.5 w-1.5 rounded-full bg-primary" aria-label="Time filter active"></span>
 	{/if}

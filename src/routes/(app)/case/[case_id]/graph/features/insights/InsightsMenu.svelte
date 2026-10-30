@@ -29,7 +29,9 @@
 					size="xs"
 					title="Suggestions, gaps and AI"
 				>
-					<LightbulbIcon class="mr-1 h-3.5 w-3.5" />Insights
+					<LightbulbIcon class="h-3.5 w-3.5" /><span class="ml-1 hidden @[100rem]:inline"
+						>Insights</span
+					>
 				</Button>
 			{/snippet}
 		</DropdownMenu.Trigger>

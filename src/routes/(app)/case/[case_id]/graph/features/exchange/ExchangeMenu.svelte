@@ -90,11 +90,11 @@
 		{#snippet child({ props })}
 			<Button {...props} variant="outline" size="xs" title="Export or import the graph">
 				{#if busy}
-					<LoaderCircleIcon class="mr-1 h-3.5 w-3.5 animate-spin" />
+					<LoaderCircleIcon class="h-3.5 w-3.5 animate-spin" />
 				{:else}
-					<DownloadIcon class="mr-1 h-3.5 w-3.5" />
+					<DownloadIcon class="h-3.5 w-3.5" />
 				{/if}
-				Export
+				<span class="ml-1 hidden @[100rem]:inline">Export</span>
 				<ChevronDownIcon class="ml-0.5 h-3 w-3" />
 			</Button>
 		{/snippet}

@@ -19,10 +19,10 @@
 				? 'bg-secondary text-secondary-foreground'
 				: 'text-muted-foreground hover:bg-accent hover:text-foreground'}"
 			aria-pressed={graph.viewMode === m.value}
-			title={m.value === 'table' ? 'Nodes and relations as tables' : 'Graph canvas'}
+			title={m.value === 'table' ? 'Table: nodes and relations as tables' : 'Canvas: graph view'}
 			onclick={() => (graph.viewMode = m.value)}
 		>
-			<m.icon class="h-3.5 w-3.5" />{m.label}
+			<m.icon class="h-3.5 w-3.5" /><span class="hidden @[100rem]:inline">{m.label}</span>
 		</button>
 	{/each}
 </div>

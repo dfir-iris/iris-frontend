@@ -112,8 +112,10 @@
 					? `Saved view: ${current.name}${views.dirty ? ' (modified)' : ''}`
 					: 'Saved views'}
 			>
-				<BookmarkIcon class="mr-1 h-3.5 w-3.5" />
-				<span class="max-w-36 truncate">{current ? current.name : 'Views'}</span>
+				<BookmarkIcon class="h-3.5 w-3.5" />
+				<span class="ml-1 max-w-36 truncate {current ? '' : 'hidden @[100rem]:inline'}"
+					>{current ? current.name : 'Views'}</span
+				>
 				{#if views.dirty}
 					<span
 						class="ml-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500"

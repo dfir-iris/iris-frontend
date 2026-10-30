@@ -141,15 +141,18 @@
 	const hiddenCount = $derived(graph.hidden.size);
 </script>
 
-<div class="flex flex-wrap items-center gap-1.5 border-b bg-muted/20 px-3 py-1.5" role="toolbar">
-	<div class="relative">
+<div
+	class="flex flex-wrap items-center gap-1.5 border-b bg-muted/20 px-3 py-1.5 @container [&>*]:shrink-0"
+	role="toolbar"
+>
+	<div class="relative !shrink">
 		<SearchIcon
 			class="pointer-events-none absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground"
 		/>
 		<input
 			bind:this={searchInput}
-			class="h-7 w-72 rounded-md border border-input bg-background pl-7 pr-14 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-			placeholder="Search — kind:ioc type:ip tag:c2 compromised:true flag:isolated"
+			class="h-7 w-44 min-w-0 rounded-md border border-input bg-background pl-7 pr-14 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring @[80rem]:w-72"
+			placeholder="Search — kind:ioc tag:c2 flag:isolated"
 			value={graph.query}
 			oninput={(e) => graph.setQuery((e.currentTarget as HTMLInputElement).value)}
 			onkeydown={onSearchKey}
@@ -179,7 +182,7 @@
 		<DropdownMenu.Trigger>
 			{#snippet child({ props })}
 				<Button {...props} variant="outline" size="xs" title="Kinds of objects shown">
-					<LayersIcon class="mr-1 h-3.5 w-3.5" />Data
+					<LayersIcon class="h-3.5 w-3.5" /><span class="ml-1 hidden @[100rem]:inline">Data</span>
 					{#if graph.include.length}
 						<span class="ml-1 rounded-full bg-primary px-1 text-[10px] text-primary-foreground">
 							{graph.include.length}
@@ -207,13 +210,20 @@
 	<DropdownMenu.Root>
 		<DropdownMenu.Trigger>
 			{#snippet child({ props })}
-				<Button {...props} variant="outline" size="xs" title="Layout">
+				<Button
+					{...props}
+					variant="outline"
+					size="xs"
+					title={`Layout: ${layoutLabel(graph.layout)}`}
+				>
 					{#if graph.layoutRunning}
-						<LoaderCircleIcon class="mr-1 h-3.5 w-3.5 animate-spin" />
+						<LoaderCircleIcon class="h-3.5 w-3.5 animate-spin" />
 					{:else}
-						<LayoutGridIcon class="mr-1 h-3.5 w-3.5" />
+						<LayoutGridIcon class="h-3.5 w-3.5" />
 					{/if}
-					{layoutLabel(graph.layout)}
+					<span class="ml-1 hidden max-w-40 truncate @[100rem]:inline"
+						>{layoutLabel(graph.layout)}</span
+					>
 					<ChevronDownIcon class="ml-0.5 h-3 w-3" />
 				</Button>
 			{/snippet}
@@ -268,7 +278,7 @@
 		<DropdownMenu.Trigger>
 			{#snippet child({ props })}
 				<Button {...props} variant="outline" size="xs" title="Overlays and display options">
-					<EyeIcon class="mr-1 h-3.5 w-3.5" />View
+					<EyeIcon class="h-3.5 w-3.5" /><span class="ml-1 hidden @[100rem]:inline">View</span>
 					<ChevronDownIcon class="ml-0.5 h-3 w-3" />
 				</Button>
 			{/snippet}
@@ -359,7 +369,7 @@
 			<DropdownMenu.Trigger>
 				{#snippet child({ props })}
 					<Button {...props} variant="outline" size="xs" title="Add to the graph">
-						<PlusIcon class="mr-1 h-3.5 w-3.5" />Add
+						<PlusIcon class="h-3.5 w-3.5" /><span class="ml-1 hidden @[100rem]:inline">Add</span>
 						<ChevronDownIcon class="ml-0.5 h-3 w-3" />
 					</Button>
 				{/snippet}
@@ -405,7 +415,7 @@
 		<MaximizeIcon class="h-3.5 w-3.5" />
 	</Button>
 
-	<div class="ml-auto flex items-center gap-1">
+	<div class="ml-auto flex items-center gap-1 [&>*]:shrink-0">
 		{#each endItems as item (item.id)}
 			<item.component {graph} />
 		{/each}

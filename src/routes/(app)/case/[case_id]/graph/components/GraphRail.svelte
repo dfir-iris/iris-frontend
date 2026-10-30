@@ -58,31 +58,33 @@
 	);
 
 	const tabClass = (active: boolean) =>
-		`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium ${
+		`flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-2 py-1 text-xs font-medium ${
 			active ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'
 		}`;
 </script>
 
 <aside class="flex w-80 shrink-0 flex-col border-l bg-card" aria-label="Graph details">
 	<div class="flex items-center gap-1 border-b bg-muted/40 px-2 py-1.5">
-		<div class="flex min-w-0 flex-1 gap-0.5 overflow-x-auto" role="tablist">
+		<div class="flex min-w-0 flex-1 flex-wrap gap-0.5" role="tablist">
 			<button
 				type="button"
 				role="tab"
 				aria-selected={tab === 'details'}
 				class={tabClass(tab === 'details')}
+				title="Details"
 				onclick={() => (graph.rail = lastDetails ?? { type: 'selection' })}
 			>
-				<InfoIcon class="h-3.5 w-3.5" />Details
+				<InfoIcon class="h-3.5 w-3.5" />{#if tab === 'details'}Details{/if}
 			</button>
 			<button
 				type="button"
 				role="tab"
 				aria-selected={tab === 'paths'}
 				class={tabClass(tab === 'paths')}
+				title="Paths"
 				onclick={() => (graph.rail = { type: 'paths' })}
 			>
-				<RouteIcon class="h-3.5 w-3.5" />Paths
+				<RouteIcon class="h-3.5 w-3.5" />{#if tab === 'paths'}Paths{/if}
 			</button>
 			{#each panels as p (p.id)}
 				<button
@@ -90,12 +92,13 @@
 					role="tab"
 					aria-selected={tab === `panel:${p.id}`}
 					class={tabClass(tab === `panel:${p.id}`)}
+					title={p.title}
 					onclick={() => (graph.rail = { type: 'panel', id: p.id })}
 				>
 					{#if p.icon}
 						<p.icon class="h-3.5 w-3.5" />
 					{/if}
-					{p.title}
+					{#if !p.icon || tab === `panel:${p.id}`}{p.title}{/if}
 				</button>
 			{/each}
 		</div>
