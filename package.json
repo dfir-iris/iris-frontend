@@ -95,7 +95,7 @@
 		"otpauth": "^9.4.1",
 		"papaparse": "^5.5.3",
 		"qrcode": "^1.5.4",
-		"sharp": "^0.34.5",
+		"sharp": "^0.35.5",
 		"showdown": "^2.1.0",
 		"socket.io-client": "^4.8.3",
 		"style-mod": "^4.1.4",

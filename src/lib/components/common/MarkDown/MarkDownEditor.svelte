@@ -1634,19 +1634,6 @@
 		not in 'edit') so the collab socket and editor state survive transitions
 		without re-init.
 	-->
-	<!--
-		Why the ignore below: keyboard equivalents live in onfocusin/onfocusout
-		(focus events on mention chips). The Svelte linter only recognises
-		onfocus/onblur for this rule, and those do not bubble, so they can't be
-		used here.
-
-		The rationale is kept in its own comment rather than inline after the
-		code. Svelte 5 stops reading codes at the first one not followed by a
-		comma, so inline prose is harmless to the compiler — but
-		eslint-plugin-svelte splits on whitespace instead, so every prose word
-		became a bogus "unused" ignore code (31 of them, from this one comment).
-	-->
-	<!-- svelte-ignore a11y_mouse_events_have_key_events -->
 	<div
 		class="markdown-editor-body relative {viewMode === 'edit'
 			? 'mt-2 rounded-md border border-border/50 bg-background'
