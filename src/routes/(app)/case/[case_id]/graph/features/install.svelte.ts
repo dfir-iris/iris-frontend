@@ -9,6 +9,7 @@ import { setGraphFeatures, type GraphFeatures } from './context';
 import { GraphTimeControl } from './time.svelte';
 import { GraphDeepLink } from './deep-link.svelte';
 import { GraphViewsControl } from './views.svelte';
+import { GraphLiveControl } from './realtime.svelte';
 import ViewsMenu from './views/ViewsMenu.svelte';
 import TimeButton from './time/TimeButton.svelte';
 import TimeBar from './time/TimeBar.svelte';
@@ -16,6 +17,9 @@ import DeepLinkChip from './links/DeepLinkChip.svelte';
 import ExchangeMenu from './exchange/ExchangeMenu.svelte';
 import ViewModeToggle from './table/ViewModeToggle.svelte';
 import TableView from './table/TableView.svelte';
+import PresenceList from './live/PresenceList.svelte';
+import PresenceBadges from './live/PresenceBadges.svelte';
+import UpdatedChip from './live/UpdatedChip.svelte';
 
 interface InstallOptions {
 	caseId: number;
@@ -36,7 +40,9 @@ export const installGraphFeatures = (graph: CaseGraphState, opts: InstallOptions
 	const deepLink = new GraphDeepLink(graph, parseGraphLink(page.url.searchParams));
 	const views = new GraphViewsControl(graph, { userId, canEdit: opts.canEdit });
 
-	const features: GraphFeatures = { ...opts, userId, time, deepLink, views };
+	const live = new GraphLiveControl(graph, { userId, onViewsChanged: () => views.refreshList() });
+
+	const features: GraphFeatures = { ...opts, userId, time, deepLink, views, live };
 	setGraphFeatures(features);
 
 	deepLink.watch();
@@ -44,6 +50,8 @@ export const installGraphFeatures = (graph: CaseGraphState, opts: InstallOptions
 
 	const cleanups = [
 		time.register(),
+		live.start(),
+		graph.registerToolbarItem({ id: 'presence', component: PresenceList, slot: 'end', order: 0 }),
 		graph.registerToolbarItem({
 			id: 'view-mode',
 			component: ViewModeToggle,
@@ -60,6 +68,8 @@ export const installGraphFeatures = (graph: CaseGraphState, opts: InstallOptions
 		}),
 		graph.registerCanvasOverlay({ id: 'time', component: TimeBar }),
 		graph.registerCanvasOverlay({ id: 'deep-link', component: DeepLinkChip }),
+		graph.registerCanvasOverlay({ id: 'presence', component: PresenceBadges }),
+		graph.registerCanvasOverlay({ id: 'updated', component: UpdatedChip }),
 		graph.registerCanvasOverlay({ id: 'table', component: TableView })
 	];
 

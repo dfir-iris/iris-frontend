@@ -3,6 +3,7 @@ import type { GraphActions } from '../lib/actions';
 import type { GraphTimeControl } from './time.svelte';
 import type { GraphDeepLink } from './deep-link.svelte';
 import type { GraphViewsControl } from './views.svelte';
+import type { GraphLiveControl } from './realtime.svelte';
 
 /**
  * What the feature components (toolbar items, rail panels, overlays) need
@@ -18,6 +19,7 @@ export interface GraphFeatures {
 	time: GraphTimeControl;
 	deepLink: GraphDeepLink;
 	views: GraphViewsControl;
+	live: GraphLiveControl;
 }
 
 const KEY = Symbol('case-graph-features');
