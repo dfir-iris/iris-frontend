@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CyEdgeDef, CyNodeDef } from '$lib/components/common/CytoscapeGraph/types';
+import type { CyElementDef } from '$lib/components/common/CytoscapeGraph/types';
 import type { GraphEdge, GraphNode, WarRoomGraph } from '$lib/types/resources/case-graph';
 import {
 	buildWarRoomElements,
@@ -44,7 +44,13 @@ const edge = (key: string, source: string, target: string, extra: Partial<GraphE
 		id: null,
 		source,
 		target,
-		relation: { id: 1, name: 'connected_to', label: 'Connected to', color: 'slate' },
+		relation: {
+			id: 1,
+			name: 'connected_to',
+			label: 'Connected to',
+			color: 'slate',
+			line_style: 'dashed'
+		},
 		directed: true,
 		label: null,
 		description: null,
@@ -63,7 +69,7 @@ const edge = (key: string, source: string, target: string, extra: Partial<GraphE
 
 const sameAs = (source: string, target: string) =>
 	edge(`d:same_as:${source}|${target}`, source, target, {
-		relation: { id: 9, name: 'same_as', label: 'Same as', color: 'slate' },
+		relation: { id: 9, name: 'same_as', label: 'Same as', color: 'slate', line_style: 'dashed' },
 		directed: false,
 		origin: 'cross_case',
 		case_id: undefined
@@ -102,7 +108,7 @@ const fixture = () =>
 	);
 
 const find = (els: ReturnType<typeof buildWarRoomElements>['elements'], id: string) =>
-	els.find((e) => e.data.id === id) as (CyNodeDef & CyEdgeDef) | undefined;
+	els.find((e) => e.data.id === id) as CyElementDef | undefined;
 
 describe('keys', () => {
 	it('parses prefixed and case keys', () => {

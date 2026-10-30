@@ -184,7 +184,7 @@ export const buildWarRoomElements = (input: WarRoomElementsInput): WarRoomElemen
 	const out = buildElements({
 		nodes,
 		edges,
-		visibility: { nodes: keys, edges: new Set(edges.map((e) => e.key)) },
+		visibility: { nodes: keys, edges: new Set(edges.map((e) => e.key)), offCanvas: new Set() },
 		pinned: new Set(),
 		positions: {},
 		bundleEdges: input.bundleEdges ?? true,
