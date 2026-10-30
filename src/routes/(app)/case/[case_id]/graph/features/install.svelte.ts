@@ -10,6 +10,9 @@ import { GraphTimeControl } from './time.svelte';
 import { GraphDeepLink } from './deep-link.svelte';
 import { GraphViewsControl } from './views.svelte';
 import { GraphLiveControl } from './realtime.svelte';
+import { GraphInsights } from './insights.svelte';
+import { registerInsightPanels } from './insights/panels';
+import InsightsMenu from './insights/InsightsMenu.svelte';
 import ViewsMenu from './views/ViewsMenu.svelte';
 import TimeButton from './time/TimeButton.svelte';
 import TimeBar from './time/TimeBar.svelte';
@@ -42,7 +45,12 @@ export const installGraphFeatures = (graph: CaseGraphState, opts: InstallOptions
 
 	const live = new GraphLiveControl(graph, { userId, onViewsChanged: () => views.refreshList() });
 
-	const features: GraphFeatures = { ...opts, userId, time, deepLink, views, live };
+	const insights = new GraphInsights(graph, {
+		canEdit: opts.canEdit,
+		viewName: () => views.current?.name ?? null
+	});
+
+	const features: GraphFeatures = { ...opts, userId, time, deepLink, views, live, insights };
 	setGraphFeatures(features);
 
 	deepLink.watch();
@@ -51,6 +59,15 @@ export const installGraphFeatures = (graph: CaseGraphState, opts: InstallOptions
 	const cleanups = [
 		time.register(),
 		live.start(),
+		insights.watch(),
+		// The AI panels follow the runtime config (an LLM may be configured or not).
+		$effect.root(() => {
+			$effect(() => {
+				const offs = registerInsightPanels(graph, insights.llm);
+				return () => offs.forEach((off) => off());
+			});
+		}),
+		graph.registerToolbarItem({ id: 'insights', component: InsightsMenu, slot: 'end', order: 5 }),
 		graph.registerToolbarItem({ id: 'presence', component: PresenceList, slot: 'end', order: 0 }),
 		graph.registerToolbarItem({
 			id: 'view-mode',

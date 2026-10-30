@@ -3,13 +3,13 @@
   and relations, restricted by the same filters and search as the canvas.
 -->
 <script lang="ts">
-	import { tick } from 'svelte';
 	import { CopyIcon, SearchIcon, SplineIcon, XIcon } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { toast } from '$lib/components/ui/toast';
 	import type { CaseGraphState } from '../../lib/graph-state.svelte';
 	import { getGraphFeatures } from '../context';
+	import { locateOnCanvas } from '../locate';
 	import NodesTable from './NodesTable.svelte';
 	import EdgesTable from './EdgesTable.svelte';
 
@@ -25,36 +25,8 @@
 	const edgeCount = $derived(graph.visibility.edges.size);
 
 	/** Back to the canvas with the given objects / relations selected and in view. */
-	const locate = async (nodeKeys: string[], edgeKeys: string[] = []) => {
-		const missing = nodeKeys.filter((k) => !graph.visibility.nodes.has(k));
-		if (missing.length) graph.addToCanvas(missing);
-		graph.viewMode = 'canvas';
-		if (nodeKeys.length === 1 && !edgeKeys.length) graph.rail = { type: 'node', key: nodeKeys[0] };
-		else if (edgeKeys.length === 1 && !nodeKeys.length)
-			graph.rail = { type: 'edge', key: edgeKeys[0] };
-		await tick();
-		// Leave the canvas time to draw the nodes just added.
-		setTimeout(
-			() => {
-				const cy = graph.cy;
-				if (!cy) return;
-				const canvasIds = (keys: string[]) =>
-					[...new Set(keys.map((k) => graph.canvasIdOf(k)))].filter((id): id is string => !!id);
-				const nodeIds = canvasIds(nodeKeys);
-				// Bundled relations are not drawn one by one: fall back to their ends.
-				const edgeIds = edgeKeys.filter((k) => cy.getElementById(k).nonempty());
-				const ends = canvasIds(
-					edgeKeys.flatMap((k) => {
-						const e = graph.edge(k);
-						return e ? [e.source, e.target] : [];
-					})
-				);
-				graph.select(edgeKeys.length ? (edgeIds.length ? edgeIds : ends) : nodeIds);
-				graph.fit([...nodeIds, ...edgeIds, ...ends]);
-			},
-			missing.length ? 350 : 50
-		);
-	};
+	const locate = (nodeKeys: string[], edgeKeys: string[] = []) =>
+		locateOnCanvas(graph, nodeKeys, edgeKeys);
 
 	const copyCsv = async () => {
 		if (!csv) return;
