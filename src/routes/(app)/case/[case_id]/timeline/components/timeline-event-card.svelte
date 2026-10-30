@@ -11,8 +11,10 @@
 		GitBranchPlusIcon,
 		MessageSquareIcon,
 		MoreVerticalIcon,
+		SplineIcon,
 		Trash2Icon
 	} from 'lucide-svelte';
+	import { goto } from '$app/navigation';
 	import type { CaseTimelineEvent } from '$lib/services/case-timeline.service';
 	import type { HookOption } from '$lib/services/hooks.service';
 	import { hookOptionKey } from '$lib/utils/hooks';
@@ -33,7 +35,7 @@
 	import MarkDownPreview from '$lib/components/common/MarkDown/MarkDownPreview.svelte';
 	import Chip from '$lib/components/common/MarkDown/Chip.svelte';
 	import { toast } from '$lib/stores/toast.store';
-	import { getSharedEventId, getSharedEventUrl } from '../helpers';
+	import { getGraphUrlForEvents, getHighlightedEventIds, getSharedEventUrl } from '../helpers';
 	import Highlight from './highlight.svelte';
 
 	type Props = {
@@ -95,7 +97,7 @@
 	);
 	const fullDateLabel = $derived(formatDateTime(event.event_date));
 	const hasChildren = $derived(childCount > 0);
-	const isShared = $derived(event.event_id === getSharedEventId());
+	const isShared = $derived(getHighlightedEventIds().includes(event.event_id));
 
 	const tags = $derived(
 		(event.event_tags ?? '')
@@ -533,6 +535,9 @@
 							</DropdownMenuItem>
 							<DropdownMenuItem onclick={copyMarkdownLink}>
 								<FileSymlinkIcon class="mr-2 size-3.5" /> Markdown link
+							</DropdownMenuItem>
+							<DropdownMenuItem onclick={() => goto(getGraphUrlForEvents([event.event_id]))}>
+								<SplineIcon class="mr-2 size-3.5" /> Show in graph
 							</DropdownMenuItem>
 							{#if canEdit}
 								<DropdownMenuItem onclick={() => onDuplicate(event.event_id)}>

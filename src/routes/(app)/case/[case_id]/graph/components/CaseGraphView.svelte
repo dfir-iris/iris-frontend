@@ -78,6 +78,7 @@
 	import PromoteDialog from './PromoteDialog.svelte';
 	import PasteDialog from './PasteDialog.svelte';
 	import BulkActionDialog, { type BulkAction } from './BulkActionDialog.svelte';
+	import { installGraphFeatures } from '../features/install.svelte';
 
 	interface Props {
 		caseId: number;
@@ -323,6 +324,11 @@
 			if (graph.path.source && graph.path.target) void graph.findPaths();
 		}
 	};
+
+	const uninstallFeatures = untrack(() =>
+		installGraphFeatures(graph, { caseId, canEdit: () => canEdit, actions })
+	);
+	onDestroy(uninstallFeatures);
 
 	const undo = () =>
 		void actions.run(async () => {

@@ -186,6 +186,13 @@ export class CaseGraphState {
 	});
 	selection = $state.raw<string[]>([]);
 	rail = $state<RailTarget | null>(null);
+	/**
+	 * Transient highlight set by features (suggestion hover, gap, deep link);
+	 * wins over the path finder highlight while set.
+	 */
+	preview = $state.raw<{ nodes: Set<string>; edges: Set<string> } | null>(null);
+	/** Canvas, or the nodes / edges table over it (the canvas stays mounted). */
+	viewMode = $state<'canvas' | 'table'>('canvas');
 	/** Neighbourhood expansions to replay on refresh. */
 	expanded = new KeyMap<GraphNodeKey, number>();
 
@@ -257,6 +264,7 @@ export class CaseGraphState {
 	);
 
 	highlight = $derived.by(() => {
+		if (this.preview) return this.preview;
 		const r = this.path.result;
 		if (!r || !r.paths.length) return null;
 		const p = r.paths[Math.min(this.path.active, r.paths.length - 1)];

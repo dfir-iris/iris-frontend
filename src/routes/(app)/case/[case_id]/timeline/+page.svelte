@@ -53,6 +53,7 @@
 	import { parseTimelineCsv, timelineCsvDates } from './csv-import';
 	import CaseWorkspace from '../components/CaseWorkspace.svelte';
 	import type { TimelineFilterData, TimelineFilterFieldValue } from './types';
+	import { getHighlightedEventIds } from './helpers';
 
 	type TimelineGroup = {
 		date: string;
@@ -186,6 +187,19 @@
 		}
 		if (quickSearchMatchIndex >= count) quickSearchMatchIndex = 0;
 		scrollMatchIntoView(quickSearchMatches[quickSearchMatchIndex]);
+	});
+
+	// Events linked from the URL (`sharedEventId`, or `events` from the graph):
+	// scroll the first one into view once it is rendered.
+	let linkedEventScrolled = false;
+	$effect(() => {
+		if (linkedEventScrolled) return;
+		const ids = getHighlightedEventIds();
+		if (!ids.length) return;
+		const first = filteredEvents.find((e) => ids.includes(e.event_id));
+		if (!first) return;
+		linkedEventScrolled = true;
+		scrollMatchIntoView(first.event_id);
 	});
 
 	const scrollMatchIntoView = (eventId: number) => {

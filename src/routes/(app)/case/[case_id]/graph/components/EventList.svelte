@@ -1,8 +1,9 @@
 <!-- Supporting timeline events, each linking to the event on the timeline. -->
 <script lang="ts">
-	import { CalendarClockIcon } from 'lucide-svelte';
+	import { CalendarClockIcon, SquareArrowOutUpRightIcon } from 'lucide-svelte';
 	import type { GraphEvent } from '$lib/types/resources/case-graph';
 	import { formatDateTime } from '$lib/utils/time-formatter';
+	import { timelineEventsUrl } from '$lib/utils/graph-links';
 	import { timelineEventUrl } from '../lib/model';
 
 	interface Props {
@@ -23,11 +24,20 @@
 		)
 	);
 	const shown = $derived(showAll ? sorted : sorted.slice(0, limit));
+	const allIds = $derived([...sorted.map((e) => e.event_id), ...missing]);
 </script>
 
 {#if !events.length && !missing.length}
 	<p class="text-xs text-muted-foreground">No supporting event.</p>
 {:else}
+	{#if allIds.length > 1}
+		<a
+			href={timelineEventsUrl(caseId, allIds)}
+			class="mb-1 inline-flex items-center gap-1 text-xs text-primary underline-offset-2 hover:underline"
+		>
+			<SquareArrowOutUpRightIcon class="h-3 w-3" />Open the {allIds.length} events in the timeline
+		</a>
+	{/if}
 	<ul class="space-y-1">
 		{#each shown as ev (ev.event_id)}
 			<li>

@@ -6,6 +6,7 @@
 		FlagIcon,
 		ListTodoIcon,
 		PinIcon,
+		SquareArrowOutUpRightIcon,
 		TagIcon,
 		Trash2Icon
 	} from 'lucide-svelte';
@@ -13,6 +14,7 @@
 	import type { GraphEdge, GraphNode } from '$lib/types/resources/case-graph';
 	import type { CaseGraphState } from '../lib/graph-state.svelte';
 	import type { GraphActions } from '../lib/actions';
+	import { timelineEventsUrl } from '$lib/utils/graph-links';
 	import { isFanId, isBundleId } from '../lib/elements';
 	import { isStoredEdge, KIND_LABEL } from '../lib/model';
 	import NodeKindIcon from './NodeKindIcon.svelte';
@@ -54,6 +56,13 @@
 			}, {})
 		)
 	);
+	/** Timeline events behind the selection: selected events and supporting events. */
+	const eventIds = $derived.by(() => {
+		const ids = new Set<number>();
+		for (const n of nodes) if (n.kind === 'event') ids.add(n.id);
+		for (const e of edges) e.event_ids.forEach((id) => ids.add(id));
+		return [...ids].sort((a, b) => a - b);
+	});
 	const hasAssets = $derived(nodes.some((n) => n.kind === 'asset'));
 	const hasTaggable = $derived(nodes.some((n) => n.kind === 'asset' || n.kind === 'ioc'));
 
@@ -143,6 +152,18 @@
 			{/if}
 		{/if}
 	</div>
+
+	{#if eventIds.length}
+		<a
+			href={timelineEventsUrl(graph.caseId, eventIds)}
+			class="inline-flex items-center gap-1 text-xs text-primary underline-offset-2 hover:underline"
+		>
+			<SquareArrowOutUpRightIcon class="h-3 w-3" />Open the {eventIds.length} supporting event{eventIds.length >
+			1
+				? 's'
+				: ''} in the timeline
+		</a>
+	{/if}
 
 	<ul class="max-h-[50vh] space-y-0.5 overflow-y-auto">
 		{#each nodes as n (n.key)}
