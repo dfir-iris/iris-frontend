@@ -8,6 +8,7 @@
 		FileSymlinkIcon,
 		FlagIcon,
 		ForwardIcon,
+		MoveRightIcon,
 		GitBranchPlusIcon,
 		MessageSquareIcon,
 		MoreVerticalIcon,
@@ -37,6 +38,7 @@
 	import { toast } from '$lib/stores/toast.store';
 	import { getGraphUrlForEvents, getHighlightedEventIds, getSharedEventUrl } from '../helpers';
 	import Highlight from './highlight.svelte';
+	import { eventFlow, formatEventFlow } from '$lib/utils/event-roles';
 
 	type Props = {
 		event: CaseTimelineEvent;
@@ -97,6 +99,8 @@
 	);
 	const fullDateLabel = $derived(formatDateTime(event.event_date));
 	const hasChildren = $derived(childCount > 0);
+	// Direction given by the graph roles of the links (`WS01 → DC01`).
+	const flow = $derived(eventFlow(event.assets, event.iocs));
 	const isShared = $derived(getHighlightedEventIds().includes(event.event_id));
 
 	const tags = $derived(
@@ -377,6 +381,16 @@
 						>
 							<MarkDownPreview markdown={event.event_content} />
 						</div>
+					{/if}
+
+					{#if flow}
+						<p
+							class="mt-1.5 flex min-w-0 items-center gap-1 text-2xs text-muted-foreground"
+							title={`Source: ${flow.sources.join(', ') || '—'} · Target: ${flow.targets.join(', ') || '—'}`}
+						>
+							<MoveRightIcon class="h-3 w-3 shrink-0 text-orange-500 dark:text-orange-400" />
+							<span class="truncate font-medium text-foreground/80">{formatEventFlow(flow)}</span>
+						</p>
 					{/if}
 
 					{#if (event.assets?.length ?? 0) > 0 || (event.iocs?.length ?? 0) > 0 || tags.length > 0}

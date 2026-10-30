@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { CaseTimelineEvent } from '$lib/services/case-timeline.service';
+	import type { CaseTimelineEvent, EventLinkRole } from '$lib/services/case-timeline.service';
 	import type { CaseTimeline } from '$lib/services/case-timelines.service';
 	import type { EventCategory } from '$lib/services/event-categories.service';
 	import type { Asset } from '$lib/types/resources/asset';
@@ -19,6 +19,7 @@
 	} from '$lib/stores/custom-attributes.store.svelte';
 	import { onMount } from 'svelte';
 	import { nowEventDateTime } from '../event-datetime';
+	import EventLinkRoles from './event-link-roles.svelte';
 
 	onMount(() => {
 		void ensureHasCustomAttributes('event');
@@ -37,6 +38,10 @@
 		parent_event_id: number | null;
 		event_assets: number[];
 		event_iocs: number[];
+		// Investigation graph role of each linked asset / IOC (`involved`
+		// when absent).
+		event_assets_roles: Record<number, EventLinkRole>;
+		event_iocs_roles: Record<number, EventLinkRole>;
 		event_in_summary: boolean;
 		event_in_graph: boolean;
 		event_sync_iocs_assets: boolean;
@@ -48,7 +53,7 @@
 		custom_attributes: Record<string, Record<string, unknown>>;
 	};
 
-	type FieldValue = string | number | boolean | number[] | null;
+	type FieldValue = string | number | boolean | number[] | Record<number, EventLinkRole> | null;
 
 	type Props = {
 		data: TimelineEventFormData;
@@ -152,6 +157,11 @@
 			label: ioc.ioc_value
 		}))
 	);
+
+	const assetLabel = (id: number) =>
+		assets.find((a) => a.asset_id === id)?.asset_name ?? `Asset #${id}`;
+
+	const iocLabel = (id: number) => iocs.find((i) => i.ioc_id === id)?.ioc_value ?? `IOC #${id}`;
 
 	const colorOptions = [
 		'#1572E899',
@@ -416,6 +426,13 @@
 						onChange={(value) => onUpdateField('event_assets', (value as string[]).map(Number))}
 					/>
 				</div>
+				<EventLinkRoles
+					ids={data.event_assets}
+					roles={data.event_assets_roles}
+					labelOf={assetLabel}
+					noun="asset"
+					onChange={(roles) => onUpdateField('event_assets_roles', roles)}
+				/>
 			</div>
 
 			<div class="rounded-lg bg-card/40 p-4">
@@ -461,6 +478,13 @@
 						onChange={(value) => onUpdateField('event_iocs', (value as string[]).map(Number))}
 					/>
 				</div>
+				<EventLinkRoles
+					ids={data.event_iocs}
+					roles={data.event_iocs_roles}
+					labelOf={iocLabel}
+					noun="IOC"
+					onChange={(roles) => onUpdateField('event_iocs_roles', roles)}
+				/>
 			</div>
 
 			{#if timelines.length > 0}
@@ -482,6 +506,13 @@
 						/>
 					</div>
 				</div>
+			{/if}
+
+			{#if data.event_assets.length || data.event_iocs.length}
+				<p class="-mt-3 text-2xs text-muted-foreground md:col-span-2">
+					Roles give the event a direction in the investigation graph: with at least one source and
+					one target, each source is linked to each target and involved objects to both sides.
+				</p>
 			{/if}
 		</div>
 	</section>
