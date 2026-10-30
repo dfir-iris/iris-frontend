@@ -9,15 +9,27 @@
   - Cytoscape is imported on mount only (SSR-safe).
   - `onReady(cy)` hands out the instance for imperative work (layouts,
     export, viewport). It is called with `null` on destroy.
+  - `clickToUse` gates wheel zoom behind a click so a graph embedded in a
+    scrollable page never hijacks page scrolling (see `zoom-gate.ts`).
+  - `nodeTooltip` renders a hover card next to the pointer.
 -->
 <script lang="ts">
 	import { onMount, type Snippet } from 'svelte';
 	import { mode } from 'mode-watcher';
-	import type { Core, EventObject, NodeSingular, EdgeSingular, Position } from 'cytoscape';
+	import type {
+		Core,
+		EventObject,
+		NodeSingular,
+		EdgeSingular,
+		Position,
+		SelectionType
+	} from 'cytoscape';
 	import { loadCytoscape } from './loader';
 	import { applyDiff, diffElements, snapshotOf, type CySnapshot } from './diff';
 	import { cyTheme, defaultStylesheet } from './stylesheet';
 	import { runLayout, type CyLayoutName } from './layouts';
+	import { bindZoomGate, createZoomGate } from './zoom-gate';
+	import { tooltipPlacement } from './tooltip';
 	import type {
 		CyElementDef,
 		CyPointerEvent,
@@ -39,6 +51,19 @@
 		maxZoom?: number;
 		wheelSensitivity?: number;
 		boxSelectionEnabled?: boolean;
+		/** `single`: a tap selects only the tapped element. */
+		selectionType?: SelectionType;
+		/**
+		 * Wheel zoom stays off until the canvas is clicked or focused, and is
+		 * released when the pointer leaves — for graphs embedded in scrollable
+		 * pages.
+		 */
+		clickToUse?: boolean;
+		/** Hover card for a node, shown after `tooltipDelay` ms. */
+		nodeTooltip?: Snippet<[NodeSingular]>;
+		/** Restrict `nodeTooltip` to some nodes (all by default). */
+		nodeTooltipEnabled?: (node: NodeSingular) => boolean;
+		tooltipDelay?: number;
 		/** Nodes cannot be dragged. */
 		readOnly?: boolean;
 		/** Classes the component itself toggles and diffing must keep. */
@@ -60,6 +85,11 @@
 		maxZoom = 4,
 		wheelSensitivity = 0.3,
 		boxSelectionEnabled = true,
+		selectionType = 'additive',
+		clickToUse = false,
+		nodeTooltip,
+		nodeTooltipEnabled,
+		tooltipDelay = 120,
 		readOnly = false,
 		preserveClasses = [],
 		class: className = '',
@@ -73,6 +103,23 @@
 	let cy = $state<Core | null>(null);
 	let snapshot = new Map<string, CySnapshot>();
 	let firstRender = true;
+	let zoomActive = $state(false);
+	let tip = $state.raw<{ node: NodeSingular; x: number; y: number } | null>(null);
+	let tipTimer: ReturnType<typeof setTimeout> | undefined;
+
+	const hideTip = () => {
+		clearTimeout(tipTimer);
+		tip = null;
+	};
+
+	const tipStyle = $derived.by(() => {
+		if (!tip || !container) return '';
+		const { left, top, transform } = tooltipPlacement(
+			{ x: tip.x, y: tip.y },
+			{ width: container.clientWidth, height: container.clientHeight }
+		);
+		return `left:${left}px;top:${top}px;transform:${transform};`;
+	});
 
 	const isDark = $derived(theme === 'auto' ? $mode === 'dark' : theme === 'dark');
 
@@ -132,7 +179,7 @@
 				maxZoom,
 				wheelSensitivity,
 				boxSelectionEnabled,
-				selectionType: 'additive',
+				selectionType,
 				autoungrabify: readOnly
 			});
 			const c = instance;
@@ -156,11 +203,20 @@
 				const n = evt.target as NodeSingular;
 				n.addClass('hover');
 				handlers.onHoverNode?.(n, pointer(evt, n));
+				clearTimeout(tipTimer);
+				if (nodeTooltip && (nodeTooltipEnabled?.(n) ?? true)) {
+					const at = evt.renderedPosition ?? n.renderedPosition();
+					tipTimer = setTimeout(() => {
+						if (!destroyed && n.inside()) tip = { node: n, x: at.x, y: at.y };
+					}, tooltipDelay);
+				}
 			});
 			c.on('mouseout', 'node', (evt) => {
 				(evt.target as NodeSingular).removeClass('hover');
 				handlers.onHoverNode?.(null);
+				hideTip();
 			});
+			c.on('tapstart cxttapstart grab viewport remove', hideTip);
 			c.on('mouseover', 'edge', (evt) => {
 				const e = evt.target as EdgeSingular;
 				e.addClass('hover');
@@ -221,6 +277,7 @@
 
 		return () => {
 			destroyed = true;
+			hideTip();
 			clearTimeout(viewportTimer);
 			observer?.disconnect();
 			instance?.destroy();
@@ -261,15 +318,61 @@
 	$effect(() => {
 		cy?.boxSelectionEnabled(boxSelectionEnabled);
 	});
+
+	$effect(() => {
+		cy?.selectionType(selectionType);
+	});
+
+	// Click-to-use: wheel zoom only once the user has clicked into the canvas.
+	$effect(() => {
+		if (!cy || !container || !clickToUse) return;
+		const c = cy;
+		const gate = createZoomGate(c, (active) => (zoomActive = active));
+		const unbind = bindZoomGate(container, gate);
+		return () => {
+			unbind();
+			zoomActive = false;
+			if (!c.destroyed()) c.userZoomingEnabled(true);
+		};
+	});
 </script>
 
-<div class="relative h-full w-full {className}">
+<div
+	class="group/cy relative h-full w-full {className}"
+	data-testid="cytoscape-graph"
+	data-ready={cy ? 'true' : 'false'}
+	data-zoom-active={clickToUse ? String(zoomActive) : undefined}
+>
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 	<div
 		bind:this={container}
-		class="absolute inset-0"
+		class="absolute inset-0 rounded-[inherit] outline-none {clickToUse && zoomActive
+			? 'ring-2 ring-inset ring-primary/40'
+			: ''}"
 		role="application"
 		aria-label="Graph canvas"
+		tabindex={clickToUse ? 0 : undefined}
+		data-testid="cytoscape-canvas"
 		oncontextmenu={(e) => e.preventDefault()}
 	></div>
+	{#if clickToUse && !zoomActive}
+		<!-- Signals that zooming needs a click; clicks still reach the canvas. -->
+		<div
+			class="pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full border bg-background px-2 py-0.5 text-2xs text-muted-foreground opacity-0 transition-opacity duration-150 group-hover/cy:opacity-100"
+			data-testid="cytoscape-click-to-use"
+		>
+			Click to zoom
+		</div>
+	{/if}
+	{#if nodeTooltip && tip}
+		<div
+			class="pointer-events-none absolute z-30 max-w-72 rounded-md border bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-md"
+			style={tipStyle}
+			role="tooltip"
+			data-testid="cytoscape-tooltip"
+		>
+			{@render nodeTooltip(tip.node)}
+		</div>
+	{/if}
 	{@render children?.()}
 </div>

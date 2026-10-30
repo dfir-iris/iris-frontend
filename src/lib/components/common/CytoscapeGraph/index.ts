@@ -9,4 +9,6 @@ export * from './icons';
 export * from './stylesheet';
 export * from './export';
 export * from './minimap';
+export * from './zoom-gate';
+export * from './tooltip';
 export { loadCytoscape } from './loader';
