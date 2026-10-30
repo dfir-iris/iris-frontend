@@ -101,6 +101,14 @@ describe('CaseGraphService', () => {
 			expect(mocked.post).toHaveBeenCalledWith('/api/v2/cases/3/graph/edges', body, opts);
 		});
 
+		it('edgeTimelineEvents() sends both node keys', async () => {
+			await CaseGraphService.edgeTimelineEvents(3, 'asset:4', 'ioc:12', opts);
+			expect(mocked.get).toHaveBeenCalledWith(
+				'/api/v2/cases/3/graph/edges/timeline-events?source=asset%3A4&target=ioc%3A12',
+				opts
+			);
+		});
+
 		it('updateEdge() PUTs on the edge id', async () => {
 			await CaseGraphService.updateEdge(3, 57, { confidence: 80 }, opts);
 			expect(mocked.put).toHaveBeenCalledWith(

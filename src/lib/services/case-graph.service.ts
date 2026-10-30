@@ -10,6 +10,7 @@ import type {
 	GraphAiSuggestionsResult,
 	GraphDismissSuggestionsResult,
 	GraphEdge,
+	GraphEdgeTimelineEvent,
 	GraphExplainBody,
 	GraphExplainResult,
 	GraphExportFormat,
@@ -97,6 +98,18 @@ export class CaseGraphService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<GraphEdge>> {
 		return ApiService.post<GraphEdge>(`${graphPath(caseId)}/edges`, body, options);
+	}
+
+	static edgeTimelineEvents(
+		caseId: number,
+		source: GraphNodeKey,
+		target: GraphNodeKey,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<GraphEdgeTimelineEvent[]>> {
+		return ApiService.get<GraphEdgeTimelineEvent[]>(
+			ApiService.withQuery(`${graphPath(caseId)}/edges/timeline-events`, { source, target }),
+			options
+		);
 	}
 
 	static updateEdge(

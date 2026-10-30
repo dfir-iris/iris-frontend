@@ -898,6 +898,13 @@ export class CaseGraphState {
 				'Could not create the relation.'
 			);
 			const originalId = created.id as number;
+			// Redo cites the timeline event created the first time rather than
+			// recording another one.
+			const replay: CreateGraphEdgeBody = { ...body };
+			if (created.timeline_event_id !== undefined) {
+				delete replay.timeline_event;
+				replay.event_ids = [...(body.event_ids ?? []), created.timeline_event_id];
+			}
 			this.history.push({
 				label,
 				undo: async () => {
@@ -910,7 +917,7 @@ export class CaseGraphState {
 				redo: async () => {
 					const again = unwrap(
 						await CaseGraphService.createEdge(this.caseId, {
-							...body,
+							...replay,
 							source: this.resolveKey(body.source),
 							target: this.resolveKey(body.target)
 						}),

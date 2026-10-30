@@ -138,6 +138,8 @@ export interface GraphEdge {
 	custom_attributes?: Record<string, unknown> | null;
 	/** War-room graph: case the edge belongs to. */
 	case_id?: number | null;
+	/** `POST /graph/edges` with `timeline_event`: the event created. */
+	timeline_event_id?: number;
 }
 
 export interface GraphEvent {
@@ -255,9 +257,40 @@ export interface CreateGraphEdgeBody {
 	tlp_id?: number | null;
 	event_ids?: number[];
 	custom_attributes?: Record<string, unknown> | null;
+	/** Also record the relation as a timeline event linking the endpoints. */
+	timeline_event?: GraphTimelineEventFields;
 }
 
-export type UpdateGraphEdgeBody = Partial<Omit<CreateGraphEdgeBody, 'source' | 'target'>> & {
+/** Fields of the timeline event recording a new relation; its asset / IOC
+ * links (and their roles) are set by the backend from the endpoints. */
+export interface GraphTimelineEventFields {
+	event_title: string;
+	/** `YYYY-MM-DDTHH:mm:ss.SSS`, without offset. */
+	event_date: string;
+	/** `+HH:MM`. */
+	event_tz: string;
+	event_category_id: number;
+	event_content?: string;
+}
+
+/** `GET /graph/edges/timeline-events`: an event already recording a link
+ * between two nodes — linked to both, or cited by a stored edge between them. */
+export interface GraphEdgeTimelineEvent {
+	event_id: number;
+	title: string;
+	date: string | null;
+	category: string | null;
+	in_graph: boolean;
+	/** Role of each endpoint in the event, null when not linked to it. */
+	source_role: string | null;
+	target_role: string | null;
+	/** Stored edges between the two nodes citing the event. */
+	edge_keys: string[];
+}
+
+export type UpdateGraphEdgeBody = Partial<
+	Omit<CreateGraphEdgeBody, 'source' | 'target' | 'timeline_event'>
+> & {
 	review_state?: GraphReviewState;
 };
 

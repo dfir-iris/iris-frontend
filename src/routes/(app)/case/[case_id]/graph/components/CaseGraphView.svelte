@@ -73,6 +73,7 @@
 	import ConnectHandle from './ConnectHandle.svelte';
 	import ObjectPickerDialog from './ObjectPickerDialog.svelte';
 	import NewRelationDialog from './NewRelationDialog.svelte';
+	import type { RelationTimelineChoice } from '../lib/relation-timeline';
 	import type { RelationFormValues } from './RelationForm.svelte';
 	import FreeNodeDialog from './FreeNodeDialog.svelte';
 	import PromoteDialog from './PromoteDialog.svelte';
@@ -380,7 +381,7 @@
 		}
 	};
 
-	const onRelation = async (v: RelationFormValues) => {
+	const onRelation = async (v: RelationFormValues, timeline: RelationTimelineChoice) => {
 		const pair = relationPair;
 		if (!pair) return;
 		const [source, target] = v.swapped ? [pair.target, pair.source] : [pair.source, pair.target];
@@ -390,14 +391,21 @@
 			directed: v.directed,
 			label: v.label.trim() || null,
 			description: v.description.trim() || null,
-			confidence: v.confidence
+			confidence: v.confidence,
+			...timeline
 		};
 		if (v.relationTypeId !== null) body.relation_type_id = v.relationTypeId;
 		else body.relation = v.relationName;
 		// Errors propagate to the form, which keeps the dialog open.
 		const edge = await graph.createEdge(body);
 		graph.rail = { type: 'edge', key: edge.key };
-		toast({ title: 'Relation created', variant: 'success' });
+		toast({
+			title:
+				edge.timeline_event_id !== undefined
+					? 'Relation created and recorded in the timeline'
+					: 'Relation created',
+			variant: 'success'
+		});
 	};
 
 	// -----------------------------------------------------------------------
@@ -1220,7 +1228,10 @@
 
 <NewRelationDialog
 	bind:open={relationOpen}
+	caseId={graph.caseId}
 	relationTypes={graph.relationTypes}
+	source={relationPair?.source}
+	target={relationPair?.target}
 	sourceLabel={nodeLabel(relationPair?.source)}
 	targetLabel={nodeLabel(relationPair?.target)}
 	onSubmit={onRelation}

@@ -276,6 +276,37 @@ describe('CaseGraphState operations with undo / redo', () => {
 		expect(svc.deleteEdge).toHaveBeenLastCalledWith(7, 21);
 	});
 
+	it('redoes an edge recorded in the timeline by citing its event', async () => {
+		const s = await makeState();
+		svc.createEdge
+			.mockImplementationOnce(() =>
+				ok({ ...edge('ioc:3', 'asset:1', { id: 20 }), timeline_event_id: 90 }, 201)
+			)
+			.mockImplementationOnce(() => ok(edge('ioc:3', 'asset:1', { id: 21 }), 201));
+		svc.deleteEdge.mockImplementation(() => ok(null, 204));
+		const timeline_event = {
+			event_title: 'IOC beacons to asset',
+			event_date: '2026-10-30T14:05:00.000',
+			event_tz: '+00:00',
+			event_category_id: 1
+		};
+		await s.createEdge({
+			source: 'ioc:3',
+			target: 'asset:1',
+			relation: 'beacons_to',
+			event_ids: [5],
+			timeline_event
+		});
+		await s.undo();
+		await s.redo();
+		expect(svc.createEdge).toHaveBeenLastCalledWith(7, {
+			source: 'ioc:3',
+			target: 'asset:1',
+			relation: 'beacons_to',
+			event_ids: [5, 90]
+		});
+	});
+
 	it('restores the previous values when undoing an edit', async () => {
 		const s = await makeState();
 		svc.updateEdge.mockImplementation(() => ok(edge('node:4', 'asset:1', { id: 11 })));

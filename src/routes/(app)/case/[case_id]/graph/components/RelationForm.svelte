@@ -1,6 +1,7 @@
 <!--
   Relation fields shared by the "new relation" dialog and the edge editor:
-  relation type, direction, label, confidence, description.
+  relation type, direction, label, confidence, description. `extra` adds
+  fields of the caller below them.
 -->
 <script lang="ts" module>
 	export interface RelationFormValues {
@@ -13,10 +14,19 @@
 		/** Source and target were swapped by the user. */
 		swapped: boolean;
 	}
+
+	/** Current state of the form, for the `extra` fields. */
+	export interface RelationFormContext {
+		from: string;
+		to: string;
+		relationName: string;
+		relationLabel: string;
+		directed: boolean;
+	}
 </script>
 
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 	import { mode } from 'mode-watcher';
 	import { ArrowLeftRightIcon, ArrowRightIcon, MinusIcon } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -33,6 +43,7 @@
 		/** Edge editor: direction can also be reversed. */
 		allowSwap?: boolean;
 		submitLabel?: string;
+		extra?: Snippet<[RelationFormContext]>;
 		onSubmit: (values: RelationFormValues) => void | Promise<void>;
 		onCancel?: () => void;
 	}
@@ -44,6 +55,7 @@
 		initial = {},
 		allowSwap = true,
 		submitLabel = 'Save',
+		extra,
 		onSubmit,
 		onCancel
 	}: Props = $props();
@@ -214,6 +226,15 @@
 		<span>Description</span>
 		<Textarea bind:value={description} rows={2} />
 	</label>
+	{#if extra}
+		{@render extra({
+			from,
+			to,
+			relationName: selected?.name ?? '',
+			relationLabel: label.trim() || selected?.label || '',
+			directed
+		})}
+	{/if}
 	{#if error}
 		<p class="text-xs text-destructive" role="alert">{error}</p>
 	{/if}
