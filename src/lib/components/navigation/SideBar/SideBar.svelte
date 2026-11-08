@@ -5,16 +5,15 @@
 	import UserMenu from './UserMenu.svelte';
 	import SideNav from './SideNav.svelte';
 
-	let hovered = $state(false);
-
 	const userCtx = getContext<UserCtx>(USER_CTX);
 
 	// The collapsed state lives on the user row (User.has_mini_sidebar)
 	// so it survives logout / device-switch. We read it from the user
 	// context once it's `ready`; before that we default to expanded so
-	// the rail doesn't flash mini-then-expanded on first paint.
+	// the rail doesn't flash mini-then-expanded on first paint. Only the
+	// menu button unfolds it — hovering the rail does not.
 	const collapsed = $derived<boolean>(userCtx.ctx?.preferences?.has_mini_sidebar ?? false);
-	const isCollapsed = () => (collapsed ? !hovered : collapsed);
+	const isCollapsed = () => collapsed;
 	const irisVersion = $derived(userCtx.ctx?.iris_version ?? '');
 	const organisationName = $derived(userCtx.ctx?.organisation_name?.trim() ?? '');
 
@@ -38,20 +37,18 @@
 			</a>
 		{/if}
 
-		<div
+		<button
+			type="button"
 			class="mx-1 flex items-center justify-center text-white/70 transition-colors hover:text-white"
+			onclick={toggleCollapsed}
+			aria-label={collapsed ? 'Unfold the menu' : 'Fold the menu'}
+			title={collapsed ? 'Unfold the menu' : 'Fold the menu'}
 		>
-			<MenuIcon class="size-5 cursor-pointer" onclick={toggleCollapsed} />
-		</div>
+			<MenuIcon class="size-5" />
+		</button>
 	</div>
 
-	<div
-		class="flex min-h-0 flex-1 flex-col border-r border-[hsl(var(--sidebar-border))] px-3"
-		onmouseenter={() => (hovered = true)}
-		onmouseleave={() => (hovered = false)}
-		role="button"
-		tabindex="0"
-	>
+	<div class="flex min-h-0 flex-1 flex-col border-r border-[hsl(var(--sidebar-border))] px-3">
 		<div class="min-h-0 flex-1 overflow-y-auto">
 			<div class="border-b border-[hsl(var(--sidebar-border))] py-3">
 				<UserMenu collapsed={isCollapsed()} />
@@ -66,7 +63,7 @@
 		  Organisation and running IRIS version. Outside the nav's scroll
 		  area so they stay on screen on every page, however tall the menu
 		  gets. Hidden in collapsed mode — the rail is too narrow for
-		  legible text and the user can already hover to expand.
+		  legible text.
 		-->
 		{#if !isCollapsed() && (organisationName || irisVersion)}
 			<div
