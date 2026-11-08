@@ -26,7 +26,17 @@ export function initSentry(config: RuntimeErrorReporting): boolean {
 		release: config.release,
 		sampleRate: config.sample_rate,
 		tracesSampleRate: 0,
-		sendDefaultPii: false,
+		// SDK v11 replaced `sendDefaultPii: false` with `dataCollection`,
+		// whose defaults collect everything. Keep the old posture: no
+		// user/IP, cookies, HTTP bodies (case data, login credentials)
+		// or local variables. Headers and query strings still go out,
+		// redacted by `beforeSend`.
+		dataCollection: {
+			userInfo: false,
+			cookies: false,
+			httpBodies: [],
+			stackFrameVariables: false
+		},
 		maxBreadcrumbs: 30,
 		attachStacktrace: true,
 		beforeSend,

@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import { sveltekit } from '@sveltejs/kit/vite';
-import { sentrySvelteKit } from '@sentry/sveltekit';
+import { sentrySvelteKit } from '@sentry/sveltekit/vite';
 
 // `VITE_ALLOWED_HOSTS` lets the operator open the dev server to extra
 // hostnames without editing this file:
@@ -54,18 +54,16 @@ export default defineConfig({
 						// hooks.server.ts already; this plugin is here purely for
 						// the source maps.
 						autoInstrument: false,
-						sourceMapsUploadOptions: {
-							authToken: sentryAuthToken,
-							org: sentryOrg,
-							project: sentryProject,
-							url: process.env.SENTRY_URL,
-							// Must match the `release` the SDK reports at runtime
-							// (runtime-config supplies it), or the uploaded maps
-							// won't be matched against incoming events.
-							release: { name: process.env.SENTRY_RELEASE },
-							sourcemaps: {
-								filesToDeleteAfterUpload: ['./.svelte-kit/output/**/*.map']
-							}
+						authToken: sentryAuthToken,
+						org: sentryOrg,
+						project: sentryProject,
+						sentryUrl: process.env.SENTRY_URL,
+						// Must match the `release` the SDK reports at runtime
+						// (runtime-config supplies it), or the uploaded maps
+						// won't be matched against incoming events.
+						release: { name: process.env.SENTRY_RELEASE },
+						sourcemaps: {
+							filesToDeleteAfterUpload: ['./.svelte-kit/output/**/*.map']
 						}
 					})
 				]

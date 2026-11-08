@@ -75,7 +75,7 @@
 		"@codemirror/view": "^6.43.14",
 		"@lezer/highlight": "^1.2.5",
 		"@lezer/markdown": "^1.8.0",
-		"@sentry/sveltekit": "^8.47.0",
+		"@sentry/sveltekit": "^11.11.0",
 		"@sveltejs/adapter-node": "^5.2.9",
 		"@sveltejs/adapter-static": "^3.0.6",
 		"@tailwindcss/postcss": "^4.0.8",
