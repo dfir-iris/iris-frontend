@@ -245,9 +245,15 @@
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col">
+	<!--
+	  The search bar may grow a message line under it, so the row aligns
+	  to the top and every other control sits in a band as tall as the bar.
+	-->
 	<div class="flex items-start gap-2 border-b border-border bg-card px-4 py-2">
-		<h2 class="mr-1 shrink-0 text-sm font-semibold leading-8">Timeline</h2>
-		<TimelineLayoutSwitch {layout} onChange={onLayoutChange} />
+		<div class="flex h-10 shrink-0 items-center gap-2">
+			<h2 class="mr-1 text-sm font-semibold">Timeline</h2>
+			<TimelineLayoutSwitch {layout} onChange={onLayoutChange} />
+		</div>
 
 		<LuceneSearchBar
 			class="min-w-0 flex-1"
@@ -260,42 +266,44 @@
 			placeholder="Search events — try  asset:DC01 is:flagged"
 		/>
 
-		<TimelineTimeRangePicker range={search.range} onChange={setRange} />
+		<div class="flex h-10 shrink-0 items-center gap-2">
+			<TimelineTimeRangePicker range={search.range} onChange={setRange} />
 
-		<Button
-			variant="outline"
-			size="sm"
-			class="h-8 shrink-0 gap-1.5 text-xs"
-			onclick={toggleOrder}
-			title="Change the order"
-		>
-			<ArrowUpDownIcon class="size-3.5" />
-			{search.order === 'asc' ? 'Oldest first' : 'Newest first'}
-		</Button>
+			<Button
+				variant="outline"
+				size="sm"
+				class="h-8 shrink-0 gap-1.5 text-xs"
+				onclick={toggleOrder}
+				title="Change the order"
+			>
+				<ArrowUpDownIcon class="size-3.5" />
+				{search.order === 'asc' ? 'Oldest first' : 'Newest first'}
+			</Button>
 
-		<Button
-			size="sm"
-			class="h-8 shrink-0 gap-1.5 text-xs"
-			disabled={loading}
-			onclick={() => void search.run()}
-		>
-			<RefreshCwIcon class={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
-			Search
-		</Button>
+			<Button
+				size="sm"
+				class="h-8 shrink-0 gap-1.5 text-xs"
+				disabled={loading}
+				onclick={() => void search.run()}
+			>
+				<RefreshCwIcon class={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
+				Search
+			</Button>
 
-		<DropdownMenu>
-			<DropdownMenuTrigger>
-				<Button variant="ghost" size="icon" class="size-8" aria-label="More">
-					<EllipsisVerticalIcon class="size-4" />
-				</Button>
-			</DropdownMenuTrigger>
-			<DropdownMenuContent align="end">
-				<DropdownMenuItem onclick={onDownloadCsv}>Download results as CSV…</DropdownMenuItem>
-				{#if canEdit}
-					<DropdownMenuItem onclick={onUploadCsv}>Upload CSV of events</DropdownMenuItem>
-				{/if}
-			</DropdownMenuContent>
-		</DropdownMenu>
+			<DropdownMenu>
+				<DropdownMenuTrigger>
+					<Button variant="ghost" size="icon" class="size-8" aria-label="More">
+						<EllipsisVerticalIcon class="size-4" />
+					</Button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end">
+					<DropdownMenuItem onclick={onDownloadCsv}>Download results as CSV…</DropdownMenuItem>
+					{#if canEdit}
+						<DropdownMenuItem onclick={onUploadCsv}>Upload CSV of events</DropdownMenuItem>
+					{/if}
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</div>
 	</div>
 
 	<TimelineHistogram
