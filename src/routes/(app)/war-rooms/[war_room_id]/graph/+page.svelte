@@ -206,7 +206,7 @@
 	);
 </script>
 
-<div class="flex h-full flex-col">
+<div class="flex h-full w-full min-w-0 flex-col">
 	<div class="flex flex-wrap items-center gap-2 border-b px-3 py-2">
 		<div class="relative w-56">
 			<SearchIcon

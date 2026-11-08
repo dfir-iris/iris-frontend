@@ -1,6 +1,13 @@
 <script lang="ts">
 	import { setContext, type Snippet, onDestroy } from 'svelte';
-	import { FilePlusIcon, FolderPlusIcon, FileText, SearchIcon, XIcon } from 'lucide-svelte';
+	import {
+		FilePlusIcon,
+		FolderPlusIcon,
+		FileText,
+		RefreshCwIcon,
+		SearchIcon,
+		XIcon
+	} from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { toast } from '$lib/stores/toast.store';
@@ -93,6 +100,11 @@
 		if (directoryId !== undefined) notes.selectFolder(directoryId);
 		notes.selectNote(noteId);
 		goto(getNoteUrl(noteId));
+	};
+
+	const refreshNotes = async () => {
+		await notes.loadTree();
+		if (searchTerm.trim()) await notes.searchNotes(searchTerm);
 	};
 
 	let contextMenu = $state<ContextMenu>({
@@ -326,6 +338,18 @@
 		>
 			<div class="flex flex-row items-center gap-1 px-3 pb-2 pt-3">
 				<h2 class="w-full text-lg font-semibold">Notes</h2>
+
+				<Button
+					variant="ghost"
+					size="icon"
+					aria-label="Refresh notes"
+					title="Refresh"
+					class="h-8 w-8"
+					disabled={notes.list.status === 'loading'}
+					onclick={refreshNotes}
+				>
+					<RefreshCwIcon class="h-4 w-4 {notes.list.status === 'loading' ? 'animate-spin' : ''}" />
+				</Button>
 
 				{#if canEdit}
 					<Button
