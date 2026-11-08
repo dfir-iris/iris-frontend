@@ -11,10 +11,13 @@
 	With `onDropEvents`, every timeline is a drop target for events
 	dragged from the search view: a plain drop moves them there, an
 	Alt-drop adds them and keeps the timelines they were already on.
+
+	The sidebar folds to a thin rail; whether it is folded is kept in the
+	browser, across cases.
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { Plus, Pencil, Trash2 } from 'lucide-svelte';
+	import { PanelLeftClose, PanelLeftOpen, Plus, Pencil, Trash2 } from 'lucide-svelte';
 	import type { CaseTimeline } from '$lib/services/case-timelines.service';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
@@ -49,6 +52,15 @@
 		onDropEvents,
 		footer
 	}: Props = $props();
+
+	const COLLAPSED_KEY = 'iris.timeline.sidebar-collapsed';
+	let collapsed = $state(globalThis.localStorage?.getItem(COLLAPSED_KEY) === 'true');
+
+	const setCollapsed = (value: boolean) => {
+		collapsed = value;
+		if (value) globalThis.localStorage?.setItem(COLLAPSED_KEY, 'true');
+		else globalThis.localStorage?.removeItem(COLLAPSED_KEY);
+	};
 
 	let dropTargetId = $state<number | null>(null);
 	let dropMode = $state<'move' | 'add'>('move');
@@ -137,188 +149,225 @@
 	};
 </script>
 
-<aside class="flex w-56 shrink-0 flex-col border-r bg-card/40 text-xs" aria-label="Timelines">
-	<header class="flex items-center justify-between gap-2 border-b px-3 py-2">
-		<div class="flex items-center gap-2">
-			<h3 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-				Timelines
-			</h3>
-			{#if timelines.length > 0}
-				<span class="text-2xs tabular-nums text-muted-foreground">{timelines.length}</span>
-			{/if}
-		</div>
-		{#if canEdit}
-			<Button
-				size="icon"
-				variant="ghost"
-				class="h-6 w-6"
-				onclick={() => (addingOpen = !addingOpen)}
-				aria-label="Add timeline"
-			>
-				<Plus size={12} />
-			</Button>
-		{/if}
-	</header>
-
-	{#if addingOpen && canEdit}
-		<div class="flex flex-col gap-2 border-b px-3 py-2">
-			<Input
-				value={newName}
-				oninput={(e) => (newName = (e.target as HTMLInputElement).value)}
-				placeholder="Timeline name"
-				class="h-7 text-xs"
-			/>
-			<div class="flex items-center gap-2">
-				<input
-					type="color"
-					bind:value={newColor}
-					class="h-6 w-8 cursor-pointer rounded border bg-transparent p-0"
-					aria-label="Timeline color"
-				/>
-				<Button
-					size="sm"
-					class="h-7 flex-1 text-xs"
-					disabled={saving || !newName.trim()}
-					onclick={submitCreate}
-				>
-					Create
-				</Button>
-			</div>
-		</div>
-	{/if}
-
-	<div class="flex items-center gap-2 border-b px-3 py-2">
+{#if collapsed}
+	<aside
+		class="flex w-9 shrink-0 flex-col items-center gap-2 border-r bg-card/40 py-2"
+		aria-label="Timelines"
+	>
+		<Button
+			size="icon"
+			variant="ghost"
+			class="h-6 w-6"
+			onclick={() => setCollapsed(false)}
+			aria-label="Show the timelines panel"
+			title="Show the timelines panel"
+		>
+			<PanelLeftOpen size={14} />
+		</Button>
 		<button
 			type="button"
-			class="text-2xs text-muted-foreground transition-colors hover:text-foreground"
-			onclick={onSelectAll}
+			class="text-xs font-semibold uppercase tracking-wider text-muted-foreground [writing-mode:vertical-rl] hover:text-foreground"
+			onclick={() => setCollapsed(false)}
 		>
-			{selectedIds.size === 0 ? 'Showing all' : 'Show all'}
+			Timelines{selectedIds.size ? ` · ${selectedIds.size}` : ''}
 		</button>
-	</div>
-
-	<div class={['overflow-y-auto py-1', footer ? 'max-h-[40%] shrink-0' : 'flex-1']}>
-		{#if loading}
-			<div class="px-3 py-4 text-center text-2xs text-muted-foreground">Loading…</div>
-		{:else if timelines.length === 0}
-			<div class="px-3 py-4 text-center text-2xs text-muted-foreground">No timelines yet.</div>
-		{:else}
-			<ul class="flex flex-col gap-0.5">
-				{#each timelines as t (t.timeline_id)}
-					{@const checked = selectedIds.has(t.timeline_id)}
-					<li
-						class="group"
-						ondragover={(e) => onDragOver(e, t.timeline_id)}
-						ondragleave={(e) => onDragLeave(e, t.timeline_id)}
-						ondrop={(e) => onDrop(e, t.timeline_id)}
+	</aside>
+{:else}
+	<aside class="flex w-56 shrink-0 flex-col border-r bg-card/40 text-xs" aria-label="Timelines">
+		<header class="flex items-center justify-between gap-2 border-b px-3 py-2">
+			<div class="flex items-center gap-2">
+				<h3 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+					Timelines
+				</h3>
+				{#if timelines.length > 0}
+					<span class="text-2xs tabular-nums text-muted-foreground">{timelines.length}</span>
+				{/if}
+			</div>
+			<div class="flex items-center gap-0.5">
+				{#if canEdit}
+					<Button
+						size="icon"
+						variant="ghost"
+						class="h-6 w-6"
+						onclick={() => (addingOpen = !addingOpen)}
+						aria-label="Add timeline"
 					>
-						{#if editingId === t.timeline_id}
-							<div class="flex flex-col gap-1 px-2 py-1.5">
-								<Input
-									value={editingName}
-									oninput={(e) => (editingName = (e.target as HTMLInputElement).value)}
-									class="h-6 text-xs"
-								/>
-								<div class="flex items-center gap-1">
-									<input
-										type="color"
-										bind:value={editingColor}
-										class="h-6 w-8 cursor-pointer rounded border bg-transparent p-0"
-										aria-label="Timeline color"
+						<Plus size={12} />
+					</Button>
+				{/if}
+				<Button
+					size="icon"
+					variant="ghost"
+					class="h-6 w-6"
+					onclick={() => setCollapsed(true)}
+					aria-label="Hide the timelines panel"
+					title="Hide the timelines panel"
+				>
+					<PanelLeftClose size={12} />
+				</Button>
+			</div>
+		</header>
+
+		{#if addingOpen && canEdit}
+			<div class="flex flex-col gap-2 border-b px-3 py-2">
+				<Input
+					value={newName}
+					oninput={(e) => (newName = (e.target as HTMLInputElement).value)}
+					placeholder="Timeline name"
+					class="h-7 text-xs"
+				/>
+				<div class="flex items-center gap-2">
+					<input
+						type="color"
+						bind:value={newColor}
+						class="h-6 w-8 cursor-pointer rounded border bg-transparent p-0"
+						aria-label="Timeline color"
+					/>
+					<Button
+						size="sm"
+						class="h-7 flex-1 text-xs"
+						disabled={saving || !newName.trim()}
+						onclick={submitCreate}
+					>
+						Create
+					</Button>
+				</div>
+			</div>
+		{/if}
+
+		<div class="flex items-center gap-2 border-b px-3 py-2">
+			<button
+				type="button"
+				class="text-2xs text-muted-foreground transition-colors hover:text-foreground"
+				onclick={onSelectAll}
+			>
+				{selectedIds.size === 0 ? 'Showing all' : 'Show all'}
+			</button>
+		</div>
+
+		<div class={['overflow-y-auto py-1', footer ? 'max-h-[40%] shrink-0' : 'flex-1']}>
+			{#if loading}
+				<div class="px-3 py-4 text-center text-2xs text-muted-foreground">Loading…</div>
+			{:else if timelines.length === 0}
+				<div class="px-3 py-4 text-center text-2xs text-muted-foreground">No timelines yet.</div>
+			{:else}
+				<ul class="flex flex-col gap-0.5">
+					{#each timelines as t (t.timeline_id)}
+						{@const checked = selectedIds.has(t.timeline_id)}
+						<li
+							class="group"
+							ondragover={(e) => onDragOver(e, t.timeline_id)}
+							ondragleave={(e) => onDragLeave(e, t.timeline_id)}
+							ondrop={(e) => onDrop(e, t.timeline_id)}
+						>
+							{#if editingId === t.timeline_id}
+								<div class="flex flex-col gap-1 px-2 py-1.5">
+									<Input
+										value={editingName}
+										oninput={(e) => (editingName = (e.target as HTMLInputElement).value)}
+										class="h-6 text-xs"
 									/>
-									<Button
-										size="sm"
-										class="h-6 flex-1 text-2xs"
-										disabled={saving || !editingName.trim()}
-										onclick={submitEdit}
-									>
-										Save
-									</Button>
-									<Button
-										size="sm"
-										variant="ghost"
-										class="h-6 px-2 text-2xs"
-										disabled={saving}
-										onclick={cancelEdit}
-									>
-										Cancel
-									</Button>
-								</div>
-							</div>
-						{:else}
-							<div
-								class={[
-									'flex items-center gap-2 rounded-sm px-2 py-1 transition-colors hover:bg-muted/50',
-									checked && 'bg-muted',
-									dropTargetId === t.timeline_id && 'bg-primary/15 ring-1 ring-inset ring-primary'
-								]}
-							>
-								<Checkbox
-									{checked}
-									onCheckedChange={() => onToggle(t.timeline_id)}
-									aria-label={`Toggle ${t.name}`}
-								/>
-								{#if t.color}
-									<span
-										class="h-2 w-2 shrink-0 rounded-full"
-										style={`background-color: ${t.color};`}
-										aria-hidden="true"
-									></span>
-								{/if}
-								<span class="min-w-0 flex-1 truncate" title={t.name}>{t.name}</span>
-								{#if dropTargetId === t.timeline_id}
-									<span class="shrink-0 text-[9px] uppercase tracking-wider text-primary">
-										{dropMode === 'add' ? 'Add' : 'Move'}
-									</span>
-								{/if}
-								{#if t.is_default}
-									<span
-										class="shrink-0 rounded border border-border bg-muted/60 px-1 text-[9px] uppercase tracking-wider text-muted-foreground"
-									>
-										Default
-									</span>
-								{/if}
-								{#if canEdit}
-									<div class="hidden shrink-0 items-center gap-0.5 group-hover:flex">
+									<div class="flex items-center gap-1">
+										<input
+											type="color"
+											bind:value={editingColor}
+											class="h-6 w-8 cursor-pointer rounded border bg-transparent p-0"
+											aria-label="Timeline color"
+										/>
 										<Button
-											size="icon"
-											variant="ghost"
-											class="h-5 w-5"
-											onclick={() => startEdit(t)}
-											aria-label={`Edit ${t.name}`}
+											size="sm"
+											class="h-6 flex-1 text-2xs"
+											disabled={saving || !editingName.trim()}
+											onclick={submitEdit}
 										>
-											<Pencil size={10} />
+											Save
 										</Button>
-										{#if !t.is_default}
+										<Button
+											size="sm"
+											variant="ghost"
+											class="h-6 px-2 text-2xs"
+											disabled={saving}
+											onclick={cancelEdit}
+										>
+											Cancel
+										</Button>
+									</div>
+								</div>
+							{:else}
+								<div
+									class={[
+										'flex items-center gap-2 rounded-sm px-2 py-1 transition-colors hover:bg-muted/50',
+										checked && 'bg-muted',
+										dropTargetId === t.timeline_id && 'bg-primary/15 ring-1 ring-inset ring-primary'
+									]}
+								>
+									<Checkbox
+										{checked}
+										onCheckedChange={() => onToggle(t.timeline_id)}
+										aria-label={`Toggle ${t.name}`}
+									/>
+									{#if t.color}
+										<span
+											class="h-2 w-2 shrink-0 rounded-full"
+											style={`background-color: ${t.color};`}
+											aria-hidden="true"
+										></span>
+									{/if}
+									<span class="min-w-0 flex-1 truncate" title={t.name}>{t.name}</span>
+									{#if dropTargetId === t.timeline_id}
+										<span class="shrink-0 text-[9px] uppercase tracking-wider text-primary">
+											{dropMode === 'add' ? 'Add' : 'Move'}
+										</span>
+									{/if}
+									{#if t.is_default}
+										<span
+											class="shrink-0 rounded border border-border bg-muted/60 px-1 text-[9px] uppercase tracking-wider text-muted-foreground"
+										>
+											Default
+										</span>
+									{/if}
+									{#if canEdit}
+										<div class="hidden shrink-0 items-center gap-0.5 group-hover:flex">
 											<Button
 												size="icon"
 												variant="ghost"
-												class="h-5 w-5 text-destructive hover:text-destructive"
-												onclick={() => onRemove(t.timeline_id)}
-												aria-label={`Delete ${t.name}`}
+												class="h-5 w-5"
+												onclick={() => startEdit(t)}
+												aria-label={`Edit ${t.name}`}
 											>
-												<Trash2 size={10} />
+												<Pencil size={10} />
 											</Button>
-										{/if}
-									</div>
-								{/if}
-							</div>
-						{/if}
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</div>
-
-	{#if onDropEvents && canEdit && timelines.length}
-		<p class="border-t px-3 py-1.5 text-[10px] leading-snug text-muted-foreground">
-			Drop events on a timeline to move them, hold Alt to add them.
-		</p>
-	{/if}
-
-	{#if footer}
-		<div class="flex min-h-0 flex-1 flex-col border-t">
-			{@render footer()}
+											{#if !t.is_default}
+												<Button
+													size="icon"
+													variant="ghost"
+													class="h-5 w-5 text-destructive hover:text-destructive"
+													onclick={() => onRemove(t.timeline_id)}
+													aria-label={`Delete ${t.name}`}
+												>
+													<Trash2 size={10} />
+												</Button>
+											{/if}
+										</div>
+									{/if}
+								</div>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			{/if}
 		</div>
-	{/if}
-</aside>
+
+		{#if onDropEvents && canEdit && timelines.length}
+			<p class="border-t px-3 py-1.5 text-[10px] leading-snug text-muted-foreground">
+				Drop events on a timeline to move them, hold Alt to add them.
+			</p>
+		{/if}
+
+		{#if footer}
+			<div class="flex min-h-0 flex-1 flex-col border-t">
+				{@render footer()}
+			</div>
+		{/if}
+	</aside>
+{/if}
