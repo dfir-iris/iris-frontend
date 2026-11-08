@@ -38,6 +38,7 @@
 	import { toast } from '$lib/stores/toast.store';
 	import { getGraphUrlForEvents, getHighlightedEventIds, getSharedEventUrl } from '../helpers';
 	import Highlight from './highlight.svelte';
+	import { eventAccentColor } from '../event-color';
 	import { eventFlow, formatEventFlow } from '$lib/utils/event-roles';
 
 	type Props = {
@@ -110,33 +111,9 @@
 			.filter(Boolean)
 	);
 
-	// Color stripe for the event card. Prefer the user-defined color; fall
-	// back to a deterministic palette keyed off the category name so the
-	// timeline still reads as color-coded when nobody set a color.
-	const categoryPalette = [
-		'#3b82f6', // blue
-		'#10b981', // emerald
-		'#f59e0b', // amber
-		'#ef4444', // red
-		'#8b5cf6', // violet
-		'#06b6d4', // cyan
-		'#ec4899', // pink
-		'#84cc16', // lime
-		'#f97316', // orange
-		'#14b8a6' // teal
-	];
-
-	const hashString = (s: string): number => {
-		let h = 0;
-		for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-		return h;
-	};
-
-	const accentColor = $derived(
-		event.event_color && event.event_color.trim()
-			? event.event_color
-			: categoryPalette[hashString(event.category_name ?? 'Unspecified') % categoryPalette.length]
-	);
+	// Color stripe for the event card: the user-defined color, else the
+	// category's palette color.
+	const accentColor = $derived(eventAccentColor(event));
 
 	let menuOpen = $state(false);
 

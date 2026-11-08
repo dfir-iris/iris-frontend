@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { dayKey } from '$lib/utils/time-formatter';
-	import { setContext, getContext } from 'svelte';
+	import { setContext, getContext, untrack } from 'svelte';
 	import { page } from '$app/state';
 	import {
 		CaseTimelineService,
@@ -14,6 +14,13 @@
 		type EventCategory
 	} from '$lib/services/event-categories.service';
 	import { CaseTimelinesService, type CaseTimeline } from '$lib/services/case-timelines.service';
+	import type { AlertSearchField } from '$lib/services/alerts.service';
+	import { appendExpression } from '$lib/search/lucene';
+	import {
+		loadTimelineLayout,
+		saveTimelineLayout,
+		type TimelineLayout
+	} from '$lib/utils/timeline-default-view';
 	import { CaseAssetsService } from '$lib/services/case-assets.service';
 	import { CaseIocsService } from '$lib/services/case-iocs.service';
 	import type { Asset } from '$lib/types/resources/asset';
@@ -49,6 +56,10 @@
 	import TimelineSidebar from './components/timeline-sidebar.svelte';
 	import TimelineView from './components/timeline-view.svelte';
 	import TimelineEventDialog from './components/timeline-event-dialog.svelte';
+	import TimelineSearchView from './components/timeline-search-view.svelte';
+	import TimelineFieldsPanel from './components/timeline-fields-panel.svelte';
+	import { TimelineSearch } from './timeline-search.svelte';
+	import { fieldClause } from './search-helpers';
 	import { toast } from '$lib/stores/toast.store';
 	import { parseTimelineCsv, timelineCsvDates } from './csv-import';
 	import CaseWorkspace from '../components/CaseWorkspace.svelte';
@@ -113,6 +124,21 @@
 	let selectedTimelineIds = $state<Set<number>>(new Set());
 	let commentCounts = $state<Record<number, number>>({});
 	let timelineScrollContainer = $state<HTMLDivElement | undefined>(undefined);
+
+	// Cards or search: the user's preferred view, known once their
+	// preferences are in. Each view loads its data the first time it is
+	// shown, so opening the page in one never pays for the other.
+	let layout = $state<TimelineLayout | null>(null);
+	let cardsLoaded = false;
+	let searchLoaded = false;
+	const search = new TimelineSearch(() => {
+		const caseId = Number(page.params.case_id);
+		return Number.isFinite(caseId) ? caseId : null;
+	});
+	let searchFields = $state<AlertSearchField[]>([]);
+	// Events the confirmation dialog deletes when they come from the
+	// search view rather than the cards' selection.
+	let pendingDeleteIds = $state<number[] | null>(null);
 
 	// Infinite-scroll prefetch trigger. Same pattern as the assets sidebar:
 	// the trigger sits one viewport ahead of the bottom edge so a new page
@@ -236,9 +262,16 @@
 		}
 	};
 
-	const parentEventCandidates = $derived(
-		timeline.events().filter((event) => event.event_id !== selectedEvent?.event_id)
-	);
+	// The cards' events and the search's, so a parent can be picked from
+	// either view whichever was loaded.
+	const parentEventCandidates = $derived.by(() => {
+		const byId = new Map<number, CaseTimelineEvent>();
+		for (const event of timeline.events()) byId.set(event.event_id, event);
+		for (const event of search.events) {
+			if (!byId.has(event.event_id)) byId.set(event.event_id, event);
+		}
+		return [...byId.values()].filter((event) => event.event_id !== selectedEvent?.event_id);
+	});
 
 	const defaultEventCategoryId = $derived(
 		eventCategories.find((category) => category.name === 'Unspecified')?.id ??
@@ -404,10 +437,15 @@
 	};
 
 	const commitDeleteEvents = async () => {
-		if (selected.size === 0 && !selectedEvent) return;
+		if (!pendingDeleteIds?.length && selected.size === 0 && !selectedEvent) return;
 
-		const eventIds =
-			selected.size > 0 ? [...selected] : selectedEvent ? [selectedEvent.event_id] : [];
+		const eventIds = pendingDeleteIds?.length
+			? pendingDeleteIds
+			: selected.size > 0
+				? [...selected]
+				: selectedEvent
+					? [selectedEvent.event_id]
+					: [];
 
 		try {
 			const { removed, failed } = await timeline.removeEvents(eventIds, { fetch });
@@ -429,8 +467,15 @@
 			selecting = false;
 			selectedEvent = undefined;
 			showConfirmDelete = false;
+			if (pendingDeleteIds) {
+				pendingDeleteIds = null;
+				search.clearSelection();
+				void search.run();
+			}
 		}
 	};
+
+	const deleteCount = $derived(pendingDeleteIds?.length ?? (selected.size > 0 ? selected.size : 1));
 
 	const deleteEvent = async (eventId: number) => {
 		const event = await timeline.getEvent(eventId);
@@ -511,7 +556,8 @@
 		if (!event) return;
 
 		await duplicateBranch(event, event.parent_event_id ?? null);
-		await refreshTimeline();
+		if (layout === 'search') void search.run();
+		else await refreshTimeline();
 	};
 
 	const showComments = async (eventId: number) => {
@@ -683,6 +729,96 @@
 		}
 	};
 
+	const changeLayout = (next: TimelineLayout) => {
+		layout = next;
+		void saveTimelineLayout(next);
+		// The other view may have changed events since this one was last
+		// shown.
+		if (next === 'cards' && cardsLoaded) void refreshTimeline();
+		if (next === 'search' && searchLoaded) void search.run();
+	};
+
+	const loadSearchSchema = async () => {
+		const res = await CaseTimelineService.searchSchema(Number(page.params.case_id), { fetch });
+		searchFields = res.ok && res.data && typeof res.data !== 'string' ? res.data.fields : [];
+	};
+
+	const addSearchClause = (alias: string, value: string, exclude: boolean) => {
+		search.query = appendExpression(search.query, fieldClause(alias, value, exclude));
+		void search.run();
+	};
+
+	const loadFullEvent = async (eventId: number): Promise<CaseTimelineEvent | null> => {
+		const res = await CaseTimelineService.getEvent(Number(page.params.case_id), eventId, {
+			fetch
+		});
+		return res.ok && res.data && typeof res.data !== 'string' ? res.data : null;
+	};
+
+	const flagSearchEvents = async (eventIds: number[], flagged: boolean) => {
+		if (!canEdit || !eventIds.length) return;
+		const res = await CaseTimelineService.flagEvents(
+			Number(page.params.case_id),
+			eventIds,
+			flagged,
+			{
+				fetch
+			}
+		);
+		if (!res.ok) {
+			toast({
+				title: `Could not ${flagged ? 'flag' : 'unflag'} the events`,
+				description: res.error?.message ?? 'Unknown error',
+				variant: 'destructive'
+			});
+			return;
+		}
+		search.patchEvents(eventIds, { event_is_flagged: flagged });
+		// A search on the flag may no longer match them.
+		if (/\bis\s*:/i.test(search.query)) void search.run();
+	};
+
+	const deleteSearchEvents = (eventIds: number[]) => {
+		if (!canEdit || !eventIds.length) return;
+		pendingDeleteIds = eventIds;
+		showConfirmDelete = true;
+	};
+
+	// "Move" takes the events off the timelines being looked at — or off
+	// every timeline when the sidebar shows them all — and puts them on
+	// the target; "add" only puts them there.
+	const assignEvents = async (timelineId: number, eventIds: number[], mode: 'move' | 'add') => {
+		if (!canEdit || !eventIds.length) return;
+		const target = timelines.find((t) => t.timeline_id === timelineId);
+		const res = await CaseTimelinesService.assignEvents(
+			Number(page.params.case_id),
+			timelineId,
+			{
+				event_ids: eventIds,
+				mode,
+				...(mode === 'move' && selectedTimelineIds.size
+					? { from_timeline_ids: [...selectedTimelineIds] }
+					: {})
+			},
+			{ fetch }
+		);
+		if (!res.ok) {
+			toast({
+				title: `Could not ${mode === 'move' ? 'move' : 'add'} the events`,
+				description: res.error?.message ?? 'Unknown error',
+				variant: 'destructive'
+			});
+			return;
+		}
+		const count = eventIds.length;
+		toast({
+			title: `${mode === 'move' ? 'Moved' : 'Added'} ${count} event${count === 1 ? '' : 's'} to ${target?.name ?? 'the timeline'}`,
+			variant: 'success'
+		});
+		search.clearSelection();
+		void search.run();
+	};
+
 	const csvEscape = (value: string | number | boolean | null | undefined) => {
 		const text = value === null || value === undefined ? '' : String(value);
 		if (/[",\n\r]/.test(text)) return `"${text.replaceAll('"', '""')}"`;
@@ -709,17 +845,30 @@
 	let showDownloadModal = $state(false);
 	let isDownloadingTimeline = $state(false);
 
+	// The cards export the whole timeline; the search view its results —
+	// the rows loaded so far, or every match — with their whole text.
+	const timelineDownloadRows = async (
+		downloadType: 'visible' | 'all'
+	): Promise<CaseTimelineEvent[] | null> => {
+		if (layout === 'search') {
+			return search.exportEvents(downloadType === 'visible' ? search.events.length : null);
+		}
+		await timeline.loadAll();
+		return timeline.events();
+	};
+
 	const handleTimelineDownload = async (
-		_downloadType: 'visible' | 'all',
+		downloadType: 'visible' | 'all',
 		selectedColumnKeys: Set<string>
 	) => {
 		isDownloadingTimeline = true;
 
 		try {
-			// Always ensure all events are loaded before writing.
-			await timeline.loadAll();
-
-			const rows = timeline.events();
+			const rows = await timelineDownloadRows(downloadType);
+			if (!rows) {
+				toast({ title: 'Could not read the events to download', variant: 'destructive' });
+				return;
+			}
 			const colGetters: Record<string, (e: CaseTimelineEvent) => string> = {
 				event_date: (e) => e.event_date,
 				event_title: (e) => e.event_title,
@@ -745,7 +894,7 @@
 			const url = URL.createObjectURL(blob);
 			const link = document.createElement('a');
 			link.href = url;
-			link.download = `case-${page.params.case_id}-timeline.csv`;
+			link.download = `case-${page.params.case_id}-timeline${layout === 'search' ? '-search' : ''}.csv`;
 			link.click();
 			URL.revokeObjectURL(url);
 		} finally {
@@ -816,7 +965,9 @@
 				}
 			}
 
-			await refreshTimeline();
+			// The other view catches up when it is next shown.
+			if (layout === 'search') void search.run();
+			else await refreshTimeline();
 
 			const total = csv.rows.length;
 			if (!errors.length) {
@@ -891,12 +1042,56 @@
 	};
 
 	$effect(() => {
-		timeline.loadEvents({}, { fetch });
 		loadEventCategories();
 		loadHookOptions();
 		loadCaseAssets();
 		loadCaseIocs();
 		loadCaseTimelines();
+		untrack(() => void initLayout());
+	});
+
+	// A link to events (shared, or from the graph) opens them in the
+	// cards whatever the preference, without changing it.
+	const initLayout = async () => {
+		const linked = getHighlightedEventIds().length > 0;
+		layout = linked ? 'cards' : await loadTimelineLayout();
+	};
+
+	$effect(() => {
+		if (layout === 'cards' && !cardsLoaded) {
+			cardsLoaded = true;
+			untrack(() => timeline.loadEvents({}, { fetch }));
+		} else if (layout === 'search' && !searchLoaded) {
+			searchLoaded = true;
+			untrack(() => {
+				void loadSearchSchema();
+				void search.run();
+			});
+		}
+	});
+
+	// The sidebar's timelines scope the search as they do the cards.
+	$effect(() => {
+		const ids = [...selectedTimelineIds];
+		untrack(() => {
+			search.timelineIds = ids;
+			if (layout === 'search' && searchLoaded) void search.run();
+		});
+	});
+
+	// The event dialog saves on its own; the search reruns once it closes
+	// so an edited or added event shows as it now is.
+	let dialogWasOpen = false;
+	$effect(() => {
+		if (eventDialogOpen) {
+			dialogWasOpen = true;
+			return;
+		}
+		if (!dialogWasOpen) return;
+		dialogWasOpen = false;
+		untrack(() => {
+			if (layout === 'search') void search.run();
+		});
 	});
 
 	$effect(() => {
@@ -927,112 +1122,160 @@
 			onUpdate={updateTimeline}
 			onRemove={removeTimeline}
 			{canEdit}
+			onDropEvents={layout === 'search' ? assignEvents : undefined}
+			footer={layout === 'search' ? fieldsFooter : undefined}
 		/>
-		<div class="flex h-full min-h-0 flex-1 flex-col">
-			<TimelineTopbar
-				{filters}
-				{eventCategories}
-				{viewMode}
-				{quickSearch}
-				{quickSearchMatchIndex}
-				quickSearchMatchCount={quickSearchMatches.length}
-				quickSearchLoading={timeline.list.status === 'loading_all' && !timeline.list.allLoaded}
-				onUpdateFilter={updateFilter}
-				onApplyFilters={applyFilters}
-				onClearFilters={clearFilters}
-				onRefresh={refreshTimeline}
-				onAddEvent={addEvent}
-				onViewModeChange={(m) => (viewMode = m)}
-				{onQuickSearchChange}
-				onQuickSearchNext={quickSearchNext}
-				onQuickSearchPrev={quickSearchPrev}
-				onDownloadCsv={() => (showDownloadModal = true)}
-				onUploadCsv={uploadTimelineCsv}
-				{canEdit}
-			/>
-
-			<div
-				bind:this={timelineScrollContainer}
-				class="relative min-h-0 flex-1 overflow-auto bg-gradient-to-b from-muted/30 via-background to-muted/20 px-6 py-4 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900"
-			>
-				{#if timeline.list.status === 'loading' && groupedRootEvents.length === 0}
-					<div class="mx-auto max-w-[1100px] space-y-2 py-6">
-						{#each Array(4) as _, i (i)}
-							<Skeleton class="h-24 w-full rounded-lg" />
-						{/each}
-					</div>
-				{:else if timeline.list.error}
-					<div class="p-6 text-sm text-destructive">{timeline.list.error}</div>
-				{:else if groupedRootEvents.length === 0}
-					<div class="flex h-full items-center justify-center text-sm text-muted-foreground">
-						No timeline events found.
-					</div>
-				{:else}
-					<ChipHoverHost caseId={page.params.case_id}>
-						<TimelineView
-							groups={groupedRootEvents}
-							{childrenByParent}
-							{commentCounts}
-							{folded}
-							{selected}
-							{selecting}
-							mode={viewMode}
-							matchedEventIds={new Set(quickSearchMatches)}
-							currentMatchEventId={quickSearchMatches[quickSearchMatchIndex] ?? null}
-							searchQuery={quickSearch}
-							onToggleSelect={toggleSelect}
-							onToggleFold={toggleFold}
-							onEdit={editEvent}
-							onAddChild={addChildEvent}
-							onFlag={flagEvent}
-							onComments={showComments}
-							onDuplicate={duplicateEvent}
-							onDelete={deleteEvent}
-							{hookOptions}
-							onRunHook={runEventHook}
-							{canEdit}
-						/>
-
-						<div
-							use:handleTriggerRef
-							class="mx-auto mt-2 flex h-16 max-w-[1100px] items-center justify-center"
-						>
-							{#if timeline.list.status === 'loading_more'}
-								<div class="flex items-center gap-2 text-xs text-muted-foreground">
-									<Skeleton class="h-3 w-3 rounded-full" />
-									Loading more events…
-								</div>
-							{:else if timeline.list.nextPage !== null}
-								<Button size="sm" variant="ghost" onclick={() => loadMore()}>Load more</Button>
-							{:else if timeline.list.total > 0}
-								<span class="text-2xs text-muted-foreground">
-									{timeline.list.total}
-									{timeline.list.total === 1 ? 'event' : 'events'} · end of timeline
-								</span>
-							{/if}
-						</div>
-					</ChipHoverHost>
-				{/if}
-
-				<TimelineSideToolbar
-					{selecting}
-					onToggleSelecting={toggleSelecting}
-					onDelete={() => (showConfirmDelete = true)}
-					caseId={Number(page.params.case_id)}
-					selectedIds={[...selected]}
-					{hookOptions}
-					onHookDone={toggleSelecting}
-					onAddEvent={addEvent}
-					onToggleFoldAll={toggleFoldAll}
-					onRefresh={refreshTimeline}
-					onScrollTop={scrollTop}
-					onScrollBottom={scrollBottom}
-					{canEdit}
-				/>
+		{#if layout === null}
+			<div class="flex-1 space-y-2 p-6">
+				{#each Array(4) as _, i (i)}
+					<Skeleton class="h-16 w-full rounded-lg" />
+				{/each}
 			</div>
-		</div>
+		{:else if layout === 'search'}
+			<ChipHoverHost
+				caseId={page.params.case_id}
+				class="flex h-full min-h-0 min-w-0 flex-1 flex-col"
+			>
+				<TimelineSearchView
+					{search}
+					caseId={Number(page.params.case_id)}
+					{searchFields}
+					{timelines}
+					{hookOptions}
+					{canEdit}
+					{layout}
+					onLayoutChange={changeLayout}
+					onLoadFull={loadFullEvent}
+					onEdit={editEvent}
+					onAddChild={addChildEvent}
+					onFlag={flagSearchEvents}
+					onComments={showComments}
+					onDuplicate={duplicateEvent}
+					onDelete={deleteSearchEvents}
+					onRunHook={runEventHook}
+					onAssign={assignEvents}
+					onDownloadCsv={() => (showDownloadModal = true)}
+					onUploadCsv={uploadTimelineCsv}
+				/>
+			</ChipHoverHost>
+		{:else}
+			<div class="flex h-full min-h-0 flex-1 flex-col">
+				<TimelineTopbar
+					{filters}
+					{eventCategories}
+					{viewMode}
+					{quickSearch}
+					{quickSearchMatchIndex}
+					quickSearchMatchCount={quickSearchMatches.length}
+					quickSearchLoading={timeline.list.status === 'loading_all' && !timeline.list.allLoaded}
+					onUpdateFilter={updateFilter}
+					onApplyFilters={applyFilters}
+					onClearFilters={clearFilters}
+					onRefresh={refreshTimeline}
+					onAddEvent={addEvent}
+					onViewModeChange={(m) => (viewMode = m)}
+					{onQuickSearchChange}
+					onQuickSearchNext={quickSearchNext}
+					onQuickSearchPrev={quickSearchPrev}
+					onDownloadCsv={() => (showDownloadModal = true)}
+					onUploadCsv={uploadTimelineCsv}
+					{canEdit}
+					{layout}
+					onLayoutChange={changeLayout}
+				/>
+
+				<div
+					bind:this={timelineScrollContainer}
+					class="relative min-h-0 flex-1 overflow-auto bg-gradient-to-b from-muted/30 via-background to-muted/20 px-6 py-4 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900"
+				>
+					{#if timeline.list.status === 'loading' && groupedRootEvents.length === 0}
+						<div class="mx-auto max-w-[1100px] space-y-2 py-6">
+							{#each Array(4) as _, i (i)}
+								<Skeleton class="h-24 w-full rounded-lg" />
+							{/each}
+						</div>
+					{:else if timeline.list.error}
+						<div class="p-6 text-sm text-destructive">{timeline.list.error}</div>
+					{:else if groupedRootEvents.length === 0}
+						<div class="flex h-full items-center justify-center text-sm text-muted-foreground">
+							No timeline events found.
+						</div>
+					{:else}
+						<ChipHoverHost caseId={page.params.case_id}>
+							<TimelineView
+								groups={groupedRootEvents}
+								{childrenByParent}
+								{commentCounts}
+								{folded}
+								{selected}
+								{selecting}
+								mode={viewMode}
+								matchedEventIds={new Set(quickSearchMatches)}
+								currentMatchEventId={quickSearchMatches[quickSearchMatchIndex] ?? null}
+								searchQuery={quickSearch}
+								onToggleSelect={toggleSelect}
+								onToggleFold={toggleFold}
+								onEdit={editEvent}
+								onAddChild={addChildEvent}
+								onFlag={flagEvent}
+								onComments={showComments}
+								onDuplicate={duplicateEvent}
+								onDelete={deleteEvent}
+								{hookOptions}
+								onRunHook={runEventHook}
+								{canEdit}
+							/>
+
+							<div
+								use:handleTriggerRef
+								class="mx-auto mt-2 flex h-16 max-w-[1100px] items-center justify-center"
+							>
+								{#if timeline.list.status === 'loading_more'}
+									<div class="flex items-center gap-2 text-xs text-muted-foreground">
+										<Skeleton class="h-3 w-3 rounded-full" />
+										Loading more events…
+									</div>
+								{:else if timeline.list.nextPage !== null}
+									<Button size="sm" variant="ghost" onclick={() => loadMore()}>Load more</Button>
+								{:else if timeline.list.total > 0}
+									<span class="text-2xs text-muted-foreground">
+										{timeline.list.total}
+										{timeline.list.total === 1 ? 'event' : 'events'} · end of timeline
+									</span>
+								{/if}
+							</div>
+						</ChipHoverHost>
+					{/if}
+
+					<TimelineSideToolbar
+						{selecting}
+						onToggleSelecting={toggleSelecting}
+						onDelete={() => (showConfirmDelete = true)}
+						caseId={Number(page.params.case_id)}
+						selectedIds={[...selected]}
+						{hookOptions}
+						onHookDone={toggleSelecting}
+						onAddEvent={addEvent}
+						onToggleFoldAll={toggleFoldAll}
+						onRefresh={refreshTimeline}
+						onScrollTop={scrollTop}
+						onScrollBottom={scrollBottom}
+						{canEdit}
+					/>
+				</div>
+			</div>
+		{/if}
 	</div>
 </CaseWorkspace>
+
+{#snippet fieldsFooter()}
+	<TimelineFieldsPanel
+		fields={search.fields}
+		total={search.total ?? 0}
+		loading={search.status === 'loading'}
+		onClause={addSearchClause}
+	/>
+{/snippet}
 
 <TimelineEventDialog
 	bind:open={eventDialogOpen}
@@ -1053,13 +1296,15 @@
 
 <DownloadModal
 	open={showDownloadModal}
-	title="Download Timeline as CSV"
+	title={layout === 'search' ? 'Download search results as CSV' : 'Download Timeline as CSV'}
 	itemNounPlural="events"
 	availableColumns={TIMELINE_EXPORT_COLUMNS}
-	countVisible={timeline.events().length}
-	countAll={timeline.list.total}
+	countVisible={layout === 'search' ? search.events.length : timeline.events().length}
+	countAll={layout === 'search' ? (search.total ?? search.events.length) : timeline.list.total}
 	isProcessing={isDownloadingTimeline}
-	processingMessage="Loading all timeline events…"
+	processingMessage={layout === 'search'
+		? 'Loading the matching events…'
+		: 'Loading all timeline events…'}
 	onConfirm={handleTimelineDownload}
 	onOpenChange={(v) => (showDownloadModal = v)}
 />
@@ -1067,7 +1312,10 @@
 <ConfirmationDialog
 	bind:open={showConfirmDelete}
 	title="Are you sure?"
-	message={`You are about to delete this timeline ${selected.size > 1 ? 'events' : 'event'} forever. This cannot be reverted. All associated data will be deleted.`}
+	message={`You are about to delete ${deleteCount > 1 ? `these ${deleteCount} timeline events` : 'this timeline event'} forever. This cannot be reverted. All associated data will be deleted.`}
 	onConfirm={commitDeleteEvents}
-	onCancel={() => (showConfirmDelete = false)}
+	onCancel={() => {
+		showConfirmDelete = false;
+		pendingDeleteIds = null;
+	}}
 />

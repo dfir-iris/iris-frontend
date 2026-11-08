@@ -24,6 +24,8 @@
 	} from '$lib/components/ui/tooltip';
 	import type { TimelineFilterData, TimelineFilterFieldValue } from '../types';
 	import TimelineFilters from './timeline-filters.svelte';
+	import TimelineLayoutSwitch from './timeline-layout-switch.svelte';
+	import type { TimelineLayout } from '$lib/utils/timeline-default-view';
 
 	type ViewMode = 'list' | 'tree';
 
@@ -47,6 +49,8 @@
 		onDownloadCsv: () => void;
 		onUploadCsv: () => void;
 		canEdit?: boolean;
+		layout?: TimelineLayout;
+		onLayoutChange?: (layout: TimelineLayout) => void;
 	};
 
 	let {
@@ -68,7 +72,9 @@
 		onQuickSearchPrev,
 		onDownloadCsv,
 		onUploadCsv,
-		canEdit = true
+		canEdit = true,
+		layout = 'cards',
+		onLayoutChange
 	}: Props = $props();
 
 	let isMenuOpen = $state(false);
@@ -86,6 +92,12 @@
 	<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-2">
 		<div class="flex items-center gap-1.5">
 			<h2 class="mr-2 text-sm font-semibold">Timeline</h2>
+
+			{#if onLayoutChange}
+				<div class="mr-1">
+					<TimelineLayoutSwitch {layout} onChange={onLayoutChange} />
+				</div>
+			{/if}
 
 			<Button
 				variant={showFilters ? 'secondary' : 'ghost'}

@@ -33,6 +33,17 @@ export interface UpdateCaseTimelineBody {
 	color?: string | null;
 }
 
+export interface AssignCaseTimelineEventsBody {
+	event_ids: number[];
+	/** `add` keeps the events' other timelines; `move` takes them off first. */
+	mode: 'add' | 'move';
+	/**
+	 * With `move`, the timelines to take the events off. Empty or omitted
+	 * takes them off every timeline.
+	 */
+	from_timeline_ids?: number[];
+}
+
 export class CaseTimelinesService {
 	static list(caseId: number, options: ApiOptions = {}): Promise<RequestResponse<CaseTimeline[]>> {
 		return ApiService.get<CaseTimeline[]>(`/cases/${caseId}/timelines`, options);
@@ -69,5 +80,19 @@ export class CaseTimelinesService {
 		options: ApiOptions = {}
 	): Promise<RequestResponse<null>> {
 		return ApiService.delete<null>(`/cases/${caseId}/timelines/${timelineId}`, options);
+	}
+
+	/** Put events on a timeline, optionally taking them off others. */
+	static assignEvents(
+		caseId: number,
+		timelineId: number,
+		body: AssignCaseTimelineEventsBody,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<{ events: number; added: number }>> {
+		return ApiService.post<{ events: number; added: number }>(
+			`/cases/${caseId}/timelines/${timelineId}/events`,
+			body,
+			options
+		);
 	}
 }

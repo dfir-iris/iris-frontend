@@ -7,13 +7,19 @@
 	when the user toggles a checkbox or adds/edits/deletes a timeline.
 
 	Empty selection means "show all events" (i.e. no timeline filter).
+
+	With `onDropEvents`, every timeline is a drop target for events
+	dragged from the search view: a plain drop moves them there, an
+	Alt-drop adds them and keeps the timelines they were already on.
 -->
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import { Plus, Pencil, Trash2 } from 'lucide-svelte';
 	import type { CaseTimeline } from '$lib/services/case-timelines.service';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
+	import { EVENTS_DRAG_MIME, decodeDraggedEvents } from '../search-helpers';
 
 	type Props = {
 		timelines: CaseTimeline[];
@@ -25,6 +31,9 @@
 		onUpdate: (timelineId: number, body: { name?: string; color?: string | null }) => Promise<void>;
 		onRemove: (timelineId: number) => Promise<void>;
 		canEdit?: boolean;
+		onDropEvents?: (timelineId: number, eventIds: number[], mode: 'move' | 'add') => void;
+		/** Rendered under the list, which then only takes part of the height. */
+		footer?: Snippet;
 	};
 
 	let {
@@ -36,8 +45,38 @@
 		onCreate,
 		onUpdate,
 		onRemove,
-		canEdit = true
+		canEdit = true,
+		onDropEvents,
+		footer
 	}: Props = $props();
+
+	let dropTargetId = $state<number | null>(null);
+	let dropMode = $state<'move' | 'add'>('move');
+
+	const acceptsDrop = (e: DragEvent): boolean =>
+		!!onDropEvents && canEdit && !!e.dataTransfer?.types.includes(EVENTS_DRAG_MIME);
+
+	const onDragOver = (e: DragEvent, timelineId: number) => {
+		if (!acceptsDrop(e) || !e.dataTransfer) return;
+		e.preventDefault();
+		dropMode = e.altKey ? 'add' : 'move';
+		e.dataTransfer.dropEffect = e.altKey ? 'copy' : 'move';
+		dropTargetId = timelineId;
+	};
+
+	const onDragLeave = (e: DragEvent, timelineId: number) => {
+		const next = e.relatedTarget as Node | null;
+		if (next && (e.currentTarget as HTMLElement).contains(next)) return;
+		if (dropTargetId === timelineId) dropTargetId = null;
+	};
+
+	const onDrop = (e: DragEvent, timelineId: number) => {
+		dropTargetId = null;
+		if (!acceptsDrop(e) || !e.dataTransfer) return;
+		e.preventDefault();
+		const ids = decodeDraggedEvents(e.dataTransfer.getData(EVENTS_DRAG_MIME));
+		if (ids.length) onDropEvents?.(timelineId, ids, e.altKey ? 'add' : 'move');
+	};
 
 	let addingOpen = $state(false);
 	let newName = $state('');
@@ -158,7 +197,7 @@
 		</button>
 	</div>
 
-	<div class="flex-1 overflow-y-auto py-1">
+	<div class={['overflow-y-auto py-1', footer ? 'max-h-[40%] shrink-0' : 'flex-1']}>
 		{#if loading}
 			<div class="px-3 py-4 text-center text-2xs text-muted-foreground">Loading…</div>
 		{:else if timelines.length === 0}
@@ -167,7 +206,12 @@
 			<ul class="flex flex-col gap-0.5">
 				{#each timelines as t (t.timeline_id)}
 					{@const checked = selectedIds.has(t.timeline_id)}
-					<li class="group">
+					<li
+						class="group"
+						ondragover={(e) => onDragOver(e, t.timeline_id)}
+						ondragleave={(e) => onDragLeave(e, t.timeline_id)}
+						ondrop={(e) => onDrop(e, t.timeline_id)}
+					>
 						{#if editingId === t.timeline_id}
 							<div class="flex flex-col gap-1 px-2 py-1.5">
 								<Input
@@ -203,8 +247,11 @@
 							</div>
 						{:else}
 							<div
-								class="flex items-center gap-2 rounded-sm px-2 py-1 transition-colors hover:bg-muted/50"
-								class:bg-muted={checked}
+								class={[
+									'flex items-center gap-2 rounded-sm px-2 py-1 transition-colors hover:bg-muted/50',
+									checked && 'bg-muted',
+									dropTargetId === t.timeline_id && 'bg-primary/15 ring-1 ring-inset ring-primary'
+								]}
 							>
 								<Checkbox
 									{checked}
@@ -219,6 +266,11 @@
 									></span>
 								{/if}
 								<span class="min-w-0 flex-1 truncate" title={t.name}>{t.name}</span>
+								{#if dropTargetId === t.timeline_id}
+									<span class="shrink-0 text-[9px] uppercase tracking-wider text-primary">
+										{dropMode === 'add' ? 'Add' : 'Move'}
+									</span>
+								{/if}
 								{#if t.is_default}
 									<span
 										class="shrink-0 rounded border border-border bg-muted/60 px-1 text-[9px] uppercase tracking-wider text-muted-foreground"
@@ -257,4 +309,16 @@
 			</ul>
 		{/if}
 	</div>
+
+	{#if onDropEvents && canEdit && timelines.length}
+		<p class="border-t px-3 py-1.5 text-[10px] leading-snug text-muted-foreground">
+			Drop events on a timeline to move them, hold Alt to add them.
+		</p>
+	{/if}
+
+	{#if footer}
+		<div class="flex min-h-0 flex-1 flex-col border-t">
+			{@render footer()}
+		</div>
+	{/if}
 </aside>

@@ -1,5 +1,6 @@
 import { ApiService } from './api.service';
 import type { ApiOptions, RequestResponse } from './api.service';
+import type { AlertSearchField } from './alerts.service';
 
 export type CaseTimelineEventIdentifier = number;
 
@@ -151,11 +152,70 @@ export interface UpdateCaseTimelineEventBody {
 	timeline_ids?: number[];
 }
 
+/** Scope shared by the search, histogram and fields endpoints. */
+export interface CaseTimelineSearchScope {
+	/** Search expression, compiled server-side; a 400 carries `data.position`. */
+	query?: string;
+	/** ISO 8601 lower bound of the event date, inclusive. */
+	start?: string | null;
+	/** ISO 8601 upper bound of the event date, exclusive. */
+	end?: string | null;
+	/** Keep events on any of these timelines. */
+	timeline_ids?: number[];
+}
+
+/** A search row: the event plus what the row needs to render without a second fetch. */
+export interface CaseTimelineSearchEvent extends CaseTimelineEvent {
+	comments_count: number;
+	children_count: number;
+	/** Description and raw data are cut at 4 KiB; `getEvent` returns them whole. */
+	event_content_truncated: boolean;
+	event_raw_truncated: boolean;
+}
+
+export interface CaseTimelineSearchPage {
+	events: CaseTimelineSearchEvent[];
+	next_cursor: string | null;
+	has_more: boolean;
+	/** Only counted on the first page. */
+	total: number | null;
+}
+
+export interface CaseTimelineHistogram {
+	interval_seconds: number;
+	start: string | null;
+	end: string | null;
+	buckets: { start: string; count: number }[];
+	total: number;
+}
+
+export type CaseTimelineSummaryField =
+	| 'category'
+	| 'source'
+	| 'tag'
+	| 'asset'
+	| 'ioc'
+	| 'timeline'
+	| 'author';
+
+export interface CaseTimelineFieldSummary {
+	values: { value: string | null; count: number }[];
+	/** How many different values the field takes in scope. */
+	distinct: number;
+}
+
 export interface CaseTimelineConvertedDate {
 	date: string;
 	time: string;
 	tz: string;
 }
+
+const searchScopeParams = (scope: CaseTimelineSearchScope): Record<string, unknown> => ({
+	query: scope.query?.trim() || undefined,
+	start: scope.start || undefined,
+	end: scope.end || undefined,
+	timeline_id: scope.timeline_ids?.length ? scope.timeline_ids : undefined
+});
 
 export class CaseTimelineService {
 	static async listEvents(
@@ -247,6 +307,82 @@ export class CaseTimelineService {
 		return ApiService.post<CaseTimelineConvertedDate>(
 			`/api/v2/cases/${caseId}/events/convert-date`,
 			{ date_value: dateValue },
+			options
+		);
+	}
+
+	/**
+	 * One keyset page of the events matching `scope`. Descriptions and raw
+	 * data are cut to a preview unless `full` — what an export asks for.
+	 */
+	static async searchEvents(
+		caseId: number,
+		scope: CaseTimelineSearchScope,
+		paging: {
+			order?: 'asc' | 'desc';
+			cursor?: string | null;
+			limit?: number;
+			full?: boolean;
+		} = {},
+		options: ApiOptions = {}
+	): Promise<RequestResponse<CaseTimelineSearchPage>> {
+		const path = ApiService.withQuery(`/api/v2/cases/${caseId}/events/search`, {
+			...searchScopeParams(scope),
+			order: paging.order,
+			cursor: paging.cursor || undefined,
+			limit: paging.limit,
+			full: paging.full ? 'true' : undefined
+		});
+		return ApiService.get<CaseTimelineSearchPage>(path, options);
+	}
+
+	static async eventsHistogram(
+		caseId: number,
+		scope: CaseTimelineSearchScope,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<CaseTimelineHistogram>> {
+		const path = ApiService.withQuery(
+			`/api/v2/cases/${caseId}/events/histogram`,
+			searchScopeParams(scope)
+		);
+		return ApiService.get<CaseTimelineHistogram>(path, options);
+	}
+
+	static async eventsFields(
+		caseId: number,
+		scope: CaseTimelineSearchScope,
+		options: ApiOptions = {}
+	): Promise<
+		RequestResponse<{ fields: Partial<Record<CaseTimelineSummaryField, CaseTimelineFieldSummary>> }>
+	> {
+		const path = ApiService.withQuery(
+			`/api/v2/cases/${caseId}/events/fields`,
+			searchScopeParams(scope)
+		);
+		return ApiService.get(path, options);
+	}
+
+	/** The vocabulary of the search expression, in the alerts' shape. */
+	static async searchSchema(
+		caseId: number,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<{ fields: AlertSearchField[] }>> {
+		return ApiService.get<{ fields: AlertSearchField[] }>(
+			`/api/v2/cases/${caseId}/events/search-schema`,
+			options
+		);
+	}
+
+	/** Flag or unflag several events in one request. */
+	static async flagEvents(
+		caseId: number,
+		eventIds: number[],
+		flagged: boolean,
+		options: ApiOptions = {}
+	): Promise<RequestResponse<{ changed: number }>> {
+		return ApiService.post<{ changed: number }>(
+			`/api/v2/cases/${caseId}/events/flag`,
+			{ event_ids: eventIds, flagged },
 			options
 		);
 	}
