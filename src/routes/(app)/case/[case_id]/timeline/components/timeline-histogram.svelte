@@ -5,9 +5,10 @@
   so plain DOM is enough and keeps the drag precise. Dragging across the
   bars zooms on the window they cover; double-clicking a bar zooms on
   that bar alone. The host owns the range: this only reports it.
+  Folded, only the summary line is left.
 -->
 <script lang="ts">
-	import { XIcon, ZoomOutIcon } from 'lucide-svelte';
+	import { ChevronDownIcon, ChevronUpIcon, XIcon, ZoomOutIcon } from 'lucide-svelte';
 	import { formatDateTime } from '$lib/utils/time-formatter';
 	import type { CaseTimelineHistogram } from '$lib/services/case-timeline.service';
 	import { bucketsRange, formatInterval, serverDateMs } from '../search-helpers';
@@ -19,9 +20,19 @@
 		rangeLabel?: string | null;
 		onZoom: (range: { start: string; end: string }) => void;
 		onClearRange?: () => void;
+		collapsed?: boolean;
+		onToggleCollapsed?: () => void;
 	};
 
-	let { histogram, loading = false, rangeLabel = null, onZoom, onClearRange }: Props = $props();
+	let {
+		histogram,
+		loading = false,
+		rangeLabel = null,
+		onZoom,
+		onClearRange,
+		collapsed = false,
+		onToggleCollapsed
+	}: Props = $props();
 
 	const buckets = $derived(histogram?.buckets ?? []);
 	const interval = $derived(histogram?.interval_seconds ?? 1);
@@ -101,7 +112,7 @@
 	const hoveredBucket = $derived(hovered !== null ? buckets[hovered] : undefined);
 </script>
 
-<div class="border-b border-border bg-card px-4 pb-2 pt-1.5">
+<div class={`border-b border-border bg-card px-4 pt-1.5 ${collapsed ? 'pb-1.5' : 'pb-2'}`}>
 	<div class="flex items-center gap-2 text-2xs text-muted-foreground">
 		<span class="font-medium tabular-nums text-foreground">
 			{(histogram?.total ?? 0).toLocaleString()}
@@ -121,7 +132,9 @@
 			{/if}
 		{/if}
 		<span class="ml-auto flex items-center gap-2">
-			{#if hoveredBucket}
+			{#if collapsed}
+				<!-- nothing to point at -->
+			{:else if hoveredBucket}
 				<span class="tabular-nums">
 					{label(hoveredBucket.start)} → {label(bucketEnd(hoveredBucket.start))}:
 					<span class="font-medium text-foreground">{hoveredBucket.count}</span>
@@ -134,66 +147,83 @@
 			{#if histogram && buckets.length}
 				<span class="tabular-nums">{formatInterval(interval)} per bar</span>
 			{/if}
+			{#if onToggleCollapsed}
+				<button
+					type="button"
+					class="inline-flex size-4 items-center justify-center rounded hover:bg-muted hover:text-foreground"
+					onclick={onToggleCollapsed}
+					aria-label={collapsed ? 'Show the histogram' : 'Hide the histogram'}
+					title={collapsed ? 'Show the histogram' : 'Hide the histogram'}
+				>
+					{#if collapsed}
+						<ChevronDownIcon class="size-3" />
+					{:else}
+						<ChevronUpIcon class="size-3" />
+					{/if}
+				</button>
+			{/if}
 		</span>
 	</div>
 
-	<div
-		bind:this={barsEl}
-		class={[
-			'relative mt-1 flex h-20 cursor-crosshair select-none items-end gap-px',
-			loading && 'opacity-50'
-		]}
-		role="img"
-		aria-label="Events over time"
-		onpointerdown={onPointerDown}
-		onpointermove={onPointerMove}
-		onpointerup={onPointerUp}
-		onpointercancel={() => {
-			dragFrom = null;
-			dragTo = null;
-		}}
-		onpointerleave={() => (hovered = null)}
-		ondblclick={onDoubleClick}
-	>
-		{#if !buckets.length}
-			<div class="flex h-full w-full items-center justify-center text-2xs text-muted-foreground">
-				{loading ? 'Loading…' : 'No events in this window'}
-			</div>
-		{:else}
-			{#each buckets as bucket, i (bucket.start)}
-				<div
-					class={[
-						'relative h-full min-w-0 flex-1',
-						inDrag(i) && 'bg-primary/15',
-						hovered === i && dragFrom === null && 'bg-muted'
-					]}
-				>
-					{#if bucket.count > 0}
-						<div
-							class={[
-								'absolute inset-x-0 bottom-0 rounded-t-[1px]',
-								inDrag(i) ? 'bg-primary' : 'bg-primary/60'
-							]}
-							style="height: {Math.max(4, (bucket.count / max) * 100)}%"
-						></div>
-					{/if}
-				</div>
-			{/each}
-		{/if}
-	</div>
-
-	{#if buckets.length}
+	{#if !collapsed}
 		<div
-			class="relative mt-0.5 h-3.5 overflow-hidden text-[10px] tabular-nums text-muted-foreground"
+			bind:this={barsEl}
+			class={[
+				'relative mt-1 flex h-20 cursor-crosshair select-none items-end gap-px',
+				loading && 'opacity-50'
+			]}
+			role="img"
+			aria-label="Events over time"
+			onpointerdown={onPointerDown}
+			onpointermove={onPointerMove}
+			onpointerup={onPointerUp}
+			onpointercancel={() => {
+				dragFrom = null;
+				dragTo = null;
+			}}
+			onpointerleave={() => (hovered = null)}
+			ondblclick={onDoubleClick}
 		>
-			{#each ticks as tick (tick.i)}
-				<span
-					class="absolute top-0 whitespace-nowrap"
-					style="left: {(tick.i / buckets.length) * 100}%"
-				>
-					{tick.label}
-				</span>
-			{/each}
+			{#if !buckets.length}
+				<div class="flex h-full w-full items-center justify-center text-2xs text-muted-foreground">
+					{loading ? 'Loading…' : 'No events in this window'}
+				</div>
+			{:else}
+				{#each buckets as bucket, i (bucket.start)}
+					<div
+						class={[
+							'relative h-full min-w-0 flex-1',
+							inDrag(i) && 'bg-primary/15',
+							hovered === i && dragFrom === null && 'bg-muted'
+						]}
+					>
+						{#if bucket.count > 0}
+							<div
+								class={[
+									'absolute inset-x-0 bottom-0 rounded-t-[1px]',
+									inDrag(i) ? 'bg-primary' : 'bg-primary/60'
+								]}
+								style="height: {Math.max(4, (bucket.count / max) * 100)}%"
+							></div>
+						{/if}
+					</div>
+				{/each}
+			{/if}
 		</div>
+
+		{#if buckets.length}
+			<div
+				class="relative mt-0.5 h-3.5 overflow-hidden text-[10px] tabular-nums text-muted-foreground"
+			>
+				{#each ticks as tick (tick.i)}
+					<span
+						class="absolute top-0 whitespace-nowrap"
+						style="left: {(tick.i / buckets.length) * 100}%"
+					>
+						{tick.label}
+					</span>
+				{/each}
+			</div>
+		{/if}
 	{/if}
 </div>

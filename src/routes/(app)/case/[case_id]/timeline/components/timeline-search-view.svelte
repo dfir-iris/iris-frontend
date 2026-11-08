@@ -10,7 +10,6 @@
 <script lang="ts">
 	import {
 		ArrowUpDownIcon,
-		ChartColumnIcon,
 		ChevronDownIcon,
 		EllipsisVerticalIcon,
 		FlagIcon,
@@ -246,85 +245,68 @@
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col">
-	<div class="border-b border-border bg-card px-4 py-2">
-		<div class="flex items-center gap-2">
-			<h2 class="mr-1 text-sm font-semibold">Timeline</h2>
-			<TimelineLayoutSwitch {layout} onChange={onLayoutChange} />
+	<div class="flex items-start gap-2 border-b border-border bg-card px-4 py-2">
+		<h2 class="mr-1 shrink-0 text-sm font-semibold leading-8">Timeline</h2>
+		<TimelineLayoutSwitch {layout} onChange={onLayoutChange} />
 
-			<div class="ml-auto flex items-center gap-1">
-				<Button
-					variant="ghost"
-					size="sm"
-					class={`h-8 gap-1.5 text-xs ${histogramHidden ? 'text-muted-foreground' : ''}`}
-					onclick={toggleHistogram}
-					aria-pressed={!histogramHidden}
-					title={histogramHidden ? 'Show the histogram' : 'Hide the histogram'}
-				>
-					<ChartColumnIcon class="size-3.5" />
-					{histogramHidden ? 'Show chart' : 'Hide chart'}
+		<LuceneSearchBar
+			class="min-w-0 flex-1"
+			value={search.query}
+			onSubmit={submit}
+			fields={searchFields}
+			{valuesFor}
+			serverError={search.searchError}
+			historyKey="iris.timeline.recent-queries"
+			placeholder="Search events — try  asset:DC01 is:flagged"
+		/>
+
+		<TimelineTimeRangePicker range={search.range} onChange={setRange} />
+
+		<Button
+			variant="outline"
+			size="sm"
+			class="h-8 shrink-0 gap-1.5 text-xs"
+			onclick={toggleOrder}
+			title="Change the order"
+		>
+			<ArrowUpDownIcon class="size-3.5" />
+			{search.order === 'asc' ? 'Oldest first' : 'Newest first'}
+		</Button>
+
+		<Button
+			size="sm"
+			class="h-8 shrink-0 gap-1.5 text-xs"
+			disabled={loading}
+			onclick={() => void search.run()}
+		>
+			<RefreshCwIcon class={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
+			Search
+		</Button>
+
+		<DropdownMenu>
+			<DropdownMenuTrigger>
+				<Button variant="ghost" size="icon" class="size-8" aria-label="More">
+					<EllipsisVerticalIcon class="size-4" />
 				</Button>
-				<DropdownMenu>
-					<DropdownMenuTrigger>
-						<Button variant="ghost" size="icon" class="size-8" aria-label="More">
-							<EllipsisVerticalIcon class="size-4" />
-						</Button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end">
-						<DropdownMenuItem onclick={onDownloadCsv}>Download results as CSV…</DropdownMenuItem>
-						{#if canEdit}
-							<DropdownMenuItem onclick={onUploadCsv}>Upload CSV of events</DropdownMenuItem>
-						{/if}
-					</DropdownMenuContent>
-				</DropdownMenu>
-			</div>
-		</div>
-
-		<div class="mt-2 flex items-start gap-2">
-			<LuceneSearchBar
-				class="min-w-0 flex-1"
-				value={search.query}
-				onSubmit={submit}
-				fields={searchFields}
-				{valuesFor}
-				serverError={search.searchError}
-				historyKey="iris.timeline.recent-queries"
-				placeholder="Search events — try  asset:DC01 is:flagged"
-			/>
-
-			<TimelineTimeRangePicker range={search.range} onChange={setRange} />
-
-			<Button
-				variant="outline"
-				size="sm"
-				class="h-8 shrink-0 gap-1.5 text-xs"
-				onclick={toggleOrder}
-				title="Change the order"
-			>
-				<ArrowUpDownIcon class="size-3.5" />
-				{search.order === 'asc' ? 'Oldest first' : 'Newest first'}
-			</Button>
-
-			<Button
-				size="sm"
-				class="h-8 shrink-0 gap-1.5 text-xs"
-				disabled={loading}
-				onclick={() => void search.run()}
-			>
-				<RefreshCwIcon class={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
-				Search
-			</Button>
-		</div>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="end">
+				<DropdownMenuItem onclick={onDownloadCsv}>Download results as CSV…</DropdownMenuItem>
+				{#if canEdit}
+					<DropdownMenuItem onclick={onUploadCsv}>Upload CSV of events</DropdownMenuItem>
+				{/if}
+			</DropdownMenuContent>
+		</DropdownMenu>
 	</div>
 
-	{#if !histogramHidden}
-		<TimelineHistogram
-			histogram={search.histogram}
-			{loading}
-			{rangeLabel}
-			onZoom={({ start, end }) => setRange({ kind: 'custom', start, end })}
-			onClearRange={() => setRange(ALL_TIME)}
-		/>
-	{/if}
+	<TimelineHistogram
+		histogram={search.histogram}
+		{loading}
+		{rangeLabel}
+		onZoom={({ start, end }) => setRange({ kind: 'custom', start, end })}
+		onClearRange={() => setRange(ALL_TIME)}
+		collapsed={histogramHidden}
+		onToggleCollapsed={toggleHistogram}
+	/>
 
 	{#if search.selected.size}
 		<div
