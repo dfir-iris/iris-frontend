@@ -17,6 +17,7 @@
 		type AccessControlUser
 	} from '$lib/services/access-control.service';
 	import { DEMO_PROTECTED_USER_HINT as DEMO_LOCKED_HINT } from '$lib/services/user-context.service';
+	import SelectAllRow from './SelectAllRow.svelte';
 
 	type Props = {
 		open: boolean;
@@ -87,7 +88,7 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="sm:max-w-lg">
+	<Dialog.Content class="grid-cols-[minmax(0,1fr)] sm:max-w-lg">
 		<Dialog.Header>
 			<Dialog.Title>Members — {group.group_name}</Dialog.Title>
 			<Dialog.Description>Tick the users that should belong to this group.</Dialog.Description>
@@ -127,6 +128,13 @@
 				{:else if visible.length === 0}
 					<p class="px-3 py-4 text-center text-2xs text-muted-foreground">No users match.</p>
 				{:else}
+					<!-- Demo accounts stay as seeded: "select all" leaves them out -->
+					<SelectAllRow
+						ids={visible.filter((u) => !u.user_is_demo_protected).map((u) => u.user_id)}
+						{selected}
+						disabled={saving}
+						onChange={(next) => (selected = next)}
+					/>
 					<ul class="divide-y">
 						{#each visible as u (u.user_id)}
 							{@const locked = !!u.user_is_demo_protected}

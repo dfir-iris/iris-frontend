@@ -138,7 +138,7 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="sm:max-w-lg">
+	<Dialog.Content class="grid-cols-[minmax(0,1fr)] sm:max-w-lg">
 		<Dialog.Header>
 			<Dialog.Title>{isEdit ? 'Edit user' : 'Add user'}</Dialog.Title>
 			<Dialog.Description>

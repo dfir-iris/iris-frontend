@@ -112,7 +112,7 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="sm:max-w-xl">
+	<Dialog.Content class="grid-cols-[minmax(0,1fr)] sm:max-w-xl">
 		<Dialog.Header>
 			<Dialog.Title>{isEdit ? 'Edit group' : 'Add group'}</Dialog.Title>
 			<Dialog.Description>

@@ -25,6 +25,7 @@
 		type AccessControlSchemaInfo,
 		type AccessibleCaseSummary
 	} from '$lib/services/access-control.service';
+	import SelectAllRow from './SelectAllRow.svelte';
 
 	type Props = {
 		open: boolean;
@@ -203,6 +204,12 @@
 					{#if grants.length === 0}
 						<p class="px-3 py-4 text-center text-2xs text-muted-foreground">No explicit grants.</p>
 					{:else}
+						<SelectAllRow
+							ids={grants.map((ca) => ca.case_id)}
+							selected={removeSelected}
+							disabled={busy}
+							onChange={(next) => (removeSelected = next)}
+						/>
 						<ul class="divide-y">
 							{#each grants as ca (ca.case_id)}
 								<li>
@@ -285,6 +292,12 @@
 									No accessible cases match.
 								</p>
 							{:else}
+								<SelectAllRow
+									ids={casePool.map((c) => c.case_id)}
+									selected={addCaseIds}
+									disabled={busy}
+									onChange={(next) => (addCaseIds = next)}
+								/>
 								<ul class="divide-y">
 									{#each casePool as c (c.case_id)}
 										<li>

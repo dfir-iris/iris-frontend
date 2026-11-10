@@ -41,7 +41,7 @@
 		if (!o) onClose();
 	}}
 >
-	<Dialog.Content class="sm:max-w-lg">
+	<Dialog.Content class="grid-cols-[minmax(0,1fr)] sm:max-w-lg">
 		<Dialog.Header>
 			<Dialog.Title>New API key</Dialog.Title>
 			<Dialog.Description>

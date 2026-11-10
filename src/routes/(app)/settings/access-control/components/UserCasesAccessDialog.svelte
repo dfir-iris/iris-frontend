@@ -25,6 +25,7 @@
 		type AccessControlCaseAccessEntry,
 		type AccessibleCaseSummary
 	} from '$lib/services/access-control.service';
+	import SelectAllRow from './SelectAllRow.svelte';
 
 	type Props = {
 		open: boolean;
@@ -178,6 +179,12 @@
 							No explicit grants. Effective access comes from groups + organisation.
 						</p>
 					{:else}
+						<SelectAllRow
+							ids={grants.map((ca) => ca.case_id)}
+							selected={removeSelected}
+							disabled={busy}
+							onChange={(next) => (removeSelected = next)}
+						/>
 						<ul class="divide-y">
 							{#each grants as ca (ca.case_id)}
 								<li>
@@ -260,6 +267,12 @@
 								No accessible cases match.
 							</p>
 						{:else}
+							<SelectAllRow
+								ids={casePool.map((c) => c.case_id)}
+								selected={addCaseIds}
+								disabled={busy}
+								onChange={(next) => (addCaseIds = next)}
+							/>
 							<ul class="divide-y">
 								{#each casePool as c (c.case_id)}
 									<li>

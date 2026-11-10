@@ -18,6 +18,7 @@
 		type AccessControlGroup,
 		type AccessControlUser
 	} from '$lib/services/access-control.service';
+	import SelectAllRow from './SelectAllRow.svelte';
 
 	type Props = {
 		open: boolean;
@@ -91,7 +92,7 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="sm:max-w-lg">
+	<Dialog.Content class="grid-cols-[minmax(0,1fr)] sm:max-w-lg">
 		<Dialog.Header>
 			<Dialog.Title>Group membership — @{user.user_login}</Dialog.Title>
 			<Dialog.Description>
@@ -133,6 +134,12 @@
 				{:else if visibleGroups.length === 0}
 					<p class="px-3 py-4 text-center text-2xs text-muted-foreground">No groups match.</p>
 				{:else}
+					<SelectAllRow
+						ids={visibleGroups.map((g) => g.group_id)}
+						{selected}
+						disabled={saving}
+						onChange={(next) => (selected = next)}
+					/>
 					<ul class="divide-y">
 						{#each visibleGroups as g (g.group_id)}
 							<li>

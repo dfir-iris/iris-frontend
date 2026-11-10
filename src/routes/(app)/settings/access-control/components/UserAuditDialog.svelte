@@ -144,7 +144,7 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="sm:max-w-4xl">
+	<Dialog.Content class="grid-cols-[minmax(0,1fr)] sm:max-w-4xl">
 		<Dialog.Header>
 			<Dialog.Title>Effective access — @{user.user_login}</Dialog.Title>
 			<Dialog.Description>
