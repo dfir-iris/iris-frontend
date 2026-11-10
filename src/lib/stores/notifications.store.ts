@@ -11,7 +11,12 @@ import { writable, get } from 'svelte/store';
 import { io, type Socket } from 'socket.io-client';
 import { socketOrigin } from '$lib/config/api.config';
 import { auth } from './auth.store';
-import { NotificationsService, type Notification } from '../services/notifications.service';
+import {
+	NotificationsService,
+	type Notification,
+	type NotificationSeverity
+} from '../services/notifications.service';
+import { toast, type ToastVariant } from './toast.store';
 
 const RECENT_LIMIT = 50;
 
@@ -22,6 +27,37 @@ const RECENT_LIMIT = 50;
 // a small indexed table is cheap; if this ever shows up in load
 // tests we can back off when the tab is hidden.
 const UNREAD_POLL_INTERVAL_MS = 30_000;
+
+/** A toast pushed by the server (a workflow's `notify` node): never stored. */
+export interface ServerToast {
+	title: string;
+	body: string | null;
+	link: string | null;
+	severity: NotificationSeverity | null;
+	/** 0: stays until closed. */
+	timeout_seconds: number;
+}
+
+const TOAST_VARIANTS: Record<NotificationSeverity, ToastVariant> = {
+	info: 'default',
+	success: 'success',
+	warning: 'warning',
+	critical: 'destructive'
+};
+
+/** Show a server toast; the link is dropped by the toast store unless same-origin. */
+export function showServerToast(t: ServerToast) {
+	if (!t || typeof t.title !== 'string' || !t.title) return;
+	const seconds = Number(t.timeout_seconds);
+	toast({
+		title: t.title,
+		description: t.body ?? undefined,
+		variant: (t.severity && TOAST_VARIANTS[t.severity]) || 'default',
+		duration: seconds > 0 ? seconds * 1000 : undefined,
+		persistent: seconds === 0,
+		link: t.link ? { href: t.link, label: 'Open' } : undefined
+	});
+}
 
 export interface NotificationsState {
 	items: Notification[];
@@ -232,6 +268,10 @@ function createNotificationsStore() {
 
 		socket.on('new_notification', (n: Notification) => {
 			receive(n);
+		});
+
+		socket.on('toast', (t: ServerToast) => {
+			showServerToast(t);
 		});
 
 		for (const [event, handlers] of extraListeners) {

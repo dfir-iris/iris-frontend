@@ -22,12 +22,17 @@ export type NotificationEventType =
 
 export type NotificationChannel = 'in_app' | 'email';
 
+/** Picks the icon of a notification and the colour of a toast. */
+export type NotificationSeverity = 'info' | 'success' | 'warning' | 'critical';
+
 export interface Notification {
 	id: number;
 	event_type: NotificationEventType;
 	title: string;
 	body: string | null;
 	link: string | null;
+	/** Absent from servers that predate it. */
+	severity?: NotificationSeverity | null;
 	source_type: string | null;
 	source_id: number | null;
 	read_at: string | null;

@@ -1203,6 +1203,64 @@
 			</p>
 			{#if c.audience === 'users'}
 				{@render userPicker()}
+				<span class={LABEL_CLASS}>Users from the run (optional)</span>
+				<div class="grid grid-cols-[6rem_minmax(0,1fr)] items-center gap-1">
+					<select
+						class={SELECT_CLASS}
+						disabled={readOnly}
+						value={isPath(c.users_from) ? 'path' : 'template'}
+						onchange={(e) => {
+							const current = inputText(c.users_from);
+							set(
+								'users_from',
+								(e.currentTarget as HTMLSelectElement).value === 'path'
+									? { $path: current }
+									: current
+							);
+						}}
+						title="A template renders the users; a path reads them as is (a list, …)"
+					>
+						<option value="template">Template</option>
+						<option value="path">Path</option>
+					</select>
+					<TemplateField
+						mode={isPath(c.users_from) ? 'path' : 'template'}
+						placeholder={isPath(c.users_from)
+							? 'nodes.lookup.output.result.owners'
+							: '{{ vars.analyst }}'}
+						disabled={readOnly}
+						value={inputText(c.users_from)}
+						onInput={(v) => set('users_from', isPath(c.users_from) ? { $path: v } : v)}
+						testId="wf-cfg-users-from"
+					/>
+				</div>
+				<p class="text-2xs text-muted-foreground">
+					User ids, logins or emails, separated by commas, or a list of them or of users (up to 50).
+					They are notified with the users selected above.
+				</p>
+			{/if}
+			{@render choice('delivery', 'Deliver as', [
+				['notification', 'A notification (bell)'],
+				['toast', 'A toast'],
+				['both', 'Both']
+			])}
+			<p class="text-2xs text-muted-foreground">
+				{#if (c.delivery ?? 'notification') === 'notification'}
+					Kept in the bell, and follows each user's notification settings.
+				{:else}
+					A toast pops up at once in IRIS for the users connected; nothing is kept, so a user who is
+					not connected never sees it.
+				{/if}
+			</p>
+			{@render choice('severity', 'Severity (the icon)', [
+				['', 'None'],
+				['info', 'Info'],
+				['success', 'Success'],
+				['warning', 'Warning'],
+				['critical', 'Critical']
+			])}
+			{#if (c.delivery ?? 'notification') !== 'notification'}
+				{@render num('timeout_seconds', 'Toast timeout (seconds, 0 = until closed)', 0)}
 			{/if}
 			<label class="flex flex-col gap-1">
 				<span class={LABEL_CLASS}>About</span>

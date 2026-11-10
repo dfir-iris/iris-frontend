@@ -92,7 +92,7 @@ const OUTPUTS: Record<string, string[]> = {
 	find_war_room_tasks: ['tasks', 'count', 'since'],
 	suggest: ['suggestion_id'],
 	action: ['ok', 'executed', 'result', 'suggestion_id'],
-	notify: ['notified', 'note'],
+	notify: ['notified', 'delivery', 'severity', 'note'],
 	python: ['result', 'logs'],
 	stop: ['status', 'reason']
 };

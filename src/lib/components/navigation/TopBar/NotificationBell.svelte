@@ -9,9 +9,13 @@
 
 	import { onMount, onDestroy } from 'svelte';
 	import {
+		AlertOctagonIcon,
+		AlertTriangleIcon,
 		BellIcon,
 		CheckCheckIcon,
+		CheckCircleIcon,
 		ClipboardCheckIcon,
+		InfoIcon,
 		SparklesIcon,
 		Trash2Icon
 	} from 'lucide-svelte';
@@ -26,7 +30,15 @@
 	import { notifications } from '$lib/stores/notifications.store';
 	import { reviews } from '$lib/stores/reviews.store';
 	import { aiSuggestions } from '$lib/stores/ai-suggestions.store.svelte';
-	import type { Notification } from '$lib/services/notifications.service';
+	import type { Notification, NotificationSeverity } from '$lib/services/notifications.service';
+
+	// The icon of a notification with a severity (one a workflow sent)
+	const SEVERITY_ICONS: Record<NotificationSeverity, { icon: typeof InfoIcon; class: string }> = {
+		info: { icon: InfoIcon, class: 'text-blue-600 dark:text-blue-400' },
+		success: { icon: CheckCircleIcon, class: 'text-green-600 dark:text-green-400' },
+		warning: { icon: AlertTriangleIcon, class: 'text-amber-600 dark:text-amber-400' },
+		critical: { icon: AlertOctagonIcon, class: 'text-red-600 dark:text-red-400' }
+	};
 
 	let open = $state(false);
 
@@ -249,7 +261,14 @@
 								{/if}
 								<div class="min-w-0 flex-1">
 									<div class="flex items-center gap-1.5">
-										{#if n.event_type === 'ai_suggestion'}
+										{#if n.severity && SEVERITY_ICONS[n.severity]}
+											{@const severity = SEVERITY_ICONS[n.severity]}
+											<severity.icon
+												size={11}
+												class="shrink-0 {severity.class}"
+												aria-label={n.severity}
+											/>
+										{:else if n.event_type === 'ai_suggestion'}
 											<SparklesIcon
 												size={11}
 												class="shrink-0 text-violet-600 dark:text-violet-400"

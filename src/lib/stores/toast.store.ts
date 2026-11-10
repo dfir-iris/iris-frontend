@@ -8,6 +8,8 @@ export interface Toast {
 	description?: string;
 	variant?: ToastVariant;
 	duration?: number;
+	/** Stays up until it is closed; `duration` is then ignored. */
+	persistent?: boolean;
 	/** Optional in-app link rendered under the description. */
 	link?: { href: string; label: string };
 }
@@ -39,7 +41,7 @@ function createToastStore() {
 
 		update((toasts) => [...toasts, entry]);
 
-		if (duration > 0) {
+		if (duration > 0 && !toast.persistent) {
 			setTimeout(() => {
 				dismissToast(id);
 			}, duration);

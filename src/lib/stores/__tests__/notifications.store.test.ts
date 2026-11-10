@@ -6,7 +6,7 @@
  * transitions: refresh(), receive(), markRead(), markAllRead() — the
  * socket bridge is mocked so we don't need a live server.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
 
 vi.mock('$app/environment', () => ({ browser: true, dev: false }));
@@ -36,7 +36,8 @@ vi.mock('$lib/services/notifications.service', () => ({
 	}
 }));
 
-import { notifications } from '../notifications.store';
+import { notifications, showServerToast } from '../notifications.store';
+import { toasts } from '../toast.store';
 import { NotificationsService } from '$lib/services/notifications.service';
 import { io } from 'socket.io-client';
 
@@ -287,5 +288,56 @@ describe('notifications store', () => {
 		expect(notifications.emit('ping', { a: 1 }, onAck)).toBe(true);
 		expect(socket.emit).toHaveBeenCalledWith('ping', { a: 1 }, onAck);
 		notifications.reset();
+	});
+});
+
+describe('server toasts', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+		get(toasts).forEach((t) => toasts.dismiss(t.id));
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	const push = (patch: Record<string, unknown> = {}) =>
+		showServerToast({
+			title: 'Hello',
+			body: 'there',
+			link: '/case/1',
+			severity: 'critical',
+			timeout_seconds: 2,
+			...patch
+		} as Parameters<typeof showServerToast>[0]);
+
+	it('maps the severity to a variant and keeps the link', () => {
+		push();
+		expect(get(toasts)[0]).toMatchObject({
+			title: 'Hello',
+			description: 'there',
+			variant: 'destructive',
+			link: { href: '/case/1', label: 'Open' }
+		});
+	});
+
+	it('closes after the timeout', () => {
+		push();
+		vi.advanceTimersByTime(1999);
+		expect(get(toasts)).toHaveLength(1);
+		vi.advanceTimersByTime(1);
+		expect(get(toasts)).toHaveLength(0);
+	});
+
+	it('stays until closed with a timeout of 0', () => {
+		push({ timeout_seconds: 0, severity: null });
+		vi.advanceTimersByTime(3_600_000);
+		expect(get(toasts)).toHaveLength(1);
+		expect(get(toasts)[0].variant).toBe('default');
+	});
+
+	it('ignores a toast without a title', () => {
+		push({ title: '' });
+		expect(get(toasts)).toHaveLength(0);
 	});
 });

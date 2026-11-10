@@ -224,7 +224,16 @@ export const DEFAULT_CONFIGS: Record<string, Record<string, unknown>> = {
 		severity: 'medium'
 	},
 	action: { tool: '', arguments: {} },
-	notify: { audience: 'entity', user_ids: [], title: '', body: '' },
+	notify: {
+		audience: 'entity',
+		user_ids: [],
+		users_from: '',
+		title: '',
+		body: '',
+		delivery: 'notification',
+		severity: 'info',
+		timeout_seconds: 5
+	},
 	delay: { minutes: 5 },
 	set_variables: { variables: [] },
 	python: { code: 'result = {}', inputs: [], timeout_seconds: 5, max_steps: 200000 },
