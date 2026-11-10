@@ -1,14 +1,15 @@
 <!--
   The "Item" cell of a case tracker row: the case item it points at,
   rendered per type with a link to it, a free-text label, or a
-  placeholder when the item was deleted from the case.
+  placeholder when the item was deleted from the case. A custom label
+  given to the row comes first, the item name below it.
 -->
 <script lang="ts">
 	import { Trash2 } from 'lucide-svelte';
 	import {
 		CASE_TRACKER_ITEM_TYPE_LABEL,
 		caseTrackerItemHref,
-		caseTrackerRowLabel,
+		caseTrackerItemName,
 		type CaseTrackerAssetItem,
 		type CaseTrackerEvidenceItem,
 		type CaseTrackerIocItem,
@@ -45,7 +46,8 @@
 	const evidence = $derived(
 		row.item_type === 'evidence' && row.item ? (row.item as CaseTrackerEvidenceItem) : null
 	);
-	const label = $derived(caseTrackerRowLabel(row));
+	const label = $derived(caseTrackerItemName(row));
+	const custom = $derived(row.custom_label || null);
 	const href = $derived(caseTrackerItemHref(caseId, row));
 	const details = $derived(
 		(asset
@@ -77,19 +79,34 @@
 			title="This item was deleted from the case"
 		>
 			<Trash2 class="h-3 w-3" aria-hidden="true" />
-			{label}
+			{custom ? `${custom} (${label})` : label}
 		</span>
 	{:else if row.item}
 		<div class="min-w-0">
+			{#if custom}
+				<span class="block truncate font-medium" data-testid="tracker-item-custom-label"
+					>{custom}</span
+				>
+			{/if}
 			{#if href}
 				<a
 					{href}
-					class={['block truncate font-medium hover:underline', ioc && 'font-mono text-xs']}
+					class={[
+						'block truncate hover:underline',
+						custom ? 'text-xs text-muted-foreground' : 'font-medium',
+						ioc && 'font-mono text-xs'
+					]}
 				>
 					{label}
 				</a>
 			{:else}
-				<span class={['block truncate font-medium', ioc && 'font-mono text-xs']}>{label}</span>
+				<span
+					class={[
+						'block truncate',
+						custom ? 'text-xs text-muted-foreground' : 'font-medium',
+						ioc && 'font-mono text-xs'
+					]}>{label}</span
+				>
 			{/if}
 			{#if details}
 				<span class="block truncate text-2xs text-muted-foreground">{details}</span>

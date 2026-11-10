@@ -13,11 +13,14 @@
 		ArrowLeft,
 		ArrowRight,
 		CalendarClock,
+		ChevronDown,
+		ChevronRight,
 		Columns3,
 		History,
 		Loader2,
 		Pencil,
 		Plus,
+		RefreshCw,
 		Rows3,
 		Search,
 		Settings2,
@@ -34,6 +37,19 @@
 	import { toast } from '$lib/components/ui/toast';
 	import AssetFlagChips from '$lib/components/common/assets/AssetFlagChips.svelte';
 	import TrackerStepChip from '$lib/components/common/trackers/TrackerStepChip.svelte';
+	import TrackerSortHeader from '$lib/components/common/trackers/TrackerSortHeader.svelte';
+	import {
+		groupTrackerRows,
+		loadTrackerLayout,
+		nextTrackerSort,
+		saveTrackerLayout,
+		sortTrackerRows,
+		trackerGroupIsValid,
+		trackerGroupOptions,
+		type TrackerLayout,
+		type TrackerLayoutContext
+	} from '$lib/components/common/trackers/tracker-layout';
+	import TrackerRenameDialog from '$lib/components/common/trackers/TrackerRenameDialog.svelte';
 	import { getTrackerIcon } from '$lib/components/common/trackers/tracker-icon';
 	import { useWarRoomLive } from '$lib/contexts/war-room.context.svelte';
 	import type { ScopeAsset } from '$lib/services/war-room-scope.service';
@@ -44,6 +60,8 @@
 		filterTrackerRows,
 		mergeTrackerRows,
 		trackerOfferedSteps,
+		TRACKER_ITEM_TYPE_LABEL,
+		trackerItemName,
 		trackerRowLabel,
 		trackerRowRef,
 		trackerStepCounts,
@@ -82,6 +100,7 @@
 		TRACKER_NOTE_COLUMN,
 		okObject,
 		trackerBoardMove,
+		trackerItemCounts,
 		type TrackerMemberOption
 	} from '$lib/components/common/trackers/tracker-helpers';
 	import type { TrackersState } from './trackers-state.svelte';
@@ -118,6 +137,12 @@
 	let deleteTrackerOpen = $state(false);
 	let deleteRows = $state<TrackerRow[]>([]);
 	let deleteRowsOpen = $state(false);
+	let layout = $state<TrackerLayout>({ sort: null, group: null });
+	/** Keys of the folded groups. */
+	let collapsed = $state<Set<string>>(new Set());
+	let refreshing = $state(false);
+	let renameRow = $state<TrackerRow | null>(null);
+	let renameOpen = $state(false);
 	let flagOpen = $state(false);
 	let flagTargets = $state<ScopeAsset[]>([]);
 
@@ -154,8 +179,29 @@
 	const filtered = $derived(
 		filterTrackerRows(rows, { q, step: view === 'board' ? null : stepFilter }, tracker.columns)
 	);
-	const visible = $derived(filtered.slice(0, shownCount));
-	const existingKeys = $derived(new Set(rows.map((r) => r.key)));
+	// Steps offered here, plus any step a row still carries.
+	const filterSteps = $derived(
+		store.steps.filter((s) => offered.some((o) => o.id === s.id) || counts.byStep.has(s.id))
+	);
+	const layoutKey = $derived(`war-room-${trackerId}`);
+	const layoutContext = $derived<TrackerLayoutContext<TrackerRow>>({
+		label: trackerRowLabel,
+		itemName: trackerItemName,
+		typeLabel: (r) => (r.item_type ? TRACKER_ITEM_TYPE_LABEL[r.item_type] : 'Free text'),
+		columns: tracker.columns,
+		steps: filterSteps,
+		userName: (id) => members.find((m) => m.id === id)?.name
+	});
+	const sorted = $derived(sortTrackerRows(filtered, layout.sort, layoutContext));
+	const visible = $derived(sorted.slice(0, shownCount));
+	const groupOptions = $derived(trackerGroupOptions(tracker.columns, { manual: isManual }));
+	// The board's columns are the steps already: the grouping is the list's.
+	const groups = $derived(
+		view === 'list' && trackerGroupIsValid(layout.group, tracker.columns, isManual)
+			? groupTrackerRows(visible, layout.group as string, layoutContext)
+			: null
+	);
+	const itemCounts = $derived(trackerItemCounts(rows));
 	const selectedRows = $derived(rows.filter((r) => selected.has(r.key)));
 	const selectable = $derived(filtered.filter((r) => !r.restricted && trackerRowRef(r) !== null));
 	const allSelected = $derived(
@@ -166,10 +212,6 @@
 		selectedRows.filter((r) => r.item_type === 'asset' && r.item && !r.restricted)
 	);
 	const mixedTypes = $derived(isManual && new Set(rows.map((r) => r.item_type)).size > 1);
-	// Steps offered here, plus any step a row still carries.
-	const filterSteps = $derived(
-		store.steps.filter((s) => offered.some((o) => o.id === s.id) || counts.byStep.has(s.id))
-	);
 
 	const loadRows = async () => {
 		const mine = ++seq;
@@ -210,6 +252,8 @@
 			selected = new Set();
 			shownCount = PAGE;
 			historyOpen = false;
+			layout = loadTrackerLayout(layoutKey);
+			collapsed = new Set();
 		});
 	});
 
@@ -436,6 +480,45 @@
 		if (flagTargets.length) flagOpen = true;
 	};
 
+	const setLayout = (next: TrackerLayout) => {
+		layout = next;
+		saveTrackerLayout(layoutKey, next);
+	};
+
+	const sortBy = (key: string) => setLayout({ ...layout, sort: nextTrackerSort(layout.sort, key) });
+
+	const groupBy = (group: string) => {
+		collapsed = new Set();
+		setLayout({ ...layout, group: group || null });
+	};
+
+	const toggleGroup = (key: string) => {
+		const next = new Set(collapsed);
+		if (!next.delete(key)) next.add(key);
+		collapsed = next;
+	};
+
+	/** Re-read the rows (changes made by others meanwhile). */
+	const refresh = async () => {
+		if (refreshing) return;
+		refreshing = true;
+		try {
+			historyVersion += 1;
+			await loadRows();
+		} finally {
+			refreshing = false;
+		}
+	};
+
+	const askRename = (row: TrackerRow) => {
+		renameRow = row;
+		renameOpen = true;
+	};
+
+	/** A free-text row keeps a label; an item row's custom label can be reset (null). */
+	const saveLabel = (label: string | null): Promise<boolean> =>
+		renameRow ? applyState([renameRow], { label }) : Promise.resolve(false);
+
 	const askDeleteRows = (targets: TrackerRow[]) => {
 		deleteRows = targets.filter((r) => r.row_id !== null);
 		if (deleteRows.length) deleteRowsOpen = true;
@@ -532,7 +615,7 @@
 	const confirmExport = async (scope: ExportScope, keys: Set<string>) => {
 		saveColumnKeys(columnsKey, keys);
 		const picked = pickColumns(exportColumns, keys);
-		const target = scope === 'all' ? rows : filtered;
+		const target = scope === 'all' ? rows : sorted;
 		if (exportMode === 'csv') {
 			downloadText(
 				rowsToCsv(target, picked),
@@ -585,6 +668,18 @@
 					<Plus class="h-3.5 w-3.5" /> Add rows
 				</Button>
 			{/if}
+			<Button
+				size="icon"
+				variant="outline"
+				class="h-8 w-8"
+				disabled={refreshing}
+				onclick={refresh}
+				aria-label="Refresh the rows"
+				title="Refresh the rows"
+				data-testid="tracker-refresh"
+			>
+				<RefreshCw class="h-3.5 w-3.5 {refreshing ? 'animate-spin' : ''}" />
+			</Button>
 			<Button
 				size="sm"
 				variant="outline"
@@ -700,6 +795,20 @@
 				data-testid="tracker-search"
 			/>
 		</div>
+		{#if view === 'list'}
+			<select
+				class="h-8 rounded-md border border-input bg-background px-2 text-xs"
+				value={groups ? layout.group : ''}
+				onchange={(e) => groupBy(e.currentTarget.value)}
+				aria-label="Group the rows by"
+				data-testid="tracker-group-by"
+			>
+				<option value="">No grouping</option>
+				{#each groupOptions as o (o.value)}
+					<option value={o.value}>Group by {o.label}</option>
+				{/each}
+			</select>
+		{/if}
 		{#if view === 'list'}
 			<div class="flex flex-wrap items-center gap-1" role="group" aria-label="Filter by step">
 				<button
@@ -845,7 +954,7 @@
 			<p class="py-8 text-center text-xs text-muted-foreground">No row matches the search.</p>
 		{:else}
 			<TrackerBoard
-				rows={filtered}
+				rows={sorted}
 				columnSteps={filterSteps}
 				steps={store.steps}
 				{offered}
@@ -875,139 +984,98 @@
 								/>
 							</th>
 						{/if}
-						<th class="{TH} min-w-48">Item</th>
-						<th class="{TH} min-w-40">Steps</th>
+						<TrackerSortHeader
+							class="{TH} min-w-48"
+							label="Item"
+							sortKey="item"
+							sort={layout.sort}
+							onSort={sortBy}
+						/>
+						<TrackerSortHeader
+							class="{TH} min-w-40"
+							label="Steps"
+							sortKey="steps"
+							sort={layout.sort}
+							onSort={sortBy}
+						/>
 						{#if tracker.show_asset_flags}
 							<th class="{TH} min-w-32">Flags</th>
 						{/if}
 						{#each tracker.columns as c (c.key)}
-							<th class="{TH} min-w-32">{c.label}</th>
+							<TrackerSortHeader
+								class="{TH} min-w-32"
+								label={c.label}
+								sortKey={`col:${c.key}`}
+								sort={layout.sort}
+								onSort={sortBy}
+							/>
 						{/each}
-						<th class="{TH} min-w-48">Note</th>
-						<th class="{TH} w-36">Last update</th>
+						<TrackerSortHeader
+							class="{TH} min-w-48"
+							label="Note"
+							sortKey="note"
+							sort={layout.sort}
+							onSort={sortBy}
+						/>
+						<TrackerSortHeader
+							class="{TH} w-36"
+							label="Last update"
+							sortKey="updated"
+							sort={layout.sort}
+							onSort={sortBy}
+						/>
 						<th class="{TH} w-16"><span class="sr-only">Actions</span></th>
 					</tr>
 				</thead>
 				<tbody>
-					{#each visible as row (row.key)}
-						{@const busy = busyKeys.has(row.key)}
-						{@const editable = canWrite && !row.restricted && trackerRowRef(row) !== null}
-						<tr
-							class="border-b transition-colors hover:bg-muted/50 {busy ? 'opacity-60' : ''}"
-							data-testid="tracker-row"
-							data-row-key={row.key}
-						>
-							{#if canWrite}
-								<td class={TD}>
-									<Checkbox
-										class={SELECT_CHECKBOX_CLASS}
-										checked={selected.has(row.key)}
-										disabled={!editable}
-										onCheckedChange={(v) => toggleRow(row, !!v)}
-										aria-label={`Select ${trackerRowLabel(row)}`}
-									/>
-								</td>
-							{/if}
-							<td class={TD}>
-								<TrackerItemCell {row} showType={mixedTypes} />
-							</td>
-							<td class={TD}>
-								<TrackerStepsCell
-									{row}
-									steps={store.steps}
-									{offered}
-									canWrite={editable}
-									{busy}
-									onToggle={(stepId, on) => toggleStep(row, stepId, on)}
-								/>
-							</td>
-							{#if tracker.show_asset_flags}
-								<td class={TD}>
-									{#if row.item_type === 'asset' && row.item && !row.restricted}
-										{@const asset = row.item as TrackerAssetItem}
-										{#if canWrite}
-											<button
-												type="button"
-												class="rounded px-0.5 hover:bg-muted/60"
-												aria-label={`Flags of ${asset.asset_name}`}
-												onclick={() => openFlag([row])}
-												data-testid="tracker-row-flags"
-											>
-												<AssetFlagChips flags={asset.flags} />
-											</button>
+					{#if groups}
+						{#each groups as g (g.key)}
+							{@const unfolded = !collapsed.has(g.key)}
+							<tr class="border-b bg-muted/40" data-testid="tracker-group">
+								<td colspan="99" class="px-2 py-1">
+									<button
+										type="button"
+										class="inline-flex items-center gap-1.5 text-xs font-medium"
+										aria-expanded={unfolded}
+										onclick={() => toggleGroup(g.key)}
+									>
+										{#if unfolded}
+											<ChevronDown class="h-3.5 w-3.5" aria-hidden="true" />
 										{:else}
-											<AssetFlagChips flags={asset.flags} />
+											<ChevronRight class="h-3.5 w-3.5" aria-hidden="true" />
 										{/if}
-									{:else}
-										<span class="text-2xs text-muted-foreground">—</span>
-									{/if}
+										{#if g.step}
+											<TrackerStepChip step={g.step} size="sm" />
+										{:else}
+											<span>{g.label}</span>
+										{/if}
+										<span class="tabular-nums text-muted-foreground">{g.rows.length}</span>
+									</button>
 								</td>
+							</tr>
+							{#if unfolded}
+								{#each g.rows as row (row.key)}
+									{@render trackerRow(row)}
+								{/each}
 							{/if}
-							{#each tracker.columns as c (c.key)}
-								<td class={TD}>
-									<TrackerValueCell
-										value={row.values?.[c.key]}
-										column={c}
-										{members}
-										canWrite={editable && !busy}
-										onSave={(v) => saveValue(row, c.key, v)}
-									/>
+						{:else}
+							<tr>
+								<td colspan="99" class="py-8 text-center text-xs text-muted-foreground">
+									No row matches the filters.
 								</td>
-							{/each}
-							<td class={TD}>
-								<TrackerValueCell
-									value={row.note}
-									column={TRACKER_NOTE_COLUMN}
-									canWrite={editable && !busy}
-									onSave={(v) => saveNote(row, v)}
-								/>
-							</td>
-							<td class="{TD} text-2xs text-muted-foreground">
-								{#if row.updated_at}
-									<span class="block">{mediumDateTimeFormatter(row.updated_at)}</span>
-									{#if row.updated_by}<span class="block">{row.updated_by.name}</span>{/if}
-								{:else}
-									—
-								{/if}
-							</td>
-							<td class={TD}>
-								<div class="flex items-center gap-0.5">
-									{#if !row.restricted}
-										<Button
-											variant="ghost"
-											size="icon"
-											class="h-7 w-7"
-											aria-label={`History of ${trackerRowLabel(row)}`}
-											title="History"
-											onclick={() => openHistory(row)}
-											data-testid="tracker-row-history"
-										>
-											<History class="h-3.5 w-3.5" />
-										</Button>
-									{/if}
-									{#if canWrite && isManual && row.row_id !== null}
-										<Button
-											variant="ghost"
-											size="icon"
-											class="h-7 w-7 text-destructive hover:text-destructive"
-											aria-label={`Delete ${trackerRowLabel(row)}`}
-											title="Delete the row"
-											onclick={() => askDeleteRows([row])}
-											data-testid="tracker-row-delete"
-										>
-											<Trash2 class="h-3.5 w-3.5" />
-										</Button>
-									{/if}
-								</div>
-							</td>
-						</tr>
+							</tr>
+						{/each}
 					{:else}
-						<tr>
-							<td colspan="99" class="py-8 text-center text-xs text-muted-foreground">
-								No row matches the filters.
-							</td>
-						</tr>
-					{/each}
+						{#each visible as row (row.key)}
+							{@render trackerRow(row)}
+						{:else}
+							<tr>
+								<td colspan="99" class="py-8 text-center text-xs text-muted-foreground">
+									No row matches the filters.
+								</td>
+							</tr>
+						{/each}
+					{/if}
 				</tbody>
 			</table>
 		</div>
@@ -1020,6 +1088,134 @@
 		{/if}
 	{/if}
 </div>
+
+{#snippet trackerRow(row: TrackerRow)}
+	{@const busy = busyKeys.has(row.key)}
+	{@const editable = canWrite && !row.restricted && trackerRowRef(row) !== null}
+	<tr
+		class="border-b transition-colors hover:bg-muted/50 {busy ? 'opacity-60' : ''}"
+		data-testid="tracker-row"
+		data-row-key={row.key}
+	>
+		{#if canWrite}
+			<td class={TD}>
+				<Checkbox
+					class={SELECT_CHECKBOX_CLASS}
+					checked={selected.has(row.key)}
+					disabled={!editable}
+					onCheckedChange={(v) => toggleRow(row, !!v)}
+					aria-label={`Select ${trackerRowLabel(row)}`}
+				/>
+			</td>
+		{/if}
+		<td class={TD}>
+			<TrackerItemCell {row} showType={mixedTypes} />
+		</td>
+		<td class={TD}>
+			<TrackerStepsCell
+				{row}
+				steps={store.steps}
+				{offered}
+				canWrite={editable}
+				{busy}
+				onToggle={(stepId, on) => toggleStep(row, stepId, on)}
+			/>
+		</td>
+		{#if tracker.show_asset_flags}
+			<td class={TD}>
+				{#if row.item_type === 'asset' && row.item && !row.restricted}
+					{@const asset = row.item as TrackerAssetItem}
+					{#if canWrite}
+						<button
+							type="button"
+							class="rounded px-0.5 hover:bg-muted/60"
+							aria-label={`Flags of ${asset.asset_name}`}
+							onclick={() => openFlag([row])}
+							data-testid="tracker-row-flags"
+						>
+							<AssetFlagChips flags={asset.flags} />
+						</button>
+					{:else}
+						<AssetFlagChips flags={asset.flags} />
+					{/if}
+				{:else}
+					<span class="text-2xs text-muted-foreground">—</span>
+				{/if}
+			</td>
+		{/if}
+		{#each tracker.columns as c (c.key)}
+			<td class={TD}>
+				<TrackerValueCell
+					value={row.values?.[c.key]}
+					column={c}
+					{members}
+					canWrite={editable && !busy}
+					onSave={(v) => saveValue(row, c.key, v)}
+				/>
+			</td>
+		{/each}
+		<td class={TD}>
+			<TrackerValueCell
+				value={row.note}
+				column={TRACKER_NOTE_COLUMN}
+				canWrite={editable && !busy}
+				onSave={(v) => saveNote(row, v)}
+			/>
+		</td>
+		<td class="{TD} text-2xs text-muted-foreground">
+			{#if row.updated_at}
+				<span class="block">{mediumDateTimeFormatter(row.updated_at)}</span>
+				{#if row.updated_by}<span class="block">{row.updated_by.name}</span>{/if}
+			{:else}
+				—
+			{/if}
+		</td>
+		<td class={TD}>
+			<div class="flex items-center gap-0.5">
+				{#if !row.restricted}
+					<Button
+						variant="ghost"
+						size="icon"
+						class="h-7 w-7"
+						aria-label={`History of ${trackerRowLabel(row)}`}
+						title="History"
+						onclick={() => openHistory(row)}
+						data-testid="tracker-row-history"
+					>
+						<History class="h-3.5 w-3.5" />
+					</Button>
+				{/if}
+				{#if editable}
+					<Button
+						variant="ghost"
+						size="icon"
+						class="h-7 w-7"
+						aria-label={`Rename ${trackerRowLabel(row)}`}
+						title="Rename the row"
+						disabled={busy}
+						onclick={() => askRename(row)}
+						data-testid="tracker-row-rename"
+					>
+						<Pencil class="h-3.5 w-3.5" />
+					</Button>
+				{/if}
+				{#if canWrite && isManual && row.row_id !== null}
+					<Button
+						variant="ghost"
+						size="icon"
+						class="h-7 w-7 text-destructive hover:text-destructive"
+						aria-label={`Delete ${trackerRowLabel(row)}`}
+						title="Delete the row"
+						onclick={() => askDeleteRows([row])}
+						data-testid="tracker-row-delete"
+					>
+						<Trash2 class="h-3.5 w-3.5" />
+					</Button>
+				{/if}
+			</div>
+		</td>
+	</tr>
+{/snippet}
 
 <TrackerHistoryDialog
 	bind:open={historyOpen}
@@ -1054,10 +1250,21 @@
 			warRoomId={store.warRoomId}
 			{tracker}
 			{offered}
-			{existingKeys}
+			{itemCounts}
 			onAdded={() => void loadRows()}
 		/>
 	{/if}
+
+	<TrackerRenameDialog
+		bind:open={renameOpen}
+		itemName={renameRow?.item_type ? trackerItemName(renameRow) : null}
+		label={renameRow
+			? renameRow.item_type
+				? (renameRow.custom_label ?? null)
+				: renameRow.label
+			: null}
+		onSave={saveLabel}
+	/>
 
 	<ScopeFlagDialog
 		bind:open={flagOpen}

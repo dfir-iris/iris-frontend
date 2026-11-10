@@ -303,12 +303,17 @@ export type TrackerValue = string | number | boolean | string[] | null;
 export interface TrackerRow {
 	/** null = mirrored item without stored state yet. */
 	row_id: number | null;
-	/** Stable client key: `asset:44` for items, `row:12` for free text. */
+	/**
+	 * Stable client key: `row:12` for every row of a manual tracker,
+	 * `asset:44` for a mirrored item.
+	 */
 	key: string;
 	item_type: TrackerItemType | null;
 	item_id: number | null;
 	/** Free-text label, or display name of the item. */
 	label: string | null;
+	/** Label given to an item row (null: the item's own name). */
+	custom_label?: string | null;
 	item: TrackerItem | null;
 	/** The row points at an item the caller cannot read. */
 	restricted: boolean;
@@ -331,11 +336,15 @@ export interface TrackerRowList {
 	limit: number;
 }
 
-/** A free-text line, or a war-room item. */
-export type TrackerNewRow = { label: string } | { item_type: TrackerItemType; item_id: number };
+/** A free-text line, or a war-room item (with an optional custom label). */
+export type TrackerNewRow =
+	| { label: string }
+	| { item_type: TrackerItemType; item_id: number; label?: string };
 
 export interface TrackerAddRowsBody {
 	rows: TrackerNewRow[];
+	/** Add an item already in the tracker again instead of skipping it. */
+	allow_duplicates?: boolean;
 	step_ids?: number[];
 	note?: string;
 }
@@ -351,8 +360,8 @@ export interface TrackerStateBody {
 	set_step_ids?: number[];
 	note?: string | null;
 	values?: Record<string, TrackerValue>;
-	/** Free-text rows only. */
-	label?: string;
+	/** Label of a free-text row, or custom label of an item row (null resets it). */
+	label?: string | null;
 }
 
 export type TrackerEventAction =
@@ -424,19 +433,29 @@ export const trackerOfferedSteps = (
 	return sorted.filter((s) => ids.has(s.id));
 };
 
-/** How a row is addressed in a state update. */
+/**
+ * How a row is addressed in a state update: the stored row first (an
+ * item can have several rows), else the mirrored item.
+ */
 export const trackerRowRef = (
 	row: Pick<TrackerRow, 'row_id' | 'item_type' | 'item_id'>
 ): TrackerRowRef | null => {
+	if (row.row_id != null) return { row_id: row.row_id };
 	if (row.item_type && row.item_id != null) {
 		return { item_type: row.item_type, item_id: row.item_id };
 	}
-	if (row.row_id != null) return { row_id: row.row_id };
 	return null;
 };
 
-/** Display name of a row: the item, the free-text label, or a placeholder. */
+/** Display name of a row: its custom label and item, or the free-text label. */
 export const trackerRowLabel = (row: TrackerRow): string => {
+	const name = trackerItemName(row);
+	if (!row.custom_label) return name;
+	return name ? `${row.custom_label} (${name})` : row.custom_label;
+};
+
+/** Name of the item of a row (the free-text label for a free-text row). */
+export const trackerItemName = (row: TrackerRow): string => {
 	if (row.restricted) return 'Restricted item';
 	const item = row.item as Record<string, unknown> | null;
 	if (item && row.item_type) {

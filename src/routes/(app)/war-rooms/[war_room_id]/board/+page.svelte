@@ -1264,10 +1264,14 @@
 								>Restricted item</span
 							>
 						{:else}
+							{@const name = row.label ?? `#${row.row_id ?? row.item_id}`}
 							<a
 								href={boardTrackerRowHref(warRoomId, ref.id, row)}
 								class="min-w-0 flex-1 truncate hover:underline"
-								title={row.label ?? ''}>{row.label ?? `#${row.row_id ?? row.item_id}`}</a
+								title={row.custom_label ? `${row.custom_label} (${name})` : name}
+								>{row.custom_label ?? name}{#if row.custom_label}<span
+										class="ml-1 text-muted-foreground">{name}</span
+									>{/if}</a
 							>
 						{/if}
 						<span class="flex shrink-0 flex-wrap justify-end gap-1">

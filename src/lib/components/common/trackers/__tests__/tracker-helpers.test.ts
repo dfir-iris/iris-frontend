@@ -4,7 +4,8 @@ import {
 	describeTrackerEvent,
 	isTrackerView,
 	trackerBoardColumns,
-	trackerBoardMove
+	trackerBoardMove,
+	trackerItemCounts
 } from '../tracker-helpers';
 
 describe('describeTrackerEvent', () => {
@@ -46,6 +47,12 @@ describe('describeTrackerEvent', () => {
 		expect(describeTrackerEvent({ action: 'label_changed', details: { old: 'a', new: 'b' } })).toBe(
 			'renamed "a" to "b"'
 		);
+		expect(
+			describeTrackerEvent({ action: 'label_changed', details: { old: null, new: 'b' } })
+		).toBe('labelled the row "b"');
+		expect(
+			describeTrackerEvent({ action: 'label_changed', details: { old: 'a', new: null } })
+		).toBe('removed the label "a"');
 		expect(describeTrackerEvent({ action: 'row_moved', details: null })).toBe('row moved');
 	});
 });
@@ -92,5 +99,20 @@ describe('tracker board', () => {
 		expect(isTrackerView('list')).toBe(true);
 		expect(isTrackerView('table')).toBe(false);
 		expect(isTrackerView(null)).toBe(false);
+	});
+});
+
+describe('trackerItemCounts', () => {
+	it('counts the rows of each item, not the free-text ones', () => {
+		const counts = trackerItemCounts([
+			{ item_type: 'asset', item_id: 1 },
+			{ item_type: 'asset', item_id: 1 },
+			{ item_type: 'ioc', item_id: 1 },
+			{ item_type: null, item_id: null }
+		]);
+		expect([...counts]).toEqual([
+			['asset:1', 2],
+			['ioc:1', 1]
+		]);
 	});
 });

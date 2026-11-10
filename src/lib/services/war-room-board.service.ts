@@ -99,6 +99,8 @@ export interface WarRoomBoardTrackerRow {
 	item_id: number | null;
 	/** null when restricted. */
 	label: string | null;
+	/** Label given to an item row (null: the item's own name). */
+	custom_label?: string | null;
 	/** The caller cannot read the item of the row. */
 	restricted: boolean;
 	/** The steps it carries, in room order. */

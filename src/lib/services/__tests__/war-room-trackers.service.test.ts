@@ -27,6 +27,7 @@ import {
 	sortTrackerSteps,
 	trackerIdFromTab,
 	trackerOfferedSteps,
+	trackerItemName,
 	trackerRowLabel,
 	trackerRowRef,
 	trackerStepCounts,
@@ -243,10 +244,14 @@ describe('tracker helpers', () => {
 		expect(trackerOfferedSteps({ step_ids: [1, 2] }, steps).map((s) => s.id)).toEqual([2, 1]);
 	});
 
-	it('addresses items by type and id, free text by row id', () => {
+	it('addresses stored rows by id, mirrored items by type and id', () => {
 		expect(trackerRowRef(row({ item_type: 'ioc', item_id: 4 }))).toEqual({
 			item_type: 'ioc',
 			item_id: 4
+		});
+		// An item can have several rows: the stored one is addressed by id.
+		expect(trackerRowRef(row({ item_type: 'ioc', item_id: 4, row_id: 7 }))).toEqual({
+			row_id: 7
 		});
 		expect(trackerRowRef(row({ item_type: null, item_id: null, row_id: 9 }))).toEqual({
 			row_id: 9
@@ -278,6 +283,12 @@ describe('tracker helpers', () => {
 		);
 		expect(trackerRowLabel(row({ restricted: true }))).toBe('Restricted item');
 		expect(trackerRowLabel(row({ item_type: 'case', item_id: 3 }))).toBe('Case #3');
+	});
+
+	it('puts the custom label of an item row before the item name', () => {
+		const labelled = row({ item_type: 'case', item_id: 3, custom_label: 'Pilot' });
+		expect(trackerRowLabel(labelled)).toBe('Pilot (Case #3)');
+		expect(trackerItemName(labelled)).toBe('Case #3');
 	});
 
 	it('counts rows per step and without step', () => {

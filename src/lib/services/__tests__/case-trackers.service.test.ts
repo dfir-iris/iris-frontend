@@ -22,6 +22,7 @@ import {
 	CaseTrackersService,
 	caseTrackerExportColumns,
 	caseTrackerItemHref,
+	caseTrackerItemName,
 	caseTrackerRowLabel,
 	caseTrackerRowRef,
 	caseTrackerTimelineSyncTitle,
@@ -85,8 +86,18 @@ describe('case tracker helpers', () => {
 		expect(caseTrackerRowLabel(row({ item: null }))).toBe('Asset #10');
 	});
 
-	it('addresses items by type and id, free text by row id', () => {
+	it('puts the custom label of an item row before the item name', () => {
+		expect(caseTrackerRowLabel(row({ custom_label: 'Patient zero' }))).toBe('Patient zero (dc01)');
+		expect(caseTrackerItemName(row({ custom_label: 'Patient zero' }))).toBe('dc01');
+		expect(
+			caseTrackerRowLabel(row({ restricted: true, item: null, custom_label: 'Patient zero' }))
+		).toBe('Patient zero (Deleted item)');
+	});
+
+	it('addresses stored rows by id, mirrored items by type and id', () => {
 		expect(caseTrackerRowRef(row())).toEqual({ item_type: 'asset', item_id: 10 });
+		// An item can have several rows: the stored one is addressed by id.
+		expect(caseTrackerRowRef(row({ row_id: 7 }))).toEqual({ row_id: 7 });
 		expect(caseTrackerRowRef(row({ row_id: 5, item_type: null, item_id: null }))).toEqual({
 			row_id: 5
 		});

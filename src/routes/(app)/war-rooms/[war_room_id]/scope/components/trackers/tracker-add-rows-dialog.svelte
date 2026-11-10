@@ -1,7 +1,7 @@
 <!--
   Add rows to a manual tracker: free-text lines (one row each) and / or
-  war-room items picked from the scope listings. Items already in the
-  tracker are shown as such; the server skips duplicates anyway.
+  war-room items picked from the scope listings. An item already in the
+  tracker can be added again: it gets one more row.
 -->
 <script lang="ts">
 	import { untrack } from 'svelte';
@@ -33,12 +33,12 @@
 		warRoomId: number;
 		tracker: Tracker;
 		offered: TrackerStep[];
-		/** Keys of the rows already in the tracker. */
-		existingKeys: Set<string>;
+		/** Rows per item (`asset:44`) already in the tracker. */
+		itemCounts: Map<string, number>;
 		onAdded?: (rows: TrackerRow[]) => void;
 	};
 
-	let { open = $bindable(), warRoomId, tracker, offered, existingKeys, onAdded }: Props = $props();
+	let { open = $bindable(), warRoomId, tracker, offered, itemCounts, onAdded }: Props = $props();
 
 	interface Candidate {
 		key: string;
@@ -204,6 +204,7 @@
 		try {
 			const res = await WarRoomTrackersService.addRows(warRoomId, tracker.id, {
 				rows,
+				allow_duplicates: true,
 				step_ids: stepIds.length ? stepIds : undefined,
 				note: note.trim() || undefined
 			});
@@ -300,25 +301,30 @@
 					{:else}
 						<ul class="divide-y">
 							{#each shown as c (c.key)}
-								{@const already = existingKeys.has(c.key)}
+								{@const count = itemCounts.get(c.key) ?? 0}
 								<li>
 									<label
-										class="flex items-center gap-2 px-2.5 py-1.5 text-xs {already
-											? 'opacity-50'
-											: 'cursor-pointer hover:bg-muted/50'}"
+										class="flex cursor-pointer items-center gap-2 px-2.5 py-1.5 text-xs hover:bg-muted/50"
 									>
 										<input
 											type="checkbox"
 											class="h-3.5 w-3.5 accent-primary"
-											checked={already || picked.has(c.key)}
-											disabled={already || busy}
+											checked={picked.has(c.key)}
+											disabled={busy}
 											onchange={() => togglePick(c)}
 											data-testid="tracker-add-candidate"
 										/>
 										<span class="min-w-0 flex-1 truncate">{c.label}</span>
-										<span class="shrink-0 truncate text-2xs text-muted-foreground">
-											{already ? 'already in' : c.hint}
-										</span>
+										<span class="shrink-0 truncate text-2xs text-muted-foreground">{c.hint}</span>
+										{#if count}
+											<span
+												class="shrink-0 rounded border px-1 text-2xs text-muted-foreground"
+												title="Already in the tracker: adding it again creates one more row"
+												data-testid="tracker-add-candidate-count"
+											>
+												in tracker{count > 1 ? ` ×${count}` : ''}
+											</span>
+										{/if}
 									</label>
 								</li>
 							{/each}

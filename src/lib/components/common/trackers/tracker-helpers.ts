@@ -55,6 +55,9 @@ export const describeTrackerEvent = (
 		case 'note_changed':
 			return d.new ? `set the note to "${short(d.new)}"` : 'cleared the note';
 		case 'label_changed':
+			// An item row has no label until given a custom one.
+			if (!d.new) return `removed the label "${short(d.old)}"`;
+			if (!d.old) return `labelled the row "${short(d.new)}"`;
 			return `renamed "${short(d.old)}" to "${short(d.new)}"`;
 		case 'value_changed': {
 			const label =
@@ -68,6 +71,22 @@ export const describeTrackerEvent = (
 		default:
 			return String(event.action).replace(/_/g, ' ');
 	}
+};
+
+/**
+ * Rows per item (`asset:44`) of a tracker: an item can have several
+ * rows in a manual tracker. Free-text rows are not counted.
+ */
+export const trackerItemCounts = (
+	rows: { item_type: string | null; item_id: number | null }[]
+): Map<string, number> => {
+	const counts = new Map<string, number>();
+	for (const row of rows) {
+		if (!row.item_type || row.item_id == null) continue;
+		const key = `${row.item_type}:${row.item_id}`;
+		counts.set(key, (counts.get(key) ?? 0) + 1);
+	}
+	return counts;
 };
 
 /** How a tracker shows its rows: the table, or one column per step. */
