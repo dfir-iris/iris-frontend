@@ -2,7 +2,7 @@
   Manual run: the trigger node it starts at (when the workflow has
   several), optional entity (type + id), optional JSON payload and a
   dry-run switch. The run acts as the current user; on success the
-  caller usually navigates to the run inspector.
+  caller usually navigates to the run inspector, or links to it.
 -->
 <script lang="ts">
 	import { untrack } from 'svelte';
@@ -41,6 +41,8 @@
 		entity?: { type: AiEntityType; id: number } | null;
 		/** Initial state of the dry-run switch. */
 		defaultDryRun?: boolean;
+		/** The "started" toast links to the run inspector. */
+		linkToRun?: boolean;
 		onStarted?: (run: AiRunSummary) => void;
 	};
 
@@ -52,6 +54,7 @@
 		dirty = false,
 		entity = null,
 		defaultDryRun = true,
+		linkToRun = false,
 		onStarted
 	}: Props = $props();
 
@@ -128,7 +131,10 @@
 		toast({
 			title: dryRun ? 'Dry run started' : 'Run started',
 			description: workflowName,
-			variant: 'success'
+			variant: 'success',
+			...(linkToRun
+				? { link: { href: `/settings/ai-workflows/runs/${run.uuid}`, label: 'Open the run' } }
+				: {})
 		});
 		open = false;
 		onStarted?.(run);

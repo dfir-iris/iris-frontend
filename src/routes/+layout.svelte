@@ -6,8 +6,12 @@
 	import { auth } from '$lib/stores/auth.store';
 	import { Toaster } from '$lib/components/ui/toast';
 	import { handleSessionExpiration } from '$lib/utils/session-handler';
+	import { watchBodyScrollLock } from '$lib/utils/body-scroll-lock-guard';
 
 	const { children } = $props();
+
+	// A dialog opening as another closes can leave the page unclickable
+	$effect(() => watchBodyScrollLock());
 
 	$effect.pre(() => {
 		// `.catch` is load-bearing, not defensive padding. With

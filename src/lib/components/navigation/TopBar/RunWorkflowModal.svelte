@@ -4,9 +4,10 @@
   the user (their own; every workflow for an administrator) — the same
   set `POST /ai-workflows/<id>/run` accepts. Picking one opens the run
   dialog, prefilled with the current case when the workflow runs on cases.
+  The analyst stays where they are: the "started" toast links to the run,
+  and the questions it asks pop up wherever they are.
 -->
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { PlayIcon, SearchIcon, WorkflowIcon } from 'lucide-svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
@@ -16,7 +17,6 @@
 		aiListData,
 		aiWorkflowTriggers,
 		type AiEntityType,
-		type AiRunSummary,
 		type AiWorkflowSummary
 	} from '$lib/services/ai-workflows.service';
 	import RunDialog from '../../../../routes/(app)/settings/ai-workflows/components/RunDialog.svelte';
@@ -75,10 +75,6 @@
 		runTarget = workflow;
 		open = false;
 		runOpen = true;
-	}
-
-	function onRunStarted(run: AiRunSummary) {
-		goto(`/settings/ai-workflows/runs/${run.uuid}`);
 	}
 </script>
 
@@ -154,6 +150,6 @@
 		triggers={aiWorkflowTriggers(runTarget)}
 		{entity}
 		defaultDryRun={false}
-		onStarted={onRunStarted}
+		linkToRun
 	/>
 {/if}
