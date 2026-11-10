@@ -1,6 +1,12 @@
 <script lang="ts">
-	import { dayKey } from '$lib/utils/time-formatter';
+	import {
+		dayKey,
+		formatDate,
+		mediumDateTimeFormatter,
+		timeZoneLabel
+	} from '$lib/utils/time-formatter';
 	import { setContext, getContext, untrack } from 'svelte';
+	import { mode } from 'mode-watcher';
 	import { page } from '$app/state';
 	import {
 		CaseTimelineService,
@@ -42,6 +48,7 @@
 		type CaseAssetsContext
 	} from '$lib/contexts/case-assets.context.svelte';
 	import { CASE_IOCS_CTX, type CaseIocsContext } from '$lib/contexts/case-iocs.context.svelte';
+	import { CASES_CTX, type CasesContext } from '$lib/contexts/cases.context.svelte';
 	import {
 		COMMENTS_PANEL_CTX,
 		type CommentsPanelContext
@@ -58,6 +65,10 @@
 	import TimelineEventDialog from './components/timeline-event-dialog.svelte';
 	import TimelineSearchView from './components/timeline-search-view.svelte';
 	import TimelineFieldsPanel from './components/timeline-fields-panel.svelte';
+	import TimelineImageExportDialog, {
+		type TimelineImageRequest
+	} from './components/timeline-image-export-dialog.svelte';
+	import { buildTimelineSvg, eventsOnTimelines, timelineImageToPng } from './image-export';
 	import { TimelineSearch } from './timeline-search.svelte';
 	import { fieldClause } from './search-helpers';
 	import { toast } from '$lib/stores/toast.store';
@@ -97,6 +108,7 @@
 	const caseAccess = getContext<CaseAccessContext | undefined>(CASE_ACCESS_CTX);
 	const caseAssetsCtx = getContext<CaseAssetsContext | undefined>(CASE_ASSETS_CTX);
 	const caseIocsCtx = getContext<CaseIocsContext | undefined>(CASE_IOCS_CTX);
+	const cases = getContext<CasesContext | undefined>(CASES_CTX);
 	const canEdit = $derived(caseAccess?.canEdit() ?? false);
 
 	let filters = $state<TimelineFilterData>(emptyFilters());
@@ -903,6 +915,85 @@
 		}
 	};
 
+	let showImageExport = $state(false);
+	let isExportingImage = $state(false);
+
+	const downloadBlob = (blob: Blob, filename: string) => {
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = filename;
+		link.click();
+		setTimeout(() => URL.revokeObjectURL(url), 1000);
+	};
+
+	const imageSubtitle = (events: CaseTimelineEvent[]) => {
+		const count = `${events.length} event${events.length === 1 ? '' : 's'}`;
+		const first = formatDate(events[0]?.event_date);
+		const last = formatDate(events.at(-1)?.event_date);
+		const span = first && last ? (first === last ? ` · ${first}` : ` · ${first} – ${last}`) : '';
+		const filtered = Object.values(toQuery()).length ? ' · filtered' : '';
+		return `${count}${span}${filtered} · times in ${timeZoneLabel()} · exported ${mediumDateTimeFormatter(Date.now())}`;
+	};
+
+	// Every event of the cards, not only those scrolled past, pictured
+	// for the ticked timelines — together or one picture each.
+	const exportTimelineImage = async (request: TimelineImageRequest) => {
+		isExportingImage = true;
+		try {
+			// A pull already under way (quick search) is waited for: loadAll
+			// would return at once, before the last pages are in.
+			while (timeline.list.status === 'loading_all') {
+				await new Promise((resolve) => setTimeout(resolve, 100));
+			}
+			await timeline.loadAll({ fetch });
+			if (timeline.list.nextPage !== null) {
+				throw new Error(timeline.list.error ?? 'Not every event could be loaded.');
+			}
+			const events = timeline.events();
+			const caseLabel = cases?.currentCase()?.case_name || `Case #${page.params.case_id}`;
+			const picked = request.timelineIds
+				.map((id) => timelines.find((t) => t.timeline_id === id))
+				.filter((t): t is CaseTimeline => !!t);
+			const pictures = request.separate
+				? picked.map((t) => ({ name: t.name, timelines: [t] }))
+				: [{ name: picked.length === 1 ? picked[0].name : 'Timeline', timelines: picked }];
+
+			for (const picture of pictures) {
+				const pictured = eventsOnTimelines(
+					events,
+					picture.timelines.map((t) => t.timeline_id)
+				);
+				const image = buildTimelineSvg({
+					title: `${caseLabel} — ${picture.name}`,
+					subtitle: imageSubtitle(pictured),
+					events: pictured,
+					timelines: picture.timelines,
+					options: request.options
+				});
+				const slug = picture.name
+					.toLowerCase()
+					.replace(/[^a-z0-9]+/g, '-')
+					.replace(/^-|-$/g, '');
+				const filename = `case-${page.params.case_id}-${slug || 'timeline'}.${request.format}`;
+				const blob =
+					request.format === 'svg'
+						? new Blob([image.svg], { type: 'image/svg+xml;charset=utf-8' })
+						: await timelineImageToPng(image);
+				downloadBlob(blob, filename);
+			}
+			showImageExport = false;
+		} catch (e) {
+			toast({
+				title: 'Could not export the timeline',
+				description: e instanceof Error ? e.message : String(e),
+				variant: 'destructive'
+			});
+		} finally {
+			isExportingImage = false;
+		}
+	};
+
 	const MAX_IMPORT_ERRORS_SHOWN = 5;
 
 	const uploadTimelineCsv = async () => {
@@ -1178,6 +1269,7 @@
 					onQuickSearchNext={quickSearchNext}
 					onQuickSearchPrev={quickSearchPrev}
 					onDownloadCsv={() => (showDownloadModal = true)}
+					onExportImage={() => (showImageExport = true)}
 					onUploadCsv={uploadTimelineCsv}
 					{canEdit}
 					{layout}
@@ -1307,6 +1399,17 @@
 		: 'Loading all timeline events…'}
 	onConfirm={handleTimelineDownload}
 	onOpenChange={(v) => (showDownloadModal = v)}
+/>
+
+<TimelineImageExportDialog
+	open={showImageExport}
+	{timelines}
+	initialTimelineIds={[...selectedTimelineIds]}
+	initialLayout={viewMode}
+	initialTheme={$mode === 'dark' ? 'dark' : 'light'}
+	isProcessing={isExportingImage}
+	onConfirm={exportTimelineImage}
+	onOpenChange={(v) => (showImageExport = v)}
 />
 
 <ConfirmationDialog

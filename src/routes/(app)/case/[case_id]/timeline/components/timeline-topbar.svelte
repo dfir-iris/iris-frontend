@@ -47,6 +47,7 @@
 		onQuickSearchNext: () => void;
 		onQuickSearchPrev: () => void;
 		onDownloadCsv: () => void;
+		onExportImage: () => void;
 		onUploadCsv: () => void;
 		canEdit?: boolean;
 		layout?: TimelineLayout;
@@ -71,6 +72,7 @@
 		onQuickSearchNext,
 		onQuickSearchPrev,
 		onDownloadCsv,
+		onExportImage,
 		onUploadCsv,
 		canEdit = true,
 		layout = 'cards',
@@ -240,6 +242,7 @@
 
 				<DropdownMenuContent align="end">
 					<DropdownMenuItem onclick={onDownloadCsv}>Download as CSV…</DropdownMenuItem>
+					<DropdownMenuItem onclick={onExportImage}>Export as image (PNG, SVG)…</DropdownMenuItem>
 
 					{#if canEdit}
 						<Separator class="my-2" />
