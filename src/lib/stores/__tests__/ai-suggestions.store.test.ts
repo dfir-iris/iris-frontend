@@ -1,15 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const socketHandlers = new Map<string, (payload: unknown) => void>();
-
-vi.mock('$lib/stores/notifications.store', () => ({
-	notifications: {
-		onSocketEvent: vi.fn((event: string, handler: (payload: unknown) => void) => {
-			socketHandlers.set(event, handler);
-			return () => socketHandlers.delete(event);
-		})
-	}
+const notificationsState = vi.hoisted(() => ({
+	set: (_: { unreadCount: number }) => {}
 }));
+
+vi.mock('$lib/stores/notifications.store', async () => {
+	const { writable } = await import('svelte/store');
+	const state = writable({ unreadCount: 0 });
+	notificationsState.set = state.set;
+	return {
+		notifications: {
+			subscribe: state.subscribe,
+			onSocketEvent: vi.fn((event: string, handler: (payload: unknown) => void) => {
+				socketHandlers.set(event, handler);
+				return () => socketHandlers.delete(event);
+			})
+		}
+	};
+});
 
 vi.mock('$lib/stores/toast.store', () => ({
 	toast: vi.fn()
@@ -328,6 +337,28 @@ describe('ai-suggestions popup questions', () => {
 		await aiSuggestions.loadPopups();
 		expect(aiSuggestions.popups).toEqual([]);
 		expect(JSON.parse(sessionStorage.getItem('iris.ai-questions.later') ?? '[]')).toEqual([1]);
+	});
+
+	it('looks for questions again on reconnect and on a new notification', async () => {
+		mockList.mockResolvedValue({ ok: true, status: 200, data: [question(1)] });
+		notificationsState.set({ unreadCount: 2 });
+		aiSuggestions.start();
+		expect(mockList).not.toHaveBeenCalled();
+
+		socketHandlers.get('connect')?.(undefined);
+		await vi.waitFor(() => expect(aiSuggestions.popups.map((s) => s.id)).toEqual([1]));
+
+		mockList.mockClear();
+		notificationsState.set({ unreadCount: 1 });
+		expect(mockList).not.toHaveBeenCalled();
+		notificationsState.set({ unreadCount: 2 });
+		expect(mockList).toHaveBeenCalledWith({ status: 'open', mine: true });
+
+		aiSuggestions.stop();
+		notificationsState.set({ unreadCount: 5 });
+		expect(mockList).toHaveBeenCalledOnce();
+		expect(socketHandlers.has('connect')).toBe(false);
+		mockList.mockReset();
 	});
 
 	it('drops an answered question', () => {

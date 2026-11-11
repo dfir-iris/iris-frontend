@@ -325,7 +325,24 @@ export const aiSuggestions = {
 	/** Subscribes to the socket event. Idempotent. */
 	start(): void {
 		if (unsubscribe) return;
-		unsubscribe = notifications.onSocketEvent('ai_suggestion', handleEvent);
+		const offEvent = notifications.onSocketEvent('ai_suggestion', handleEvent);
+		// A question pushed while the socket was down is lost: look again
+		// once it is back, and whenever a notification comes in (pushed or
+		// caught by the bell's poll), since a question comes with one.
+		const offConnect = notifications.onSocketEvent(
+			'connect',
+			() => void aiSuggestions.loadPopups()
+		);
+		let unread: number | null = null;
+		const offUnread = notifications.subscribe((s) => {
+			if (unread !== null && s.unreadCount > unread) void aiSuggestions.loadPopups();
+			unread = s.unreadCount;
+		});
+		unsubscribe = () => {
+			offEvent();
+			offConnect();
+			offUnread();
+		};
 	},
 
 	stop(): void {
